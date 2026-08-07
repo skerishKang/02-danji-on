@@ -21,6 +21,10 @@ export default {
   async fetch(request: Request, env: AdminEnv): Promise<Response> {
     const id = requestId(request);
     try {
+      // Keep CORS/preflight behavior centralized in the original worker.
+      if (request.method === 'OPTIONS') {
+        return core.fetch(request, env);
+      }
       if (new URL(request.url).pathname.startsWith('/api/v1/admin/')) {
         const response = await handleAdminRequest(request, env, id);
         if (response) return response;
