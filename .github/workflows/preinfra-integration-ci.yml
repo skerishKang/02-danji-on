@@ -1,0 +1,62 @@
+name: Pre-Infra Integration CI
+
+on:
+  pull_request:
+    paths:
+      - '04_개발/frontend/**'
+      - '04_개발/backend/**'
+      - '.github/workflows/preinfra-integration-ci.yml'
+  push:
+    branches:
+      - feat/preinfra-integration
+    paths:
+      - '04_개발/frontend/**'
+      - '04_개발/backend/**'
+      - '.github/workflows/preinfra-integration-ci.yml'
+
+jobs:
+  backend-check:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: 04_개발/backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: 04_개발/backend/package.json
+      - name: Install backend dependencies
+        run: npm install --ignore-scripts
+      - name: Backend typecheck and contract tests
+        run: npm run check
+
+  frontend-e2e:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: 04_개발/frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: 04_개발/frontend/package.json
+      - name: Install frontend dependencies
+        run: npm install --ignore-scripts
+      - name: Frontend typecheck
+        run: npm run typecheck
+      - name: Frontend production build
+        run: npm run build
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Run pre-infra E2E
+        env:
+          VITE_DATA_MODE: mock
+          VITE_AUTH_MODE: dev
+          VITE_STORAGE_MODE: mock
+          VITE_DEV_AUTH_USER: dev-resident-001
+          VITE_DEV_ADMIN_AUTH_USER: dev-manager-001
+        run: npm run test:e2e
