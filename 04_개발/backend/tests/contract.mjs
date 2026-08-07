@@ -8,6 +8,7 @@ const payloadPolicy = read('src/payload-policy.ts');
 const schema = read('migrations/001_initial_schema.sql');
 const adminMigration = read('migrations/002_admin_workflow.sql');
 const domainConstraints = read('migrations/003_domain_constraints.sql');
+const reviewHistory = read('migrations/004_application_review_history.sql');
 const contract = read('docs/API_CONTRACT_v1.md');
 
 const checks = [
@@ -31,6 +32,8 @@ const checks = [
   ['domain length constraints exist', domainConstraints.includes('chk_application_business_name_length') && domainConstraints.includes('chk_post_body_length') && domainConstraints.includes('chk_benefit_title_length')],
   ['application idempotency lookup is non-unique', domainConstraints.includes('CREATE INDEX IF NOT EXISTS idx_application_active_lookup') && !domainConstraints.includes('uq_active_application_name_per_user_complex')],
   ['exact duplicate contacts are blocked', domainConstraints.includes('uq_business_contact_exact')],
+  ['application review history is immutable event data', reviewHistory.includes('business_application_review_events') && reviewHistory.includes('trg_business_application_review_history') && reviewHistory.includes('from_status') && reviewHistory.includes('to_status')],
+  ['review history actor distinguishes applicant and manager', reviewHistory.includes("actor_type in ('applicant','manager','system')") && reviewHistory.includes("when new.reviewed_by is not null then 'manager'")],
   ['api contract documents admin routes', contract.includes('PATCH /api/v1/admin/business-applications/:applicationId')]
 ];
 
