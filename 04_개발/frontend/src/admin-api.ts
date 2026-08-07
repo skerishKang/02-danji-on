@@ -1,6 +1,6 @@
 import { authProvider } from './auth';
 import { mockBusinesses } from './data/mock';
-import { listMockApplications, reviewMockApplication, type MockApplicationRecord } from './mock-store';
+import { listApprovedMockBusinesses, listMockApplications, reviewMockApplication, type MockApplicationRecord } from './mock-store';
 
 export type AdminApplicationStatus = 'draft' | 'pending' | 'changes_requested' | 'approved' | 'rejected';
 
@@ -100,7 +100,7 @@ class MockAdminAdapter {
   }
 
   async listBusinesses(): Promise<AdminBusiness[]> {
-    return mockBusinesses.map(({ id, name }) => ({ id, name }));
+    return [...mockBusinesses, ...listApprovedMockBusinesses()].map(({ id, name }) => ({ id, name }));
   }
 
   async createPost(input: { sourceName: string; category: string; title: string; body: string }) {
