@@ -141,6 +141,36 @@ export function listMockApplicationsForSubject(subject: string) {
   return readRecords().filter((item) => item.applicantSubject === subject);
 }
 
+export function getMockApplicationForSubject(id: string, subject: string) {
+  return readRecords().find((item) => item.id === id && item.applicantSubject === subject) ?? null;
+}
+
+export function resubmitMockApplication(id: string, subject: string, input: BusinessApplicationInput) {
+  const records = readRecords();
+  const index = records.findIndex((item) => item.id === id && item.applicantSubject === subject);
+  if (index < 0) throw new Error('신청을 찾을 수 없습니다.');
+  const current = records[index];
+  if (current.status !== 'changes_requested') throw new Error('보완 요청 상태의 신청만 다시 제출할 수 있습니다.');
+  const updated: MockApplicationRecord = {
+    ...current,
+    relationType: input.relationType,
+    businessName: input.businessName,
+    categoryName: input.categoryName,
+    serviceSummary: input.serviceSummary,
+    priceText: input.priceText,
+    contactMethod: input.contactMethod,
+    serviceArea: input.serviceArea,
+    benefitText: input.benefitText,
+    availabilityText: input.availabilityText,
+    representativeImageObjectKey: input.representativeImageObjectKey,
+    status: 'pending',
+    updatedAt: new Date().toISOString()
+  };
+  records[index] = updated;
+  writeRecords(records);
+  return updated;
+}
+
 export function listApprovedMockBusinesses(): Business[] {
   return readRecords()
     .filter((item) => item.status === 'approved' && item.approvedBusinessId)
