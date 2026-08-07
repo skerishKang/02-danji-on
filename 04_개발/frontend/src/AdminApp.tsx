@@ -2,13 +2,19 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { adminAdapter, type AdminApplication, type AdminApplicationStatus, type AdminBusiness } from './admin-api';
 
 type AdminTab = 'applications' | 'posts' | 'benefits';
+type ReviewStatus = Exclude<AdminApplicationStatus, 'draft'>;
 
 const statusLabels: Record<AdminApplicationStatus, string> = {
+  draft: '작성 중',
   pending: '확인 대기',
   changes_requested: '보완 요청',
   approved: '승인',
   rejected: '반려'
 };
+
+function canReview(status: AdminApplicationStatus) {
+  return status === 'pending' || status === 'changes_requested';
+}
 
 export default function AdminApp() {
   const [tab, setTab] = useState<AdminTab>('applications');
@@ -41,7 +47,8 @@ export default function AdminApp() {
     await loadApplications(value);
   }
 
-  async function review(application: AdminApplication, status: AdminApplicationStatus) {
+  async function review(application: AdminApplication, status: ReviewStatus) {
+    if (!canReview(application.status)) return;
     setBusyId(application.id);
     setMessage('');
     try {
@@ -116,6 +123,7 @@ export default function AdminApp() {
             <div><h2>가게·서비스 등록 신청</h2><p>신청 내용을 검토하고 보완·승인·반려 상태를 관리합니다.</p></div>
             <select value={statusFilter} onChange={(event) => void changeFilter(event.target.value)}>
               <option value="all">전체 상태</option>
+              <option value="draft">작성 중</option>
               <option value="pending">확인 대기</option>
               <option value="changes_requested">보완 요청</option>
               <option value="approved">승인</option>
@@ -141,11 +149,11 @@ export default function AdminApp() {
                   <div><dt>이용시간</dt><dd>{application.availabilityText || '미입력'}</dd></div>
                   <div><dt>주민혜택</dt><dd>{application.benefitText || '없음'}</dd></div>
                 </dl>
-                <label className="review-note"><span>검토 메모</span><textarea value={notes[application.id] || ''} onChange={(event) => setNotes((current) => ({ ...current, [application.id]: event.target.value }))} rows={2} placeholder="보완 요청 사유 또는 내부 검토 메모" /></label>
+                <label className="review-note"><span>검토 메모</span><textarea value={notes[application.id] || ''} onChange={(event) => setNotes((current) => ({ ...current, [application.id]: event.target.value }))} rows={2} placeholder="보완 요청 사유 또는 내부 검토 메모" disabled={!canReview(application.status)} /></label>
                 <div className="review-actions">
-                  <button disabled={busyId === application.id || application.status === 'approved' || application.status === 'rejected'} onClick={() => void review(application, 'changes_requested')}>보완 요청</button>
-                  <button className="reject" disabled={busyId === application.id || application.status === 'approved' || application.status === 'rejected'} onClick={() => void review(application, 'rejected')}>반려</button>
-                  <button className="approve" disabled={busyId === application.id || application.status === 'approved' || application.status === 'rejected'} onClick={() => void review(application, 'approved')}>{busyId === application.id ? '처리 중...' : '승인'}</button>
+                  <button disabled={busyId === application.id || !canReview(application.status)} onClick={() => void review(application, 'changes_requested')}>보완 요청</button>
+                  <button className="reject" disabled={busyId === application.id || !canReview(application.status)} onClick={() => void review(application, 'rejected')}>반려</button>
+                  <button className="approve" disabled={busyId === application.id || !canReview(application.status)} onClick={() => void review(application, 'approved')}>{busyId === application.id ? '처리 중...' : '승인'}</button>
                 </div>
               </article>
             ))}
