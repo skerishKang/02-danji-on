@@ -68,6 +68,12 @@ export interface BusinessApplication {
   businessName: string;
   categoryName: string;
   serviceSummary: string;
+  priceText?: string;
+  contactMethod?: string;
+  serviceArea?: string;
+  benefitText?: string;
+  availabilityText?: string;
+  representativeImageObjectKey?: string;
   status: BusinessApplicationStatus;
   reviewNote?: string | null;
   approvedBusinessId?: string | null;
@@ -86,6 +92,8 @@ export interface DataAdapter {
   getBusinessContacts(id: string): Promise<BusinessContact[]>;
   createBusinessApplication(input: BusinessApplicationInput): Promise<BusinessApplication>;
   listMyBusinessApplications(): Promise<BusinessApplication[]>;
+  getMyBusinessApplication(id: string): Promise<BusinessApplication | null>;
+  resubmitBusinessApplication(id: string, input: BusinessApplicationInput): Promise<BusinessApplication>;
 }
 
 export const relationLabels: Record<RelationType, string> = {
