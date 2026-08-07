@@ -11,6 +11,22 @@ export interface Benefit {
   conditions?: string | null;
 }
 
+export type BenefitClaimStatus = 'stored' | 'used';
+
+export interface BenefitClaim {
+  id: string;
+  benefitId: string;
+  businessId: string;
+  businessName: string;
+  title: string;
+  description: string;
+  conditions?: string | null;
+  code: string;
+  status: BenefitClaimStatus;
+  claimedAt: string;
+  usedAt?: string | null;
+}
+
 export interface Business {
   id: string;
   kind: BusinessKind;
@@ -85,6 +101,9 @@ export interface DataAdapter {
   listBusinesses(filters?: BusinessFilters): Promise<Business[]>;
   getBusiness(id: string): Promise<Business | null>;
   listBenefits(): Promise<Benefit[]>;
+  listBenefitClaims(): Promise<BenefitClaim[]>;
+  claimBenefit(benefitId: string): Promise<BenefitClaim>;
+  useBenefit(benefitId: string): Promise<BenefitClaim>;
   listPosts(): Promise<ComplexPost[]>;
   getBookmarks(): Promise<string[]>;
   addBookmark(id: string): Promise<void>;
@@ -109,4 +128,9 @@ export const applicationStatusLabels: Record<BusinessApplicationStatus, string> 
   changes_requested: '보완 요청',
   approved: '승인 완료',
   rejected: '반려'
+};
+
+export const benefitClaimStatusLabels: Record<BenefitClaimStatus, string> = {
+  stored: '보관 중',
+  used: '사용 완료'
 };
