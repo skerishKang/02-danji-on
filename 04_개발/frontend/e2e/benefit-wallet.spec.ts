@@ -47,6 +47,7 @@ test('claim action is idempotent and does not create duplicate wallet entries', 
   await expect(page.locator('.my-benefit-item').filter({ hasText: '출장비 무료' })).toHaveCount(1);
 
   await page.reload();
+  await page.getByRole('button', { name: '내정보' }).first().click();
   await expect(page.locator('.my-benefit-item').filter({ hasText: '출장비 무료' })).toHaveCount(1);
 });
 
