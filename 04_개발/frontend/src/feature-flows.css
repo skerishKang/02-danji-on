@@ -4,6 +4,7 @@
 .form-intro p { margin: 0; max-width: 700px; color: var(--muted); line-height: 1.7; }
 .application-form fieldset { margin: 0 0 18px; padding: 26px; border: 1px solid var(--line); border-radius: 18px; background: var(--surface); }
 .application-form legend { padding: 0 8px; font-size: 18px; font-weight: 800; }
+.application-form legend small { color: var(--muted); font-size: 12px; font-weight: 700; }
 .relation-options { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 9px; }
 .relation-options label { min-height: 76px; display: flex; align-items: center; gap: 9px; padding: 14px; border: 1px solid var(--line); border-radius: 13px; cursor: pointer; }
 .relation-options label.selected { border-color: var(--green); background: var(--green-soft); }
@@ -14,6 +15,16 @@
 .form-grid label > span { font-size: 13px; font-weight: 800; }
 .form-grid input, .form-grid select, .form-grid textarea { width: 100%; min-height: 48px; padding: 12px 13px; border: 1px solid var(--line); border-radius: 11px; background: #fff; color: var(--ink); resize: vertical; }
 .form-grid textarea { min-height: 100px; }
+.image-upload-field { display: grid; grid-template-columns: 1fr 220px; gap: 18px; align-items: start; }
+.image-upload-copy strong { display: block; font-size: 16px; }
+.image-upload-copy p { margin: 8px 0 16px; color: var(--muted); font-size: 13px; line-height: 1.65; }
+.image-picker { display: inline-flex; min-height: 44px; align-items: center; justify-content: center; padding: 0 15px; border: 1px solid var(--line); border-radius: 11px; background: #fff; font-weight: 800; cursor: pointer; }
+.image-picker input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.image-preview { aspect-ratio: 4 / 3; display: grid; place-items: center; overflow: hidden; border: 1px dashed var(--line); border-radius: 14px; background: #f5f4f1; color: var(--muted); font-size: 12px; text-align: center; }
+.image-preview.has-image { border-style: solid; background: #fff; }
+.image-preview img { width: 100%; height: 100%; object-fit: cover; }
+.image-upload-meta { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; border-radius: 10px; background: #f7f7f4; color: var(--muted); font-size: 12px; }
+.image-upload-meta button { border: 0; background: transparent; color: var(--coral); font-weight: 800; cursor: pointer; }
 .form-error { margin: 14px 0; padding: 13px 15px; border-radius: 11px; background: #fff0ec; color: #9b351f; font-weight: 700; }
 .form-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 22px; }
 .form-actions button:disabled { opacity: .55; cursor: wait; }
@@ -35,8 +46,9 @@
 @media (max-width: 760px) {
   .application-form { padding: 38px 0 96px; }
   .application-form fieldset { padding: 19px; }
-  .relation-options, .form-grid { grid-template-columns: 1fr; }
+  .relation-options, .form-grid, .image-upload-field { grid-template-columns: 1fr; }
   .form-grid label.full { grid-column: auto; }
+  .image-preview { width: min(100%, 320px); }
   .form-actions { display: grid; grid-template-columns: 1fr 1fr; }
   .application-item { grid-template-columns: 1fr; }
   .application-status { justify-self: start; }
