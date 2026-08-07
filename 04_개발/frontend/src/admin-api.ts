@@ -1,5 +1,6 @@
 import { authProvider } from './auth';
 import { mockBusinesses } from './data/mock';
+import { createStoredMockBenefit, createStoredMockPost } from './mock-content-store';
 import { listApprovedMockBusinesses, listMockApplications, reviewMockApplication, type MockApplicationRecord } from './mock-store';
 
 export type AdminApplicationStatus = 'draft' | 'pending' | 'changes_requested' | 'approved' | 'rejected';
@@ -104,11 +105,13 @@ class MockAdminAdapter {
   }
 
   async createPost(input: { sourceName: string; category: string; title: string; body: string }) {
-    return { id: `mock-post-${Date.now()}`, ...input, status: 'published' };
+    return createStoredMockPost(input);
   }
 
   async createBenefit(input: { businessId: string; title: string; description: string; conditions?: string }) {
-    return { id: `mock-benefit-${Date.now()}`, ...input, status: 'active' };
+    const business = [...mockBusinesses, ...listApprovedMockBusinesses()].find((item) => item.id === input.businessId);
+    if (!business) throw new Error('혜택 대상 가게를 찾을 수 없습니다.');
+    return createStoredMockBenefit({ ...input, businessName: business.name });
   }
 }
 
