@@ -1,5 +1,5 @@
-import core from './index';
-import { handleAdminRequest, type AdminEnv } from './admin';
+import core, { type CoreEnv } from './core-v1';
+import { handleAdminRequest } from './admin-v1';
 
 const REQUEST_ID_HEADER = 'x-danjion-request-id';
 const SAFE_ID = /^[A-Za-z0-9._:-]{1,80}$/;
@@ -18,13 +18,10 @@ function fail(message: string, id: string): Response {
 }
 
 export default {
-  async fetch(request: Request, env: AdminEnv): Promise<Response> {
+  async fetch(request: Request, env: CoreEnv): Promise<Response> {
     const id = requestId(request);
     try {
-      // Keep CORS/preflight behavior centralized in the original worker.
-      if (request.method === 'OPTIONS') {
-        return core.fetch(request, env);
-      }
+      if (request.method === 'OPTIONS') return core.fetch(request, env);
       if (new URL(request.url).pathname.startsWith('/api/v1/admin/')) {
         const response = await handleAdminRequest(request, env, id);
         if (response) return response;
