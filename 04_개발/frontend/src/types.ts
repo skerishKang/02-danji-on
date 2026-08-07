@@ -57,6 +57,7 @@ export interface BusinessApplicationInput {
   serviceArea?: string;
   benefitText?: string;
   availabilityText?: string;
+  representativeImageObjectKey?: string;
 }
 
 export type BusinessApplicationStatus = 'draft' | 'pending' | 'changes_requested' | 'approved' | 'rejected';
