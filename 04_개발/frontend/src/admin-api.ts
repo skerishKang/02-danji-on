@@ -1,6 +1,6 @@
 import { mockBusinesses } from './data/mock';
 
-export type AdminApplicationStatus = 'pending' | 'changes_requested' | 'approved' | 'rejected';
+export type AdminApplicationStatus = 'draft' | 'pending' | 'changes_requested' | 'approved' | 'rejected';
 
 export interface AdminApplication {
   id: string;
@@ -83,9 +83,10 @@ class MockAdminAdapter {
     return status === 'all' ? [...this.applications] : this.applications.filter((item) => item.status === status);
   }
 
-  async reviewApplication(id: string, status: AdminApplicationStatus, reviewNote: string) {
+  async reviewApplication(id: string, status: Exclude<AdminApplicationStatus, 'draft'>, reviewNote: string) {
     const target = this.applications.find((item) => item.id === id);
     if (!target) throw new Error('신청을 찾을 수 없습니다.');
+    if (!['pending', 'changes_requested'].includes(target.status)) throw new Error('현재 상태에서는 검토할 수 없습니다.');
     target.status = status;
     target.reviewNote = reviewNote || null;
     if (status === 'approved') target.approvedBusinessId = target.approvedBusinessId || `mock-business-${id}`;
@@ -112,7 +113,7 @@ class ApiAdminAdapter {
     return rows.map(mapApplication);
   }
 
-  async reviewApplication(id: string, status: AdminApplicationStatus, reviewNote: string) {
+  async reviewApplication(id: string, status: Exclude<AdminApplicationStatus, 'draft'>, reviewNote: string) {
     return apiRequest<Record<string, unknown>>(`/api/v1/admin/business-applications/${id}`, {
       method: 'PATCH',
       body: JSON.stringify({ status, reviewNote })
