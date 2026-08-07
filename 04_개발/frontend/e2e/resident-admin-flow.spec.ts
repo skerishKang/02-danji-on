@@ -26,7 +26,7 @@ test('resident can search, bookmark and reveal verified contact', async ({ page 
   await expect(page.getByText('010-0000-1003')).toBeVisible();
 });
 
-test('resident submission with image is visible to admin and approval returns to resident', async ({ page }) => {
+test('resident submission with image becomes public after admin approval', async ({ page }) => {
   await resetMockStore(page);
   const businessName = `E2E 홈케어 ${Date.now()}`;
 
@@ -62,6 +62,13 @@ test('resident submission with image is visible to admin and approval returns to
   const approvedItem = page.locator('.application-item').filter({ hasText: businessName });
   await expect(approvedItem).toBeVisible();
   await expect(approvedItem.locator('.application-status.approved')).toHaveText('승인 완료');
+
+  await page.goto('/');
+  await page.locator('#home-search').fill(businessName);
+  await page.getByRole('button', { name: '검색하기' }).click();
+  const publicCard = page.locator('.service-card').filter({ hasText: businessName });
+  await expect(publicCard).toBeVisible();
+  await expect(publicCard).toContainText('첫 방문 5,000원 할인');
 });
 
 test('operations can publish mock news and resident benefit', async ({ page }) => {
