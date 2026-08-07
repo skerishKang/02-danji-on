@@ -1,0 +1,74 @@
+import { expect, test } from '@playwright/test';
+
+const APPLICATION_STORE_KEY = 'danjion.mock.business-applications.v1';
+
+async function resetMockStore(page: import('@playwright/test').Page) {
+  await page.goto('/');
+  await page.evaluate((key) => window.localStorage.removeItem(key), APPLICATION_STORE_KEY);
+  await page.reload();
+}
+
+test('resident can search, bookmark and reveal verified contact', async ({ page }) => {
+  await resetMockStore(page);
+
+  await page.locator('#home-search').fill('에어컨');
+  await page.getByRole('button', { name: '검색하기' }).click();
+
+  const card = page.locator('.service-card').filter({ hasText: '온케어 에어컨 청소' });
+  await expect(card).toBeVisible();
+  await card.locator('.service-copy').click();
+
+  await expect(page.getByRole('heading', { name: '온케어 에어컨 청소' })).toBeVisible();
+  await page.getByRole('button', { name: '♡ 찜하기' }).click();
+  await expect(page.getByRole('button', { name: '♥ 찜한 가게' })).toBeVisible();
+
+  await page.getByRole('button', { name: '문의 방법 보기' }).click();
+  await expect(page.getByText('010-0000-1003')).toBeVisible();
+});
+
+test('resident submission is visible to admin and approval returns to resident', async ({ page }) => {
+  await resetMockStore(page);
+  const businessName = `E2E 홈케어 ${Date.now()}`;
+
+  await page.getByRole('button', { name: /내 일 알리기/ }).click();
+  await page.getByLabel('가게·서비스명 *').fill(businessName);
+  await page.getByLabel('분야 *').fill('청소·수리·에어컨 서비스');
+  await page.getByLabel('한 줄 소개 *').fill('E2E에서 생성한 방문형 생활 수리 서비스입니다.');
+  await page.getByLabel('가격').fill('기본 출장 30,000원');
+  await page.getByLabel('입주민 혜택').fill('첫 방문 5,000원 할인');
+  await page.getByRole('button', { name: '등록 신청하기' }).click();
+
+  const residentItem = page.locator('.application-item').filter({ hasText: businessName });
+  await expect(residentItem).toBeVisible();
+  await expect(residentItem.locator('.application-status.pending')).toHaveText('확인 대기');
+
+  await page.goto('/admin.html');
+  const adminCard = page.locator('.admin-application-card').filter({ hasText: businessName });
+  await expect(adminCard).toBeVisible();
+  await adminCard.getByRole('button', { name: '승인' }).click();
+  await expect(adminCard.locator('.admin-status.approved')).toHaveText('승인');
+
+  await page.goto('/');
+  await page.getByRole('button', { name: '내정보' }).first().click();
+  const approvedItem = page.locator('.application-item').filter({ hasText: businessName });
+  await expect(approvedItem).toBeVisible();
+  await expect(approvedItem.locator('.application-status.approved')).toHaveText('승인 완료');
+});
+
+test('operations can publish mock news and resident benefit', async ({ page }) => {
+  await resetMockStore(page);
+  await page.goto('/admin.html');
+
+  await page.getByRole('button', { name: '단지소식' }).click();
+  await page.getByLabel('제목').fill('E2E 단지소식');
+  await page.getByLabel('내용').fill('인프라 연결 전 운영화면 검증을 위한 테스트 소식입니다.');
+  await page.getByRole('button', { name: '단지소식 게시' }).click();
+  await expect(page.getByText('단지소식을 게시했습니다.')).toBeVisible();
+
+  await page.getByRole('button', { name: '주민혜택' }).click();
+  await page.getByLabel('대상 가게·서비스').selectOption({ index: 1 });
+  await page.getByLabel('혜택 제목').fill('E2E 주민혜택');
+  await page.getByLabel('설명').fill('통합 검증용 혜택입니다.');
+  await page.getByRole('button', { name: '주민혜택 등록' }).click();
+  await expect(page.getByText('주민혜택을 등록했습니다.')).toBeVisible();
+});
