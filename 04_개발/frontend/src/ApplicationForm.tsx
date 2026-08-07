@@ -1,6 +1,7 @@
 import { useEffect, useState, type ChangeEvent, type FormEvent } from 'react';
 import { storageAdapter, type StoredObject } from './storage';
 import type { BusinessApplicationInput, RelationType } from './types';
+import './application-wizard.css';
 
 const emptyForm: BusinessApplicationInput = {
   relationType: 'resident',
@@ -15,6 +16,10 @@ const emptyForm: BusinessApplicationInput = {
   representativeImageObjectKey: ''
 };
 
+const stepTitles = ['주민 관계', '기본 정보', '사진과 혜택', '공개 정보 확인'] as const;
+
+type WizardStep = 1 | 2 | 3 | 4;
+
 function normalizedInitial(value?: BusinessApplicationInput): BusinessApplicationInput {
   return {
     ...emptyForm,
@@ -26,6 +31,23 @@ function normalizedInitial(value?: BusinessApplicationInput): BusinessApplicatio
     availabilityText: value?.availabilityText ?? '',
     representativeImageObjectKey: value?.representativeImageObjectKey ?? ''
   };
+}
+
+function relationLabel(value: RelationType) {
+  return {
+    resident: '내가 직접 운영',
+    resident_family: '주민 가족이 운영',
+    neighbor: '이웃 단지 주민 운영',
+    local: '우리 동네 가게'
+  }[value];
+}
+
+function contactLabel(value?: string) {
+  return {
+    phone_sms: '전화·문자',
+    kakao: '카카오톡',
+    url: '온라인 링크'
+  }[value || 'phone_sms'] ?? '전화·문자';
 }
 
 export default function ApplicationForm({
@@ -46,12 +68,14 @@ export default function ApplicationForm({
   reviewNote?: string | null;
 }) {
   const [form, setForm] = useState<BusinessApplicationInput>(() => normalizedInitial(initialValue));
+  const [step, setStep] = useState<WizardStep>(1);
   const [error, setError] = useState('');
   const [imageBusy, setImageBusy] = useState(false);
   const [storedImage, setStoredImage] = useState<StoredObject | null>(null);
 
   useEffect(() => {
     setForm(normalizedInitial(initialValue));
+    setStep(1);
     setError('');
   }, [initialValue]);
 
@@ -88,11 +112,32 @@ export default function ApplicationForm({
     update('representativeImageObjectKey', '');
   }
 
+  function validateStep(current: WizardStep) {
+    if (current === 2 && (!form.businessName.trim() || !form.categoryName.trim() || !form.serviceSummary.trim())) {
+      setError('가게·서비스명, 분야, 한 줄 소개는 필수입니다.');
+      return false;
+    }
+    setError('');
+    return true;
+  }
+
+  function nextStep() {
+    if (!validateStep(step) || step === 4) return;
+    setStep((current) => Math.min(4, current + 1) as WizardStep);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function previousStep() {
+    setError('');
+    setStep((current) => Math.max(1, current - 1) as WizardStep);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
   async function submit(event: FormEvent) {
     event.preventDefault();
     setError('');
-    if (!form.businessName.trim() || !form.categoryName.trim() || !form.serviceSummary.trim()) {
-      setError('가게·서비스명, 분야, 소개는 필수입니다.');
+    if (!validateStep(2)) {
+      setStep(2);
       return;
     }
     await onSubmit({
@@ -105,16 +150,36 @@ export default function ApplicationForm({
   }
 
   return (
-    <form className="application-form" onSubmit={(event) => void submit(event)}>
+    <form className="application-form application-wizard" onSubmit={(event) => void submit(event)}>
       <div className="form-intro">
         <span className="eyebrow">{mode === 'resubmit' ? '등록 보완' : '내 일 알리기'}</span>
-        <h1>{mode === 'resubmit' ? '요청된 내용을 보완해 주세요' : '가게와 서비스를 등록해 주세요'}</h1>
-        <p>{mode === 'resubmit' ? '관리자 메모를 확인하고 내용을 수정한 뒤 다시 제출하면 확인 대기 상태로 돌아갑니다.' : '점포가 없는 과외·상담·수리·온라인 판매도 신청할 수 있습니다. 승인 전에는 공개되지 않습니다.'}</p>
+        <h1>{mode === 'resubmit' ? '요청된 내용을 보완해 주세요' : '내 일을 4단계로 알려주세요'}</h1>
+        <p>{mode === 'resubmit' ? '관리자 메모를 확인하고 필요한 내용을 수정한 뒤 다시 제출합니다.' : '주민 관계를 확인하고, 공개할 정보와 비공개 확인정보를 나눠 안전하게 신청합니다.'}</p>
         {mode === 'resubmit' && reviewNote && <div className="review-request-box"><strong>관리자 보완 요청</strong><p>{reviewNote}</p></div>}
       </div>
 
-      <fieldset>
-        <legend>1. 우리 단지와의 관계</legend>
+      <ol className="wizard-progress" aria-label="등록 진행 단계">
+        {stepTitles.map((title, index) => {
+          const number = (index + 1) as WizardStep;
+          const current = number === step;
+          const completed = number < step;
+          return (
+            <li key={title} className={current ? 'current' : completed ? 'completed' : ''} aria-current={current ? 'step' : undefined}>
+              <span>{completed ? '✓' : number}</span>
+              <b>{title}</b>
+            </li>
+          );
+        })}
+      </ol>
+
+      <div className="wizard-step-heading">
+        <span>STEP {step} / 4</span>
+        <h2>{stepTitles[step - 1]}</h2>
+      </div>
+
+      <fieldset hidden={step !== 1}>
+        <legend>우리 단지와 어떤 관계인가요?</legend>
+        <p className="fieldset-help">주민 관계는 검색 노출 순서와 운영 확인에 사용되며 정확한 동·호수는 공개하지 않습니다.</p>
         <div className="relation-options">
           {([
             ['resident', '내가 직접 운영'],
@@ -130,12 +195,12 @@ export default function ApplicationForm({
         </div>
       </fieldset>
 
-      <fieldset>
-        <legend>2. 기본 정보</legend>
+      <fieldset hidden={step !== 2}>
+        <legend>가게·서비스 기본 정보</legend>
         <div className="form-grid">
           <label>
             <span>가게·서비스명 *</span>
-            <input value={form.businessName} onChange={(event) => update('businessName', event.target.value)} placeholder="예: 정성 홈베이킹" maxLength={80} />
+            <input value={form.businessName} onChange={(event) => update('businessName', event.target.value)} placeholder="예: 한결수학" maxLength={80} />
           </label>
           <label>
             <span>분야 *</span>
@@ -146,26 +211,22 @@ export default function ApplicationForm({
             <span>한 줄 소개 *</span>
             <textarea value={form.serviceSummary} onChange={(event) => update('serviceSummary', event.target.value)} placeholder="무엇을 제공하는지 짧고 명확하게 적어주세요." maxLength={240} rows={3} />
           </label>
-        </div>
-      </fieldset>
-
-      <fieldset>
-        <legend>3. 이용 정보</legend>
-        <div className="form-grid">
-          <label><span>가격</span><input value={form.priceText} onChange={(event) => update('priceText', event.target.value)} placeholder="예: 벽걸이 65,000원부터" maxLength={120} /></label>
-          <label><span>연락 방법</span><select value={form.contactMethod} onChange={(event) => update('contactMethod', event.target.value)}><option value="phone_sms">전화·문자</option><option value="kakao">카카오톡</option><option value="url">온라인 링크</option></select></label>
+          <label><span>가격</span><input value={form.priceText} onChange={(event) => update('priceText', event.target.value)} placeholder="예: 중등 수학 월 18만원부터" maxLength={120} /></label>
           <label><span>이용 지역</span><input value={form.serviceArea} onChange={(event) => update('serviceArea', event.target.value)} maxLength={120} /></label>
-          <label><span>이용 시간</span><input value={form.availabilityText} onChange={(event) => update('availabilityText', event.target.value)} placeholder="예: 평일 오전 10시~오후 6시" maxLength={120} /></label>
-          <label className="full"><span>입주민 혜택</span><input value={form.benefitText} onChange={(event) => update('benefitText', event.target.value)} placeholder="예: 첫 주문 10% 할인" maxLength={160} /></label>
+          <label><span>이용 시간</span><input value={form.availabilityText} onChange={(event) => update('availabilityText', event.target.value)} placeholder="예: 평일 오후 4시~9시" maxLength={120} /></label>
+          <label><span>연락 방법</span><select value={form.contactMethod} onChange={(event) => update('contactMethod', event.target.value)}><option value="phone_sms">전화·문자</option><option value="kakao">카카오톡</option><option value="url">온라인 링크</option></select></label>
         </div>
       </fieldset>
 
-      <fieldset>
-        <legend>4. 대표 이미지 <small>선택</small></legend>
+      <fieldset hidden={step !== 3}>
+        <legend>사진과 주민혜택</legend>
+        <div className="form-grid wizard-benefit-grid">
+          <label className="full"><span>입주민 혜택</span><input value={form.benefitText} onChange={(event) => update('benefitText', event.target.value)} placeholder="예: 첫 상담 30분 무료" maxLength={160} /></label>
+        </div>
         <div className="image-upload-field">
           <div className="image-upload-copy">
-            <strong>작업·상품·가게를 잘 보여주는 사진 1장</strong>
-            <p>이미지 파일만 가능하며 최대 8MB입니다. 지금은 mock storage에 연결되고, R2 연결 후 동일한 폼을 그대로 사용합니다.</p>
+            <strong>실제로 일하는 장면이나 결과물을 보여주는 사진 1장</strong>
+            <p>이미지 파일만 가능하며 최대 8MB입니다. 현재는 mock storage를 사용하고, 이후 R2 연결 시 같은 폼을 그대로 사용합니다.</p>
             {form.representativeImageObjectKey && !storedImage && <p className="existing-image-key">기존 대표 이미지가 연결되어 있습니다. 새 이미지를 고르지 않으면 그대로 유지됩니다.</p>}
             <label className="image-picker">
               <input type="file" accept="image/*" onChange={(event) => void chooseImage(event)} disabled={busy || imageBusy} />
@@ -179,10 +240,43 @@ export default function ApplicationForm({
         </div>
       </fieldset>
 
+      <fieldset hidden={step !== 4}>
+        <legend>공개 정보와 비공개 확인정보를 확인해 주세요</legend>
+        <div className="application-review-grid">
+          <section className="review-surface public-review">
+            <span>주민에게 공개</span>
+            <h3>{form.businessName || '가게·서비스명'}</h3>
+            <p>{form.serviceSummary || '한 줄 소개가 여기에 표시됩니다.'}</p>
+            <dl>
+              <div><dt>분야</dt><dd>{form.categoryName || '-'}</dd></div>
+              <div><dt>가격</dt><dd>{form.priceText || '상담 후 안내'}</dd></div>
+              <div><dt>지역</dt><dd>{form.serviceArea || '-'}</dd></div>
+              <div><dt>이용 시간</dt><dd>{form.availabilityText || '-'}</dd></div>
+              <div><dt>주민혜택</dt><dd>{form.benefitText || '등록된 혜택 없음'}</dd></div>
+            </dl>
+          </section>
+          <section className="review-surface private-review">
+            <span>운영 확인 · 일반 공개 안 함</span>
+            <h3>주민 관계와 연락 경계</h3>
+            <dl>
+              <div><dt>단지와의 관계</dt><dd>{relationLabel(form.relationType)}</dd></div>
+              <div><dt>연락 방식</dt><dd>{contactLabel(form.contactMethod)}</dd></div>
+              <div><dt>입주민 인증</dt><dd>별도 인증 상태를 서버에서 확인</dd></div>
+              <div><dt>동·호수/증빙</dt><dd>사업 정보와 분리해 비공개 보관</dd></div>
+            </dl>
+            <p>주민 관계 확인은 서비스 품질 보증을 의미하지 않습니다.</p>
+          </section>
+        </div>
+      </fieldset>
+
       {error && <div className="form-error" role="alert">{error}</div>}
-      <div className="form-actions">
-        <button type="button" className="secondary" onClick={onCancel} disabled={busy}>취소</button>
-        <button type="submit" className="primary" disabled={busy || imageBusy}>{busy ? (mode === 'resubmit' ? '재제출 중...' : '신청 중...') : (mode === 'resubmit' ? '보완 내용 재제출' : '등록 신청하기')}</button>
+      <div className="form-actions wizard-actions">
+        {step === 1 ? <button type="button" className="secondary" onClick={onCancel} disabled={busy}>취소</button> : <button type="button" className="secondary" onClick={previousStep} disabled={busy || imageBusy}>이전</button>}
+        {step < 4 ? (
+          <button type="button" className="primary" onClick={nextStep} disabled={busy || imageBusy}>다음 단계</button>
+        ) : (
+          <button type="submit" className="primary" disabled={busy || imageBusy}>{busy ? (mode === 'resubmit' ? '재제출 중...' : '신청 중...') : (mode === 'resubmit' ? '보완 내용 재제출' : '등록 신청 완료')}</button>
+        )}
       </div>
     </form>
   );
