@@ -1,10 +1,16 @@
 import { expect, test } from '@playwright/test';
 
 const APPLICATION_STORE_KEY = 'danjion.mock.business-applications.v1';
+const POSTS_STORE_KEY = 'danjion.mock.posts.v1';
+const BENEFITS_STORE_KEY = 'danjion.mock.benefits.v1';
 
 async function resetMockStore(page: import('@playwright/test').Page) {
   await page.goto('/');
-  await page.evaluate((key) => window.localStorage.removeItem(key), APPLICATION_STORE_KEY);
+  await page.evaluate(([applications, posts, benefits]) => {
+    window.localStorage.removeItem(applications);
+    window.localStorage.removeItem(posts);
+    window.localStorage.removeItem(benefits);
+  }, [APPLICATION_STORE_KEY, POSTS_STORE_KEY, BENEFITS_STORE_KEY]);
   await page.reload();
 }
 
@@ -94,7 +100,7 @@ test('resident submission with image becomes public after admin approval', async
   await expect(publicCard).toContainText('첫 방문 5,000원 할인');
 });
 
-test('operations can publish mock news and resident benefit', async ({ page }) => {
+test('operations-created news and benefit are visible in resident app', async ({ page }) => {
   await resetMockStore(page);
   await page.goto('/admin.html');
 
@@ -104,10 +110,21 @@ test('operations can publish mock news and resident benefit', async ({ page }) =
   await page.getByRole('button', { name: '단지소식 게시' }).click();
   await expect(page.getByText('단지소식을 게시했습니다.')).toBeVisible();
 
+  await page.goto('/');
+  await page.getByRole('button', { name: '단지소식' }).first().click();
+  await expect(page.getByRole('heading', { name: 'E2E 단지소식' })).toBeVisible();
+  await expect(page.getByText('인프라 연결 전 운영화면 검증을 위한 테스트 소식입니다.')).toBeVisible();
+
+  await page.goto('/admin.html');
   await page.getByRole('button', { name: '주민혜택' }).click();
-  await page.getByLabel('대상 가게·서비스').selectOption({ index: 1 });
+  await page.getByLabel('대상 가게·서비스').selectOption('v5-1');
   await page.getByLabel('혜택 제목').fill('E2E 주민혜택');
   await page.getByLabel('설명').fill('통합 검증용 혜택입니다.');
   await page.getByRole('button', { name: '주민혜택 등록' }).click();
   await expect(page.getByText('주민혜택을 등록했습니다.')).toBeVisible();
+
+  await page.goto('/');
+  await page.getByRole('button', { name: '주민혜택' }).first().click();
+  await expect(page.getByText('E2E 주민혜택')).toBeVisible();
+  await expect(page.getByText('통합 검증용 혜택입니다.')).toBeVisible();
 });
