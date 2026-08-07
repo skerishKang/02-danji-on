@@ -4,6 +4,7 @@ const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf
 const app = read('src/app.ts');
 const core = read('src/core-v1.ts');
 const admin = read('src/admin-v1.ts');
+const payloadPolicy = read('src/payload-policy.ts');
 const schema = read('migrations/001_initial_schema.sql');
 const adminMigration = read('migrations/002_admin_workflow.sql');
 const domainConstraints = read('migrations/003_domain_constraints.sql');
@@ -11,6 +12,9 @@ const contract = read('docs/API_CONTRACT_v1.md');
 
 const checks = [
   ['app routes admin before core', app.includes("startsWith('/api/v1/admin/')") && app.includes('handleAdminRequest')],
+  ['payload policy runs before route handling', app.includes('validateRequestPayload') && app.indexOf('validateRequestPayload') < app.lastIndexOf("startsWith('/api/v1/admin/')")],
+  ['payload policy limits core/admin fields', payloadPolicy.includes('businessName: 80') && payloadPolicy.includes('reviewNote: 1000') && payloadPolicy.includes('body: 10000')],
+  ['payload policy preserves request body with clone', payloadPolicy.includes('request.clone().text()')],
   ['active core uses narrow Neon type', core.includes('NeonQueryFunction<false, false>')],
   ['active admin uses narrow Neon type', admin.includes('NeonQueryFunction<false, false>')],
   ['public business list exists', core.includes('/businesses') && core.includes('business_complex_relations')],
