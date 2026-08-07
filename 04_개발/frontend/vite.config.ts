@@ -21,7 +21,8 @@ export default defineConfig({
         resident: resolve(__dirname, 'index.html'),
         operations: resolve(__dirname, 'admin.html'),
         verification: resolve(__dirname, 'verification.html'),
-        verificationAdmin: resolve(__dirname, 'verification-admin.html')
+        verificationAdmin: resolve(__dirname, 'verification-admin.html'),
+        promo: resolve(__dirname, 'promo.html')
       }
     }
   }
