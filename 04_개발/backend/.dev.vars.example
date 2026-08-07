@@ -1,0 +1,13 @@
+# Copy to .dev.vars for local development. Never commit .dev.vars.
+DATABASE_URL=postgresql://USER:PASSWORD@HOST/DB?sslmode=require
+APP_ENV=development
+DEV_AUTH_BYPASS=true
+
+# Development actor is selected per request and then resolved from app_users.
+# Example request header:
+# x-danjion-dev-auth-user: dev-resident-001
+# or
+# x-danjion-dev-auth-user: dev-manager-001
+
+# Neon Auth variables will be added after the sibling-owned Neon project
+# is created and the actual Auth server/JWKS contract is verified.
