@@ -27,6 +27,11 @@ export interface Business {
   activeBenefit?: Benefit | null;
 }
 
+export interface BusinessContact {
+  type: 'phone' | 'sms' | 'kakao' | 'url';
+  value: string;
+}
+
 export interface ComplexPost {
   id: string;
   sourceName: string;
@@ -42,6 +47,33 @@ export interface BusinessFilters {
   relation?: RelationType | 'all';
 }
 
+export interface BusinessApplicationInput {
+  relationType: RelationType;
+  businessName: string;
+  categoryName: string;
+  serviceSummary: string;
+  priceText?: string;
+  contactMethod?: string;
+  serviceArea?: string;
+  benefitText?: string;
+  availabilityText?: string;
+}
+
+export type BusinessApplicationStatus = 'draft' | 'pending' | 'changes_requested' | 'approved' | 'rejected';
+
+export interface BusinessApplication {
+  id: string;
+  relationType: RelationType;
+  businessName: string;
+  categoryName: string;
+  serviceSummary: string;
+  status: BusinessApplicationStatus;
+  reviewNote?: string | null;
+  approvedBusinessId?: string | null;
+  createdAt: string;
+  updatedAt?: string;
+}
+
 export interface DataAdapter {
   listBusinesses(filters?: BusinessFilters): Promise<Business[]>;
   getBusiness(id: string): Promise<Business | null>;
@@ -50,6 +82,9 @@ export interface DataAdapter {
   getBookmarks(): Promise<string[]>;
   addBookmark(id: string): Promise<void>;
   removeBookmark(id: string): Promise<void>;
+  getBusinessContacts(id: string): Promise<BusinessContact[]>;
+  createBusinessApplication(input: BusinessApplicationInput): Promise<BusinessApplication>;
+  listMyBusinessApplications(): Promise<BusinessApplication[]>;
 }
 
 export const relationLabels: Record<RelationType, string> = {
@@ -57,4 +92,12 @@ export const relationLabels: Record<RelationType, string> = {
   resident_family: '방림명지로드힐 주민 가족 운영',
   neighbor: '이웃 단지 주민 운영',
   local: '우리 동네 가게'
+};
+
+export const applicationStatusLabels: Record<BusinessApplicationStatus, string> = {
+  draft: '작성 중',
+  pending: '확인 대기',
+  changes_requested: '보완 요청',
+  approved: '승인 완료',
+  rejected: '반려'
 };
