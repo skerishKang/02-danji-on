@@ -1,5 +1,15 @@
 import { mockBenefits, mockBusinesses, mockPosts } from '../data/mock';
-import type { Benefit, Business, BusinessFilters, ComplexPost, DataAdapter, RelationType } from '../types';
+import type {
+  Benefit,
+  Business,
+  BusinessApplication,
+  BusinessApplicationInput,
+  BusinessContact,
+  BusinessFilters,
+  ComplexPost,
+  DataAdapter,
+  RelationType
+} from '../types';
 
 const COMPLEX_SLUG = import.meta.env.VITE_COMPLEX_SLUG || 'bangnim-myeongji-roadhill';
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
@@ -16,8 +26,19 @@ function relationRank(relation: RelationType): number {
   return { resident: 0, resident_family: 1, neighbor: 2, local: 3 }[relation];
 }
 
+function nowIso() {
+  return new Date().toISOString();
+}
+
 export class MockAdapter implements DataAdapter {
   private bookmarks = new Set<string>(['v5-1', 'v5-4']);
+  private applications: BusinessApplication[] = [];
+  private contacts: Record<string, BusinessContact[]> = {
+    'v5-1': [{ type: 'phone', value: '010-0000-1001' }],
+    'v5-3': [{ type: 'phone', value: '010-0000-1003' }, { type: 'sms', value: '문자 문의 가능' }],
+    'v5-6': [{ type: 'phone', value: '010-0000-1006' }],
+    'v5-10': [{ type: 'phone', value: '062-000-1010' }]
+  };
 
   async listBusinesses(filters: BusinessFilters = {}): Promise<Business[]> {
     const query = filters.query?.trim().toLowerCase() || '';
@@ -59,6 +80,30 @@ export class MockAdapter implements DataAdapter {
 
   async removeBookmark(id: string): Promise<void> {
     this.bookmarks.delete(id);
+  }
+
+  async getBusinessContacts(id: string): Promise<BusinessContact[]> {
+    return this.contacts[id] ? [...this.contacts[id]] : [{ type: 'phone', value: '010-0000-0000' }];
+  }
+
+  async createBusinessApplication(input: BusinessApplicationInput): Promise<BusinessApplication> {
+    const createdAt = nowIso();
+    const application: BusinessApplication = {
+      id: `mock-app-${Date.now()}`,
+      relationType: input.relationType,
+      businessName: input.businessName,
+      categoryName: input.categoryName,
+      serviceSummary: input.serviceSummary,
+      status: 'pending',
+      createdAt,
+      updatedAt: createdAt
+    };
+    this.applications = [application, ...this.applications];
+    return application;
+  }
+
+  async listMyBusinessApplications(): Promise<BusinessApplication[]> {
+    return [...this.applications];
   }
 }
 
@@ -118,6 +163,21 @@ function mapBusiness(raw: Record<string, unknown>): Business {
   };
 }
 
+function mapApplication(raw: Record<string, unknown>): BusinessApplication {
+  return {
+    id: String(raw.id),
+    relationType: String(raw.relation_type ?? 'resident') as RelationType,
+    businessName: String(raw.business_name ?? ''),
+    categoryName: String(raw.category_name ?? ''),
+    serviceSummary: String(raw.service_summary ?? ''),
+    status: String(raw.status ?? 'pending') as BusinessApplication['status'],
+    reviewNote: raw.review_note ? String(raw.review_note) : null,
+    approvedBusinessId: raw.approved_business_id ? String(raw.approved_business_id) : null,
+    createdAt: String(raw.created_at ?? nowIso()),
+    updatedAt: raw.updated_at ? String(raw.updated_at) : undefined
+  };
+}
+
 export class ApiAdapter implements DataAdapter {
   async listBusinesses(filters: BusinessFilters = {}): Promise<Business[]> {
     const params = new URLSearchParams();
@@ -134,7 +194,7 @@ export class ApiAdapter implements DataAdapter {
       const row = await request<Record<string, unknown>>(`/api/v1/complexes/${COMPLEX_SLUG}/businesses/${id}`);
       return mapBusiness(row);
     } catch (error) {
-      if (error instanceof Error && error.message.includes('not found')) return null;
+      if (error instanceof Error && error.message.toLowerCase().includes('not found')) return null;
       throw error;
     }
   }
@@ -167,6 +227,35 @@ export class ApiAdapter implements DataAdapter {
 
   async removeBookmark(id: string): Promise<void> {
     await request(`/api/v1/me/bookmarks/${id}`, { method: 'DELETE' });
+  }
+
+  async getBusinessContacts(id: string): Promise<BusinessContact[]> {
+    const rows = await request<Record<string, unknown>[]>(`/api/v1/complexes/${COMPLEX_SLUG}/businesses/${id}/contact`);
+    return rows.map((raw) => ({
+      type: String(raw.contact_type ?? 'phone') as BusinessContact['type'],
+      value: String(raw.contact_value ?? '')
+    }));
+  }
+
+  async createBusinessApplication(input: BusinessApplicationInput): Promise<BusinessApplication> {
+    const row = await request<Record<string, unknown>>('/api/v1/me/business-applications', {
+      method: 'POST',
+      body: JSON.stringify({ complexSlug: COMPLEX_SLUG, ...input })
+    });
+    return {
+      id: String(row.id),
+      relationType: input.relationType,
+      businessName: input.businessName,
+      categoryName: input.categoryName,
+      serviceSummary: input.serviceSummary,
+      status: String(row.status ?? 'pending') as BusinessApplication['status'],
+      createdAt: String(row.created_at ?? nowIso())
+    };
+  }
+
+  async listMyBusinessApplications(): Promise<BusinessApplication[]> {
+    const rows = await request<Record<string, unknown>[]>('/api/v1/me/business-applications');
+    return rows.map(mapApplication);
   }
 }
 
