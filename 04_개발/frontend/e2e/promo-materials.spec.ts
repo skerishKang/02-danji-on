@@ -81,6 +81,6 @@ test('pending application without uploaded image uses a real working-scene fallb
   await expect(page.locator('.promo-output.is-built')).toHaveCount(3);
   await expect(page.locator('.promo-photo-fallback')).toHaveCount(3);
   await expect(page.locator('.promo-photo-fallback.scene-food')).toHaveCount(3);
-  await expect(page.locator('.promo-artwork')).not.toContainText('🤖');
-  await expect(page.locator('.promo-artwork')).not.toContainText('✨');
+  await expect(page.locator('.promo-artwork').filter({ hasText: '🤖' })).toHaveCount(0);
+  await expect(page.locator('.promo-artwork').filter({ hasText: '✨' })).toHaveCount(0);
 });
