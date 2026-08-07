@@ -1,0 +1,5 @@
+:root {
+  /* Original #D84F32 measured 3.84:1 on #F7F7F4 and 4.13:1 on white.
+     This nearby tone preserves the visual system while clearing 4.5:1 for normal text. */
+  --coral: #c64025;
+}
