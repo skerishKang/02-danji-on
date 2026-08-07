@@ -1,4 +1,4 @@
-import type { BusinessApplicationInput, BusinessApplicationStatus, RelationType } from './types';
+import type { Business, BusinessApplicationInput, BusinessApplicationStatus, RelationType } from './types';
 
 export interface MockApplicationRecord {
   id: string;
@@ -92,6 +92,17 @@ function writeRecords(records: MockApplicationRecord[]) {
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
 }
 
+function categorySlug(value: string) {
+  return `approved-${value.normalize('NFKC').toLowerCase().replace(/[^a-z0-9가-힣]+/g, '-').replace(/^-+|-+$/g, '') || 'category'}`;
+}
+
+function relationIcon(relation: RelationType) {
+  if (relation === 'resident') return '🏠';
+  if (relation === 'resident_family') return '👨‍👩‍👧';
+  if (relation === 'neighbor') return '🤝';
+  return '📍';
+}
+
 export function resetMockApplications() {
   writeRecords(fixtures);
 }
@@ -128,6 +139,36 @@ export function listMockApplications(status: BusinessApplicationStatus | 'all' =
 
 export function listMockApplicationsForSubject(subject: string) {
   return readRecords().filter((item) => item.applicantSubject === subject);
+}
+
+export function listApprovedMockBusinesses(): Business[] {
+  return readRecords()
+    .filter((item) => item.status === 'approved' && item.approvedBusinessId)
+    .map((item) => {
+      const businessId = item.approvedBusinessId as string;
+      return {
+        id: businessId,
+        kind: 'service',
+        name: item.businessName,
+        categorySlug: categorySlug(item.categoryName),
+        categoryName: item.categoryName,
+        relationType: item.relationType,
+        summary: item.serviceSummary,
+        description: `${item.applicantName}님의 등록 신청이 승인되어 공개된 가게·서비스입니다.`,
+        priceText: item.priceText || '상담 후 안내',
+        serviceArea: item.serviceArea || '방림동과 인근 지역',
+        availabilityText: item.availabilityText || '상담 후 안내',
+        icon: relationIcon(item.relationType),
+        activeBenefit: item.benefitText ? {
+          id: `mock-approved-benefit-${item.id}`,
+          businessId,
+          businessName: item.businessName,
+          title: item.benefitText,
+          description: '등록 신청 승인 시 함께 공개된 주민혜택입니다.',
+          conditions: '방림명지로드힐 인증 입주민 대상'
+        } : null
+      };
+    });
 }
 
 export function reviewMockApplication(
