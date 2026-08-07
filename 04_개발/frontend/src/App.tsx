@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import ApplicationForm from './ApplicationForm';
+import CinematicNeighborScenes from './CinematicNeighborScenes';
 import { dataAdapter } from './api/adapter';
 import {
   applicationStatusLabels,
@@ -296,22 +297,10 @@ export default function App() {
   function renderHome() {
     return (
       <>
-        <section className="hero shell">
-          <div className="hero-copy">
-            <span className="eyebrow">방림명지로드힐 단지온</span>
-            <h1>필요한 일,<br />우리 단지에서 찾아보세요</h1>
-            <p>같은 아파트 주민이 운영하는 가게와 서비스를 먼저 발견하고, 입주민 전용 혜택까지 확인합니다.</p>
-            <div className="verified-row">
-              <span className="verified">✓ 방림명지로드힐 인증 입주민</span>
-              <button className="text-button" onClick={() => go('my')}>인증 정보 보기</button>
-            </div>
-          </div>
-          <div className="hero-scene" aria-label="이웃의 생활 서비스 장면">
-            <span className="scene-big">우리 단지 안에도<br />다양한 이웃의 일이 있습니다.</span>
-            <div className="scene-people" aria-hidden="true">👩‍🍳　🧑‍🔧　👩‍🏫</div>
-            <span className="scene-caption">LIVING NEIGHBOR SHOP</span>
-          </div>
-        </section>
+        <CinematicNeighborScenes
+          onSearch={() => document.getElementById('home-search')?.focus()}
+          onRegister={() => { setEditingApplication(null); go('register'); }}
+        />
 
         <section className="notice-strip shell">
           <span>관리사무소 안내</span>
