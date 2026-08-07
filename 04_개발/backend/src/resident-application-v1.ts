@@ -56,20 +56,41 @@ async function bodyJson(request: Request, requestId: string): Promise<Record<str
   }
 }
 
+function applicationSelect(sql: Sql, applicationId: string, actorId: string) {
+  return sql`
+    select a.id, c.slug as complex_slug, a.relation_type, a.business_name,
+           a.category_name, a.service_summary, a.price_text, a.contact_method,
+           a.service_area, a.benefit_text, a.availability_text,
+           a.representative_image_object_key, a.status, a.review_note,
+           a.approved_business_id, a.created_at, a.updated_at
+    from business_applications a
+    join complexes c on c.id = a.complex_id
+    where a.id = ${applicationId}::uuid
+      and a.applicant_user_id = ${actorId}::uuid
+    limit 1
+  `;
+}
+
 export async function handleResidentApplicationRequest(
   request: Request,
   env: CoreEnv,
   requestId: string
 ): Promise<Response | null> {
-  if (request.method !== 'PATCH') return null;
   const match = new URL(request.url).pathname.match(/^\/api\/v1\/me\/business-applications\/([0-9a-fA-F-]+)$/);
-  if (!match) return null;
+  if (!match || !['GET', 'PATCH'].includes(request.method)) return null;
 
   if (!env.DATABASE_URL) return fail('DATABASE_NOT_CONFIGURED', 'DATABASE_URL is not configured', 503, requestId);
   const sql: Sql = neon(env.DATABASE_URL);
   const actorOrResponse = await actorFromRequest(request, env, sql, requestId);
   if (actorOrResponse instanceof Response) return actorOrResponse;
   const actor = actorOrResponse;
+  const applicationId = match[1];
+
+  if (request.method === 'GET') {
+    const rows = await applicationSelect(sql, applicationId, actor.id);
+    if (!rows[0]) return fail('NOT_FOUND', 'Business application not found', 404, requestId);
+    return ok(rows[0], requestId);
+  }
 
   const payload = await bodyJson(request, requestId);
   if (payload instanceof Response) return payload;
@@ -85,7 +106,6 @@ export async function handleResidentApplicationRequest(
     return fail('VALIDATION_ERROR', 'businessName, categoryName and serviceSummary are required', 400, requestId);
   }
 
-  const applicationId = match[1];
   const rows = await sql`
     update business_applications a
     set relation_type = ${relationType},
@@ -105,8 +125,9 @@ export async function handleResidentApplicationRequest(
       and a.applicant_user_id = ${actor.id}::uuid
       and a.status = 'changes_requested'
     returning a.id, a.relation_type, a.business_name, a.category_name,
-              a.service_summary, a.status, a.review_note,
-              a.approved_business_id, a.created_at, a.updated_at
+              a.service_summary, a.price_text, a.contact_method, a.service_area,
+              a.benefit_text, a.availability_text, a.representative_image_object_key,
+              a.status, a.review_note, a.approved_business_id, a.created_at, a.updated_at
   `;
   if (rows[0]) return ok(rows[0], requestId);
 
