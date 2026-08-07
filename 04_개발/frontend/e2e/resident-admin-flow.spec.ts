@@ -26,6 +26,29 @@ test('resident can search, bookmark and reveal verified contact', async ({ page 
   await expect(page.getByText('010-0000-1003')).toBeVisible();
 });
 
+test('resident can edit and resubmit a changes-requested application', async ({ page }) => {
+  await resetMockStore(page);
+  await page.getByRole('button', { name: '내정보' }).first().click();
+
+  const item = page.locator('.application-item').filter({ hasText: '맑은창 방충망 수리' });
+  await expect(item.locator('.application-status.changes_requested')).toHaveText('보완 요청');
+  await item.getByRole('button', { name: '보완하기' }).click();
+
+  await expect(page.getByRole('heading', { name: '요청된 내용을 보완해 주세요' })).toBeVisible();
+  await expect(page.getByText('서비스 가능 지역을 구체적으로 적어주세요.')).toBeVisible();
+  await expect(page.getByLabel('가게·서비스명 *')).toHaveValue('맑은창 방충망 수리');
+  await page.getByLabel('이용 지역').fill('광주 남구 및 동구 방문 가능');
+  await page.getByRole('button', { name: '보완 내용 재제출' }).click();
+
+  const resubmitted = page.locator('.application-item').filter({ hasText: '맑은창 방충망 수리' });
+  await expect(resubmitted.locator('.application-status.pending')).toHaveText('확인 대기');
+
+  await page.goto('/admin.html');
+  const adminCard = page.locator('.admin-application-card').filter({ hasText: '맑은창 방충망 수리' });
+  await expect(adminCard.locator('.admin-status.pending')).toHaveText('확인 대기');
+  await expect(adminCard).toContainText('광주 남구 및 동구 방문 가능');
+});
+
 test('resident submission with image becomes public after admin approval', async ({ page }) => {
   await resetMockStore(page);
   const businessName = `E2E 홈케어 ${Date.now()}`;
