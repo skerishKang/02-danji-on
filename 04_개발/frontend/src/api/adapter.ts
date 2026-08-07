@@ -1,5 +1,6 @@
 import { authProvider } from '../auth';
 import { mockBenefits, mockBusinesses, mockPosts } from '../data/mock';
+import { listStoredMockBenefits, listStoredMockPosts } from '../mock-content-store';
 import {
   createMockApplication,
   getMockApplicationForSubject,
@@ -31,8 +32,16 @@ function nowIso() {
   return new Date().toISOString();
 }
 
+function allMockBenefits() {
+  return [...listStoredMockBenefits(), ...mockBenefits];
+}
+
 function allMockBusinesses() {
-  return [...mockBusinesses, ...listApprovedMockBusinesses()];
+  const storedBenefits = listStoredMockBenefits();
+  return [...mockBusinesses, ...listApprovedMockBusinesses()].map((business) => ({
+    ...business,
+    activeBenefit: storedBenefits.find((benefit) => benefit.businessId === business.id) ?? business.activeBenefit
+  }));
 }
 
 function fromMockApplication(record: MockApplicationRecord): BusinessApplication {
@@ -88,11 +97,11 @@ export class MockAdapter implements DataAdapter {
   }
 
   async listBenefits(): Promise<Benefit[]> {
-    return [...mockBenefits];
+    return allMockBenefits();
   }
 
   async listPosts(): Promise<ComplexPost[]> {
-    return [...mockPosts];
+    return [...listStoredMockPosts(), ...mockPosts];
   }
 
   async getBookmarks(): Promise<string[]> {
