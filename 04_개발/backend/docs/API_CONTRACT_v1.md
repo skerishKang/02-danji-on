@@ -97,9 +97,9 @@ v5 `state.favorites` 대체.
 
 찜 삭제. idempotent.
 
-### `GET /api/v1/businesses/:businessId/contact`
+### `GET /api/v1/complexes/:complexSlug/businesses/:businessId/contact`
 
-연락처 공개 endpoint.
+연락처 공개 endpoint. 단지 컨텍스트를 URL에 명시해 동일 사업자의 단지별 공개 관계를 서버에서 검증한다.
 
 조건:
 
@@ -147,7 +147,7 @@ Body:
 - `approved`
 - `rejected`
 
-승인 시 실제 `businesses` + `business_complex_relations` 생성은 동일 트랜잭션에서 처리하도록 구현한다.
+승인 시 실제 `businesses` + `business_complex_relations` 생성은 동일 트랜잭션에서 처리한다. Neon HTTP driver의 `transaction()`을 사용해 승인 상태와 실제 사업자 생성이 분리되지 않게 한다.
 
 ### `POST /api/v1/admin/complexes/:complexSlug/posts`
 
