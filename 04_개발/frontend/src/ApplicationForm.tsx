@@ -273,9 +273,9 @@ export default function ApplicationForm({
       <div className="form-actions wizard-actions">
         {step === 1 ? <button type="button" className="secondary" onClick={onCancel} disabled={busy}>취소</button> : <button type="button" className="secondary" onClick={previousStep} disabled={busy || imageBusy}>이전</button>}
         {step < 4 ? (
-          <button type="button" className="primary" onClick={nextStep} disabled={busy || imageBusy}>다음 단계</button>
+          <button key="wizard-next" type="button" className="primary" onClick={(event) => { event.preventDefault(); nextStep(); }} disabled={busy || imageBusy}>다음 단계</button>
         ) : (
-          <button type="submit" className="primary" disabled={busy || imageBusy}>{busy ? (mode === 'resubmit' ? '재제출 중...' : '신청 중...') : (mode === 'resubmit' ? '보완 내용 재제출' : '등록 신청 완료')}</button>
+          <button key="wizard-submit" type="submit" className="primary" disabled={busy || imageBusy}>{busy ? (mode === 'resubmit' ? '재제출 중...' : '신청 중...') : (mode === 'resubmit' ? '보완 내용 재제출' : '등록 신청 완료')}</button>
         )}
       </div>
     </form>
