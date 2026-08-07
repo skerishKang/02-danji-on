@@ -19,11 +19,25 @@ function fail(message: string, id: string): Response {
   );
 }
 
+function preflight(request: Request): Response {
+  const origin = request.headers.get('origin')?.trim() || new URL(request.url).origin;
+  return new Response(null, {
+    status: 204,
+    headers: {
+      'access-control-allow-origin': origin,
+      'access-control-allow-methods': 'GET,POST,PATCH,DELETE,OPTIONS',
+      'access-control-allow-headers': `content-type,authorization,idempotency-key,${REQUEST_ID_HEADER},x-danjion-dev-auth-user`,
+      'access-control-max-age': '86400',
+      'vary': 'Origin'
+    }
+  });
+}
+
 export default {
   async fetch(request: Request, env: CoreEnv): Promise<Response> {
     const id = requestId(request);
     try {
-      if (request.method === 'OPTIONS') return core.fetch(request, env);
+      if (request.method === 'OPTIONS') return preflight(request);
 
       const policyResponse = await validateRequestPayload(request, id);
       if (policyResponse) return policyResponse;
