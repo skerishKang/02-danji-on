@@ -35,6 +35,21 @@ function contactTypeLabel(type: BusinessContact['type']) {
   return { phone: '전화', sms: '문자', kakao: '카카오톡', url: '온라인' }[type];
 }
 
+function applicationToInput(application: BusinessApplication): BusinessApplicationInput {
+  return {
+    relationType: application.relationType,
+    businessName: application.businessName,
+    categoryName: application.categoryName,
+    serviceSummary: application.serviceSummary,
+    priceText: application.priceText,
+    contactMethod: application.contactMethod,
+    serviceArea: application.serviceArea,
+    benefitText: application.benefitText,
+    availabilityText: application.availabilityText,
+    representativeImageObjectKey: application.representativeImageObjectKey
+  };
+}
+
 function ServiceCard({
   business,
   bookmarked,
@@ -92,6 +107,7 @@ export default function App() {
   const [posts, setPosts] = useState<ComplexPost[]>([]);
   const [bookmarks, setBookmarks] = useState<Set<string>>(new Set());
   const [applications, setApplications] = useState<BusinessApplication[]>([]);
+  const [editingApplication, setEditingApplication] = useState<BusinessApplication | null>(null);
   const [selectedBusiness, setSelectedBusiness] = useState<Business | null>(null);
   const [contacts, setContacts] = useState<BusinessContact[]>([]);
   const [query, setQuery] = useState('');
@@ -223,17 +239,49 @@ export default function App() {
   async function submitApplication(input: BusinessApplicationInput) {
     setSubmittingApplication(true);
     try {
-      const created = await dataAdapter.createBusinessApplication(input);
-      const latest = await dataAdapter.listMyBusinessApplications().catch(() => [created, ...applications.filter((item) => item.id !== created.id)]);
-      setApplications(latest);
-      setView('my');
-      setMessage('등록 신청이 접수되었습니다. 내정보에서 상태를 확인할 수 있습니다.');
+      if (editingApplication) {
+        const updated = await dataAdapter.resubmitBusinessApplication(editingApplication.id, input);
+        const latest = await dataAdapter.listMyBusinessApplications().catch(() => applications.map((item) => item.id === updated.id ? updated : item));
+        setApplications(latest);
+        setEditingApplication(null);
+        setView('my');
+        setMessage('보완 내용을 다시 제출했습니다. 신청 상태가 확인 대기로 변경되었습니다.');
+      } else {
+        const created = await dataAdapter.createBusinessApplication(input);
+        const latest = await dataAdapter.listMyBusinessApplications().catch(() => [created, ...applications.filter((item) => item.id !== created.id)]);
+        setApplications(latest);
+        setView('my');
+        setMessage('등록 신청이 접수되었습니다. 내정보에서 상태를 확인할 수 있습니다.');
+      }
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : '등록 신청에 실패했습니다.');
+      setMessage(error instanceof Error ? error.message : (editingApplication ? '보완 내용 재제출에 실패했습니다.' : '등록 신청에 실패했습니다.'));
       throw error;
     } finally {
       setSubmittingApplication(false);
+    }
+  }
+
+  async function beginApplicationResubmit(application: BusinessApplication) {
+    setLoading(true);
+    setMessage('');
+    try {
+      const detail = await dataAdapter.getMyBusinessApplication(application.id);
+      if (!detail) {
+        setMessage('등록 신청을 찾을 수 없습니다.');
+        return;
+      }
+      if (detail.status !== 'changes_requested') {
+        setMessage('보완 요청 상태의 신청만 수정할 수 있습니다.');
+        return;
+      }
+      setEditingApplication(detail);
+      setView('register');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : '보완할 신청을 불러오지 못했습니다.');
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -241,6 +289,7 @@ export default function App() {
     setView(next);
     setMessage('');
     if (next !== 'detail') setContacts([]);
+    if (next !== 'register') setEditingApplication(null);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
@@ -285,7 +334,7 @@ export default function App() {
           <button onClick={() => void applyFilters({ query: '', category: 'all', relation: 'resident' })}><span>🏪</span><strong>주민 가게</strong><small>같은 단지 주민이 운영하는 매장</small></button>
           <button onClick={() => void applyFilters({ query: '', category: 'all', relation: 'resident' })}><span>🧰</span><strong>주민 서비스</strong><small>과외·수리·상담·방문 서비스</small></button>
           <button onClick={() => go('benefits')}><span>🎁</span><strong>주민 혜택</strong><small>인증 주민만 받는 할인과 서비스</small></button>
-          <button onClick={() => go('register')}><span>📣</span><strong>내 일 알리기</strong><small>주민 사업자 등록 신청</small></button>
+          <button onClick={() => { setEditingApplication(null); go('register'); }}><span>📣</span><strong>내 일 알리기</strong><small>주민 사업자 등록 신청</small></button>
         </section>
 
         <section className="content-section shell">
@@ -385,8 +434,8 @@ export default function App() {
           <article className="wide">
             <h2>내 가게·서비스 등록</h2>
             <p>신청 후 관리자가 확인하며, 승인 전에는 주민 화면에 공개되지 않습니다.</p>
-            <button className="secondary" onClick={() => go('register')}>새 등록 신청</button>
-            {applications.length ? <div className="application-list">{applications.map((application) => <div className="application-item" key={application.id}><div><strong>{application.businessName}</strong><p>{application.categoryName} · {application.serviceSummary}</p></div><span className={`application-status ${application.status}`}>{applicationStatusLabels[application.status]}</span>{application.reviewNote && <div className="application-note">관리자 메모: {application.reviewNote}</div>}</div>)}</div> : <p>아직 등록 신청이 없습니다.</p>}
+            <button className="secondary" onClick={() => { setEditingApplication(null); go('register'); }}>새 등록 신청</button>
+            {applications.length ? <div className="application-list">{applications.map((application) => <div className="application-item" key={application.id}><div><strong>{application.businessName}</strong><p>{application.categoryName} · {application.serviceSummary}</p></div><span className={`application-status ${application.status}`}>{applicationStatusLabels[application.status]}</span>{application.reviewNote && <div className="application-note">관리자 메모: {application.reviewNote}</div>}{application.status === 'changes_requested' && <button className="application-resubmit" onClick={() => void beginApplicationResubmit(application)}>보완하기</button>}</div>)}</div> : <p>아직 등록 신청이 없습니다.</p>}
           </article>
           <article><h2>화면 설정</h2><p>큰 글자·모션 감소 같은 개인 화면 설정은 서버 권한과 분리합니다.</p></article>
         </div>
@@ -395,7 +444,7 @@ export default function App() {
   }
 
   function renderRegister() {
-    return <div className="shell"><ApplicationForm categoryNames={categories.map(([, name]) => name)} busy={submittingApplication} onSubmit={submitApplication} onCancel={() => go('my')} /></div>;
+    return <div className="shell"><ApplicationForm categoryNames={categories.map(([, name]) => name)} busy={submittingApplication} onSubmit={submitApplication} onCancel={() => go('my')} initialValue={editingApplication ? applicationToInput(editingApplication) : undefined} mode={editingApplication ? 'resubmit' : 'create'} reviewNote={editingApplication?.reviewNote} /></div>;
   }
 
   return (
