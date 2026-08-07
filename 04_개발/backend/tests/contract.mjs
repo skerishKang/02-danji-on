@@ -6,6 +6,7 @@ const core = read('src/core-v1.ts');
 const admin = read('src/admin-v1.ts');
 const schema = read('migrations/001_initial_schema.sql');
 const adminMigration = read('migrations/002_admin_workflow.sql');
+const domainConstraints = read('migrations/003_domain_constraints.sql');
 const contract = read('docs/API_CONTRACT_v1.md');
 
 const checks = [
@@ -23,6 +24,9 @@ const checks = [
   ['benefit write endpoints exist', admin.includes('createBenefit') && admin.includes('patchBenefit')],
   ['application link migration exists', adminMigration.includes('approved_business_id')],
   ['tenant model exists', schema.includes('business_complex_relations') && schema.includes('complex_memberships')],
+  ['domain length constraints exist', domainConstraints.includes('chk_application_business_name_length') && domainConstraints.includes('chk_post_body_length') && domainConstraints.includes('chk_benefit_title_length')],
+  ['application idempotency lookup is non-unique', domainConstraints.includes('CREATE INDEX IF NOT EXISTS idx_application_active_lookup') && !domainConstraints.includes('uq_active_application_name_per_user_complex')],
+  ['exact duplicate contacts are blocked', domainConstraints.includes('uq_business_contact_exact')],
   ['api contract documents admin routes', contract.includes('PATCH /api/v1/admin/business-applications/:applicationId')]
 ];
 
