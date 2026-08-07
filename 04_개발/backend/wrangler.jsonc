@@ -1,0 +1,13 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "danjion-api",
+  "main": "src/app.ts",
+  "compatibility_date": "2026-08-07",
+  "observability": {
+    "enabled": true
+  },
+  "vars": {
+    "APP_ENV": "development",
+    "DEV_AUTH_BYPASS": "false"
+  }
+}
