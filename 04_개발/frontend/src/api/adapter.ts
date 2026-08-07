@@ -1,6 +1,6 @@
 import { authProvider } from '../auth';
 import { mockBenefits, mockBusinesses, mockPosts } from '../data/mock';
-import { createMockApplication, listMockApplicationsForSubject, type MockApplicationRecord } from '../mock-store';
+import { createMockApplication, listApprovedMockBusinesses, listMockApplicationsForSubject, type MockApplicationRecord } from '../mock-store';
 import type {
   Benefit,
   Business,
@@ -22,6 +22,10 @@ function relationRank(relation: RelationType): number {
 
 function nowIso() {
   return new Date().toISOString();
+}
+
+function allMockBusinesses() {
+  return [...mockBusinesses, ...listApprovedMockBusinesses()];
 }
 
 function fromMockApplication(record: MockApplicationRecord): BusinessApplication {
@@ -52,7 +56,7 @@ export class MockAdapter implements DataAdapter {
     const query = filters.query?.trim().toLowerCase() || '';
     const category = filters.category && filters.category !== 'all' ? filters.category : null;
     const relation = filters.relation && filters.relation !== 'all' ? filters.relation : null;
-    return mockBusinesses
+    return allMockBusinesses()
       .filter((business) => !category || business.categorySlug === category || business.categoryName === category)
       .filter((business) => !relation || business.relationType === relation)
       .filter((business) => {
@@ -67,7 +71,7 @@ export class MockAdapter implements DataAdapter {
   }
 
   async getBusiness(id: string): Promise<Business | null> {
-    return mockBusinesses.find((business) => business.id === id) ?? null;
+    return allMockBusinesses().find((business) => business.id === id) ?? null;
   }
 
   async listBenefits(): Promise<Benefit[]> {
