@@ -53,7 +53,7 @@ Unique scope:
 - availabilityText
 - representativeImageObjectKey
 
-## 동작
+## 서버 동작
 
 ### 첫 요청
 
@@ -75,20 +75,38 @@ Unique scope:
 
 동일 key를 다른 의미의 요청에 재사용하는 것을 허용하지 않는다.
 
+## Client 구현
+
+API mode frontend는 logical submission 시작 시 다음 형식의 key를 한 번 생성한다.
+
+```text
+application:<crypto.randomUUID()>
+```
+
+`src/api/idempotency.ts`:
+
+- `createApplicationIdempotencyKey()`
+- `retryNetworkOnce()`
+
+등록 API 호출은 첫 요청과 재시도에서 **동일한 body + 동일한 Idempotency-Key**를 사용한다.
+
+자동 재시도 대상은 브라우저 `fetch`가 `TypeError`로 실패하는 네트워크 계층 오류 1회뿐이다.
+
+- HTTP 4xx/5xx는 자동 재시도하지 않음
+- 새로운 버튼 클릭/새 logical submission은 새로운 key 생성
+- UI 자체는 `busy` 상태로 이중 클릭도 별도 차단
+
 ## 목적
 
 다음 상황에서 중복 신청 생성을 막는다.
 
 ```text
-서버는 신청 저장 성공
+클라이언트 key K 생성
+→ 서버는 신청 저장 성공
 → 응답 전 네트워크 단절
 → 클라이언트는 실패로 인식
-→ 동일 요청 재전송
-→ 기존 신청 재사용
+→ 같은 key K + 같은 body로 1회 재전송
+→ 서버가 기존 신청을 반환
 ```
 
-## Client 후속
-
-API mode frontend는 실제 인프라 통합 단계에서 한 logical submission 동안 동일 Idempotency-Key를 유지하는 retry wrapper를 사용한다.
-
-UI의 단순 이중 클릭 방지는 `busy` 상태로 이미 처리하지만, UI 방지는 네트워크 재전송의 대체 수단이 아니다.
+UI 이중 클릭 방지와 서버 Idempotency는 서로 다른 방어선이며 둘 다 유지한다.
