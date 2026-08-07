@@ -1,7 +1,13 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { adminAdapter, type AdminApplication, type AdminApplicationStatus, type AdminBusiness } from './admin-api';
+import {
+  adminAdapter,
+  type AdminApplication,
+  type AdminApplicationStatus,
+  type AdminBusiness,
+  type AdminReviewEvent
+} from './admin-api';
 
-type AdminTab = 'applications' | 'posts' | 'benefits';
+type AdminTab = 'applications' | 'audit' | 'posts' | 'benefits';
 type ReviewStatus = Exclude<AdminApplicationStatus, 'draft'>;
 
 const statusLabels: Record<AdminApplicationStatus, string> = {
@@ -12,15 +18,32 @@ const statusLabels: Record<AdminApplicationStatus, string> = {
   rejected: '반려'
 };
 
+const actorLabels: Record<AdminReviewEvent['actorType'], string> = {
+  applicant: '신청자',
+  manager: '관리자',
+  system: '시스템'
+};
+
 function canReview(status: AdminApplicationStatus) {
   return status === 'pending' || status === 'changes_requested';
+}
+
+function formatDateTime(value: string) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat('ko-KR', {
+    month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit'
+  }).format(date);
 }
 
 export default function AdminApp() {
   const [tab, setTab] = useState<AdminTab>('applications');
   const [applications, setApplications] = useState<AdminApplication[]>([]);
   const [businesses, setBusinesses] = useState<AdminBusiness[]>([]);
+  const [reviewEvents, setReviewEvents] = useState<AdminReviewEvent[]>([]);
   const [statusFilter, setStatusFilter] = useState('all');
+  const [auditApplicationId, setAuditApplicationId] = useState('all');
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [busyId, setBusyId] = useState('');
   const [message, setMessage] = useState('');
@@ -37,14 +60,43 @@ export default function AdminApp() {
     }
   }
 
+  async function loadBusinesses() {
+    try {
+      setBusinesses(await adminAdapter.listBusinesses());
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : '가게 목록을 불러오지 못했습니다.');
+    }
+  }
+
+  async function loadReviewEvents(applicationId = auditApplicationId) {
+    try {
+      const rows = await adminAdapter.listReviewEvents(applicationId === 'all' ? null : applicationId);
+      setReviewEvents(rows);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : '검토 이력을 불러오지 못했습니다.');
+    }
+  }
+
   useEffect(() => {
     void loadApplications('all');
-    adminAdapter.listBusinesses().then(setBusinesses).catch((error) => setMessage(error instanceof Error ? error.message : '가게 목록을 불러오지 못했습니다.'));
+    void loadBusinesses();
   }, []);
 
   async function changeFilter(value: string) {
     setStatusFilter(value);
     await loadApplications(value);
+  }
+
+  async function changeAuditFilter(value: string) {
+    setAuditApplicationId(value);
+    await loadReviewEvents(value);
+  }
+
+  async function openTab(next: AdminTab) {
+    setTab(next);
+    setMessage('');
+    if (next === 'audit') await loadReviewEvents(auditApplicationId);
+    if (next === 'benefits') await loadBusinesses();
   }
 
   async function review(application: AdminApplication, status: ReviewStatus) {
@@ -55,6 +107,7 @@ export default function AdminApp() {
       await adminAdapter.reviewApplication(application.id, status, notes[application.id] || '');
       setMessage(`${application.businessName} 신청을 '${statusLabels[status]}' 상태로 변경했습니다.`);
       await loadApplications(statusFilter);
+      if (status === 'approved') await loadBusinesses();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : '검토 상태를 변경하지 못했습니다.');
     } finally {
@@ -110,9 +163,10 @@ export default function AdminApp() {
       </header>
 
       <nav className="admin-tabs" aria-label="운영관리 메뉴">
-        <button className={tab === 'applications' ? 'active' : ''} onClick={() => setTab('applications')}>등록 신청</button>
-        <button className={tab === 'posts' ? 'active' : ''} onClick={() => setTab('posts')}>단지소식</button>
-        <button className={tab === 'benefits' ? 'active' : ''} onClick={() => setTab('benefits')}>주민혜택</button>
+        <button className={tab === 'applications' ? 'active' : ''} onClick={() => void openTab('applications')}>등록 신청</button>
+        <button className={tab === 'audit' ? 'active' : ''} onClick={() => void openTab('audit')}>검토 이력</button>
+        <button className={tab === 'posts' ? 'active' : ''} onClick={() => void openTab('posts')}>단지소식</button>
+        <button className={tab === 'benefits' ? 'active' : ''} onClick={() => void openTab('benefits')}>주민혜택</button>
       </nav>
 
       {message && <button className="admin-message" onClick={() => setMessage('')}>{message}</button>}
@@ -158,6 +212,32 @@ export default function AdminApp() {
               </article>
             ))}
             {!applications.length && <div className="admin-empty">조건에 맞는 신청이 없습니다.</div>}
+          </div>
+        </main>
+      )}
+
+      {tab === 'audit' && (
+        <main className="admin-section">
+          <div className="admin-section-heading">
+            <div><h2>등록 신청 검토 이력</h2><p>보완 요청, 신청자 재제출, 승인·반려의 상태 변경을 시간순으로 확인합니다.</p></div>
+            <select aria-label="검토 이력 신청 필터" value={auditApplicationId} onChange={(event) => void changeAuditFilter(event.target.value)}>
+              <option value="all">모든 신청</option>
+              {applications.map((application) => <option key={application.id} value={application.id}>{application.businessName}</option>)}
+            </select>
+          </div>
+          <div className="audit-list">
+            {reviewEvents.map((event) => (
+              <article className="audit-event" key={event.id}>
+                <div className="audit-dot" aria-hidden="true" />
+                <div className="audit-copy">
+                  <div className="audit-topline"><strong>{event.businessName}</strong><time>{formatDateTime(event.createdAt)}</time></div>
+                  <p><b>{actorLabels[event.actorType]}</b> · {event.actorName}</p>
+                  <div className="audit-transition"><span>{event.fromStatus ? statusLabels[event.fromStatus] : '시작'}</span><i>→</i><strong>{statusLabels[event.toStatus]}</strong></div>
+                  {event.reviewNote && <blockquote>{event.reviewNote}</blockquote>}
+                </div>
+              </article>
+            ))}
+            {!reviewEvents.length && <div className="admin-empty">기록된 검토 이력이 없습니다.</div>}
           </div>
         </main>
       )}
