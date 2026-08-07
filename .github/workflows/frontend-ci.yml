@@ -6,8 +6,6 @@ on:
       - '04_개발/frontend/**'
       - '.github/workflows/frontend-ci.yml'
   push:
-    branches:
-      - feat/frontend-v5-app
     paths:
       - '04_개발/frontend/**'
       - '.github/workflows/frontend-ci.yml'
