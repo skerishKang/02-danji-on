@@ -21,7 +21,7 @@ const checks = [
   ['admin verification is complex scoped', admin.includes('m.complex_id = ${String(manager.complex_id)}::uuid')],
   ['admin only allows verified or rejected decision', admin.includes("['verified','rejected'].includes(status)")],
   ['admin review updates membership and verification together', admin.includes('with updated_membership as') && admin.includes('updated_verification as')],
-  ['base schema keeps verification separate from auth', schema.includes('create table resident_verifications') && schema.includes('verification_status')],
+  ['base schema keeps verification separate from auth', /create table if not exists resident_verifications\s*\(/i.test(schema) && schema.includes('verification_status')],
   ['verification constraints limit unit and building', constraints.includes('chk_membership_building_length') && constraints.includes('chk_membership_unit_length')],
   ['verification method is constrained', constraints.includes('chk_resident_verification_method')],
   ['verification note and evidence key are bounded', constraints.includes('chk_resident_verification_note_length') && constraints.includes('chk_resident_verification_evidence_key_length')]
