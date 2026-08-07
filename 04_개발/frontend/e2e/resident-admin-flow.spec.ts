@@ -1,16 +1,18 @@
 import { expect, test } from '@playwright/test';
 
 const APPLICATION_STORE_KEY = 'danjion.mock.business-applications.v1';
+const AUDIT_STORE_KEY = 'danjion.mock.application-review-events.v1';
 const POSTS_STORE_KEY = 'danjion.mock.posts.v1';
 const BENEFITS_STORE_KEY = 'danjion.mock.benefits.v1';
 
 async function resetMockStore(page: import('@playwright/test').Page) {
   await page.goto('/');
-  await page.evaluate(([applications, posts, benefits]) => {
+  await page.evaluate(([applications, audit, posts, benefits]) => {
     window.localStorage.removeItem(applications);
+    window.localStorage.removeItem(audit);
     window.localStorage.removeItem(posts);
     window.localStorage.removeItem(benefits);
-  }, [APPLICATION_STORE_KEY, POSTS_STORE_KEY, BENEFITS_STORE_KEY]);
+  }, [APPLICATION_STORE_KEY, AUDIT_STORE_KEY, POSTS_STORE_KEY, BENEFITS_STORE_KEY]);
   await page.reload();
 }
 
@@ -32,7 +34,7 @@ test('resident can search, bookmark and reveal verified contact', async ({ page 
   await expect(page.getByText('010-0000-1003')).toBeVisible();
 });
 
-test('resident can edit and resubmit a changes-requested application', async ({ page }) => {
+test('resident can edit and resubmit a changes-requested application with audit history', async ({ page }) => {
   await resetMockStore(page);
   await page.getByRole('button', { name: '내정보' }).first().click();
 
@@ -53,6 +55,13 @@ test('resident can edit and resubmit a changes-requested application', async ({ 
   const adminCard = page.locator('.admin-application-card').filter({ hasText: '맑은창 방충망 수리' });
   await expect(adminCard.locator('.admin-status.pending')).toHaveText('확인 대기');
   await expect(adminCard).toContainText('광주 남구 및 동구 방문 가능');
+
+  await page.getByRole('button', { name: '검토 이력' }).click();
+  const auditEvents = page.locator('.audit-event').filter({ hasText: '맑은창 방충망 수리' });
+  await expect(auditEvents).toHaveCount(2);
+  await expect(auditEvents.first()).toContainText('신청자');
+  await expect(auditEvents.first()).toContainText('보완 요청');
+  await expect(auditEvents.first()).toContainText('확인 대기');
 });
 
 test('resident submission with image becomes public after admin approval', async ({ page }) => {
@@ -85,6 +94,12 @@ test('resident submission with image becomes public after admin approval', async
   await expect(adminCard).toBeVisible();
   await adminCard.getByRole('button', { name: '승인' }).click();
   await expect(adminCard.locator('.admin-status.approved')).toHaveText('승인');
+
+  await page.getByRole('button', { name: '검토 이력' }).click();
+  const approvalEvent = page.locator('.audit-event').filter({ hasText: businessName }).first();
+  await expect(approvalEvent).toContainText('관리자');
+  await expect(approvalEvent).toContainText('확인 대기');
+  await expect(approvalEvent).toContainText('승인');
 
   await page.goto('/');
   await page.getByRole('button', { name: '내정보' }).first().click();
