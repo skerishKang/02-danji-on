@@ -78,8 +78,8 @@ BEGIN
   END IF;
 END $$;
 
--- Prevent accidental duplicate active applications from repeated clicks/retries.
-CREATE UNIQUE INDEX IF NOT EXISTS uq_active_application_name_per_user_complex
+-- Lookup support for future API-level idempotency checks without turning retries into DB errors.
+CREATE INDEX IF NOT EXISTS idx_application_active_lookup
 ON business_applications (complex_id, applicant_user_id, lower(business_name))
 WHERE status IN ('draft','pending','changes_requested');
 
