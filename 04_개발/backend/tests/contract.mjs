@@ -4,6 +4,7 @@ const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf
 const app = read('src/app.ts');
 const core = read('src/core-v1.ts');
 const admin = read('src/admin-v1.ts');
+const adminAudit = read('src/admin-audit-v1.ts');
 const residentApplication = read('src/resident-application-v1.ts');
 const payloadPolicy = read('src/payload-policy.ts');
 const schema = read('migrations/001_initial_schema.sql');
@@ -14,6 +15,7 @@ const idempotencyMigration = read('migrations/005_application_idempotency.sql');
 const contract = read('docs/API_CONTRACT_v1.md');
 
 const checks = [
+  ['app routes admin audit before generic admin', app.includes('handleAdminAuditRequest') && app.indexOf('handleAdminAuditRequest') < app.indexOf("startsWith('/api/v1/admin/')")],
   ['app routes admin before core', app.includes("startsWith('/api/v1/admin/')") && app.includes('handleAdminRequest')],
   ['app routes resident application workflow before core', app.includes('handleResidentApplicationRequest') && app.indexOf('handleResidentApplicationRequest') < app.lastIndexOf('core.fetch')],
   ['app preflight allows idempotency header', app.includes('idempotency-key') && app.includes('access-control-allow-headers')],
@@ -22,6 +24,10 @@ const checks = [
   ['payload policy preserves request body with clone', payloadPolicy.includes('request.clone().text()')],
   ['active core uses narrow Neon type', core.includes('NeonQueryFunction<false, false>')],
   ['active admin uses narrow Neon type', admin.includes('NeonQueryFunction<false, false>')],
+  ['admin audit uses narrow Neon type', adminAudit.includes('NeonQueryFunction<false, false>')],
+  ['admin audit requires verified manager membership', adminAudit.includes("m.role in ('manager','admin')") && adminAudit.includes("m.verification_status = 'verified'")],
+  ['admin audit is complex scoped', adminAudit.includes('e.complex_id = ${String(manager.complex_id)}::uuid')],
+  ['admin audit supports application filter and limit', adminAudit.includes("url.searchParams.get('applicationId')") && adminAudit.includes("url.searchParams.get('limit')")],
   ['resident workflow uses narrow Neon type', residentApplication.includes('NeonQueryFunction<false, false>')],
   ['resident resubmit is owner scoped', residentApplication.includes('a.applicant_user_id = ${actor.id}::uuid')],
   ['resident resubmit only accepts changes requested state', residentApplication.includes("a.status = 'changes_requested'") && residentApplication.includes("status = 'pending'")],
@@ -34,7 +40,7 @@ const checks = [
   ['idempotency schema binds key and fingerprint pair', idempotencyMigration.includes('chk_application_submission_pair') && idempotencyMigration.includes('submission_fingerprint')],
   ['public business list exists', core.includes('/businesses') && core.includes('business_complex_relations')],
   ['verified resident contact boundary exists', core.includes('RESIDENT_VERIFICATION_REQUIRED') && core.includes('business_contacts')],
-  ['dev bypass disabled in production', core.includes("env.APP_ENV === 'production'") && admin.includes("env.APP_ENV !== 'production'") && residentApplication.includes("env.APP_ENV !== 'production'")],
+  ['dev bypass disabled in production', core.includes("env.APP_ENV === 'production'") && admin.includes("env.APP_ENV !== 'production'") && adminAudit.includes("env.APP_ENV !== 'production'") && residentApplication.includes("env.APP_ENV !== 'production'")],
   ['admin list endpoint exists', admin.includes('business-applications$/') && admin.includes("request.method === 'GET'")],
   ['admin approval uses atomic update gate', admin.includes('with approved as') && admin.includes("a.status in ('pending','changes_requested')")],
   ['approval creates business relation', admin.includes('created_business') && admin.includes('created_relation')],
