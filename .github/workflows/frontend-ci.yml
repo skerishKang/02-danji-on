@@ -1,0 +1,33 @@
+name: Frontend CI
+
+on:
+  pull_request:
+    paths:
+      - '04_개발/frontend/**'
+      - '.github/workflows/frontend-ci.yml'
+  push:
+    branches:
+      - feat/frontend-v5-app
+    paths:
+      - '04_개발/frontend/**'
+      - '.github/workflows/frontend-ci.yml'
+
+jobs:
+  frontend-check:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: 04_개발/frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: 04_개발/frontend/package.json
+      - name: Install dependencies
+        run: npm install --ignore-scripts
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Build
+        run: npm run build
