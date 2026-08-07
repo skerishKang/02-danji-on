@@ -14,6 +14,12 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
-    sourcemap: true
+    sourcemap: true,
+    rollupOptions: {
+      input: {
+        app: 'index.html',
+        admin: 'admin.html'
+      }
+    }
   }
 });
