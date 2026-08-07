@@ -16,16 +16,24 @@ test('search presents a clear empty state for no matches', async ({ page }) => {
   await expect(page.locator('.result-summary')).toContainText('0개의 가게와 서비스');
 });
 
-test('business application blocks missing required fields', async ({ page }) => {
+test('business application blocks missing required fields at step two', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: /내 일 알리기/ }).click();
-  await page.getByRole('button', { name: '등록 신청하기' }).click();
-  await expect(page.getByRole('alert')).toHaveText('가게·서비스명, 분야, 소개는 필수입니다.');
+  await page.getByRole('button', { name: '다음 단계' }).click();
+  await expect(page.getByText('STEP 2 / 4')).toBeVisible();
+  await page.getByRole('button', { name: '다음 단계' }).click();
+  await expect(page.getByRole('alert')).toHaveText('가게·서비스명, 분야, 한 줄 소개는 필수입니다.');
+  await expect(page.getByText('STEP 2 / 4')).toBeVisible();
 });
 
 test('business application rejects non-image representative files', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: /내 일 알리기/ }).click();
+  await page.getByRole('button', { name: '다음 단계' }).click();
+  await page.getByLabel('가게·서비스명 *').fill('파일 검증 서비스');
+  await page.getByLabel('분야 *').fill('테스트');
+  await page.getByLabel('한 줄 소개 *').fill('잘못된 파일 형식을 검증합니다.');
+  await page.getByRole('button', { name: '다음 단계' }).click();
   await page.locator('.image-picker input[type="file"]').setInputFiles({
     name: 'not-an-image.txt',
     mimeType: 'text/plain',
