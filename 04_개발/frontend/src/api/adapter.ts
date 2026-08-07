@@ -1,6 +1,13 @@
 import { authProvider } from '../auth';
 import { mockBenefits, mockBusinesses, mockPosts } from '../data/mock';
-import { createMockApplication, listApprovedMockBusinesses, listMockApplicationsForSubject, type MockApplicationRecord } from '../mock-store';
+import {
+  createMockApplication,
+  getMockApplicationForSubject,
+  listApprovedMockBusinesses,
+  listMockApplicationsForSubject,
+  resubmitMockApplication,
+  type MockApplicationRecord
+} from '../mock-store';
 import type {
   Benefit,
   Business,
@@ -35,6 +42,12 @@ function fromMockApplication(record: MockApplicationRecord): BusinessApplication
     businessName: record.businessName,
     categoryName: record.categoryName,
     serviceSummary: record.serviceSummary,
+    priceText: record.priceText,
+    contactMethod: record.contactMethod,
+    serviceArea: record.serviceArea,
+    benefitText: record.benefitText,
+    availabilityText: record.availabilityText,
+    representativeImageObjectKey: record.representativeImageObjectKey,
     status: record.status,
     reviewNote: record.reviewNote,
     approvedBusinessId: record.approvedBusinessId,
@@ -107,6 +120,17 @@ export class MockAdapter implements DataAdapter {
     const subject = authProvider.snapshot('resident').subject || 'dev-resident-001';
     return listMockApplicationsForSubject(subject).map(fromMockApplication);
   }
+
+  async getMyBusinessApplication(id: string): Promise<BusinessApplication | null> {
+    const subject = authProvider.snapshot('resident').subject || 'dev-resident-001';
+    const record = getMockApplicationForSubject(id, subject);
+    return record ? fromMockApplication(record) : null;
+  }
+
+  async resubmitBusinessApplication(id: string, input: BusinessApplicationInput): Promise<BusinessApplication> {
+    const subject = authProvider.snapshot('resident').subject || 'dev-resident-001';
+    return fromMockApplication(resubmitMockApplication(id, subject, input));
+  }
 }
 
 type ApiEnvelope<T> = { data: T; requestId: string };
@@ -176,6 +200,12 @@ function mapApplication(raw: Record<string, unknown>): BusinessApplication {
     businessName: String(raw.business_name ?? ''),
     categoryName: String(raw.category_name ?? ''),
     serviceSummary: String(raw.service_summary ?? ''),
+    priceText: raw.price_text ? String(raw.price_text) : undefined,
+    contactMethod: raw.contact_method ? String(raw.contact_method) : undefined,
+    serviceArea: raw.service_area ? String(raw.service_area) : undefined,
+    benefitText: raw.benefit_text ? String(raw.benefit_text) : undefined,
+    availabilityText: raw.availability_text ? String(raw.availability_text) : undefined,
+    representativeImageObjectKey: raw.representative_image_object_key ? String(raw.representative_image_object_key) : undefined,
     status: String(raw.status ?? 'pending') as BusinessApplication['status'],
     reviewNote: raw.review_note ? String(raw.review_note) : null,
     approvedBusinessId: raw.approved_business_id ? String(raw.approved_business_id) : null,
@@ -249,19 +279,41 @@ export class ApiAdapter implements DataAdapter {
       body: JSON.stringify({ complexSlug: COMPLEX_SLUG, ...input })
     });
     return {
-      id: String(row.id),
+      ...mapApplication(row),
       relationType: input.relationType,
       businessName: input.businessName,
       categoryName: input.categoryName,
       serviceSummary: input.serviceSummary,
-      status: String(row.status ?? 'pending') as BusinessApplication['status'],
-      createdAt: String(row.created_at ?? nowIso())
+      priceText: input.priceText,
+      contactMethod: input.contactMethod,
+      serviceArea: input.serviceArea,
+      benefitText: input.benefitText,
+      availabilityText: input.availabilityText,
+      representativeImageObjectKey: input.representativeImageObjectKey
     };
   }
 
   async listMyBusinessApplications(): Promise<BusinessApplication[]> {
     const rows = await request<Record<string, unknown>[]>('/api/v1/me/business-applications');
     return rows.map(mapApplication);
+  }
+
+  async getMyBusinessApplication(id: string): Promise<BusinessApplication | null> {
+    try {
+      const row = await request<Record<string, unknown>>(`/api/v1/me/business-applications/${id}`);
+      return mapApplication(row);
+    } catch (error) {
+      if (error instanceof Error && error.message.toLowerCase().includes('not found')) return null;
+      throw error;
+    }
+  }
+
+  async resubmitBusinessApplication(id: string, input: BusinessApplicationInput): Promise<BusinessApplication> {
+    const row = await request<Record<string, unknown>>(`/api/v1/me/business-applications/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(input)
+    });
+    return mapApplication(row);
   }
 }
 
