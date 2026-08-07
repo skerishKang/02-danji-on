@@ -1,0 +1,60 @@
+name: Resident Verification CI
+
+on:
+  pull_request:
+    paths:
+      - '04_개발/frontend/**'
+      - '04_개발/backend/src/*verification*.ts'
+      - '04_개발/backend/migrations/006_resident_verification_constraints.sql'
+      - '04_개발/backend/tests/verification-contract.mjs'
+      - '.github/workflows/verification-ci.yml'
+  push:
+    branches:
+      - feat/preinfra-integration
+    paths:
+      - '04_개발/frontend/**'
+      - '04_개발/backend/src/*verification*.ts'
+      - '04_개발/backend/migrations/006_resident_verification_constraints.sql'
+      - '04_개발/backend/tests/verification-contract.mjs'
+      - '.github/workflows/verification-ci.yml'
+
+jobs:
+  verification-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Install backend dependencies
+        working-directory: 04_개발/backend
+        run: npm install --ignore-scripts
+      - name: Backend typecheck
+        working-directory: 04_개발/backend
+        run: npm run typecheck
+      - name: Resident verification contract checks
+        working-directory: 04_개발/backend
+        run: node tests/verification-contract.mjs
+
+      - name: Install frontend dependencies
+        working-directory: 04_개발/frontend
+        run: npm install --ignore-scripts
+      - name: Frontend typecheck
+        working-directory: 04_개발/frontend
+        run: npm run typecheck
+      - name: Frontend production build
+        working-directory: 04_개발/frontend
+        run: npm run build
+      - name: Install Playwright Chromium
+        working-directory: 04_개발/frontend
+        run: npx playwright install --with-deps chromium
+      - name: Run resident verification E2E
+        working-directory: 04_개발/frontend
+        env:
+          VITE_DATA_MODE: mock
+          VITE_AUTH_MODE: dev
+          VITE_STORAGE_MODE: mock
+          VITE_DEV_AUTH_USER: dev-resident-001
+          VITE_DEV_ADMIN_AUTH_USER: dev-manager-001
+        run: npx playwright test e2e/resident-verification.spec.ts --project=desktop-chromium
