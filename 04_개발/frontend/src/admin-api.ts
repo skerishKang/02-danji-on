@@ -1,5 +1,6 @@
 import { authProvider } from './auth';
 import { mockBusinesses } from './data/mock';
+import { listMockReviewEvents } from './mock-audit-store';
 import { createStoredMockBenefit, createStoredMockPost } from './mock-content-store';
 import { listApprovedMockBusinesses, listMockApplications, reviewMockApplication, type MockApplicationRecord } from './mock-store';
 
@@ -26,6 +27,18 @@ export interface AdminApplication {
 export interface AdminBusiness {
   id: string;
   name: string;
+}
+
+export interface AdminReviewEvent {
+  id: string;
+  applicationId: string;
+  businessName: string;
+  actorType: 'applicant' | 'manager' | 'system';
+  actorName: string;
+  fromStatus: AdminApplicationStatus | null;
+  toStatus: AdminApplicationStatus;
+  reviewNote?: string | null;
+  createdAt: string;
 }
 
 const COMPLEX_SLUG = import.meta.env.VITE_COMPLEX_SLUG || 'bangnim-myeongji-roadhill';
@@ -90,6 +103,20 @@ function mapApplication(raw: Record<string, unknown>): AdminApplication {
   };
 }
 
+function mapReviewEvent(raw: Record<string, unknown>): AdminReviewEvent {
+  return {
+    id: String(raw.id),
+    applicationId: String(raw.application_id ?? ''),
+    businessName: String(raw.business_name ?? ''),
+    actorType: String(raw.actor_type ?? 'system') as AdminReviewEvent['actorType'],
+    actorName: String(raw.actor_name ?? '사용자'),
+    fromStatus: raw.from_status ? String(raw.from_status) as AdminApplicationStatus : null,
+    toStatus: String(raw.to_status ?? 'pending') as AdminApplicationStatus,
+    reviewNote: raw.review_note ? String(raw.review_note) : null,
+    createdAt: String(raw.created_at ?? '')
+  };
+}
+
 class MockAdminAdapter {
   async listApplications(status = 'all') {
     return listMockApplications(status as AdminApplicationStatus | 'all').map(fromMockApplication);
@@ -98,6 +125,10 @@ class MockAdminAdapter {
   async reviewApplication(id: string, status: Exclude<AdminApplicationStatus, 'draft'>, reviewNote: string) {
     if (status === 'pending') throw new Error('검토 결과는 보완 요청, 승인, 반려 중 하나여야 합니다.');
     return fromMockApplication(reviewMockApplication(id, status, reviewNote));
+  }
+
+  async listReviewEvents(applicationId?: string | null): Promise<AdminReviewEvent[]> {
+    return listMockReviewEvents(applicationId).map((event) => ({ ...event }));
   }
 
   async listBusinesses(): Promise<AdminBusiness[]> {
@@ -128,6 +159,14 @@ class ApiAdminAdapter {
       method: 'PATCH',
       body: JSON.stringify({ status, reviewNote })
     });
+  }
+
+  async listReviewEvents(applicationId?: string | null): Promise<AdminReviewEvent[]> {
+    const params = new URLSearchParams();
+    if (applicationId) params.set('applicationId', applicationId);
+    params.set('limit', '200');
+    const rows = await apiRequest<Record<string, unknown>[]>(`/api/v1/admin/complexes/${COMPLEX_SLUG}/application-review-events?${params.toString()}`);
+    return rows.map(mapReviewEvent);
   }
 
   async listBusinesses(): Promise<AdminBusiness[]> {
