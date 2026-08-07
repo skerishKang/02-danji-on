@@ -1,3 +1,4 @@
+import { recordMockReviewEvent } from './mock-audit-store';
 import type { Business, BusinessApplicationInput, BusinessApplicationStatus, RelationType } from './types';
 
 export interface MockApplicationRecord {
@@ -168,6 +169,15 @@ export function resubmitMockApplication(id: string, subject: string, input: Busi
   };
   records[index] = updated;
   writeRecords(records);
+  recordMockReviewEvent({
+    applicationId: current.id,
+    businessName: updated.businessName,
+    actorType: 'applicant',
+    actorName: current.applicantName,
+    fromStatus: current.status,
+    toStatus: 'pending',
+    reviewNote: current.reviewNote
+  });
   return updated;
 }
 
@@ -220,5 +230,14 @@ export function reviewMockApplication(
   };
   records[index] = updated;
   writeRecords(records);
+  recordMockReviewEvent({
+    applicationId: current.id,
+    businessName: current.businessName,
+    actorType: 'manager',
+    actorName: '개발 관리자',
+    fromStatus: current.status,
+    toStatus: status,
+    reviewNote: reviewNote || null
+  });
   return updated;
 }
