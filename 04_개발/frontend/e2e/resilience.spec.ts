@@ -18,7 +18,7 @@ test('search presents a clear empty state for no matches', async ({ page }) => {
 
 test('business application blocks missing required fields at step two', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: /내 일 알리기/ }).click();
+  await page.getByRole('button', { name: '내 일 알리기', exact: true }).click();
   await page.getByRole('button', { name: '다음 단계' }).click();
   await expect(page.getByText('STEP 2 / 4')).toBeVisible();
   await page.getByRole('button', { name: '다음 단계' }).click();
@@ -28,7 +28,7 @@ test('business application blocks missing required fields at step two', async ({
 
 test('business application rejects non-image representative files', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: /내 일 알리기/ }).click();
+  await page.getByRole('button', { name: '내 일 알리기', exact: true }).click();
   await page.getByRole('button', { name: '다음 단계' }).click();
   await page.getByLabel('가게·서비스명 *').fill('파일 검증 서비스');
   await page.getByLabel('분야 *').fill('테스트');
