@@ -1,10 +1,20 @@
 import { useEffect, useMemo, useState } from 'react';
+import ApplicationForm from './ApplicationForm';
 import { dataAdapter } from './api/adapter';
-import { relationLabels, type Benefit, type Business, type ComplexPost, type RelationType } from './types';
+import {
+  applicationStatusLabels,
+  relationLabels,
+  type Benefit,
+  type Business,
+  type BusinessApplication,
+  type BusinessApplicationInput,
+  type BusinessContact,
+  type ComplexPost,
+  type RelationType
+} from './types';
 
-type View = 'home' | 'listings' | 'detail' | 'benefits' | 'news' | 'my';
-
-type NavItem = { view: View; label: string; icon: string };
+type View = 'home' | 'listings' | 'detail' | 'benefits' | 'news' | 'my' | 'register';
+type NavItem = { view: Exclude<View, 'detail' | 'register'>; label: string; icon: string };
 
 const navItems: NavItem[] = [
   { view: 'home', label: '홈', icon: '⌂' },
@@ -19,6 +29,10 @@ function formatDate(value: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
   return new Intl.DateTimeFormat('ko-KR', { month: 'numeric', day: 'numeric' }).format(date);
+}
+
+function contactTypeLabel(type: BusinessContact['type']) {
+  return { phone: '전화', sms: '문자', kakao: '카카오톡', url: '온라인' }[type];
 }
 
 function ServiceCard({
@@ -72,15 +86,19 @@ function SectionHeading({ title, description, action }: { title: string; descrip
 
 export default function App() {
   const [view, setView] = useState<View>('home');
+  const [allBusinesses, setAllBusinesses] = useState<Business[]>([]);
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [benefits, setBenefits] = useState<Benefit[]>([]);
   const [posts, setPosts] = useState<ComplexPost[]>([]);
   const [bookmarks, setBookmarks] = useState<Set<string>>(new Set());
+  const [applications, setApplications] = useState<BusinessApplication[]>([]);
   const [selectedBusiness, setSelectedBusiness] = useState<Business | null>(null);
+  const [contacts, setContacts] = useState<BusinessContact[]>([]);
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState('all');
   const [relation, setRelation] = useState<RelationType | 'all'>('all');
   const [loading, setLoading] = useState(true);
+  const [submittingApplication, setSubmittingApplication] = useState(false);
   const [message, setMessage] = useState('');
 
   useEffect(() => {
@@ -89,13 +107,16 @@ export default function App() {
       dataAdapter.listBusinesses(),
       dataAdapter.listBenefits(),
       dataAdapter.listPosts(),
-      dataAdapter.getBookmarks().catch(() => [])
-    ]).then(([nextBusinesses, nextBenefits, nextPosts, nextBookmarks]) => {
+      dataAdapter.getBookmarks().catch(() => []),
+      dataAdapter.listMyBusinessApplications().catch(() => [])
+    ]).then(([nextBusinesses, nextBenefits, nextPosts, nextBookmarks, nextApplications]) => {
       if (!alive) return;
+      setAllBusinesses(nextBusinesses);
       setBusinesses(nextBusinesses);
       setBenefits(nextBenefits);
       setPosts(nextPosts);
       setBookmarks(new Set(nextBookmarks));
+      setApplications(nextApplications);
     }).catch((error) => {
       if (!alive) return;
       setMessage(error instanceof Error ? error.message : '데이터를 불러오지 못했습니다.');
@@ -105,12 +126,12 @@ export default function App() {
 
   const categories = useMemo(() => {
     const unique = new Map<string, string>();
-    businesses.forEach((business) => unique.set(business.categorySlug, business.categoryName));
+    allBusinesses.forEach((business) => unique.set(business.categorySlug, business.categoryName));
     return [...unique.entries()];
-  }, [businesses]);
+  }, [allBusinesses]);
 
-  const residentBusinesses = businesses.filter((business) => business.relationType === 'resident').slice(0, 4);
-  const bookmarkedBusinesses = businesses.filter((business) => bookmarks.has(business.id));
+  const residentBusinesses = allBusinesses.filter((business) => business.relationType === 'resident').slice(0, 4);
+  const bookmarkedBusinesses = allBusinesses.filter((business) => bookmarks.has(business.id));
 
   async function applyFilters(next?: Partial<{ query: string; category: string; relation: RelationType | 'all' }>) {
     const nextQuery = next?.query ?? query;
@@ -135,11 +156,14 @@ export default function App() {
     setLoading(true);
     try {
       const rows = await dataAdapter.listBusinesses();
+      setAllBusinesses(rows);
       setBusinesses(rows);
       setQuery('');
       setCategory('all');
       setRelation('all');
       setView('listings');
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : '목록을 불러오지 못했습니다.');
     } finally {
       setLoading(false);
     }
@@ -147,6 +171,7 @@ export default function App() {
 
   async function openBusiness(id: string) {
     setLoading(true);
+    setContacts([]);
     try {
       const business = await dataAdapter.getBusiness(id);
       if (!business) {
@@ -181,9 +206,41 @@ export default function App() {
     }
   }
 
+  async function revealContacts() {
+    if (!selectedBusiness) return;
+    setLoading(true);
+    try {
+      const rows = await dataAdapter.getBusinessContacts(selectedBusiness.id);
+      setContacts(rows);
+      setMessage(rows.length ? '인증 주민용 문의 방법을 확인했습니다.' : '등록된 문의 방법이 없습니다.');
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : '문의 방법을 확인하지 못했습니다.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function submitApplication(input: BusinessApplicationInput) {
+    setSubmittingApplication(true);
+    try {
+      const created = await dataAdapter.createBusinessApplication(input);
+      const latest = await dataAdapter.listMyBusinessApplications().catch(() => [created, ...applications.filter((item) => item.id !== created.id)]);
+      setApplications(latest);
+      setView('my');
+      setMessage('등록 신청이 접수되었습니다. 내정보에서 상태를 확인할 수 있습니다.');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : '등록 신청에 실패했습니다.');
+      throw error;
+    } finally {
+      setSubmittingApplication(false);
+    }
+  }
+
   function go(next: View) {
     setView(next);
     setMessage('');
+    if (next !== 'detail') setContacts([]);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
@@ -216,19 +273,11 @@ export default function App() {
         <section className="search-area shell">
           <label htmlFor="home-search">어떤 가게나 서비스가 필요하세요?</label>
           <div className="search-box">
-            <input
-              id="home-search"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              onKeyDown={(event) => event.key === 'Enter' && void applyFilters({ query: event.currentTarget.value, category: 'all', relation: 'all' })}
-              placeholder="예: 반찬, 에어컨 청소, 수학 과외"
-            />
+            <input id="home-search" value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && void applyFilters({ query: event.currentTarget.value, category: 'all', relation: 'all' })} placeholder="예: 반찬, 에어컨 청소, 수학 과외" />
             <button className="primary" onClick={() => void applyFilters({ query, category: 'all', relation: 'all' })}>검색하기</button>
           </div>
           <div className="quick-searches">
-            {['반찬', '자동차 정비', '에어컨 청소', '수학 과외', '세무 상담', '사진 촬영'].map((item) => (
-              <button key={item} onClick={() => void applyFilters({ query: item, category: 'all', relation: 'all' })}>{item}</button>
-            ))}
+            {['반찬', '자동차 정비', '에어컨 청소', '수학 과외', '세무 상담', '사진 촬영'].map((item) => <button key={item} onClick={() => void applyFilters({ query: item, category: 'all', relation: 'all' })}>{item}</button>)}
           </div>
         </section>
 
@@ -236,41 +285,27 @@ export default function App() {
           <button onClick={() => void applyFilters({ query: '', category: 'all', relation: 'resident' })}><span>🏪</span><strong>주민 가게</strong><small>같은 단지 주민이 운영하는 매장</small></button>
           <button onClick={() => void applyFilters({ query: '', category: 'all', relation: 'resident' })}><span>🧰</span><strong>주민 서비스</strong><small>과외·수리·상담·방문 서비스</small></button>
           <button onClick={() => go('benefits')}><span>🎁</span><strong>주민 혜택</strong><small>인증 주민만 받는 할인과 서비스</small></button>
-          <button onClick={() => setMessage('사업자 등록 화면은 백엔드 신청 API와 함께 다음 연결 단계에서 붙입니다.')}><span>📣</span><strong>내 일 알리기</strong><small>주민 사업자 등록 신청</small></button>
+          <button onClick={() => go('register')}><span>📣</span><strong>내 일 알리기</strong><small>주민 사업자 등록 신청</small></button>
         </section>
 
         <section className="content-section shell">
-          <SectionHeading
-            title="방림명지로드힐 주민의 가게와 서비스"
-            description="같은 단지에 사는 이웃이 직접 운영합니다."
-            action={<button className="section-link" onClick={() => void resetListings()}>모두 보기</button>}
-          />
+          <SectionHeading title="방림명지로드힐 주민의 가게와 서비스" description="같은 단지에 사는 이웃이 직접 운영합니다." action={<button className="section-link" onClick={() => void resetListings()}>모두 보기</button>} />
           <div className="service-grid">
-            {residentBusinesses.map((business) => (
-              <ServiceCard key={business.id} business={business} bookmarked={bookmarks.has(business.id)} onOpen={() => void openBusiness(business.id)} onBookmark={() => void toggleBookmark(business.id)} />
-            ))}
+            {residentBusinesses.map((business) => <ServiceCard key={business.id} business={business} bookmarked={bookmarks.has(business.id)} onOpen={() => void openBusiness(business.id)} onBookmark={() => void toggleBookmark(business.id)} />)}
           </div>
         </section>
 
         <section className="content-section shell">
           <SectionHeading title="이번 주 주민혜택" description="방림명지로드힐 인증 입주민에게 제공됩니다." action={<button className="section-link" onClick={() => go('benefits')}>모두 보기</button>} />
           <div className="benefit-grid">
-            {benefits.slice(0, 3).map((benefit) => (
-              <button key={benefit.id} className="benefit-card" onClick={() => void openBusiness(benefit.businessId)}>
-                <span>🎁</span><div><strong>{benefit.title}</strong><b>{benefit.businessName}</b><p>{benefit.description}</p></div>
-              </button>
-            ))}
+            {benefits.slice(0, 3).map((benefit) => <button key={benefit.id} className="benefit-card" onClick={() => void openBusiness(benefit.businessId)}><span>🎁</span><div><strong>{benefit.title}</strong><b>{benefit.businessName}</b><p>{benefit.description}</p></div></button>)}
           </div>
         </section>
 
         <section className="content-section shell">
           <SectionHeading title="단지소식" description="꼭 필요한 소식만 간단히 확인하세요." action={<button className="section-link" onClick={() => go('news')}>모두 보기</button>} />
           <div className="news-list">
-            {posts.slice(0, 3).map((post) => (
-              <button key={post.id} onClick={() => go('news')}>
-                <span>{post.sourceName}</span><strong>{post.title}</strong><time>{formatDate(post.publishedAt)}</time>
-              </button>
-            ))}
+            {posts.slice(0, 3).map((post) => <button key={post.id} onClick={() => go('news')}><span>{post.sourceName}</span><strong>{post.title}</strong><time>{formatDate(post.publishedAt)}</time></button>)}
           </div>
         </section>
       </>
@@ -284,30 +319,18 @@ export default function App() {
         <div className="filter-panel">
           <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="가게·서비스 검색" />
           <select value={relation} onChange={(event) => setRelation(event.target.value as RelationType | 'all')}>
-            <option value="all">관계 전체</option>
-            <option value="resident">방림명지로드힐 주민 운영</option>
-            <option value="resident_family">주민 가족 운영</option>
-            <option value="neighbor">이웃 단지 주민 운영</option>
-            <option value="local">우리 동네 가게</option>
+            <option value="all">관계 전체</option><option value="resident">방림명지로드힐 주민 운영</option><option value="resident_family">주민 가족 운영</option><option value="neighbor">이웃 단지 주민 운영</option><option value="local">우리 동네 가게</option>
           </select>
           <button className="primary" onClick={() => void applyFilters()}>검색</button>
         </div>
         <div className="listing-layout">
           <aside className="category-list">
-            <button className={category === 'all' ? 'active' : ''} onClick={() => { setCategory('all'); void applyFilters({ category: 'all' }); }}>전체</button>
-            {categories.map(([slug, name]) => (
-              <button key={slug} className={category === slug ? 'active' : ''} onClick={() => { setCategory(slug); void applyFilters({ category: slug }); }}>{name}</button>
-            ))}
+            <button className={category === 'all' ? 'active' : ''} onClick={() => void applyFilters({ category: 'all' })}>전체</button>
+            {categories.map(([slug, name]) => <button key={slug} className={category === slug ? 'active' : ''} onClick={() => void applyFilters({ category: slug })}>{name}</button>)}
           </aside>
           <div>
             <div className="result-summary"><strong>{businesses.length}개의 가게와 서비스</strong><span>주민 관계 순서로 표시됩니다.</span></div>
-            {businesses.length > 0 ? (
-              <div className="service-grid">
-                {businesses.map((business) => (
-                  <ServiceCard key={business.id} business={business} bookmarked={bookmarks.has(business.id)} onOpen={() => void openBusiness(business.id)} onBookmark={() => void toggleBookmark(business.id)} />
-                ))}
-              </div>
-            ) : <div className="empty">조건에 맞는 결과가 없습니다.</div>}
+            {businesses.length ? <div className="service-grid">{businesses.map((business) => <ServiceCard key={business.id} business={business} bookmarked={bookmarks.has(business.id)} onOpen={() => void openBusiness(business.id)} onBookmark={() => void toggleBookmark(business.id)} />)}</div> : <div className="empty">조건에 맞는 결과가 없습니다.</div>}
           </div>
         </div>
       </section>
@@ -329,15 +352,13 @@ export default function App() {
             <strong className="detail-price">{business.priceText}</strong>
             {business.activeBenefit && <div className="detail-benefit"><b>주민 혜택</b><strong>{business.activeBenefit.title}</strong><span>{business.activeBenefit.description}</span></div>}
             <dl>
-              <div><dt>분야</dt><dd>{business.categoryName}</dd></div>
-              <div><dt>이용 지역</dt><dd>{business.serviceArea}</dd></div>
-              <div><dt>이용 시간</dt><dd>{business.availabilityText}</dd></div>
-              <div><dt>연락 방법</dt><dd>인증 입주민에게만 실제 연락처를 표시합니다.</dd></div>
+              <div><dt>분야</dt><dd>{business.categoryName}</dd></div><div><dt>이용 지역</dt><dd>{business.serviceArea}</dd></div><div><dt>이용 시간</dt><dd>{business.availabilityText}</dd></div><div><dt>연락 방법</dt><dd>인증 입주민에게만 실제 연락처를 표시합니다.</dd></div>
             </dl>
             <div className="detail-actions">
               <button className="secondary" onClick={() => void toggleBookmark(business.id)}>{bookmarks.has(business.id) ? '♥ 찜한 가게' : '♡ 찜하기'}</button>
-              <button className="primary" onClick={() => setMessage('실 API 모드에서는 인증 주민 contact endpoint와 연결됩니다.')}>문의 방법 보기</button>
+              <button className="primary" onClick={() => void revealContacts()}>문의 방법 보기</button>
             </div>
+            {contacts.length > 0 && <div className="contact-panel"><strong>인증 주민용 문의 방법</strong><div className="contact-list">{contacts.map((contact, index) => <span key={`${contact.type}-${index}`}>{contactTypeLabel(contact.type)} · {contact.value}</span>)}</div></div>}
           </div>
         </div>
         <div className="story-card"><h2>이웃이 소개하는 서비스</h2><p>{business.description}</p></div>
@@ -346,37 +367,11 @@ export default function App() {
   }
 
   function renderBenefits() {
-    return (
-      <section className="page shell">
-        <SectionHeading title="주민혜택" description="방림명지로드힐 인증 입주민에게 제공되는 혜택입니다." />
-        <div className="benefit-grid benefit-page-grid">
-          {benefits.map((benefit) => (
-            <button key={benefit.id} className="benefit-card" onClick={() => void openBusiness(benefit.businessId)}>
-              <span>🎁</span><div><strong>{benefit.title}</strong><b>{benefit.businessName}</b><p>{benefit.description}</p></div>
-            </button>
-          ))}
-        </div>
-        <div className="info-box"><strong>혜택 이용 방법</strong><p>가게 방문 또는 서비스 신청 시 단지온의 인증 입주민 화면을 확인하는 흐름을 기준으로 설계합니다.</p></div>
-      </section>
-    );
+    return <section className="page shell"><SectionHeading title="주민혜택" description="방림명지로드힐 인증 입주민에게 제공되는 혜택입니다." /><div className="benefit-grid benefit-page-grid">{benefits.map((benefit) => <button key={benefit.id} className="benefit-card" onClick={() => void openBusiness(benefit.businessId)}><span>🎁</span><div><strong>{benefit.title}</strong><b>{benefit.businessName}</b><p>{benefit.description}</p></div></button>)}</div><div className="info-box"><strong>혜택 이용 방법</strong><p>가게 방문 또는 서비스 신청 시 단지온의 인증 입주민 화면을 확인하는 흐름을 기준으로 설계합니다.</p></div></section>;
   }
 
   function renderNews() {
-    return (
-      <section className="page shell">
-        <SectionHeading title="단지소식" description="입주자대표회의와 관리사무소 등의 필요한 소식을 읽기 쉽게 모았습니다." />
-        <div className="news-page-list">
-          {posts.map((post) => (
-            <article key={post.id}>
-              <div><span>{post.category}</span><time>{formatDate(post.publishedAt)}</time></div>
-              <h2>{post.title}</h2>
-              <strong>{post.sourceName}</strong>
-              <p>{post.body}</p>
-            </article>
-          ))}
-        </div>
-      </section>
-    );
+    return <section className="page shell"><SectionHeading title="단지소식" description="입주자대표회의와 관리사무소 등의 필요한 소식을 읽기 쉽게 모았습니다." /><div className="news-page-list">{posts.map((post) => <article key={post.id}><div><span>{post.category}</span><time>{formatDate(post.publishedAt)}</time></div><h2>{post.title}</h2><strong>{post.sourceName}</strong><p>{post.body}</p></article>)}</div></section>;
   }
 
   function renderMy() {
@@ -387,45 +382,33 @@ export default function App() {
           <article><h2>방림명지로드힐 인증 입주민</h2><p>정확한 동·호수는 다른 주민에게 공개하지 않습니다.</p><span className="verified">✓ 인증 완료 · 개발 기준 UI</span></article>
           <article><h2>찜한 가게</h2><strong className="big-number">{bookmarks.size}</strong><p>나중에 다시 보고 싶은 가게와 서비스입니다.</p></article>
           <article className="wide"><h2>찜 목록</h2>{bookmarkedBusinesses.length ? <div className="bookmark-list">{bookmarkedBusinesses.map((business) => <button key={business.id} onClick={() => void openBusiness(business.id)}>{business.icon} {business.name}</button>)}</div> : <p>아직 찜한 가게가 없습니다.</p>}</article>
-          <article><h2>내 일 알리기</h2><p>사업자 등록 신청 API와 연결할 화면입니다.</p><button className="secondary" onClick={() => setMessage('등록 신청 UI는 Backend Gate B1 이후 연결합니다.')}>등록 준비 상태 보기</button></article>
+          <article className="wide">
+            <h2>내 가게·서비스 등록</h2>
+            <p>신청 후 관리자가 확인하며, 승인 전에는 주민 화면에 공개되지 않습니다.</p>
+            <button className="secondary" onClick={() => go('register')}>새 등록 신청</button>
+            {applications.length ? <div className="application-list">{applications.map((application) => <div className="application-item" key={application.id}><div><strong>{application.businessName}</strong><p>{application.categoryName} · {application.serviceSummary}</p></div><span className={`application-status ${application.status}`}>{applicationStatusLabels[application.status]}</span>{application.reviewNote && <div className="application-note">관리자 메모: {application.reviewNote}</div>}</div>)}</div> : <p>아직 등록 신청이 없습니다.</p>}
+          </article>
           <article><h2>화면 설정</h2><p>큰 글자·모션 감소 같은 개인 화면 설정은 서버 권한과 분리합니다.</p></article>
         </div>
       </section>
     );
   }
 
+  function renderRegister() {
+    return <div className="shell"><ApplicationForm categoryNames={categories.map(([, name]) => name)} busy={submittingApplication} onSubmit={submitApplication} onCancel={() => go('my')} /></div>;
+  }
+
   return (
     <div className="app-shell">
-      <header className="topbar">
-        <div className="shell topbar-inner">
-          <button className="wordmark" onClick={() => go('home')}>단지온</button>
-          <nav className="desktop-nav" aria-label="주요 메뉴">
-            {navItems.map((item) => <button key={item.view} className={view === item.view ? 'active' : ''} onClick={() => item.view === 'listings' ? void resetListings() : go(item.view)}>{item.label}</button>)}
-          </nav>
-          <span className="complex-pill">방림명지로드힐</span>
-        </div>
-      </header>
+      <header className="topbar"><div className="shell topbar-inner"><button className="wordmark" onClick={() => go('home')}>단지온</button><nav className="desktop-nav" aria-label="주요 메뉴">{navItems.map((item) => <button key={item.view} className={view === item.view ? 'active' : ''} onClick={() => item.view === 'listings' ? void resetListings() : go(item.view)}>{item.label}</button>)}</nav><span className="complex-pill">방림명지로드힐</span></div></header>
 
       <main>
         {loading && <div className="loading">데이터를 불러오는 중입니다.</div>}
-        {view === 'home' && renderHome()}
-        {view === 'listings' && renderListings()}
-        {view === 'detail' && renderDetail()}
-        {view === 'benefits' && renderBenefits()}
-        {view === 'news' && renderNews()}
-        {view === 'my' && renderMy()}
+        {view === 'home' && renderHome()}{view === 'listings' && renderListings()}{view === 'detail' && renderDetail()}{view === 'benefits' && renderBenefits()}{view === 'news' && renderNews()}{view === 'my' && renderMy()}{view === 'register' && renderRegister()}
       </main>
 
-      <footer className="footer shell">
-        <strong>단지온</strong>
-        <span>같은 아파트 주민의 가게와 서비스를 먼저 발견하는 생활경제 플랫폼</span>
-        <small>현재 개발 브랜치는 v5 기능·정보구조를 제품 코드로 이식하는 단계입니다.</small>
-      </footer>
-
-      <nav className="mobile-nav" aria-label="모바일 주요 메뉴">
-        {navItems.map((item) => <button key={item.view} className={view === item.view ? 'active' : ''} onClick={() => item.view === 'listings' ? void resetListings() : go(item.view)}><span>{item.icon}</span>{item.label}</button>)}
-      </nav>
-
+      <footer className="footer shell"><strong>단지온</strong><span>같은 아파트 주민의 가게와 서비스를 먼저 발견하는 생활경제 플랫폼</span><small>현재 개발 브랜치는 v5 기능·정보구조를 제품 코드로 이식하는 단계입니다.</small></footer>
+      <nav className="mobile-nav" aria-label="모바일 주요 메뉴">{navItems.map((item) => <button key={item.view} className={view === item.view ? 'active' : ''} onClick={() => item.view === 'listings' ? void resetListings() : go(item.view)}><span>{item.icon}</span>{item.label}</button>)}</nav>
       {message && <button className="toast" onClick={() => setMessage('')}>{message}</button>}
     </div>
   );
