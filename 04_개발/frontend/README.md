@@ -17,7 +17,11 @@ This implementation is not a redesign. It is a product-code migration of the v5 
 - Vite 8
 - CSS with the v5 visual tokens and responsive rules
 
-## Current screens
+## Resident app
+
+Entry: `/`
+
+Current flows:
 
 - Home
 - Search / business listing
@@ -28,14 +32,32 @@ This implementation is not a redesign. It is a product-code migration of the v5 
 - Resident benefits
 - Complex news
 - My information
+- Business/service application form
+- My application status
+- Verified-resident contact reveal
 - Desktop navigation
 - Mobile 5-tab bottom navigation
 
-Business registration, real contact reveal, admin UI, storage upload and production authentication are intentionally left for the next integration gates.
+## Operations app
+
+Entry: `/admin.html`
+
+This is intentionally separate from the resident navigation.
+
+Current operations flows:
+
+- Business application list
+- Status filter
+- Review note
+- Request changes
+- Reject
+- Approve
+- Complex-news publishing
+- Resident-benefit creation
+
+Production authorization still belongs to the backend and Neon Auth. The admin screen itself is not an authorization boundary.
 
 ## Data adapters
-
-The UI does not import mock arrays directly. It uses `DataAdapter`.
 
 ### Mock mode
 
@@ -43,7 +65,7 @@ The UI does not import mock arrays directly. It uses `DataAdapter`.
 VITE_DATA_MODE=mock
 ```
 
-Uses the v5 fixture data in `src/data/mock.ts` and requires no backend.
+Uses v5 fixture data and requires no backend. Resident and operations screens can be reviewed independently while infrastructure accounts are not connected.
 
 ### API mode
 
@@ -51,13 +73,14 @@ Uses the v5 fixture data in `src/data/mock.ts` and requires no backend.
 VITE_DATA_MODE=api
 VITE_COMPLEX_SLUG=bangnim-myeongji-roadhill
 VITE_DEV_AUTH_USER=dev-resident-001
+VITE_DEV_ADMIN_AUTH_USER=dev-manager-001
 ```
 
-The same UI calls the Cloudflare Worker API.
+The resident app calls the core Worker routes and `/admin.html` calls the manager/admin routes.
 
 During local development Vite proxies `/api` to `http://localhost:8787`.
 
-The development actor header is emitted only by Vite development builds. Production bypass remains blocked by the backend environment guard.
+The development actor headers are emitted only by Vite development builds. The backend still resolves the actual role and membership from database fixtures; production bypass is blocked by the backend environment guard.
 
 ## Local run
 
@@ -65,6 +88,9 @@ The development actor header is emitted only by Vite development builds. Product
 npm install
 npm run dev
 ```
+
+- Resident UI: `http://localhost:5173/`
+- Operations UI: `http://localhost:5173/admin.html`
 
 For API mode, run the backend Worker separately on port 8787.
 
@@ -74,6 +100,8 @@ For API mode, run the backend Worker separately on port 8787.
 npm run typecheck
 npm run build
 ```
+
+The Vite production build includes both `index.html` and `admin.html`.
 
 ## Visual continuity with v5
 
@@ -94,5 +122,5 @@ Preserved intentionally:
 ## Source-of-truth rule
 
 - `00~03`: planning/design/prototype history; do not rewrite from product code.
-- `04_개발/frontend`: maintainable production frontend.
+- `04_개발/frontend`: maintainable product frontend and operations UI.
 - `04_개발/backend`: API/database/auth boundary.
