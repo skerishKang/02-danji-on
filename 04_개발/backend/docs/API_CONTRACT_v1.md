@@ -111,6 +111,17 @@ v5 `state.favorites` 대체.
 
 v5 `내 가게·서비스 등록`의 실제 저장.
 
+권장 Header:
+
+```http
+Idempotency-Key: application:<uuid>
+```
+
+- 같은 사용자 + 같은 key + 같은 payload: 기존 신청을 재사용한다.
+- 같은 사용자 + 같은 key + 다른 payload: `409 IDEMPOTENCY_KEY_REUSED`.
+- frontend API mode는 네트워크 계층 실패 시 동일 key/body로 1회만 재시도한다.
+- 세부 계약은 `APPLICATION_IDEMPOTENCY_v1.md`를 따른다.
+
 Body:
 
 ```json
@@ -133,6 +144,10 @@ Body:
 
 내 신청 상태 조회.
 
+### `GET /api/v1/me/business-applications/:applicationId`
+
+본인이 제출한 신청의 보완용 상세 정보를 반환한다. 다른 사용자의 신청은 노출하지 않는다.
+
 ### `PATCH /api/v1/me/business-applications/:applicationId`
 
 관리자가 `changes_requested`로 돌려보낸 **본인 신청만** 수정·재제출한다.
@@ -140,14 +155,14 @@ Body:
 - 다른 사용자의 신청은 `403`
 - `changes_requested` 이외 상태는 `409`
 - 정상 재제출 시 상태는 다시 `pending`
-- 과거 관리자 메모는 review history에 보존한다.
+- 과거 관리자 메모와 상태 전환은 review history에 보존한다.
 - payload 형식은 신규 신청 body와 동일하되 `complexSlug`는 필요하지 않다.
 
 ## Manager/Admin
 
 ### `GET /api/v1/admin/complexes/:complexSlug/business-applications`
 
-신청 목록. manager/admin membership 필요.
+신청 목록. verified manager/admin membership 필요.
 
 ### `PATCH /api/v1/admin/business-applications/:applicationId`
 
@@ -158,6 +173,23 @@ Body:
 - `rejected`
 
 승인 시 application 상태 변경과 `businesses` + `business_complex_relations` + 선택적 media/benefit 생성을 **하나의 PostgreSQL data-modifying CTE 문장**으로 처리해 중간 상태가 생기지 않게 한다.
+
+### `GET /api/v1/admin/complexes/:complexSlug/application-review-events`
+
+신청 검토 이력 조회. verified manager/admin membership 필요.
+
+Query:
+
+- `applicationId`: 특정 신청 UUID. 생략하면 단지 전체 신청 이력.
+- `limit`: 기본 100, 최대 200.
+
+응답에는 다음을 포함한다.
+
+- application / business
+- actor type / actor name
+- from status / to status
+- 당시 review note
+- created_at
 
 ### `POST /api/v1/admin/complexes/:complexSlug/posts`
 
@@ -188,7 +220,7 @@ Body:
 - 당시 review note
 - timestamp
 
-최신 상태는 `business_applications`에 유지하고, 과거 검토·재제출 이력은 event table에서 추적한다.
+최신 상태는 `business_applications`에 유지하고, 과거 검토·재제출 이력은 event table에서 추적한다. 운영관리 화면의 `검토 이력` 탭은 이 계약을 사용한다.
 
 ## Storage 후속 계약
 
