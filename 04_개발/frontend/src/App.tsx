@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import ApplicationForm from './ApplicationForm';
+import { BenefitCollection, DetailBenefitAction, MyBenefitWallet } from './BenefitWallet';
 import CinematicNeighborScenes from './CinematicNeighborScenes';
 import { dataAdapter } from './api/adapter';
 import {
@@ -388,7 +389,7 @@ export default function App() {
             <h1>{business.name}</h1>
             <p className="lead">{business.summary}</p>
             <strong className="detail-price">{business.priceText}</strong>
-            {business.activeBenefit && <div className="detail-benefit"><b>주민 혜택</b><strong>{business.activeBenefit.title}</strong><span>{business.activeBenefit.description}</span></div>}
+            {business.activeBenefit && <div className="detail-benefit"><b>주민 혜택</b><strong>{business.activeBenefit.title}</strong><span>{business.activeBenefit.description}</span><DetailBenefitAction benefit={business.activeBenefit} /></div>}
             <dl>
               <div><dt>분야</dt><dd>{business.categoryName}</dd></div><div><dt>이용 지역</dt><dd>{business.serviceArea}</dd></div><div><dt>이용 시간</dt><dd>{business.availabilityText}</dd></div><div><dt>연락 방법</dt><dd>인증 입주민에게만 실제 연락처를 표시합니다.</dd></div>
             </dl>
@@ -405,7 +406,7 @@ export default function App() {
   }
 
   function renderBenefits() {
-    return <section className="page shell"><SectionHeading title="주민혜택" description="방림명지로드힐 인증 입주민에게 제공되는 혜택입니다." /><div className="benefit-grid benefit-page-grid">{benefits.map((benefit) => <button key={benefit.id} className="benefit-card" onClick={() => void openBusiness(benefit.businessId)}><span>🎁</span><div><strong>{benefit.title}</strong><b>{benefit.businessName}</b><p>{benefit.description}</p></div></button>)}</div><div className="info-box"><strong>혜택 이용 방법</strong><p>가게 방문 또는 서비스 신청 시 단지온의 인증 입주민 화면을 확인하는 흐름을 기준으로 설계합니다.</p></div></section>;
+    return <section className="page shell"><SectionHeading title="주민혜택" description="혜택을 받으면 내정보에 보관되고, 사용 후 완료 상태로 남습니다." /><BenefitCollection benefits={benefits} onOpenBusiness={(businessId) => void openBusiness(businessId)} /><div className="info-box"><strong>혜택 이용 방법</strong><p>주민혜택 받기 → 내정보에 혜택번호 보관 → 가게에서 확인 → 사용 완료 처리 순서로 관리합니다.</p></div></section>;
   }
 
   function renderNews() {
@@ -415,10 +416,11 @@ export default function App() {
   function renderMy() {
     return (
       <section className="page shell">
-        <SectionHeading title="내정보" description="입주민 인증, 찜한 가게와 내 가게 등록을 관리합니다." />
+        <SectionHeading title="내정보" description="입주민 인증, 받은 혜택, 찜한 가게와 내 가게 등록을 관리합니다." />
         <div className="my-grid">
           <article><h2>방림명지로드힐 인증 입주민</h2><p>정확한 동·호수는 다른 주민에게 공개하지 않습니다.</p><span className="verified">✓ 인증 완료 · 개발 기준 UI</span></article>
           <article><h2>찜한 가게</h2><strong className="big-number">{bookmarks.size}</strong><p>나중에 다시 보고 싶은 가게와 서비스입니다.</p></article>
+          <MyBenefitWallet />
           <article className="wide"><h2>찜 목록</h2>{bookmarkedBusinesses.length ? <div className="bookmark-list">{bookmarkedBusinesses.map((business) => <button key={business.id} onClick={() => void openBusiness(business.id)}>{business.icon} {business.name}</button>)}</div> : <p>아직 찜한 가게가 없습니다.</p>}</article>
           <article className="wide">
             <h2>내 가게·서비스 등록</h2>
