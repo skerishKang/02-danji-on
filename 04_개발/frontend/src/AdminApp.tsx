@@ -175,7 +175,7 @@ export default function AdminApp() {
         <main className="admin-section">
           <div className="admin-section-heading">
             <div><h2>가게·서비스 등록 신청</h2><p>신청 내용을 검토하고 보완·승인·반려 상태를 관리합니다.</p></div>
-            <select value={statusFilter} onChange={(event) => void changeFilter(event.target.value)}>
+            <select aria-label="등록 신청 상태 필터" value={statusFilter} onChange={(event) => void changeFilter(event.target.value)}>
               <option value="all">전체 상태</option>
               <option value="draft">작성 중</option>
               <option value="pending">확인 대기</option>
