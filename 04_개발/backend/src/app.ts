@@ -1,6 +1,7 @@
 import core, { type CoreEnv } from './core-v1';
 import { handleAdminRequest } from './admin-v1';
 import { validateRequestPayload } from './payload-policy';
+import { handleResidentApplicationRequest } from './resident-application-v1';
 
 const REQUEST_ID_HEADER = 'x-danjion-request-id';
 const SAFE_ID = /^[A-Za-z0-9._:-]{1,80}$/;
@@ -31,6 +32,10 @@ export default {
         const response = await handleAdminRequest(request, env, id);
         if (response) return response;
       }
+
+      const residentApplicationResponse = await handleResidentApplicationRequest(request, env, id);
+      if (residentApplicationResponse) return residentApplicationResponse;
+
       return core.fetch(request, env);
     } catch (error) {
       console.error('[DanjiOn App]', id, error);
