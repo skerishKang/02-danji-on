@@ -1,4 +1,5 @@
 import core, { type CoreEnv } from './core-v1';
+import { handleAdminAuditRequest } from './admin-audit-v1';
 import { handleAdminRequest } from './admin-v1';
 import { validateRequestPayload } from './payload-policy';
 import { handleResidentApplicationRequest } from './resident-application-v1';
@@ -41,6 +42,9 @@ export default {
 
       const policyResponse = await validateRequestPayload(request, id);
       if (policyResponse) return policyResponse;
+
+      const adminAuditResponse = await handleAdminAuditRequest(request, env, id);
+      if (adminAuditResponse) return adminAuditResponse;
 
       if (new URL(request.url).pathname.startsWith('/api/v1/admin/')) {
         const response = await handleAdminRequest(request, env, id);
