@@ -4,6 +4,7 @@ export type AuthMode = 'dev' | 'neon';
 export interface AuthSnapshot {
   mode: AuthMode;
   subject: string | null;
+  displayName: string;
   authenticated: boolean;
 }
 
@@ -17,7 +18,8 @@ class DevAuthProvider implements AuthProvider {
     const residentSubject = import.meta.env.VITE_DEV_AUTH_USER || 'dev-resident-001';
     const adminSubject = import.meta.env.VITE_DEV_ADMIN_AUTH_USER || 'dev-manager-001';
     const subject = surface === 'admin' ? adminSubject : residentSubject;
-    return { mode: 'dev', subject, authenticated: Boolean(subject) };
+    const displayName = surface === 'admin' ? '단지온 운영자' : subject === 'dev-unverified-001' ? '미인증 주민' : '온이웃';
+    return { mode: 'dev', subject, displayName, authenticated: Boolean(subject) };
   }
 
   headers(surface: AuthSurface): HeadersInit {
@@ -32,7 +34,7 @@ class DevAuthProvider implements AuthProvider {
 
 class NeonAuthProvider implements AuthProvider {
   snapshot(): AuthSnapshot {
-    return { mode: 'neon', subject: null, authenticated: false };
+    return { mode: 'neon', subject: null, displayName: '입주민', authenticated: false };
   }
 
   headers(): HeadersInit {
