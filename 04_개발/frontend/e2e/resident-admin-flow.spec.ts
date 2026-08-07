@@ -78,7 +78,7 @@ test('resident submission with image becomes public after admin approval', async
   await resetMockStore(page);
   const businessName = `E2E 홈케어 ${Date.now()}`;
 
-  await page.getByRole('button', { name: /내 일 알리기/ }).click();
+  await page.getByRole('button', { name: '내 일 알리기', exact: true }).click();
   await expect(page.getByText('STEP 1 / 4')).toBeVisible();
   await advanceRegistration(page);
 
