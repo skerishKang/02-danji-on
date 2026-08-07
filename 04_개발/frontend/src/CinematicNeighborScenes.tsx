@@ -8,7 +8,6 @@ const scenes = [
     eyebrow: '같은 단지에서 만드는 먹거리',
     title: '오늘 필요한 반찬을\n가까운 이웃에게서',
     description: '직접 만드는 음식과 생활 먹거리를 주민 관계부터 확인하고 발견합니다.',
-    image: '/field-demo/scene-food.webp',
     alt: '주민이 직접 음식을 만들고 포장하는 작업 장면'
   },
   {
@@ -17,7 +16,6 @@ const scenes = [
     eyebrow: '우리 단지의 배움',
     title: '멀리 찾기 전에\n이웃의 전문성을 발견합니다',
     description: '수학 과외와 소규모 수업처럼 신뢰가 중요한 서비스는 주민 관계를 먼저 보여줍니다.',
-    image: '/field-demo/scene-learning.webp',
     alt: '학습 자료를 두고 학생을 지도하는 수업 장면'
   },
   {
@@ -26,7 +24,6 @@ const scenes = [
     eyebrow: '집에서 바로 필요한 일',
     title: '수리와 청소도\n우리 동네에서 빠르게',
     description: '에어컨 청소, 방충망, 생활 소수리 같은 방문 서비스를 지역과 이용시간까지 함께 확인합니다.',
-    image: '/field-demo/scene-home-care.webp',
     alt: '가정에서 생활 설비를 점검하고 수리하는 작업 장면'
   },
   {
@@ -35,7 +32,6 @@ const scenes = [
     eyebrow: '주민의 전문 서비스',
     title: '세무·노무·문서 상담도\n가까운 연결부터',
     description: '전문서비스는 과장된 보증 대신 실제 제공 내용과 주민 관계, 문의 경계를 명확히 보여줍니다.',
-    image: '/field-demo/scene-professional.webp',
     alt: '책상에서 문서와 노트북을 두고 전문 상담을 준비하는 장면'
   }
 ] as const;
@@ -65,7 +61,7 @@ export default function CinematicNeighborScenes({
 
       <div className="cinematic-stage" aria-live="polite">
         <div className="cinematic-image-wrap" key={active.id}>
-          <img src={active.image} alt={active.alt} />
+          <div className={`cinematic-sprite sprite-${active.id}`} role="img" aria-label={active.alt} />
           <div className="cinematic-vignette" aria-hidden="true" />
           <div className="cinematic-scene-copy">
             <span>{active.eyebrow}</span>
@@ -82,6 +78,7 @@ export default function CinematicNeighborScenes({
               type="button"
               role="tab"
               aria-selected={scene.id === activeId}
+              aria-controls="cinematic-scene-panel"
               className={scene.id === activeId ? 'active' : ''}
               onClick={() => setActiveId(scene.id)}
             >
@@ -89,6 +86,7 @@ export default function CinematicNeighborScenes({
             </button>
           ))}
         </div>
+        <span id="cinematic-scene-panel" className="sr-only">현재 선택 장면: {active.tab}</span>
       </div>
     </section>
   );
