@@ -16,6 +16,10 @@ async function resetMockStore(page: import('@playwright/test').Page) {
   await page.reload();
 }
 
+async function advanceRegistration(page: import('@playwright/test').Page) {
+  await page.getByRole('button', { name: '다음 단계' }).click();
+}
+
 test('resident can search, bookmark and reveal verified contact', async ({ page }) => {
   await resetMockStore(page);
 
@@ -44,8 +48,14 @@ test('resident can edit and resubmit a changes-requested application with audit 
 
   await expect(page.getByRole('heading', { name: '요청된 내용을 보완해 주세요' })).toBeVisible();
   await expect(page.getByText('서비스 가능 지역을 구체적으로 적어주세요.')).toBeVisible();
+
+  await advanceRegistration(page);
   await expect(page.getByLabel('가게·서비스명 *')).toHaveValue('맑은창 방충망 수리');
   await page.getByLabel('이용 지역').fill('광주 남구 및 동구 방문 가능');
+
+  await advanceRegistration(page);
+  await advanceRegistration(page);
+  await expect(page.getByText('광주 남구 및 동구 방문 가능')).toBeVisible();
   await page.getByRole('button', { name: '보완 내용 재제출' }).click();
 
   const resubmitted = page.locator('.application-item').filter({ hasText: '맑은창 방충망 수리' });
@@ -69,12 +79,16 @@ test('resident submission with image becomes public after admin approval', async
   const businessName = `E2E 홈케어 ${Date.now()}`;
 
   await page.getByRole('button', { name: /내 일 알리기/ }).click();
+  await expect(page.getByText('STEP 1 / 4')).toBeVisible();
+  await advanceRegistration(page);
+
   await page.getByLabel('가게·서비스명 *').fill(businessName);
   await page.getByLabel('분야 *').fill('청소·수리·에어컨 서비스');
   await page.getByLabel('한 줄 소개 *').fill('E2E에서 생성한 방문형 생활 수리 서비스입니다.');
   await page.getByLabel('가격').fill('기본 출장 30,000원');
-  await page.getByLabel('입주민 혜택').fill('첫 방문 5,000원 할인');
+  await advanceRegistration(page);
 
+  await page.getByLabel('입주민 혜택').fill('첫 방문 5,000원 할인');
   await page.locator('.image-picker input[type="file"]').setInputFiles({
     name: 'e2e-representative.png',
     mimeType: 'image/png',
@@ -82,8 +96,12 @@ test('resident submission with image becomes public after admin approval', async
   });
   await expect(page.locator('.image-preview img')).toBeVisible();
   await expect(page.getByText(/e2e-representative\.png/)).toBeVisible();
+  await advanceRegistration(page);
 
-  await page.getByRole('button', { name: '등록 신청하기' }).click();
+  await expect(page.getByText('주민에게 공개')).toBeVisible();
+  await expect(page.getByText('운영 확인 · 일반 공개 안 함')).toBeVisible();
+  await expect(page.getByRole('heading', { name: businessName })).toBeVisible();
+  await page.getByRole('button', { name: '등록 신청 완료' }).click();
 
   const residentItem = page.locator('.application-item').filter({ hasText: businessName });
   await expect(residentItem).toBeVisible();
