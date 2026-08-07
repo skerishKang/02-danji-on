@@ -1,4 +1,6 @@
+import { authProvider } from './auth';
 import { mockBusinesses } from './data/mock';
+import { listMockApplications, reviewMockApplication, type MockApplicationRecord } from './mock-store';
 
 export type AdminApplicationStatus = 'draft' | 'pending' | 'changes_requested' | 'approved' | 'rejected';
 
@@ -28,21 +30,16 @@ export interface AdminBusiness {
 const COMPLEX_SLUG = import.meta.env.VITE_COMPLEX_SLUG || 'bangnim-myeongji-roadhill';
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
 
-function adminHeaders(): HeadersInit {
-  const headers: Record<string, string> = { 'content-type': 'application/json' };
-  if (import.meta.env.DEV) {
-    const subject = import.meta.env.VITE_DEV_ADMIN_AUTH_USER || import.meta.env.VITE_DEV_AUTH_USER;
-    if (subject) headers['x-danjion-dev-auth-user'] = subject;
-  }
-  return headers;
-}
-
 type ApiEnvelope<T> = { data: T; requestId: string };
 
 async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE}${path}`, {
     ...init,
-    headers: { ...adminHeaders(), ...(init?.headers || {}) }
+    headers: {
+      'content-type': 'application/json',
+      ...authProvider.headers('admin'),
+      ...(init?.headers || {})
+    }
   });
   const payload = await response.json() as ApiEnvelope<T> | { error?: { message?: string } };
   if (!response.ok) {
@@ -50,6 +47,26 @@ async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
     throw new Error(message || `Admin API request failed: ${response.status}`);
   }
   return (payload as ApiEnvelope<T>).data;
+}
+
+function fromMockApplication(record: MockApplicationRecord): AdminApplication {
+  return {
+    id: record.id,
+    relationType: record.relationType,
+    businessName: record.businessName,
+    categoryName: record.categoryName,
+    serviceSummary: record.serviceSummary,
+    priceText: record.priceText,
+    contactMethod: record.contactMethod,
+    serviceArea: record.serviceArea,
+    benefitText: record.benefitText,
+    availabilityText: record.availabilityText,
+    status: record.status,
+    reviewNote: record.reviewNote,
+    approvedBusinessId: record.approvedBusinessId,
+    applicantName: record.applicantName,
+    createdAt: record.createdAt
+  };
 }
 
 function mapApplication(raw: Record<string, unknown>): AdminApplication {
@@ -73,24 +90,13 @@ function mapApplication(raw: Record<string, unknown>): AdminApplication {
 }
 
 class MockAdminAdapter {
-  private applications: AdminApplication[] = [
-    { id: 'mock-admin-1', relationType: 'resident', businessName: '정성 홈베이킹', categoryName: '음식점·반찬·카페', serviceSummary: '주문형 수제 쿠키와 답례품', priceText: '상담 후 안내', benefitText: '첫 주문 10% 할인', status: 'pending', applicantName: '온이웃', createdAt: '2026-08-07T09:00:00+09:00' },
-    { id: 'mock-admin-2', relationType: 'resident_family', businessName: '맑은창 방충망 수리', categoryName: '청소·수리·에어컨 서비스', serviceSummary: '방충망 교체와 생활 수리', status: 'changes_requested', reviewNote: '서비스 가능 지역을 구체적으로 적어주세요.', applicantName: '온이웃', createdAt: '2026-08-06T09:00:00+09:00' },
-    { id: 'mock-admin-3', relationType: 'neighbor', businessName: '이웃 영어회화', categoryName: '과외·수업', serviceSummary: '영어회화 소규모 수업', status: 'pending', applicantName: '테스트 신청자', createdAt: '2026-08-05T09:00:00+09:00' }
-  ];
-
   async listApplications(status = 'all') {
-    return status === 'all' ? [...this.applications] : this.applications.filter((item) => item.status === status);
+    return listMockApplications(status as AdminApplicationStatus | 'all').map(fromMockApplication);
   }
 
   async reviewApplication(id: string, status: Exclude<AdminApplicationStatus, 'draft'>, reviewNote: string) {
-    const target = this.applications.find((item) => item.id === id);
-    if (!target) throw new Error('신청을 찾을 수 없습니다.');
-    if (!['pending', 'changes_requested'].includes(target.status)) throw new Error('현재 상태에서는 검토할 수 없습니다.');
-    target.status = status;
-    target.reviewNote = reviewNote || null;
-    if (status === 'approved') target.approvedBusinessId = target.approvedBusinessId || `mock-business-${id}`;
-    return { ...target };
+    if (status === 'pending') throw new Error('검토 결과는 보완 요청, 승인, 반려 중 하나여야 합니다.');
+    return fromMockApplication(reviewMockApplication(id, status, reviewNote));
   }
 
   async listBusinesses(): Promise<AdminBusiness[]> {
@@ -114,6 +120,7 @@ class ApiAdminAdapter {
   }
 
   async reviewApplication(id: string, status: Exclude<AdminApplicationStatus, 'draft'>, reviewNote: string) {
+    if (status === 'pending') throw new Error('검토 결과는 보완 요청, 승인, 반려 중 하나여야 합니다.');
     return apiRequest<Record<string, unknown>>(`/api/v1/admin/business-applications/${id}`, {
       method: 'PATCH',
       body: JSON.stringify({ status, reviewNote })
