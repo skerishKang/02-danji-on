@@ -1,4 +1,6 @@
+import { authProvider } from '../auth';
 import { mockBenefits, mockBusinesses, mockPosts } from '../data/mock';
+import { createMockApplication, listMockApplicationsForSubject, type MockApplicationRecord } from '../mock-store';
 import type {
   Benefit,
   Business,
@@ -14,14 +16,6 @@ import type {
 const COMPLEX_SLUG = import.meta.env.VITE_COMPLEX_SLUG || 'bangnim-myeongji-roadhill';
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
 
-function devHeaders(): HeadersInit {
-  const headers: Record<string, string> = { 'content-type': 'application/json' };
-  if (import.meta.env.DEV && import.meta.env.VITE_DEV_AUTH_USER) {
-    headers['x-danjion-dev-auth-user'] = import.meta.env.VITE_DEV_AUTH_USER;
-  }
-  return headers;
-}
-
 function relationRank(relation: RelationType): number {
   return { resident: 0, resident_family: 1, neighbor: 2, local: 3 }[relation];
 }
@@ -30,9 +24,23 @@ function nowIso() {
   return new Date().toISOString();
 }
 
+function fromMockApplication(record: MockApplicationRecord): BusinessApplication {
+  return {
+    id: record.id,
+    relationType: record.relationType,
+    businessName: record.businessName,
+    categoryName: record.categoryName,
+    serviceSummary: record.serviceSummary,
+    status: record.status,
+    reviewNote: record.reviewNote,
+    approvedBusinessId: record.approvedBusinessId,
+    createdAt: record.createdAt,
+    updatedAt: record.updatedAt
+  };
+}
+
 export class MockAdapter implements DataAdapter {
   private bookmarks = new Set<string>(['v5-1', 'v5-4']);
-  private applications: BusinessApplication[] = [];
   private contacts: Record<string, BusinessContact[]> = {
     'v5-1': [{ type: 'phone', value: '010-0000-1001' }],
     'v5-3': [{ type: 'phone', value: '010-0000-1003' }, { type: 'sms', value: '문자 문의 가능' }],
@@ -87,23 +95,13 @@ export class MockAdapter implements DataAdapter {
   }
 
   async createBusinessApplication(input: BusinessApplicationInput): Promise<BusinessApplication> {
-    const createdAt = nowIso();
-    const application: BusinessApplication = {
-      id: `mock-app-${Date.now()}`,
-      relationType: input.relationType,
-      businessName: input.businessName,
-      categoryName: input.categoryName,
-      serviceSummary: input.serviceSummary,
-      status: 'pending',
-      createdAt,
-      updatedAt: createdAt
-    };
-    this.applications = [application, ...this.applications];
-    return application;
+    const subject = authProvider.snapshot('resident').subject || 'dev-resident-001';
+    return fromMockApplication(createMockApplication(input, subject));
   }
 
   async listMyBusinessApplications(): Promise<BusinessApplication[]> {
-    return [...this.applications];
+    const subject = authProvider.snapshot('resident').subject || 'dev-resident-001';
+    return listMockApplicationsForSubject(subject).map(fromMockApplication);
   }
 }
 
@@ -112,7 +110,11 @@ type ApiEnvelope<T> = { data: T; requestId: string };
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE}${path}`, {
     ...init,
-    headers: { ...devHeaders(), ...(init?.headers || {}) }
+    headers: {
+      'content-type': 'application/json',
+      ...authProvider.headers('resident'),
+      ...(init?.headers || {})
+    }
   });
   const payload = await response.json() as ApiEnvelope<T> | { error?: { message?: string } };
   if (!response.ok) {
