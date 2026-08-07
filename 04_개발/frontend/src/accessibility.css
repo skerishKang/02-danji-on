@@ -2,4 +2,8 @@
   /* Original #D84F32 measured 3.84:1 on #F7F7F4 and 4.13:1 on white.
      This nearby tone preserves the visual system while clearing 4.5:1 for normal text. */
   --coral: #c64025;
+
+  /* Original local relationship text #856A37 measured 4.45:1 on #F4EFE4.
+     Keep the same brown family with sufficient WCAG AA contrast. */
+  --local: #80642f;
 }
