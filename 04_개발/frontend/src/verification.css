@@ -61,7 +61,7 @@ dd { margin: 5px 0 0; }
 .verification-review-actions .reject { border: 1px solid #d8d5ce; background: #fff; color: #923c2c; }
 .verification-review-actions .approve { border: 1px solid #277a53; background: #277a53; color: #fff; }
 .verification-review-actions button:disabled { opacity: .45; cursor: not-allowed; }
-.verification-empty { min-height: 220px; display: grid; place-items: center; border: 1px dashed #c9c5bd; border-radius: 15px; color: #77736d; }
+.verification-empty { min-height: 220px; display: grid; place-items: center; border: 1px dashed #c9c5bd; border-radius: 15px; color: #6f6b65; }
 
 @media (max-width: 720px) {
   .verification-shell, .verification-admin-shell { width: calc(100% - 32px); padding-top: 28px; }
