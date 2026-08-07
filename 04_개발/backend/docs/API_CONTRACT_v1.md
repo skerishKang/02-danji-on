@@ -109,7 +109,7 @@ v5 `state.favorites` 대체.
 
 ### `POST /api/v1/me/business-applications`
 
-v5 4단계 `내 가게·서비스 등록`의 실제 저장.
+v5 `내 가게·서비스 등록`의 실제 저장.
 
 Body:
 
@@ -133,6 +133,16 @@ Body:
 
 내 신청 상태 조회.
 
+### `PATCH /api/v1/me/business-applications/:applicationId`
+
+관리자가 `changes_requested`로 돌려보낸 **본인 신청만** 수정·재제출한다.
+
+- 다른 사용자의 신청은 `403`
+- `changes_requested` 이외 상태는 `409`
+- 정상 재제출 시 상태는 다시 `pending`
+- 과거 관리자 메모는 review history에 보존한다.
+- payload 형식은 신규 신청 body와 동일하되 `complexSlug`는 필요하지 않다.
+
 ## Manager/Admin
 
 ### `GET /api/v1/admin/complexes/:complexSlug/business-applications`
@@ -147,7 +157,7 @@ Body:
 - `approved`
 - `rejected`
 
-승인 시 실제 `businesses` + `business_complex_relations` 생성은 동일 트랜잭션에서 처리한다. Neon HTTP driver의 `transaction()`을 사용해 승인 상태와 실제 사업자 생성이 분리되지 않게 한다.
+승인 시 application 상태 변경과 `businesses` + `business_complex_relations` + 선택적 media/benefit 생성을 **하나의 PostgreSQL data-modifying CTE 문장**으로 처리해 중간 상태가 생기지 않게 한다.
 
 ### `POST /api/v1/admin/complexes/:complexSlug/posts`
 
@@ -165,6 +175,21 @@ Body:
 
 주민혜택 수정/중단.
 
+## Application review history
+
+`business_application_review_events`는 신청 상태 변경을 immutable event로 보존한다.
+
+보존 항목:
+
+- application / complex
+- actor user
+- actor type (`applicant | manager | system`)
+- from/to status
+- 당시 review note
+- timestamp
+
+최신 상태는 `business_applications`에 유지하고, 과거 검토·재제출 이력은 event table에서 추적한다.
+
 ## Storage 후속 계약
 
 사업자 대표사진은 DB binary로 저장하지 않는다.
@@ -178,6 +203,8 @@ POST /api/v1/uploads/business-image
   -> upload
   -> object key를 application/business_media에 기록
 ```
+
+현재 Pre-Infra 단계의 `StorageAdapter`는 mock object key와 browser preview를 사용한다.
 
 ## v5 기능 중 서버 저장 대상이 아닌 것
 
