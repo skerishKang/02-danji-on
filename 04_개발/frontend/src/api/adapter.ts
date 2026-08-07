@@ -1,6 +1,7 @@
 import { authProvider } from '../auth';
 import { mockBenefits, mockBusinesses, mockPosts } from '../data/mock';
 import { listStoredMockBenefits, listStoredMockPosts } from '../mock-content-store';
+import { claimMockBenefit, listMockBenefitClaims, useMockBenefit } from '../mock-benefit-wallet-store';
 import {
   createMockApplication,
   getMockApplicationForSubject,
@@ -11,6 +12,7 @@ import {
 } from '../mock-store';
 import type {
   Benefit,
+  BenefitClaim,
   Business,
   BusinessApplication,
   BusinessApplicationInput,
@@ -101,6 +103,25 @@ export class MockAdapter implements DataAdapter {
     return allMockBenefits();
   }
 
+  async listBenefitClaims(): Promise<BenefitClaim[]> {
+    const subject = authProvider.snapshot('resident').subject || 'dev-resident-001';
+    return listMockBenefitClaims(subject, allMockBenefits());
+  }
+
+  async claimBenefit(benefitId: string): Promise<BenefitClaim> {
+    const benefit = allMockBenefits().find((item) => item.id === benefitId);
+    if (!benefit) throw new Error('주민혜택을 찾을 수 없습니다.');
+    const subject = authProvider.snapshot('resident').subject || 'dev-resident-001';
+    return claimMockBenefit(subject, benefit);
+  }
+
+  async useBenefit(benefitId: string): Promise<BenefitClaim> {
+    const benefit = allMockBenefits().find((item) => item.id === benefitId);
+    if (!benefit) throw new Error('주민혜택을 찾을 수 없습니다.');
+    const subject = authProvider.snapshot('resident').subject || 'dev-resident-001';
+    return useMockBenefit(subject, benefit);
+  }
+
   async listPosts(): Promise<ComplexPost[]> {
     return [...listStoredMockPosts(), ...mockPosts];
   }
@@ -170,6 +191,22 @@ function mapBenefit(raw: Record<string, unknown>): Benefit {
     title: String(raw.title ?? ''),
     description: String(raw.description ?? ''),
     conditions: raw.conditions ? String(raw.conditions) : null
+  };
+}
+
+function mapBenefitClaim(raw: Record<string, unknown>): BenefitClaim {
+  return {
+    id: String(raw.id),
+    benefitId: String(raw.benefit_id ?? raw.benefitId ?? ''),
+    businessId: String(raw.business_id ?? raw.businessId ?? ''),
+    businessName: String(raw.business_name ?? raw.businessName ?? ''),
+    title: String(raw.title ?? ''),
+    description: String(raw.description ?? ''),
+    conditions: raw.conditions ? String(raw.conditions) : null,
+    code: String(raw.claim_code ?? raw.code ?? ''),
+    status: String(raw.status ?? 'stored') === 'used' ? 'used' : 'stored',
+    claimedAt: String(raw.claimed_at ?? raw.claimedAt ?? nowIso()),
+    usedAt: raw.used_at || raw.usedAt ? String(raw.used_at ?? raw.usedAt) : null
   };
 }
 
@@ -248,6 +285,26 @@ export class ApiAdapter implements DataAdapter {
   async listBenefits(): Promise<Benefit[]> {
     const rows = await request<Record<string, unknown>[]>(`/api/v1/complexes/${COMPLEX_SLUG}/benefits`);
     return rows.map(mapBenefit);
+  }
+
+  async listBenefitClaims(): Promise<BenefitClaim[]> {
+    const rows = await request<Record<string, unknown>[]>('/api/v1/me/benefits');
+    return rows.map(mapBenefitClaim);
+  }
+
+  async claimBenefit(benefitId: string): Promise<BenefitClaim> {
+    const row = await request<Record<string, unknown>>(`/api/v1/me/benefits/${benefitId}/claim`, {
+      method: 'POST',
+      body: JSON.stringify({ complexSlug: COMPLEX_SLUG })
+    });
+    const benefit = await this.listBenefits().then((rows) => rows.find((item) => item.id === benefitId));
+    return mapBenefitClaim({ ...row, ...(benefit ? { business_id: benefit.businessId, business_name: benefit.businessName, title: benefit.title, description: benefit.description, conditions: benefit.conditions } : {}) });
+  }
+
+  async useBenefit(benefitId: string): Promise<BenefitClaim> {
+    const row = await request<Record<string, unknown>>(`/api/v1/me/benefits/${benefitId}/use`, { method: 'PATCH' });
+    const existing = await this.listBenefitClaims().then((rows) => rows.find((item) => item.benefitId === benefitId));
+    return existing ?? mapBenefitClaim(row);
   }
 
   async listPosts(): Promise<ComplexPost[]> {
