@@ -1,0 +1,43 @@
+.application-form { width: min(920px, 100%); margin: 0 auto; padding: 58px 0 96px; }
+.form-intro { margin-bottom: 34px; }
+.form-intro h1 { margin: 12px 0 10px; font-size: clamp(34px, 4vw, 50px); letter-spacing: -.045em; }
+.form-intro p { margin: 0; max-width: 700px; color: var(--muted); line-height: 1.7; }
+.application-form fieldset { margin: 0 0 18px; padding: 26px; border: 1px solid var(--line); border-radius: 18px; background: var(--surface); }
+.application-form legend { padding: 0 8px; font-size: 18px; font-weight: 800; }
+.relation-options { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 9px; }
+.relation-options label { min-height: 76px; display: flex; align-items: center; gap: 9px; padding: 14px; border: 1px solid var(--line); border-radius: 13px; cursor: pointer; }
+.relation-options label.selected { border-color: var(--green); background: var(--green-soft); }
+.relation-options input { accent-color: var(--green); }
+.form-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 16px; }
+.form-grid label { display: flex; flex-direction: column; gap: 8px; }
+.form-grid label.full { grid-column: 1 / -1; }
+.form-grid label > span { font-size: 13px; font-weight: 800; }
+.form-grid input, .form-grid select, .form-grid textarea { width: 100%; min-height: 48px; padding: 12px 13px; border: 1px solid var(--line); border-radius: 11px; background: #fff; color: var(--ink); resize: vertical; }
+.form-grid textarea { min-height: 100px; }
+.form-error { margin: 14px 0; padding: 13px 15px; border-radius: 11px; background: #fff0ec; color: #9b351f; font-weight: 700; }
+.form-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 22px; }
+.form-actions button:disabled { opacity: .55; cursor: wait; }
+.contact-panel { margin-top: 14px; padding: 16px; border: 1px solid #b9d7c7; border-radius: 13px; background: var(--green-soft); }
+.contact-panel strong { display: block; margin-bottom: 8px; }
+.contact-list { display: flex; flex-wrap: wrap; gap: 8px; }
+.contact-list span { padding: 8px 10px; border-radius: 9px; background: #fff; font-size: 13px; font-weight: 750; }
+.application-list { display: grid; gap: 10px; margin-top: 14px; }
+.application-item { display: grid; grid-template-columns: 1fr auto; gap: 10px 18px; padding: 16px; border: 1px solid var(--line-subtle); border-radius: 13px; background: #fafaf8; }
+.application-item strong { display: block; }
+.application-item p { margin: 5px 0 0; font-size: 13px; }
+.application-status { align-self: start; padding: 6px 9px; border-radius: 999px; background: #eee; font-size: 12px; font-weight: 850; }
+.application-status.pending { color: #7a5816; background: #fff4d8; }
+.application-status.changes_requested { color: #a14029; background: #fff0e9; }
+.application-status.approved { color: var(--green); background: var(--green-soft); }
+.application-status.rejected { color: #7b3333; background: #f7e7e7; }
+.application-note { grid-column: 1 / -1; padding-top: 8px; border-top: 1px solid var(--line-subtle); color: var(--muted); font-size: 13px; }
+
+@media (max-width: 760px) {
+  .application-form { padding: 38px 0 96px; }
+  .application-form fieldset { padding: 19px; }
+  .relation-options, .form-grid { grid-template-columns: 1fr; }
+  .form-grid label.full { grid-column: auto; }
+  .form-actions { display: grid; grid-template-columns: 1fr 1fr; }
+  .application-item { grid-template-columns: 1fr; }
+  .application-status { justify-self: start; }
+}
