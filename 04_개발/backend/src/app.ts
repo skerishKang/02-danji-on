@@ -2,6 +2,7 @@ import core, { type CoreEnv } from './core-v1';
 import { handleAdminAuditRequest } from './admin-audit-v1';
 import { handleAdminVerificationRequest } from './admin-verification-v1';
 import { handleAdminRequest } from './admin-v1';
+import { handleBenefitWalletRequest } from './benefit-wallet-v1';
 import { validateRequestPayload } from './payload-policy';
 import { handleResidentApplicationRequest } from './resident-application-v1';
 import { handleResidentVerificationRequest } from './resident-verification-v1';
@@ -58,6 +59,9 @@ export default {
 
       const residentVerificationResponse = await handleResidentVerificationRequest(request, env, id);
       if (residentVerificationResponse) return residentVerificationResponse;
+
+      const benefitWalletResponse = await handleBenefitWalletRequest(request, env, id);
+      if (benefitWalletResponse) return benefitWalletResponse;
 
       const residentApplicationResponse = await handleResidentApplicationRequest(request, env, id);
       if (residentApplicationResponse) return residentApplicationResponse;
