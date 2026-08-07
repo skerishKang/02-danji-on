@@ -20,6 +20,7 @@ import type {
   DataAdapter,
   RelationType
 } from '../types';
+import { createApplicationIdempotencyKey, retryNetworkOnce } from './idempotency';
 
 const COMPLEX_SLUG = import.meta.env.VITE_COMPLEX_SLUG || 'bangnim-myeongji-roadhill';
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
@@ -283,10 +284,14 @@ export class ApiAdapter implements DataAdapter {
   }
 
   async createBusinessApplication(input: BusinessApplicationInput): Promise<BusinessApplication> {
-    const row = await request<Record<string, unknown>>('/api/v1/me/business-applications', {
+    const idempotencyKey = createApplicationIdempotencyKey();
+    const body = JSON.stringify({ complexSlug: COMPLEX_SLUG, ...input });
+    const submit = () => request<Record<string, unknown>>('/api/v1/me/business-applications', {
       method: 'POST',
-      body: JSON.stringify({ complexSlug: COMPLEX_SLUG, ...input })
+      headers: { 'Idempotency-Key': idempotencyKey },
+      body
     });
+    const row = await retryNetworkOnce(submit);
     return {
       ...mapApplication(row),
       relationType: input.relationType,
