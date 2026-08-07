@@ -1,0 +1,115 @@
+{
+  "responsive": [
+    {
+      "viewport": "1440x1100",
+      "overflow": 0,
+      "searchVisible": true,
+      "titleContained": true,
+      "consoleErrors": []
+    },
+    {
+      "viewport": "1280x800",
+      "overflow": 0,
+      "searchVisible": true,
+      "titleContained": true,
+      "consoleErrors": []
+    },
+    {
+      "viewport": "1024x768",
+      "overflow": 0,
+      "searchVisible": true,
+      "titleContained": true,
+      "consoleErrors": []
+    },
+    {
+      "viewport": "768x1024",
+      "overflow": 0,
+      "searchVisible": true,
+      "titleContained": true,
+      "consoleErrors": []
+    },
+    {
+      "viewport": "430x932",
+      "overflow": 0,
+      "searchVisible": true,
+      "titleContained": true,
+      "consoleErrors": []
+    },
+    {
+      "viewport": "390x844",
+      "overflow": 0,
+      "searchVisible": true,
+      "titleContained": true,
+      "consoleErrors": []
+    },
+    {
+      "viewport": "360x800",
+      "overflow": 0,
+      "searchVisible": true,
+      "titleContained": true,
+      "consoleErrors": []
+    },
+    {
+      "viewport": "320x720",
+      "overflow": 0,
+      "searchVisible": true,
+      "titleContained": true,
+      "consoleErrors": []
+    }
+  ],
+  "interaction": {
+    "searchResultCount": 1,
+    "detailDialogOpened": true,
+    "sceneSelectionTitle": "수학을 생활 언어로 설명하는 이웃",
+    "shopSelectionName": "오늘의 반찬",
+    "saveLabel": "✓ 저장됨",
+    "consoleErrors": []
+  },
+  "contrast": {
+    "inkOnCanvas": {
+      "foreground": "#171717",
+      "background": "#F7F2E8",
+      "ratio": 16.07,
+      "result": "PASS"
+    },
+    "inkOnFood": {
+      "foreground": "#111111",
+      "background": "#E95C3E",
+      "ratio": 5.45,
+      "result": "PASS"
+    },
+    "whiteOnInk": {
+      "foreground": "#FFFFFF",
+      "background": "#111111",
+      "ratio": 18.88,
+      "result": "PASS"
+    },
+    "verifiedOnSoft": {
+      "foreground": "#1E6745",
+      "background": "#E8F2EC",
+      "ratio": 5.95,
+      "result": "PASS"
+    },
+    "whiteOnLearning": {
+      "foreground": "#FFFFFF",
+      "background": "#4057E8",
+      "ratio": 5.61,
+      "result": "PASS"
+    },
+    "inkOnHomeCare": {
+      "foreground": "#171717",
+      "background": "#BDE53E",
+      "ratio": 12.33,
+      "result": "PASS"
+    }
+  },
+  "performance": {
+    "htmlBytes": 55077,
+    "imageAssetBytes": 157050,
+    "desktopExecutionBytes": 1103329,
+    "mobileExecutionBytes": 469648,
+    "externalVideoDependency": false,
+    "externalLibraryDependency": false
+  },
+  "gateStatus": "MOTION_IDENTITY_REVIEW_READY"
+}

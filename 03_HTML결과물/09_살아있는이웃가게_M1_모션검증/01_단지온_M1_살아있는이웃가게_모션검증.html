@@ -1,0 +1,332 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#F7F2E8" />
+  <meta name="description" content="단지온 Living Neighbor Shop 모션 아이덴티티 승인 게이트 M1" />
+  <title>단지온 · Living Neighbor Shop · Motion Gate M1</title>
+  <link rel="preload" as="image" href="assets/scene-food.webp" fetchpriority="high" />
+  <style>
+    :root{
+      --canvas:#F7F2E8;--paper:#FFFFFF;--ink:#171717;--muted:#625E57;--line:#D8D1C5;
+      --verified:#277A53;--food:#E95C3E;--learning:#4057E8;--home-care:#BDE53E;--professional:#6840A5;
+      --shadow:0 28px 70px rgba(36,30,24,.16);--header-h:74px;--page:clamp(18px,5vw,72px);
+      --display:"Pretendard Variable","Apple SD Gothic Neo","Noto Sans KR",system-ui,sans-serif;
+      --body:"Pretendard Variable","Apple SD Gothic Neo","Noto Sans KR",system-ui,sans-serif;
+      color-scheme:light;
+    }
+    *{box-sizing:border-box}
+    html{scroll-behavior:smooth;background:var(--canvas)}
+    body{margin:0;min-width:320px;background:var(--canvas);color:var(--ink);font-family:var(--body);letter-spacing:-.022em;overflow-x:hidden}
+    button,input,select,textarea{font:inherit;color:inherit}
+    button,a{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+    button{cursor:pointer}
+    a{color:inherit;text-decoration:none}
+    img{display:block;max-width:100%}
+    h1,h2,h3,p{margin:0;word-break:keep-all;overflow-wrap:normal}
+    :focus-visible{outline:3px solid #111;outline-offset:3px}
+    .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+    .skip{position:fixed;left:16px;top:-80px;z-index:999;background:#111;color:#fff;padding:12px 16px}.skip:focus{top:12px}
+    .progress-rail{position:fixed;top:0;left:0;right:0;height:3px;z-index:120;background:rgba(0,0,0,.08)}
+    .progress-rail span{display:block;height:100%;transform:scaleX(0);transform-origin:left;background:var(--food);transition:background .25s ease}
+
+    .site-header{height:var(--header-h);position:sticky;top:0;z-index:100;background:rgba(247,242,232,.92);border-bottom:1px solid rgba(23,23,23,.14);backdrop-filter:blur(14px)}
+    .header-inner{height:100%;padding:0 var(--page);display:flex;align-items:center;gap:28px}
+    .wordmark{font-family:var(--display);font-size:27px;font-weight:850;letter-spacing:-.075em;white-space:nowrap}
+    .wordmark span:nth-child(2){margin-left:-.045em}.wordmark span:nth-child(3){margin-left:-.02em}
+    .apartment{font-size:14px;font-weight:650;color:#494640;white-space:nowrap}
+    .main-nav{margin-left:auto;display:flex;align-items:center;gap:26px;font-size:15px;font-weight:650}
+    .main-nav a{position:relative;padding:10px 0}.main-nav a::after{content:"";position:absolute;left:0;right:100%;bottom:4px;height:2px;background:#171717;transition:right .2s ease}.main-nav a:hover::after{right:0}
+    .header-tools{display:flex;align-items:center;gap:8px}
+    .plain-button{border:1px solid #bbb3a7;background:#fff;min-height:44px;padding:0 14px;font-weight:700}
+    .resident-button{border:0;background:#E8F2EC;color:#1E6745;min-height:44px;padding:0 14px;font-weight:760;display:flex;align-items:center;gap:8px}
+    .resident-button i{width:9px;height:9px;border-radius:50%;background:var(--verified);box-shadow:0 0 0 5px rgba(39,122,83,.12)}
+    .mobile-tools{display:none;margin-left:auto;gap:8px}.icon-text{border:0;background:transparent;min-width:48px;min-height:48px;display:grid;place-items:center;font-weight:750;font-size:13px}
+
+    .hero{min-height:calc(100svh - var(--header-h));display:grid;grid-template-columns:minmax(0,1.14fr) minmax(430px,.86fr);background:var(--paper);position:relative;overflow:hidden}
+    .hero-media{position:relative;min-height:640px;background:#241A13;overflow:hidden;isolation:isolate}
+    .hero-media img{position:absolute;inset:-2%;width:104%;height:104%;object-fit:cover;object-position:50% 48%;animation:slow-camera 9s ease-in-out infinite alternate}
+    .hero-media::before{content:"";position:absolute;z-index:2;inset:0;background:linear-gradient(90deg,rgba(20,13,8,.05) 45%,rgba(20,13,8,.4)),linear-gradient(0deg,rgba(20,13,8,.38),transparent 46%)}
+    .hero-media::after{content:"";position:absolute;z-index:3;inset:8% 6% 8% auto;width:36%;border:1px solid rgba(255,255,255,.42);border-left:0;opacity:.45;transform:translateX(20px);animation:frame-breathe 7s ease-in-out infinite alternate}
+    .hero-caption{position:absolute;z-index:5;left:var(--page);bottom:34px;color:#fff;display:flex;align-items:center;gap:12px;font-size:13px;font-weight:750;text-shadow:0 3px 14px rgba(0,0,0,.45)}
+    .hero-caption b{display:grid;place-items:center;width:34px;height:34px;border:1px solid rgba(255,255,255,.6);border-radius:50%;font-size:11px}
+    .hero-info{background:var(--food);padding:clamp(38px,5.5vw,84px) clamp(30px,5vw,72px) 42px;display:flex;flex-direction:column;justify-content:center;position:relative;color:#111}
+    .hero-info::before{content:"";position:absolute;left:0;top:0;width:10px;height:100%;background:#111}
+    .eyebrow{font-size:13px;font-weight:850;letter-spacing:.02em;display:flex;align-items:center;gap:10px}.eyebrow::before{content:"";width:36px;height:2px;background:currentColor}
+    .hero h1{font-family:var(--display);font-weight:790;font-size:clamp(48px,5.35vw,82px);line-height:1.01;letter-spacing:-.072em;margin-top:24px;max-width:720px}
+    .hero h1 span{display:block;opacity:0;transform:translateY(20px);animation:title-in .55s cubic-bezier(.2,.7,.2,1) forwards}
+    .hero h1 span:nth-child(2){animation-delay:.1s}
+    .hero-description{font-size:clamp(17px,1.35vw,20px);line-height:1.72;margin-top:28px;max-width:590px;font-weight:590}
+    .hero-actions{display:grid;grid-template-columns:1fr auto;gap:10px;margin-top:28px}
+    .search-shell{display:flex;min-height:58px;background:#fff;border:2px solid #111;box-shadow:8px 8px 0 rgba(0,0,0,.16)}
+    .search-shell input{border:0;outline:0;min-width:0;flex:1;padding:0 18px;background:transparent;font-size:17px;font-weight:650}
+    .search-shell button{border:0;border-left:2px solid #111;background:#111;color:#fff;padding:0 20px;font-weight:820;min-width:74px}
+    .cta-row{display:flex;gap:10px;margin-top:16px}.cta{min-height:54px;border:2px solid #111;padding:0 20px;font-weight:850;display:inline-flex;align-items:center;justify-content:center;gap:9px}.cta-primary{background:#111;color:#fff}.cta-secondary{background:transparent;color:#111}
+    .hero-meta{margin-top:24px;padding-top:20px;border-top:1px solid rgba(0,0,0,.32);display:flex;flex-wrap:wrap;gap:14px 24px;font-size:14px;font-weight:720}.hero-meta span{display:flex;align-items:center;gap:8px}.hero-meta i{width:8px;height:8px;border-radius:50%;background:var(--verified)}
+    .first-view-tail{position:absolute;left:50%;bottom:12px;z-index:8;transform:translateX(-50%);font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.76);display:flex;gap:9px;align-items:center}.first-view-tail::before{content:"";width:42px;height:1px;background:currentColor}
+
+    .scene-section{height:285vh;position:relative;background:#111}
+    .scene-sticky{position:sticky;top:var(--header-h);height:calc(100svh - var(--header-h));min-height:640px;overflow:hidden;background:#111;color:#fff}
+    .scene-stack{position:absolute;inset:0;overflow:hidden}
+    .scene-layer{position:absolute;inset:0;opacity:0;transform:scale(1.025);transition:opacity .36s ease,transform .78s cubic-bezier(.22,.72,.18,1),filter .36s ease;overflow:hidden}
+    .scene-layer.active{opacity:1;transform:scale(1);z-index:2}
+    .scene-layer.retiring{opacity:.22;transform:scale(.985);filter:blur(2px);z-index:1}
+    .scene-layer img{width:100%;height:100%;object-fit:cover;object-position:center;animation:slow-camera 8s ease-in-out infinite alternate}
+    .scene-layer::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(8,8,8,.72) 0%,rgba(8,8,8,.22) 48%,rgba(8,8,8,.55) 100%),linear-gradient(0deg,rgba(8,8,8,.58),transparent 55%)}
+    .scene-accent{position:absolute;z-index:3;right:0;top:0;width:42%;height:100%;background:var(--scene-accent,var(--food));mix-blend-mode:multiply;opacity:.58;clip-path:polygon(24% 0,100% 0,100% 100%,0 100%);transition:background .45s ease,clip-path .78s cubic-bezier(.22,.72,.18,1)}
+    .scene-grain{position:absolute;z-index:4;inset:-50%;opacity:.045;pointer-events:none;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.75'/%3E%3C/svg%3E")}
+    .scene-ui{position:absolute;z-index:8;inset:0;padding:clamp(30px,4vw,62px) var(--page);display:grid;grid-template-columns:minmax(240px,.55fr) minmax(420px,1fr);gap:clamp(36px,8vw,130px);align-items:end}
+    .scene-selectors{align-self:center;display:flex;flex-direction:column;gap:8px;max-width:360px}
+    .scene-kicker{font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;margin-bottom:20px;color:rgba(255,255,255,.68)}
+    .scene-tab{border:0;border-top:1px solid rgba(255,255,255,.32);background:transparent;color:rgba(255,255,255,.62);padding:17px 0;text-align:left;display:grid;grid-template-columns:42px 1fr auto;gap:10px;align-items:center;min-height:64px;transition:color .16s ease,padding-left .16s ease}
+    .scene-tab b{font-size:12px;letter-spacing:.08em}.scene-tab span{font-size:18px;font-weight:720}.scene-tab i{width:8px;height:8px;border-radius:50%;border:1px solid currentColor}
+    .scene-tab[aria-selected="true"]{color:#fff;padding-left:14px}.scene-tab[aria-selected="true"] i{background:var(--selected-accent);border-color:var(--selected-accent);box-shadow:0 0 0 7px color-mix(in srgb,var(--selected-accent) 24%,transparent)}
+    .scene-panel{justify-self:end;align-self:end;width:min(620px,100%);border-left:8px solid var(--selected-accent);background:rgba(15,15,15,.82);backdrop-filter:blur(15px);padding:clamp(24px,3vw,40px);box-shadow:var(--shadow);transition:border-color .3s ease}
+    .scene-panel .index{font-size:12px;font-weight:850;letter-spacing:.12em;color:var(--selected-accent)}
+    .scene-panel h2{font-family:var(--display);font-size:clamp(38px,4.8vw,72px);line-height:1.02;letter-spacing:-.06em;margin-top:12px;max-width:590px}
+    .scene-panel p{font-size:17px;line-height:1.65;color:rgba(255,255,255,.76);max-width:520px;margin-top:17px}
+    .facts{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:rgba(255,255,255,.18);margin-top:24px}.fact{background:rgba(17,17,17,.85);padding:15px}.fact small{display:block;color:rgba(255,255,255,.54);font-size:11px;margin-bottom:7px}.fact strong{font-size:14px;line-height:1.45}
+    .panel-actions{display:flex;gap:10px;margin-top:22px}.panel-actions button{min-height:50px;border:1px solid rgba(255,255,255,.54);background:transparent;color:#fff;padding:0 18px;font-weight:780}.panel-actions .solid{background:#fff;color:#111;border-color:#fff}
+    .scene-progress{position:absolute;z-index:9;left:var(--page);right:var(--page);bottom:18px;height:2px;background:rgba(255,255,255,.22)}.scene-progress i{display:block;width:33.333%;height:100%;background:var(--selected-accent);transform:translateX(0);transition:transform .5s cubic-bezier(.22,.72,.18,1),background .3s ease}
+
+    .shop-stage{background:var(--canvas);padding:clamp(70px,9vw,130px) var(--page)}
+    .section-head{display:flex;justify-content:space-between;gap:32px;align-items:end;margin-bottom:36px}.section-head h2{font-family:var(--display);font-size:clamp(42px,5vw,76px);line-height:1;letter-spacing:-.065em}.section-head p{max-width:470px;font-size:17px;line-height:1.7;color:var(--muted)}
+    .shop-grid{display:grid;grid-template-columns:minmax(300px,.7fr) minmax(0,1.3fr);min-height:690px;border-top:1px solid #AFA79B;border-bottom:1px solid #AFA79B}
+    .shop-list{padding:24px 28px 24px 0;border-right:1px solid #AFA79B;display:flex;flex-direction:column}
+    .shop-list-label{font-size:12px;font-weight:850;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin-bottom:12px}
+    .shop-option{border:0;border-bottom:1px solid #CFC7BA;background:transparent;text-align:left;padding:20px 10px;display:grid;grid-template-columns:34px 1fr auto;gap:10px;align-items:start;min-height:92px;transition:background .16s ease,padding-left .16s ease}
+    .shop-option b{font-size:12px}.shop-option strong{font-size:20px;line-height:1.25}.shop-option small{display:block;font-size:13px;color:var(--muted);margin-top:5px}.shop-option svg{margin-top:3px}.shop-option[aria-selected="true"]{background:#fff;padding-left:18px}.shop-option[aria-selected="true"] svg{transform:translateX(3px)}
+    .shop-visual{position:relative;overflow:hidden;min-height:690px;background:#25221F;color:#fff}
+    .shop-photo{position:absolute;inset:0;transition:opacity .32s ease,transform .68s cubic-bezier(.22,.72,.18,1),filter .32s ease}.shop-photo img{width:100%;height:100%;object-fit:cover;animation:slow-camera 8s ease-in-out infinite alternate}.shop-photo::after{content:"";position:absolute;inset:0;background:linear-gradient(0deg,rgba(10,10,10,.84) 0%,rgba(10,10,10,.08) 60%),linear-gradient(90deg,rgba(10,10,10,.28),transparent 55%)}
+    .shop-scene-label{position:absolute;z-index:3;top:28px;left:28px;display:flex;align-items:center;gap:9px;padding:9px 12px;background:rgba(17,17,17,.72);backdrop-filter:blur(10px);font-size:12px;font-weight:800}.shop-scene-label i{width:8px;height:8px;border-radius:50%;background:var(--verified)}
+    .shop-detail{position:absolute;z-index:4;left:30px;right:30px;bottom:30px;display:grid;grid-template-columns:1fr auto;gap:24px;align-items:end}
+    .shop-detail h3{font-family:var(--display);font-size:clamp(34px,4vw,60px);line-height:1;letter-spacing:-.06em}.shop-detail p{font-size:16px;line-height:1.65;color:rgba(255,255,255,.78);margin-top:12px;max-width:570px}.shop-detail dl{display:flex;gap:28px;margin:20px 0 0}.shop-detail dt{font-size:11px;color:rgba(255,255,255,.55);margin-bottom:6px}.shop-detail dd{margin:0;font-size:14px;font-weight:730}.shop-actions{display:grid;gap:9px;min-width:172px}.shop-actions button{min-height:52px;border:1px solid rgba(255,255,255,.6);background:rgba(17,17,17,.55);color:#fff;font-weight:800;padding:0 16px;backdrop-filter:blur(10px)}.shop-actions .detail-primary{background:#fff;color:#111;border-color:#fff}.shop-actions .saved{background:#E8F2EC;color:#1E6745;border-color:#E8F2EC}
+
+    .product-area{background:#fff;padding:clamp(70px,8vw,118px) var(--page) 110px}
+    .product-toolbar{display:flex;gap:18px;align-items:center;justify-content:space-between;border-top:2px solid #111;border-bottom:1px solid #BFB7AB;padding:18px 0;margin-top:38px}
+    .category-row{display:flex;gap:8px;flex-wrap:wrap}.category{min-height:46px;border:1px solid #AFA79B;background:#fff;padding:0 16px;font-weight:730}.category[aria-pressed="true"]{background:#111;color:#fff;border-color:#111}.result-count{font-size:14px;color:var(--muted);font-weight:700}
+    .service-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:28px}.service-card{border-top:1px solid #111;background:#fff;padding-top:12px;display:flex;flex-direction:column;min-width:0}.service-card[hidden]{display:none}.service-card img{width:100%;aspect-ratio:4/3;object-fit:cover;background:#eee}.service-card .body{padding:18px 4px 6px}.service-card .relation{font-size:12px;font-weight:800;color:var(--verified)}.service-card h3{font-size:22px;line-height:1.3;margin-top:8px}.service-card p{font-size:15px;line-height:1.6;color:var(--muted);margin-top:8px}.benefit{display:inline-flex;width:max-content;margin-top:14px;background:#F3EFE8;padding:8px 10px;font-size:13px;font-weight:760}.card-actions{display:flex;gap:8px;margin-top:16px}.card-actions button{min-height:48px;border:1px solid #111;background:#fff;padding:0 14px;font-weight:780}.card-actions .fill{background:#111;color:#fff}
+    .benefit-band{margin-top:76px;background:var(--food);padding:clamp(28px,4vw,52px);display:grid;grid-template-columns:1fr auto;gap:30px;align-items:center}.benefit-band h3{font-family:var(--display);font-size:clamp(32px,4vw,58px);line-height:1.02;letter-spacing:-.055em}.benefit-band p{font-size:16px;line-height:1.65;margin-top:12px;max-width:690px}.benefit-band button{min-height:54px;border:2px solid #111;background:#111;color:#fff;padding:0 20px;font-weight:820}
+    .pilot-note{margin-top:38px;padding-top:24px;border-top:1px solid #BFB7AB;color:var(--muted);font-size:14px;line-height:1.7}
+    .site-footer{background:#171717;color:#fff;padding:34px var(--page) calc(98px + env(safe-area-inset-bottom));display:flex;justify-content:space-between;gap:24px;font-size:13px}.site-footer b{font-size:20px;letter-spacing:-.06em}.site-footer p{color:rgba(255,255,255,.62);max-width:520px;line-height:1.6}
+
+    .mobile-nav{display:none;position:fixed;z-index:110;left:0;right:0;bottom:0;height:calc(68px + env(safe-area-inset-bottom));padding:5px 8px env(safe-area-inset-bottom);background:#fff;border-top:1px solid #CAC2B5}.mobile-nav a{display:grid;place-items:center;gap:2px;min-width:0;font-size:11px;font-weight:700;color:#6B665F}.mobile-nav a[aria-current="page"]{color:#111}.mobile-nav svg{width:21px;height:21px}
+    .toast{position:fixed;left:50%;bottom:28px;z-index:300;transform:translate(-50%,18px);opacity:0;pointer-events:none;background:#111;color:#fff;padding:13px 17px;font-size:14px;font-weight:740;box-shadow:var(--shadow);transition:.2s ease}.toast.show{opacity:1;transform:translate(-50%,0)}
+    dialog{border:0;padding:0;width:min(620px,calc(100% - 28px));max-height:min(760px,calc(100svh - 28px));box-shadow:0 30px 90px rgba(0,0,0,.35);background:#fff;color:#171717}dialog::backdrop{background:rgba(12,12,12,.66);backdrop-filter:blur(4px)}.dialog-head{display:flex;justify-content:space-between;gap:20px;align-items:center;padding:20px 22px;border-bottom:1px solid #D3CCC1}.dialog-head h2{font-size:24px}.dialog-close{width:48px;height:48px;border:0;background:#F2EFE9;font-size:22px}.dialog-body{padding:24px}.dialog-body p{font-size:16px;line-height:1.7;color:var(--muted)}.dialog-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:20px}.dialog-item{background:#F5F1EA;padding:16px}.dialog-item small{display:block;color:var(--muted);font-size:12px;margin-bottom:7px}.dialog-actions{display:flex;justify-content:flex-end;gap:10px;padding:18px 22px;border-top:1px solid #D3CCC1}.dialog-actions button{min-height:50px;border:1px solid #111;background:#fff;padding:0 18px;font-weight:800}.dialog-actions .fill{background:#111;color:#fff}
+
+    @keyframes slow-camera{from{transform:scale(1)}to{transform:scale(1.035) translate3d(0,-.5%,0)}}
+    @keyframes frame-breathe{from{transform:translateX(18px)}to{transform:translateX(0)}}
+    @keyframes title-in{to{opacity:1;transform:translateY(0)}}
+
+    @media(max-width:1100px){
+      :root{--page:clamp(22px,4vw,48px)}.main-nav{display:none}.hero{grid-template-columns:1fr 1fr}.hero-info{padding-left:38px;padding-right:34px}.hero h1{font-size:clamp(44px,5.4vw,62px)}.hero-actions{grid-template-columns:1fr}.facts{grid-template-columns:1fr}.scene-ui{grid-template-columns:minmax(220px,.55fr) minmax(360px,1fr);gap:36px}.shop-detail{grid-template-columns:1fr}.shop-actions{grid-template-columns:1fr 1fr;min-width:0}.service-grid{grid-template-columns:repeat(2,1fr)}
+    }
+    @media(max-width:780px){
+      :root{--header-h:64px;--page:16px}.site-header{position:sticky}.header-inner{padding:0 12px;gap:8px}.wordmark{font-size:24px}.apartment,.main-nav,.header-tools{display:none}.mobile-tools{display:flex}.hero{display:flex;flex-direction:column;min-height:auto;background:var(--paper)}.hero-media{order:1;min-height:205px;height:25svh;max-height:238px}.hero-media img{object-position:50% 48%}.hero-media::after{display:none}.hero-caption{left:16px;bottom:13px;font-size:12px}.hero-caption b{width:30px;height:30px}.hero-info{order:2;padding:22px 16px 28px;background:var(--paper);color:#111}.hero-info::before{width:100%;height:7px;background:var(--food)}.eyebrow{font-size:12px;color:#3E3B36}.hero h1{font-size:clamp(34px,9.2vw,43px);line-height:1.05;letter-spacing:-.062em;margin-top:14px}.hero-description{font-size:16px;line-height:1.55;margin-top:14px}.hero-actions{margin-top:17px}.search-shell{min-height:54px;box-shadow:5px 5px 0 rgba(0,0,0,.13)}.search-shell input{font-size:16px;padding:0 13px}.search-shell button{padding:0 15px}.cta-row{display:grid;grid-template-columns:1.35fr .9fr;gap:8px;margin-top:13px}.cta{min-height:52px;padding:0 10px;font-size:15px}.hero-meta{margin-top:15px;padding-top:13px;gap:8px 14px;font-size:12px}.first-view-tail{display:none}
+      .scene-section{height:auto;background:#111;padding:54px 0 0}.scene-sticky{position:relative;top:0;height:auto;min-height:0;overflow:visible}.scene-stack{position:relative;height:280px}.scene-layer{height:280px}.scene-accent{width:55%;height:280px}.scene-ui{position:relative;inset:auto;padding:0 16px 44px;display:flex;flex-direction:column;gap:18px}.scene-selectors{order:2;align-self:stretch;max-width:none;display:grid;grid-template-columns:repeat(3,1fr);gap:6px}.scene-kicker{grid-column:1/-1;margin:0 0 5px}.scene-tab{display:flex;flex-direction:column;justify-content:center;gap:3px;border:1px solid rgba(255,255,255,.26);padding:10px 7px;min-height:72px;text-align:center}.scene-tab b{font-size:10px}.scene-tab span{font-size:13px;line-height:1.3}.scene-tab i{display:none}.scene-tab[aria-selected="true"]{padding-left:7px;background:rgba(255,255,255,.14);border-color:#fff}.scene-panel{order:1;width:100%;margin-top:-38px;position:relative;z-index:5;padding:20px;border-left-width:6px}.scene-panel h2{font-size:34px}.scene-panel p{font-size:16px;line-height:1.55}.facts{display:grid;grid-template-columns:1fr 1fr;margin-top:17px}.fact:nth-child(3){grid-column:1/-1}.panel-actions{display:grid;grid-template-columns:1fr 1fr}.panel-actions button{min-height:50px;padding:0 10px}.scene-progress{left:16px;right:16px;bottom:14px}
+      .shop-stage{padding:64px 16px}.section-head{display:block}.section-head h2{font-size:42px}.section-head p{font-size:16px;margin-top:16px}.shop-grid{display:flex;flex-direction:column;min-height:0;border-bottom:0}.shop-list{border-right:0;padding:14px 0 18px;display:grid;grid-template-columns:1fr 1fr;gap:7px}.shop-list-label{grid-column:1/-1}.shop-option{border:1px solid #BFB7AB;padding:12px;display:block;min-height:92px}.shop-option b{display:block;margin-bottom:7px}.shop-option svg{display:none}.shop-option strong{font-size:16px}.shop-option small{font-size:12px}.shop-option[aria-selected="true"]{padding-left:12px;border-color:#111;background:#fff}.shop-visual{min-height:530px}.shop-detail{left:18px;right:18px;bottom:18px;display:block}.shop-detail h3{font-size:37px}.shop-detail dl{display:grid;grid-template-columns:1fr 1fr;gap:12px}.shop-actions{display:grid;grid-template-columns:1fr 1fr;margin-top:18px}.shop-actions button{min-height:52px}.shop-scene-label{left:18px;top:18px}
+      .product-area{padding:64px 16px 96px}.product-toolbar{display:block}.category-row{display:grid;grid-template-columns:1fr 1fr}.category{min-height:48px;padding:0 8px}.result-count{margin-top:14px}.service-grid{grid-template-columns:1fr;gap:32px}.service-card h3{font-size:21px}.benefit-band{display:block;margin-top:54px;padding:28px 20px}.benefit-band h3{font-size:36px}.benefit-band button{width:100%;margin-top:20px}.site-footer{display:block;padding-bottom:calc(94px + env(safe-area-inset-bottom))}.site-footer p{margin-top:12px}.mobile-nav{display:grid;grid-template-columns:repeat(5,1fr)}.toast{bottom:88px;width:max-content;max-width:calc(100% - 28px);text-align:center}.dialog-grid{grid-template-columns:1fr}.dialog-actions{display:grid;grid-template-columns:1fr 1fr}.dialog-actions button{padding:0 8px}
+    }
+    @media(max-width:360px){.wordmark{font-size:22px}.hero-media{height:190px;min-height:190px}.hero h1{font-size:33px}.hero-description{font-size:15px}.cta{font-size:14px}.scene-panel h2{font-size:31px}.scene-tab span{font-size:12px}.shop-option{min-height:88px}.shop-option strong{font-size:15px}.mobile-nav a{font-size:10px}}
+    @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}.scene-section{height:auto}.scene-sticky{position:relative;top:0}.scene-layer:not(.active){display:none}}
+    body.reduce-motion *,body.reduce-motion *::before,body.reduce-motion *::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.08s!important}body.reduce-motion .scene-section{height:auto}body.reduce-motion .scene-sticky{position:relative;top:0}body.reduce-motion .scene-layer:not(.active){display:none}
+  </style>
+</head>
+<body>
+  <a class="skip" href="#main">본문으로 바로가기</a>
+  <div class="progress-rail" aria-hidden="true"><span id="pageProgress"></span></div>
+  <header class="site-header">
+    <div class="header-inner">
+      <a href="#top" class="wordmark" aria-label="단지온 홈"><span>단</span><span>지</span><span>온</span></a>
+      <span class="apartment">방림명지로드힐</span>
+      <nav class="main-nav" aria-label="주요 메뉴"><a href="#shops">이웃가게</a><a href="#product">주민혜택</a><a href="#pilot">단지소식</a><a href="#pilot">내정보</a></nav>
+      <div class="header-tools">
+        <button class="plain-button" type="button" data-motion-toggle>동작 줄이기</button>
+        <button class="resident-button" type="button" data-open="verify"><i></i>입주민 확인</button>
+      </div>
+      <div class="mobile-tools">
+        <button class="icon-text" type="button" data-focus-search aria-label="검색으로 이동">검색</button>
+        <button class="icon-text" type="button" data-open="profile" aria-label="내정보 열기">내정보</button>
+      </div>
+    </div>
+  </header>
+
+  <main id="main">
+    <section class="hero" id="top" aria-labelledby="hero-title">
+      <div class="hero-media">
+        <img src="assets/scene-food.webp" alt="주방에서 반찬을 준비하는 손과 작업대" width="1280" height="853" fetchpriority="high" />
+        <div class="hero-caption"><b>01</b><span>오늘 일하는 이웃 · 반찬 준비</span></div>
+      </div>
+      <div class="hero-info">
+        <p class="eyebrow">방림명지로드힐 주민 서비스</p>
+        <h1 id="hero-title"><span>필요한 일,</span><span>우리 단지에서 먼저 찾아보세요</span></h1>
+        <p class="hero-description">반찬, 과외, 청소, 수리부터 전문상담까지<br class="desktop-break" /> 같은 아파트 주민이 하는 가게와 서비스를 소개합니다.</p>
+        <div class="hero-actions">
+          <form class="search-shell" id="heroSearchForm" role="search">
+            <label class="sr-only" for="heroSearch">가게와 서비스 검색</label>
+            <input id="heroSearch" name="q" autocomplete="off" placeholder="예: 반찬, 수학, 에어컨 청소" />
+            <button type="submit">검색</button>
+          </form>
+        </div>
+        <div class="cta-row"><a class="cta cta-primary" href="#product">가게와 서비스 찾기 <span aria-hidden="true">→</span></a><button class="cta cta-secondary" type="button" data-open="announce">내 일 알리기</button></div>
+        <div class="hero-meta"><span><i></i>입주민 관계 확인</span><span>현재 소개 중 12개</span><span>시연용 예시 화면</span></div>
+      </div>
+      <div class="first-view-tail">Scroll to meet the next neighbor</div>
+    </section>
+
+    <section class="scene-section" id="stories" aria-labelledby="scene-heading">
+      <div class="scene-sticky" id="sceneSticky">
+        <div class="scene-stack" aria-hidden="true">
+          <div class="scene-layer active" data-scene-layer="food"><img src="assets/scene-food.webp" alt="" /></div>
+          <div class="scene-layer" data-scene-layer="learning"><img src="assets/scene-learning.webp" alt="" loading="lazy" /></div>
+          <div class="scene-layer" data-scene-layer="home"><img src="assets/scene-home-care.webp" alt="" loading="lazy" /></div>
+          <div class="scene-accent" id="sceneAccent"></div><div class="scene-grain"></div>
+        </div>
+        <div class="scene-ui">
+          <div class="scene-selectors" role="tablist" aria-label="일하는 이웃 장면 선택">
+            <p class="scene-kicker" id="scene-heading">SCENE 02 · 일이 바뀌면 장면도 바뀝니다</p>
+            <button class="scene-tab" type="button" role="tab" aria-selected="true" data-scene="food"><b>01</b><span>반찬을 만드는 이웃</span><i></i></button>
+            <button class="scene-tab" type="button" role="tab" aria-selected="false" data-scene="learning"><b>02</b><span>수학을 가르치는 이웃</span><i></i></button>
+            <button class="scene-tab" type="button" role="tab" aria-selected="false" data-scene="home"><b>03</b><span>집과 생활을 고치는 이웃</span><i></i></button>
+          </div>
+          <article class="scene-panel" id="scenePanel" aria-live="polite">
+            <span class="index" id="sceneIndex">01 · FOOD</span>
+            <h2 id="sceneTitle">매일 먹는 반찬을 만드는 이웃</h2>
+            <p id="sceneDescription">아침 작업대에서 재료를 다듬고 오늘 전달할 반찬을 준비합니다. 메뉴와 알레르기 정보를 확인한 뒤 단지 안에서 받을 수 있습니다.</p>
+            <div class="facts">
+              <div class="fact"><small>서비스</small><strong id="sceneService">오늘의 반찬</strong></div>
+              <div class="fact"><small>주민 관계</small><strong id="sceneRelation">방림명지로드힐 주민 운영</strong></div>
+              <div class="fact"><small>주민 혜택</small><strong id="sceneBenefit">예약 주문 시 국 1팩 추가</strong></div>
+            </div>
+            <div class="panel-actions"><button class="solid" type="button" data-scene-detail>이 가게 자세히 보기</button><button type="button" data-scene-save>저장</button></div>
+          </article>
+        </div>
+        <div class="scene-progress" aria-hidden="true"><i id="sceneProgress"></i></div>
+      </div>
+    </section>
+
+    <section class="shop-stage" id="shops" aria-labelledby="shop-stage-title">
+      <div class="section-head"><h2 id="shop-stage-title">살아 있는 가게를<br />직접 선택해 보세요</h2><p>가게 이름을 누르면 작업 장면과 가격 기준, 주민혜택, 이용 방법이 같은 자리에서 바뀝니다. 정확한 동·호수는 공개하지 않습니다.</p></div>
+      <div class="shop-grid">
+        <div class="shop-list" role="tablist" aria-label="이웃가게 선택">
+          <p class="shop-list-label">SCENE 03 · 현재 활동 중인 예시 가게</p>
+          <button class="shop-option" type="button" role="tab" aria-selected="true" data-shop="home"><b>01</b><span><strong>온케어 홈서비스</strong><small>보이지 않는 곳까지 씻고 점검하는 이웃</small></span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg></button>
+          <button class="shop-option" type="button" role="tab" aria-selected="false" data-shop="learning"><b>02</b><span><strong>한결 수학</strong><small>어려운 문제를 생활 언어로 설명하는 이웃</small></span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg></button>
+          <button class="shop-option" type="button" role="tab" aria-selected="false" data-shop="food"><b>03</b><span><strong>오늘의 반찬</strong><small>매일 먹을 음식을 작은 양부터 만드는 이웃</small></span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg></button>
+          <button class="shop-option" type="button" role="tab" aria-selected="false" data-shop="professional"><b>04</b><span><strong>이웃 촬영실</strong><small>작은 가게의 모습을 차분히 기록하는 이웃</small></span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg></button>
+        </div>
+        <article class="shop-visual" aria-live="polite">
+          <div class="shop-photo" id="shopPhoto"><img src="assets/scene-home-care.webp" alt="에어컨을 점검하고 세척하는 작업 장면" /></div>
+          <div class="shop-scene-label"><i></i><span id="shopRelationLabel">방림명지로드힐 주민 운영</span></div>
+          <div class="shop-detail">
+            <div><h3 id="shopName">온케어 홈서비스</h3><p id="shopCopy">에어컨과 생활 설비를 분해해 확인하고, 보이지 않는 곳까지 세척 상태를 설명합니다.</p><dl><div><dt>가격 기준</dt><dd id="shopPrice">에어컨 분해 세척 7만원부터</dd></div><div><dt>이용 방법</dt><dd id="shopMethod">단지 방문 · 일정 협의</dd></div><div><dt>주민혜택</dt><dd id="shopBenefit">2대 함께 신청 시 1만원 할인</dd></div></dl></div>
+            <div class="shop-actions"><button class="detail-primary" type="button" data-shop-detail>상세보기</button><button type="button" data-shop-save>저장</button></div>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="product-area" id="product" aria-labelledby="product-title">
+      <div class="section-head"><h2 id="product-title">이제 익숙한 제품 화면으로<br />빠르게 찾습니다</h2><p>모션 장면은 이웃의 일을 이해하기 위한 입구입니다. 실제 검색과 선택은 v5의 명확한 제품 구조로 이어집니다.</p></div>
+      <div class="product-toolbar">
+        <div class="category-row" role="group" aria-label="서비스 분야 필터">
+          <button class="category" type="button" aria-pressed="true" data-category="all">전체</button>
+          <button class="category" type="button" aria-pressed="false" data-category="food">반찬·식품</button>
+          <button class="category" type="button" aria-pressed="false" data-category="learning">교육·과외</button>
+          <button class="category" type="button" aria-pressed="false" data-category="home">청소·수리</button>
+          <button class="category" type="button" aria-pressed="false" data-category="professional">촬영·디자인</button>
+        </div>
+        <span class="result-count" id="resultCount">4개 서비스</span>
+      </div>
+      <div class="service-grid" id="serviceGrid">
+        <article class="service-card" data-card data-category="home" data-search="온케어 홈서비스 에어컨 청소 수리 방문"><img src="assets/scene-home-care.webp" alt="에어컨 청소 도구를 사용하는 모습" loading="lazy" /><div class="body"><span class="relation">✓ 방림명지로드힐 주민 운영</span><h3>온케어 홈서비스</h3><p>에어컨과 생활 설비를 분해 점검하고 작업 전후 상태를 설명합니다.</p><span class="benefit">주민 2대 신청 1만원 할인</span><div class="card-actions"><button type="button" data-card-save="home">저장</button><button class="fill" type="button" data-card-detail="home">상세보기</button></div></div></article>
+        <article class="service-card" data-card data-category="learning" data-search="한결 수학 과외 교육 중등 고등 상담"><img src="assets/scene-learning.webp" alt="칠판 앞에서 수업하는 모습" loading="lazy" /><div class="body"><span class="relation">✓ 주민 가족 운영</span><h3>한결 수학</h3><p>문제를 푸는 순서를 학생의 말로 다시 설명하고 학습 계획을 함께 정합니다.</p><span class="benefit">첫 상담 30분 무료</span><div class="card-actions"><button type="button" data-card-save="learning">저장</button><button class="fill" type="button" data-card-detail="learning">상세보기</button></div></div></article>
+        <article class="service-card" data-card data-category="food" data-search="오늘의 반찬 음식 국 주문 알레르기"><img src="assets/scene-food.webp" alt="주방에서 반찬을 준비하는 모습" loading="lazy" /><div class="body"><span class="relation">✓ 방림명지로드힐 주민 운영</span><h3>오늘의 반찬</h3><p>작은 양부터 주문할 수 있고 메뉴별 재료와 알레르기 정보를 먼저 확인합니다.</p><span class="benefit">예약 주문 시 국 1팩 추가</span><div class="card-actions"><button type="button" data-card-save="food">저장</button><button class="fill" type="button" data-card-detail="food">상세보기</button></div></div></article>
+        <article class="service-card" data-card data-category="professional" data-search="이웃 촬영실 사진 촬영 디자인 홍보 상품"><img src="assets/scene-photo.webp" alt="카메라로 작업 결과물을 촬영하는 모습" loading="lazy" /><div class="body"><span class="relation">✓ 주민 가족 운영</span><h3>이웃 촬영실</h3><p>작은 가게의 상품과 작업 과정을 자연광 중심으로 촬영하고 사용할 사진을 함께 고릅니다.</p><span class="benefit">주민 프로필 1컷 추가</span><div class="card-actions"><button type="button" data-card-save="professional">저장</button><button class="fill" type="button" data-card-detail="professional">상세보기</button></div></div></article>
+      </div>
+      <div class="benefit-band"><div><h3>같은 단지라서 가능한<br />작은 주민혜택</h3><p>가격만 낮추는 할인보다 전달 방법, 첫 상담, 공동 신청처럼 실제 생활에 도움이 되는 혜택을 먼저 보여줍니다.</p></div><button type="button" data-open="benefits">주민혜택 확인</button></div>
+      <p class="pilot-note" id="pilot">단지온은 AI를 활용해 기획·디자인·콘텐츠 초안과 프로토타입을 제작한 주민 주도형 시범서비스입니다. 주민 참여는 자율이며 실제 주민 정보와 사진은 당사자 동의 후 사용합니다. 현재 사용된 이미지는 시안용이며 실제 참여 주민의 사진이 아닙니다.</p>
+    </section>
+  </main>
+
+  <footer class="site-footer"><b>단지온</b><p>같은 아파트 주민이 운영하는 가게와 서비스를 먼저 발견하고, 입주민 전용 혜택을 이용하도록 연결하는 주민 인증형 생활경제 서비스.</p></footer>
+
+  <nav class="mobile-nav" aria-label="모바일 주요 메뉴">
+    <a href="#top" aria-current="page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 11 9-8 9 8v9a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/></svg><span>홈</span></a>
+    <a href="#shops"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 10v10h16V10"/><path d="M3 10h18l-2-6H5z"/><path d="M8 20v-6h8v6"/></svg><span>이웃가게</span></a>
+    <a href="#product"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 12v8H4v-8"/><path d="M2 7h20v5H2z"/><path d="M12 7v13"/><path d="M7 7c-2 0-3-1-3-2.2S5 3 6.4 3C8.5 3 10 7 12 7"/><path d="M17 7c2 0 3-1 3-2.2S19 3 17.6 3C15.5 3 14 7 12 7"/></svg><span>주민혜택</span></a>
+    <a href="#pilot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v16H4z"/><path d="M8 8h8M8 12h8M8 16h5"/></svg><span>단지소식</span></a>
+    <a href="#pilot" data-open="profile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-5 4-7 8-7s7 2 8 7"/></svg><span>내정보</span></a>
+  </nav>
+
+  <dialog id="appDialog" aria-labelledby="dialogTitle"><div class="dialog-head"><h2 id="dialogTitle">상세 정보</h2><button class="dialog-close" type="button" data-dialog-close aria-label="닫기">×</button></div><div class="dialog-body" id="dialogBody"></div><div class="dialog-actions" id="dialogActions"></div></dialog>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script>
+  (()=>{
+    const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
+    const root=document.body, dialog=$('#appDialog'), toast=$('#toast');
+    const sceneSection=$('.scene-section'), sceneProgress=$('#sceneProgress'), pageProgress=$('#pageProgress');
+    let currentScene='', currentShop='home', lastDialogTrigger=null, toastTimer;
+    const storage={get(k){try{return localStorage.getItem(k)}catch(e){return null}},set(k,v){try{localStorage.setItem(k,v)}catch(e){}}};
+    const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches || new URLSearchParams(location.search).get('reduced')==='1' || storage.get('danjion-m1-reduced')==='1';
+    if(reduced) root.classList.add('reduce-motion');
+
+    const scenes={
+      food:{index:'01 · FOOD',title:'매일 먹는 반찬을 만드는 이웃',description:'아침 작업대에서 재료를 다듬고 오늘 전달할 반찬을 준비합니다. 메뉴와 알레르기 정보를 확인한 뒤 단지 안에서 받을 수 있습니다.',service:'오늘의 반찬',relation:'방림명지로드힐 주민 운영',benefit:'예약 주문 시 국 1팩 추가',accent:'#E95C3E'},
+      learning:{index:'02 · LEARNING',title:'수학을 생활 언어로 설명하는 이웃',description:'학생이 막힌 지점을 함께 찾아 문제를 푸는 순서를 다시 설명합니다. 첫 상담에서 학습 범위와 가능한 시간을 정합니다.',service:'한결 수학',relation:'주민 가족 운영',benefit:'첫 상담 30분 무료',accent:'#4057E8'},
+      home:{index:'03 · HOME CARE',title:'집 안의 고장을 씻고 점검하는 이웃',description:'에어컨과 생활 설비를 분해해 상태를 보여주고, 작업 전후의 차이를 설명합니다. 단지 방문 일정은 개별 협의합니다.',service:'온케어 홈서비스',relation:'방림명지로드힐 주민 운영',benefit:'2대 함께 신청 시 1만원 할인',accent:'#BDE53E'}
+    };
+    const shops={
+      home:{name:'온케어 홈서비스',relation:'방림명지로드힐 주민 운영',copy:'에어컨과 생활 설비를 분해해 확인하고, 보이지 않는 곳까지 세척 상태를 설명합니다.',price:'에어컨 분해 세척 7만원부터',method:'단지 방문 · 일정 협의',benefit:'2대 함께 신청 시 1만원 할인',img:'assets/scene-home-care.webp',alt:'에어컨을 점검하고 세척하는 작업 장면',accent:'#BDE53E'},
+      learning:{name:'한결 수학',relation:'주민 가족 운영',copy:'학생이 막힌 지점을 함께 찾아 문제를 푸는 순서와 학습 계획을 생활 언어로 설명합니다.',price:'주 2회 상담 후 안내',method:'단지 인근 · 방문 상담',benefit:'첫 상담 30분 무료',img:'assets/scene-learning.webp',alt:'칠판 앞에서 수학을 설명하는 수업 장면',accent:'#4057E8'},
+      food:{name:'오늘의 반찬',relation:'방림명지로드힐 주민 운영',copy:'작은 양부터 주문할 수 있고 메뉴별 재료와 알레르기 정보를 먼저 확인합니다.',price:'메뉴별 6,000원부터',method:'단지 안 전달 · 예약 주문',benefit:'예약 주문 시 국 1팩 추가',img:'assets/scene-food.webp',alt:'주방에서 반찬을 준비하는 작업 장면',accent:'#E95C3E'},
+      professional:{name:'이웃 촬영실',relation:'주민 가족 운영',copy:'작은 가게의 상품과 작업 과정을 자연광 중심으로 촬영하고 사용할 사진을 함께 고릅니다.',price:'기본 촬영 8만원부터',method:'단지 인근 · 방문 협의',benefit:'주민 프로필 1컷 추가',img:'assets/scene-photo.webp',alt:'카메라로 작업 결과물을 촬영하는 장면',accent:'#6840A5'}
+    };
+    const saved=new Set();
+
+    function showToast(message){clearTimeout(toastTimer);toast.textContent=message;toast.classList.add('show');toastTimer=setTimeout(()=>toast.classList.remove('show'),1900)}
+    function openDialog(title,body,actions='<button type="button" data-dialog-close>닫기</button>',trigger=document.activeElement){lastDialogTrigger=trigger;$('#dialogTitle').textContent=title;$('#dialogBody').innerHTML=body;$('#dialogActions').innerHTML=actions;dialog.showModal();setTimeout(()=>($('[data-dialog-close]',dialog)||$('button',dialog))?.focus(),0)}
+    function closeDialog(){dialog.close();lastDialogTrigger?.focus?.()}
+    function serviceBody(key){const s=shops[key];return `<p>${s.copy}</p><div class="dialog-grid"><div class="dialog-item"><small>주민 관계</small><strong>${s.relation}</strong></div><div class="dialog-item"><small>가격 기준</small><strong>${s.price}</strong></div><div class="dialog-item"><small>이용 방법</small><strong>${s.method}</strong></div><div class="dialog-item"><small>입주민 혜택</small><strong>${s.benefit}</strong></div></div><p style="margin-top:18px">시연용 예시 정보입니다. 실제 운영에서는 당사자가 공개에 동의한 연락 방식만 표시하고 정확한 동·호수는 공개하지 않습니다.</p>`}
+
+    function selectScene(key,{fromScroll=false}={}){
+      if(!scenes[key]||key===currentScene)return; const prior=currentScene;currentScene=key;const data=scenes[key];
+      const old=$(`[data-scene-layer="${prior}"]`), next=$(`[data-scene-layer="${key}"]`);old?.classList.add('retiring');old?.classList.remove('active');next?.classList.add('active');next?.classList.remove('retiring');setTimeout(()=>old?.classList.remove('retiring'),820);
+      $$('[data-scene]').forEach(b=>{const on=b.dataset.scene===key;b.setAttribute('aria-selected',String(on));b.style.setProperty('--selected-accent',scenes[b.dataset.scene].accent)});
+      $('#scenePanel').style.setProperty('--selected-accent',data.accent);$('#sceneAccent').style.setProperty('--scene-accent',data.accent);$('#sceneIndex').textContent=data.index;$('#sceneTitle').textContent=data.title;$('#sceneDescription').textContent=data.description;$('#sceneService').textContent=data.service;$('#sceneRelation').textContent=data.relation;$('#sceneBenefit').textContent=data.benefit;
+      const order=['food','learning','home'].indexOf(key);sceneProgress.style.transform=`translateX(${order*100}%)`;sceneProgress.style.background=data.accent;pageProgress.style.background=data.accent;
+      if(!fromScroll && innerWidth>780 && !root.classList.contains('reduce-motion')){const rect=sceneSection.getBoundingClientRect();const start=scrollY+rect.top;const range=sceneSection.offsetHeight-innerHeight;scrollTo({top:start+range*(order/2),behavior:'smooth'})}
+    }
+    // initialize scene state without changing the user's scroll position
+    selectScene('food',{fromScroll:true});
+
+    function selectShop(key){if(!shops[key])return;currentShop=key;const s=shops[key];$$('[data-shop]').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.shop===key)));const photo=$('#shopPhoto');photo.style.opacity='.22';photo.style.transform='scale(.985)';photo.style.filter='blur(2px)';setTimeout(()=>{photo.innerHTML=`<img src="${s.img}" alt="${s.alt}">`;photo.style.opacity='1';photo.style.transform='scale(1)';photo.style.filter='none'},180);$('#shopRelationLabel').textContent=s.relation;$('#shopName').textContent=s.name;$('#shopCopy').textContent=s.copy;$('#shopPrice').textContent=s.price;$('#shopMethod').textContent=s.method;$('#shopBenefit').textContent=s.benefit;const save=$('[data-shop-save]');save.classList.toggle('saved',saved.has(key));save.textContent=saved.has(key)?'✓ 저장됨':'저장';}
+
+    function filterCards(query='',category=null){const q=query.trim().toLowerCase();let count=0;$$('[data-card]').forEach(card=>{const okQ=!q||card.dataset.search.toLowerCase().includes(q);const okC=!category||category==='all'||card.dataset.category===category;card.hidden=!(okQ&&okC);if(!card.hidden)count++});$('#resultCount').textContent=`${count}개 서비스`;if(query){location.hash='product';showToast(count?`${count}개 서비스를 찾았습니다.`:'검색 결과가 없습니다. 다른 단어로 찾아보세요.')};}
+
+    let lastScrollScene='food';
+    function onScroll(){const doc=document.documentElement;const p=scrollY/Math.max(1,doc.scrollHeight-innerHeight);pageProgress.style.transform=`scaleX(${p})`;if(innerWidth<=780||root.classList.contains('reduce-motion'))return;const r=sceneSection.getBoundingClientRect();const range=sceneSection.offsetHeight-innerHeight;const progress=Math.min(1,Math.max(0,-r.top/Math.max(1,range)));let key=progress<.335?'food':progress<.67?'learning':'home';if(key!==lastScrollScene){lastScrollScene=key;selectScene(key,{fromScroll:true})}}
+    addEventListener('scroll',onScroll,{passive:true});addEventListener('resize',onScroll,{passive:true});onScroll();
+
+    $('#heroSearchForm').addEventListener('submit',e=>{e.preventDefault();filterCards($('#heroSearch').value)});
+    $$('[data-focus-search]').forEach(b=>b.addEventListener('click',()=>{$('#heroSearch').focus();scrollTo({top:0,behavior:'smooth'})}));
+    $$('[data-scene]').forEach(b=>b.addEventListener('click',()=>selectScene(b.dataset.scene)));
+    $$('[data-shop]').forEach(b=>b.addEventListener('click',()=>selectShop(b.dataset.shop)));
+    $$('[data-category]').forEach(b=>b.addEventListener('click',()=>{$$('[data-category]').forEach(x=>x.setAttribute('aria-pressed','false'));b.setAttribute('aria-pressed','true');filterCards('',b.dataset.category)}));
+    $('[data-scene-detail]').addEventListener('click',()=>{const key=currentScene==='home'?'home':currentScene;openDialog(shops[key].name,serviceBody(key),'<button type="button" data-dialog-close>닫기</button><button class="fill" type="button" data-contact>문의 방법 확인</button>',document.activeElement)});
+    $('[data-scene-save]').addEventListener('click',()=>{const key=currentScene;saved.has(key)?saved.delete(key):saved.add(key);showToast(saved.has(key)?'이웃 서비스를 저장했습니다.':'저장을 해제했습니다.')});
+    $('[data-shop-detail]').addEventListener('click',()=>openDialog(shops[currentShop].name,serviceBody(currentShop),'<button type="button" data-dialog-close>닫기</button><button class="fill" type="button" data-contact>문의 방법 확인</button>',document.activeElement));
+    $('[data-shop-save]').addEventListener('click',()=>{saved.has(currentShop)?saved.delete(currentShop):saved.add(currentShop);selectShop(currentShop);showToast(saved.has(currentShop)?'가게를 저장했습니다.':'저장을 해제했습니다.')});
+    $$('[data-card-detail]').forEach(b=>b.addEventListener('click',()=>openDialog(shops[b.dataset.cardDetail].name,serviceBody(b.dataset.cardDetail),'<button type="button" data-dialog-close>닫기</button><button class="fill" type="button" data-contact>문의 방법 확인</button>',b)));
+    $$('[data-card-save]').forEach(b=>b.addEventListener('click',()=>{const k=b.dataset.cardSave;saved.has(k)?saved.delete(k):saved.add(k);b.textContent=saved.has(k)?'✓ 저장됨':'저장';showToast(saved.has(k)?'가게를 저장했습니다.':'저장을 해제했습니다.')}));
+    $$('[data-open]').forEach(b=>b.addEventListener('click',e=>{e.preventDefault();const t=b.dataset.open;if(t==='verify')openDialog('방림명지로드힐 입주민 확인','<p>관리 주체의 확인 절차를 거쳐 입주민 관계를 확인합니다. 실제 동·호수는 공개하지 않습니다.</p>','<button type="button" data-dialog-close>나중에</button><button class="fill" type="button" data-verify>확인 요청</button>',b);if(t==='announce')openDialog('내 일 알리기','<p>이번 Motion Gate에서는 전체 등록 흐름을 만들지 않습니다. 시범 운영 참여 의사를 남기면 이후 등록 절차와 필요한 사진·가격 정보를 안내하는 구조입니다.</p><div class="dialog-grid"><div class="dialog-item"><small>대상</small><strong>주민 사업자·주민 가족·인근 제휴가게</strong></div><div class="dialog-item"><small>필요 자료</small><strong>서비스 설명·작업사진·혜택·연락 방식</strong></div></div>','<button type="button" data-dialog-close>닫기</button><button class="fill" type="button" data-announce>참여 의사 남기기</button>',b);if(t==='profile')openDialog('내정보','<p>입주민 확인 상태, 저장한 가게와 글자·동작 설정을 확인하는 영역입니다. 복잡한 마이페이지는 이번 Gate 범위에 포함하지 않습니다.</p><div class="dialog-grid"><div class="dialog-item"><small>저장한 가게</small><strong>'+saved.size+'개</strong></div><div class="dialog-item"><small>모션·데이터</small><strong>'+(root.classList.contains('reduce-motion')?'저동작 모드':'기본 모드')+'</strong></div></div>','<button type="button" data-dialog-motion>'+(root.classList.contains('reduce-motion')?'기본 동작 사용':'저동작·저데이터 사용')+'</button><button class="fill" type="button" data-dialog-close>확인</button>',b);if(t==='benefits')openDialog('주민혜택','<p>주민혜택은 단순 할인뿐 아니라 공동 신청, 첫 상담, 단지 안 전달처럼 생활에 직접 도움이 되는 조건을 구분해 표시합니다.</p>','<button class="fill" type="button" data-dialog-close>확인</button>',b)}));
+    $$('[data-motion-toggle]').forEach(b=>b.addEventListener('click',()=>{root.classList.toggle('reduce-motion');storage.set('danjion-m1-reduced',root.classList.contains('reduce-motion')?'1':'0');b.textContent=root.classList.contains('reduce-motion')?'기본 동작 사용':'동작 줄이기';showToast(root.classList.contains('reduce-motion')?'동작을 줄였습니다.':'기본 동작을 사용합니다.');onScroll()}));
+    dialog.addEventListener('click',e=>{if(e.target===dialog)closeDialog();const close=e.target.closest('[data-dialog-close]');if(close)closeDialog();if(e.target.closest('[data-contact]')){closeDialog();showToast('공개에 동의한 문의 방법을 확인하는 단계입니다.')}if(e.target.closest('[data-verify]')){closeDialog();showToast('입주민 확인 요청을 접수했습니다.')}if(e.target.closest('[data-announce]')){closeDialog();showToast('시범 운영 참여 의사를 남겼습니다.')}if(e.target.closest('[data-dialog-motion]')){root.classList.toggle('reduce-motion');storage.set('danjion-m1-reduced',root.classList.contains('reduce-motion')?'1':'0');closeDialog();showToast(root.classList.contains('reduce-motion')?'저동작·저데이터 모드를 사용합니다.':'기본 동작을 사용합니다.');onScroll()}});
+    dialog.addEventListener('cancel',e=>{e.preventDefault();closeDialog()});
+    selectShop('home');
+  })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,29 @@
+# Drive sync temp files
+.tmp.driveupload/
+
+# Environment / secrets
+.env
+.env.*
+*.key
+*.pem
+credentials*
+secrets*
+config.local.*
+
+# Dependencies & build output
+node_modules/
+.next/
+dist/
+build/
+cache/
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Large video files - not needed for code/design analysis
+*.mp4
+*.mov
+*.avi
+*.mkv

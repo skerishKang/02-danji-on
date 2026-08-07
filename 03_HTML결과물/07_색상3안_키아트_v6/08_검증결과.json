@@ -1,0 +1,1241 @@
+{
+  "A": {
+    "viewports": [
+      {
+        "viewport": {
+          "w": 1024,
+          "h": 768
+        },
+        "documentWidth": 1024,
+        "horizontalOverflow": 0,
+        "title": [
+          {
+            "text": "필요한 일,",
+            "left": 561.359375,
+            "right": 966,
+            "width": 404.640625,
+            "panelRight": 996,
+            "inside": true,
+            "rectCount": 1,
+            "wordBreak": "keep-all",
+            "overflowWrap": "normal",
+            "whiteSpace": "nowrap",
+            "lineHeight": "49.3158px",
+            "height": 49.3125
+          },
+          {
+            "text": "우리 단지에서",
+            "left": 561.359375,
+            "right": 966,
+            "width": 404.640625,
+            "panelRight": 996,
+            "inside": true,
+            "rectCount": 1,
+            "wordBreak": "keep-all",
+            "overflowWrap": "normal",
+            "whiteSpace": "nowrap",
+            "lineHeight": "49.3158px",
+            "height": 49.3125
+          },
+          {
+            "text": "먼저 찾아보세요",
+            "left": 561.359375,
+            "right": 966,
+            "width": 404.640625,
+            "panelRight": 996,
+            "inside": true,
+            "rectCount": 1,
+            "wordBreak": "keep-all",
+            "overflowWrap": "normal",
+            "whiteSpace": "nowrap",
+            "lineHeight": "49.3158px",
+            "height": 49.3125
+          }
+        ],
+        "cta": [
+          {
+            "text": "가게와 서비스 찾기",
+            "height": 54,
+            "width": 204.8125,
+            "scrollWidth": 205,
+            "overflow": 0.1875
+          },
+          {
+            "text": "내 일 알리기",
+            "height": 54,
+            "width": 130.09375,
+            "scrollWidth": 128,
+            "overflow": -2.09375
+          }
+        ]
+      },
+      {
+        "viewport": {
+          "w": 768,
+          "h": 1024
+        },
+        "documentWidth": 768,
+        "horizontalOverflow": 0,
+        "title": [
+          {
+            "text": "필요한 일,",
+            "left": 410,
+            "right": 710,
+            "width": 300,
+            "panelRight": 740,
+            "inside": true,
+            "rectCount": 1,
+            "wordBreak": "keep-all",
+            "overflowWrap": "normal",
+            "whiteSpace": "nowrap",
+            "lineHeight": "44.8px",
+            "height": 44.796875
+          },
+          {
+            "text": "우리 단지에서",
+            "left": 410,
+            "right": 710,
+            "width": 300,
+            "panelRight": 740,
+            "inside": true,
+            "rectCount": 1,
+            "wordBreak": "keep-all",
+            "overflowWrap": "normal",
+            "whiteSpace": "nowrap",
+            "lineHeight": "44.8px",
+            "height": 44.796875
+          },
+          {
+            "text": "먼저 찾아보세요",
+            "left": 410,
+            "right": 710,
+            "width": 300,
+            "panelRight": 740,
+            "inside": true,
+            "rectCount": 1,
+            "wordBreak": "keep-all",
+            "overflowWrap": "normal",
+            "whiteSpace": "nowrap",
+            "lineHeight": "44.8px",
+            "height": 44.796875
+          }
+        ],
+        "cta": [
+          {
+            "text": "가게와 서비스 찾기",
+            "height": 54,
+            "width": 204.8125,
+            "scrollWidth": 205,
+            "overflow": 0.1875
+          },
+          {
+            "text": "내 일 알리기",
+            "height": 54,
+            "width": 130.09375,
+            "scrollWidth": 128,
+            "overflow": -2.09375
+          }
+        ]
+      },
+      {
+        "viewport": {
+          "w": 430,
+          "h": 932
+        },
+        "documentWidth": 430,
+        "horizontalOverflow": 0,
+        "title": [
+          {
+            "text": "필요한 일,",
+            "left": 16,
+            "right": 414,
+            "width": 398,
+            "panelRight": 430,
+            "inside": true,
+            "rectCount": 1,
+            "wordBreak": "keep-all",
+            "overflowWrap": "normal",
+            "whiteSpace": "nowrap",
+            "lineHeight": "35.34px",
+            "height": 35.328125
+          },
+          {
+            "text": "우리 단지에서",
+            "left": 16,
+            "right": 414,
+            "width": 398,
+            "panelRight": 430,
+            "inside": true,
+            "rectCount": 1,
+            "wordBreak": "keep-all",
+            "overflowWrap": "normal",
+            "whiteSpace": "nowrap",
+            "lineHeight": "35.34px",
+            "height": 35.328125
+          },
+          {
+            "text": "먼저 찾아보세요",
+            "left": 16,
+            "right": 414,
+            "width": 398,
+            "panelRight": 430,
+            "inside": true,
+            "rectCount": 1,
+            "wordBreak": "keep-all",
+            "overflowWrap": "normal",
+            "whiteSpace": "nowrap",
+            "lineHeight": "35.34px",
+            "height": 35.328125
+          }
+        ],
+        "cta": [
+          {
+            "text": "가게와 서비스 찾기",
+            "height": 52,
+            "width": 231.953125,
+            "scrollWidth": 232,
+            "overflow": 0.046875
+          },
+          {
+            "text": "내 일 알리기",
+            "height": 52,
+            "width": 158.046875,
+            "scrollWidth": 156,
+            "overflow": -2.046875
+          }
+        ]
+      },
+      {
+        "viewport": {
+          "w": 390,
+          "h": 844
+        },
+        "documentWidth": 390,
+        "horizontalOverflow": 0,
+        "title": [
+          {
+            "text": "필요한 일,",
+            "left": 16,
+            "right": 374,
+            "width": 358,
+            "panelRight": 390,
+            "inside": true,
+            "rectCount": 1,
+            "wordBreak": "keep-all",
+            "overflowWrap": "normal",
+            "whiteSpace": "nowrap",
+            "lineHeight": "35.34px",
+            "height": 35.328125
+          },
+          {
+            "text": "우리 단지에서",
+            "left": 16,
+            "right": 374,
+            "width": 358,
+            "panelRight": 390,
+            "inside": true,
+            "rectCount": 1,
+            "wordBreak": "keep-all",
+            "overflowWrap": "normal",
+            "whiteSpace": "nowrap",
+            "lineHeight": "35.34px",
+            "height": 35.328125
+          },
+          {
+            "text": "먼저 찾아보세요",
+            "left": 16,
+            "right": 374,
+            "width": 358,
+            "panelRight": 390,
+            "inside": true,
+            "rectCount": 1,
+            "wordBreak": "keep-all",
+            "overflowWrap": "normal",
+            "whiteSpace": "nowrap",
+            "lineHeight": "35.34px",
+            "height": 35.328125
+          }
+        ],
+        "cta": [
+          {
+            "text": "가게와 서비스 찾기",
+            "height": 52,
+            "width": 207.640625,
+            "scrollWidth": 208,
+            "overflow": 0.359375
+          },
+          {
+            "text": "내 일 알리기",
+            "height": 52,
+            "width": 142.359375,
+            "scrollWidth": 140,
+            "overflow": -2.359375
+          }
+        ]
+      },
+      {
+        "viewport": {
+          "w": 360,
+          "h": 800
+        },
+        "documentWidth": 360,
+        "horizontalOverflow": 0,
+        "title": [
+          {
+            "text": "필요한 일,",
+            "left": 16,
+            "right": 344,
+            "width": 328,
+            "panelRight": 360,
+            "inside": true,
+            "rectCount": 1,
+            "wordBreak": "keep-all",
+            "overflowWrap": "normal",
+            "whiteSpace": "nowrap",
+            "lineHeight": "35.34px",
+            "height": 35.328125
+          },
+          {
+            "text": "우리 단지에서",
+            "left": 16,
+            "right": 344,
+            "width": 328,
+            "panelRight": 360,
+            "inside": true,
+            "rectCount": 1,
+            "wordBreak": "keep-all",
+            "overflowWrap": "normal",
+            "whiteSpace": "nowrap",
+            "lineHeight": "35.34px",
+            "height": 35.328125
+          },
+          {
+            "text": "먼저 찾아보세요",
+            "left": 16,
+            "right": 344,
+            "width": 328,
+            "panelRight": 360,
+            "inside": true,
+            "rectCount": 1,
+            "wordBreak": "keep-all",
+            "overflowWrap": "normal",
+            "whiteSpace": "nowrap",
+            "lineHeight": "35.34px",
+            "height": 35.328125
+          }
+        ],
+        "cta": [
+          {
+            "text": "가게와 서비스 찾기",
+            "height": 52,
+            "width": 189.40625,
+            "scrollWidth": 189,
+            "overflow": -0.40625
+          },
+          {
+            "text": "내 일 알리기",
+            "height": 52,
+            "width": 130.59375,
+            "scrollWidth": 129,
+            "overflow": -1.59375
+          }
+        ]
+      },
+      {
+        "viewport": {
+          "w": 320,
+          "h": 720
+        },
+        "documentWidth": 320,
+        "horizontalOverflow": 0,
+        "title": [
+          {
+            "text": "필요한 일,",
+            "left": 16,
+            "right": 304,
+            "width": 288,
+            "panelRight": 320,
+            "inside": true,
+            "rectCount": 1,
+            "wordBreak": "keep-all",
+            "overflowWrap": "normal",
+            "whiteSpace": "nowrap",
+            "lineHeight": "30.78px",
+            "height": 30.765625
+          },
+          {
+            "text": "우리 단지에서",
+            "left": 16,
+            "right": 304,
+            "width": 288,
+            "panelRight": 320,
+            "inside": true,
+            "rectCount": 1,
+            "wordBreak": "keep-all",
+            "overflowWrap": "normal",
+            "whiteSpace": "nowrap",
+            "lineHeight": "30.78px",
+            "height": 30.765625
+          },
+          {
+            "text": "먼저 찾아보세요",
+            "left": 16,
+            "right": 304,
+            "width": 288,
+            "panelRight": 320,
+            "inside": true,
+            "rectCount": 1,
+            "wordBreak": "keep-all",
+            "overflowWrap": "normal",
+            "whiteSpace": "nowrap",
+            "lineHeight": "30.78px",
+            "height": 30.765625
+          }
+        ],
+        "cta": [
+          {
+            "text": "가게와 서비스 찾기",
+            "height": 52,
+            "width": 165.09375,
+            "scrollWidth": 165,
+            "overflow": -0.09375
+          },
+          {
+            "text": "내 일 알리기",
+            "height": 52,
+            "width": 114.90625,
+            "scrollWidth": 113,
+            "overflow": -1.90625
+          }
+        ]
+      }
+    ],
+    "consoleErrors": []
+  },
+  "B": {
+    "viewports": [
+      {
+        "viewport": {
+          "w": 1024,
+          "h": 768
+        },
+        "documentWidth": 1024,
+        "horizontalOverflow": 0,
+        "title": [
+          {
+            "text": "필요한 일,",
+            "left": 561.359375,
+            "right": 966,
+            "width": 404.640625,
+            "panelRight": 996,
+            "inside": true,
+            "rectCount": 1,
+            "wordBreak": "keep-all",
+            "overflowWrap": "normal",
+            "whiteSpace": "nowrap",
+            "lineHeight": "49.3158px",
+            "height": 49.3125
+          },
+          {
+            "text": "우리 단지에서",
+            "left": 561.359375,
+            "right": 966,
+            "width": 404.640625,
+            "panelRight": 996,
+            "inside": true,
+            "rectCount": 1,
+            "wordBreak": "keep-all",
+            "overflowWrap": "normal",
+            "whiteSpace": "nowrap",
+            "lineHeight": "49.3158px",
+            "height": 49.3125
+          },
+          {
+            "text": "먼저 찾아보세요",
+            "left": 561.359375,
+            "right": 966,
+            "width": 404.640625,
+            "panelRight": 996,
+            "inside": true,
+            "rectCount": 1,
+            "wordBreak": "keep-all",
+            "overflowWrap": "normal",
+            "whiteSpace": "nowrap",
+            "lineHeight": "49.3158px",
+            "height": 49.3125
+          }
+        ],
+        "cta": [
+          {
+            "text": "가게와 서비스 찾기",
+            "height": 54,
+            "width": 204.8125,
+            "scrollWidth": 205,
+            "overflow": 0.1875
+          },
+          {
+            "text": "내 일 알리기",
+            "height": 54,
+            "width": 130.09375,
+            "scrollWidth": 128,
+            "overflow": -2.09375
+          }
+        ]
+      },
+      {
+        "viewport": {
+          "w": 768,
+          "h": 1024
+        },
+        "documentWidth": 768,
+        "horizontalOverflow": 0,
+        "title": [
+          {
+            "text": "필요한 일,",
+            "left": 410,
+            "right": 710,
+            "width": 300,
+            "panelRight": 740,
+            "inside": true,
+            "rectCount": 1,
+            "wordBreak": "keep-all",
+            "overflowWrap": "normal",
+            "whiteSpace": "nowrap",
+            "lineHeight": "44.8px",
+            "height": 44.796875
+          },
+          {
+            "text": "우리 단지에서",
+            "left": 410,
+            "right": 710,
+            "width": 300,
+            "panelRight": 740,
+            "inside": true,
+            "rectCount": 1,
+            "wordBreak": "keep-all",
+            "overflowWrap": "normal",
+            "whiteSpace": "nowrap",
+            "lineHeight": "44.8px",
+            "height": 44.796875
+          },
+          {
+            "text": "먼저 찾아보세요",
+            "left": 410,
+            "right": 710,
+            "width": 300,
+            "panelRight": 740,
+            "inside": true,
+            "rectCount": 1,
+            "wordBreak": "keep-all",
+            "overflowWrap": "normal",
+            "whiteSpace": "nowrap",
+            "lineHeight": "44.8px",
+            "height": 44.796875
+          }
+        ],
+        "cta": [
+          {
+            "text": "가게와 서비스 찾기",
+            "height": 54,
+            "width": 204.8125,
+            "scrollWidth": 205,
+            "overflow": 0.1875
+          },
+          {
+            "text": "내 일 알리기",
+            "height": 54,
+            "width": 130.09375,
+            "scrollWidth": 128,
+            "overflow": -2.09375
+          }
+        ]
+      },
+      {
+        "viewport": {
+          "w": 430,
+          "h": 932
+        },
+        "documentWidth": 430,
+        "horizontalOverflow": 0,
+        "title": [
+          {
+            "text": "필요한 일,",
+            "left": 16,
+            "right": 414,
+            "width": 398,
+            "panelRight": 430,
+            "inside": true,
+            "rectCount": 1,
+            "wordBreak": "keep-all",
+            "overflowWrap": "normal",
+            "whiteSpace": "nowrap",
+            "lineHeight": "35.34px",
+            "height": 35.328125
+          },
+          {
+            "text": "우리 단지에서",
+            "left": 16,
+            "right": 414,
+            "width": 398,
+            "panelRight": 430,
+            "inside": true,
+            "rectCount": 1,
+            "wordBreak": "keep-all",
+            "overflowWrap": "normal",
+            "whiteSpace": "nowrap",
+            "lineHeight": "35.34px",
+            "height": 35.328125
+          },
+          {
+            "text": "먼저 찾아보세요",
+            "left": 16,
+            "right": 414,
+            "width": 398,
+            "panelRight": 430,
+            "inside": true,
+            "rectCount": 1,
+            "wordBreak": "keep-all",
+            "overflowWrap": "normal",
+            "whiteSpace": "nowrap",
+            "lineHeight": "35.34px",
+            "height": 35.328125
+          }
+        ],
+        "cta": [
+          {
+            "text": "가게와 서비스 찾기",
+            "height": 52,
+            "width": 231.953125,
+            "scrollWidth": 232,
+            "overflow": 0.046875
+          },
+          {
+            "text": "내 일 알리기",
+            "height": 52,
+            "width": 158.046875,
+            "scrollWidth": 156,
+            "overflow": -2.046875
+          }
+        ]
+      },
+      {
+        "viewport": {
+          "w": 390,
+          "h": 844
+        },
+        "documentWidth": 390,
+        "horizontalOverflow": 0,
+        "title": [
+          {
+            "text": "필요한 일,",
+            "left": 16,
+            "right": 374,
+            "width": 358,
+            "panelRight": 390,
+            "inside": true,
+            "rectCount": 1,
+            "wordBreak": "keep-all",
+            "overflowWrap": "normal",
+            "whiteSpace": "nowrap",
+            "lineHeight": "35.34px",
+            "height": 35.328125
+          },
+          {
+            "text": "우리 단지에서",
+            "left": 16,
+            "right": 374,
+            "width": 358,
+            "panelRight": 390,
+            "inside": true,
+            "rectCount": 1,
+            "wordBreak": "keep-all",
+            "overflowWrap": "normal",
+            "whiteSpace": "nowrap",
+            "lineHeight": "35.34px",
+            "height": 35.328125
+          },
+          {
+            "text": "먼저 찾아보세요",
+            "left": 16,
+            "right": 374,
+            "width": 358,
+            "panelRight": 390,
+            "inside": true,
+            "rectCount": 1,
+            "wordBreak": "keep-all",
+            "overflowWrap": "normal",
+            "whiteSpace": "nowrap",
+            "lineHeight": "35.34px",
+            "height": 35.328125
+          }
+        ],
+        "cta": [
+          {
+            "text": "가게와 서비스 찾기",
+            "height": 52,
+            "width": 207.640625,
+            "scrollWidth": 208,
+            "overflow": 0.359375
+          },
+          {
+            "text": "내 일 알리기",
+            "height": 52,
+            "width": 142.359375,
+            "scrollWidth": 140,
+            "overflow": -2.359375
+          }
+        ]
+      },
+      {
+        "viewport": {
+          "w": 360,
+          "h": 800
+        },
+        "documentWidth": 360,
+        "horizontalOverflow": 0,
+        "title": [
+          {
+            "text": "필요한 일,",
+            "left": 16,
+            "right": 344,
+            "width": 328,
+            "panelRight": 360,
+            "inside": true,
+            "rectCount": 1,
+            "wordBreak": "keep-all",
+            "overflowWrap": "normal",
+            "whiteSpace": "nowrap",
+            "lineHeight": "35.34px",
+            "height": 35.328125
+          },
+          {
+            "text": "우리 단지에서",
+            "left": 16,
+            "right": 344,
+            "width": 328,
+            "panelRight": 360,
+            "inside": true,
+            "rectCount": 1,
+            "wordBreak": "keep-all",
+            "overflowWrap": "normal",
+            "whiteSpace": "nowrap",
+            "lineHeight": "35.34px",
+            "height": 35.328125
+          },
+          {
+            "text": "먼저 찾아보세요",
+            "left": 16,
+            "right": 344,
+            "width": 328,
+            "panelRight": 360,
+            "inside": true,
+            "rectCount": 1,
+            "wordBreak": "keep-all",
+            "overflowWrap": "normal",
+            "whiteSpace": "nowrap",
+            "lineHeight": "35.34px",
+            "height": 35.328125
+          }
+        ],
+        "cta": [
+          {
+            "text": "가게와 서비스 찾기",
+            "height": 52,
+            "width": 189.40625,
+            "scrollWidth": 189,
+            "overflow": -0.40625
+          },
+          {
+            "text": "내 일 알리기",
+            "height": 52,
+            "width": 130.59375,
+            "scrollWidth": 129,
+            "overflow": -1.59375
+          }
+        ]
+      },
+      {
+        "viewport": {
+          "w": 320,
+          "h": 720
+        },
+        "documentWidth": 320,
+        "horizontalOverflow": 0,
+        "title": [
+          {
+            "text": "필요한 일,",
+            "left": 16,
+            "right": 304,
+            "width": 288,
+            "panelRight": 320,
+            "inside": true,
+            "rectCount": 1,
+            "wordBreak": "keep-all",
+            "overflowWrap": "normal",
+            "whiteSpace": "nowrap",
+            "lineHeight": "30.78px",
+            "height": 30.765625
+          },
+          {
+            "text": "우리 단지에서",
+            "left": 16,
+            "right": 304,
+            "width": 288,
+            "panelRight": 320,
+            "inside": true,
+            "rectCount": 1,
+            "wordBreak": "keep-all",
+            "overflowWrap": "normal",
+            "whiteSpace": "nowrap",
+            "lineHeight": "30.78px",
+            "height": 30.765625
+          },
+          {
+            "text": "먼저 찾아보세요",
+            "left": 16,
+            "right": 304,
+            "width": 288,
+            "panelRight": 320,
+            "inside": true,
+            "rectCount": 1,
+            "wordBreak": "keep-all",
+            "overflowWrap": "normal",
+            "whiteSpace": "nowrap",
+            "lineHeight": "30.78px",
+            "height": 30.765625
+          }
+        ],
+        "cta": [
+          {
+            "text": "가게와 서비스 찾기",
+            "height": 52,
+            "width": 165.09375,
+            "scrollWidth": 165,
+            "overflow": -0.09375
+          },
+          {
+            "text": "내 일 알리기",
+            "height": 52,
+            "width": 114.90625,
+            "scrollWidth": 113,
+            "overflow": -1.90625
+          }
+        ]
+      }
+    ],
+    "consoleErrors": []
+  },
+  "C": {
+    "viewports": [
+      {
+        "viewport": {
+          "w": 1024,
+          "h": 768
+        },
+        "documentWidth": 1024,
+        "horizontalOverflow": 0,
+        "title": [
+          {
+            "text": "필요한 일,",
+            "left": 561.359375,
+            "right": 966,
+            "width": 404.640625,
+            "panelRight": 996,
+            "inside": true,
+            "rectCount": 1,
+            "wordBreak": "keep-all",
+            "overflowWrap": "normal",
+            "whiteSpace": "nowrap",
+            "lineHeight": "49.3158px",
+            "height": 49.3125
+          },
+          {
+            "text": "우리 단지에서",
+            "left": 561.359375,
+            "right": 966,
+            "width": 404.640625,
+            "panelRight": 996,
+            "inside": true,
+            "rectCount": 1,
+            "wordBreak": "keep-all",
+            "overflowWrap": "normal",
+            "whiteSpace": "nowrap",
+            "lineHeight": "49.3158px",
+            "height": 49.3125
+          },
+          {
+            "text": "먼저 찾아보세요",
+            "left": 561.359375,
+            "right": 966,
+            "width": 404.640625,
+            "panelRight": 996,
+            "inside": true,
+            "rectCount": 1,
+            "wordBreak": "keep-all",
+            "overflowWrap": "normal",
+            "whiteSpace": "nowrap",
+            "lineHeight": "49.3158px",
+            "height": 49.3125
+          }
+        ],
+        "cta": [
+          {
+            "text": "가게와 서비스 찾기",
+            "height": 54,
+            "width": 204.8125,
+            "scrollWidth": 205,
+            "overflow": 0.1875
+          },
+          {
+            "text": "내 일 알리기",
+            "height": 54,
+            "width": 130.09375,
+            "scrollWidth": 128,
+            "overflow": -2.09375
+          }
+        ]
+      },
+      {
+        "viewport": {
+          "w": 768,
+          "h": 1024
+        },
+        "documentWidth": 768,
+        "horizontalOverflow": 0,
+        "title": [
+          {
+            "text": "필요한 일,",
+            "left": 410,
+            "right": 710,
+            "width": 300,
+            "panelRight": 740,
+            "inside": true,
+            "rectCount": 1,
+            "wordBreak": "keep-all",
+            "overflowWrap": "normal",
+            "whiteSpace": "nowrap",
+            "lineHeight": "44.8px",
+            "height": 44.796875
+          },
+          {
+            "text": "우리 단지에서",
+            "left": 410,
+            "right": 710,
+            "width": 300,
+            "panelRight": 740,
+            "inside": true,
+            "rectCount": 1,
+            "wordBreak": "keep-all",
+            "overflowWrap": "normal",
+            "whiteSpace": "nowrap",
+            "lineHeight": "44.8px",
+            "height": 44.796875
+          },
+          {
+            "text": "먼저 찾아보세요",
+            "left": 410,
+            "right": 710,
+            "width": 300,
+            "panelRight": 740,
+            "inside": true,
+            "rectCount": 1,
+            "wordBreak": "keep-all",
+            "overflowWrap": "normal",
+            "whiteSpace": "nowrap",
+            "lineHeight": "44.8px",
+            "height": 44.796875
+          }
+        ],
+        "cta": [
+          {
+            "text": "가게와 서비스 찾기",
+            "height": 54,
+            "width": 204.8125,
+            "scrollWidth": 205,
+            "overflow": 0.1875
+          },
+          {
+            "text": "내 일 알리기",
+            "height": 54,
+            "width": 130.09375,
+            "scrollWidth": 128,
+            "overflow": -2.09375
+          }
+        ]
+      },
+      {
+        "viewport": {
+          "w": 430,
+          "h": 932
+        },
+        "documentWidth": 430,
+        "horizontalOverflow": 0,
+        "title": [
+          {
+            "text": "필요한 일,",
+            "left": 16,
+            "right": 414,
+            "width": 398,
+            "panelRight": 430,
+            "inside": true,
+            "rectCount": 1,
+            "wordBreak": "keep-all",
+            "overflowWrap": "normal",
+            "whiteSpace": "nowrap",
+            "lineHeight": "35.34px",
+            "height": 35.328125
+          },
+          {
+            "text": "우리 단지에서",
+            "left": 16,
+            "right": 414,
+            "width": 398,
+            "panelRight": 430,
+            "inside": true,
+            "rectCount": 1,
+            "wordBreak": "keep-all",
+            "overflowWrap": "normal",
+            "whiteSpace": "nowrap",
+            "lineHeight": "35.34px",
+            "height": 35.328125
+          },
+          {
+            "text": "먼저 찾아보세요",
+            "left": 16,
+            "right": 414,
+            "width": 398,
+            "panelRight": 430,
+            "inside": true,
+            "rectCount": 1,
+            "wordBreak": "keep-all",
+            "overflowWrap": "normal",
+            "whiteSpace": "nowrap",
+            "lineHeight": "35.34px",
+            "height": 35.328125
+          }
+        ],
+        "cta": [
+          {
+            "text": "가게와 서비스 찾기",
+            "height": 52,
+            "width": 231.953125,
+            "scrollWidth": 232,
+            "overflow": 0.046875
+          },
+          {
+            "text": "내 일 알리기",
+            "height": 52,
+            "width": 158.046875,
+            "scrollWidth": 156,
+            "overflow": -2.046875
+          }
+        ]
+      },
+      {
+        "viewport": {
+          "w": 390,
+          "h": 844
+        },
+        "documentWidth": 390,
+        "horizontalOverflow": 0,
+        "title": [
+          {
+            "text": "필요한 일,",
+            "left": 16,
+            "right": 374,
+            "width": 358,
+            "panelRight": 390,
+            "inside": true,
+            "rectCount": 1,
+            "wordBreak": "keep-all",
+            "overflowWrap": "normal",
+            "whiteSpace": "nowrap",
+            "lineHeight": "35.34px",
+            "height": 35.328125
+          },
+          {
+            "text": "우리 단지에서",
+            "left": 16,
+            "right": 374,
+            "width": 358,
+            "panelRight": 390,
+            "inside": true,
+            "rectCount": 1,
+            "wordBreak": "keep-all",
+            "overflowWrap": "normal",
+            "whiteSpace": "nowrap",
+            "lineHeight": "35.34px",
+            "height": 35.328125
+          },
+          {
+            "text": "먼저 찾아보세요",
+            "left": 16,
+            "right": 374,
+            "width": 358,
+            "panelRight": 390,
+            "inside": true,
+            "rectCount": 1,
+            "wordBreak": "keep-all",
+            "overflowWrap": "normal",
+            "whiteSpace": "nowrap",
+            "lineHeight": "35.34px",
+            "height": 35.328125
+          }
+        ],
+        "cta": [
+          {
+            "text": "가게와 서비스 찾기",
+            "height": 52,
+            "width": 207.640625,
+            "scrollWidth": 208,
+            "overflow": 0.359375
+          },
+          {
+            "text": "내 일 알리기",
+            "height": 52,
+            "width": 142.359375,
+            "scrollWidth": 140,
+            "overflow": -2.359375
+          }
+        ]
+      },
+      {
+        "viewport": {
+          "w": 360,
+          "h": 800
+        },
+        "documentWidth": 360,
+        "horizontalOverflow": 0,
+        "title": [
+          {
+            "text": "필요한 일,",
+            "left": 16,
+            "right": 344,
+            "width": 328,
+            "panelRight": 360,
+            "inside": true,
+            "rectCount": 1,
+            "wordBreak": "keep-all",
+            "overflowWrap": "normal",
+            "whiteSpace": "nowrap",
+            "lineHeight": "35.34px",
+            "height": 35.328125
+          },
+          {
+            "text": "우리 단지에서",
+            "left": 16,
+            "right": 344,
+            "width": 328,
+            "panelRight": 360,
+            "inside": true,
+            "rectCount": 1,
+            "wordBreak": "keep-all",
+            "overflowWrap": "normal",
+            "whiteSpace": "nowrap",
+            "lineHeight": "35.34px",
+            "height": 35.328125
+          },
+          {
+            "text": "먼저 찾아보세요",
+            "left": 16,
+            "right": 344,
+            "width": 328,
+            "panelRight": 360,
+            "inside": true,
+            "rectCount": 1,
+            "wordBreak": "keep-all",
+            "overflowWrap": "normal",
+            "whiteSpace": "nowrap",
+            "lineHeight": "35.34px",
+            "height": 35.328125
+          }
+        ],
+        "cta": [
+          {
+            "text": "가게와 서비스 찾기",
+            "height": 52,
+            "width": 189.40625,
+            "scrollWidth": 189,
+            "overflow": -0.40625
+          },
+          {
+            "text": "내 일 알리기",
+            "height": 52,
+            "width": 130.59375,
+            "scrollWidth": 129,
+            "overflow": -1.59375
+          }
+        ]
+      },
+      {
+        "viewport": {
+          "w": 320,
+          "h": 720
+        },
+        "documentWidth": 320,
+        "horizontalOverflow": 0,
+        "title": [
+          {
+            "text": "필요한 일,",
+            "left": 16,
+            "right": 304,
+            "width": 288,
+            "panelRight": 320,
+            "inside": true,
+            "rectCount": 1,
+            "wordBreak": "keep-all",
+            "overflowWrap": "normal",
+            "whiteSpace": "nowrap",
+            "lineHeight": "30.78px",
+            "height": 30.765625
+          },
+          {
+            "text": "우리 단지에서",
+            "left": 16,
+            "right": 304,
+            "width": 288,
+            "panelRight": 320,
+            "inside": true,
+            "rectCount": 1,
+            "wordBreak": "keep-all",
+            "overflowWrap": "normal",
+            "whiteSpace": "nowrap",
+            "lineHeight": "30.78px",
+            "height": 30.765625
+          },
+          {
+            "text": "먼저 찾아보세요",
+            "left": 16,
+            "right": 304,
+            "width": 288,
+            "panelRight": 320,
+            "inside": true,
+            "rectCount": 1,
+            "wordBreak": "keep-all",
+            "overflowWrap": "normal",
+            "whiteSpace": "nowrap",
+            "lineHeight": "30.78px",
+            "height": 30.765625
+          }
+        ],
+        "cta": [
+          {
+            "text": "가게와 서비스 찾기",
+            "height": 52,
+            "width": 165.09375,
+            "scrollWidth": 165,
+            "overflow": -0.09375
+          },
+          {
+            "text": "내 일 알리기",
+            "height": 52,
+            "width": 114.90625,
+            "scrollWidth": 113,
+            "overflow": -1.90625
+          }
+        ]
+      }
+    ],
+    "consoleErrors": []
+  }
+}

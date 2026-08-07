@@ -1,0 +1,77 @@
+{
+  "A": {
+    "filename": "danjion-keyart-color-a-ultrablue.html",
+    "title": "단지온 v6 키아트 A — Ultrablue Control",
+    "theme": "#2943F2",
+    "tokens": {
+      "canvas": "#F5F2EA",
+      "surface": "#FFFFFF",
+      "ink": "#11120F",
+      "muted": "#60625D",
+      "line": "#D8D6CF",
+      "line_strong": "#A9A79F",
+      "primary": "#2943F2",
+      "primary_deep": "#1D31CB",
+      "primary_soft": "#E9EDFF",
+      "secondary": "#8A9CFF",
+      "verified": "#277A53",
+      "dark": "#0D1631",
+      "card": "#F1F1EE",
+      "header": "rgba(245,242,234,.96)",
+      "pilot": "#E1E8E3",
+      "overlay": "rgba(13,22,49,.62)",
+      "shadow": "rgba(13,22,49,.16)",
+      "primary_text": "#2943F2"
+    }
+  },
+  "B": {
+    "filename": "danjion-keyart-color-b-copper-editorial.html",
+    "title": "단지온 v6 키아트 B — Copper Editorial",
+    "theme": "#B84A34",
+    "tokens": {
+      "canvas": "#F3EEE4",
+      "surface": "#FFFDF9",
+      "ink": "#171A24",
+      "muted": "#686158",
+      "line": "#D8D0C5",
+      "line_strong": "#A79E91",
+      "primary": "#B84A34",
+      "primary_deep": "#8F3829",
+      "primary_soft": "#EAD8CC",
+      "secondary": "#C87046",
+      "verified": "#277A53",
+      "dark": "#171A24",
+      "card": "#F0E8DE",
+      "header": "rgba(243,238,228,.96)",
+      "pilot": "#EAD8CC",
+      "overlay": "rgba(23,26,36,.64)",
+      "shadow": "rgba(58,33,24,.16)",
+      "primary_text": "#8F3829"
+    }
+  },
+  "C": {
+    "filename": "danjion-keyart-color-c-aubergine-apricot.html",
+    "title": "단지온 v6 키아트 C — Aubergine Apricot",
+    "theme": "#5A3A52",
+    "tokens": {
+      "canvas": "#F5F0E8",
+      "surface": "#FFFDF9",
+      "ink": "#1B181B",
+      "muted": "#6A6168",
+      "line": "#D9D0D5",
+      "line_strong": "#A89DA4",
+      "primary": "#5A3A52",
+      "primary_deep": "#3D2939",
+      "primary_soft": "#F1D9CF",
+      "secondary": "#E07A4F",
+      "verified": "#277A53",
+      "dark": "#251D28",
+      "card": "#F1E9E5",
+      "header": "rgba(245,240,232,.96)",
+      "pilot": "#F1D9CF",
+      "overlay": "rgba(37,29,40,.64)",
+      "shadow": "rgba(37,29,40,.16)",
+      "primary_text": "#5A3A52"
+    }
+  }
+}

@@ -1,0 +1,91 @@
+{
+  "viewports": [
+    {
+      "name": "1440x1100",
+      "overflow": 0,
+      "height": 3065,
+      "font": "\"Pretendard Variable\", Pretendard, -apple-system, BlinkMacSystemFont, \"Apple SD Gothic Neo\", \"Noto Sans KR\", \"Malgun Gothic\", sans-serif",
+      "title": "48.96px",
+      "bottom": "none"
+    },
+    {
+      "name": "1280x900",
+      "overflow": 0,
+      "height": 3050,
+      "font": "\"Pretendard Variable\", Pretendard, -apple-system, BlinkMacSystemFont, \"Apple SD Gothic Neo\", \"Noto Sans KR\", \"Malgun Gothic\", sans-serif",
+      "title": "45px",
+      "bottom": "none"
+    },
+    {
+      "name": "768x1024",
+      "overflow": 0,
+      "height": 4011,
+      "font": "\"Pretendard Variable\", Pretendard, -apple-system, BlinkMacSystemFont, \"Apple SD Gothic Neo\", \"Noto Sans KR\", \"Malgun Gothic\", sans-serif",
+      "title": "40px",
+      "bottom": "none"
+    },
+    {
+      "name": "390x844",
+      "overflow": 0,
+      "height": 3301,
+      "font": "\"Pretendard Variable\", Pretendard, -apple-system, BlinkMacSystemFont, \"Apple SD Gothic Neo\", \"Noto Sans KR\", \"Malgun Gothic\", sans-serif",
+      "title": "31.98px",
+      "bottom": "grid"
+    },
+    {
+      "name": "320x720",
+      "overflow": 0,
+      "height": 3409,
+      "font": "\"Pretendard Variable\", Pretendard, -apple-system, BlinkMacSystemFont, \"Apple SD Gothic Neo\", \"Noto Sans KR\", \"Malgun Gothic\", sans-serif",
+      "title": "27px",
+      "bottom": "grid"
+    }
+  ],
+  "checks": [
+    [
+      "route listings",
+      true
+    ],
+    [
+      "search 1",
+      true
+    ],
+    [
+      "detail",
+      true
+    ],
+    [
+      "modal",
+      true
+    ],
+    [
+      "benefits",
+      true
+    ],
+    [
+      "news",
+      true
+    ],
+    [
+      "my",
+      true
+    ],
+    [
+      "register1",
+      true
+    ],
+    [
+      "register2",
+      true
+    ],
+    [
+      "register3",
+      true
+    ]
+  ],
+  "mobile": {
+    "overflow": 0,
+    "padding": "90px",
+    "nav": "12px"
+  }
+}

@@ -1,0 +1,177 @@
+{
+  "sizes": [
+    {
+      "width": 1440,
+      "height": 1100,
+      "scrollWidth": 1440,
+      "clientWidth": 1440,
+      "overflow": 0,
+      "scrollHeight": 10640,
+      "searchTop": 565.265625,
+      "searchBottom": 629.265625,
+      "searchVisible": true,
+      "titleRight": 680.390625,
+      "titleLeft": 69.109375,
+      "buttonHeights": [
+        54,
+        54
+      ],
+      "bottomNav": "none",
+      "bottomPadding": "0px",
+      "errors": []
+    },
+    {
+      "width": 1280,
+      "height": 800,
+      "scrollWidth": 1280,
+      "clientWidth": 1280,
+      "overflow": 0,
+      "scrollHeight": 10205,
+      "searchTop": 537,
+      "searchBottom": 601,
+      "searchVisible": true,
+      "titleRight": 598.796875,
+      "titleLeft": 61.4375,
+      "buttonHeights": [
+        54,
+        54
+      ],
+      "bottomNav": "none",
+      "bottomPadding": "0px",
+      "errors": []
+    },
+    {
+      "width": 1024,
+      "height": 768,
+      "scrollWidth": 1024,
+      "clientWidth": 1024,
+      "overflow": 0,
+      "scrollHeight": 10813,
+      "searchTop": 522,
+      "searchBottom": 586,
+      "searchVisible": true,
+      "titleRight": 543.453125,
+      "titleLeft": 32,
+      "buttonHeights": [
+        54,
+        54
+      ],
+      "bottomNav": "none",
+      "bottomPadding": "0px",
+      "errors": []
+    },
+    {
+      "width": 768,
+      "height": 1024,
+      "scrollWidth": 768,
+      "clientWidth": 768,
+      "overflow": 0,
+      "scrollHeight": 12757,
+      "searchTop": 842.8125,
+      "searchBottom": 906.8125,
+      "searchVisible": true,
+      "titleRight": 714,
+      "titleLeft": 24,
+      "buttonHeights": [
+        54,
+        54
+      ],
+      "bottomNav": "none",
+      "bottomPadding": "0px",
+      "errors": []
+    },
+    {
+      "width": 430,
+      "height": 932,
+      "scrollWidth": 430,
+      "clientWidth": 430,
+      "overflow": 0,
+      "scrollHeight": 11966,
+      "searchTop": 575.453125,
+      "searchBottom": 631.453125,
+      "searchVisible": true,
+      "titleRight": 414,
+      "titleLeft": 16,
+      "buttonHeights": [
+        52,
+        52
+      ],
+      "bottomNav": "grid",
+      "bottomPadding": "72px",
+      "errors": []
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "scrollWidth": 390,
+      "clientWidth": 390,
+      "overflow": 0,
+      "scrollHeight": 12122,
+      "searchTop": 575.453125,
+      "searchBottom": 631.453125,
+      "searchVisible": true,
+      "titleRight": 374,
+      "titleLeft": 16,
+      "buttonHeights": [
+        52,
+        52
+      ],
+      "bottomNav": "grid",
+      "bottomPadding": "72px",
+      "errors": []
+    },
+    {
+      "width": 360,
+      "height": 800,
+      "scrollWidth": 360,
+      "clientWidth": 360,
+      "overflow": 0,
+      "scrollHeight": 12759,
+      "searchTop": 586.40625,
+      "searchBottom": 642.40625,
+      "searchVisible": true,
+      "titleRight": 344,
+      "titleLeft": 16,
+      "buttonHeights": [
+        52,
+        52
+      ],
+      "bottomNav": "grid",
+      "bottomPadding": "72px",
+      "errors": []
+    },
+    {
+      "width": 320,
+      "height": 720,
+      "scrollWidth": 320,
+      "clientWidth": 320,
+      "overflow": 0,
+      "scrollHeight": 13047,
+      "searchTop": 586.40625,
+      "searchBottom": 642.40625,
+      "searchVisible": true,
+      "titleRight": 304,
+      "titleLeft": 16,
+      "buttonHeights": [
+        52,
+        52
+      ],
+      "bottomNav": "grid",
+      "bottomPadding": "72px",
+      "errors": []
+    }
+  ],
+  "interaction": {
+    "menu_open": true,
+    "filter_count": 1,
+    "search_count": 1,
+    "finder_result": true,
+    "compare_count": "2",
+    "compare_modal": true,
+    "list_mode": true,
+    "story_title": "수학을 쉽게 설명하는 이웃",
+    "faq_expanded": "true",
+    "register_closed": true
+  },
+  "console": []
+}
