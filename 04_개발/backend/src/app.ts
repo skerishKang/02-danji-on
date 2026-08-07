@@ -1,5 +1,6 @@
 import core, { type CoreEnv } from './core-v1';
 import { handleAdminRequest } from './admin-v1';
+import { validateRequestPayload } from './payload-policy';
 
 const REQUEST_ID_HEADER = 'x-danjion-request-id';
 const SAFE_ID = /^[A-Za-z0-9._:-]{1,80}$/;
@@ -22,6 +23,10 @@ export default {
     const id = requestId(request);
     try {
       if (request.method === 'OPTIONS') return core.fetch(request, env);
+
+      const policyResponse = await validateRequestPayload(request, id);
+      if (policyResponse) return policyResponse;
+
       if (new URL(request.url).pathname.startsWith('/api/v1/admin/')) {
         const response = await handleAdminRequest(request, env, id);
         if (response) return response;
