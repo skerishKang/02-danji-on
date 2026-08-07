@@ -50,9 +50,10 @@ export default function CinematicNeighborScenes({
   return (
     <section className="cinematic-neighbors" aria-labelledby="cinematic-neighbors-title">
       <div className="cinematic-copy">
-        <span className="cinematic-kicker">LIVING NEIGHBOR ECONOMY</span>
-        <h2 id="cinematic-neighbors-title">이웃이 실제로 하는 일을<br />장면으로 먼저 만나보세요</h2>
-        <p>단지온은 가게 목록보다 먼저, 같은 생활권에서 누가 어떤 일을 하는지 보여줍니다.</p>
+        <span className="cinematic-kicker">방림명지로드힐 · LIVING NEIGHBOR ECONOMY</span>
+        <h1 id="cinematic-neighbors-title">필요한 일,<br />우리 단지에서 찾아보세요</h1>
+        <p>같은 아파트 주민이 실제로 하는 일을 장면으로 먼저 만나고, 주민 관계와 입주민 전용 혜택까지 확인합니다.</p>
+        <span className="cinematic-verified">✓ 방림명지로드힐 인증 입주민</span>
         <div className="cinematic-actions">
           <button className="primary" onClick={onSearch}>가게와 서비스 찾기</button>
           <button className="secondary" onClick={onRegister}>내 일 알리기</button>
