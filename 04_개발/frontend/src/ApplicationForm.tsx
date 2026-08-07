@@ -2,7 +2,7 @@ import { useEffect, useState, type ChangeEvent, type FormEvent } from 'react';
 import { storageAdapter, type StoredObject } from './storage';
 import type { BusinessApplicationInput, RelationType } from './types';
 
-const initialForm: BusinessApplicationInput = {
+const emptyForm: BusinessApplicationInput = {
   relationType: 'resident',
   businessName: '',
   categoryName: '',
@@ -15,21 +15,45 @@ const initialForm: BusinessApplicationInput = {
   representativeImageObjectKey: ''
 };
 
+function normalizedInitial(value?: BusinessApplicationInput): BusinessApplicationInput {
+  return {
+    ...emptyForm,
+    ...value,
+    priceText: value?.priceText ?? '',
+    contactMethod: value?.contactMethod ?? 'phone_sms',
+    serviceArea: value?.serviceArea ?? '방림동과 인근 지역',
+    benefitText: value?.benefitText ?? '',
+    availabilityText: value?.availabilityText ?? '',
+    representativeImageObjectKey: value?.representativeImageObjectKey ?? ''
+  };
+}
+
 export default function ApplicationForm({
   categoryNames,
   busy,
   onSubmit,
-  onCancel
+  onCancel,
+  initialValue,
+  mode = 'create',
+  reviewNote
 }: {
   categoryNames: string[];
   busy: boolean;
   onSubmit: (input: BusinessApplicationInput) => Promise<void>;
   onCancel: () => void;
+  initialValue?: BusinessApplicationInput;
+  mode?: 'create' | 'resubmit';
+  reviewNote?: string | null;
 }) {
-  const [form, setForm] = useState<BusinessApplicationInput>(initialForm);
+  const [form, setForm] = useState<BusinessApplicationInput>(() => normalizedInitial(initialValue));
   const [error, setError] = useState('');
   const [imageBusy, setImageBusy] = useState(false);
   const [storedImage, setStoredImage] = useState<StoredObject | null>(null);
+
+  useEffect(() => {
+    setForm(normalizedInitial(initialValue));
+    setError('');
+  }, [initialValue]);
 
   useEffect(() => {
     return () => {
@@ -83,9 +107,10 @@ export default function ApplicationForm({
   return (
     <form className="application-form" onSubmit={(event) => void submit(event)}>
       <div className="form-intro">
-        <span className="eyebrow">내 일 알리기</span>
-        <h1>가게와 서비스를 등록해 주세요</h1>
-        <p>점포가 없는 과외·상담·수리·온라인 판매도 신청할 수 있습니다. 승인 전에는 공개되지 않습니다.</p>
+        <span className="eyebrow">{mode === 'resubmit' ? '등록 보완' : '내 일 알리기'}</span>
+        <h1>{mode === 'resubmit' ? '요청된 내용을 보완해 주세요' : '가게와 서비스를 등록해 주세요'}</h1>
+        <p>{mode === 'resubmit' ? '관리자 메모를 확인하고 내용을 수정한 뒤 다시 제출하면 확인 대기 상태로 돌아갑니다.' : '점포가 없는 과외·상담·수리·온라인 판매도 신청할 수 있습니다. 승인 전에는 공개되지 않습니다.'}</p>
+        {mode === 'resubmit' && reviewNote && <div className="review-request-box"><strong>관리자 보완 요청</strong><p>{reviewNote}</p></div>}
       </div>
 
       <fieldset>
@@ -141,22 +166,23 @@ export default function ApplicationForm({
           <div className="image-upload-copy">
             <strong>작업·상품·가게를 잘 보여주는 사진 1장</strong>
             <p>이미지 파일만 가능하며 최대 8MB입니다. 지금은 mock storage에 연결되고, R2 연결 후 동일한 폼을 그대로 사용합니다.</p>
+            {form.representativeImageObjectKey && !storedImage && <p className="existing-image-key">기존 대표 이미지가 연결되어 있습니다. 새 이미지를 고르지 않으면 그대로 유지됩니다.</p>}
             <label className="image-picker">
               <input type="file" accept="image/*" onChange={(event) => void chooseImage(event)} disabled={busy || imageBusy} />
-              <span>{imageBusy ? '이미지 준비 중...' : storedImage ? '다른 이미지 선택' : '이미지 선택'}</span>
+              <span>{imageBusy ? '이미지 준비 중...' : storedImage ? '다른 이미지 선택' : form.representativeImageObjectKey ? '대표 이미지 교체' : '이미지 선택'}</span>
             </label>
           </div>
           <div className={`image-preview ${storedImage?.previewUrl ? 'has-image' : ''}`}>
-            {storedImage?.previewUrl ? <img src={storedImage.previewUrl} alt="등록 대표 이미지 미리보기" /> : <span>대표 이미지 미리보기</span>}
+            {storedImage?.previewUrl ? <img src={storedImage.previewUrl} alt="등록 대표 이미지 미리보기" /> : <span>{form.representativeImageObjectKey ? '기존 대표 이미지 유지' : '대표 이미지 미리보기'}</span>}
           </div>
-          {storedImage && <div className="image-upload-meta"><span>{storedImage.fileName} · {(storedImage.size / 1024 / 1024).toFixed(2)}MB</span><button type="button" onClick={clearImage}>제거</button></div>}
+          {(storedImage || form.representativeImageObjectKey) && <div className="image-upload-meta"><span>{storedImage ? `${storedImage.fileName} · ${(storedImage.size / 1024 / 1024).toFixed(2)}MB` : '기존 대표 이미지 object key 유지'}</span><button type="button" onClick={clearImage}>제거</button></div>}
         </div>
       </fieldset>
 
       {error && <div className="form-error" role="alert">{error}</div>}
       <div className="form-actions">
         <button type="button" className="secondary" onClick={onCancel} disabled={busy}>취소</button>
-        <button type="submit" className="primary" disabled={busy || imageBusy}>{busy ? '신청 중...' : '등록 신청하기'}</button>
+        <button type="submit" className="primary" disabled={busy || imageBusy}>{busy ? (mode === 'resubmit' ? '재제출 중...' : '신청 중...') : (mode === 'resubmit' ? '보완 내용 재제출' : '등록 신청하기')}</button>
       </div>
     </form>
   );
