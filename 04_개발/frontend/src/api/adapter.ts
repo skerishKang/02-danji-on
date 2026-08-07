@@ -89,7 +89,10 @@ function mapBenefit(raw: Record<string, unknown>): Benefit {
 }
 
 function mapBusiness(raw: Record<string, unknown>): Business {
-  const activeRaw = raw.active_benefit as Record<string, unknown> | null | undefined;
+  const benefitList = Array.isArray(raw.benefits)
+    ? raw.benefits as Array<Record<string, unknown>>
+    : [];
+  const activeRaw = (raw.active_benefit as Record<string, unknown> | null | undefined) ?? benefitList[0];
   const relationType = String(raw.relation_type ?? 'local') as RelationType;
   return {
     id: String(raw.id),
