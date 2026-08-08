@@ -36,7 +36,7 @@ export function V2CinematicScenes({
   const [switching, setSwitching] = useState(false);
 
   const activeScene = useMemo(() => scenes.find((scene) => scene.key === activeKey) ?? scenes[0], [activeKey, scenes]);
-  const activeIndex = Math.max(0, scenes.findIndex((scene) => scene.key === activeScene.key));
+  const activeIndex = activeScene ? Math.max(0, scenes.findIndex((scene) => scene.key === activeScene.key)) : 0;
 
   useEffect(() => {
     return () => {
