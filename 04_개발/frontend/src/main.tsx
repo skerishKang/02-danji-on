@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import App from './App';
 import { installResidentAccessibilityEnhancements } from './accessibility-dom';
 import { installPromoMaterialLaunchers } from './promo-launcher';
+import { installResidentDeepLink } from './resident-deep-link';
 import './styles.css';
 import './feature-flows.css';
 import './accessibility.css';
@@ -16,3 +17,4 @@ createRoot(document.getElementById('root')!).render(
 
 installResidentAccessibilityEnhancements();
 installPromoMaterialLaunchers();
+void installResidentDeepLink();
