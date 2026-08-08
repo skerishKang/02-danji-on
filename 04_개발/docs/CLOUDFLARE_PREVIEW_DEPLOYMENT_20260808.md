@@ -95,12 +95,12 @@ File:
 
 Trigger:
 
-- `feat/cloudflare-preview` push 중 backend/frontend/workflow 변경
+- Draft PR #18의 `opened`, `synchronize`, `reopened` 중 backend/frontend/workflow 변경이 포함된 경우
 - 수동 `workflow_dispatch`
 
 Hard guards:
 
-- branch가 `feat/cloudflare-preview`인지 검사
+- head branch가 `feat/cloudflare-preview`인지 검사
 - Worker env가 `preview`인지 검사
 - Pages branch가 `main`이 아닌지 검사
 - required secret이 없으면 deploy 전 실패
@@ -148,6 +148,28 @@ Worker `/api/health` 성공 조건:
 - production Pages deploy: NONE
 - PR merge: NONE
 
-## Evidence status
+## Execution evidence
 
-실제 preview URL과 smoke 결과는 GitHub Actions `Cloudflare Preview` run이 Cloudflare credentials와 `DATABASE_URL`을 사용할 수 있을 때 확정한다. 결과는 Draft PR #18 body에 기록한다.
+2026-08-08 Cloudflare Preview run #2에서 preview-only branch guard는 PASS했다.
+
+그 다음 secret gate에서 다음 GitHub Actions secret이 모두 비어 있어 배포 전에 중단되었다.
+
+- `CLOUDFLARE_API_TOKEN`
+- `CLOUDFLARE_ACCOUNT_ID`
+- `DATABASE_URL` (workflow 내부 변수명 `DANJION_DATABASE_URL`)
+
+따라서 해당 run에서는 다음 단계가 모두 실행되지 않았다.
+
+- Worker version upload
+- Pages preview deploy
+- `/api/health` smoke
+- frontend/CORS smoke
+
+현재 증거 기준 상태:
+
+- Cloudflare preview resource creation/deployment: BLOCKED BEFORE DEPLOY
+- production Worker deploy: NONE
+- production Pages deploy: NONE
+- PR merge: NONE
+
+위 3개 secret을 repository Actions secrets에 설정한 뒤 같은 Draft PR에서 `Cloudflare Preview` workflow를 다시 실행하면 실제 preview URL과 smoke 결과를 확정할 수 있다.
