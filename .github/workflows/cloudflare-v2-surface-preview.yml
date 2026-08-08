@@ -152,7 +152,7 @@ jobs:
           set -euo pipefail
           npm run build
           grep -R --fixed-strings "${VITE_API_BASE_URL}" dist >/dev/null
-          npx --prefix ../backend wrangler pages deploy dist \
+          ../backend/node_modules/.bin/wrangler pages deploy dist \
             --project-name="$PAGES_PROJECT" \
             --branch="$PAGES_V1_BRANCH" \
             --commit-hash="$GITHUB_SHA" \
@@ -175,7 +175,7 @@ jobs:
           set -euo pipefail
           npm run build
           grep -R --fixed-strings "${VITE_API_BASE_URL}" dist >/dev/null
-          npx --prefix ../backend wrangler pages deploy dist \
+          ../backend/node_modules/.bin/wrangler pages deploy dist \
             --project-name="$PAGES_PROJECT" \
             --branch="$PAGES_V2_BRANCH" \
             --commit-hash="$GITHUB_SHA" \
@@ -198,7 +198,7 @@ jobs:
           npm run build
           grep -R --fixed-strings "https://v1.padiem-danjion-web-preview.pages.dev" dist >/dev/null
           grep -R --fixed-strings "https://v2.padiem-danjion-web-preview.pages.dev" dist >/dev/null
-          npx --prefix ../backend wrangler pages deploy dist \
+          ../backend/node_modules/.bin/wrangler pages deploy dist \
             --project-name="$PAGES_PROJECT" \
             --branch="$PAGES_GATEWAY_BRANCH" \
             --commit-hash="$GITHUB_SHA" \
