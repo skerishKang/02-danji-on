@@ -32,3 +32,60 @@ begin
       check (note is null or char_length(note) <= 1000);
   end if;
 end $$;
+
+create or replace function record_resident_verification_review_event()
+returns trigger
+language plpgsql
+as $$
+declare
+  membership_complex_id uuid;
+  membership_user_id uuid;
+begin
+  if old.status is distinct from new.status
+     or old.note is distinct from new.note
+     or old.reviewed_by is distinct from new.reviewed_by then
+    select complex_id, user_id
+      into membership_complex_id, membership_user_id
+      from complex_memberships
+      where id = new.membership_id;
+
+    insert into resident_verification_review_events (
+      verification_id,
+      membership_id,
+      complex_id,
+      actor_user_id,
+      actor_type,
+      from_status,
+      to_status,
+      note
+    ) values (
+      new.id,
+      new.membership_id,
+      membership_complex_id,
+      coalesce(new.reviewed_by, membership_user_id),
+      case
+        when new.reviewed_by is not null then 'manager'
+        when membership_user_id is not null then 'applicant'
+        else 'system'
+      end,
+      old.status,
+      new.status,
+      new.note
+    );
+  end if;
+  return new;
+end;
+$$;
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_trigger where tgname = 'trg_resident_verification_review_history'
+  ) then
+    create trigger trg_resident_verification_review_history
+      after update of status, note, reviewed_by
+      on resident_verifications
+      for each row
+      execute function record_resident_verification_review_event();
+  end if;
+end $$;
