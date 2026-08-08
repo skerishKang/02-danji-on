@@ -24,7 +24,8 @@ export default defineConfig({
         verification: resolve(__dirname, 'verification.html'),
         verificationAdmin: resolve(__dirname, 'verification-admin.html'),
         promo: resolve(__dirname, 'promo.html'),
-        ending: resolve(__dirname, 'ending.html')
+        ending: resolve(__dirname, 'ending.html'),
+        demo: resolve(__dirname, 'demo.html')
       }
     }
   }
