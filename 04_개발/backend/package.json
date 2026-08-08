@@ -11,7 +11,8 @@
     "test:storage-contract": "node tests/storage-contract.mjs",
     "test:contract": "node tests/contract.mjs",
     "test:auth": "tsx tests/auth-v1.test.mjs",
-    "check": "npm run typecheck && npm run test:storage && npm run test:storage-contract && npm run test:contract && npm run test:auth"
+    "test:cloudflare-preview-contract": "node tests/cloudflare-preview-contract.mjs",
+    "check": "npm run typecheck && npm run test:storage && npm run test:storage-contract && npm run test:contract && npm run test:auth && npm run test:cloudflare-preview-contract"
   },
   "dependencies": {
     "@neondatabase/serverless": "1.1.0",
