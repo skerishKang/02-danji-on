@@ -2,11 +2,14 @@ import { readFileSync } from 'node:fs';
 
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
 const app = read('src/app.ts');
+const auth = read('src/auth-v1.ts');
 const core = read('src/core-v1.ts');
 const admin = read('src/admin-v1.ts');
 const adminAudit = read('src/admin-audit-v1.ts');
 const adminReviewContext = read('src/admin-review-context-v1.ts');
+const adminVerification = read('src/admin-verification-v1.ts');
 const residentApplication = read('src/resident-application-v1.ts');
+const residentVerification = read('src/resident-verification-v1.ts');
 const benefitWallet = read('src/benefit-wallet-v1.ts');
 const payloadPolicy = read('src/payload-policy.ts');
 const schema = read('migrations/001_initial_schema.sql');
@@ -16,6 +19,18 @@ const reviewHistory = read('migrations/004_application_review_history.sql');
 const idempotencyMigration = read('migrations/005_application_idempotency.sql');
 const benefitClaimsMigration = read('migrations/008_benefit_claims.sql');
 const contract = read('docs/API_CONTRACT_v1.md');
+const packageJson = read('package.json');
+
+const privateRouters = [
+  core,
+  admin,
+  adminAudit,
+  adminReviewContext,
+  adminVerification,
+  residentApplication,
+  residentVerification,
+  benefitWallet
+];
 
 const checks = [
   ['app routes admin audit before generic admin', app.includes('handleAdminAuditRequest') && app.indexOf('handleAdminAuditRequest') < app.indexOf("startsWith('/api/v1/admin/')")],
@@ -54,7 +69,18 @@ const checks = [
   ['benefit wallet claim codes are server issued', benefitWallet.includes("'DANJION-' || upper") && benefitClaimsMigration.includes('chk_benefit_claim_code_format')],
   ['benefit wallet supports stored to used lifecycle', benefitClaimsMigration.includes("status in ('stored','used')") && benefitWallet.includes("set status = 'used'")],
   ['benefit wallet use is owner scoped and idempotent', benefitWallet.includes('where user_id = ${actor.id}::uuid') && benefitWallet.includes("and status = 'stored'") && benefitWallet.includes('return ok(existing[0], requestId)')],
-  ['dev bypass disabled in production', core.includes("env.APP_ENV === 'production'") && admin.includes("env.APP_ENV !== 'production'") && adminAudit.includes("env.APP_ENV !== 'production'") && residentApplication.includes("env.APP_ENV !== 'production'") && benefitWallet.includes("env.APP_ENV !== 'production'") && adminReviewContext.includes("env.APP_ENV !== 'production'")],
+  ['live auth dependency is pinned', packageJson.includes('"jose": "6.2.4"')],
+  ['live auth verifies remote Neon JWKS', auth.includes('createRemoteJWKSet') && auth.includes('jwtVerify') && auth.includes('.well-known/jwks.json')],
+  ['live auth pins EdDSA issuer and audience', auth.includes("algorithms: ['EdDSA']") && auth.includes('issuer: config.issuer') && auth.includes('audience: config.audience')],
+  ['live auth requires Neon subject', auth.includes('payload.sub') && auth.includes('Authenticated subject is missing')],
+  ['live auth links subject through app_users', auth.includes('where auth_user_id = ${subject}') && auth.includes('insert into app_users (auth_user_id, display_name, avatar_url)')],
+  ['auth bootstrap is race safe', auth.includes('on conflict (auth_user_id) do nothing') && auth.includes('return actorBySubject(sql, subject)')],
+  ['auth bootstrap never creates apartment membership', !auth.includes('insert into complex_memberships') && !auth.includes('insert into complexes')],
+  ['production dev bypass is disabled centrally', auth.includes("env.APP_ENV === 'production'") && auth.includes("env.DEV_AUTH_BYPASS !== 'true'")],
+  ['auth has controlled missing and invalid errors', auth.includes("fail('AUTH_REQUIRED'") && auth.includes("fail('AUTH_INVALID'") && auth.includes("fail('AUTH_NOT_CONFIGURED'")],
+  ['auth has controlled identity-link error', auth.includes('AUTH_IDENTITY_LINK_FAILED')],
+  ['all private and admin routers use shared auth resolver', privateRouters.every((source) => source.includes("from './auth-v1'"))],
+  ['legacy auth adapter pending boundary is removed', privateRouters.every((source) => !source.includes('AUTH_ADAPTER_PENDING'))],
   ['admin list endpoint exists', admin.includes('business-applications$/') && admin.includes("request.method === 'GET'")],
   ['admin approval uses atomic update gate', admin.includes('with approved as') && admin.includes("a.status in ('pending','changes_requested')")],
   ['approval creates business relation', admin.includes('created_business') && admin.includes('created_relation')],
