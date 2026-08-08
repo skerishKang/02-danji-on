@@ -1,8 +1,8 @@
 import { neon, type NeonQueryFunction } from '@neondatabase/serverless';
+import { requireActor } from './auth-v1';
 import type { CoreEnv } from './core-v1';
 
 type Sql = NeonQueryFunction<false, false>;
-type Actor = { id: string };
 
 const REQUEST_ID_HEADER = 'x-danjion-request-id';
 
@@ -23,20 +23,6 @@ function ok(data: unknown, requestId: string): Response {
 
 function fail(code: string, message: string, status: number, requestId: string): Response {
   return json({ error: { code, message }, requestId }, status, requestId);
-}
-
-async function requireActor(request: Request, env: CoreEnv, sql: Sql, requestId: string): Promise<Actor | Response> {
-  if (env.APP_ENV !== 'production' && env.DEV_AUTH_BYPASS === 'true') {
-    const subject = request.headers.get('x-danjion-dev-auth-user')?.trim();
-    if (subject) {
-      const rows = await sql`select id from app_users where auth_user_id = ${subject} limit 1`;
-      if (rows[0]) return { id: String(rows[0].id) };
-    }
-  }
-  if (request.headers.has('authorization')) {
-    return fail('AUTH_ADAPTER_PENDING', 'Neon Auth server adapter is not configured yet', 501, requestId);
-  }
-  return fail('AUTH_REQUIRED', 'Authentication required', 401, requestId);
 }
 
 async function requireManager(sql: Sql, actorId: string, complexId: string, requestId: string) {
