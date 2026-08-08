@@ -11,10 +11,6 @@ type SceneStyle = CSSProperties & {
 
 const LOCAL_SCENE_FALLBACK = '/field-demo/scenes-sprite.jpg';
 
-function clamp(value: number) {
-  return Math.min(1, Math.max(0, value));
-}
-
 export function V2CinematicScenes({
   scenes = V2_SCENES,
   reducedMotion = false,
@@ -30,12 +26,8 @@ export function V2CinematicScenes({
   onToggleSave?: (shopId: string) => void;
   savedShopIds?: string[];
 }) {
-  const sectionRef = useRef<HTMLElement>(null);
-  const manualUntilRef = useRef(0);
-  const userScrollIntentRef = useRef(false);
   const timerRef = useRef<number | null>(null);
   const [activeKey, setActiveKey] = useState<V2SceneKey>(scenes[0]?.key ?? 'food');
-  const [manualSelectionKey, setManualSelectionKey] = useState<V2SceneKey | null>(null);
   const [previousScene, setPreviousScene] = useState<V2Scene | null>(null);
   const [switching, setSwitching] = useState(false);
 
@@ -48,55 +40,9 @@ export function V2CinematicScenes({
     };
   }, []);
 
-  useEffect(() => {
-    if (reducedMotion || scenes.length < 2) return;
-    const section = sectionRef.current;
-    if (!section) return;
-
-    let frame = 0;
-    const markScrollIntent = () => {
-      userScrollIntentRef.current = true;
-    };
-    const markKeyboardScrollIntent = (event: globalThis.KeyboardEvent) => {
-      const target = event.target as HTMLElement | null;
-      if (target?.matches('input, textarea, select, [contenteditable="true"]')) return;
-      if (['ArrowDown', 'ArrowUp', 'PageDown', 'PageUp', 'Home', 'End', ' '].includes(event.key)) userScrollIntentRef.current = true;
-    };
-    const updateFromScroll = () => {
-      frame = 0;
-      if (!userScrollIntentRef.current || Date.now() < manualUntilRef.current) return;
-      const rect = section.getBoundingClientRect();
-      const distance = Math.max(1, rect.height - window.innerHeight);
-      const progress = clamp(-rect.top / distance);
-      const nextIndex = Math.min(scenes.length - 1, Math.floor(progress * scenes.length));
-      const next = scenes[nextIndex];
-      if (next && next.key !== activeKey) selectScene(next, false);
-    };
-    const onScroll = () => {
-      if (!frame) frame = window.requestAnimationFrame(updateFromScroll);
-    };
-    window.addEventListener('wheel', markScrollIntent, { passive: true });
-    window.addEventListener('touchmove', markScrollIntent, { passive: true });
-    window.addEventListener('keydown', markKeyboardScrollIntent);
-    window.addEventListener('scroll', onScroll, { passive: true });
-    window.addEventListener('resize', onScroll);
-    return () => {
-      window.removeEventListener('wheel', markScrollIntent);
-      window.removeEventListener('touchmove', markScrollIntent);
-      window.removeEventListener('keydown', markKeyboardScrollIntent);
-      window.removeEventListener('scroll', onScroll);
-      window.removeEventListener('resize', onScroll);
-      if (frame) window.cancelAnimationFrame(frame);
-    };
-  }, [activeKey, reducedMotion, scenes]);
-
   if (!activeScene) return null;
 
-  function selectScene(next: V2Scene, manual = true) {
-    if (manual) {
-      setManualSelectionKey(next.key);
-      manualUntilRef.current = Date.now() + 1800;
-    }
+  function selectScene(next: V2Scene) {
     if (next.key === activeScene.key) return;
     setPreviousScene(activeScene);
     setSwitching(!reducedMotion);
@@ -120,7 +66,7 @@ export function V2CinematicScenes({
     if (event.key === 'End') nextIndex = scenes.length - 1;
     const next = scenes[nextIndex];
     if (!next) return;
-    selectScene(next, true);
+    selectScene(next);
     const tabs = event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[data-v2-scene-tab]');
     window.requestAnimationFrame(() => tabs?.[nextIndex]?.focus());
   }
@@ -134,7 +80,7 @@ export function V2CinematicScenes({
   const railHeight = `${((activeIndex + 1) / Math.max(1, scenes.length)) * 100}%`;
 
   return (
-    <section data-v2-section="cinematic" ref={sectionRef} className="v2-scene-world" aria-labelledby="v2-scene-caption" data-reduced-motion={reducedMotion || undefined} style={style}>
+    <section data-v2-section="cinematic" className="v2-scene-world" aria-labelledby="v2-scene-caption" data-reduced-motion={reducedMotion || undefined} style={style}>
       <div data-v2-cinematic-stage className="v2-scene-sticky">
         <div className={`v2-scene-visual ${switching ? 'is-switching' : ''}`}>
           {previousScene && <V2VisualImage className="v2-scene-ghost" src={previousScene.image.src} fallbackSrc={LOCAL_SCENE_FALLBACK} alt="" aria-hidden="true" fallbackLabel="" />}
@@ -171,9 +117,9 @@ export function V2CinematicScenes({
               type="button"
               className="v2-scene-tab"
               aria-pressed={scene.key === activeScene.key}
-              aria-selected={manualSelectionKey === scene.key ? true : undefined}
+              aria-selected={scene.key === activeScene.key}
               aria-label={`${String(index + 1).padStart(2, '0')} ${scene.caption}`}
-              onClick={() => selectScene(scene, true)}
+              onClick={() => selectScene(scene)}
               onKeyDown={(event) => handleTabKey(event, index)}
             >
               {String(index + 1).padStart(2, '0')}
@@ -181,7 +127,7 @@ export function V2CinematicScenes({
           ))}
         </div>
         <div className="v2-scene-rail" aria-hidden="true"><span className="v2-scene-rail-fill" style={{ height: railHeight }} /></div>
-        <div className="v2-scene-rail-label" aria-hidden="true">SCROLL / SELECT TO MOVE THROUGH NEIGHBORS</div>
+        <div className="v2-scene-rail-label" aria-hidden="true">SELECT SCENE / SCROLL CONTINUES PAGE</div>
       </div>
     </section>
   );
