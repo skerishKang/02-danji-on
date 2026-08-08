@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent } from 'react';
 import { V2Icon } from './V2Icon';
 import { V2VisualImage } from './V2VisualImage';
 import { V2_SCENES, type V2Scene, type V2SceneKey } from './visual-data';
@@ -8,6 +8,8 @@ type SceneStyle = CSSProperties & {
   '--v2-scene-ink': string;
   '--v2-scene-dark': string;
 };
+
+const LOCAL_SCENE_FALLBACK = '/field-demo/scenes-sprite.jpg';
 
 function clamp(value: number) {
   return Math.min(1, Math.max(0, value));
@@ -90,6 +92,21 @@ export function V2CinematicScenes({
     }, reducedMotion ? 0 : 760);
   }
 
+  function handleTabKey(event: KeyboardEvent<HTMLButtonElement>, index: number) {
+    if (!['ArrowRight', 'ArrowLeft', 'Home', 'End'].includes(event.key)) return;
+    event.preventDefault();
+    let nextIndex = index;
+    if (event.key === 'ArrowRight') nextIndex = (index + 1) % scenes.length;
+    if (event.key === 'ArrowLeft') nextIndex = (index - 1 + scenes.length) % scenes.length;
+    if (event.key === 'Home') nextIndex = 0;
+    if (event.key === 'End') nextIndex = scenes.length - 1;
+    const next = scenes[nextIndex];
+    if (!next) return;
+    selectScene(next, true);
+    const tabs = event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[data-v2-scene-tab]');
+    window.requestAnimationFrame(() => tabs?.[nextIndex]?.focus());
+  }
+
   const style: SceneStyle = {
     '--v2-scene-color': activeScene.color,
     '--v2-scene-ink': activeScene.ink,
@@ -99,11 +116,11 @@ export function V2CinematicScenes({
   const railHeight = `${((activeIndex + 1) / Math.max(1, scenes.length)) * 100}%`;
 
   return (
-    <section ref={sectionRef} className="v2-scene-world" aria-labelledby="v2-scene-caption" data-reduced-motion={reducedMotion || undefined} style={style}>
-      <div className="v2-scene-sticky">
+    <section data-v2-section="cinematic" ref={sectionRef} className="v2-scene-world" aria-labelledby="v2-scene-caption" data-reduced-motion={reducedMotion || undefined} style={style}>
+      <div data-v2-cinematic-stage className="v2-scene-sticky">
         <div className={`v2-scene-visual ${switching ? 'is-switching' : ''}`}>
-          {previousScene && <V2VisualImage className="v2-scene-ghost" src={previousScene.image.src} alt="" aria-hidden="true" fallbackLabel="" />}
-          <V2VisualImage className="v2-scene-image" src={activeScene.image.src} alt={activeScene.image.alt} fallbackLabel={activeScene.name} />
+          {previousScene && <V2VisualImage className="v2-scene-ghost" src={previousScene.image.src} fallbackSrc={LOCAL_SCENE_FALLBACK} alt="" aria-hidden="true" fallbackLabel="" />}
+          <V2VisualImage className="v2-scene-image" src={activeScene.image.src} fallbackSrc={LOCAL_SCENE_FALLBACK} alt={activeScene.image.alt} fallbackLabel={activeScene.name} />
           <div className="v2-scene-depth-veil" />
           <div className="v2-scene-number"><span>{String(activeIndex + 1).padStart(2, '0')}</span> / {String(scenes.length).padStart(2, '0')} · 살아 있는 이웃의 일</div>
           <div className="v2-scene-caption">
@@ -111,7 +128,7 @@ export function V2CinematicScenes({
             <p>{activeScene.captionText}</p>
           </div>
         </div>
-        <aside className="v2-scene-panel" aria-label={`${activeScene.name} 정보`}>
+        <aside data-v2-cinematic-panel className="v2-scene-panel" aria-label={`${activeScene.name} 정보`}>
           <div className="v2-scene-panel-top">
             <div className="v2-eyebrow">SCENE 02 · 필요한 일이 바뀌면 장면도 바뀝니다</div>
             <h3 className="v2-scene-service">{activeScene.name}</h3>
@@ -131,13 +148,16 @@ export function V2CinematicScenes({
         <div className="v2-scene-tabs" role="tablist" aria-label="이웃 작업 장면 선택">
           {scenes.map((scene, index) => (
             <button
+              data-v2-scene-tab
               key={scene.key}
               type="button"
               className="v2-scene-tab"
               role="tab"
               aria-selected={scene.key === activeScene.key}
+              tabIndex={scene.key === activeScene.key ? 0 : -1}
               aria-label={`${String(index + 1).padStart(2, '0')} ${scene.caption}`}
               onClick={() => selectScene(scene, true)}
+              onKeyDown={(event) => handleTabKey(event, index)}
             >
               {String(index + 1).padStart(2, '0')}
             </button>
