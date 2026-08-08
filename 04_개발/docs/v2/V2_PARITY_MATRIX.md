@@ -83,6 +83,10 @@ The fixed HTML is approximately 98 KB and contains its own CSS/JS prototype stat
 | GW-03 | C current branch intentionally renders `V2IntegrationPending` until B integration | integrated candidate must fail if placeholder survives | `v2-fidelity-gate.mjs` preflight + `openV2()` hard assertion | `CONTRACT_READY`; current integrated fidelity intentionally BLOCKED |
 | V1-01 | V1 is the current functional baseline | D must not alter V1 behavior or styles | existing `playwright.config.ts` suite runs unchanged with `VITE_UI_VARIANT` unset | `CONTRACT_READY`; V1 regression must pass at #30 |
 | V1-02 | V1 mobile nav + `#home-search` + no overflow | explicit/invalid V1 builds remain safe | `v2-v1-safety.spec.ts` + existing mobile test | `CONTRACT_READY / BLOCKED_C_INTEGRATION` |
+| V1-03 | existing V1 demo reset/recovery/offline contract | V2 work must not break deterministic field-demo recovery infrastructure | unchanged `demo-rehearsal.spec.ts` in V1 regression run | `CONTRACT_READY`; V1 regression must pass at #30 |
+| V1-04 | existing Scene 07/08 approval and living-economy cycle | V2 must reuse product semantics without weakening public/private review or rediscovery | unchanged `field-demo-cycle.spec.ts` + `operations-parity.spec.ts` | `CONTRACT_READY`; V1 regression must pass at #30 |
+| V1-05 | existing promo outputs use uploaded image or real scene fallback; no emoji artwork | V2 image-refresh work must not regress functional promo generation or fallback quality | unchanged `promo-materials.spec.ts` | `CONTRACT_READY`; V1 regression must pass at #30 |
+| V1-06 | existing empty/error/file/double-review and accessibility gates | V2 integration cannot trade away resilience or serious/critical accessibility baseline | unchanged `resilience.spec.ts`, `accessibility.spec.ts`, `verification-accessibility.spec.ts` | `CONTRACT_READY`; V1 regression must pass at #30 |
 
 ## 4. Execution-recording cross-check
 
@@ -104,15 +108,22 @@ The Gate therefore checks the *sequence and interaction contract*, not pixel-by-
 
 ## 5. V1 baseline carried forward
 
-V2-D does not weaken or duplicate the current V1 suite. At #30 integration the gate runs it unchanged first. Current baseline includes:
+V2-D does not weaken or duplicate the current V1 suite. The current Playwright report confirms **13 V1 spec files / 35 tests**, all read by V2-D. At #30 integration the gate runs this suite unchanged first. Current baseline includes:
 
+- resident and operations axe coverage for serious/critical accessibility violations;
+- deterministic demo reset, last-surface recovery, offline survival and runtime-error evidence;
 - mobile bottom navigation, resident benefit navigation, no horizontal overflow, return to `#home-search`;
 - search → service detail → bookmark → verified contact disclosure;
+- four real working-scene tabs, no automatic scene rotation and reduced-motion visual behavior;
 - changes-requested business application → edit → resubmit → audit history;
-- four-step resident submission with representative image → admin approval → approved status → public search;
+- four-step resident submission → representative image → promotion materials → public/private operations review → approval → published-count +1 → public rediscovery → living-economy ending;
+- three promotion outputs with uploaded image or real working-scene fallback and no emoji-art regression;
+- operations privacy checks preventing building/unit/evidence object key leakage in review context;
 - admin-created news and benefit surfaced in resident app;
-- resident verification unverified → pending → verified and rejected → corrected → reapplied;
+- resident verification unverified → pending → verified and rejected → corrected → reapplied, plus verification axe checks;
 - benefit claim → stored code → use, idempotency, and detail state reflection;
+- resilience checks for empty search, required registration fields, non-image upload rejection and double-review prevention;
+- Scene 08 no-overflow checks across eight widths, 1440 down to 320;
 - live-release surface checks for `/`, admin and verification pages at release viewports.
 
 ## 6. Current fidelity verdict
