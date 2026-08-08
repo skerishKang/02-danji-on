@@ -24,12 +24,12 @@ function synchronizeRegistrationHeading() {
     legend.insertAdjacentElement('afterend', heading);
   }
 
-  heading.textContent = label;
+  if (heading.textContent !== label) heading.textContent = label;
 
-  const existingId = legend.id || 'v2-registration-dialog-title';
-  legend.removeAttribute('id');
-  legend.setAttribute(SOURCE_MARKER, 'true');
-  heading.id = existingId;
+  const existingId = legend.id || heading.id || 'v2-registration-dialog-title';
+  if (legend.id) legend.removeAttribute('id');
+  if (!legend.hasAttribute(SOURCE_MARKER)) legend.setAttribute(SOURCE_MARKER, 'true');
+  if (heading.id !== existingId) heading.id = existingId;
 }
 
 export function V2RegistrationSemanticsBridge() {
