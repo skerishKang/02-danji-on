@@ -1,14 +1,13 @@
 name: Cloudflare Preview
 
 on:
-  workflow_dispatch:
-  push:
-    branches:
-      - feat/cloudflare-preview
+  pull_request:
+    types: [opened, synchronize, reopened]
     paths:
       - '04_개발/backend/**'
       - '04_개발/frontend/**'
       - '.github/workflows/cloudflare-preview.yml'
+  workflow_dispatch:
 
 concurrency:
   group: danjion-cloudflare-track-b-preview
@@ -41,7 +40,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "${GITHUB_REF_NAME}" = "feat/cloudflare-preview"
+          branch="${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}"
+          test "$branch" = "feat/cloudflare-preview"
           test "${WORKER_ENV}" = "preview"
           test "${PAGES_BRANCH}" != "main"
           echo "Track B branch and preview environment contract verified."
