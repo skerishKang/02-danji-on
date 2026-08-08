@@ -117,7 +117,6 @@ export function V2CinematicScenes({
               type="button"
               className="v2-scene-tab"
               aria-pressed={scene.key === activeScene.key}
-              aria-selected={scene.key === activeScene.key}
               aria-label={`${String(index + 1).padStart(2, '0')} ${scene.caption}`}
               onClick={() => selectScene(scene)}
               onKeyDown={(event) => handleTabKey(event, index)}
