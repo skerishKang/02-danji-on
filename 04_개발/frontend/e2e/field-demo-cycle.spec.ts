@@ -15,8 +15,8 @@ async function resetDemoState(page: Page) {
   await page.reload();
 }
 
-async function registerHangyeol(page: Page) {
-  await page.getByRole('button', { name: '내 일 알리기', exact: true }).click();
+async function registerHangyeolFromMyInfo(page: Page) {
+  await page.getByRole('button', { name: '새 등록 신청' }).click();
   await page.getByRole('button', { name: '다음 단계' }).click();
   await page.getByLabel('가게·서비스명 *').fill('한결수학');
   await page.getByLabel('분야 *').fill('과외·수업');
@@ -53,8 +53,8 @@ test('five-minute field demo completes the full living-neighbor economy cycle', 
   await expect(walletItem).toBeVisible();
   await expect(walletItem.getByText('DANJION-0248')).toBeVisible();
 
-  // 내 일 등록 4단계
-  await registerHangyeol(page);
+  // 내정보 → 내 일 등록 4단계
+  await registerHangyeolFromMyInfo(page);
 
   // 홍보물 3종
   const application = page.locator('.application-item').filter({ hasText: '한결수학' });
