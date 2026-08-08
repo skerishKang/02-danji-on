@@ -1,0 +1,37 @@
+.v2-registration-heading{
+  display:block;
+  width:100%;
+  margin:0;
+  padding:0 70px 20px 0;
+  font-size:clamp(32px,4vw,50px);
+  font-weight:850;
+  line-height:1.08;
+  letter-spacing:-.05em;
+}
+
+.v2-data-notice{
+  margin:18px 0;
+  padding:14px 16px;
+  border:1px solid #b9afa1;
+  background:#fffaf2;
+  color:#514a42;
+  font-size:14px;
+  line-height:1.6;
+}
+
+.v2-operator-pending{
+  min-width:min(100%,520px);
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  padding:16px 18px;
+  border:1px solid #171717;
+  background:#f7f2e8;
+}
+
+.v2-operator-pending strong{font-size:15px}.v2-operator-pending span{color:#625e57;font-size:13px;line-height:1.55}
+.v2-registration-dialog input[type="file"]{padding:12px;min-height:auto;background:#fff}
+
+@media(max-width:800px){
+  .v2-registration-heading{padding-right:56px}
+}
