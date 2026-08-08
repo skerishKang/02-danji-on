@@ -16,7 +16,7 @@ const externalBase = target === 'v2'
 const baseURL = externalBase?.replace(/\/$/, '') || `http://127.0.0.1:${port}`;
 
 const testMatch = target === 'v2'
-  ? /v2-(fidelity|product-flow|responsive-accessibility)\.spec\.ts/
+  ? /v2-(fidelity|product-flow|responsive-accessibility|visual-contrast)\.spec\.ts/
   : target === 'gateway'
     ? /v2-gateway-safety\.spec\.ts/
     : /v2-v1-safety\.spec\.ts/;
