@@ -1,4 +1,4 @@
-const CACHE_NAME = 'danjion-field-demo-v1';
+const CACHE_NAME = 'danjion-field-demo-v2';
 const APP_SHELL = [
   '/',
   '/demo.html',
@@ -10,12 +10,36 @@ const APP_SHELL = [
   '/verification-admin.html'
 ];
 
+function discoverLocalAssets(html) {
+  const assets = new Set();
+  const pattern = /(?:src|href)=["']([^"']+)["']/g;
+  for (const match of html.matchAll(pattern)) {
+    const path = match[1];
+    if (path.startsWith('/assets/') || path.startsWith('/field-demo/')) assets.add(path);
+  }
+  return assets;
+}
+
+async function precacheAppShell() {
+  const cache = await caches.open(CACHE_NAME);
+  const assets = new Set();
+
+  for (const path of APP_SHELL) {
+    const response = await fetch(path, { cache: 'reload' });
+    if (!response.ok) throw new Error(`Failed to precache ${path}: ${response.status}`);
+    await cache.put(path, response.clone());
+    const html = await response.text();
+    for (const asset of discoverLocalAssets(html)) assets.add(asset);
+  }
+
+  await Promise.all([...assets].map(async (path) => {
+    const response = await fetch(path, { cache: 'reload' });
+    if (response.ok) await cache.put(path, response);
+  }));
+}
+
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then((cache) => cache.addAll(APP_SHELL))
-      .then(() => self.skipWaiting())
-  );
+  event.waitUntil(precacheAppShell().then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', (event) => {
@@ -41,8 +65,10 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       fetch(request)
         .then((response) => {
-          const copy = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(cacheKeyWithoutSearch(request), copy));
+          if (response.ok) {
+            const copy = response.clone();
+            event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.put(cacheKeyWithoutSearch(request), copy)));
+          }
           return response;
         })
         .catch(async () => {
@@ -55,13 +81,14 @@ self.addEventListener('fetch', (event) => {
 
   event.respondWith(
     caches.match(request).then((cached) => {
-      const network = fetch(request)
-        .then((response) => {
-          if (response.ok) caches.open(CACHE_NAME).then((cache) => cache.put(request, response.clone()));
-          return response;
-        })
-        .catch(() => cached);
-      return cached || network;
+      if (cached) return cached;
+      return fetch(request).then((response) => {
+        if (response.ok) {
+          const copy = response.clone();
+          event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.put(request, copy)));
+        }
+        return response;
+      });
     })
   );
 });
