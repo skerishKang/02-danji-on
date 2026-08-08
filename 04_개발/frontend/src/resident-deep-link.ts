@@ -39,8 +39,13 @@ async function highlightBusiness(name: string) {
 export async function installResidentDeepLink() {
   const params = new URLSearchParams(window.location.search);
   if (params.get('view') !== 'listings') return;
-  const listingsButton = buttonByText(document, '가게·서비스');
-  listingsButton?.click();
+
+  const nav = await waitFor<HTMLElement>('.desktop-nav');
+  if (!nav) return;
+  const listingsButton = buttonByText(nav, '가게·서비스');
+  if (!listingsButton) return;
+  listingsButton.click();
+
   const businessName = params.get('businessName')?.trim();
   if (businessName) await highlightBusiness(businessName);
 }
