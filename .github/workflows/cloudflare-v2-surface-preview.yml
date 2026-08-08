@@ -74,13 +74,19 @@ jobs:
             exit 1
           fi
 
+          # V1 remains the stable mock comparison baseline until browser Auth is
+          # available. A preview-child DB enables V2 PUBLIC reads only; protected
+          # resident/admin writes are still gated by the browser Auth contract.
+          echo 'v1_data_mode=mock' >> "$GITHUB_OUTPUT"
           if [ -n "${DANJION_DATABASE_URL:-}" ]; then
-            echo 'live_api=true' >> "$GITHUB_OUTPUT"
-            echo 'data_mode=api' >> "$GITHUB_OUTPUT"
-            echo 'Preview profile: LIVE_API using DANJION_PREVIEW_DATABASE_URL.'
+            echo 'public_api=true' >> "$GITHUB_OUTPUT"
+            echo 'v2_data_mode=api' >> "$GITHUB_OUTPUT"
+            echo 'v2_storage_mode=drive' >> "$GITHUB_OUTPUT"
+            echo 'Preview profile: V2_PUBLIC_API using DANJION_PREVIEW_DATABASE_URL. Protected live flows are NOT claimed.'
           else
-            echo 'live_api=false' >> "$GITHUB_OUTPUT"
-            echo 'data_mode=mock' >> "$GITHUB_OUTPUT"
+            echo 'public_api=false' >> "$GITHUB_OUTPUT"
+            echo 'v2_data_mode=mock' >> "$GITHUB_OUTPUT"
+            echo 'v2_storage_mode=mock' >> "$GITHUB_OUTPUT"
             echo '::notice::DANJION_PREVIEW_DATABASE_URL is not configured. Deploying UI-only mock V1/V2/Gateway previews; no Worker or database is touched.'
           fi
 
@@ -101,7 +107,7 @@ jobs:
         run: npm run typecheck
 
       - name: Prepare Worker preview secret file
-        if: steps.profile.outputs.live_api == 'true'
+        if: steps.profile.outputs.public_api == 'true'
         id: worker_secret
         shell: bash
         run: |
@@ -112,7 +118,7 @@ jobs:
           echo "secret_file=$secret_file" >> "$GITHUB_OUTPUT"
 
       - name: Upload shared Worker preview version
-        if: steps.profile.outputs.live_api == 'true'
+        if: steps.profile.outputs.public_api == 'true'
         id: worker
         working-directory: 04_개발/backend
         shell: bash
@@ -123,7 +129,7 @@ jobs:
             --env "$WORKER_ENV" \
             --preview-alias "$WORKER_PREVIEW_ALIAS" \
             --secrets-file "${{ steps.worker_secret.outputs.secret_file }}" \
-            --message "V2 program preview ${GITHUB_SHA}" 2>&1 | tee "$log_file"
+            --message "V2 public API preview ${GITHUB_SHA}" 2>&1 | tee "$log_file"
 
           worker_url="$(grep -Eo 'https://[A-Za-z0-9.-]+\.workers\.dev' "$log_file" | grep "https://${WORKER_PREVIEW_ALIAS}-" | tail -n 1 || true)"
           if [ -z "$worker_url" ]; then
@@ -163,35 +169,31 @@ jobs:
         shell: bash
         env:
           VITE_UI_VARIANT: v1
-          VITE_DATA_MODE: ${{ steps.profile.outputs.data_mode }}
+          VITE_DATA_MODE: ${{ steps.profile.outputs.v1_data_mode }}
           VITE_AUTH_MODE: dev
           VITE_STORAGE_MODE: mock
-          VITE_API_BASE_URL: ${{ steps.worker.outputs.url }}
           VITE_COMPLEX_SLUG: bangnim-myeongji-roadhill
           VITE_V1_URL: https://v1.padiem-danjion-web-preview.pages.dev
           VITE_V2_URL: https://v2.padiem-danjion-web-preview.pages.dev
           VITE_GATEWAY_URL: https://gateway.padiem-danjion-web-preview.pages.dev
         run: |
           set -euo pipefail
+          test "$VITE_DATA_MODE" = 'mock'
           npm run build
-          if [ "$VITE_DATA_MODE" = 'api' ]; then
-            test -n "$VITE_API_BASE_URL"
-            grep -R --fixed-strings "$VITE_API_BASE_URL" dist >/dev/null
-          fi
           ../backend/node_modules/.bin/wrangler pages deploy dist \
             --project-name="$PAGES_PROJECT" \
             --branch="$PAGES_V1_BRANCH" \
             --commit-hash="$GITHUB_SHA" \
-            --commit-message="V2 program V1 surface ${GITHUB_SHA}"
+            --commit-message="V2 program V1 comparison ${GITHUB_SHA}"
 
       - name: Build and deploy V2 surface
         working-directory: 04_개발/frontend
         shell: bash
         env:
           VITE_UI_VARIANT: v2
-          VITE_DATA_MODE: ${{ steps.profile.outputs.data_mode }}
+          VITE_DATA_MODE: ${{ steps.profile.outputs.v2_data_mode }}
           VITE_AUTH_MODE: dev
-          VITE_STORAGE_MODE: mock
+          VITE_STORAGE_MODE: ${{ steps.profile.outputs.v2_storage_mode }}
           VITE_API_BASE_URL: ${{ steps.worker.outputs.url }}
           VITE_COMPLEX_SLUG: bangnim-myeongji-roadhill
           VITE_V1_URL: https://v1.padiem-danjion-web-preview.pages.dev
@@ -202,6 +204,7 @@ jobs:
           npm run build
           if [ "$VITE_DATA_MODE" = 'api' ]; then
             test -n "$VITE_API_BASE_URL"
+            test "$VITE_STORAGE_MODE" = 'drive'
             grep -R --fixed-strings "$VITE_API_BASE_URL" dist >/dev/null
           fi
           ../backend/node_modules/.bin/wrangler pages deploy dist \
@@ -246,11 +249,10 @@ jobs:
           done
 
       - name: Smoke shared Worker health and CORS
-        if: steps.profile.outputs.live_api == 'true'
+        if: steps.profile.outputs.public_api == 'true'
         shell: bash
         env:
           WORKER_URL: ${{ steps.worker.outputs.url }}
-          V1_URL: https://v1.padiem-danjion-web-preview.pages.dev
           V2_URL: https://v2.padiem-danjion-web-preview.pages.dev
         run: |
           set -euo pipefail
@@ -260,28 +262,29 @@ jobs:
           if (payload?.data?.status !== 'ok' || payload?.data?.database !== 'ok') process.exit(1);
           NODE
 
-          for origin in "$V1_URL" "$V2_URL"; do
-            headers="${RUNNER_TEMP}/cors-$(echo "$origin" | tr -cd 'A-Za-z0-9').txt"
-            curl --fail --silent --show-error \
-              -D "$headers" -o /dev/null \
-              -H "Origin: $origin" \
-              "$WORKER_URL/api/health"
-            tr -d '\r' < "$headers" | grep -Fqi "access-control-allow-origin: $origin"
-          done
+          headers="${RUNNER_TEMP}/cors-v2.txt"
+          curl --fail --silent --show-error \
+            -D "$headers" -o /dev/null \
+            -H "Origin: $V2_URL" \
+            "$WORKER_URL/api/health"
+          tr -d '\r' < "$headers" | grep -Fqi "access-control-allow-origin: $V2_URL"
 
       - name: V2 surface preview evidence summary
         if: success()
         shell: bash
         env:
-          LIVE_API: ${{ steps.profile.outputs.live_api }}
+          PUBLIC_API: ${{ steps.profile.outputs.public_api }}
           WORKER_URL: ${{ steps.worker.outputs.url }}
         run: |
           {
             echo '## DanjiOn V2 multi-surface preview'
             echo
-            if [ "$LIVE_API" = 'true' ]; then
-              echo '- Preview profile: `LIVE_API`'
+            if [ "$PUBLIC_API" = 'true' ]; then
+              echo '- Preview profile: `V2_PUBLIC_API`'
               echo "- Shared Worker preview: $WORKER_URL"
+              echo '- V2 public business/benefit reads: ENABLED'
+              echo '- Protected resident/admin flows: NOT CLAIMED (browser Neon Auth/Bearer still required)'
+              echo '- V1 comparison surface: MOCK baseline'
             else
               echo '- Preview profile: `UI_ONLY_MOCK`'
               echo '- Shared Worker preview: NOT DEPLOYED (preview DB secret intentionally unavailable)'
