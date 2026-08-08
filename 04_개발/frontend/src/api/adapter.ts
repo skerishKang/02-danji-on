@@ -165,13 +165,15 @@ export class MockAdapter implements DataAdapter {
 }
 
 type ApiEnvelope<T> = { data: T; requestId: string };
+type RequestOptions = { auth?: boolean };
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+async function request<T>(path: string, init?: RequestInit, options: RequestOptions = {}): Promise<T> {
+  const authHeaders = options.auth === false ? {} : authProvider.headers('resident');
   const response = await fetch(`${API_BASE}${path}`, {
     ...init,
     headers: {
       'content-type': 'application/json',
-      ...authProvider.headers('resident'),
+      ...authHeaders,
       ...(init?.headers || {})
     }
   });
@@ -229,6 +231,7 @@ function mapBusiness(raw: Record<string, unknown>): Business {
     serviceArea: String(raw.service_area ?? '방림동과 인근 지역'),
     availabilityText: String(raw.availability_text ?? '상담 후 안내'),
     icon: relationType === 'resident' ? '🏠' : relationType === 'neighbor' ? '🤝' : '📍',
+    representativeImageObjectKey: raw.representative_image_object_key ? String(raw.representative_image_object_key) : null,
     activeBenefit: activeRaw ? {
       id: String(activeRaw.id),
       businessId: String(raw.id),
@@ -268,13 +271,13 @@ export class ApiAdapter implements DataAdapter {
     if (filters.category && filters.category !== 'all') params.set('category', filters.category);
     if (filters.relation && filters.relation !== 'all') params.set('relation', filters.relation);
     const query = params.size ? `?${params.toString()}` : '';
-    const rows = await request<Record<string, unknown>[]>(`/api/v1/complexes/${COMPLEX_SLUG}/businesses${query}`);
+    const rows = await request<Record<string, unknown>[]>(`/api/v1/complexes/${COMPLEX_SLUG}/businesses${query}`, undefined, { auth: false });
     return rows.map(mapBusiness);
   }
 
   async getBusiness(id: string): Promise<Business | null> {
     try {
-      const row = await request<Record<string, unknown>>(`/api/v1/complexes/${COMPLEX_SLUG}/businesses/${id}`);
+      const row = await request<Record<string, unknown>>(`/api/v1/complexes/${COMPLEX_SLUG}/businesses/${id}`, undefined, { auth: false });
       return mapBusiness(row);
     } catch (error) {
       if (error instanceof Error && error.message.toLowerCase().includes('not found')) return null;
@@ -283,7 +286,7 @@ export class ApiAdapter implements DataAdapter {
   }
 
   async listBenefits(): Promise<Benefit[]> {
-    const rows = await request<Record<string, unknown>[]>(`/api/v1/complexes/${COMPLEX_SLUG}/benefits`);
+    const rows = await request<Record<string, unknown>[]>(`/api/v1/complexes/${COMPLEX_SLUG}/benefits`, undefined, { auth: false });
     return rows.map(mapBenefit);
   }
 
@@ -308,7 +311,7 @@ export class ApiAdapter implements DataAdapter {
   }
 
   async listPosts(): Promise<ComplexPost[]> {
-    const rows = await request<Record<string, unknown>[]>(`/api/v1/complexes/${COMPLEX_SLUG}/posts`);
+    const rows = await request<Record<string, unknown>[]>(`/api/v1/complexes/${COMPLEX_SLUG}/posts`, undefined, { auth: false });
     return rows.map((raw) => ({
       id: String(raw.id),
       sourceName: String(raw.source_name ?? ''),
