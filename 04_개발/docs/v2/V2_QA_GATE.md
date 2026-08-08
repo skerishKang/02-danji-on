@@ -45,25 +45,40 @@ The recording was sampled across the full duration to corroborate the source flo
 
 The current V1 Playwright baseline is preserved and run unchanged before V2-specific tests at integration time.
 
-Reviewed inputs:
+Reviewed inputs — complete current V1 Playwright inventory, **13 spec files / 35 tests** as confirmed by the PR Playwright report:
 
 - `frontend/playwright.config.ts`;
+- `e2e/accessibility.spec.ts`;
+- `e2e/benefit-wallet.spec.ts`;
+- `e2e/demo-rehearsal.spec.ts`;
+- `e2e/field-demo-cycle.spec.ts`;
+- `e2e/field-demo-visual.spec.ts`;
+- `e2e/live-release.spec.ts`;
 - `e2e/mobile.spec.ts`;
+- `e2e/operations-parity.spec.ts`;
+- `e2e/promo-materials.spec.ts`;
 - `e2e/resident-admin-flow.spec.ts`;
 - `e2e/resident-verification.spec.ts`;
-- `e2e/benefit-wallet.spec.ts`;
-- `e2e/live-release.spec.ts`.
+- `e2e/resilience.spec.ts`;
+- `e2e/verification-accessibility.spec.ts`.
 
 They already protect:
 
-1. search → detail → bookmark → verified contact;
-2. changes-requested application → correction → resubmit/audit;
-3. resident submission → image → admin approval → public rediscovery;
-4. admin news/benefit → resident visibility;
-5. resident verification approval/rejection/reapply;
-6. benefit claim/store/use and idempotency;
-7. mobile navigation and horizontal overflow;
-8. release surfaces avoiding 5xx/horizontal overflow.
+1. resident and operations primary surfaces against serious/critical WCAG axe violations;
+2. deterministic field-demo reset, session recovery, last-surface restore, temporary offline survival and captured runtime error evidence;
+3. search → detail → bookmark → verified contact disclosure;
+4. field-demo visual baseline with four real working-scene tabs, manual scene persistence and reduced-motion image behavior;
+5. changes-requested application → correction → resubmit/audit;
+6. resident submission → image → promo material generation → operations public/private review → approval → published-count increment → public rediscovery → living-economy ending;
+7. three promotion outputs using uploaded imagery or a working-scene fallback, explicitly rejecting emoji artwork regression;
+8. operator review privacy: public data separated from resident relationship evidence, without exposing building/unit or evidence object key;
+9. admin news/benefit → resident visibility;
+10. resident verification approval/rejection/reapply plus axe checks on resident and operations verification surfaces;
+11. benefit claim/store/use, idempotency and detail-state reflection;
+12. empty-search state, required-field blocking, non-image upload rejection and double-review prevention;
+13. mobile navigation and horizontal overflow;
+14. Scene 08 ending across eight widths from 1440 down to 320 without horizontal overflow;
+15. release surfaces avoiding 5xx/horizontal overflow.
 
 V2-D adds V2 contracts **on top of** these tests. It does not replace them.
 
