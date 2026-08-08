@@ -139,6 +139,19 @@ async function resolveOrBootstrapActor(sql: Sql, payload: JWTPayload): Promise<A
   return actorBySubject(sql, subject);
 }
 
+async function verifyToken(token: string, config: { issuer: string; audience: string; jwksUrl: string }): Promise<JWTPayload | null> {
+  try {
+    const { payload } = await jwtVerify(token, remoteJwks(config.jwksUrl), {
+      issuer: config.issuer,
+      audience: config.audience,
+      algorithms: ['EdDSA']
+    });
+    return payload;
+  } catch {
+    return null;
+  }
+}
+
 export async function requireActor(
   request: Request,
   env: AuthEnv,
@@ -161,31 +174,30 @@ export async function requireActor(
     return fail('AUTH_NOT_CONFIGURED', 'Neon Auth verification is not configured', 503, requestId);
   }
 
+  const payload = await verifyToken(token, config);
+  if (!payload) {
+    return fail('AUTH_INVALID', 'Invalid or expired authentication token', 401, requestId);
+  }
+
+  const subject = typeof payload.sub === 'string' ? payload.sub.trim() : '';
+  if (!subject) {
+    return fail('AUTH_INVALID', 'Authenticated subject is missing', 401, requestId);
+  }
+  if (typeof payload.id === 'string' && payload.id.trim() && payload.id.trim() !== subject) {
+    return fail('AUTH_INVALID', 'Authenticated subject is inconsistent', 401, requestId);
+  }
+  if (payload.banned === true) {
+    return fail('AUTH_FORBIDDEN', 'Authenticated user is blocked', 403, requestId);
+  }
+
   try {
-    const { payload } = await jwtVerify(token, remoteJwks(config.jwksUrl), {
-      issuer: config.issuer,
-      audience: config.audience,
-      algorithms: ['EdDSA']
-    });
-
-    const subject = typeof payload.sub === 'string' ? payload.sub.trim() : '';
-    if (!subject) {
-      return fail('AUTH_INVALID', 'Authenticated subject is missing', 401, requestId);
-    }
-    if (typeof payload.id === 'string' && payload.id.trim() && payload.id.trim() !== subject) {
-      return fail('AUTH_INVALID', 'Authenticated subject is inconsistent', 401, requestId);
-    }
-    if (payload.banned === true) {
-      return fail('AUTH_FORBIDDEN', 'Authenticated user is blocked', 403, requestId);
-    }
-
     const actor = await resolveOrBootstrapActor(sql, payload);
     if (!actor) {
       return fail('AUTH_IDENTITY_LINK_FAILED', 'Authenticated user could not be linked', 500, requestId);
     }
     return actor;
   } catch (error) {
-    console.warn('[DanjiOn Auth]', requestId, error instanceof Error ? error.name : 'verification_failed');
-    return fail('AUTH_INVALID', 'Invalid or expired authentication token', 401, requestId);
+    console.error('[DanjiOn Auth Link]', requestId, error instanceof Error ? error.name : 'identity_link_failed');
+    return fail('AUTH_IDENTITY_LINK_FAILED', 'Authenticated user could not be linked', 500, requestId);
   }
 }
