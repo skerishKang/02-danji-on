@@ -1,5 +1,6 @@
 import core, { type CoreEnv } from './core-v1';
 import { handleAdminAuditRequest } from './admin-audit-v1';
+import { handleAdminReviewContextRequest } from './admin-review-context-v1';
 import { handleAdminVerificationRequest } from './admin-verification-v1';
 import { handleAdminRequest } from './admin-v1';
 import { handleBenefitWalletRequest } from './benefit-wallet-v1';
@@ -48,6 +49,9 @@ export default {
 
       const adminAuditResponse = await handleAdminAuditRequest(request, env, id);
       if (adminAuditResponse) return adminAuditResponse;
+
+      const adminReviewContextResponse = await handleAdminReviewContextRequest(request, env, id);
+      if (adminReviewContextResponse) return adminReviewContextResponse;
 
       const adminVerificationResponse = await handleAdminVerificationRequest(request, env, id);
       if (adminVerificationResponse) return adminVerificationResponse;
