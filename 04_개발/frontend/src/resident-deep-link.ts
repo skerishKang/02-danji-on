@@ -21,6 +21,16 @@ function waitFor<T extends Element>(selector: string, timeoutMs = 5000): Promise
   });
 }
 
+function addCycleEndingLink(card: HTMLElement, businessName: string) {
+  if (card.querySelector('.cycle-ending-link')) return;
+  const link = document.createElement('a');
+  link.className = 'cycle-ending-link';
+  link.href = `/ending.html?businessName=${encodeURIComponent(businessName)}`;
+  link.textContent = '생활경제 순환 보기';
+  link.setAttribute('aria-label', `${businessName} 승인 이후 생활경제 순환 보기`);
+  card.appendChild(link);
+}
+
 async function highlightBusiness(name: string) {
   const container = await waitFor<HTMLElement>('.service-grid');
   if (!container) return;
@@ -29,6 +39,7 @@ async function highlightBusiness(name: string) {
     const card = Array.from(document.querySelectorAll<HTMLElement>('.service-card')).find((item) => item.textContent?.includes(name));
     if (card) {
       card.classList.add('deep-link-highlight');
+      addCycleEndingLink(card, name);
       card.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
