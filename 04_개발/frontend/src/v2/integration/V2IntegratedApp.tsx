@@ -1,14 +1,14 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent } from 'react';
 import { adminAdapter } from '../../admin-api';
 import { dataAdapter } from '../../api/adapter';
+import { authProvider } from '../../auth';
+import { storageAdapter } from '../../storage';
 import type {
   Benefit,
   BenefitClaim,
-  Business,
   BusinessApplication,
   BusinessApplicationInput,
-  BusinessContact,
-  RelationType
+  BusinessContact
 } from '../../types';
 import {
   V2CinematicScenes,
@@ -27,6 +27,12 @@ import {
   type V2VisualNavKey
 } from '../visual';
 import '../v2-visual.css';
+import {
+  approvedBusinessToV2Visual,
+  businessToV2Visual,
+  V2_API_DATA_MODE,
+  V2_DEMO_OPERATOR_MODE
+} from './v2-live-data';
 import './v2-integration.css';
 
 const LOCAL_IMAGE_FALLBACK = '/field-demo/scenes-sprite.jpg';
@@ -57,7 +63,7 @@ const learningPreview: V2ShopVisual = {
   color: '#4057E8'
 };
 
-const initialShops: V2ShopVisual[] = [
+const demoShops: V2ShopVisual[] = [
   V2_SAMPLE_SHOPS.find((shop) => shop.id === 'food-01')!,
   learningPreview,
   V2_SAMPLE_SHOPS.find((shop) => shop.id === 'home-01')!,
@@ -77,58 +83,12 @@ const emptyApplication: BusinessApplicationInput = {
   availabilityText: '상담 후 협의'
 };
 
-function relationToVisual(value: RelationType): V2RelationKey {
-  if (value === 'resident') return 'resident';
-  if (value === 'resident_family') return 'family';
-  if (value === 'neighbor') return 'neighbor';
-  return 'partner';
-}
-
-function categoryForApplication(input: BusinessApplicationInput): V2CategoryKey {
-  const text = `${input.categoryName} ${input.serviceSummary}`.toLowerCase();
-  if (/수학|과외|수업|교육/.test(text)) return 'learning';
-  if (/반찬|음식|카페|요리/.test(text)) return 'food';
-  if (/청소|수리|에어컨|정비/.test(text)) return 'home';
-  if (/세무|노무|상담|문서/.test(text)) return 'professional';
-  return 'creative';
-}
-
-function imageForCategory(category: V2CategoryKey) {
-  if (category === 'learning') return V2_REFERENCE_IMAGES.learning;
-  if (category === 'food') return V2_REFERENCE_IMAGES.food;
-  if (category === 'home') return V2_REFERENCE_IMAGES.home;
-  if (category === 'professional') return V2_REFERENCE_IMAGES.professional;
-  if (category === 'beauty') return V2_REFERENCE_IMAGES.beauty;
-  return V2_REFERENCE_IMAGES.photo;
-}
-
-function approvedBusinessToVisual(business: Business, application: BusinessApplication): V2ShopVisual {
-  const category = categoryForApplication({
-    relationType: application.relationType,
-    businessName: application.businessName,
-    categoryName: application.categoryName,
-    serviceSummary: application.serviceSummary,
-    priceText: application.priceText,
-    contactMethod: application.contactMethod,
-    serviceArea: application.serviceArea,
-    benefitText: application.benefitText,
-    availabilityText: application.availabilityText
-  });
-  return {
-    id: business.id,
-    name: business.name,
-    category,
-    relation: relationToVisual(business.relationType),
-    image: imageForCategory(category),
-    desc: business.summary || application.serviceSummary,
-    services: application.serviceSummary,
-    price: business.priceText || application.priceText || '상담 후 안내',
-    area: business.serviceArea || application.serviceArea || '방림동과 인근 지역',
-    benefit: business.activeBenefit?.title || application.benefitText || '등록된 주민혜택 없음',
-    availability: business.availabilityText || application.availabilityText || '상담 후 협의',
-    color: category === 'learning' ? '#4057E8' : category === 'food' ? '#E95C3E' : category === 'home' ? '#BDE53E' : category === 'professional' ? '#6840A5' : '#C56A45'
-  };
-}
+const REGISTRATION_STEP_TITLES: Record<1 | 2 | 3 | 4, string> = {
+  1: '주민 관계를 선택하세요',
+  2: '기본 정보를 확인하세요',
+  3: '사진과 주민혜택을 정하세요',
+  4: '공개정보와 비공개 정보를 확인하세요'
+};
 
 function matchesQuery(shop: V2ShopVisual, query: string) {
   if (!query.trim()) return true;
@@ -145,13 +105,21 @@ function contactLabel(contact: BusinessContact) {
   return `${{ phone: '전화', sms: '문자', kakao: '카카오톡', url: '온라인' }[contact.type]} · ${contact.value}`;
 }
 
+function adapterIdForShop(shopId: string) {
+  return V2_API_DATA_MODE ? shopId : (adapterIdByVisualId[shopId] ?? shopId);
+}
+
 export default function V2IntegratedApp() {
+  const residentAuth = authProvider.snapshot('resident');
+  const privateSessionReady = !V2_API_DATA_MODE || import.meta.env.DEV || (residentAuth.mode === 'neon' && residentAuth.authenticated);
+
   const [activeNav, setActiveNav] = useState<V2VisualNavKey>('home');
   const [progress, setProgress] = useState(0);
   const [reducedMotion, setReducedMotion] = useState(false);
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState<V2CategoryKey | 'all'>('all');
   const [relation, setRelation] = useState<V2RelationKey | 'all'>('all');
+  const [sourceShops, setSourceShops] = useState<V2ShopVisual[]>(V2_API_DATA_MODE ? [] : demoShops);
   const [dynamicShops, setDynamicShops] = useState<V2ShopVisual[]>([]);
   const [savedIds, setSavedIds] = useState<string[]>([]);
   const [selectedShop, setSelectedShop] = useState<V2ShopVisual | null>(null);
@@ -163,18 +131,22 @@ export default function V2IntegratedApp() {
   const [registrationOpen, setRegistrationOpen] = useState(false);
   const [registrationStep, setRegistrationStep] = useState<1 | 2 | 3 | 4>(1);
   const [registration, setRegistration] = useState<BusinessApplicationInput>({ ...emptyApplication });
+  const [registrationImagePreview, setRegistrationImagePreview] = useState<string | null>(null);
   const [activeApplication, setActiveApplication] = useState<BusinessApplication | null>(null);
   const [promoGenerated, setPromoGenerated] = useState(false);
   const [operatorOpen, setOperatorOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
+  const [publicLoadError, setPublicLoadError] = useState('');
+  const [privateDataUnavailable, setPrivateDataUnavailable] = useState(V2_API_DATA_MODE && !privateSessionReady);
 
   const detailCloseRef = useRef<HTMLButtonElement>(null);
   const profileCloseRef = useRef<HTMLButtonElement>(null);
   const registrationCloseRef = useRef<HTMLButtonElement>(null);
   const operatorCloseRef = useRef<HTMLButtonElement>(null);
+  const imagePreviewRef = useRef<string | null>(null);
 
-  const allShops = useMemo(() => [...initialShops, ...dynamicShops], [dynamicShops]);
+  const allShops = useMemo(() => [...sourceShops, ...dynamicShops], [dynamicShops, sourceShops]);
   const visibleShops = useMemo(() => allShops.filter((shop) => {
     if (!matchesQuery(shop, query)) return false;
     if (category !== 'all' && shop.category !== category) return false;
@@ -182,8 +154,11 @@ export default function V2IntegratedApp() {
     return true;
   }), [allShops, category, query, relation]);
 
-  const primaryBenefit = benefits.find((benefit) => benefit.businessId === 'v5-1') ?? benefits[0] ?? null;
+  const primaryBenefit = benefits.find((benefit) => benefit.businessId === (V2_API_DATA_MODE ? allShops[0]?.id : 'v5-1')) ?? benefits[0] ?? null;
   const primaryClaim = primaryBenefit ? claims.find((claim) => claim.benefitId === primaryBenefit.id) ?? null : null;
+  const primaryBenefitShop = primaryBenefit ? allShops.find((shop) => shop.id === primaryBenefit.businessId || adapterIdForShop(shop.id) === primaryBenefit.businessId) : null;
+  const primaryBenefitImage = primaryBenefitShop?.image ?? V2_REFERENCE_IMAGES.food;
+  const registrationStepTitle = REGISTRATION_STEP_TITLES[registrationStep];
 
   useEffect(() => {
     const media = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -215,18 +190,55 @@ export default function V2IntegratedApp() {
   }, []);
 
   useEffect(() => {
-    void Promise.all([
-      dataAdapter.listBenefits().catch(() => [] as Benefit[]),
-      dataAdapter.listBenefitClaims().catch(() => [] as BenefitClaim[]),
-      dataAdapter.getBookmarks().catch(() => [] as string[])
-    ]).then(([benefitRows, claimRows, bookmarks]) => {
-      setBenefits(benefitRows);
-      setClaims(claimRows);
-      const visualIds = Object.entries(adapterIdByVisualId)
-        .filter(([, adapterId]) => bookmarks.includes(adapterId))
-        .map(([visualId]) => visualId);
-      setSavedIds(visualIds);
-    });
+    let cancelled = false;
+
+    async function loadInitialData() {
+      try {
+        const [benefitRows, businessRows] = await Promise.all([
+          dataAdapter.listBenefits(),
+          V2_API_DATA_MODE ? dataAdapter.listBusinesses() : Promise.resolve([])
+        ]);
+        if (cancelled) return;
+        setBenefits(benefitRows);
+        if (V2_API_DATA_MODE) {
+          const visuals = await Promise.all(businessRows.map((business) => businessToV2Visual(business)));
+          if (!cancelled) setSourceShops(visuals);
+        }
+      } catch (error) {
+        if (!cancelled) setPublicLoadError(error instanceof Error ? error.message : '공개 가게 정보를 불러오지 못했습니다.');
+      }
+
+      if (!privateSessionReady) {
+        if (!cancelled) setPrivateDataUnavailable(true);
+        return;
+      }
+
+      try {
+        const [claimRows, bookmarks] = await Promise.all([
+          dataAdapter.listBenefitClaims(),
+          dataAdapter.getBookmarks()
+        ]);
+        if (cancelled) return;
+        setClaims(claimRows);
+        setSavedIds(V2_API_DATA_MODE
+          ? bookmarks
+          : Object.entries(adapterIdByVisualId)
+              .filter(([, adapterId]) => bookmarks.includes(adapterId))
+              .map(([visualId]) => visualId));
+        setPrivateDataUnavailable(false);
+      } catch {
+        if (!cancelled) setPrivateDataUnavailable(true);
+      }
+    }
+
+    void loadInitialData();
+    return () => {
+      cancelled = true;
+    };
+  }, [privateSessionReady]);
+
+  useEffect(() => () => {
+    if (imagePreviewRef.current) storageAdapter.releasePreviewUrl?.(imagePreviewRef.current);
   }, []);
 
   useEffect(() => {
@@ -241,6 +253,12 @@ export default function V2IntegratedApp() {
   useEffect(() => {
     if (operatorOpen) operatorCloseRef.current?.focus();
   }, [operatorOpen]);
+
+  function requirePrivateSession(action: string) {
+    if (privateSessionReady) return true;
+    setMessage(`${action} 기능은 실제 로그인 연결 후 사용할 수 있습니다.`);
+    return false;
+  }
 
   function navigate(key: V2VisualNavKey) {
     setActiveNav(key);
@@ -257,15 +275,25 @@ export default function V2IntegratedApp() {
     window.requestAnimationFrame(() => scrollToSection('v2-discovery'));
   }
 
+  function findShopForScene(id: string) {
+    const direct = allShops.find((item) => item.id === id);
+    if (direct) return direct;
+    if (!V2_API_DATA_MODE) return demoShops.find((item) => item.id === id) ?? null;
+    const demo = demoShops.find((item) => item.id === id);
+    return demo ? allShops.find((item) => item.category === demo.category) ?? null : null;
+  }
+
   async function toggleSave(shop: V2ShopVisual) {
+    if (!requirePrivateSession('저장')) return;
     const isSaved = savedIds.includes(shop.id);
     setSavedIds((current) => isSaved ? current.filter((id) => id !== shop.id) : [...current, shop.id]);
-    const adapterId = adapterIdByVisualId[shop.id] ?? shop.id;
     try {
+      const adapterId = adapterIdForShop(shop.id);
       if (isSaved) await dataAdapter.removeBookmark(adapterId);
       else await dataAdapter.addBookmark(adapterId);
-    } catch {
-      // V2 comparison preview keeps the visual state local if protected live auth is unavailable.
+    } catch (error) {
+      setSavedIds((current) => isSaved ? [...current, shop.id] : current.filter((id) => id !== shop.id));
+      setMessage(error instanceof Error ? error.message : '저장 상태를 변경하지 못했습니다.');
     }
   }
 
@@ -276,17 +304,16 @@ export default function V2IntegratedApp() {
   }
 
   function openShopById(id: string) {
-    const shop = allShops.find((item) => item.id === id) ?? initialShops.find((item) => item.id === id);
+    const shop = findShopForScene(id);
     if (shop) openShop(shop);
   }
 
   async function revealContacts() {
-    if (!selectedShop) return;
+    if (!selectedShop || !requirePrivateSession('문의 방법')) return;
     setBusy(true);
     setMessage('');
     try {
-      const adapterId = adapterIdByVisualId[selectedShop.id] ?? selectedShop.id;
-      setContacts(await dataAdapter.getBusinessContacts(adapterId));
+      setContacts(await dataAdapter.getBusinessContacts(adapterIdForShop(selectedShop.id)));
     } catch (error) {
       setMessage(error instanceof Error ? error.message : '문의 방법은 인증된 입주민만 볼 수 있습니다.');
     } finally {
@@ -295,12 +322,18 @@ export default function V2IntegratedApp() {
   }
 
   async function refreshClaims() {
-    setClaims(await dataAdapter.listBenefitClaims().catch(() => claims));
+    try {
+      setClaims(await dataAdapter.listBenefitClaims());
+      setPrivateDataUnavailable(false);
+    } catch (error) {
+      setPrivateDataUnavailable(true);
+      throw error;
+    }
   }
 
   async function claimResidentBenefit() {
-    if (!primaryBenefit) {
-      setMessage('현재 연결된 주민혜택이 없습니다.');
+    if (!primaryBenefit || !requirePrivateSession('주민혜택')) {
+      if (!primaryBenefit) setMessage('현재 연결된 주민혜택이 없습니다.');
       return;
     }
     setBusy(true);
@@ -316,6 +349,7 @@ export default function V2IntegratedApp() {
   }
 
   async function useResidentBenefit(benefitId: string) {
+    if (!requirePrivateSession('혜택 사용')) return;
     setBusy(true);
     setMessage('');
     try {
@@ -328,7 +362,15 @@ export default function V2IntegratedApp() {
     }
   }
 
+  function resetRegistrationImage() {
+    if (imagePreviewRef.current) storageAdapter.releasePreviewUrl?.(imagePreviewRef.current);
+    imagePreviewRef.current = null;
+    setRegistrationImagePreview(null);
+  }
+
   function openRegistration() {
+    if (!requirePrivateSession('내 일 알리기')) return;
+    resetRegistrationImage();
     setRegistration({ ...emptyApplication });
     setRegistrationStep(1);
     setRegistrationOpen(true);
@@ -340,8 +382,27 @@ export default function V2IntegratedApp() {
     setRegistration((current) => ({ ...current, [key]: value }));
   }
 
+  async function uploadRegistrationImage(file: File | null) {
+    if (!file || !requirePrivateSession('대표 이미지 업로드')) return;
+    setBusy(true);
+    setMessage('');
+    try {
+      const stored = await storageAdapter.upload('business-image', file);
+      if (imagePreviewRef.current) storageAdapter.releasePreviewUrl?.(imagePreviewRef.current);
+      const previewUrl = stored.previewUrl ?? await storageAdapter.resolvePreview?.(stored.objectKey) ?? null;
+      imagePreviewRef.current = previewUrl;
+      setRegistrationImagePreview(previewUrl);
+      updateRegistration('representativeImageObjectKey', stored.objectKey);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : '대표 이미지를 업로드하지 못했습니다.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function submitRegistration(event: FormEvent) {
     event.preventDefault();
+    if (!requirePrivateSession('등록 신청')) return;
     if (!registration.businessName.trim() || !registration.serviceSummary.trim()) {
       setRegistrationStep(2);
       setMessage('이름과 하는 일을 입력해 주세요.');
@@ -368,7 +429,7 @@ export default function V2IntegratedApp() {
   }
 
   async function approveApplication() {
-    if (!activeApplication) return;
+    if (!V2_DEMO_OPERATOR_MODE || !activeApplication) return;
     setBusy(true);
     setMessage('');
     try {
@@ -376,7 +437,7 @@ export default function V2IntegratedApp() {
       const businesses = await dataAdapter.listBusinesses({ query: activeApplication.businessName });
       const materialized = businesses.find((business) => business.name === activeApplication.businessName);
       if (!materialized) throw new Error('승인된 가게가 기존 Business 목록에 materialize되지 않았습니다.');
-      const visual = approvedBusinessToVisual(materialized, activeApplication);
+      const visual = await approvedBusinessToV2Visual(materialized, activeApplication);
       setDynamicShops((current) => [visual, ...current.filter((shop) => shop.id !== visual.id)]);
       setOperatorOpen(false);
       setQuery('');
@@ -393,12 +454,13 @@ export default function V2IntegratedApp() {
   const claimState = primaryClaim?.status ?? 'available';
 
   return (
-    <div data-ui-variant="v2" className="v2-visual-surface v2-integrated-app" data-reduced-motion={reducedMotion || undefined} style={{ '--v2-accent': '#E95C3E' } as React.CSSProperties}>
+    <div data-ui-variant="v2" className="v2-visual-surface v2-integrated-app" data-reduced-motion={reducedMotion || undefined} data-data-mode={V2_API_DATA_MODE ? 'api' : 'mock'} style={{ '--v2-accent': '#E95C3E' } as CSSProperties}>
       <span className="v2-sr-only">모션 줄이기</span>
       <a className="v2-skip" href="#v2-main">본문으로 건너뛰기</a>
       <V2Topbar
         active={activeNav}
         progress={progress}
+        verified={!V2_API_DATA_MODE}
         onNavigate={navigate}
         onOpenSearch={() => document.getElementById('v2-hero-search')?.focus()}
         onOpenProfile={() => setProfileOpen(true)}
@@ -411,7 +473,7 @@ export default function V2IntegratedApp() {
           savedShopIds={savedIds}
           onOpenDetail={openShopById}
           onToggleSave={(id) => {
-            const shop = allShops.find((item) => item.id === id);
+            const shop = findShopForScene(id);
             if (shop) void toggleSave(shop);
           }}
         />
@@ -425,6 +487,9 @@ export default function V2IntegratedApp() {
               </div>
               <p>V2의 시각 기준은 이미지 리프레시 원본을 따르고, 등록·혜택·승인 데이터 흐름은 기존 단지온 adapter 계약을 유지합니다.</p>
             </div>
+
+            {publicLoadError && <div className="v2-data-notice" role="alert">가게 정보를 불러오지 못했습니다. {publicLoadError}</div>}
+            {V2_API_DATA_MODE && privateDataUnavailable && <div className="v2-data-notice" role="status">공개 가게는 실제 API 데이터를 사용합니다. 저장·혜택·문의·등록은 브라우저 로그인 연결 후 활성화됩니다.</div>}
 
             <div className="v2-discovery-search" role="search">
               <V2Icon name="search" />
@@ -460,14 +525,16 @@ export default function V2IntegratedApp() {
         <section id="v2-benefits" data-v2-section="benefits" className="v2-integration-section v2-integrated-benefits">
           <div className="v2-section-inner v2-benefit-layout">
             <div className="v2-benefit-photo">
-              <V2VisualImage src={V2_REFERENCE_IMAGES.food.src} fallbackSrc={LOCAL_IMAGE_FALLBACK} alt="오늘의 반찬을 준비하는 이웃" fallbackLabel="오늘의 반찬" />
+              <V2VisualImage src={primaryBenefitImage.src} fallbackSrc={LOCAL_IMAGE_FALLBACK} alt={primaryBenefit ? `${primaryBenefit.businessName} 주민혜택` : '주민혜택 예시'} fallbackLabel={primaryBenefit?.businessName ?? '주민혜택'} />
               <div className="v2-benefit-photo-copy"><div className="v2-eyebrow">SCENE 04 · 주민혜택</div><h2>혜택이<br />실제 행동이 됩니다.</h2><p>혜택을 받으면 내정보에서 번호와 사용 상태를 다시 확인할 수 있습니다.</p></div>
             </div>
             <div className="v2-benefit-panel">
               <div className="v2-benefit-card">
-                <span className="v2-tag">방림명지로드힐 입주민 전용 · 시연용 예시</span>
-                <h3>오늘의 반찬</h3>
-                <div className="v2-benefit-big">방림명지로드힐 주민 10% 할인</div>
+                <span className="v2-tag">방림명지로드힐 입주민 전용{V2_API_DATA_MODE ? '' : ' · 시연용 예시'}</span>
+                <h3>{primaryBenefit?.businessName ?? '현재 연결된 주민혜택 없음'}</h3>
+                <div className="v2-benefit-big">{primaryBenefit?.title ?? '입주민 인증 후 이용 가능한 혜택을 준비 중입니다.'}</div>
+                {primaryBenefit?.description && <p>{primaryBenefit.description}</p>}
+                {primaryBenefit?.conditions && <small>{primaryBenefit.conditions}</small>}
                 <div className="v2-benefit-code"><span>혜택번호</span><strong>{primaryClaim?.code ?? '받기 전'}</strong></div>
                 <div className="v2-benefit-status"><span className={`v2-status-dot v2-status-${claimState}`} /><span>{claimState === 'stored' ? '보관 중' : claimState === 'used' ? '사용 완료' : '아직 받지 않은 혜택'}</span></div>
                 {claimState === 'available' && <button className="v2-btn v2-btn-accent" type="button" disabled={busy || !primaryBenefit} onClick={() => void claimResidentBenefit()}>주민혜택 받기</button>}
@@ -502,7 +569,13 @@ export default function V2IntegratedApp() {
                 <article><small>엘리베이터 게시판 포스터</small><h3>{activeApplication.businessName}</h3><strong>{activeApplication.benefitText || '주민혜택 안내'}</strong><p>{activeApplication.serviceArea || '방림명지로드힐 생활권'}</p></article>
               </div>
             )}
-            <div className="v2-promo-next"><button type="button" className="v2-btn" disabled={!promoGenerated || !activeApplication} onClick={() => setOperatorOpen(true)}>운영확인으로 이동</button></div>
+            <div className="v2-promo-next">
+              {V2_DEMO_OPERATOR_MODE ? (
+                <button type="button" className="v2-btn" disabled={!promoGenerated || !activeApplication} onClick={() => setOperatorOpen(true)}>운영확인으로 이동</button>
+              ) : (
+                activeApplication && <div className="v2-operator-pending" role="status"><strong>운영자 검토 대기</strong><span>실서비스에서는 신청자가 승인하지 않습니다. 운영자 화면에서 검토·승인된 뒤 공개 목록에 반영됩니다.</span></div>
+              )}
+            </div>
           </div>
         </section>
 
@@ -535,7 +608,8 @@ export default function V2IntegratedApp() {
           <section className="v2-dialog v2-profile-dialog" role="dialog" aria-modal="true" aria-labelledby="v2-profile-title">
             <button ref={profileCloseRef} type="button" className="v2-dialog-close" onClick={() => setProfileOpen(false)}>닫기</button>
             <span className="v2-eyebrow">MY DANJION</span><h2 id="v2-profile-title">내정보</h2>
-            <p>계정 로그인과 입주민 인증은 별도 자격 레이어입니다. 이 Preview는 현재 Auth interface 상태를 그대로 사용합니다.</p>
+            <p>계정 로그인과 입주민 인증은 별도 자격 레이어입니다. {V2_API_DATA_MODE ? '실제 인증 상태가 연결되기 전에는 입주민 인증 배지를 표시하지 않습니다.' : '이 화면은 시연용 주민 상태입니다.'}</p>
+            {V2_API_DATA_MODE && privateDataUnavailable && <div className="v2-data-notice" role="status">브라우저 로그인 연결 전이라 개인 혜택·저장 목록은 불러오지 않았습니다.</div>}
             <div className="v2-profile-benefits">
               <h3>내 주민혜택</h3>
               {claims.map((claim) => <article key={claim.id}><div><strong>{claim.businessName}</strong><span>{claim.title}</span><code>{claim.code}</code></div><div><b>{claim.status === 'used' ? '사용 완료' : '보관 중'}</b>{claim.status === 'stored' && <button type="button" className="v2-btn v2-btn-small" disabled={busy} onClick={() => void useResidentBenefit(claim.benefitId)}>사용 완료 처리</button>}</div></article>)}
@@ -550,11 +624,12 @@ export default function V2IntegratedApp() {
           <section className="v2-dialog v2-registration-dialog" role="dialog" aria-modal="true" aria-labelledby="v2-registration-dialog-title">
             <button ref={registrationCloseRef} type="button" className="v2-dialog-close" onClick={() => setRegistrationOpen(false)}>닫기</button>
             <div className="v2-step-label">STEP {registrationStep} / 4</div>
+            <h2 id="v2-registration-dialog-title" className="v2-registration-heading">{registrationStepTitle}</h2>
             <form onSubmit={(event) => void submitRegistration(event)}>
-              {registrationStep === 1 && <fieldset><legend id="v2-registration-dialog-title">주민 관계를 선택하세요</legend><p>사업 공개정보와 주민 인증자료는 분리해서 다룹니다.</p><label className="v2-choice"><input type="radio" name="relation" checked={registration.relationType === 'resident'} onChange={() => updateRegistration('relationType', 'resident')} />현재 단지 주민 직접 운영</label><label className="v2-choice"><input type="radio" name="relation" checked={registration.relationType === 'resident_family'} onChange={() => updateRegistration('relationType', 'resident_family')} />현재 단지 주민 가족 운영</label><label className="v2-choice"><input type="radio" name="relation" checked={registration.relationType === 'neighbor'} onChange={() => updateRegistration('relationType', 'neighbor')} />이웃 단지 주민 운영</label><label className="v2-choice"><input type="radio" name="relation" checked={registration.relationType === 'local'} onChange={() => updateRegistration('relationType', 'local')} />일반 동네 제휴가게</label></fieldset>}
-              {registrationStep === 2 && <fieldset><legend id="v2-registration-dialog-title">기본 정보를 확인하세요</legend><div className="v2-registration-fields"><label>이름 또는 가게명<input value={registration.businessName} onChange={(event) => updateRegistration('businessName', event.target.value)} /></label><label>무슨 일을 하나요?<textarea rows={3} value={registration.serviceSummary} onChange={(event) => updateRegistration('serviceSummary', event.target.value)} /></label><label>가격 또는 상담 기준<input value={registration.priceText || ''} onChange={(event) => updateRegistration('priceText', event.target.value)} /></label><label>이용 지역과 방식<input value={registration.serviceArea || ''} onChange={(event) => updateRegistration('serviceArea', event.target.value)} /></label><label>문의 방식<input value={registration.contactMethod || ''} onChange={(event) => updateRegistration('contactMethod', event.target.value)} /></label></div></fieldset>}
-              {registrationStep === 3 && <fieldset><legend id="v2-registration-dialog-title">사진과 주민혜택을 정하세요</legend><div className="v2-registration-photo-preview"><V2VisualImage src={V2_REFERENCE_IMAGES.learning.src} fallbackSrc={LOCAL_IMAGE_FALLBACK} alt="등록 대표 이미지 예시" fallbackLabel="대표 이미지" /><span>실제 파일 저장은 기존 StorageAdapter 계약을 사용합니다.</span></div><label className="v2-full-label">입주민 혜택<input value={registration.benefitText || ''} onChange={(event) => updateRegistration('benefitText', event.target.value)} /></label></fieldset>}
-              {registrationStep === 4 && <fieldset><legend id="v2-registration-dialog-title">공개정보와 비공개 정보를 확인하세요</legend><div className="v2-public-private"><article><span>공개정보 확인</span><h3>{registration.businessName || '가게명'}</h3><p>{registration.serviceSummary || '하는 일'}</p><strong>{registration.priceText || '상담 후 안내'}</strong></article><article><span>비공개 주민관계 확인</span><h3>{registration.relationType === 'resident' ? '현재 단지 주민 직접 운영' : registration.relationType === 'resident_family' ? '현재 단지 주민 가족 운영' : registration.relationType === 'neighbor' ? '이웃 단지 주민 운영' : '일반 동네 제휴가게'}</h3><p>동·호수와 인증 증빙은 공개하지 않습니다.</p></article></div></fieldset>}
+              {registrationStep === 1 && <fieldset><legend className="v2-sr-only">{registrationStepTitle}</legend><p>사업 공개정보와 주민 인증자료는 분리해서 다룹니다.</p><label className="v2-choice"><input type="radio" name="relation" checked={registration.relationType === 'resident'} onChange={() => updateRegistration('relationType', 'resident')} />현재 단지 주민 직접 운영</label><label className="v2-choice"><input type="radio" name="relation" checked={registration.relationType === 'resident_family'} onChange={() => updateRegistration('relationType', 'resident_family')} />현재 단지 주민 가족 운영</label><label className="v2-choice"><input type="radio" name="relation" checked={registration.relationType === 'neighbor'} onChange={() => updateRegistration('relationType', 'neighbor')} />이웃 단지 주민 운영</label><label className="v2-choice"><input type="radio" name="relation" checked={registration.relationType === 'local'} onChange={() => updateRegistration('relationType', 'local')} />일반 동네 제휴가게</label></fieldset>}
+              {registrationStep === 2 && <fieldset><legend className="v2-sr-only">{registrationStepTitle}</legend><div className="v2-registration-fields"><label>이름 또는 가게명<input value={registration.businessName} onChange={(event) => updateRegistration('businessName', event.target.value)} /></label><label>무슨 일을 하나요?<textarea rows={3} value={registration.serviceSummary} onChange={(event) => updateRegistration('serviceSummary', event.target.value)} /></label><label>가격 또는 상담 기준<input value={registration.priceText || ''} onChange={(event) => updateRegistration('priceText', event.target.value)} /></label><label>이용 지역과 방식<input value={registration.serviceArea || ''} onChange={(event) => updateRegistration('serviceArea', event.target.value)} /></label><label>문의 방식<input value={registration.contactMethod || ''} onChange={(event) => updateRegistration('contactMethod', event.target.value)} /></label></div></fieldset>}
+              {registrationStep === 3 && <fieldset><legend className="v2-sr-only">{registrationStepTitle}</legend><div className="v2-registration-photo-preview">{registrationImagePreview ? <img src={registrationImagePreview} alt="등록할 대표 이미지 미리보기" /> : <V2VisualImage src={V2_REFERENCE_IMAGES.learning.src} fallbackSrc={LOCAL_IMAGE_FALLBACK} alt="등록 대표 이미지 예시" fallbackLabel="대표 이미지" />}<span>대표 사진은 기존 StorageAdapter 계약으로 저장되며 공개 가게 이미지에 연결됩니다.</span></div><label className="v2-full-label">대표 이미지<input type="file" accept="image/jpeg,image/png,image/webp" disabled={busy} onChange={(event) => void uploadRegistrationImage(event.currentTarget.files?.[0] ?? null)} /></label><label className="v2-full-label">입주민 혜택<input value={registration.benefitText || ''} onChange={(event) => updateRegistration('benefitText', event.target.value)} /></label></fieldset>}
+              {registrationStep === 4 && <fieldset><legend className="v2-sr-only">{registrationStepTitle}</legend><div className="v2-public-private"><article><span>공개정보 확인</span><h3>{registration.businessName || '가게명'}</h3><p>{registration.serviceSummary || '하는 일'}</p><strong>{registration.priceText || '상담 후 안내'}</strong></article><article><span>비공개 주민관계 확인</span><h3>{registration.relationType === 'resident' ? '현재 단지 주민 직접 운영' : registration.relationType === 'resident_family' ? '현재 단지 주민 가족 운영' : registration.relationType === 'neighbor' ? '이웃 단지 주민 운영' : '일반 동네 제휴가게'}</h3><p>동·호수와 인증 증빙은 공개하지 않습니다.</p></article></div></fieldset>}
               <div className="v2-dialog-actions">
                 {registrationStep > 1 && <button type="button" className="v2-btn" onClick={() => setRegistrationStep((registrationStep - 1) as 1 | 2 | 3 | 4)}>이전</button>}
                 {registrationStep < 4 && <button type="button" className="v2-btn v2-btn-primary" onClick={() => setRegistrationStep((registrationStep + 1) as 1 | 2 | 3 | 4)}>다음</button>}
@@ -565,11 +640,11 @@ export default function V2IntegratedApp() {
         </div>
       )}
 
-      {operatorOpen && activeApplication && (
+      {V2_DEMO_OPERATOR_MODE && operatorOpen && activeApplication && (
         <div className="v2-dialog-backdrop">
           <section className="v2-dialog v2-operator-dialog" role="dialog" aria-modal="true" aria-labelledby="v2-operator-title">
             <button ref={operatorCloseRef} type="button" className="v2-dialog-close" onClick={() => setOperatorOpen(false)}>닫기</button>
-            <span className="v2-eyebrow">OPERATOR REVIEW</span><h2 id="v2-operator-title">운영확인</h2>
+            <span className="v2-eyebrow">OPERATOR REVIEW · DEMO ONLY</span><h2 id="v2-operator-title">운영확인</h2>
             <div className="v2-public-private"><article><span>공개정보 확인</span><h3>{activeApplication.businessName}</h3><p>{activeApplication.serviceSummary}</p><strong>{activeApplication.benefitText || '주민혜택 없음'}</strong></article><article><span>비공개 주민관계 확인</span><h3>주민 관계와 인증 경계</h3><p>정확한 동·호수와 증빙 원문은 공개하지 않습니다.</p></article></div>
             <div className="v2-dialog-actions"><button type="button" className="v2-btn" onClick={() => setOperatorOpen(false)}>홍보물로 돌아가기</button><button type="button" className="v2-btn v2-btn-primary" disabled={busy} onClick={() => void approveApplication()}>승인하여 공개</button></div>
           </section>
