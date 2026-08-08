@@ -10,7 +10,7 @@ import {
 import './v2-preview-demo.css';
 
 export default function V2PreviewDemoShell({ children }: { children: ReactNode }) {
-  const [role] = useState<PreviewDemoRole>(() => getPreviewDemoRole());
+  const [role, setRole] = useState<PreviewDemoRole>(() => getPreviewDemoRole());
 
   if (!PREVIEW_DEMO_ENABLED) return <>{children}</>;
 
@@ -18,11 +18,18 @@ export default function V2PreviewDemoShell({ children }: { children: ReactNode }
 
   function changeRole(nextRole: PreviewDemoRole) {
     if (nextRole === role) return;
+    const previousRole = role;
     setPreviewDemoRole(nextRole);
-    // V2 adapters read the actor synchronously during initialization. Reloading after
-    // the preview-only role switch guarantees every resident/admin request uses the
-    // same selected synthetic actor and clears stale private state from the prior role.
-    window.location.reload();
+    setRole(nextRole);
+
+    // Anonymous has a different authenticated/readiness boundary. Reload only when
+    // entering or leaving anonymous so private data is initialized/cleared correctly.
+    // Authenticated synthetic roles switch in-place: request headers are resolved at
+    // call time, so resident -> manager preserves the active application/promo state
+    // needed to validate the complete submit -> review -> approve -> rediscover loop.
+    if (previousRole === 'anonymous' || nextRole === 'anonymous') {
+      window.location.reload();
+    }
   }
 
   return (
