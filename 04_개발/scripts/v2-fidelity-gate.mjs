@@ -35,6 +35,7 @@ const requirements = {
     'frontend/tests/v2-fidelity.spec.ts',
     'frontend/tests/v2-product-flow.spec.ts',
     'frontend/tests/v2-responsive-accessibility.spec.ts',
+    'frontend/tests/v2-visual-contrast.spec.ts',
     'frontend/tests/v2-gateway-safety.spec.ts',
     'frontend/tests/v2-v1-safety.spec.ts',
     'frontend/tests/v2/reference-contract.ts',
