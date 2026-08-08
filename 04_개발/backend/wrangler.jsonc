@@ -8,6 +8,29 @@
   },
   "vars": {
     "APP_ENV": "development",
-    "DEV_AUTH_BYPASS": "false"
+    "DEV_AUTH_BYPASS": "false",
+    "CORS_ALLOWED_ORIGINS": "http://localhost:5173,http://127.0.0.1:5173"
+  },
+  "env": {
+    "preview": {
+      "name": "padiem-danjion-api-preview",
+      "workers_dev": false,
+      "preview_urls": true,
+      "vars": {
+        "APP_ENV": "preview",
+        "DEV_AUTH_BYPASS": "false",
+        "CORS_ALLOWED_ORIGINS": "https://*.padiem-danjion-web-preview.pages.dev"
+      }
+    },
+    "production": {
+      "name": "padiem-danjion-api-production",
+      "workers_dev": false,
+      "preview_urls": false,
+      "vars": {
+        "APP_ENV": "production",
+        "DEV_AUTH_BYPASS": "false",
+        "CORS_ALLOWED_ORIGINS": ""
+      }
+    }
   }
 }
