@@ -12,6 +12,10 @@ import { handleStorageRequest } from './storage-v1';
 const REQUEST_ID_HEADER = 'x-danjion-request-id';
 const SAFE_ID = /^[A-Za-z0-9._:-]{1,80}$/;
 
+type AppEnv = CoreEnv & {
+  CORS_ALLOWED_ORIGINS?: string;
+};
+
 function requestId(request: Request): string {
   const incoming = request.headers.get(REQUEST_ID_HEADER)?.trim();
   if (incoming && SAFE_ID.test(incoming)) return incoming;
@@ -25,59 +29,129 @@ function fail(message: string, id: string): Response {
   );
 }
 
-function preflight(request: Request): Response {
-  const origin = request.headers.get('origin')?.trim() || new URL(request.url).origin;
-  return new Response(null, {
-    status: 204,
-    headers: {
-      'access-control-allow-origin': origin,
-      'access-control-allow-methods': 'GET,POST,PATCH,DELETE,OPTIONS',
-      'access-control-allow-headers': `content-type,authorization,idempotency-key,${REQUEST_ID_HEADER},x-danjion-dev-auth-user`,
-      'access-control-max-age': '86400',
-      'vary': 'Origin'
-    }
+function originMatchesRule(origin: string, rule: string): boolean {
+  if (origin === rule) return true;
+
+  const marker = '://*.';
+  const markerIndex = rule.indexOf(marker);
+  if (markerIndex < 1) return false;
+
+  const protocol = rule.slice(0, markerIndex);
+  const hostnameSuffix = rule.slice(markerIndex + marker.length);
+  if (!hostnameSuffix || hostnameSuffix.includes('/') || hostnameSuffix.includes(':')) return false;
+
+  try {
+    const candidate = new URL(origin);
+    return candidate.protocol === `${protocol}:`
+      && !candidate.port
+      && candidate.hostname.endsWith(`.${hostnameSuffix}`);
+  } catch {
+    return false;
+  }
+}
+
+function allowedOrigin(request: Request, env: AppEnv): string | null {
+  const origin = request.headers.get('origin')?.trim();
+  if (!origin) return null;
+
+  const rules = (env.CORS_ALLOWED_ORIGINS || '')
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean);
+
+  return rules.some((rule) => originMatchesRule(origin, rule)) ? origin : null;
+}
+
+function appendVaryOrigin(headers: Headers): void {
+  const vary = headers.get('vary');
+  if (!vary) {
+    headers.set('vary', 'Origin');
+    return;
+  }
+
+  const values = vary.split(',').map((value) => value.trim().toLowerCase());
+  if (!values.includes('origin')) headers.set('vary', `${vary}, Origin`);
+}
+
+function withCors(response: Response, request: Request, env: AppEnv): Response {
+  const origin = allowedOrigin(request, env);
+  if (!origin) return response;
+
+  const headers = new Headers(response.headers);
+  headers.set('access-control-allow-origin', origin);
+  headers.set('access-control-expose-headers', REQUEST_ID_HEADER);
+  appendVaryOrigin(headers);
+
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers
   });
 }
 
+function preflight(request: Request, env: AppEnv): Response {
+  const incomingOrigin = request.headers.get('origin')?.trim();
+  const origin = allowedOrigin(request, env);
+  if (incomingOrigin && !origin) {
+    return new Response(null, {
+      status: 403,
+      headers: { 'cache-control': 'no-store', 'vary': 'Origin' }
+    });
+  }
+
+  const headers = new Headers({
+    'access-control-allow-methods': 'GET,POST,PATCH,DELETE,OPTIONS',
+    'access-control-allow-headers': `content-type,authorization,idempotency-key,${REQUEST_ID_HEADER},x-danjion-dev-auth-user`,
+    'access-control-max-age': '86400',
+    'cache-control': 'no-store'
+  });
+  if (origin) headers.set('access-control-allow-origin', origin);
+  appendVaryOrigin(headers);
+
+  return new Response(null, { status: 204, headers });
+}
+
 export default {
-  async fetch(request: Request, env: CoreEnv): Promise<Response> {
+  async fetch(request: Request, env: AppEnv): Promise<Response> {
     const id = requestId(request);
+    const respond = (response: Response) => withCors(response, request, env);
+
     try {
-      if (request.method === 'OPTIONS') return preflight(request);
+      if (request.method === 'OPTIONS') return preflight(request, env);
 
       const policyResponse = await validateRequestPayload(request, id);
-      if (policyResponse) return policyResponse;
+      if (policyResponse) return respond(policyResponse);
 
       const storageResponse = await handleStorageRequest(request, env, id);
-      if (storageResponse) return storageResponse;
+      if (storageResponse) return respond(storageResponse);
 
       const adminAuditResponse = await handleAdminAuditRequest(request, env, id);
-      if (adminAuditResponse) return adminAuditResponse;
+      if (adminAuditResponse) return respond(adminAuditResponse);
 
       const adminReviewContextResponse = await handleAdminReviewContextRequest(request, env, id);
-      if (adminReviewContextResponse) return adminReviewContextResponse;
+      if (adminReviewContextResponse) return respond(adminReviewContextResponse);
 
       const adminVerificationResponse = await handleAdminVerificationRequest(request, env, id);
-      if (adminVerificationResponse) return adminVerificationResponse;
+      if (adminVerificationResponse) return respond(adminVerificationResponse);
 
       if (new URL(request.url).pathname.startsWith('/api/v1/admin/')) {
         const response = await handleAdminRequest(request, env, id);
-        if (response) return response;
+        if (response) return respond(response);
       }
 
       const residentVerificationResponse = await handleResidentVerificationRequest(request, env, id);
-      if (residentVerificationResponse) return residentVerificationResponse;
+      if (residentVerificationResponse) return respond(residentVerificationResponse);
 
       const benefitWalletResponse = await handleBenefitWalletRequest(request, env, id);
-      if (benefitWalletResponse) return benefitWalletResponse;
+      if (benefitWalletResponse) return respond(benefitWalletResponse);
 
       const residentApplicationResponse = await handleResidentApplicationRequest(request, env, id);
-      if (residentApplicationResponse) return residentApplicationResponse;
+      if (residentApplicationResponse) return respond(residentApplicationResponse);
 
-      return core.fetch(request, env);
+      return respond(await core.fetch(request, env));
     } catch (error) {
       console.error('[DanjiOn App]', id, error);
-      return fail('Internal server error', id);
+      return respond(fail('Internal server error', id));
     }
   }
 };
