@@ -55,7 +55,7 @@ export function validateStorageFile(kind: StorageKind, file: File) {
   const policy = STORAGE_POLICY[kind];
   if (!policy.mimeTypes.has(file.type)) {
     throw new Error(kind === 'business-image'
-      ? '대표 이미지는 JPG, PNG, WebP만 업로드할 수 있습니다.'
+      ? '이미지 파일만 업로드할 수 있습니다.'
       : '주민 인증 증빙은 JPG, PNG, WebP 또는 PDF만 업로드할 수 있습니다.');
   }
   if (file.size <= 0) throw new Error('빈 파일은 업로드할 수 없습니다.');
