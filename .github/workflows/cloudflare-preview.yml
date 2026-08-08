@@ -18,6 +18,7 @@ permissions:
 
 env:
   WORKER_ENV: preview
+  WORKER_NAME: padiem-danjion-api-preview
   WORKER_PREVIEW_ALIAS: track-b
   PAGES_PROJECT: padiem-danjion-web-preview
   PAGES_BRANCH: track-b
@@ -43,6 +44,8 @@ jobs:
           branch="${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}"
           test "$branch" = "feat/cloudflare-preview"
           test "${WORKER_ENV}" = "preview"
+          test "${WORKER_NAME}" = "padiem-danjion-api-preview"
+          test "${WORKER_NAME}" != "padiem-danjion-api-production"
           test "${PAGES_BRANCH}" != "main"
           echo "Track B branch and preview environment contract verified."
 
@@ -88,22 +91,57 @@ jobs:
           echo "secret_file=$secret_file" >> "$GITHUB_OUTPUT"
         id: worker_secret
 
-      - name: Upload Worker preview version only
+      - name: Bootstrap Worker if absent, then upload preview version
         id: worker
         working-directory: 04_개발/backend
         shell: bash
         run: |
           set -euo pipefail
-          log_file="${RUNNER_TEMP}/worker-upload.log"
+          secret_file="${{ steps.worker_secret.outputs.secret_file }}"
+          first_log="${RUNNER_TEMP}/worker-first-upload.log"
+          final_log="${RUNNER_TEMP}/worker-upload.log"
+
+          # Normal path: create an undeployed version and assign the stable Track B preview alias.
+          set +e
           npx wrangler versions upload \
             --env "${WORKER_ENV}" \
             --preview-alias "${WORKER_PREVIEW_ALIAS}" \
-            --secrets-file "${{ steps.worker_secret.outputs.secret_file }}" \
-            --message "Track B preview ${GITHUB_SHA}" 2>&1 | tee "$log_file"
+            --secrets-file "$secret_file" \
+            --message "Track B preview ${GITHUB_SHA}" >"$first_log" 2>&1
+          first_status=$?
+          set -e
 
-          worker_url="$(grep -Eo 'https://[A-Za-z0-9.-]+\.workers\.dev' "$log_file" | grep "https://${WORKER_PREVIEW_ALIAS}-" | tail -n 1 || true)"
+          if [ "$first_status" -eq 0 ]; then
+            cp "$first_log" "$final_log"
+          elif grep -Fq 'does not yet exist' "$first_log"; then
+            echo "Preview Worker does not exist yet; performing one-time bootstrap deploy to ${WORKER_NAME}."
+            test "${WORKER_ENV}" = "preview"
+            test "${WORKER_NAME}" = "padiem-danjion-api-preview"
+            test "${WORKER_NAME}" != "padiem-danjion-api-production"
+
+            # Cloudflare requires an initial deployment before `versions upload` can be used.
+            # This deploy targets only the dedicated preview environment/resource.
+            npx wrangler deploy \
+              --env "${WORKER_ENV}" \
+              --secrets-file "$secret_file" \
+              --message "Track B preview bootstrap ${GITHUB_SHA}"
+
+            # After bootstrap, return to the non-deploying version-upload path and create the alias URL.
+            npx wrangler versions upload \
+              --env "${WORKER_ENV}" \
+              --preview-alias "${WORKER_PREVIEW_ALIAS}" \
+              --secrets-file "$secret_file" \
+              --message "Track B preview ${GITHUB_SHA}" 2>&1 | tee "$final_log"
+          else
+            cat "$first_log"
+            echo "::error::Worker preview version upload failed for a reason other than first-time bootstrap."
+            exit "$first_status"
+          fi
+
+          cat "$final_log"
+          worker_url="$(grep -Eo 'https://[A-Za-z0-9.-]+\.workers\.dev' "$final_log" | grep "https://${WORKER_PREVIEW_ALIAS}-" | tail -n 1 || true)"
           if [ -z "$worker_url" ]; then
-            worker_url="$(grep -Eo 'https://[A-Za-z0-9.-]+\.workers\.dev' "$log_file" | tail -n 1 || true)"
+            worker_url="$(grep -Eo 'https://[A-Za-z0-9.-]+\.workers\.dev' "$final_log" | tail -n 1 || true)"
           fi
           if [ -z "$worker_url" ]; then
             echo "::error::Wrangler did not report a Worker preview URL."
@@ -215,7 +253,7 @@ jobs:
           {
             echo '## DanjiOn Track B Cloudflare preview'
             echo
-            echo "- Worker resource: \`padiem-danjion-api-preview\`"
+            echo "- Worker resource: \`$WORKER_NAME\`"
             echo "- Worker preview URL: $WORKER_URL"
             echo "- Pages project: \`$PAGES_PROJECT\`"
             echo "- Frontend preview URL: $FRONTEND_URL"
