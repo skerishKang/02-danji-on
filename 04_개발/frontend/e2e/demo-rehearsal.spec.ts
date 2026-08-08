@@ -20,7 +20,7 @@ test('rehearsal console resets dirty mock state to the deterministic baseline', 
   });
 
   await page.getByRole('button', { name: '1. 시연 준비 초기화' }).click();
-  await expect(page.getByText('시연 준비 완료')).toBeVisible();
+  await expect(page.locator('.demo-status-badge')).toHaveText('시연 준비 완료');
   await expect(page.getByRole('status')).toContainText('시연 데이터를 기준 상태로 초기화했습니다.');
 
   const baseline = await page.evaluate(() => ({
@@ -67,6 +67,8 @@ test('running rehearsal restores the last surface after refresh and survives tem
   await expect(page.getByRole('button', { name: '홍보물 만들기' })).toBeVisible();
 
   await page.waitForFunction(() => Boolean(navigator.serviceWorker?.controller));
+  await page.reload();
+  await expect(page.getByRole('button', { name: '홍보물 만들기' })).toBeVisible();
   await context.setOffline(true);
   await page.reload({ waitUntil: 'domcontentloaded' });
   await expect(page.getByRole('button', { name: '홍보물 만들기' })).toBeVisible();
