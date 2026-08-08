@@ -8,6 +8,12 @@ on:
       - '04_개발/frontend/**'
       - '04_개발/backend/**'
       - '.github/workflows/cloudflare-v2-surface-preview.yml'
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - '04_개발/frontend/**'
+      - '04_개발/backend/**'
+      - '.github/workflows/cloudflare-v2-surface-preview.yml'
   workflow_dispatch:
 
 concurrency:
@@ -27,6 +33,7 @@ env:
 
 jobs:
   preview:
+    if: github.event_name != 'pull_request' || github.head_ref == 'feat/v2-platform-20260808'
     runs-on: ubuntu-latest
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
