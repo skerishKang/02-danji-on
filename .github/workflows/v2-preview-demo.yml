@@ -196,6 +196,71 @@ jobs:
             "$WORKER_URL/api/v1/admin/complexes/$COMPLEX_SLUG/business-applications")"
           test "$manager_admin_status" = '200'
 
+      - name: Smoke application approval and public rediscovery
+        shell: bash
+        env:
+          WORKER_URL: ${{ steps.worker.outputs.url }}
+        run: |
+          set -euo pipefail
+          short_sha="${GITHUB_SHA:0:8}"
+          business_name="단지온 자동검증 ${short_sha}"
+          idempotency_key="preview-cycle-${GITHUB_SHA:0:12}"
+
+          payload="$(jq -nc \
+            --arg slug "$COMPLEX_SLUG" \
+            --arg name "$business_name" \
+            '{
+              complexSlug: $slug,
+              relationType: "resident",
+              businessName: $name,
+              categoryName: "반찬·식품",
+              serviceSummary: "V2 Preview 실제 API·테스트 DB 신청→승인→공개 재노출 자동검증",
+              priceText: "시연 10,000원",
+              contactMethod: "010-0000-0000",
+              serviceArea: "방림명지로드힐 시연 생활권",
+              benefitText: "시연 입주민 5% 할인",
+              availabilityText: "Preview only"
+            }')"
+
+          application_json="$(curl --fail --silent --show-error \
+            -X POST \
+            -H 'content-type: application/json' \
+            -H 'x-danjion-dev-auth-user: dev-resident-001' \
+            -H "idempotency-key: $idempotency_key" \
+            --data "$payload" \
+            "$WORKER_URL/api/v1/me/business-applications")"
+          application_id="$(jq -r '.data.id // empty' <<<"$application_json")"
+          test -n "$application_id"
+          jq -e '.data.status == "pending" or .data.status == "approved"' <<<"$application_json" >/dev/null
+
+          resident_approve_status="$(curl --silent --show-error -o /dev/null -w '%{http_code}' \
+            -X PATCH \
+            -H 'content-type: application/json' \
+            -H 'x-danjion-dev-auth-user: dev-resident-001' \
+            --data '{"status":"approved","reviewNote":"resident must not approve"}' \
+            "$WORKER_URL/api/v1/admin/business-applications/$application_id")"
+          test "$resident_approve_status" = '403'
+
+          approval_json="$(curl --fail --silent --show-error \
+            -X PATCH \
+            -H 'content-type: application/json' \
+            -H 'x-danjion-dev-auth-user: dev-manager-001' \
+            --data '{"status":"approved","reviewNote":"Synthetic V2 preview live-cycle gate"}' \
+            "$WORKER_URL/api/v1/admin/business-applications/$application_id")"
+          approved_business_id="$(jq -r '.data.approved_business_id // .data.approvedBusinessId // empty' <<<"$approval_json")"
+          test -n "$approved_business_id"
+
+          public_after="$(curl --fail --silent --show-error "$WORKER_URL/api/v1/complexes/$COMPLEX_SLUG/businesses")"
+          jq -e \
+            --arg id "$approved_business_id" \
+            --arg name "$business_name" \
+            'any(.data[]; .id == $id and .name == $name)' \
+            <<<"$public_after" >/dev/null
+
+          echo "application_id=$application_id" >> "$GITHUB_STEP_SUMMARY"
+          echo "approved_business_id=$approved_business_id" >> "$GITHUB_STEP_SUMMARY"
+          echo "business_name=$business_name" >> "$GITHUB_STEP_SUMMARY"
+
       - name: Preview demo evidence
         if: success()
         shell: bash
@@ -215,6 +280,9 @@ jobs:
             echo '- Unverified resident contact denial: PASS'
             echo '- Resident admin denial: PASS'
             echo '- Manager admin access: PASS'
+            echo '- Resident application write: PASS'
+            echo '- Manager approval: PASS'
+            echo '- Approved business public rediscovery: PASS'
             echo '- Real login provider: NOT USED'
             echo '- Drive writes: NONE (mock storage in this gate)'
             echo '- Production deployment/database: NONE'
