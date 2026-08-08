@@ -150,6 +150,28 @@ jobs:
           echo "url=$worker_url" >> "$GITHUB_OUTPUT"
           echo "Worker preview: $worker_url"
 
+      - name: Enforce Worker preview URL routing only
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${WORKER_NAME}" = "padiem-danjion-api-preview"
+          test "${WORKER_NAME}" != "padiem-danjion-api-production"
+
+          response="$(curl --fail --silent --show-error \
+            -X POST \
+            "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/workers/scripts/${WORKER_NAME}/subdomain" \
+            -H 'Content-Type: application/json' \
+            -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+            --data '{"enabled":false,"previews_enabled":true}')"
+
+          node - "$response" <<'NODE'
+          const payload = JSON.parse(process.argv[2]);
+          if (payload?.success !== true) process.exit(1);
+          if (payload?.result?.enabled !== false) process.exit(1);
+          if (payload?.result?.previews_enabled !== true) process.exit(1);
+          NODE
+          echo "Worker stable workers.dev route disabled; version/alias preview URLs enabled."
+
       - name: Build frontend against Worker preview
         working-directory: 04_개발/frontend
         env:
@@ -255,6 +277,8 @@ jobs:
             echo
             echo "- Worker resource: \`$WORKER_NAME\`"
             echo "- Worker preview URL: $WORKER_URL"
+            echo '- Worker stable workers.dev route: disabled'
+            echo '- Worker version/alias preview URLs: enabled'
             echo "- Pages project: \`$PAGES_PROJECT\`"
             echo "- Frontend preview URL: $FRONTEND_URL"
             echo '- Worker DATABASE_URL: encrypted version secret from GitHub Actions secret `DATABASE_URL`'
