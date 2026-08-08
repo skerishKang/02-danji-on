@@ -66,6 +66,10 @@ test('V2 cinematic system preserves four scene tabs, keyboard selection and cate
   const stagePosition = await stage.evaluate((element) => getComputedStyle(element).position);
   if (testInfo.project.name === 'desktop-1440' || testInfo.project.name === 'tablet-1024') {
     expect(stagePosition).toBe('sticky');
+    const worldBox = await cinematic.boundingBox();
+    const viewportHeight = page.viewportSize()?.height ?? 1000;
+    expect(worldBox).not.toBeNull();
+    expect(worldBox!.height).toBeLessThanOrEqual(viewportHeight * 1.05);
   } else {
     expect(stagePosition).not.toBe('sticky');
   }
