@@ -7,9 +7,11 @@
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
     "typecheck": "tsc --noEmit",
+    "test:storage": "node tests/storage-policy.mjs",
+    "test:storage-contract": "node tests/storage-contract.mjs",
     "test:contract": "node tests/contract.mjs",
     "test:auth": "tsx tests/auth-v1.test.mjs",
-    "check": "npm run typecheck && npm run test:contract && npm run test:auth"
+    "check": "npm run typecheck && npm run test:storage && npm run test:storage-contract && npm run test:contract && npm run test:auth"
   },
   "dependencies": {
     "@neondatabase/serverless": "1.1.0",
