@@ -7,6 +7,7 @@ import { handleBenefitWalletRequest } from './benefit-wallet-v1';
 import { validateRequestPayload } from './payload-policy';
 import { handleResidentApplicationRequest } from './resident-application-v1';
 import { handleResidentVerificationRequest } from './resident-verification-v1';
+import { handleStorageRequest } from './storage-v1';
 
 const REQUEST_ID_HEADER = 'x-danjion-request-id';
 const SAFE_ID = /^[A-Za-z0-9._:-]{1,80}$/;
@@ -46,6 +47,9 @@ export default {
 
       const policyResponse = await validateRequestPayload(request, id);
       if (policyResponse) return policyResponse;
+
+      const storageResponse = await handleStorageRequest(request, env, id);
+      if (storageResponse) return storageResponse;
 
       const adminAuditResponse = await handleAdminAuditRequest(request, env, id);
       if (adminAuditResponse) return adminAuditResponse;
