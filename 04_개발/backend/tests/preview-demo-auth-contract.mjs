@@ -22,8 +22,9 @@ assert.equal(wrangler.env.production.preview_urls, false);
 
 assert.match(
   authSource,
-  /env\.APP_ENV\s*!==\s*['"]production['"]\s*&&\s*env\.DEV_AUTH_BYPASS\s*===\s*['"]true['"]/,
-  'shared auth resolver must require both non-production APP_ENV and explicit DEV_AUTH_BYPASS=true'
+  /env\.APP_ENV\s*===\s*['"]production['"]\s*\|\|\s*env\.DEV_AUTH_BYPASS\s*!==\s*['"]true['"]\)\s*return\s+null/,
+  'shared auth resolver must fail closed for production OR whenever DEV_AUTH_BYPASS is not explicitly true'
 );
+assert.match(authSource, /x-danjion-dev-auth-user/, 'shared auth resolver must use only the documented synthetic preview header');
 
 console.log('PASS preview demo auth contract: synthetic header bypass is preview-only and production remains closed');
