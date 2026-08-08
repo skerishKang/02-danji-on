@@ -98,7 +98,8 @@ export async function handleAdminVerificationRequest(
     }
     const limit = clampLimit(url.searchParams.get('limit'));
     const rows = await sql`
-      select rv.id, rv.membership_id, rv.method, rv.evidence_object_key,
+      select rv.id, rv.membership_id, rv.status as verification_record_status,
+             rv.method, rv.evidence_object_key,
              rv.requested_at, rv.reviewed_at, rv.reviewed_by, rv.note,
              m.verification_status, m.building, m.unit,
              u.display_name, u.auth_user_id
@@ -150,16 +151,19 @@ export async function handleAdminVerificationRequest(
     ),
     updated_verification as (
       update resident_verifications
-      set reviewed_at = now(),
+      set status = ${status},
+          reviewed_at = now(),
           reviewed_by = ${actor.id}::uuid,
           note = ${note}
       where id = ${verificationId}::uuid
-      returning id, membership_id, method, evidence_object_key,
+      returning id, membership_id, status, method, evidence_object_key,
                 requested_at, reviewed_at, reviewed_by, note
     )
     select um.id as membership_id, um.verification_status,
            um.building, um.unit,
-           uv.id as verification_id, uv.method, uv.evidence_object_key,
+           uv.id as verification_id,
+           uv.status as verification_record_status,
+           uv.method, uv.evidence_object_key,
            uv.requested_at, uv.reviewed_at, uv.reviewed_by, uv.note
     from updated_membership um
     cross join updated_verification uv
