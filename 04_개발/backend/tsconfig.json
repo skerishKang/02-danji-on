@@ -13,6 +13,7 @@
   "include": [
     "src/app.ts",
     "src/core-v1.ts",
-    "src/admin-v1.ts"
+    "src/admin-v1.ts",
+    "src/admin-review-context-v1.ts"
   ]
 }
