@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - ops/drive-sync-export
+  pull_request:
 
 jobs:
   export:
