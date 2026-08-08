@@ -93,7 +93,7 @@ test('five-minute field demo completes the full living-neighbor economy cycle', 
   await expect(page.getByRole('heading', { name: /우리 단지의 소비가/ })).toBeVisible();
   await expect(page.getByText('한결수학이 승인 후 주민 공개목록에서 다시 발견됐습니다.')).toBeVisible();
   for (const label of ['발견', '혜택', '내 일 등록', '운영확인', '공개', '다시 발견']) {
-    await expect(page.locator('.cycle-step').filter({ hasText: label })).toBeVisible();
+    await expect(page.locator('.cycle-step').getByText(label, { exact: true })).toBeVisible();
   }
   await expect(page.locator('.ending-metrics article').nth(0)).toContainText(`${after}개`);
   await expect(page.locator('.ending-metrics article').nth(1)).toContainText('1건');
