@@ -23,7 +23,8 @@ export default defineConfig({
         operationsReview: resolve(__dirname, 'operations-review.html'),
         verification: resolve(__dirname, 'verification.html'),
         verificationAdmin: resolve(__dirname, 'verification-admin.html'),
-        promo: resolve(__dirname, 'promo.html')
+        promo: resolve(__dirname, 'promo.html'),
+        ending: resolve(__dirname, 'ending.html')
       }
     }
   }
