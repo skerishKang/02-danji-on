@@ -30,8 +30,8 @@ export function V2Topbar({
   const safeProgress = Math.min(1, Math.max(0, progress));
   return (
     <>
-      <div className="v2-top-progress" aria-hidden="true" style={{ transform: `scaleX(${safeProgress})` }} />
-      <header className="v2-topbar">
+      <div data-v2-top-progress className="v2-top-progress" aria-hidden="true" style={{ transform: `scaleX(${safeProgress})` }} />
+      <header data-v2-topbar className="v2-topbar">
         <div className="v2-topbar-inner">
           <button className="v2-brand" type="button" onClick={() => onNavigate?.('home')} aria-label="단지온 홈">
             <span className="v2-wordmark">단지온</span>
@@ -51,7 +51,7 @@ export function V2Topbar({
           </div>
         </div>
       </header>
-      <nav className="v2-mobile-nav" aria-label="모바일 주요 메뉴">
+      <nav data-v2-mobile-nav className="v2-mobile-nav" aria-label="모바일 주요 메뉴">
         {NAV.map((item) => (
           <button type="button" key={item.key} className={active === item.key ? 'is-active' : ''} onClick={() => onNavigate?.(item.key)}>
             <V2Icon name={item.icon} />
