@@ -10,15 +10,19 @@ import {
 import './v2-preview-demo.css';
 
 export default function V2PreviewDemoShell({ children }: { children: ReactNode }) {
-  const [role, setRole] = useState<PreviewDemoRole>(() => getPreviewDemoRole());
+  const [role] = useState<PreviewDemoRole>(() => getPreviewDemoRole());
 
   if (!PREVIEW_DEMO_ENABLED) return <>{children}</>;
 
   const actor = getPreviewDemoActor();
 
   function changeRole(nextRole: PreviewDemoRole) {
+    if (nextRole === role) return;
     setPreviewDemoRole(nextRole);
-    setRole(nextRole);
+    // V2 adapters read the actor synchronously during initialization. Reloading after
+    // the preview-only role switch guarantees every resident/admin request uses the
+    // same selected synthetic actor and clears stale private state from the prior role.
+    window.location.reload();
   }
 
   return (
