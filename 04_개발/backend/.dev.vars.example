@@ -1,6 +1,7 @@
 # Copy to .dev.vars for local development. Never commit .dev.vars.
 DATABASE_URL=postgresql://USER:PASSWORD@HOST/DB?sslmode=require
 APP_ENV=development
+CORS_ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
 
 # Real Neon Auth verification.
 # Use the Auth URL shown for the Danjion Neon branch. This is a public service URL,
@@ -27,3 +28,7 @@ GOOGLE_DRIVE_CLIENT_SECRET=replace-with-oauth-client-secret
 GOOGLE_DRIVE_REFRESH_TOKEN=replace-with-refresh-token
 GOOGLE_DRIVE_PUBLIC_BUSINESS_FOLDER_ID=replace-with-drive-folder-id
 GOOGLE_DRIVE_PRIVATE_RESIDENT_VERIFICATION_FOLDER_ID=replace-with-drive-folder-id
+
+# Track E Cloudflare preview uses a separate GitHub Actions secret named
+# DANJION_PREVIEW_DATABASE_URL. Its value must point to Neon child branch
+# cloudflare-preview-20260808 (br-hidden-frog-azdevrqe), never production.
