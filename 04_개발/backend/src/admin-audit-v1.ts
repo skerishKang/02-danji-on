@@ -1,8 +1,8 @@
 import { neon, type NeonQueryFunction } from '@neondatabase/serverless';
+import { requireActor } from './auth-v1';
 import type { CoreEnv } from './core-v1';
 
 type Sql = NeonQueryFunction<false, false>;
-type Actor = { id: string; authUserId: string; displayName: string };
 
 function ok(data: unknown, requestId: string): Response {
   return Response.json(
@@ -16,26 +16,6 @@ function fail(code: string, message: string, status: number, requestId: string):
     { error: { code, message }, requestId },
     { status, headers: { 'x-danjion-request-id': requestId, 'cache-control': 'no-store' } }
   );
-}
-
-async function actorFromRequest(request: Request, env: CoreEnv, sql: Sql, requestId: string): Promise<Actor | Response> {
-  if (env.APP_ENV !== 'production' && env.DEV_AUTH_BYPASS === 'true') {
-    const subject = request.headers.get('x-danjion-dev-auth-user')?.trim();
-    if (subject) {
-      const rows = await sql`
-        select id, auth_user_id, display_name
-        from app_users
-        where auth_user_id = ${subject}
-        limit 1
-      `;
-      const row = rows[0];
-      if (row) return { id: String(row.id), authUserId: String(row.auth_user_id), displayName: String(row.display_name) };
-    }
-  }
-  if (request.headers.has('authorization')) {
-    return fail('AUTH_ADAPTER_PENDING', 'Neon Auth server adapter is not configured yet', 501, requestId);
-  }
-  return fail('AUTH_REQUIRED', 'Authentication required', 401, requestId);
 }
 
 async function managerComplex(sql: Sql, actorId: string, complexSlug: string, requestId: string) {
@@ -81,7 +61,7 @@ export async function handleAdminAuditRequest(
   const limit = clampLimit(url.searchParams.get('limit'));
   const complexSlug = decodeURIComponent(match[1]);
   const sql: Sql = neon(env.DATABASE_URL);
-  const actorOrResponse = await actorFromRequest(request, env, sql, requestId);
+  const actorOrResponse = await requireActor(request, env, sql, requestId);
   if (actorOrResponse instanceof Response) return actorOrResponse;
   const actor = actorOrResponse;
   const manager = await managerComplex(sql, actor.id, complexSlug, requestId);
