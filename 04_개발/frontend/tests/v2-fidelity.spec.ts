@@ -36,7 +36,7 @@ test('V2 keeps the fixed editorial topbar and first-screen hero/search compositi
   }
 });
 
-test('V2 cinematic system preserves four scene tabs, keyboard selection and category color change', async ({ page }, testInfo) => {
+test('V2 cinematic system preserves four scene buttons, keyboard selection and category color change without scroll trapping', async ({ page }, testInfo) => {
   const cinematic = await firstVisible(page, V2_SELECTORS.cinematic, 'cinematic scene system');
   await cinematic.scrollIntoViewIfNeeded();
 
@@ -51,7 +51,7 @@ test('V2 cinematic system preserves four scene tabs, keyboard selection and cate
   const before = await panel.evaluate((element) => getComputedStyle(element).backgroundColor);
 
   await secondTab.click();
-  await expect(secondTab).toHaveAttribute('aria-selected', 'true');
+  await expect(secondTab).toHaveAttribute('aria-pressed', 'true');
   await expect(page.getByRole('heading', { name: V2_REFERENCE.scenes[1].heading })).toBeVisible();
   await expect(page.getByText(V2_REFERENCE.scenes[1].service).first()).toBeVisible();
   const after = await panel.evaluate((element) => getComputedStyle(element).backgroundColor);
@@ -60,7 +60,7 @@ test('V2 cinematic system preserves four scene tabs, keyboard selection and cate
   await secondTab.focus();
   await page.keyboard.press('ArrowRight');
   await expect(thirdTab).toBeFocused();
-  await expect(thirdTab).toHaveAttribute('aria-selected', 'true');
+  await expect(thirdTab).toHaveAttribute('aria-pressed', 'true');
 
   const stage = await firstVisible(page, V2_SELECTORS.cinematicStage, 'cinematic stage');
   const stagePosition = await stage.evaluate((element) => getComputedStyle(element).position);
