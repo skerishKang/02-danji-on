@@ -1,0 +1,70 @@
+name: V2 Integration Gate
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - '04_개발/frontend/**'
+      - '04_개발/scripts/v2-*'
+      - '04_개발/docs/v2/**'
+      - '.github/workflows/v2-integration-gate.yml'
+  push:
+    branches:
+      - feat/v2-platform-20260808
+    paths:
+      - '04_개발/frontend/**'
+      - '04_개발/scripts/v2-*'
+      - '04_개발/docs/v2/**'
+      - '.github/workflows/v2-integration-gate.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: danjion-v2-integration-gate-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  fidelity-gate:
+    if: github.event_name != 'pull_request' || github.head_ref == 'feat/v2-platform-20260808'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: 04_개발/frontend/package.json
+
+      - name: Install frontend dependencies
+        working-directory: 04_개발/frontend
+        run: npm install --ignore-scripts
+
+      - name: Install Playwright Chromium
+        working-directory: 04_개발/frontend
+        run: npx playwright install --with-deps chromium
+
+      - name: Run fail-closed A/B/C/D release gate
+        working-directory: 04_개발
+        env:
+          VITE_DATA_MODE: mock
+          VITE_AUTH_MODE: dev
+          VITE_STORAGE_MODE: mock
+          VITE_COMPLEX_SLUG: bangnim-myeongji-roadhill
+        run: node scripts/v2-fidelity-gate.mjs --release
+
+      - name: Record integration gate evidence
+        if: success()
+        run: |
+          {
+            echo '## DanjiOn V2 integration gate'
+            echo
+            echo '- Existing V1 Playwright: PASS'
+            echo '- Unset/invalid variant -> V1: PASS'
+            echo '- Gateway isolation: PASS'
+            echo '- V2 source fidelity/product flow/responsive/accessibility: PASS'
+            echo '- Verdict: `V2_FIDELITY_GATE_PASS`'
+            echo '- Production readiness: NOT CLAIMED'
+          } >> "$GITHUB_STEP_SUMMARY"
