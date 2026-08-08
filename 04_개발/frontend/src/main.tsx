@@ -8,6 +8,7 @@ import './styles.css';
 import './feature-flows.css';
 import './accessibility.css';
 import './promo-materials.css';
+import './cycle-completion.css';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
