@@ -75,6 +75,16 @@ async function readMockFile(objectKey: string): Promise<MockStoredFile | null> {
   return record ?? null;
 }
 
+export function resetMockStorage(): Promise<void> {
+  if (typeof indexedDB === 'undefined') return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.deleteDatabase(MOCK_DB_NAME);
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error ?? new Error('mock storage reset failed'));
+    request.onblocked = () => resolve();
+  });
+}
+
 class MockStorageAdapter implements StorageAdapter {
   async upload(kind: StorageKind, file: File): Promise<StoredObject> {
     validateImage(file);
