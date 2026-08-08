@@ -2,6 +2,7 @@
 DATABASE_URL=postgresql://USER:PASSWORD@HOST/DB?sslmode=require
 APP_ENV=development
 DEV_AUTH_BYPASS=true
+CORS_ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
 
 # Development actor is selected per request and then resolved from app_users.
 # Example request header:
@@ -9,5 +10,9 @@ DEV_AUTH_BYPASS=true
 # or
 # x-danjion-dev-auth-user: dev-manager-001
 
-# Neon Auth variables will be added after the sibling-owned Neon project
-# is created and the actual Auth server/JWKS contract is verified.
+# Cloudflare Track B preview does NOT read DATABASE_URL from this file.
+# The preview workflow receives DATABASE_URL from GitHub Actions secrets and
+# uploads it to the preview Worker version as an encrypted Cloudflare secret.
+
+# Neon Auth variables will be added after Track A verifies the actual
+# Auth server/JWKS contract. Track B does not implement Neon Auth internals.
