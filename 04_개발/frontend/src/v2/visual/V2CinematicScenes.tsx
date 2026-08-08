@@ -32,8 +32,10 @@ export function V2CinematicScenes({
 }) {
   const sectionRef = useRef<HTMLElement>(null);
   const manualUntilRef = useRef(0);
+  const userScrollIntentRef = useRef(false);
   const timerRef = useRef<number | null>(null);
   const [activeKey, setActiveKey] = useState<V2SceneKey>(scenes[0]?.key ?? 'food');
+  const [manualSelectionKey, setManualSelectionKey] = useState<V2SceneKey | null>(null);
   const [previousScene, setPreviousScene] = useState<V2Scene | null>(null);
   const [switching, setSwitching] = useState(false);
 
@@ -52,9 +54,17 @@ export function V2CinematicScenes({
     if (!section) return;
 
     let frame = 0;
+    const markScrollIntent = () => {
+      userScrollIntentRef.current = true;
+    };
+    const markKeyboardScrollIntent = (event: globalThis.KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target?.matches('input, textarea, select, [contenteditable="true"]')) return;
+      if (['ArrowDown', 'ArrowUp', 'PageDown', 'PageUp', 'Home', 'End', ' '].includes(event.key)) userScrollIntentRef.current = true;
+    };
     const updateFromScroll = () => {
       frame = 0;
-      if (Date.now() < manualUntilRef.current) return;
+      if (!userScrollIntentRef.current || Date.now() < manualUntilRef.current) return;
       const rect = section.getBoundingClientRect();
       const distance = Math.max(1, rect.height - window.innerHeight);
       const progress = clamp(-rect.top / distance);
@@ -65,10 +75,15 @@ export function V2CinematicScenes({
     const onScroll = () => {
       if (!frame) frame = window.requestAnimationFrame(updateFromScroll);
     };
-    updateFromScroll();
+    window.addEventListener('wheel', markScrollIntent, { passive: true });
+    window.addEventListener('touchmove', markScrollIntent, { passive: true });
+    window.addEventListener('keydown', markKeyboardScrollIntent);
     window.addEventListener('scroll', onScroll, { passive: true });
     window.addEventListener('resize', onScroll);
     return () => {
+      window.removeEventListener('wheel', markScrollIntent);
+      window.removeEventListener('touchmove', markScrollIntent);
+      window.removeEventListener('keydown', markKeyboardScrollIntent);
       window.removeEventListener('scroll', onScroll);
       window.removeEventListener('resize', onScroll);
       if (frame) window.cancelAnimationFrame(frame);
@@ -78,12 +93,15 @@ export function V2CinematicScenes({
   if (!activeScene) return null;
 
   function selectScene(next: V2Scene, manual = true) {
+    if (manual) {
+      setManualSelectionKey(next.key);
+      manualUntilRef.current = Date.now() + 1800;
+    }
     if (next.key === activeScene.key) return;
     setPreviousScene(activeScene);
     setSwitching(!reducedMotion);
     setActiveKey(next.key);
     onSceneChange?.(next);
-    if (manual) manualUntilRef.current = Date.now() + 1800;
     if (timerRef.current !== null) window.clearTimeout(timerRef.current);
     timerRef.current = window.setTimeout(() => {
       setPreviousScene(null);
@@ -153,6 +171,7 @@ export function V2CinematicScenes({
               type="button"
               className="v2-scene-tab"
               aria-pressed={scene.key === activeScene.key}
+              aria-selected={manualSelectionKey === scene.key ? true : undefined}
               aria-label={`${String(index + 1).padStart(2, '0')} ${scene.caption}`}
               onClick={() => selectScene(scene, true)}
               onKeyDown={(event) => handleTabKey(event, index)}
