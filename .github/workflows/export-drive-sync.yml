@@ -1,0 +1,25 @@
+name: Export Drive Sync
+
+on:
+  push:
+    branches:
+      - ops/drive-sync-export
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Package current development folder
+        run: |
+          test -d '04_개발'
+          tar -czf danjion-04-development-b68260ac.tar.gz '04_개발'
+          sha256sum danjion-04-development-b68260ac.tar.gz > danjion-04-development-b68260ac.sha256
+      - name: Upload Drive sync artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: danjion-drive-sync-b68260ac
+          path: |
+            danjion-04-development-b68260ac.tar.gz
+            danjion-04-development-b68260ac.sha256
+          if-no-files-found: error
