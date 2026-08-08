@@ -79,7 +79,7 @@ export async function handleResidentVerificationRequest(
 
   if (request.method === 'GET') {
     const verificationRows = await sql`
-      select id, method, evidence_object_key, requested_at, reviewed_at, reviewed_by, note
+      select id, status, method, evidence_object_key, requested_at, reviewed_at, reviewed_by, note
       from resident_verifications
       where membership_id = ${String(membership.id)}::uuid
       limit 1
@@ -130,22 +130,24 @@ export async function handleResidentVerificationRequest(
     ),
     upserted_verification as (
       insert into resident_verifications (
-        membership_id, method, evidence_object_key, requested_at,
+        membership_id, status, method, evidence_object_key, requested_at,
         reviewed_at, reviewed_by, note
       ) values (
         ${String(membership.id)}::uuid,
+        'pending',
         ${method},
         ${evidenceObjectKey},
         now(), null, null, null
       )
       on conflict (membership_id) do update
-        set method = excluded.method,
+        set status = 'pending',
+            method = excluded.method,
             evidence_object_key = excluded.evidence_object_key,
             requested_at = now(),
             reviewed_at = null,
             reviewed_by = null,
             note = null
-      returning id, method, evidence_object_key, requested_at, reviewed_at, reviewed_by, note
+      returning id, status, method, evidence_object_key, requested_at, reviewed_at, reviewed_by, note
     )
     select
       um.id as membership_id,
@@ -153,6 +155,7 @@ export async function handleResidentVerificationRequest(
       um.building,
       um.unit,
       uv.id as verification_id,
+      uv.status as verification_record_status,
       uv.method,
       uv.evidence_object_key,
       uv.requested_at,
