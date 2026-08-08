@@ -1,3 +1,5 @@
+import { getPreviewDemoActor, PREVIEW_DEMO_ENABLED } from './preview-demo';
+
 export type AuthSurface = 'resident' | 'admin';
 export type AuthMode = 'dev' | 'neon';
 
@@ -15,6 +17,19 @@ export interface AuthProvider {
 
 class DevAuthProvider implements AuthProvider {
   snapshot(surface: AuthSurface): AuthSnapshot {
+    if (PREVIEW_DEMO_ENABLED) {
+      const actor = getPreviewDemoActor();
+      // The integrated V2 surface currently treats an authenticated `neon` snapshot
+      // as a browser-session-ready actor. Preview demo uses that readiness signal only;
+      // the request credential remains the explicit non-production dev header below.
+      return {
+        mode: 'neon',
+        subject: actor.subject,
+        displayName: actor.displayName,
+        authenticated: Boolean(actor.subject)
+      };
+    }
+
     const residentSubject = import.meta.env.VITE_DEV_AUTH_USER || 'dev-resident-001';
     const adminSubject = import.meta.env.VITE_DEV_ADMIN_AUTH_USER || 'dev-manager-001';
     const subject = surface === 'admin' ? adminSubject : residentSubject;
@@ -25,7 +40,7 @@ class DevAuthProvider implements AuthProvider {
   headers(surface: AuthSurface): HeadersInit {
     const headers: Record<string, string> = {};
     const snapshot = this.snapshot(surface);
-    if (import.meta.env.DEV && snapshot.subject) {
+    if ((import.meta.env.DEV || PREVIEW_DEMO_ENABLED) && snapshot.subject) {
       headers['x-danjion-dev-auth-user'] = snapshot.subject;
     }
     return headers;
