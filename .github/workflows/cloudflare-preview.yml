@@ -196,19 +196,30 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          project_json="${RUNNER_TEMP}/pages-projects.json"
-          npx wrangler pages project list --json > "$project_json"
-          if node - "$project_json" "$PAGES_PROJECT" <<'NODE'
+          project_json="${RUNNER_TEMP}/pages-project.json"
+          project_endpoint="https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/pages/projects/${PAGES_PROJECT}"
+
+          http_code="$(curl --silent --show-error \
+            -o "$project_json" \
+            -w '%{http_code}' \
+            -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+            "$project_endpoint")"
+
+          if [ "$http_code" = "200" ]; then
+            node - "$project_json" "$PAGES_PROJECT" <<'NODE'
           const fs = require('fs');
-          const [file, name] = process.argv.slice(2);
-          const parsed = JSON.parse(fs.readFileSync(file, 'utf8'));
-          const rows = Array.isArray(parsed) ? parsed : (parsed.result || parsed.projects || []);
-          process.exit(rows.some((row) => row && row.name === name) ? 0 : 1);
+          const [file, expectedName] = process.argv.slice(2);
+          const payload = JSON.parse(fs.readFileSync(file, 'utf8'));
+          if (payload?.success !== true || payload?.result?.name !== expectedName) process.exit(1);
           NODE
-          then
             echo "Pages project already exists: $PAGES_PROJECT"
-          else
+          elif [ "$http_code" = "404" ]; then
+            echo "Pages project is absent; creating preview project $PAGES_PROJECT."
             npx wrangler pages project create "$PAGES_PROJECT" --production-branch=main
+          else
+            cat "$project_json"
+            echo "::error::Unexpected Cloudflare Pages project lookup HTTP status: $http_code"
+            exit 1
           fi
 
       - name: Deploy frontend Pages branch preview only
