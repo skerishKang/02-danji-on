@@ -13,7 +13,7 @@ const NAV: Array<{ key: V2VisualNavKey; label: string; icon: V2IconName }> = [
 export function V2Topbar({
   active = 'home',
   complexName = '방림명지로드힐',
-  verified = true,
+  verified = false,
   progress = 0,
   onNavigate,
   onOpenSearch,
