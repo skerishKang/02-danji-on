@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import './gateway.css';
 
 type Surface = {
@@ -31,7 +32,7 @@ export function VersionSwitchLink({
   children
 }: {
   target: 'v1' | 'v2' | 'gateway';
-  children?: React.ReactNode;
+  children?: ReactNode;
 }) {
   const url = getVersionSurfaceUrl(target);
   if (!url) return null;
