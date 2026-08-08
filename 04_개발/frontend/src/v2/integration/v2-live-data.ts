@@ -90,7 +90,11 @@ export async function approvedBusinessToV2Visual(
   business: Business,
   application: BusinessApplication
 ): Promise<V2ShopVisual> {
-  const base = await businessToV2Visual(business);
+  const businessWithApplicationImage: Business = {
+    ...business,
+    representativeImageObjectKey: business.representativeImageObjectKey ?? application.representativeImageObjectKey ?? null
+  };
+  const base = await businessToV2Visual(businessWithApplicationImage);
   const category = categoryForApplication({
     relationType: application.relationType,
     businessName: application.businessName,
