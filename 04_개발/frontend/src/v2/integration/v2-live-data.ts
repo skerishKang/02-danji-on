@@ -1,3 +1,4 @@
+import { PREVIEW_DEMO_ENABLED } from '../../preview-demo';
 import { storageAdapter } from '../../storage';
 import type { Business, BusinessApplication, BusinessApplicationInput } from '../../types';
 import {
@@ -9,7 +10,7 @@ import {
 } from '../visual';
 
 export const V2_API_DATA_MODE = import.meta.env.VITE_DATA_MODE === 'api';
-export const V2_DEMO_OPERATOR_MODE = !V2_API_DATA_MODE;
+export const V2_DEMO_OPERATOR_MODE = !V2_API_DATA_MODE || PREVIEW_DEMO_ENABLED;
 
 export function relationToV2Visual(value: Business['relationType']): V2RelationKey {
   if (value === 'resident') return 'resident';
