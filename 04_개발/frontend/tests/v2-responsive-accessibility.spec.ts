@@ -50,7 +50,7 @@ test('keyboard navigation exposes visible focus and scene tabs support arrow key
   await expectKeyboardFocusVisible(firstScene);
   await page.keyboard.press('ArrowRight');
   await expect(secondScene).toBeFocused();
-  await expect(secondScene).toHaveAttribute('aria-selected', 'true');
+  await expect(secondScene).toHaveAttribute('aria-pressed', 'true');
 
   const detail = page.getByRole('button', { name: /^(이 이웃의 일 보기|상세보기)$/ }).first();
   await detail.focus();
