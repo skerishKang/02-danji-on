@@ -145,7 +145,7 @@ const claimed = await jsonRequest(`/api/v1/me/benefits/${benefitId}/claim`, {
   headers: residentHeaders,
   body: JSON.stringify({ complexSlug })
 });
-expectStatus(claimed, 200, 'verified resident claims benefit');
+expectStatus(claimed, 201, 'verified resident claims benefit');
 assert.equal(claimed.body?.data?.status, 'stored');
 assert.match(String(claimed.body?.data?.claim_code ?? ''), /^DANJION-[A-Z0-9]{8}$/);
 
