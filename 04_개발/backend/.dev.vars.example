@@ -11,3 +11,12 @@ DEV_AUTH_BYPASS=true
 
 # Neon Auth variables will be added after the sibling-owned Neon project
 # is created and the actual Auth server/JWKS contract is verified.
+
+# Track C Google Drive storage. These are placeholders only.
+# Keep the client secret and refresh token in .dev.vars locally and Cloudflare secrets in deployed environments.
+STORAGE_MODE=drive
+GOOGLE_DRIVE_CLIENT_ID=replace-with-oauth-client-id
+GOOGLE_DRIVE_CLIENT_SECRET=replace-with-oauth-client-secret
+GOOGLE_DRIVE_REFRESH_TOKEN=replace-with-refresh-token
+GOOGLE_DRIVE_PUBLIC_BUSINESS_FOLDER_ID=replace-with-drive-folder-id
+GOOGLE_DRIVE_PRIVATE_RESIDENT_VERIFICATION_FOLDER_ID=replace-with-drive-folder-id
