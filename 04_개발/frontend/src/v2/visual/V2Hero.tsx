@@ -3,6 +3,8 @@ import { V2Icon } from './V2Icon';
 import { V2VisualImage } from './V2VisualImage';
 import { V2_REFERENCE_IMAGES } from './visual-data';
 
+const LOCAL_HERO_FALLBACK = '/field-demo/scenes-sprite.jpg';
+
 export function V2Hero({
   serviceCount = 7,
   complexName = '방림명지로드힐',
@@ -25,7 +27,7 @@ export function V2Hero({
   }
 
   return (
-    <section className="v2-hero" aria-labelledby="v2-hero-title">
+    <section data-v2-section="hero" className="v2-hero" aria-labelledby="v2-hero-title">
       <div className="v2-hero-grid">
         <div className="v2-hero-copy">
           <div className="v2-hero-meta">
@@ -55,8 +57,8 @@ export function V2Hero({
           </div>
         </div>
         <div className="v2-hero-photo" aria-label="반찬을 만드는 이웃의 작업 장면">
-          <V2VisualImage className="v2-hero-photo-bg" src={heroImage.src} alt={heroImage.alt} fallbackLabel="오늘의 반찬" />
-          <div className="v2-hero-foreground" aria-hidden="true"><V2VisualImage src={heroImage.src} alt="" fallbackLabel="" /></div>
+          <V2VisualImage data-v2-hero-image className="v2-hero-photo-bg" src={heroImage.src} fallbackSrc={LOCAL_HERO_FALLBACK} alt={heroImage.alt} fallbackLabel="오늘의 반찬" />
+          <div className="v2-hero-foreground" aria-hidden="true"><V2VisualImage src={heroImage.src} fallbackSrc={LOCAL_HERO_FALLBACK} alt="" fallbackLabel="" /></div>
           <div className="v2-hero-photo-note"><span className="v2-hero-live-dot" /><span><b>오늘의 반찬</b><br /><small>지금 일하는 이웃 · 시연용 예시</small></span></div>
         </div>
       </div>
