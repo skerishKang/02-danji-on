@@ -1,13 +1,9 @@
 import { neon, type NeonQueryFunction } from '@neondatabase/serverless';
+import { requireActor, type Actor, type AuthEnv } from './auth-v1';
 
-export interface CoreEnv {
-  DATABASE_URL: string;
-  APP_ENV?: string;
-  DEV_AUTH_BYPASS?: string;
-}
+export type CoreEnv = AuthEnv;
 
 type Sql = NeonQueryFunction<false, false>;
-type Actor = { id: string; authUserId: string; displayName: string };
 
 const REQUEST_ID_HEADER = 'x-danjion-request-id';
 const MAX_BODY_BYTES = 128 * 1024;
@@ -63,34 +59,6 @@ async function bodyJson(request: Request, id: string): Promise<Record<string, un
   } catch {
     return fail('INVALID_JSON', 'Invalid JSON', 400, id);
   }
-}
-
-async function actorFromDevHeader(request: Request, env: CoreEnv, sql: Sql): Promise<Actor | null> {
-  if (env.APP_ENV === 'production' || env.DEV_AUTH_BYPASS !== 'true') return null;
-  const subject = request.headers.get('x-danjion-dev-auth-user')?.trim();
-  if (!subject) return null;
-  const rows = await sql`
-    select id, auth_user_id, display_name
-    from app_users
-    where auth_user_id = ${subject}
-    limit 1
-  `;
-  const row = rows[0];
-  if (!row) return null;
-  return {
-    id: String(row.id),
-    authUserId: String(row.auth_user_id),
-    displayName: String(row.display_name)
-  };
-}
-
-async function requireActor(request: Request, env: CoreEnv, sql: Sql, id: string): Promise<Actor | Response> {
-  const devActor = await actorFromDevHeader(request, env, sql);
-  if (devActor) return devActor;
-  if (request.headers.has('authorization')) {
-    return fail('AUTH_ADAPTER_PENDING', 'Neon Auth server adapter is not configured yet', 501, id);
-  }
-  return fail('AUTH_REQUIRED', 'Authentication required', 401, id);
 }
 
 async function membership(sql: Sql, userId: string, complexSlug: string) {
