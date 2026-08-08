@@ -40,6 +40,7 @@ export interface Business {
   serviceArea: string;
   availabilityText: string;
   icon: string;
+  representativeImageObjectKey?: string | null;
   activeBenefit?: Benefit | null;
 }
 
