@@ -24,6 +24,10 @@ env:
 
 jobs:
   preview:
+    # Track E is a branch-specific live preview workflow. Other feature PRs may
+    # touch frontend/backend files but must not fail this workflow's hard branch
+    # guard; they are simply outside this workflow's scope.
+    if: github.event_name == 'workflow_dispatch' || github.head_ref == 'feat/live-stack-integration'
     runs-on: ubuntu-latest
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
