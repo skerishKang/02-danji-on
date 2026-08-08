@@ -1,0 +1,251 @@
+name: Cloudflare V1 V2 Gateway Preview
+
+on:
+  push:
+    branches:
+      - feat/v2-platform-20260808
+    paths:
+      - '04_개발/frontend/**'
+      - '04_개발/backend/**'
+      - '.github/workflows/cloudflare-v2-surface-preview.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: danjion-v2-surface-preview
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  WORKER_ENV: preview
+  WORKER_PREVIEW_ALIAS: v2-program
+  PAGES_PROJECT: padiem-danjion-web-preview
+  PAGES_V1_BRANCH: v1
+  PAGES_V2_BRANCH: v2
+  PAGES_GATEWAY_BRANCH: gateway
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      DANJION_DATABASE_URL: ${{ secrets.DANJION_PREVIEW_DATABASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Enforce V2 integration preview-only branch contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          branch="${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}"
+          test "$branch" = "feat/v2-platform-20260808"
+          test "$WORKER_ENV" = "preview"
+          for pages_branch in "$PAGES_V1_BRANCH" "$PAGES_V2_BRANCH" "$PAGES_GATEWAY_BRANCH"; do
+            test "$pages_branch" != "main"
+          done
+          echo "V2 program preview-only contract verified."
+
+      - name: Verify required deployment secrets exist
+        shell: bash
+        run: |
+          set -euo pipefail
+          missing=0
+          for key in CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID DANJION_DATABASE_URL; do
+            if [ -z "${!key:-}" ]; then
+              echo "::error::Required GitHub Actions secret is missing for ${key}."
+              missing=1
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then
+            echo "::error::Configure the preview Cloudflare credentials and DANJION_PREVIEW_DATABASE_URL. Never substitute the production DATABASE_URL."
+            exit 1
+          fi
+
+      - name: Install backend dependencies
+        working-directory: 04_개발/backend
+        run: npm install --ignore-scripts
+
+      - name: Backend checks
+        working-directory: 04_개발/backend
+        run: npm run check
+
+      - name: Install frontend dependencies
+        working-directory: 04_개발/frontend
+        run: npm install --ignore-scripts
+
+      - name: Frontend typecheck
+        working-directory: 04_개발/frontend
+        run: npm run typecheck
+
+      - name: Prepare Worker preview secret file
+        id: worker_secret
+        shell: bash
+        run: |
+          set -euo pipefail
+          secret_file="${RUNNER_TEMP}/danjion-v2-worker-preview.env"
+          printf 'DATABASE_URL=%s\n' "$DANJION_DATABASE_URL" > "$secret_file"
+          chmod 600 "$secret_file"
+          echo "secret_file=$secret_file" >> "$GITHUB_OUTPUT"
+
+      - name: Upload shared Worker preview version
+        id: worker
+        working-directory: 04_개발/backend
+        shell: bash
+        run: |
+          set -euo pipefail
+          log_file="${RUNNER_TEMP}/v2-worker-upload.log"
+          npx wrangler versions upload \
+            --env "$WORKER_ENV" \
+            --preview-alias "$WORKER_PREVIEW_ALIAS" \
+            --secrets-file "${{ steps.worker_secret.outputs.secret_file }}" \
+            --message "V2 program preview ${GITHUB_SHA}" 2>&1 | tee "$log_file"
+
+          worker_url="$(grep -Eo 'https://[A-Za-z0-9.-]+\.workers\.dev' "$log_file" | grep "https://${WORKER_PREVIEW_ALIAS}-" | tail -n 1 || true)"
+          if [ -z "$worker_url" ]; then
+            worker_url="$(grep -Eo 'https://[A-Za-z0-9.-]+\.workers\.dev' "$log_file" | tail -n 1 || true)"
+          fi
+          if [ -z "$worker_url" ]; then
+            echo "::error::Wrangler did not report a Worker preview URL."
+            exit 1
+          fi
+          echo "url=$worker_url" >> "$GITHUB_OUTPUT"
+          echo "Worker preview: $worker_url"
+
+      - name: Verify existing Pages project
+        working-directory: 04_개발/backend
+        shell: bash
+        run: |
+          set -euo pipefail
+          project_json="${RUNNER_TEMP}/v2-pages-projects.json"
+          npx wrangler pages project list --json > "$project_json"
+          node - "$project_json" "$PAGES_PROJECT" <<'NODE'
+          const fs = require('fs');
+          const [file, name] = process.argv.slice(2);
+          const parsed = JSON.parse(fs.readFileSync(file, 'utf8'));
+          const rows = Array.isArray(parsed) ? parsed : (parsed.result || parsed.projects || []);
+          if (!rows.some((row) => row && row.name === name)) {
+            console.error(`Required existing Pages project not found: ${name}`);
+            process.exit(1);
+          }
+          NODE
+
+      - name: Build and deploy V1 surface
+        working-directory: 04_개발/frontend
+        shell: bash
+        env:
+          VITE_UI_VARIANT: v1
+          VITE_DATA_MODE: api
+          VITE_AUTH_MODE: dev
+          VITE_STORAGE_MODE: mock
+          VITE_API_BASE_URL: ${{ steps.worker.outputs.url }}
+          VITE_COMPLEX_SLUG: bangnim-myeongji-roadhill
+          VITE_V1_URL: https://v1.padiem-danjion-web-preview.pages.dev
+          VITE_V2_URL: https://v2.padiem-danjion-web-preview.pages.dev
+          VITE_GATEWAY_URL: https://gateway.padiem-danjion-web-preview.pages.dev
+        run: |
+          set -euo pipefail
+          npm run build
+          grep -R --fixed-strings "${VITE_API_BASE_URL}" dist >/dev/null
+          npx --prefix ../backend wrangler pages deploy dist \
+            --project-name="$PAGES_PROJECT" \
+            --branch="$PAGES_V1_BRANCH" \
+            --commit-hash="$GITHUB_SHA" \
+            --commit-message="V2 program V1 surface ${GITHUB_SHA}"
+
+      - name: Build and deploy V2 surface
+        working-directory: 04_개발/frontend
+        shell: bash
+        env:
+          VITE_UI_VARIANT: v2
+          VITE_DATA_MODE: api
+          VITE_AUTH_MODE: dev
+          VITE_STORAGE_MODE: mock
+          VITE_API_BASE_URL: ${{ steps.worker.outputs.url }}
+          VITE_COMPLEX_SLUG: bangnim-myeongji-roadhill
+          VITE_V1_URL: https://v1.padiem-danjion-web-preview.pages.dev
+          VITE_V2_URL: https://v2.padiem-danjion-web-preview.pages.dev
+          VITE_GATEWAY_URL: https://gateway.padiem-danjion-web-preview.pages.dev
+        run: |
+          set -euo pipefail
+          npm run build
+          grep -R --fixed-strings "${VITE_API_BASE_URL}" dist >/dev/null
+          npx --prefix ../backend wrangler pages deploy dist \
+            --project-name="$PAGES_PROJECT" \
+            --branch="$PAGES_V2_BRANCH" \
+            --commit-hash="$GITHUB_SHA" \
+            --commit-message="V2 program V2 surface ${GITHUB_SHA}"
+
+      - name: Build and deploy Gateway surface
+        working-directory: 04_개발/frontend
+        shell: bash
+        env:
+          VITE_UI_VARIANT: gateway
+          VITE_DATA_MODE: mock
+          VITE_AUTH_MODE: dev
+          VITE_STORAGE_MODE: mock
+          VITE_COMPLEX_SLUG: bangnim-myeongji-roadhill
+          VITE_V1_URL: https://v1.padiem-danjion-web-preview.pages.dev
+          VITE_V2_URL: https://v2.padiem-danjion-web-preview.pages.dev
+          VITE_GATEWAY_URL: https://gateway.padiem-danjion-web-preview.pages.dev
+        run: |
+          set -euo pipefail
+          npm run build
+          grep -R --fixed-strings "https://v1.padiem-danjion-web-preview.pages.dev" dist >/dev/null
+          grep -R --fixed-strings "https://v2.padiem-danjion-web-preview.pages.dev" dist >/dev/null
+          npx --prefix ../backend wrangler pages deploy dist \
+            --project-name="$PAGES_PROJECT" \
+            --branch="$PAGES_GATEWAY_BRANCH" \
+            --commit-hash="$GITHUB_SHA" \
+            --commit-message="V2 program gateway ${GITHUB_SHA}"
+
+      - name: Smoke V1 V2 Gateway and shared Worker CORS
+        shell: bash
+        env:
+          WORKER_URL: ${{ steps.worker.outputs.url }}
+          V1_URL: https://v1.padiem-danjion-web-preview.pages.dev
+          V2_URL: https://v2.padiem-danjion-web-preview.pages.dev
+          GATEWAY_URL: https://gateway.padiem-danjion-web-preview.pages.dev
+        run: |
+          set -euo pipefail
+          for url in "$V1_URL" "$V2_URL" "$GATEWAY_URL"; do
+            curl --fail --silent --show-error --retry 6 --retry-all-errors --retry-delay 5 "$url/" >/dev/null
+          done
+
+          health_json="$(curl --fail --silent --show-error --retry 6 --retry-all-errors --retry-delay 5 "$WORKER_URL/api/health")"
+          node - "$health_json" <<'NODE'
+          const payload = JSON.parse(process.argv[2]);
+          if (payload?.data?.status !== 'ok' || payload?.data?.database !== 'ok') process.exit(1);
+          NODE
+
+          for origin in "$V1_URL" "$V2_URL"; do
+            headers="${RUNNER_TEMP}/cors-$(echo "$origin" | tr -cd 'A-Za-z0-9').txt"
+            curl --fail --silent --show-error \
+              -D "$headers" -o /dev/null \
+              -H "Origin: $origin" \
+              "$WORKER_URL/api/health"
+            tr -d '\r' < "$headers" | grep -Fqi "access-control-allow-origin: $origin"
+          done
+
+      - name: V2 surface preview evidence summary
+        if: success()
+        shell: bash
+        env:
+          WORKER_URL: ${{ steps.worker.outputs.url }}
+        run: |
+          {
+            echo '## DanjiOn V2 multi-surface preview'
+            echo
+            echo "- Shared Worker preview: $WORKER_URL"
+            echo '- V1: https://v1.padiem-danjion-web-preview.pages.dev'
+            echo '- V2: https://v2.padiem-danjion-web-preview.pages.dev'
+            echo '- Gateway: https://gateway.padiem-danjion-web-preview.pages.dev'
+            echo '- Pages project: `padiem-danjion-web-preview`'
+            echo '- Production deployment: NONE'
+            echo '- PR merge: NONE'
+          } >> "$GITHUB_STEP_SUMMARY"
