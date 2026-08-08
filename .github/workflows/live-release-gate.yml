@@ -1,0 +1,183 @@
+name: Live Release Gate
+
+on:
+  pull_request:
+    paths:
+      - '04_개발/backend/tests/live-*'
+      - '04_개발/backend/tests/storage-contract.mjs'
+      - '04_개발/backend/src/storage-v1.ts'
+      - '04_개발/backend/src/app.ts'
+      - '04_개발/frontend/e2e/live-release.spec.ts'
+      - '04_개발/frontend/playwright.live.config.ts'
+      - '04_개발/docs/LIVE_INTEGRATION_RELEASE_GATE_v1.md'
+      - '.github/workflows/live-release-gate.yml'
+  push:
+    branches:
+      - feat/live-stack-integration
+    paths:
+      - '04_개발/backend/tests/live-*'
+      - '04_개발/backend/tests/storage-contract.mjs'
+      - '04_개발/backend/src/storage-v1.ts'
+      - '04_개발/backend/src/app.ts'
+      - '04_개발/frontend/e2e/live-release.spec.ts'
+      - '04_개발/frontend/playwright.live.config.ts'
+      - '04_개발/docs/LIVE_INTEGRATION_RELEASE_GATE_v1.md'
+      - '.github/workflows/live-release-gate.yml'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'prepare records BLOCKED dependencies; release fails on BLOCKED dependencies'
+        required: true
+        default: prepare
+        type: choice
+        options:
+          - prepare
+          - release
+      run_live_db:
+        description: 'Run integration against the approved Neon preview child branch'
+        required: true
+        default: false
+        type: boolean
+      run_preview_smoke:
+        description: 'Run public/private/admin preview API smoke and auth-negative checks'
+        required: true
+        default: false
+        type: boolean
+      run_vertical_flow:
+        description: 'Run mutating resident/admin live flow; preview Worker must point to child DB'
+        required: true
+        default: false
+        type: boolean
+      run_frontend_viewports:
+        description: 'Run frontend preview checks at desktop/390/320 viewports'
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  static-gate:
+    name: Track D static gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Parse live backend scripts
+        run: |
+          node --check 04_개발/backend/tests/live-preview-smoke.mjs
+          node --check 04_개발/backend/tests/live-vertical-flow.mjs
+          bash -n 04_개발/backend/tests/run-live-db-integration.sh
+      - name: Assert Track A canonical auth is used by Track C storage
+        run: node 04_개발/backend/tests/storage-contract.mjs
+      - name: Parse live Playwright configuration and tests
+        working-directory: 04_개발/frontend
+        env:
+          DANJION_FRONTEND_PREVIEW_URL: https://track-e-preview.invalid
+        run: |
+          npm install --ignore-scripts
+          npx playwright test --config=playwright.live.config.ts --list
+
+  live-db-child:
+    name: Neon child DB integration
+    if: >-
+      ${{
+        (github.event_name == 'workflow_dispatch' && inputs.run_live_db) ||
+        (github.event_name == 'push' && vars.DANJION_TRACK_D_RUN_LIVE_DB == 'true')
+      }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+      - name: Run child-only DB integration
+        env:
+          DANJION_DB_TARGET: ${{ vars.DANJION_DB_TARGET }}
+          LIVE_DATABASE_URL: ${{ secrets.DANJION_PREVIEW_DATABASE_URL }}
+          PRODUCTION_DATABASE_URL: ${{ secrets.DANJION_PRODUCTION_DB_URL }}
+        run: bash 04_개발/backend/tests/run-live-db-integration.sh
+
+  preview-api-smoke:
+    name: Preview API smoke
+    if: >-
+      ${{
+        (github.event_name == 'workflow_dispatch' && inputs.run_preview_smoke) ||
+        (github.event_name == 'push' && vars.DANJION_TRACK_D_RUN_PREVIEW_SMOKE == 'true')
+      }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Run preview smoke and auth-negative gate
+        env:
+          DANJION_GATE_MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.mode || vars.DANJION_GATE_MODE || 'prepare' }}
+          DANJION_PREVIEW_API_URL: ${{ vars.DANJION_PREVIEW_API_URL }}
+          DANJION_TEST_COMPLEX_SLUG: ${{ vars.DANJION_TEST_COMPLEX_SLUG }}
+          DANJION_RESIDENT_BEARER_TOKEN: ${{ secrets.DANJION_RESIDENT_BEARER_TOKEN }}
+          DANJION_ADMIN_BEARER_TOKEN: ${{ secrets.DANJION_ADMIN_BEARER_TOKEN }}
+        run: node 04_개발/backend/tests/live-preview-smoke.mjs
+
+  live-vertical-flow:
+    name: Resident/admin live vertical flow
+    if: >-
+      ${{
+        (github.event_name == 'workflow_dispatch' && inputs.run_vertical_flow) ||
+        (github.event_name == 'push' && vars.DANJION_TRACK_D_RUN_VERTICAL_FLOW == 'true')
+      }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Run child-only mutating live flow
+        env:
+          DANJION_API_DB_TARGET: ${{ vars.DANJION_API_DB_TARGET }}
+          DANJION_PREVIEW_API_URL: ${{ vars.DANJION_PREVIEW_API_URL }}
+          DANJION_TEST_COMPLEX_SLUG: ${{ vars.DANJION_TEST_COMPLEX_SLUG }}
+          DANJION_RESIDENT_BEARER_TOKEN: ${{ secrets.DANJION_RESIDENT_BEARER_TOKEN }}
+          DANJION_VERIFICATION_RESIDENT_BEARER_TOKEN: ${{ secrets.DANJION_VERIFICATION_RESIDENT_BEARER_TOKEN }}
+          DANJION_ADMIN_BEARER_TOKEN: ${{ secrets.DANJION_ADMIN_BEARER_TOKEN }}
+        run: node 04_개발/backend/tests/live-vertical-flow.mjs
+
+  frontend-preview-viewports:
+    name: Frontend preview viewports
+    if: >-
+      ${{
+        (github.event_name == 'workflow_dispatch' && inputs.run_frontend_viewports) ||
+        (github.event_name == 'push' && vars.DANJION_TRACK_D_RUN_FRONTEND_VIEWPORTS == 'true')
+      }}
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: 04_개발/frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install frontend dependencies
+        run: npm install --ignore-scripts
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Run live release viewport checks
+        env:
+          DANJION_FRONTEND_PREVIEW_URL: ${{ vars.DANJION_FRONTEND_PREVIEW_URL }}
+        run: npx playwright test --config=playwright.live.config.ts
+      - name: Upload live Playwright diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: track-e-live-playwright-diagnostics
+          path: |
+            04_개발/frontend/playwright-report
+            04_개발/frontend/test-results
+          if-no-files-found: ignore
+          retention-days: 7
