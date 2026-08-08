@@ -9,10 +9,15 @@ async function expectNoBlockingA11yViolations(page: Page, context: string) {
   expect(blocking, `${context} accessibility violations:\n${JSON.stringify(blocking, null, 2)}`).toEqual([]);
 }
 
-async function resetDemoState(page: Page) {
-  await page.goto('/');
-  await page.evaluate(() => window.localStorage.clear());
-  await page.reload();
+async function startPreparedDemo(page: Page) {
+  await page.goto('/demo.html');
+  await page.getByRole('button', { name: '1. 시연 준비 초기화' }).click();
+  await expect(page.getByText('시연 준비 완료')).toBeVisible();
+  await expect(page.getByText(/사업자 신청 fixture 3건/)).toBeVisible();
+  await expectNoBlockingA11yViolations(page, 'field demo console');
+  await page.getByRole('button', { name: '2. 시연 시작' }).click();
+  await expect(page).toHaveURL(/\?demo=1/);
+  await expect(page.getByLabel('어떤 가게나 서비스가 필요하세요?')).toBeVisible();
 }
 
 async function registerHangyeolFromMyInfo(page: Page) {
@@ -33,7 +38,7 @@ async function registerHangyeolFromMyInfo(page: Page) {
 }
 
 test('five-minute field demo completes the full living-neighbor economy cycle', async ({ page }) => {
-  await resetDemoState(page);
+  await startPreparedDemo(page);
 
   // 발견 → 검색 → 상세
   await page.getByLabel('어떤 가게나 서비스가 필요하세요?').fill('반찬');
@@ -100,6 +105,10 @@ test('five-minute field demo completes the full living-neighbor economy cycle', 
   await expect(page.locator('.ending-metrics article').nth(2)).toContainText('1건');
   await expect(page.getByText('시연용 예시')).toHaveCount(4);
   await expectNoBlockingA11yViolations(page, 'Scene 08 living economy ending');
+
+  const demoSession = await page.evaluate(() => JSON.parse(window.localStorage.getItem('danjion.demo.session.v1') || '{}'));
+  expect(demoSession.status).toBe('complete');
+  expect(demoSession.lastSurface).toBe('생활경제 엔딩');
 });
 
 const endingViewports = [
