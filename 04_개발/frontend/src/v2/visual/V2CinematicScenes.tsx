@@ -145,16 +145,14 @@ export function V2CinematicScenes({
             <button className="v2-btn v2-btn-small" type="button" aria-pressed={isSaved} onClick={() => onToggleSave?.(activeScene.shopId)}><V2Icon name="heart" /> {isSaved ? '저장됨' : '저장'}</button>
           </div>
         </aside>
-        <div className="v2-scene-tabs" role="tablist" aria-label="이웃 작업 장면 선택">
+        <div className="v2-scene-tabs" aria-label="이웃 작업 장면 선택">
           {scenes.map((scene, index) => (
             <button
               data-v2-scene-tab
               key={scene.key}
               type="button"
               className="v2-scene-tab"
-              role="tab"
-              aria-selected={scene.key === activeScene.key}
-              tabIndex={scene.key === activeScene.key ? 0 : -1}
+              aria-pressed={scene.key === activeScene.key}
               aria-label={`${String(index + 1).padStart(2, '0')} ${scene.caption}`}
               onClick={() => selectScene(scene, true)}
               onKeyDown={(event) => handleTabKey(event, index)}
