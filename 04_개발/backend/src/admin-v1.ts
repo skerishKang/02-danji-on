@@ -1,8 +1,8 @@
 import { neon, type NeonQueryFunction } from '@neondatabase/serverless';
+import { requireActor, type Actor } from './auth-v1';
 import type { CoreEnv } from './core-v1';
 
 type Sql = NeonQueryFunction<false, false>;
-type Actor = { id: string; authUserId: string; displayName: string };
 
 const REQUEST_ID_HEADER = 'x-danjion-request-id';
 const MAX_BODY_BYTES = 128 * 1024;
@@ -41,32 +41,6 @@ async function bodyJson(request: Request, requestId: string): Promise<Record<str
   } catch {
     return fail('INVALID_JSON', 'Invalid JSON', 400, requestId);
   }
-}
-
-async function requireActor(request: Request, env: CoreEnv, sql: Sql, requestId: string): Promise<Actor | Response> {
-  if (env.APP_ENV !== 'production' && env.DEV_AUTH_BYPASS === 'true') {
-    const subject = request.headers.get('x-danjion-dev-auth-user')?.trim();
-    if (subject) {
-      const rows = await sql`
-        select id, auth_user_id, display_name
-        from app_users
-        where auth_user_id = ${subject}
-        limit 1
-      `;
-      const row = rows[0];
-      if (row) {
-        return {
-          id: String(row.id),
-          authUserId: String(row.auth_user_id),
-          displayName: String(row.display_name)
-        };
-      }
-    }
-  }
-  if (request.headers.has('authorization')) {
-    return fail('AUTH_ADAPTER_PENDING', 'Neon Auth server adapter is not configured yet', 501, requestId);
-  }
-  return fail('AUTH_REQUIRED', 'Authentication required', 401, requestId);
 }
 
 async function requireManager(sql: Sql, actorId: string, complexSlug: string, requestId: string) {
