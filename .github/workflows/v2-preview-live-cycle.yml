@@ -1,0 +1,129 @@
+name: V2 Preview Live Cycle
+
+on:
+  push:
+    branches:
+      - feat/v2-preview-demo-mode
+    paths:
+      - '.github/workflows/v2-preview-live-cycle.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: danjion-v2-preview-live-cycle
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  FRONTEND_URL: https://v2-demo.padiem-danjion-web-preview.pages.dev
+  WORKER_URL: https://v2-demo-padiem-danjion-api-preview.padiem.workers.dev
+  COMPLEX_SLUG: bangnim-myeongji-roadhill
+
+jobs:
+  live-cycle:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Enforce preview-only target
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF_NAME" = 'feat/v2-preview-demo-mode'
+          case "$FRONTEND_URL" in
+            https://v2-demo.padiem-danjion-web-preview.pages.dev) ;;
+            *) echo 'Unexpected frontend target' >&2; exit 1 ;;
+          esac
+          case "$WORKER_URL" in
+            https://v2-demo-padiem-danjion-api-preview.padiem.workers.dev) ;;
+            *) echo 'Unexpected worker target' >&2; exit 1 ;;
+          esac
+
+      - name: Verify frontend and anonymous public discovery
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --retry 6 --retry-all-errors --retry-delay 3 "$FRONTEND_URL/" >/dev/null
+          public_json="$(curl --fail --silent --show-error "$WORKER_URL/api/v1/complexes/$COMPLEX_SLUG/businesses")"
+          jq -e '.data | type == "array"' <<<"$public_json" >/dev/null
+
+      - name: Create resident application, approve as manager, and rediscover publicly
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          short_sha="${GITHUB_SHA:0:8}"
+          business_name="단지온 자동검증 ${short_sha}"
+          idempotency_key="preview-cycle-${GITHUB_SHA:0:12}"
+
+          payload="$(jq -nc \
+            --arg slug "$COMPLEX_SLUG" \
+            --arg name "$business_name" \
+            '{
+              complexSlug: $slug,
+              relationType: "resident",
+              businessName: $name,
+              categoryName: "반찬·식품",
+              serviceSummary: "V2 Preview 실제 API·테스트 DB 신청→승인→공개 재노출 자동검증",
+              priceText: "시연 10,000원",
+              contactMethod: "010-0000-0000",
+              serviceArea: "방림명지로드힐 시연 생활권",
+              benefitText: "시연 입주민 5% 할인",
+              availabilityText: "Preview only"
+            }')"
+
+          application_json="$(curl --fail --silent --show-error \
+            -X POST \
+            -H 'content-type: application/json' \
+            -H 'x-danjion-dev-auth-user: dev-resident-001' \
+            -H "idempotency-key: $idempotency_key" \
+            --data "$payload" \
+            "$WORKER_URL/api/v1/me/business-applications")"
+
+          application_id="$(jq -r '.data.id // empty' <<<"$application_json")"
+          test -n "$application_id"
+          jq -e '.data.status == "pending" or .data.status == "approved"' <<<"$application_json" >/dev/null
+
+          resident_approve_status="$(curl --silent --show-error -o /dev/null -w '%{http_code}' \
+            -X PATCH \
+            -H 'content-type: application/json' \
+            -H 'x-danjion-dev-auth-user: dev-resident-001' \
+            --data '{"status":"approved","reviewNote":"resident must not approve"}' \
+            "$WORKER_URL/api/v1/admin/business-applications/$application_id")"
+          test "$resident_approve_status" = '403'
+
+          approval_json="$(curl --fail --silent --show-error \
+            -X PATCH \
+            -H 'content-type: application/json' \
+            -H 'x-danjion-dev-auth-user: dev-manager-001' \
+            --data '{"status":"approved","reviewNote":"Synthetic V2 preview live-cycle gate"}' \
+            "$WORKER_URL/api/v1/admin/business-applications/$application_id")"
+
+          approved_business_id="$(jq -r '.data.approved_business_id // .data.approvedBusinessId // empty' <<<"$approval_json")"
+          test -n "$approved_business_id"
+
+          public_after="$(curl --fail --silent --show-error "$WORKER_URL/api/v1/complexes/$COMPLEX_SLUG/businesses")"
+          jq -e \
+            --arg id "$approved_business_id" \
+            --arg name "$business_name" \
+            'any(.data[]; .id == $id and .name == $name)' \
+            <<<"$public_after" >/dev/null
+
+          echo "application_id=$application_id" >> "$GITHUB_STEP_SUMMARY"
+          echo "approved_business_id=$approved_business_id" >> "$GITHUB_STEP_SUMMARY"
+          echo "business_name=$business_name" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Completion evidence
+        if: success()
+        shell: bash
+        run: |
+          {
+            echo '## DanjiOn V2 loginless real-data cycle — PASS'
+            echo
+            echo '- Frontend reachable without login: PASS'
+            echo '- Anonymous public API discovery: PASS'
+            echo '- Verified synthetic resident application write to Neon child: PASS'
+            echo '- Resident self-approval denial: PASS'
+            echo '- Verified synthetic manager approval: PASS'
+            echo '- Approved business rediscovered by public endpoint: PASS'
+            echo '- Production DB / production deployment / real identity: NOT USED'
+          } >> "$GITHUB_STEP_SUMMARY"
