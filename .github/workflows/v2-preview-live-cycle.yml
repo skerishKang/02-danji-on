@@ -6,6 +6,10 @@ on:
       - feat/v2-preview-demo-mode
     paths:
       - '.github/workflows/v2-preview-live-cycle.yml'
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - '.github/workflows/v2-preview-live-cycle.yml'
   workflow_dispatch:
 
 concurrency:
@@ -28,7 +32,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$GITHUB_REF_NAME" = 'feat/v2-preview-demo-mode'
+          branch="${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}"
+          test "$branch" = 'feat/v2-preview-demo-mode'
           case "$FRONTEND_URL" in
             https://v2-demo.padiem-danjion-web-preview.pages.dev) ;;
             *) echo 'Unexpected frontend target' >&2; exit 1 ;;
