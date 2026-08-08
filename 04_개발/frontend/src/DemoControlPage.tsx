@@ -10,6 +10,13 @@ const statusLabels: Record<DemoSession['status'], string> = {
   complete: '시연 완료'
 };
 
+const detailStatusLabels: Record<DemoSession['status'], string> = {
+  idle: '준비 전',
+  ready: '준비됨',
+  running: '진행 중',
+  complete: '완료'
+};
+
 function formatTime(value: string | null) {
   if (!value) return '-';
   const date = new Date(value);
@@ -106,7 +113,7 @@ export default function DemoControlPage() {
         <article>
           <h2>현재 상태</h2>
           <dl>
-            <div><dt>상태</dt><dd>{statusLabels[session.status]}</dd></div>
+            <div><dt>상태</dt><dd>{detailStatusLabels[session.status]}</dd></div>
             <div><dt>준비 시각</dt><dd>{formatTime(session.preparedAt)}</dd></div>
             <div><dt>시작 시각</dt><dd>{formatTime(session.startedAt)}</dd></div>
             <div><dt>Run ID</dt><dd>{session.runId || '-'}</dd></div>
