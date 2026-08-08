@@ -136,23 +136,27 @@ jobs:
           echo "url=$worker_url" >> "$GITHUB_OUTPUT"
           echo "Worker preview: $worker_url"
 
-      - name: Verify existing Pages project
-        working-directory: 04_개발/backend
+      - name: Verify existing Pages project with Cloudflare API
         shell: bash
         run: |
           set -euo pipefail
-          project_json="${RUNNER_TEMP}/v2-pages-projects.json"
-          npx wrangler pages project list --json > "$project_json"
-          node - "$project_json" "$PAGES_PROJECT" <<'NODE'
+          response_file="${RUNNER_TEMP}/v2-pages-project.json"
+          status="$(curl --silent --show-error \
+            --output "$response_file" \
+            --write-out '%{http_code}' \
+            --header "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/pages/projects/${PAGES_PROJECT}")"
+          if [ "$status" != '200' ]; then
+            echo "::error::Cloudflare Pages project lookup failed with HTTP ${status}: ${PAGES_PROJECT}"
+            exit 1
+          fi
+          node - "$response_file" "$PAGES_PROJECT" <<'NODE'
           const fs = require('fs');
-          const [file, name] = process.argv.slice(2);
-          const parsed = JSON.parse(fs.readFileSync(file, 'utf8'));
-          const rows = Array.isArray(parsed) ? parsed : (parsed.result || parsed.projects || []);
-          if (!rows.some((row) => row && row.name === name)) {
-            console.error(`Required existing Pages project not found: ${name}`);
-            process.exit(1);
-          }
+          const [file, expected] = process.argv.slice(2);
+          const payload = JSON.parse(fs.readFileSync(file, 'utf8'));
+          if (payload?.success !== true || payload?.result?.name !== expected) process.exit(1);
           NODE
+          echo "Pages project verified: $PAGES_PROJECT"
 
       - name: Build and deploy V1 surface
         working-directory: 04_개발/frontend
