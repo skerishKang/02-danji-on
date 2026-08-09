@@ -51,6 +51,10 @@ function roleSelector(page: Page) {
   return page.getByRole('combobox', { name: '시연 역할' });
 }
 
+function registrationButton(page: Page) {
+  return page.locator('#v2-registration').getByRole('button', { name: '내 일 알리기' });
+}
+
 async function switchRole(page: Page, role: 'anonymous' | 'unverified' | 'resident' | 'manager') {
   await roleSelector(page).selectOption(role);
   await pause(page, role === 'anonymous' || role === 'unverified' ? 2200 : 1000);
@@ -148,7 +152,7 @@ test('권한이 적은 순서로 실제 기능을 클릭해 본다', async ({ pa
 
   await page.locator('#v2-registration').scrollIntoViewIfNeeded();
   await pause(page, 700);
-  await centerAndClick(page.getByRole('button', { name: '내 일 알리기' }));
+  await centerAndClick(registrationButton(page));
   await expect(page.getByRole('dialog')).toContainText('STEP 1 / 4');
   await pause(page, 1500);
   await closeDialog(page);
@@ -177,7 +181,7 @@ test('권한이 적은 순서로 실제 기능을 클릭해 본다', async ({ pa
   }
 
   await page.locator('#v2-registration').scrollIntoViewIfNeeded();
-  await centerAndClick(page.getByRole('button', { name: '내 일 알리기' }));
+  await centerAndClick(registrationButton(page));
   let dialog = page.getByRole('dialog');
   await expect(dialog).toContainText('STEP 1 / 4');
   await pause(page, 700);
