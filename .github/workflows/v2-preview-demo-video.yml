@@ -68,6 +68,16 @@ jobs:
           import { neon } from '@neondatabase/serverless';
           const sql = neon(process.env.DANJION_DATABASE_URL);
           const name = process.env.PREVIEW_VIDEO_BUSINESS_NAME;
+
+          // Keep the human-facing walkthrough clean: remove only the workflow's
+          // explicitly named synthetic smoke records from the non-production child.
+          const smokeApps = await sql`select approved_business_id from business_applications where business_name like '단지온 자동검증 %'`;
+          for (const row of smokeApps) {
+            if (row.approved_business_id) await sql`delete from businesses where id = ${String(row.approved_business_id)}::uuid`;
+          }
+          await sql`delete from business_applications where business_name like '단지온 자동검증 %'`;
+          await sql`delete from businesses where name like '단지온 자동검증 %'`;
+
           const apps = await sql`select approved_business_id from business_applications where business_name = ${name}`;
           for (const row of apps) {
             if (row.approved_business_id) await sql`delete from businesses where id = ${String(row.approved_business_id)}::uuid`;
