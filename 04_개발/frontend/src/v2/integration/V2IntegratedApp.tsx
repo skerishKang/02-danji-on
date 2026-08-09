@@ -256,7 +256,7 @@ export default function V2IntegratedApp() {
 
   function requirePrivateSession(action: string) {
     if (privateSessionReady) return true;
-    setMessage(`${action} 기능은 실제 로그인 연결 후 사용할 수 있습니다.`);
+    setMessage(`${action} 기능은 로그인 후 사용할 수 있습니다.`);
     return false;
   }
 
@@ -433,17 +433,17 @@ export default function V2IntegratedApp() {
     setBusy(true);
     setMessage('');
     try {
-      await adminAdapter.reviewApplication(activeApplication.id, 'approved', 'V2 통합 Preview 승인');
+      await adminAdapter.reviewApplication(activeApplication.id, 'approved', '운영자 승인');
       const businesses = await dataAdapter.listBusinesses({ query: activeApplication.businessName });
       const materialized = businesses.find((business) => business.name === activeApplication.businessName);
-      if (!materialized) throw new Error('승인된 가게가 기존 Business 목록에 materialize되지 않았습니다.');
+      if (!materialized) throw new Error('승인 처리 후 공개 목록을 확인하지 못했습니다.');
       const visual = await approvedBusinessToV2Visual(materialized, activeApplication);
       setDynamicShops((current) => [visual, ...current.filter((shop) => shop.id !== visual.id)]);
       setOperatorOpen(false);
       setQuery('');
       setCategory('all');
       setRelation('all');
-      setMessage('승인 완료. 기존 승인 materialization을 거쳐 다시 발견됩니다.');
+      setMessage('승인 완료. 공개 목록에 반영되었습니다.');
     } catch (error) {
       setMessage(error instanceof Error ? error.message : '운영 승인에 실패했습니다.');
     } finally {
@@ -482,14 +482,14 @@ export default function V2IntegratedApp() {
           <div className="v2-section-inner">
             <div className="v2-section-heading">
               <div>
-                <div className="v2-kicker">SCENE 03 · 가까운 일부터 발견</div>
+                <div className="v2-kicker">가까운 일부터 발견</div>
                 <h2 className="v2-section-title">가까운 사람의 일을 먼저 보여줍니다.</h2>
               </div>
-              <p>V2의 시각 기준은 이미지 리프레시 원본을 따르고, 등록·혜택·승인 데이터 흐름은 기존 단지온 adapter 계약을 유지합니다.</p>
+              <p>같은 단지 주민의 일부터 살펴보고, 필요한 서비스는 분야와 관계에 따라 골라볼 수 있습니다.</p>
             </div>
 
             {publicLoadError && <div className="v2-data-notice" role="alert">가게 정보를 불러오지 못했습니다. {publicLoadError}</div>}
-            {V2_API_DATA_MODE && privateDataUnavailable && <div className="v2-data-notice" role="status">공개 가게는 실제 API 데이터를 사용합니다. 저장·혜택·문의·등록은 브라우저 로그인 연결 후 활성화됩니다.</div>}
+            {V2_API_DATA_MODE && privateDataUnavailable && <div className="v2-data-notice" role="status">저장·주민혜택·문의·내 일 알리기는 로그인 후 이용할 수 있습니다.</div>}
 
             <div className="v2-discovery-search" role="search">
               <V2Icon name="search" />
@@ -526,13 +526,13 @@ export default function V2IntegratedApp() {
           <div className="v2-section-inner v2-benefit-layout">
             <div className="v2-benefit-photo">
               <V2VisualImage src={primaryBenefitImage.src} fallbackSrc={LOCAL_IMAGE_FALLBACK} alt={primaryBenefit ? `${primaryBenefit.businessName} 주민혜택` : '주민혜택 예시'} fallbackLabel={primaryBenefit?.businessName ?? '주민혜택'} />
-              <div className="v2-benefit-photo-copy"><div className="v2-eyebrow">SCENE 04 · 주민혜택</div><h2>혜택이<br />실제 행동이 됩니다.</h2><p>혜택을 받으면 내정보에서 번호와 사용 상태를 다시 확인할 수 있습니다.</p></div>
+              <div className="v2-benefit-photo-copy"><div className="v2-eyebrow">주민혜택</div><h2>혜택이<br />실제 행동이 됩니다.</h2><p>혜택을 받으면 내정보에서 번호와 사용 상태를 다시 확인할 수 있습니다.</p></div>
             </div>
             <div className="v2-benefit-panel">
               <div className="v2-benefit-card">
-                <span className="v2-tag">방림명지로드힐 입주민 전용{V2_API_DATA_MODE ? '' : ' · 시연용 예시'}</span>
-                <h3>{primaryBenefit?.businessName ?? '현재 연결된 주민혜택 없음'}</h3>
-                <div className="v2-benefit-big">{primaryBenefit?.title ?? '입주민 인증 후 이용 가능한 혜택을 준비 중입니다.'}</div>
+                <span className="v2-tag">방림명지로드힐 입주민 전용</span>
+                <h3>{primaryBenefit?.businessName ?? '주민혜택 준비 중'}</h3>
+                <div className="v2-benefit-big">{primaryBenefit?.title ?? '입주민을 위한 혜택을 준비하고 있습니다.'}</div>
                 {primaryBenefit?.description && <p>{primaryBenefit.description}</p>}
                 {primaryBenefit?.conditions && <small>{primaryBenefit.conditions}</small>}
                 <div className="v2-benefit-code"><span>혜택번호</span><strong>{primaryClaim?.code ?? '받기 전'}</strong></div>
@@ -547,7 +547,7 @@ export default function V2IntegratedApp() {
 
         <section id="v2-registration" data-v2-section="registration" className="v2-integration-section v2-registration-section">
           <div className="v2-section-inner v2-registration-teaser">
-            <div><div className="v2-kicker">SCENE 05 · ROLE SHIFT</div><h2 className="v2-section-title">이번에는 내 일을 알립니다.</h2><p>소비자로 둘러보던 주민이 공급자로 전환되는 순간을 별도의 로그인 역할이 아니라 기존 BusinessApplication 계약으로 연결합니다.</p></div>
+            <div><div className="v2-kicker">이번에는 내 일을 알리기</div><h2 className="v2-section-title">이번에는 내 일을 알립니다.</h2><p>내가 잘하는 일이나 운영하는 가게를 등록하면 이웃이 가까운 곳에서 먼저 발견할 수 있습니다.</p></div>
             <button type="button" className="v2-btn v2-btn-primary" onClick={openRegistration}>내 일 알리기</button>
           </div>
         </section>
@@ -555,8 +555,8 @@ export default function V2IntegratedApp() {
         <section id="v2-promo" data-v2-section="promo" className="v2-integration-section v2-promo-section">
           <div className="v2-section-inner">
             <div className="v2-section-heading">
-              <div><div className="v2-kicker">SCENE 06 · PROMOTION</div><h2 className="v2-section-title">입력한 생활정보가 홍보물로 정돈됩니다.</h2></div>
-              <p>홍보물은 신청 데이터를 재배치한 브라우저 미리보기입니다. 별도 홍보물 DB나 저장 규칙을 만들지 않습니다.</p>
+              <div><div className="v2-kicker">내 정보로 홍보하기</div><h2 className="v2-section-title">입력한 생활정보가 홍보물로 정돈됩니다.</h2></div>
+              <p>한 번 입력한 정보로 가게소개 카드, 공유 이미지, 게시판용 홍보물을 간편하게 만들 수 있습니다.</p>
             </div>
             <div className="v2-promo-control">
               <div><span>현재 신청</span><strong>{activeApplication?.businessName ?? '아직 등록 신청이 없습니다.'}</strong></div>
@@ -573,14 +573,14 @@ export default function V2IntegratedApp() {
               {V2_DEMO_OPERATOR_MODE ? (
                 <button type="button" className="v2-btn" disabled={!promoGenerated || !activeApplication} onClick={() => setOperatorOpen(true)}>운영확인으로 이동</button>
               ) : (
-                activeApplication && <div className="v2-operator-pending" role="status"><strong>운영자 검토 대기</strong><span>실서비스에서는 신청자가 승인하지 않습니다. 운영자 화면에서 검토·승인된 뒤 공개 목록에 반영됩니다.</span></div>
+                activeApplication && <div className="v2-operator-pending" role="status"><strong>운영자 검토 대기</strong><span>운영자가 신청 내용을 확인하고 승인하면 공개 목록에 반영됩니다.</span></div>
               )}
             </div>
           </div>
         </section>
 
         <section id="v2-ending" data-v2-section="ending" className="v2-integration-section v2-ending-section">
-          <div className="v2-section-inner"><div className="v2-kicker">SCENE 07 · CIRCULAR NEIGHBOR ECONOMY</div><h2 className="v2-section-title">우리 단지의 소비가 우리 이웃의 일로 이어집니다.</h2><p>발견 → 혜택 → 등록 → 홍보 → 운영확인 → 다시 발견의 순환을 한 화면에서 확인합니다.</p></div>
+          <div className="v2-section-inner"><div className="v2-kicker">우리 단지의 이웃경제</div><h2 className="v2-section-title">우리 단지의 소비가 우리 이웃의 일로 이어집니다.</h2><p>발견 → 혜택 → 등록 → 홍보 → 운영확인 → 다시 발견의 순환을 한 화면에서 확인합니다.</p></div>
         </section>
       </main>
 
@@ -607,9 +607,9 @@ export default function V2IntegratedApp() {
         <div className="v2-dialog-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setProfileOpen(false); }}>
           <section className="v2-dialog v2-profile-dialog" role="dialog" aria-modal="true" aria-labelledby="v2-profile-title">
             <button ref={profileCloseRef} type="button" className="v2-dialog-close" onClick={() => setProfileOpen(false)}>닫기</button>
-            <span className="v2-eyebrow">MY DANJION</span><h2 id="v2-profile-title">내정보</h2>
-            <p>계정 로그인과 입주민 인증은 별도 자격 레이어입니다. {V2_API_DATA_MODE ? '실제 인증 상태가 연결되기 전에는 입주민 인증 배지를 표시하지 않습니다.' : '이 화면은 시연용 주민 상태입니다.'}</p>
-            {V2_API_DATA_MODE && privateDataUnavailable && <div className="v2-data-notice" role="status">브라우저 로그인 연결 전이라 개인 혜택·저장 목록은 불러오지 않았습니다.</div>}
+            <span className="v2-eyebrow">나의 단지온</span><h2 id="v2-profile-title">내정보</h2>
+            <p>내가 받은 주민혜택과 저장한 이웃가게를 한곳에서 확인할 수 있습니다.</p>
+            {V2_API_DATA_MODE && privateDataUnavailable && <div className="v2-data-notice" role="status">로그인하면 개인 혜택과 저장 목록을 확인할 수 있습니다.</div>}
             <div className="v2-profile-benefits">
               <h3>내 주민혜택</h3>
               {claims.map((claim) => <article key={claim.id}><div><strong>{claim.businessName}</strong><span>{claim.title}</span><code>{claim.code}</code></div><div><b>{claim.status === 'used' ? '사용 완료' : '보관 중'}</b>{claim.status === 'stored' && <button type="button" className="v2-btn v2-btn-small" disabled={busy} onClick={() => void useResidentBenefit(claim.benefitId)}>사용 완료 처리</button>}</div></article>)}
@@ -623,12 +623,12 @@ export default function V2IntegratedApp() {
         <div className="v2-dialog-backdrop">
           <section className="v2-dialog v2-registration-dialog" role="dialog" aria-modal="true" aria-labelledby="v2-registration-dialog-title">
             <button ref={registrationCloseRef} type="button" className="v2-dialog-close" onClick={() => setRegistrationOpen(false)}>닫기</button>
-            <div className="v2-step-label">STEP {registrationStep} / 4</div>
+            <div className="v2-step-label">등록 {registrationStep} / 4</div>
             <h2 id="v2-registration-dialog-title" className="v2-registration-heading">{registrationStepTitle}</h2>
             <form onSubmit={(event) => void submitRegistration(event)}>
-              {registrationStep === 1 && <fieldset><legend className="v2-sr-only">{registrationStepTitle}</legend><p>사업 공개정보와 주민 인증자료는 분리해서 다룹니다.</p><label className="v2-choice"><input type="radio" name="relation" checked={registration.relationType === 'resident'} onChange={() => updateRegistration('relationType', 'resident')} />현재 단지 주민 직접 운영</label><label className="v2-choice"><input type="radio" name="relation" checked={registration.relationType === 'resident_family'} onChange={() => updateRegistration('relationType', 'resident_family')} />현재 단지 주민 가족 운영</label><label className="v2-choice"><input type="radio" name="relation" checked={registration.relationType === 'neighbor'} onChange={() => updateRegistration('relationType', 'neighbor')} />이웃 단지 주민 운영</label><label className="v2-choice"><input type="radio" name="relation" checked={registration.relationType === 'local'} onChange={() => updateRegistration('relationType', 'local')} />일반 동네 제휴가게</label></fieldset>}
+              {registrationStep === 1 && <fieldset><legend className="v2-sr-only">{registrationStepTitle}</legend><p>가게에 공개할 정보와 주민 확인 정보는 서로 나누어 관리합니다.</p><label className="v2-choice"><input type="radio" name="relation" checked={registration.relationType === 'resident'} onChange={() => updateRegistration('relationType', 'resident')} />현재 단지 주민 직접 운영</label><label className="v2-choice"><input type="radio" name="relation" checked={registration.relationType === 'resident_family'} onChange={() => updateRegistration('relationType', 'resident_family')} />현재 단지 주민 가족 운영</label><label className="v2-choice"><input type="radio" name="relation" checked={registration.relationType === 'neighbor'} onChange={() => updateRegistration('relationType', 'neighbor')} />이웃 단지 주민 운영</label><label className="v2-choice"><input type="radio" name="relation" checked={registration.relationType === 'local'} onChange={() => updateRegistration('relationType', 'local')} />일반 동네 제휴가게</label></fieldset>}
               {registrationStep === 2 && <fieldset><legend className="v2-sr-only">{registrationStepTitle}</legend><div className="v2-registration-fields"><label>이름 또는 가게명<input value={registration.businessName} onChange={(event) => updateRegistration('businessName', event.target.value)} /></label><label>무슨 일을 하나요?<textarea rows={3} value={registration.serviceSummary} onChange={(event) => updateRegistration('serviceSummary', event.target.value)} /></label><label>가격 또는 상담 기준<input value={registration.priceText || ''} onChange={(event) => updateRegistration('priceText', event.target.value)} /></label><label>이용 지역과 방식<input value={registration.serviceArea || ''} onChange={(event) => updateRegistration('serviceArea', event.target.value)} /></label><label>문의 방식<input value={registration.contactMethod || ''} onChange={(event) => updateRegistration('contactMethod', event.target.value)} /></label></div></fieldset>}
-              {registrationStep === 3 && <fieldset><legend className="v2-sr-only">{registrationStepTitle}</legend><div className="v2-registration-photo-preview">{registrationImagePreview ? <img src={registrationImagePreview} alt="등록할 대표 이미지 미리보기" /> : <V2VisualImage src={V2_REFERENCE_IMAGES.learning.src} fallbackSrc={LOCAL_IMAGE_FALLBACK} alt="등록 대표 이미지 예시" fallbackLabel="대표 이미지" />}<span>대표 사진은 기존 StorageAdapter 계약으로 저장되며 공개 가게 이미지에 연결됩니다.</span></div><label className="v2-full-label">대표 이미지<input type="file" accept="image/jpeg,image/png,image/webp" disabled={busy} onChange={(event) => void uploadRegistrationImage(event.currentTarget.files?.[0] ?? null)} /></label><label className="v2-full-label">입주민 혜택<input value={registration.benefitText || ''} onChange={(event) => updateRegistration('benefitText', event.target.value)} /></label></fieldset>}
+              {registrationStep === 3 && <fieldset><legend className="v2-sr-only">{registrationStepTitle}</legend><div className="v2-registration-photo-preview">{registrationImagePreview ? <img src={registrationImagePreview} alt="등록할 대표 이미지 미리보기" /> : <V2VisualImage src={V2_REFERENCE_IMAGES.learning.src} fallbackSrc={LOCAL_IMAGE_FALLBACK} alt="등록 대표 이미지 예시" fallbackLabel="대표 이미지" />}<span>대표 사진을 등록하면 가게소개와 검색 결과에 함께 표시됩니다.</span></div><label className="v2-full-label">대표 이미지<input type="file" accept="image/jpeg,image/png,image/webp" disabled={busy} onChange={(event) => void uploadRegistrationImage(event.currentTarget.files?.[0] ?? null)} /></label><label className="v2-full-label">입주민 혜택<input value={registration.benefitText || ''} onChange={(event) => updateRegistration('benefitText', event.target.value)} /></label></fieldset>}
               {registrationStep === 4 && <fieldset><legend className="v2-sr-only">{registrationStepTitle}</legend><div className="v2-public-private"><article><span>공개정보 확인</span><h3>{registration.businessName || '가게명'}</h3><p>{registration.serviceSummary || '하는 일'}</p><strong>{registration.priceText || '상담 후 안내'}</strong></article><article><span>비공개 주민관계 확인</span><h3>{registration.relationType === 'resident' ? '현재 단지 주민 직접 운영' : registration.relationType === 'resident_family' ? '현재 단지 주민 가족 운영' : registration.relationType === 'neighbor' ? '이웃 단지 주민 운영' : '일반 동네 제휴가게'}</h3><p>동·호수와 인증 증빙은 공개하지 않습니다.</p></article></div></fieldset>}
               <div className="v2-dialog-actions">
                 {registrationStep > 1 && <button type="button" className="v2-btn" onClick={() => setRegistrationStep((registrationStep - 1) as 1 | 2 | 3 | 4)}>이전</button>}
@@ -644,8 +644,8 @@ export default function V2IntegratedApp() {
         <div className="v2-dialog-backdrop">
           <section className="v2-dialog v2-operator-dialog" role="dialog" aria-modal="true" aria-labelledby="v2-operator-title">
             <button ref={operatorCloseRef} type="button" className="v2-dialog-close" onClick={() => setOperatorOpen(false)}>닫기</button>
-            <span className="v2-eyebrow">OPERATOR REVIEW · DEMO ONLY</span><h2 id="v2-operator-title">운영확인</h2>
-            <div className="v2-public-private"><article><span>공개정보 확인</span><h3>{activeApplication.businessName}</h3><p>{activeApplication.serviceSummary}</p><strong>{activeApplication.benefitText || '주민혜택 없음'}</strong></article><article><span>비공개 주민관계 확인</span><h3>주민 관계와 인증 경계</h3><p>정확한 동·호수와 증빙 원문은 공개하지 않습니다.</p></article></div>
+            <span className="v2-eyebrow">운영자 검토</span><h2 id="v2-operator-title">운영확인</h2>
+            <div className="v2-public-private"><article><span>공개정보 확인</span><h3>{activeApplication.businessName}</h3><p>{activeApplication.serviceSummary}</p><strong>{activeApplication.benefitText || '주민혜택 없음'}</strong></article><article><span>비공개 주민관계 확인</span><h3>주민 관계와 인증 정보</h3><p>정확한 동·호수와 증빙 원문은 공개하지 않습니다.</p></article></div>
             <div className="v2-dialog-actions"><button type="button" className="v2-btn" onClick={() => setOperatorOpen(false)}>홍보물로 돌아가기</button><button type="button" className="v2-btn v2-btn-primary" disabled={busy} onClick={() => void approveApplication()}>승인하여 공개</button></div>
           </section>
         </div>
