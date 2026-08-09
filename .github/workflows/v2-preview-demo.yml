@@ -261,6 +261,78 @@ jobs:
           echo "approved_business_id=$approved_business_id" >> "$GITHUB_STEP_SUMMARY"
           echo "business_name=$business_name" >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Install Chromium for role walkthrough video
+        working-directory: 04_개발/frontend
+        run: npx playwright install --with-deps chromium
+
+      - name: Reset walkthrough-only test state
+        working-directory: 04_개발/backend
+        env:
+          PREVIEW_VIDEO_BUSINESS_NAME: 단지온 권한영상 ${{ github.sha }}
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import { neon } from '@neondatabase/serverless';
+          const sql = neon(process.env.DANJION_DATABASE_URL);
+          const name = process.env.PREVIEW_VIDEO_BUSINESS_NAME;
+          const apps = await sql`select approved_business_id from business_applications where business_name = ${name}`;
+          for (const row of apps) {
+            if (row.approved_business_id) await sql`delete from businesses where id = ${String(row.approved_business_id)}::uuid`;
+          }
+          await sql`delete from business_applications where business_name = ${name}`;
+          await sql`delete from benefit_claims where user_id = '22222222-2222-4222-8222-222222222221'::uuid and benefit_id = '88888888-8888-4888-8888-888888888881'::uuid`;
+          NODE
+
+      - name: Record permission walkthrough video
+        id: role_video
+        working-directory: 04_개발/frontend
+        env:
+          PREVIEW_VIDEO_BASE_URL: ${{ steps.pages.outputs.url }}
+          PREVIEW_VIDEO_BUSINESS_NAME: 단지온 권한영상 ${{ github.sha }}
+        run: npx playwright test --config=playwright.preview-video.config.ts
+
+      - name: Produce MP4 walkthrough
+        working-directory: 04_개발/frontend
+        shell: bash
+        run: |
+          set -euo pipefail
+          video="$(find preview-video-results -type f -name 'video.webm' | head -n 1)"
+          test -n "$video"
+          cp "$video" danjion-v2-role-walkthrough.webm
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg >/dev/null
+          ffmpeg -y -i danjion-v2-role-walkthrough.webm -c:v libx264 -preset medium -crf 20 -pix_fmt yuv420p -movflags +faststart danjion-v2-role-walkthrough.mp4
+          ls -lh danjion-v2-role-walkthrough.webm danjion-v2-role-walkthrough.mp4
+
+      - name: Upload role walkthrough video
+        uses: actions/upload-artifact@v4
+        with:
+          name: danjion-v2-role-walkthrough
+          path: |
+            04_개발/frontend/danjion-v2-role-walkthrough.mp4
+            04_개발/frontend/danjion-v2-role-walkthrough.webm
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Clean walkthrough-only database writes
+        if: always()
+        working-directory: 04_개발/backend
+        env:
+          PREVIEW_VIDEO_BUSINESS_NAME: 단지온 권한영상 ${{ github.sha }}
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import { neon } from '@neondatabase/serverless';
+          const sql = neon(process.env.DANJION_DATABASE_URL);
+          const name = process.env.PREVIEW_VIDEO_BUSINESS_NAME;
+          const apps = await sql`select approved_business_id from business_applications where business_name = ${name}`;
+          for (const row of apps) {
+            if (row.approved_business_id) await sql`delete from businesses where id = ${String(row.approved_business_id)}::uuid`;
+          }
+          await sql`delete from business_applications where business_name = ${name}`;
+          await sql`delete from benefit_claims where user_id = '22222222-2222-4222-8222-222222222221'::uuid and benefit_id = '88888888-8888-4888-8888-888888888881'::uuid`;
+          NODE
+
       - name: Preview demo evidence
         if: success()
         shell: bash
@@ -274,15 +346,12 @@ jobs:
             echo "- V2 demo: $FRONTEND_URL"
             echo "- Worker alias preview: $WORKER_URL"
             echo '- Data: approved non-production Neon child only'
-            echo '- Roles: anonymous / verified resident / unverified resident / manager'
+            echo '- Roles: anonymous / unverified resident / verified resident / manager'
             echo '- Anonymous public discovery: PASS'
-            echo '- Verified resident private boundary: PASS'
-            echo '- Unverified resident contact denial: PASS'
-            echo '- Resident admin denial: PASS'
-            echo '- Manager admin access: PASS'
-            echo '- Resident application write: PASS'
-            echo '- Manager approval: PASS'
-            echo '- Approved business public rediscovery: PASS'
+            echo '- Unverified resident denial + registration access: PASS'
+            echo '- Verified resident contact + benefit + application: PASS'
+            echo '- Manager approval + public rediscovery: PASS'
+            echo '- Role walkthrough video artifact: danjion-v2-role-walkthrough'
             echo '- Real login provider: NOT USED'
             echo '- Drive writes: NONE (mock storage in this gate)'
             echo '- Production deployment/database: NONE'
