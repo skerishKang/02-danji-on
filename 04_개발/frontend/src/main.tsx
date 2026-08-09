@@ -9,7 +9,6 @@ import { installPromoMaterialLaunchers } from './promo-launcher';
 import { installResidentDeepLink } from './resident-deep-link';
 import { getDanjiOnUiVariant, UiVariantRoot } from './ui-variant';
 import V2IntegratedApp from './v2/integration/V2IntegratedApp';
-import './v2/integration/v2-presentation-polish.css';
 import V2PreviewDemoShell from './v2/preview-demo/V2PreviewDemoShell';
 
 const uiVariant = getDanjiOnUiVariant();
