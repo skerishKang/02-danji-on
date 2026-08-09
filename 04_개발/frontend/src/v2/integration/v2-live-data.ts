@@ -42,6 +42,45 @@ export function imageForV2Category(category: V2CategoryKey): V2ReferenceImage {
   return V2_REFERENCE_IMAGES.photo;
 }
 
+const ALL_DEMO_IMAGES: readonly V2ReferenceImage[] = [
+  V2_REFERENCE_IMAGES.food,
+  V2_REFERENCE_IMAGES.learning,
+  V2_REFERENCE_IMAGES.home,
+  V2_REFERENCE_IMAGES.professional,
+  V2_REFERENCE_IMAGES.craft,
+  V2_REFERENCE_IMAGES.car,
+  V2_REFERENCE_IMAGES.beauty,
+  V2_REFERENCE_IMAGES.photo
+];
+
+const CATEGORY_FALLBACK_POOLS: Record<V2CategoryKey, readonly V2ReferenceImage[]> = {
+  food: [V2_REFERENCE_IMAGES.food, V2_REFERENCE_IMAGES.craft],
+  learning: [V2_REFERENCE_IMAGES.learning, V2_REFERENCE_IMAGES.professional],
+  home: [V2_REFERENCE_IMAGES.home, V2_REFERENCE_IMAGES.car],
+  professional: [V2_REFERENCE_IMAGES.professional, V2_REFERENCE_IMAGES.learning],
+  beauty: [V2_REFERENCE_IMAGES.beauty, V2_REFERENCE_IMAGES.craft],
+  creative: [V2_REFERENCE_IMAGES.craft, V2_REFERENCE_IMAGES.photo]
+};
+
+function stableVisualIndex(value: string, length: number): number {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0) % Math.max(length, 1);
+}
+
+export function fallbackImageForBusiness(business: Pick<Business, 'id' | 'name'>, category: V2CategoryKey): V2ReferenceImage {
+  // Automated Preview smoke businesses are deliberately synthetic. Spread those cards
+  // across the complete source-locked image set so repeated CI fixtures do not look
+  // like the same shop. Normal businesses stay within a semantically adjacent pool.
+  const pool = PREVIEW_DEMO_ENABLED && business.name.startsWith('단지온 자동검증 ')
+    ? ALL_DEMO_IMAGES
+    : CATEGORY_FALLBACK_POOLS[category];
+  return pool[stableVisualIndex(`${business.id}:${business.name}`, pool.length)] ?? imageForV2Category(category);
+}
+
 function categoryColor(category: V2CategoryKey) {
   if (category === 'learning') return '#4057E8';
   if (category === 'food') return '#E95C3E';
@@ -52,7 +91,7 @@ function categoryColor(category: V2CategoryKey) {
 }
 
 async function imageForBusiness(business: Business, category: V2CategoryKey): Promise<V2ReferenceImage> {
-  const fallback = imageForV2Category(category);
+  const fallback = fallbackImageForBusiness(business, category);
   const objectKey = business.representativeImageObjectKey;
   if (!objectKey || !storageAdapter.resolvePreview) return fallback;
 
