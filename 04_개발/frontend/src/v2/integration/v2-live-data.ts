@@ -39,7 +39,7 @@ export function imageForV2Category(category: V2CategoryKey): V2ReferenceImage {
   if (category === 'home') return V2_REFERENCE_IMAGES.home;
   if (category === 'professional') return V2_REFERENCE_IMAGES.professional;
   if (category === 'beauty') return V2_REFERENCE_IMAGES.beauty;
-  return V2_REFERENCE_IMAGES.photo;
+  return V2_REFERENCE_IMAGES.craft;
 }
 
 const ALL_DEMO_IMAGES: readonly V2ReferenceImage[] = [
@@ -53,15 +53,6 @@ const ALL_DEMO_IMAGES: readonly V2ReferenceImage[] = [
   V2_REFERENCE_IMAGES.photo
 ];
 
-const CATEGORY_FALLBACK_POOLS: Record<V2CategoryKey, readonly V2ReferenceImage[]> = {
-  food: [V2_REFERENCE_IMAGES.food, V2_REFERENCE_IMAGES.craft],
-  learning: [V2_REFERENCE_IMAGES.learning, V2_REFERENCE_IMAGES.professional],
-  home: [V2_REFERENCE_IMAGES.home, V2_REFERENCE_IMAGES.car],
-  professional: [V2_REFERENCE_IMAGES.professional, V2_REFERENCE_IMAGES.learning],
-  beauty: [V2_REFERENCE_IMAGES.beauty, V2_REFERENCE_IMAGES.craft],
-  creative: [V2_REFERENCE_IMAGES.craft, V2_REFERENCE_IMAGES.photo]
-};
-
 function stableVisualIndex(value: string, length: number): number {
   let hash = 2166136261;
   for (let index = 0; index < value.length; index += 1) {
@@ -71,14 +62,22 @@ function stableVisualIndex(value: string, length: number): number {
   return (hash >>> 0) % Math.max(length, 1);
 }
 
-export function fallbackImageForBusiness(business: Pick<Business, 'id' | 'name'>, category: V2CategoryKey): V2ReferenceImage {
-  // Automated Preview smoke businesses are deliberately synthetic. Spread those cards
-  // across the complete source-locked image set so repeated CI fixtures do not look
-  // like the same shop. Normal businesses stay within a semantically adjacent pool.
-  const pool = PREVIEW_DEMO_ENABLED && business.name.startsWith('단지온 자동검증 ')
-    ? ALL_DEMO_IMAGES
-    : CATEGORY_FALLBACK_POOLS[category];
-  return pool[stableVisualIndex(`${business.id}:${business.name}`, pool.length)] ?? imageForV2Category(category);
+export function fallbackImageForBusiness(
+  business: Pick<Business, 'id' | 'name' | 'summary' | 'description'>,
+  category: V2CategoryKey
+): V2ReferenceImage {
+  // Automated CI fixtures are synthetic and may accumulate temporarily while a run
+  // is being inspected. Give them different visual references so they are never
+  // mistaken for one repeated real shop.
+  if (PREVIEW_DEMO_ENABLED && business.name.startsWith('단지온 자동검증 ')) {
+    return ALL_DEMO_IMAGES[stableVisualIndex(`${business.id}:${business.name}`, ALL_DEMO_IMAGES.length)];
+  }
+
+  const text = `${business.name} ${business.summary ?? ''} ${business.description ?? ''}`.toLowerCase();
+  if (category === 'home' && /자동차|차량|정비|오일|car|auto/.test(text)) return V2_REFERENCE_IMAGES.car;
+  if (category === 'creative' && /사진|촬영|카메라|photo|camera/.test(text)) return V2_REFERENCE_IMAGES.photo;
+  if (category === 'creative') return V2_REFERENCE_IMAGES.craft;
+  return imageForV2Category(category);
 }
 
 function categoryColor(category: V2CategoryKey) {
