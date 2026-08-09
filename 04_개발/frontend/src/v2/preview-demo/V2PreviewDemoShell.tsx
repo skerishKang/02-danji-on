@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import {
   getPreviewDemoActor,
   getPreviewDemoRole,
@@ -10,9 +10,40 @@ import {
 } from '../../preview-demo';
 import './v2-preview-demo.css';
 
+const TECHNICAL_MESSAGE_TRANSLATIONS: readonly [RegExp, string][] = [
+  [/verified resident required/i, '입주민 인증 후 이용할 수 있습니다.'],
+  [/authentication required|unauthorized|missing bearer/i, '로그인 후 이용할 수 있습니다.'],
+  [/manager role required|admin role required/i, '운영자 권한이 필요한 기능입니다.'],
+  [/forbidden/i, '현재 사용자 권한으로는 이용할 수 없습니다.'],
+  [/business not found/i, '가게 정보를 찾을 수 없습니다.'],
+  [/internal server error/i, '잠시 후 다시 이용해 주세요.']
+];
+
+function translateTechnicalMessage(text: string) {
+  const match = TECHNICAL_MESSAGE_TRANSLATIONS.find(([pattern]) => pattern.test(text));
+  return match?.[1] ?? text;
+}
+
 export default function V2PreviewDemoShell({ children }: { children: ReactNode }) {
   const [role, setRole] = useState<PreviewDemoRole>(() => getPreviewDemoRole());
   const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (!PREVIEW_DEMO_ENABLED) return;
+
+    const translateToasts = () => {
+      document.querySelectorAll<HTMLElement>('.v2-integration-toast').forEach((toast) => {
+        const current = toast.textContent?.trim() ?? '';
+        const translated = translateTechnicalMessage(current);
+        if (translated !== current) toast.textContent = translated;
+      });
+    };
+
+    translateToasts();
+    const observer = new MutationObserver(translateToasts);
+    observer.observe(document.body, { childList: true, subtree: true, characterData: true });
+    return () => observer.disconnect();
+  }, []);
 
   if (!PREVIEW_DEMO_ENABLED) return <>{children}</>;
 
@@ -48,9 +79,9 @@ export default function V2PreviewDemoShell({ children }: { children: ReactNode }
             <strong>역할을 바꾸며 실제 화면 차이를 확인하세요</strong>
           </div>
           <label>
-            <span className="v2-preview-demo-sr-only">시연 역할</span>
+            <span className="v2-preview-demo-sr-only">사용자 역할</span>
             <select
-              aria-label="시연 역할"
+              aria-label="사용자 역할"
               value={role}
               onChange={(event) => changeRole(event.target.value as PreviewDemoRole)}
             >
@@ -108,8 +139,6 @@ export default function V2PreviewDemoShell({ children }: { children: ReactNode }
               </tbody>
             </table>
           </div>
-
-          <small>권한 비교를 위한 시연 도구입니다. 일반 서비스 화면에서는 이 도구가 표시되지 않습니다.</small>
         </aside>
       )}
       {children}
