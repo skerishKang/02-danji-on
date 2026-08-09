@@ -1,0 +1,61 @@
+.v2-integrated-app #v2-discovery .v2-section-heading > p,
+.v2-integrated-app #v2-promo .v2-section-heading > p,
+.v2-integrated-app #v2-registration .v2-registration-teaser > div > p {
+  display: none;
+}
+
+.v2-integrated-app .v2-step-label {
+  display: none;
+}
+
+.v2-integrated-app #v2-discovery .v2-kicker,
+.v2-integrated-app #v2-registration .v2-kicker,
+.v2-integrated-app #v2-promo .v2-kicker,
+.v2-integrated-app #v2-ending .v2-kicker,
+.v2-integrated-app #v2-benefits .v2-benefit-photo-copy .v2-eyebrow,
+.v2-integrated-app .v2-profile-dialog > .v2-eyebrow {
+  font-size: 0;
+  letter-spacing: 0;
+}
+
+.v2-integrated-app #v2-discovery .v2-kicker::after,
+.v2-integrated-app #v2-registration .v2-kicker::after,
+.v2-integrated-app #v2-promo .v2-kicker::after,
+.v2-integrated-app #v2-ending .v2-kicker::after,
+.v2-integrated-app #v2-benefits .v2-benefit-photo-copy .v2-eyebrow::after,
+.v2-integrated-app .v2-profile-dialog > .v2-eyebrow::after {
+  font-size: 12px;
+  letter-spacing: 0.08em;
+}
+
+.v2-integrated-app #v2-discovery .v2-kicker::after {
+  content: '가까운 일부터 발견';
+}
+
+.v2-integrated-app #v2-registration .v2-kicker::after {
+  content: '이번에는 내 일을 알리기';
+}
+
+.v2-integrated-app #v2-promo .v2-kicker::after {
+  content: '내 정보로 홍보하기';
+}
+
+.v2-integrated-app #v2-ending .v2-kicker::after {
+  content: '우리 단지의 이웃경제';
+}
+
+.v2-integrated-app #v2-benefits .v2-benefit-photo-copy .v2-eyebrow::after {
+  content: '주민혜택';
+}
+
+.v2-integrated-app .v2-profile-dialog > .v2-eyebrow::after {
+  content: '나의 단지온';
+}
+
+.v2-integrated-app .v2-registration-photo-preview > span {
+  display: none;
+}
+
+.v2-integrated-app .v2-profile-dialog > p {
+  color: var(--v2-muted, #676767);
+}
