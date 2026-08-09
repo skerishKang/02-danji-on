@@ -25,6 +25,8 @@ const SESSION_KEY = 'danjion-v2-preview-demo-role';
 
 export const PREVIEW_DEMO_ENABLED = import.meta.env.VITE_PREVIEW_DEMO_MODE === 'true';
 
+// Keep this order from least to most permission so the selector, permission matrix,
+// and walkthrough video all tell the same story at a glance.
 export const PREVIEW_DEMO_ROLES: readonly PreviewDemoActor[] = [
   {
     role: 'anonymous',
@@ -38,17 +40,6 @@ export const PREVIEW_DEMO_ROLES: readonly PreviewDemoActor[] = [
     recommendedTest: '가게 탐색은 되고 문의처·혜택·등록·운영 기능은 막히는지 확인'
   },
   {
-    role: 'resident',
-    subject: 'dev-resident-001',
-    displayName: '시연 인증 입주민',
-    label: '인증 입주민',
-    description: '문의·주민혜택·내 일 알리기를 테스트 DB에서 검증합니다.',
-    verified: true,
-    manager: false,
-    permissions: { browse: true, contact: true, benefit: true, register: true, approve: false },
-    recommendedTest: '문의처 보기 → 주민혜택 → 내 일 알리기까지 진행하고 운영 승인은 막히는지 확인'
-  },
-  {
     role: 'unverified',
     subject: 'dev-unverified-001',
     displayName: '시연 미인증 주민',
@@ -58,6 +49,17 @@ export const PREVIEW_DEMO_ROLES: readonly PreviewDemoActor[] = [
     manager: false,
     permissions: { browse: true, contact: false, benefit: false, register: true, approve: false },
     recommendedTest: '내 일 신청은 가능하지만 문의처·주민혜택은 입주민 인증 요구로 막히는지 확인'
+  },
+  {
+    role: 'resident',
+    subject: 'dev-resident-001',
+    displayName: '시연 인증 입주민',
+    label: '인증 입주민',
+    description: '문의·주민혜택·내 일 알리기를 테스트 DB에서 검증합니다.',
+    verified: true,
+    manager: false,
+    permissions: { browse: true, contact: true, benefit: true, register: true, approve: false },
+    recommendedTest: '문의처 보기 → 주민혜택 → 내 일 알리기까지 진행하고 운영 승인은 막히는지 확인'
   },
   {
     role: 'manager',
