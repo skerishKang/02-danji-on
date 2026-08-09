@@ -34,7 +34,7 @@ async function showCaption(page: Page, title: string, detail: string) {
     const strong = caption.querySelector('strong') as HTMLElement;
     const span = caption.querySelector('span') as HTMLElement;
     Object.assign(strong.style, { display: 'block', fontSize: '23px', marginBottom: '7px' });
-    Object.assign(span.style, { display: 'block', fontSize: '15px', lineHeight: '1.65', opacity: '.9' });
+    Object.assign(span.style, { display: 'block', fontSize: '15px', lineHeight: '1.65', opacity: '.9', whiteSpace: 'pre-line' });
     document.body.appendChild(caption);
   }, { title, detail });
 }
@@ -167,7 +167,7 @@ test('권한이 적은 순서로 실제 기능을 클릭해 본다', async ({ pa
   await page.locator('#v2-registration').scrollIntoViewIfNeeded();
   await pause(page, 800);
   await centerAndClick(registrationButton(page));
-  await expect(page.getByRole('dialog')).toContainText('STEP 1 / 4');
+  await expect(page.getByRole('dialog')).toContainText('등록 1 / 4');
   await showCaption(page, '달라진 권한 · 내 일 알리기 가능', '미인증 주민도 자신의 가게나 서비스를 등록 신청할 수 있습니다. 주민혜택과 문의처 공개 권한은 별도로 관리됩니다.');
   await pause(page, 3400);
   await clearCaption(page);
@@ -204,7 +204,7 @@ test('권한이 적은 순서로 실제 기능을 클릭해 본다', async ({ pa
   await page.locator('#v2-registration').scrollIntoViewIfNeeded();
   await centerAndClick(registrationButton(page));
   let dialog = page.getByRole('dialog');
-  await expect(dialog).toContainText('STEP 1 / 4');
+  await expect(dialog).toContainText('등록 1 / 4');
   await pause(page, 900);
   await centerAndClick(dialog.getByRole('button', { name: '다음' }));
   await dialog.getByLabel('이름 또는 가게명').fill(businessName);
