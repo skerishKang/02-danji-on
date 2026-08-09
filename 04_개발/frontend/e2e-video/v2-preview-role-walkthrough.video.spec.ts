@@ -1,6 +1,7 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 
 const businessName = process.env.PREVIEW_VIDEO_BUSINESS_NAME || '해봄 독서교실';
+const PREVIEW_ROLE_SESSION_KEY = 'danjion-v2-preview-demo-role';
 
 async function pause(page: Page, ms = 1800) {
   await page.waitForTimeout(ms);
@@ -9,6 +10,16 @@ async function pause(page: Page, ms = 1800) {
 async function centerAndClick(locator: Locator) {
   await locator.evaluate((element) => element.scrollIntoView({ block: 'center', inline: 'center', behavior: 'instant' }));
   await locator.click();
+}
+
+async function installPresentationVideoChrome(page: Page) {
+  await page.addStyleTag({
+    content: `
+      .v2-preview-demo-trigger,
+      .v2-preview-demo-panel { display: none !important; }
+      .v2-integration-toast { opacity: 0 !important; }
+    `
+  });
 }
 
 async function showCaption(page: Page, title: string, detail: string) {
@@ -43,43 +54,19 @@ async function clearCaption(page: Page) {
   await page.evaluate(() => document.getElementById('danjion-video-caption')?.remove());
 }
 
-function roleSelector(page: Page) {
-  return page.getByRole('combobox', { name: '시연 역할' });
-}
-
-function roleTrigger(page: Page) {
-  return page.getByRole('button', { name: /권한 보기|권한표 닫기/ });
-}
-
 function registrationButton(page: Page) {
   return page.locator('#v2-registration').getByRole('button', { name: '내 일 알리기' });
 }
 
-async function openRolePanel(page: Page) {
-  if (!(await roleSelector(page).isVisible().catch(() => false))) {
-    await roleTrigger(page).click();
-  }
-  await expect(roleSelector(page)).toBeVisible();
-}
-
-async function closeRolePanel(page: Page) {
-  const close = page.getByRole('button', { name: '권한표 닫기' });
-  if (await close.isVisible().catch(() => false)) await close.click();
-}
-
 async function switchRole(page: Page, role: 'anonymous' | 'unverified' | 'resident' | 'manager') {
-  await openRolePanel(page);
-  const previousRole = await roleSelector(page).inputValue();
-  await roleSelector(page).selectOption(role);
+  const previousRole = await page.evaluate((key) => window.sessionStorage.getItem(key) || 'anonymous', PREVIEW_ROLE_SESSION_KEY);
+  await page.evaluate(([key, nextRole]) => window.sessionStorage.setItem(key, nextRole), [PREVIEW_ROLE_SESSION_KEY, role]);
 
-  if (previousRole === 'anonymous' || role === 'anonymous') {
-    await page.waitForLoadState('networkidle');
-    await expect(roleTrigger(page)).toBeVisible();
-    await openRolePanel(page);
+  if (previousRole === 'anonymous' && role !== 'anonymous') {
+    await page.reload({ waitUntil: 'networkidle' });
+    await installPresentationVideoChrome(page);
   }
 
-  await expect(roleSelector(page)).toHaveValue(role);
-  await closeRolePanel(page);
   await pause(page, role === 'anonymous' || role === 'unverified' ? 2100 : 1200);
 }
 
@@ -138,7 +125,8 @@ test('권한이 적은 순서로 실제 기능을 클릭해 본다', async ({ pa
 
   await page.goto('/');
   await page.waitForLoadState('networkidle');
-  await expect(roleTrigger(page)).toBeVisible();
+  await installPresentationVideoChrome(page);
+  await expect(page.locator('#v2-main')).toBeVisible();
 
   await showCaption(page, '단지온 사용자 권한 살펴보기', '일반 방문자 → 미인증 주민 → 인증 입주민 → 운영자 순서로, 권한이 늘어날 때 실제 화면에서 무엇이 달라지는지 확인합니다.');
   await pause(page, 4800);
