@@ -55,15 +55,31 @@ function registrationButton(page: Page) {
   return page.locator('#v2-registration').getByRole('button', { name: '내 일 알리기' });
 }
 
-async function switchRole(page: Page, role: 'anonymous' | 'unverified' | 'resident' | 'manager') {
+async function openRolePanel(page: Page) {
   if (!(await roleSelector(page).isVisible().catch(() => false))) {
     await roleTrigger(page).click();
   }
+  await expect(roleSelector(page)).toBeVisible();
+}
+
+async function closeRolePanel(page: Page) {
+  const close = page.getByRole('button', { name: '권한표 닫기' });
+  if (await close.isVisible().catch(() => false)) await close.click();
+}
+
+async function switchRole(page: Page, role: 'anonymous' | 'unverified' | 'resident' | 'manager') {
+  await openRolePanel(page);
+  const previousRole = await roleSelector(page).inputValue();
   await roleSelector(page).selectOption(role);
-  await expect(roleSelector(page)).toHaveValue(role);
-  if (await page.getByRole('button', { name: '권한표 닫기' }).isVisible().catch(() => false)) {
-    await page.getByRole('button', { name: '권한표 닫기' }).click();
+
+  if (previousRole === 'anonymous' || role === 'anonymous') {
+    await page.waitForLoadState('networkidle');
+    await expect(roleTrigger(page)).toBeVisible();
+    await openRolePanel(page);
   }
+
+  await expect(roleSelector(page)).toHaveValue(role);
+  await closeRolePanel(page);
   await pause(page, role === 'anonymous' || role === 'unverified' ? 2100 : 1200);
 }
 
