@@ -1,6 +1,6 @@
 export type V2ImageKey = 'food' | 'learning' | 'home' | 'professional' | 'craft' | 'car' | 'beauty' | 'photo';
 export type V2SceneKey = 'food' | 'learning' | 'home' | 'professional';
-export type V2CategoryKey = 'food' | 'learning'' | 'home' | 'professional' | 'creative' | 'beauty';
+export type V2CategoryKey = 'food' | 'learning' | 'home' | 'professional' | 'creative' | 'beauty';
 export type V2RelationKey = 'resident' | 'family' | 'neighbor' | 'partner';
 
 export type V2ReferenceImage = {
