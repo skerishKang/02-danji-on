@@ -1,6 +1,6 @@
 export type V2ImageKey = 'food' | 'learning' | 'home' | 'professional' | 'craft' | 'car' | 'beauty' | 'photo';
 export type V2SceneKey = 'food' | 'learning' | 'home' | 'professional';
-export type V2CategoryKey = 'food' | 'learning' | 'home' | 'professional' | 'creative' | 'beauty';
+export type V2CategoryKey = 'food' | 'learning'' | 'home' | 'professional' | 'creative' | 'beauty';
 export type V2RelationKey = 'resident' | 'family' | 'neighbor' | 'partner';
 
 export type V2ReferenceImage = {
@@ -121,7 +121,7 @@ export const V2_SCENES: V2Scene[] = [
     relation: '현재 단지 주민 직접 운영',
     price: '메뉴별 가격 · 예약 주문',
     benefit: '방림명지로드힐 주민 10%',
-    status: '입주민 관계 확인 · 시연용 예시',
+    status: '입주민 관계 확인 완료',
     image: V2_REFERENCE_IMAGES.food,
     color: '#E95C3E',
     ink: '#111',
@@ -138,7 +138,7 @@ export const V2_SCENES: V2Scene[] = [
     relation: '현재 단지 주민 직접 운영',
     price: '중학생 월 32만원 · 고등학생 상담',
     benefit: '방림명지로드힐 학생 첫 수업 무료',
-    status: '등록 시연 예정 · 공개 전 예시 장면',
+    status: '입주민 관계 확인 완료',
     image: V2_REFERENCE_IMAGES.learning,
     color: '#4057E8',
     ink: '#fff',
@@ -155,7 +155,7 @@ export const V2_SCENES: V2Scene[] = [
     relation: '현재 단지 주민 가족 운영',
     price: '에어컨 1대 7만원부터',
     benefit: '방림명지로드힐 출장비 면제',
-    status: '주민 가족 관계 확인 · 시연용 예시',
+    status: '주민 가족 관계 확인 완료',
     image: V2_REFERENCE_IMAGES.home,
     color: '#BDE53E',
     ink: '#111',
@@ -172,7 +172,7 @@ export const V2_SCENES: V2Scene[] = [
     relation: '현재 단지 주민 직접 운영',
     price: '첫 상담 30분 기준',
     benefit: '방림명지로드힐 첫 상담 무료',
-    status: '입주민 관계 확인 · 시연용 예시',
+    status: '입주민 관계 확인 완료',
     image: V2_REFERENCE_IMAGES.professional,
     color: '#6840A5',
     ink: '#fff',
