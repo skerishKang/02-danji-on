@@ -1,0 +1,114 @@
+name: V2 Preview Demo Video
+
+on:
+  push:
+    branches:
+      - feat/v2-preview-demo-mode
+    paths:
+      - '04_개발/frontend/e2e-video/**'
+      - '04_개발/frontend/playwright.preview-video.config.ts'
+      - '.github/workflows/v2-preview-demo-video.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: danjion-v2-preview-demo-video
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  PREVIEW_VIDEO_BASE_URL: https://v2-demo.padiem-danjion-web-preview.pages.dev
+  PREVIEW_VIDEO_BUSINESS_NAME: 단지온 권한영상 ${{ github.sha }}
+
+jobs:
+  role-walkthrough-video:
+    runs-on: ubuntu-latest
+    env:
+      DANJION_DATABASE_URL: ${{ secrets.DANJION_PREVIEW_DATABASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Verify preview-only video contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          branch="${GITHUB_REF_NAME}"
+          test "$branch" = 'feat/v2-preview-demo-mode'
+          test "$PREVIEW_VIDEO_BASE_URL" = 'https://v2-demo.padiem-danjion-web-preview.pages.dev'
+          test -n "$DANJION_DATABASE_URL"
+          echo 'Recording uses only the V2 preview Pages alias and DANJION_PREVIEW_DATABASE_URL.'
+
+      - name: Install frontend dependencies and Chromium
+        working-directory: 04_개발/frontend
+        run: |
+          npm install --ignore-scripts
+          npx playwright install --with-deps chromium
+
+      - name: Install backend dependency for isolated test-data cleanup
+        working-directory: 04_개발/backend
+        run: npm install --ignore-scripts
+
+      - name: Reset deterministic video-only test state
+        working-directory: 04_개발/backend
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import { neon } from '@neondatabase/serverless';
+          const sql = neon(process.env.DANJION_DATABASE_URL);
+          const name = process.env.PREVIEW_VIDEO_BUSINESS_NAME;
+          const apps = await sql`select approved_business_id from business_applications where business_name = ${name}`;
+          for (const row of apps) {
+            if (row.approved_business_id) await sql`delete from businesses where id = ${String(row.approved_business_id)}::uuid`;
+          }
+          await sql`delete from business_applications where business_name = ${name}`;
+          await sql`delete from benefit_claims where user_id = '22222222-2222-4222-8222-222222222221'::uuid and benefit_id = '88888888-8888-4888-8888-888888888881'::uuid`;
+          NODE
+
+      - name: Record visitor-to-manager walkthrough
+        working-directory: 04_개발/frontend
+        run: npx playwright test --config=playwright.preview-video.config.ts
+
+      - name: Produce MP4 walkthrough
+        working-directory: 04_개발/frontend
+        shell: bash
+        run: |
+          set -euo pipefail
+          video="$(find preview-video-results -type f -name 'video.webm' | head -n 1)"
+          test -n "$video"
+          cp "$video" danjion-v2-role-walkthrough.webm
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg >/dev/null
+          ffmpeg -y -i danjion-v2-role-walkthrough.webm -c:v libx264 -preset medium -crf 20 -pix_fmt yuv420p -movflags +faststart danjion-v2-role-walkthrough.mp4
+          ls -lh danjion-v2-role-walkthrough.webm danjion-v2-role-walkthrough.mp4
+
+      - name: Upload walkthrough video
+        uses: actions/upload-artifact@v4
+        with:
+          name: danjion-v2-role-walkthrough
+          path: |
+            04_개발/frontend/danjion-v2-role-walkthrough.mp4
+            04_개발/frontend/danjion-v2-role-walkthrough.webm
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Clean video-only database writes
+        if: always()
+        working-directory: 04_개발/backend
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import { neon } from '@neondatabase/serverless';
+          const sql = neon(process.env.DANJION_DATABASE_URL);
+          const name = process.env.PREVIEW_VIDEO_BUSINESS_NAME;
+          const apps = await sql`select approved_business_id from business_applications where business_name = ${name}`;
+          for (const row of apps) {
+            if (row.approved_business_id) await sql`delete from businesses where id = ${String(row.approved_business_id)}::uuid`;
+          }
+          await sql`delete from business_applications where business_name = ${name}`;
+          await sql`delete from benefit_claims where user_id = '22222222-2222-4222-8222-222222222221'::uuid and benefit_id = '88888888-8888-4888-8888-888888888881'::uuid`;
+          NODE
