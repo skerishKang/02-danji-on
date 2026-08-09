@@ -94,7 +94,7 @@ export function V2CinematicScenes({
         </div>
         <aside data-v2-cinematic-panel className="v2-scene-panel" aria-label={`${activeScene.name} 정보`}>
           <div className="v2-scene-panel-top">
-            <div className="v2-eyebrow">SCENE 02 · 필요한 일이 바뀌면 장면도 바뀝니다</div>
+            <div className="v2-eyebrow">필요한 일이 바뀌면 장면도 바뀝니다</div>
             <h3 className="v2-scene-service">{activeScene.name}</h3>
             <p className="v2-scene-copy">{activeScene.copy}</p>
             <div className="v2-scene-facts">
@@ -126,7 +126,7 @@ export function V2CinematicScenes({
           ))}
         </div>
         <div className="v2-scene-rail" aria-hidden="true"><span className="v2-scene-rail-fill" style={{ height: railHeight }} /></div>
-        <div className="v2-scene-rail-label" aria-hidden="true">SELECT SCENE / SCROLL CONTINUES PAGE</div>
+        <div className="v2-scene-rail-label" aria-hidden="true">장면 선택 · 아래로 계속 둘러보기</div>
       </div>
     </section>
   );
