@@ -8,6 +8,12 @@ on:
       - '04_개발/frontend/e2e-video/**'
       - '04_개발/frontend/playwright.preview-video.config.ts'
       - '.github/workflows/v2-preview-demo-video.yml'
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - '04_개발/frontend/e2e-video/**'
+      - '04_개발/frontend/playwright.preview-video.config.ts'
+      - '.github/workflows/v2-preview-demo-video.yml'
   workflow_dispatch:
 
 concurrency:
@@ -23,6 +29,7 @@ env:
 
 jobs:
   role-walkthrough-video:
+    if: github.event_name != 'pull_request' || github.head_ref == 'feat/v2-preview-demo-mode'
     runs-on: ubuntu-latest
     env:
       DANJION_DATABASE_URL: ${{ secrets.DANJION_PREVIEW_DATABASE_URL }}
@@ -37,7 +44,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          branch="${GITHUB_REF_NAME}"
+          branch="${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}"
           test "$branch" = 'feat/v2-preview-demo-mode'
           test "$PREVIEW_VIDEO_BASE_URL" = 'https://v2-demo.padiem-danjion-web-preview.pages.dev'
           test -n "$DANJION_DATABASE_URL"
