@@ -34,10 +34,14 @@ async function showCaption(page: Page, title: string, detail: string) {
   }, { title, detail });
 }
 
+function roleSelector(page: Page) {
+  return page.getByRole('combobox', { name: '시연 역할' });
+}
+
 async function switchRole(page: Page, role: 'anonymous' | 'unverified' | 'resident' | 'manager') {
-  await page.getByLabel('시연 역할').selectOption(role);
+  await roleSelector(page).selectOption(role);
   await pause(page, role === 'anonymous' || role === 'unverified' ? 2200 : 1000);
-  await expect(page.getByLabel('시연 역할')).toHaveValue(role);
+  await expect(roleSelector(page)).toHaveValue(role);
 }
 
 async function openFirstShop(page: Page) {
@@ -95,7 +99,7 @@ test('권한이 적은 순서로 실제 기능을 클릭해 본다', async ({ pa
 
   await page.goto('/');
   await page.waitForLoadState('networkidle');
-  await expect(page.getByLabel('시연 역할')).toBeVisible();
+  await expect(roleSelector(page)).toBeVisible();
   await switchRole(page, 'anonymous');
 
   await showCaption(page, '1 / 4 · 일반 방문자', '공개 탐색은 가능하지만 문의·혜택·등록 같은 보호 기능은 사용할 수 없습니다.');
