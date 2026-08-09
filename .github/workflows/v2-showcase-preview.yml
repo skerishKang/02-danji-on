@@ -1,0 +1,161 @@
+name: V2 Showcase Preview
+
+on:
+  push:
+    branches:
+      - feat/v2-preview-demo-mode
+    paths:
+      - '04_개발/backend/**'
+      - '04_개발/frontend/**'
+      - '.github/workflows/v2-showcase-preview.yml'
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - '04_개발/backend/**'
+      - '04_개발/frontend/**'
+      - '.github/workflows/v2-showcase-preview.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: danjion-v2-showcase-preview
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  WORKER_ENV: preview
+  WORKER_NAME: padiem-danjion-api-preview
+  WORKER_PREVIEW_ALIAS: v2-showcase
+  PAGES_PROJECT: padiem-danjion-web-preview
+  PAGES_BRANCH: v2-showcase
+  COMPLEX_SLUG: bangnim-myeongji-roadhill
+
+jobs:
+  showcase:
+    if: github.event_name != 'pull_request' || github.head_ref == 'feat/v2-preview-demo-mode'
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      DANJION_DATABASE_URL: ${{ secrets.DANJION_PREVIEW_DATABASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Enforce showcase-only boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          branch="${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}"
+          test "$branch" = 'feat/v2-preview-demo-mode'
+          test "$WORKER_ENV" = 'preview'
+          test "$WORKER_NAME" = 'padiem-danjion-api-preview'
+          test "$WORKER_NAME" != 'padiem-danjion-api-production'
+          test "$PAGES_BRANCH" = 'v2-showcase'
+          test "$PAGES_BRANCH" != 'main'
+          test -n "$DANJION_DATABASE_URL"
+
+      - name: Install backend tools
+        working-directory: 04_개발/backend
+        run: npm install --ignore-scripts
+
+      - name: Install and typecheck frontend
+        working-directory: 04_개발/frontend
+        run: |
+          npm install --ignore-scripts
+          npm run typecheck
+
+      - name: Prepare Worker preview secret file
+        id: worker_secret
+        shell: bash
+        run: |
+          set -euo pipefail
+          secret_file="${RUNNER_TEMP}/danjion-v2-showcase-worker.env"
+          printf 'DATABASE_URL=%s\n' "$DANJION_DATABASE_URL" > "$secret_file"
+          chmod 600 "$secret_file"
+          echo "secret_file=$secret_file" >> "$GITHUB_OUTPUT"
+
+      - name: Upload isolated showcase Worker preview
+        id: worker
+        working-directory: 04_개발/backend
+        shell: bash
+        run: |
+          set -euo pipefail
+          log_file="${RUNNER_TEMP}/v2-showcase-worker.log"
+          npx wrangler versions upload \
+            --env "$WORKER_ENV" \
+            --preview-alias "$WORKER_PREVIEW_ALIAS" \
+            --secrets-file "${{ steps.worker_secret.outputs.secret_file }}" \
+            --message "V2 showcase ${GITHUB_SHA}" 2>&1 | tee "$log_file"
+
+          worker_url="$(grep -Eo 'https://[A-Za-z0-9.-]+\.workers\.dev' "$log_file" | grep "https://${WORKER_PREVIEW_ALIAS}-" | tail -n 1 || true)"
+          if [ -z "$worker_url" ]; then
+            worker_url="$(grep -Eo 'https://[A-Za-z0-9.-]+\.workers\.dev' "$log_file" | tail -n 1 || true)"
+          fi
+          test -n "$worker_url"
+          echo "url=$worker_url" >> "$GITHUB_OUTPUT"
+
+      - name: Build clean V2 showcase
+        working-directory: 04_개발/frontend
+        env:
+          VITE_UI_VARIANT: v2
+          VITE_DATA_MODE: api
+          VITE_AUTH_MODE: dev
+          VITE_STORAGE_MODE: mock
+          VITE_PREVIEW_DEMO_MODE: 'false'
+          VITE_API_BASE_URL: ${{ steps.worker.outputs.url }}
+          VITE_COMPLEX_SLUG: bangnim-myeongji-roadhill
+        run: |
+          set -euo pipefail
+          npm run build
+          grep -R --fixed-strings "$VITE_API_BASE_URL" dist >/dev/null
+          if grep -R --fixed-strings 'PREVIEW ONLY' dist >/dev/null; then
+            echo '::error::Internal preview label leaked into showcase build.'
+            exit 1
+          fi
+          if grep -R --fixed-strings '실제 테스트 DB' dist >/dev/null; then
+            echo '::error::Test DB wording leaked into showcase build.'
+            exit 1
+          fi
+
+      - name: Deploy clean showcase Pages branch
+        id: pages
+        working-directory: 04_개발/backend
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx wrangler pages deploy ../frontend/dist \
+            --project-name="$PAGES_PROJECT" \
+            --branch="$PAGES_BRANCH" \
+            --commit-hash="$GITHUB_SHA" \
+            --commit-message="V2 showcase ${GITHUB_SHA}"
+          echo "url=https://${PAGES_BRANCH}.${PAGES_PROJECT}.pages.dev" >> "$GITHUB_OUTPUT"
+
+      - name: Smoke clean public showcase
+        shell: bash
+        env:
+          FRONTEND_URL: ${{ steps.pages.outputs.url }}
+          WORKER_URL: ${{ steps.worker.outputs.url }}
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --retry 6 --retry-all-errors --retry-delay 3 "$FRONTEND_URL/" >/dev/null
+          public_json="$(curl --fail --silent --show-error "$WORKER_URL/api/v1/complexes/$COMPLEX_SLUG/businesses")"
+          node - "$public_json" <<'NODE'
+          const parsed = JSON.parse(process.argv[2]);
+          if (!Array.isArray(parsed?.data) || parsed.data.length < 4) process.exit(1);
+          const banned = /시연|테스트|합성|Preview|DEMO/i;
+          if (parsed.data.some((row) => banned.test(`${row.name ?? ''} ${row.summary ?? ''} ${row.description ?? ''}`))) process.exit(1);
+          NODE
+
+      - name: Showcase evidence
+        shell: bash
+        run: |
+          echo '## V2 showcase' >> "$GITHUB_STEP_SUMMARY"
+          echo '- URL: https://v2-showcase.padiem-danjion-web-preview.pages.dev' >> "$GITHUB_STEP_SUMMARY"
+          echo '- Login: not implemented / public browsing only' >> "$GITHUB_STEP_SUMMARY"
+          echo '- Preview role controls: hidden' >> "$GITHUB_STEP_SUMMARY"
+          echo '- Production: untouched' >> "$GITHUB_STEP_SUMMARY"
