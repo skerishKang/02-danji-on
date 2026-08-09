@@ -35,7 +35,7 @@ export default function V2PreviewDemoShell({ children }: { children: ReactNode }
 
   return (
     <div className="v2-preview-demo-shell" data-preview-demo-role={role}>
-      <aside className="v2-preview-demo-panel" aria-label="V2 시연 역할 전환">
+      <aside className="v2-preview-demo-panel" aria-label="V2 권한 전환 패널">
         <div className="v2-preview-demo-heading">
           <span>PREVIEW ONLY</span>
           <strong>시연 역할 · 실제 테스트 DB</strong>
