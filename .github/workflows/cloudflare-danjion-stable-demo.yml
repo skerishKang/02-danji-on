@@ -1,0 +1,142 @@
+name: DanjiOn Stable Demo
+
+on:
+  push:
+    branches:
+      - deploy/danjion-stable-demo-20260816
+    paths:
+      - '04_개발/frontend/**'
+      - '.github/workflows/cloudflare-danjion-stable-demo.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: danjion-stable-demo
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  PAGES_PROJECT: danjion
+  PAGES_BRANCH: main
+  PUBLIC_URL: https://danjion.pages.dev
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Enforce isolated DanjiOn deployment contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF_NAME" = 'deploy/danjion-stable-demo-20260816'
+          test "$PAGES_PROJECT" = 'danjion'
+          test "$PAGES_BRANCH" = 'main'
+          test "$PUBLIC_URL" = 'https://danjion.pages.dev'
+          test "$PAGES_PROJECT" != 'padiem-danjion-web-preview'
+          echo 'Existing V1/V2/Gateway comparison project is out of scope and must not be modified.'
+
+      - name: Verify Cloudflare credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          missing=0
+          for key in CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID; do
+            if [ -z "${!key:-}" ]; then
+              echo "::error::Missing required GitHub Actions secret: ${key}"
+              missing=1
+            fi
+          done
+          test "$missing" -eq 0
+
+      - name: Install frontend dependencies
+        working-directory: 04_개발/frontend
+        run: npm install --ignore-scripts
+
+      - name: Typecheck frontend
+        working-directory: 04_개발/frontend
+        run: npm run typecheck
+
+      - name: Build DanjiOn V2 as isolated public demo
+        working-directory: 04_개발/frontend
+        env:
+          VITE_UI_VARIANT: v2
+          VITE_DATA_MODE: mock
+          VITE_AUTH_MODE: dev
+          VITE_STORAGE_MODE: mock
+          VITE_COMPLEX_SLUG: bangnim-myeongji-roadhill
+          VITE_V1_URL: https://v1.padiem-danjion-web-preview.pages.dev
+          VITE_V2_URL: https://danjion.pages.dev
+          VITE_GATEWAY_URL: https://gateway.padiem-danjion-web-preview.pages.dev
+        run: |
+          set -euo pipefail
+          npm run build
+          test -f dist/index.html
+          if grep -R -E 'B05|Business 05|B-?05' dist >/dev/null; then
+            echo '::error::Portfolio numbering leaked into the DanjiOn public build.'
+            exit 1
+          fi
+          echo 'DanjiOn V2 build contains no B05 numbering.'
+
+      - name: Create clean DanjiOn Pages project only if absent
+        working-directory: 04_개발/frontend
+        shell: bash
+        run: |
+          set -euo pipefail
+          project_json="${RUNNER_TEMP}/danjion-pages-project.json"
+          endpoint="https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/pages/projects/${PAGES_PROJECT}"
+          status="$(curl --silent --show-error \
+            --output "$project_json" \
+            --write-out '%{http_code}' \
+            --header "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+            "$endpoint")"
+
+          if [ "$status" = '404' ]; then
+            echo 'No existing danjion Pages project found; creating a new isolated project.'
+            npx wrangler pages project create "$PAGES_PROJECT" --production-branch="$PAGES_BRANCH"
+          elif [ "$status" = '200' ]; then
+            cat "$project_json"
+            echo '::error::A Cloudflare Pages project named danjion already exists. Refusing to overwrite an unknown existing project.'
+            exit 1
+          else
+            cat "$project_json"
+            echo "::error::Unexpected Cloudflare Pages lookup status: $status"
+            exit 1
+          fi
+
+      - name: Deploy DanjiOn stable demo
+        working-directory: 04_개발/frontend
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx wrangler pages deploy dist \
+            --project-name="$PAGES_PROJECT" \
+            --branch="$PAGES_BRANCH" \
+            --commit-hash="$GITHUB_SHA" \
+            --commit-message="DanjiOn stable demo ${GITHUB_SHA}"
+
+      - name: Smoke clean DanjiOn URL
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --retry 8 --retry-all-errors --retry-delay 5 "$PUBLIC_URL/" > "${RUNNER_TEMP}/danjion-home.html"
+          grep -Fq 'id="root"' "${RUNNER_TEMP}/danjion-home.html"
+          echo "DanjiOn stable demo is reachable at ${PUBLIC_URL}"
+          {
+            echo '## DanjiOn Stable Demo'
+            echo
+            echo "- URL: ${PUBLIC_URL}"
+            echo "- Source SHA: ${GITHUB_SHA}"
+            echo '- UI variant: V2'
+            echo '- Data/Auth/Storage: mock/dev/mock demo profile'
+            echo '- Existing padiem-danjion-web-preview project: untouched'
+          } >> "$GITHUB_STEP_SUMMARY"
