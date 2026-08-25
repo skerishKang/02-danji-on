@@ -43,7 +43,8 @@ create table if not exists family_invites (
   foreign key (inviter_membership_id, household_id, complex_id)
     references household_memberships(id, household_id, complex_id) on delete restrict,
   foreign key (accepted_membership_id, household_id, complex_id)
-    references household_memberships(id, household_id, complex_id) on delete set null,
+    references household_memberships(id, household_id, complex_id)
+    on delete set null (accepted_membership_id),
   check (status <> 'accepted' or (accepted_at is not null and accepted_by_user_id is not null and accepted_membership_id is not null)),
   check (status <> 'revoked' or revoked_at is not null)
 );
