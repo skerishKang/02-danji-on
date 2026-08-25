@@ -15,6 +15,7 @@ create table if not exists household_invite_tokens (
   redeemed_at timestamptz,
   revoked_at timestamptz,
   created_at timestamptz not null default now(),
+  unique (id, household_id, complex_id),
   foreign key (household_id, complex_id)
     references households(id, complex_id) on delete cascade,
   check (char_length(token_hash) between 32 and 128),
@@ -27,18 +28,22 @@ create table if not exists family_invites (
   id uuid primary key default gen_random_uuid(),
   complex_id uuid not null references complexes(id) on delete cascade,
   household_id uuid not null,
-  invite_token_id uuid not null references household_invite_tokens(id) on delete cascade,
+  invite_token_id uuid not null,
   inviter_membership_id uuid not null,
   accepted_by_user_id uuid references app_users(id) on delete set null,
-  accepted_membership_id uuid references household_memberships(id) on delete set null,
+  accepted_membership_id uuid,
   status text not null default 'pending' check (status in ('pending','accepted','revoked','expired')),
   created_at timestamptz not null default now(),
   accepted_at timestamptz,
   revoked_at timestamptz,
   foreign key (household_id, complex_id)
     references households(id, complex_id) on delete cascade,
+  foreign key (invite_token_id, household_id, complex_id)
+    references household_invite_tokens(id, household_id, complex_id) on delete cascade,
   foreign key (inviter_membership_id, household_id, complex_id)
     references household_memberships(id, household_id, complex_id) on delete restrict,
+  foreign key (accepted_membership_id, household_id, complex_id)
+    references household_memberships(id, household_id, complex_id) on delete set null,
   check (status <> 'accepted' or (accepted_at is not null and accepted_by_user_id is not null and accepted_membership_id is not null)),
   check (status <> 'revoked' or revoked_at is not null)
 );
