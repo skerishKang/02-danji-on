@@ -1,9 +1,9 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 
 const currentNav = ['이웃가게', '혜택', '우리단지', '내정보'];
 const currentCommunityTabs = ['전체', '공식소식', '주민이야기', '질문', '같이해요', '생활제보', '우리 단지의 변화', '함께하는 곳'];
 
-function visiblePrimaryNav(page: Parameters<Parameters<typeof test>[1]>[0]['page']) {
+function visiblePrimaryNav(page: Page) {
   const width = page.viewportSize()?.width ?? 1440;
   return width <= 700
     ? page.locator('[data-v2-mobile-nav]')
