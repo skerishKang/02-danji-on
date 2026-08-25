@@ -18,15 +18,15 @@ permissions:
 
 env:
   WORKER_ENV: preview
+  WORKER_NAME: padiem-danjion-api-preview
   WORKER_PREVIEW_ALIAS: track-e
   PAGES_PROJECT: padiem-danjion-web-preview
   PAGES_BRANCH: track-e
 
 jobs:
   preview:
-    # Track E is a branch-specific live preview workflow. Other feature PRs may
-    # touch frontend/backend files but must not fail this workflow's hard branch
-    # guard; they are simply outside this workflow's scope.
+    # Track E is branch-scoped. Other product branches that touch frontend/backend
+    # must not fail this legacy preview workflow; they are outside its scope.
     if: github.event_name == 'workflow_dispatch' || github.head_ref == 'feat/live-stack-integration'
     runs-on: ubuntu-latest
     env:
@@ -45,8 +45,16 @@ jobs:
         run: |
           set -euo pipefail
           branch="${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}"
-          test "$branch" = "feat/live-stack-integration"
+          case "$branch" in
+            feat/live-stack-integration|feat/track-e-preview-fix-reconciliation) ;;
+            *)
+              echo "::error::Track E preview may run only from the integration branch or the explicit reconciliation branch."
+              exit 1
+              ;;
+          esac
           test "${WORKER_ENV}" = "preview"
+          test "${WORKER_NAME}" = "padiem-danjion-api-preview"
+          test "${WORKER_NAME}" != "padiem-danjion-api-production"
           test "${PAGES_BRANCH}" = "track-e"
           test "${PAGES_BRANCH}" != "main"
           echo "Track E branch and preview environment contract verified."
@@ -93,22 +101,53 @@ jobs:
           echo "secret_file=$secret_file" >> "$GITHUB_OUTPUT"
         id: worker_secret
 
-      - name: Upload Worker preview version only
+      - name: Bootstrap Worker if absent, then upload preview version
         id: worker
         working-directory: 04_개발/backend
         shell: bash
         run: |
           set -euo pipefail
-          log_file="${RUNNER_TEMP}/worker-upload.log"
+          secret_file="${{ steps.worker_secret.outputs.secret_file }}"
+          first_log="${RUNNER_TEMP}/worker-first-upload.log"
+          final_log="${RUNNER_TEMP}/worker-upload.log"
+
+          set +e
           npx wrangler versions upload \
             --env "${WORKER_ENV}" \
             --preview-alias "${WORKER_PREVIEW_ALIAS}" \
-            --secrets-file "${{ steps.worker_secret.outputs.secret_file }}" \
-            --message "Track E preview ${GITHUB_SHA}" 2>&1 | tee "$log_file"
+            --secrets-file "$secret_file" \
+            --message "Track E preview ${GITHUB_SHA}" >"$first_log" 2>&1
+          first_status=$?
+          set -e
 
-          worker_url="$(grep -Eo 'https://[A-Za-z0-9.-]+\.workers\.dev' "$log_file" | grep "https://${WORKER_PREVIEW_ALIAS}-" | tail -n 1 || true)"
+          if [ "$first_status" -eq 0 ]; then
+            cp "$first_log" "$final_log"
+          elif grep -Fq 'does not yet exist' "$first_log"; then
+            echo "Preview Worker does not exist yet; performing one-time bootstrap deploy to ${WORKER_NAME}."
+            test "${WORKER_ENV}" = "preview"
+            test "${WORKER_NAME}" = "padiem-danjion-api-preview"
+            test "${WORKER_NAME}" != "padiem-danjion-api-production"
+
+            npx wrangler deploy \
+              --env "${WORKER_ENV}" \
+              --secrets-file "$secret_file" \
+              --message "Track E preview bootstrap ${GITHUB_SHA}"
+
+            npx wrangler versions upload \
+              --env "${WORKER_ENV}" \
+              --preview-alias "${WORKER_PREVIEW_ALIAS}" \
+              --secrets-file "$secret_file" \
+              --message "Track E preview ${GITHUB_SHA}" 2>&1 | tee "$final_log"
+          else
+            cat "$first_log"
+            echo "::error::Worker preview version upload failed for a reason other than first-time bootstrap."
+            exit "$first_status"
+          fi
+
+          cat "$final_log"
+          worker_url="$(grep -Eo 'https://[A-Za-z0-9.-]+\.workers\.dev' "$final_log" | grep "https://${WORKER_PREVIEW_ALIAS}-" | tail -n 1 || true)"
           if [ -z "$worker_url" ]; then
-            worker_url="$(grep -Eo 'https://[A-Za-z0-9.-]+\.workers\.dev' "$log_file" | tail -n 1 || true)"
+            worker_url="$(grep -Eo 'https://[A-Za-z0-9.-]+\.workers\.dev' "$final_log" | tail -n 1 || true)"
           fi
           if [ -z "$worker_url" ]; then
             echo "::error::Wrangler did not report a Worker preview URL."
@@ -116,6 +155,28 @@ jobs:
           fi
           echo "url=$worker_url" >> "$GITHUB_OUTPUT"
           echo "Worker preview: $worker_url"
+
+      - name: Enforce Worker preview URL routing only
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${WORKER_NAME}" = "padiem-danjion-api-preview"
+          test "${WORKER_NAME}" != "padiem-danjion-api-production"
+
+          response="$(curl --fail --silent --show-error \
+            -X POST \
+            "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/workers/scripts/${WORKER_NAME}/subdomain" \
+            -H 'Content-Type: application/json' \
+            -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+            --data '{"enabled":false,"previews_enabled":true}')"
+
+          node - "$response" <<'NODE'
+          const payload = JSON.parse(process.argv[2]);
+          if (payload?.success !== true) process.exit(1);
+          if (payload?.result?.enabled !== false) process.exit(1);
+          if (payload?.result?.previews_enabled !== true) process.exit(1);
+          NODE
+          echo "Worker stable workers.dev route disabled; version/alias preview URLs enabled."
 
       - name: Build frontend against Worker preview
         working-directory: 04_개발/frontend
@@ -141,19 +202,30 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          project_json="${RUNNER_TEMP}/pages-projects.json"
-          npx wrangler pages project list --json > "$project_json"
-          if node - "$project_json" "$PAGES_PROJECT" <<'NODE'
+          project_json="${RUNNER_TEMP}/pages-project.json"
+          project_endpoint="https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/pages/projects/${PAGES_PROJECT}"
+
+          http_code="$(curl --silent --show-error \
+            -o "$project_json" \
+            -w '%{http_code}' \
+            -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+            "$project_endpoint")"
+
+          if [ "$http_code" = "200" ]; then
+            node - "$project_json" "$PAGES_PROJECT" <<'NODE'
           const fs = require('fs');
-          const [file, name] = process.argv.slice(2);
-          const parsed = JSON.parse(fs.readFileSync(file, 'utf8'));
-          const rows = Array.isArray(parsed) ? parsed : (parsed.result || parsed.projects || []);
-          process.exit(rows.some((row) => row && row.name === name) ? 0 : 1);
+          const [file, expectedName] = process.argv.slice(2);
+          const payload = JSON.parse(fs.readFileSync(file, 'utf8'));
+          if (payload?.success !== true || payload?.result?.name !== expectedName) process.exit(1);
           NODE
-          then
             echo "Pages project already exists: $PAGES_PROJECT"
-          else
+          elif [ "$http_code" = "404" ]; then
+            echo "Pages project is absent; creating preview project $PAGES_PROJECT."
             npx wrangler pages project create "$PAGES_PROJECT" --production-branch=main
+          else
+            cat "$project_json"
+            echo "::error::Unexpected Cloudflare Pages project lookup HTTP status: $http_code"
+            exit 1
           fi
 
       - name: Deploy frontend Pages branch preview only
@@ -221,8 +293,10 @@ jobs:
           {
             echo '## DanjiOn Track E Cloudflare preview'
             echo
-            echo "- Worker resource: \`padiem-danjion-api-preview\`"
+            echo "- Worker resource: \`$WORKER_NAME\`"
             echo "- Worker preview URL: $WORKER_URL"
+            echo '- Worker stable workers.dev route: disabled'
+            echo '- Worker version/alias preview URLs: enabled'
             echo "- Pages project: \`$PAGES_PROJECT\`"
             echo "- Frontend preview URL: $FRONTEND_URL"
             echo '- Worker DATABASE_URL: encrypted preview-child secret from `DANJION_PREVIEW_DATABASE_URL`'
