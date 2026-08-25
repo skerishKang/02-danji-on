@@ -1,0 +1,11 @@
+/* C1 current Product Shell navigation continuity.
+   Historical V2 hid desktop navigation at <=1050px while mobile navigation
+   did not appear until <=800px, leaving 801-1050px without primary nav. */
+@media (min-width:801px) and (max-width:1050px){
+  .v2-topbar-inner{grid-template-columns:auto 1fr auto;gap:16px}
+  .v2-desktop-nav{display:flex;gap:16px}
+  .v2-header-tools{grid-column:auto}
+  .v2-complex{display:none}
+  .v2-nav-link{font-size:13px;padding-left:1px;padding-right:1px}
+  .v2-verified-pill{font-size:12px;padding-left:8px;padding-right:8px}
+}
