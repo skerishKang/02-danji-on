@@ -65,21 +65,17 @@ create index if not exists idx_household_memberships_user_status
 create index if not exists idx_household_memberships_complex_status
   on household_memberships (complex_id, status, created_at desc);
 
-do $$
-begin
-  if not exists (select 1 from pg_trigger where tgname = 'trg_complex_units_updated_at') then
-    create trigger trg_complex_units_updated_at
-      before update on complex_units
-      for each row execute function set_updated_at();
-  end if;
-  if not exists (select 1 from pg_trigger where tgname = 'trg_households_updated_at') then
-    create trigger trg_households_updated_at
-      before update on households
-      for each row execute function set_updated_at();
-  end if;
-  if not exists (select 1 from pg_trigger where tgname = 'trg_household_memberships_updated_at') then
-    create trigger trg_household_memberships_updated_at
-      before update on household_memberships
-      for each row execute function set_updated_at();
-  end if;
-end $$;
+drop trigger if exists trg_complex_units_updated_at on complex_units;
+create trigger trg_complex_units_updated_at
+  before update on complex_units
+  for each row execute function set_updated_at();
+
+drop trigger if exists trg_households_updated_at on households;
+create trigger trg_households_updated_at
+  before update on households
+  for each row execute function set_updated_at();
+
+drop trigger if exists trg_household_memberships_updated_at on household_memberships;
+create trigger trg_household_memberships_updated_at
+  before update on household_memberships
+  for each row execute function set_updated_at();
