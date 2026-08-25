@@ -2,9 +2,11 @@ import { useState } from 'react';
 import { V2CommunityView } from './V2CommunityView';
 import { V2Icon, type V2IconName } from './V2Icon';
 
-export type V2VisualNavKey = 'home' | 'shops' | 'benefits' | 'community' | 'me';
+// `news` remains as a non-visible compatibility key for the earlier V2 integration
+// while the current Product Shell exposes the canonical `community` view.
+export type V2VisualNavKey = 'home' | 'shops' | 'benefits' | 'community' | 'news' | 'me';
 
-const NAV: Array<{ key: V2VisualNavKey; label: string; icon: V2IconName }> = [
+const NAV: Array<{ key: Exclude<V2VisualNavKey, 'news'>; label: string; icon: V2IconName }> = [
   { key: 'home', label: '홈', icon: 'home' },
   { key: 'shops', label: '이웃가게', icon: 'store' },
   { key: 'benefits', label: '혜택', icon: 'benefit' },
