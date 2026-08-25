@@ -25,7 +25,8 @@ test('desktop/tablet/mobile layouts keep first-screen search and no horizontal o
   if (width <= 800) {
     await expect(mobileNav).toBeVisible();
     await expect(mobileNav.getByRole('button', { name: '홈' })).toBeVisible();
-    await expect(mobileNav.getByRole('button', { name: '주민혜택' })).toBeVisible();
+    await expect(mobileNav.getByRole('button', { name: '혜택', exact: true })).toBeVisible();
+    await expect(mobileNav.getByRole('button', { name: '우리단지', exact: true })).toBeVisible();
   } else {
     await expect(mobileNav).toBeHidden();
   }
