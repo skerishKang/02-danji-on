@@ -13,8 +13,9 @@
     "test:auth": "tsx tests/auth-v1.test.mjs",
     "test:authz-v2": "tsx tests/authorization-v2.test.mjs",
     "test:authz-v2-schema": "node tests/authorization-v2-schema-contract.mjs",
+    "test:authz-v2-migrations": "node tests/authorization-v2-migration-contract.mjs",
     "test:cloudflare-preview-contract": "node tests/cloudflare-preview-contract.mjs",
-    "check": "npm run typecheck && npm run test:storage && npm run test:storage-contract && npm run test:contract && npm run test:auth && npm run test:authz-v2 && npm run test:authz-v2-schema && npm run test:cloudflare-preview-contract"
+    "check": "npm run typecheck && npm run test:storage && npm run test:storage-contract && npm run test:contract && npm run test:auth && npm run test:authz-v2 && npm run test:authz-v2-schema && npm run test:authz-v2-migrations && npm run test:cloudflare-preview-contract"
   },
   "dependencies": {
     "@neondatabase/serverless": "1.1.0",
