@@ -1,4 +1,4 @@
-import { authProvider } from './auth';
+import { authenticatedFetch } from './auth-fetch';
 import { mockBusinesses } from './data/mock';
 import { listMockReviewEvents } from './mock-audit-store';
 import { createStoredMockBenefit, createStoredMockPost } from './mock-content-store';
@@ -47,14 +47,13 @@ const API_BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
 type ApiEnvelope<T> = { data: T; requestId: string };
 
 async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${API_BASE}${path}`, {
+  const response = await authenticatedFetch(`${API_BASE}${path}`, {
     ...init,
     headers: {
       'content-type': 'application/json',
-      ...authProvider.headers('admin'),
       ...(init?.headers || {})
     }
-  });
+  }, 'admin');
   const payload = await response.json() as ApiEnvelope<T> | { error?: { message?: string } };
   if (!response.ok) {
     const message = 'error' in payload ? payload.error?.message : undefined;
