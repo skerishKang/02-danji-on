@@ -175,6 +175,60 @@ function metadataMatches(env: DriveEnv, parsed: ParsedObjectKey, metadata: Drive
   return props.danjionKind === parsed.kind && props.danjionVisibility === parsed.visibility;
 }
 
+export async function validateBusinessImageReference(
+  env: CoreEnv,
+  objectKeyValue: string,
+  expectedUploaderUserId: string,
+  expectedComplexSlug: string,
+  requestId: string
+): Promise<Response | null> {
+  const driveEnv = env as DriveEnv;
+  if (!driveConfigured(driveEnv) || !requiredDriveCredentials(driveEnv)) {
+    return fail('STORAGE_NOT_CONFIGURED', 'Google Drive storage is not configured for business image verification', 503, requestId);
+  }
+
+  const parsed = parseObjectKey(objectKeyValue);
+  if (!parsed || parsed.visibility !== 'public' || parsed.kind !== 'business-image') {
+    return fail(
+      'INVALID_BUSINESS_IMAGE_REFERENCE',
+      'Representative image must reference a DanjiOn public business image',
+      400,
+      requestId
+    );
+  }
+
+  let metadata: DriveMetadata | null;
+  try {
+    metadata = await readDriveMetadata(driveEnv, parsed);
+  } catch {
+    return fail(
+      'BUSINESS_IMAGE_REFERENCE_UNAVAILABLE',
+      'Representative image could not be verified against storage',
+      503,
+      requestId
+    );
+  }
+  if (!metadata || !metadataMatches(driveEnv, parsed, metadata)) {
+    return fail(
+      'INVALID_BUSINESS_IMAGE_REFERENCE',
+      'Representative image is missing or no longer a valid DanjiOn business image',
+      400,
+      requestId
+    );
+  }
+
+  const props = metadata.appProperties || {};
+  if (props.danjionUploaderUserId !== expectedUploaderUserId || props.danjionComplexSlug !== expectedComplexSlug) {
+    return fail(
+      'BUSINESS_IMAGE_REFERENCE_FORBIDDEN',
+      'Representative image does not belong to this resident and complex',
+      403,
+      requestId
+    );
+  }
+  return null;
+}
+
 async function uploadDriveFile(
   env: DriveEnv,
   kind: StorageKind,
