@@ -40,8 +40,12 @@ test('resident benefit moves from claim to stored code to used state', async ({ 
   const benefits = page.locator('[data-v2-section="benefits"]').first();
   const benefitHeading = benefits.getByRole('heading', { name: V2_REFERENCE.copy.benefitHeading });
   await benefitHeading.scrollIntoViewIfNeeded();
-  await expect(benefits.getByText('오늘의 반찬', { exact: true }).first()).toBeVisible();
+  await expect(benefitHeading).toBeVisible();
+
+  // This flow validates benefit state transitions, not a historical demo shop
+  // name. The current Gate1 visual can change the featured service independently.
   const claim = benefits.getByRole('button', { name: '주민혜택 받기' }).first();
+  await expect(claim).toBeVisible();
   await claim.click();
 
   await expect(page.getByText(/DANJION-[A-Z0-9]{4,8}/).first()).toBeVisible();
