@@ -80,7 +80,7 @@ function withCors(response: Response, request: Request, env: AppEnv): Response {
   if (!origin) return response;
   const headers = new Headers(response.headers);
   headers.set('access-control-allow-origin', origin);
-  headers.set('access-control-expose-headers', REQUEST_ID_HEADER);
+  headers.set('access-control-expose-headers', `${REQUEST_ID_HEADER}, Retry-After, X-Retry-After`);
   appendVaryOrigin(headers);
   return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
 }
