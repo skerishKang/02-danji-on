@@ -26,17 +26,19 @@ assert.match(admin, /benefit\.manage/);
 assert.match(admin, /council\.benefit\.manage/);
 assert.doesNotMatch(admin, /requireManager|(?:from|join)\s+complex_memberships/i, 'new operational route layer must not use legacy manager/admin authorization');
 
-const requiredRoutes = [
-  'business-applications',
-  'admin\\/business-applications',
-  'complexes\\/([^/]+)\\/posts',
-  'admin\\/posts',
-  'complexes\\/([^/]+)\\/benefits',
-  'admin\\/benefits'
-];
-for (const marker of requiredRoutes) {
-  assert.match(admin, new RegExp(marker), `missing migrated admin route marker: ${marker}`);
+for (const fn of [
+  'patchApplication',
+  'createPost',
+  'patchPost',
+  'createBenefit',
+  'patchBenefit',
+  'handleAdminOperationalRequest'
+]) {
+  assert.ok(admin.includes(fn), `missing migrated admin operation: ${fn}`);
 }
+assert.ok(admin.includes('business-applications'), 'business application list/review routes must be intercepted');
+assert.ok(admin.includes('/posts'), 'official post routes must be intercepted');
+assert.ok(admin.includes('/benefits'), 'benefit routes must be intercepted');
 
 const operationalIndex = app.indexOf('handleAdminOperationalRequest(request, env, id)');
 const legacyIndex = app.indexOf('handleAdminRequest(request, env, id)');
