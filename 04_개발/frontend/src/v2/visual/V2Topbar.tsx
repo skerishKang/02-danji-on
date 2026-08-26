@@ -21,7 +21,8 @@ export function V2Topbar({
   progress = 0,
   onNavigate,
   onOpenSearch,
-  onOpenProfile
+  onOpenProfile,
+  onRegister
 }: {
   active?: V2VisualNavKey;
   complexName?: string;
@@ -30,6 +31,7 @@ export function V2Topbar({
   onNavigate?: (key: V2VisualNavKey) => void;
   onOpenSearch?: () => void;
   onOpenProfile?: () => void;
+  onRegister?: () => void;
 }) {
   const [communityOpen, setCommunityOpen] = useState(false);
   const safeProgress = Math.min(1, Math.max(0, progress));
@@ -47,10 +49,11 @@ export function V2Topbar({
   return (
     <>
       <div data-v2-top-progress className="v2-top-progress" aria-hidden="true" style={{ transform: `scaleX(${safeProgress})` }} />
-      <header data-v2-topbar className="v2-topbar">
+      <header data-v2-topbar className="v2-topbar v2-gate1-topbar">
         <div className="v2-topbar-inner">
           <button className="v2-brand" type="button" onClick={() => navigate('home')} aria-label="단지온 홈">
-            <span className="v2-wordmark">단지온</span>
+            <span className="v2-wordmark">DANJION</span>
+            <span className="v2-byline">by PADIEM</span>
             <span className="v2-complex">{complexName}</span>
           </button>
           <nav className="v2-desktop-nav" aria-label="주요 메뉴">
@@ -62,8 +65,9 @@ export function V2Topbar({
           </nav>
           <div className="v2-header-tools">
             {verified && <span className="v2-verified-pill"><span className="v2-verified-dot" />{complexName} 입주민</span>}
-            <button className="v2-icon-btn" type="button" onClick={onOpenSearch} aria-label="검색 열기"><V2Icon name="search" /></button>
+            <button className="v2-icon-btn v2-search-tool" type="button" onClick={onOpenSearch} aria-label="검색 열기"><V2Icon name="search" /></button>
             <button className="v2-icon-btn" type="button" onClick={onOpenProfile} aria-label="내정보 열기"><V2Icon name="me" /></button>
+            {onRegister && <button className="v2-gate1-announce" type="button" onClick={onRegister}>내 일 알리기</button>}
           </div>
         </div>
       </header>
