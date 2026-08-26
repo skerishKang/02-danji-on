@@ -1,3 +1,4 @@
+import { authenticatedFetch } from './auth-fetch';
 import { authProvider } from './auth';
 import {
   getMockResidentVerification,
@@ -18,14 +19,13 @@ const API_BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
 type ApiEnvelope<T> = { data: T; requestId: string };
 
 async function apiRequest<T>(scope: 'resident' | 'admin', path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${API_BASE}${path}`, {
+  const response = await authenticatedFetch(`${API_BASE}${path}`, {
     ...init,
     headers: {
       'content-type': 'application/json',
-      ...authProvider.headers(scope),
       ...(init?.headers || {})
     }
-  });
+  }, scope);
   const payload = await response.json() as ApiEnvelope<T> | { error?: { message?: string } };
   if (!response.ok) {
     const message = 'error' in payload ? payload.error?.message : undefined;
