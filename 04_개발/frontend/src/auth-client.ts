@@ -22,6 +22,10 @@ function assertAuthSuccess(result: { error?: { message?: string } | null }, fall
   if (result.error) throw new Error(result.error.message || fallback);
 }
 
+function moveToVerificationLanding(): void {
+  if (typeof window !== 'undefined') window.location.assign(browserUrl('/auth-recovery.html?mode=check-email'));
+}
+
 export function emailVerificationCallbackURL(): string {
   return browserUrl('/auth-recovery.html?mode=verified');
 }
@@ -68,6 +72,7 @@ export async function signUpWithPhone(input: {
     callbackURL: emailVerificationCallbackURL()
   });
   assertAuthSuccess(result, '단지온 계정을 만들지 못했습니다.');
+  moveToVerificationLanding();
   return result.data;
 }
 
@@ -98,6 +103,7 @@ export async function signUpWithEmail(input: {
     ...(normalizedPhone ? { username: normalizedPhone } : {})
   });
   assertAuthSuccess(result, '단지온 계정을 만들지 못했습니다.');
+  moveToVerificationLanding();
   return result.data;
 }
 
