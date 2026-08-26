@@ -8,6 +8,7 @@ import { handleHouseholdPrimaryClaimRequest } from './household-claim-v2';
 import { handleHouseholdUnitMasterRequest } from './household-master-v2';
 import { validateRequestPayload } from './payload-policy';
 import { handleResidentApplicationRequest } from './resident-application-v1';
+import { handleResidentEconomyMutationRequest } from './resident-economy-v2';
 import { handleResidentVerificationRequest } from './resident-verification-v1';
 import { handleStorageRequest } from './storage-v1';
 
@@ -149,6 +150,11 @@ export default {
 
       const residentVerificationResponse = await handleResidentVerificationRequest(request, env, id);
       if (residentVerificationResponse) return respond(residentVerificationResponse);
+
+      // Sensitive resident-economy mutations are intercepted here so the
+      // canonical Household v2 verified-resident boundary is authoritative.
+      const residentEconomyMutationResponse = await handleResidentEconomyMutationRequest(request, env, id);
+      if (residentEconomyMutationResponse) return respond(residentEconomyMutationResponse);
 
       const benefitWalletResponse = await handleBenefitWalletRequest(request, env, id);
       if (benefitWalletResponse) return respond(benefitWalletResponse);
