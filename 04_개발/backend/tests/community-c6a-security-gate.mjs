@@ -2,11 +2,13 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
 const root = new URL('../', import.meta.url);
-const [residentApi, moderationApi, authz, authzTest, core, schema] = await Promise.all([
+const [residentApi, moderationApi, authz, authzTest, operationalAuthz, operationalAuthzTest, core, schema] = await Promise.all([
   readFile(new URL('src/community-resident-v1.ts', root), 'utf8'),
   readFile(new URL('src/community-moderation-v1.ts', root), 'utf8'),
   readFile(new URL('src/authorization-v2.ts', root), 'utf8'),
   readFile(new URL('tests/authorization-v2.test.mjs', root), 'utf8'),
+  readFile(new URL('src/operational-authz-v2.ts', root), 'utf8'),
+  readFile(new URL('tests/operational-authz-v2.test.mjs', root), 'utf8'),
   readFile(new URL('src/core-v1.ts', root), 'utf8'),
   readFile(new URL('migrations/013_community_core.sql', root), 'utf8')
 ]);
@@ -45,13 +47,26 @@ assert.doesNotMatch(residentApi, /complex_posts/,
 assert.doesNotMatch(residentApi, /select[^;]*(email|phone|unit_code|building_code|auth_user_id)/is,
   'resident Community projection must not select resident PII/provider identity');
 
-// Operator authority is separate from apartment management authority.
-assert.match(moderationApi,
-  /requirePadiemOperator\(request, env, sql, requestId, 'community\.moderate'\)/);
+// Operational moderation follows the current governance model: explicit PADIEM OR
+// complex-scoped resident council. Management-office onboarding support and legacy
+// manager/admin membership are never sufficient authority.
+assert.match(moderationApi, /requireOperationalAuthority\(/);
+assert.ok(moderationApi.includes("'community.moderate'"));
+assert.ok(moderationApi.includes("'council.community.moderate'"));
+assert.doesNotMatch(moderationApi, /requirePadiemOperator\(/,
+  'moderation must not remain on the historical PADIEM-only guard');
 assert.doesNotMatch(moderationApi, /complex_memberships/,
-  'apartment manager/admin state must not grant PADIEM moderation authority');
-assert.match(authz, /from padiem_operator_grants/i);
-assert.match(authz, /scope = \$\{scope\} or scope = '\*'/i);
+  'legacy apartment manager/admin state must not grant moderation authority');
+assert.doesNotMatch(moderationApi, /onboarding_support/,
+  'management-office onboarding support must not grant moderation authority');
+assert.match(operationalAuthz, /from padiem_operator_grants/i);
+assert.match(operationalAuthz, /from complex_operator_grants/i);
+assert.match(operationalAuthz, /operator_kind = 'resident_council'/i);
+assert.match(operationalAuthz, /PADIEM or resident-council authorization required/);
+assert.doesNotMatch(operationalAuthz, /complex_memberships/);
+assert.match(operationalAuthzTest, /PADIEM \+ council allowed, support\/legacy manager denied/);
+assert.match(operationalAuthzTest, /onboarding_support/);
+assert.match(operationalAuthzTest, /resident_council/);
 
 // Moderation changes state only, never resident content, and audit is atomic.
 assert.doesNotMatch(moderationApi, /set\s+(title|body)\s*=/i,
@@ -81,4 +96,4 @@ assert.doesNotMatch(core, /from community_posts/i);
 assert.doesNotMatch(core, /from community_comments/i);
 assert.doesNotMatch(core, /from community_reports/i);
 
-console.log('PASS Community C6A backend security gate: A/B/C/D/O/M, tenancy, ownership, privacy, moderation audit');
+console.log('PASS Community C6A backend security gate: residents, PADIEM/council governance, tenancy, ownership, privacy, moderation audit');
