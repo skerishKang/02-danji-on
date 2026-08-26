@@ -13,6 +13,19 @@ export const danjionAuthClient = createAuthClient({
   ]
 });
 
+function browserUrl(path: string): string {
+  if (typeof window === 'undefined') return path;
+  return new URL(path, window.location.origin).toString();
+}
+
+export function emailVerificationCallbackURL(): string {
+  return browserUrl('/?auth=email-verified');
+}
+
+export function passwordResetCallbackURL(): string {
+  return browserUrl('/auth-recovery.html');
+}
+
 export function normalizePhoneCredential(value: string): string {
   const digits = value.replace(/\D/g, '');
   if (digits.startsWith('82') && digits.length >= 11) return `0${digits.slice(2)}`;
@@ -42,14 +55,19 @@ export async function signUpWithPhone(input: {
     email: input.email.trim(),
     name: input.name.trim(),
     password: input.password,
-    username
+    username,
+    callbackURL: emailVerificationCallbackURL()
   });
 }
 
 export async function signInWithPhone(phone: string, password: string) {
   const username = normalizePhoneCredential(phone);
   if (!isSupportedPhoneCredential(username)) throw new Error('지원하지 않는 휴대폰 번호 형식입니다.');
-  return danjionAuthClient.signIn.username({ username, password });
+  return danjionAuthClient.signIn.username({
+    username,
+    password,
+    callbackURL: emailVerificationCallbackURL()
+  });
 }
 
 export async function signUpWithEmail(input: {
@@ -67,12 +85,38 @@ export async function signUpWithEmail(input: {
     email: input.email.trim(),
     name: input.name.trim(),
     password: input.password,
+    callbackURL: emailVerificationCallbackURL(),
     ...(normalizedPhone ? { username: normalizedPhone } : {})
   });
 }
 
 export async function signInWithEmail(email: string, password: string) {
-  return danjionAuthClient.signIn.email({ email: email.trim(), password });
+  return danjionAuthClient.signIn.email({
+    email: email.trim(),
+    password,
+    callbackURL: emailVerificationCallbackURL()
+  });
+}
+
+export async function resendVerificationEmail(email: string) {
+  return danjionAuthClient.sendVerificationEmail({
+    email: email.trim(),
+    callbackURL: emailVerificationCallbackURL()
+  });
+}
+
+export async function requestPasswordReset(email: string) {
+  return danjionAuthClient.requestPasswordReset({
+    email: email.trim(),
+    redirectTo: passwordResetCallbackURL()
+  });
+}
+
+export async function resetPasswordWithToken(token: string, newPassword: string) {
+  return danjionAuthClient.resetPassword({
+    token,
+    newPassword
+  });
 }
 
 export async function getProductApiBearerToken(): Promise<string | null> {
