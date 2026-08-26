@@ -1,5 +1,6 @@
 import { neon, type NeonQueryFunction } from '@neondatabase/serverless';
 import { requireActor as requireCanonicalActor, type Actor } from './auth-v1';
+import { requireVerifiedResident } from './authorization-v2';
 import type { CoreEnv } from './core-v1';
 import {
   safeStorageFileName,
@@ -157,17 +158,6 @@ async function requireStorageActor(
   return { actor: actorOrResponse, sql };
 }
 
-async function membershipFor(sql: Sql, userId: string, complexSlug: string) {
-  const rows = await sql`
-    select m.role, m.verification_status
-    from complex_memberships m
-    join complexes c on c.id = m.complex_id
-    where m.user_id = ${userId}::uuid and c.slug = ${complexSlug}
-    limit 1
-  `;
-  return rows[0] ?? null;
-}
-
 async function readDriveMetadata(env: DriveEnv, parsed: ParsedObjectKey): Promise<DriveMetadata | null> {
   const response = await googleFetch(
     env,
@@ -228,7 +218,6 @@ async function uploadDriveFile(
 }
 
 async function authorizeObject(
-  sql: Sql,
   actor: Actor,
   metadata: DriveMetadata,
   requestId: string
@@ -237,8 +226,7 @@ async function authorizeObject(
   if (props.danjionUploaderUserId === actor.id) return null;
 
   // Issue #59 keeps resident-verification evidence administration on HOLD.
-  // No non-uploader actor class (legacy manager/admin, PADIEM, resident council,
-  // or onboarding support) receives evidence-original access by operational role.
+  // No non-uploader actor class receives evidence-original access by role.
   if (props.danjionKind === 'resident-evidence' || props.danjionVisibility === 'private') {
     return fail(
       'RESIDENT_VERIFICATION_POLICY_HOLD',
@@ -248,15 +236,15 @@ async function authorizeObject(
     );
   }
 
-  // Historical business-media fallback is preserved for this bounded privacy
-  // repair only. It is not authority for resident-verification evidence.
-  const complexSlug = props.danjionComplexSlug?.trim();
-  if (!complexSlug) return fail('FORBIDDEN', 'Storage object is missing complex scope', 403, requestId);
-  const membership = await membershipFor(sql, actor.id, complexSlug);
-  if (!membership || !['manager', 'admin'].includes(String(membership.role)) || String(membership.verification_status) !== 'verified') {
-    return fail('FORBIDDEN', 'Storage object access is not allowed', 403, requestId);
-  }
-  return null;
+  // Public readability is not mutation authority. Historical apartment
+  // manager/admin membership is not current business-media deletion authority,
+  // and no operator media-delete scope is invented in this bounded repair.
+  return fail(
+    'FORBIDDEN',
+    'Only the storage uploader may mutate this business image until explicit media moderation authority is defined',
+    403,
+    requestId
+  );
 }
 
 async function upload(request: Request, env: DriveEnv, requestId: string): Promise<Response> {
@@ -286,12 +274,17 @@ async function upload(request: Request, env: DriveEnv, requestId: string): Promi
     const status = validation.code === 'UNSUPPORTED_MEDIA_TYPE' ? 415 : validation.code === 'FILE_TOO_LARGE' ? 413 : 400;
     return fail(validation.code, validation.message, status, requestId);
   }
-  if (!complexSlug || complexSlug.length > 160) return fail('VALIDATION_ERROR', 'complexSlug is required', 400, requestId);
-  const membership = await membershipFor(auth.sql, auth.actor.id, complexSlug);
-  if (!membership) return fail('FORBIDDEN', 'No membership for target complex', 403, requestId);
+  if (!complexSlug) return fail('VALIDATION_ERROR', 'complexSlug is required', 400, requestId);
+
+  // Business media is consumed by the Household-v2 resident-economy flow, so
+  // its upload uses the same verified-resident authority rather than legacy
+  // complex_memberships existence or role fields.
+  const residentOrResponse = await requireVerifiedResident(request, env, auth.sql, requestId, complexSlug);
+  if (residentOrResponse instanceof Response) return residentOrResponse;
+  const resident = residentOrResponse;
 
   const file = files[0];
-  const uploaded = await uploadDriveFile(env, validation.kind, file, auth.actor, complexSlug);
+  const uploaded = await uploadDriveFile(env, validation.kind, file, resident, resident.complexSlug);
   if (!uploaded.id) throw new Error('Google Drive upload returned no file id');
   return ok({
     objectKey: objectKey(validation.kind, uploaded.id),
@@ -319,7 +312,7 @@ async function streamObject(request: Request, env: DriveEnv, requestId: string, 
   if (privateRoute) {
     const auth = await requireStorageActor(request, env, requestId);
     if (auth instanceof Response) return auth;
-    const denied = await authorizeObject(auth.sql, auth.actor, metadata, requestId);
+    const denied = await authorizeObject(auth.actor, metadata, requestId);
     if (denied) return denied;
   }
 
@@ -343,7 +336,7 @@ async function removeObject(request: Request, env: DriveEnv, requestId: string):
   if (!parsed) return fail('INVALID_OBJECT_KEY', 'Invalid storage object key', 400, requestId);
   const metadata = await readDriveMetadata(env, parsed);
   if (!metadata || !metadataMatches(env, parsed, metadata)) return fail('NOT_FOUND', 'Storage object not found', 404, requestId);
-  const denied = await authorizeObject(auth.sql, auth.actor, metadata, requestId);
+  const denied = await authorizeObject(auth.actor, metadata, requestId);
   if (denied) return denied;
 
   const response = await googleFetch(env, `${DRIVE_API}/files/${encodeURIComponent(parsed.fileId)}?supportsAllDrives=true`, {
