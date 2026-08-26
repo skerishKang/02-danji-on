@@ -17,6 +17,17 @@ export type PadiemOperator = Actor & {
   grantedScope: string;
 };
 
+export type ComplexOperatorKind = 'resident_council' | 'onboarding_support';
+
+export type ComplexOperator = Actor & {
+  complexId: string;
+  complexSlug: string;
+  operatorGrantId: string;
+  operatorKind: ComplexOperatorKind;
+  requestedScope: string;
+  grantedScope: string;
+};
+
 function json(data: unknown, status: number, requestId: string): Response {
   return Response.json(data, {
     status,
@@ -40,6 +51,12 @@ function validOperatorScope(value: string): boolean {
   return value.length >= 1 && value.length <= 120 && /^[a-z0-9][a-z0-9.*:_-]*$/.test(value);
 }
 
+function complexOperatorKindForScope(scope: string): ComplexOperatorKind | null {
+  if (scope.startsWith('council.')) return 'resident_council';
+  if (scope.startsWith('onboarding.')) return 'onboarding_support';
+  return null;
+}
+
 async function recordOperatorDecision(
   sql: Sql,
   actor: Actor,
@@ -47,14 +64,20 @@ async function recordOperatorDecision(
   requestedScope: string,
   decision: 'allowed' | 'denied',
   reasonCode: string,
-  grantedScope: string | null
+  grantedScope: string | null,
+  complexId: string | null = null,
+  operatorKind: ComplexOperatorKind | 'padiem' | null = null
 ): Promise<void> {
-  const metadata = JSON.stringify(grantedScope ? { grantedScope } : {});
+  const metadata = JSON.stringify({
+    ...(grantedScope ? { grantedScope } : {}),
+    ...(operatorKind ? { operatorKind } : {})
+  });
   await sql`
     insert into audit_events (
       request_id,
       actor_user_id,
       actor_kind,
+      complex_id,
       action,
       scope,
       decision,
@@ -64,6 +87,7 @@ async function recordOperatorDecision(
       ${requestId},
       ${actor.id},
       'operator',
+      ${complexId},
       'authorization.check',
       ${requestedScope},
       ${decision},
@@ -165,12 +189,12 @@ export async function requirePadiemOperator(
 
     const row = rows[0];
     if (!row) {
-      await recordOperatorDecision(sql, actor, requestId, scope, 'denied', 'OPERATOR_SCOPE_MISSING', null);
+      await recordOperatorDecision(sql, actor, requestId, scope, 'denied', 'OPERATOR_SCOPE_MISSING', null, null, 'padiem');
       return fail('OPERATOR_FORBIDDEN', 'PADIEM operator authorization required', 403, requestId);
     }
 
     const grantedScope = String(row.scope);
-    await recordOperatorDecision(sql, actor, requestId, scope, 'allowed', 'OPERATOR_SCOPE_GRANTED', grantedScope);
+    await recordOperatorDecision(sql, actor, requestId, scope, 'allowed', 'OPERATOR_SCOPE_GRANTED', grantedScope, null, 'padiem');
 
     return {
       ...actor,
@@ -181,5 +205,115 @@ export async function requirePadiemOperator(
   } catch (error) {
     console.error('[DanjiOn Operator AuthZ]', requestId, error instanceof Error ? error.name : 'operator_authz_failed');
     return fail('OPERATOR_AUTHZ_FAILED', 'Operator authorization could not be verified and audited', 500, requestId);
+  }
+}
+
+export async function requireComplexOperator(
+  request: Request,
+  env: AuthEnv,
+  sql: Sql,
+  requestId: string,
+  complexSlug: string,
+  scope: string
+): Promise<ComplexOperator | Response> {
+  if (!validComplexSlug(complexSlug)) {
+    return fail('COMPLEX_INVALID', 'Invalid apartment complex', 400, requestId);
+  }
+  if (!validOperatorScope(scope)) {
+    return fail('COMPLEX_OPERATOR_SCOPE_INVALID', 'Invalid complex operator scope', 400, requestId);
+  }
+
+  const requiredKind = complexOperatorKindForScope(scope);
+  if (!requiredKind) {
+    return fail('COMPLEX_OPERATOR_SCOPE_INVALID', 'Complex operator scope must be council.* or onboarding.*', 400, requestId);
+  }
+
+  const actor = await requireActor(request, env, sql, requestId);
+  if (actor instanceof Response) return actor;
+
+  try {
+    const rows = await sql`
+      select
+        c.id as complex_id,
+        c.slug as complex_slug,
+        g.id as operator_grant_id,
+        g.operator_kind,
+        g.scope
+      from complexes c
+      left join complex_operator_grants g
+        on g.complex_id = c.id
+       and g.user_id = ${actor.id}
+       and g.operator_kind = ${requiredKind}
+       and g.scope = ${scope}
+       and g.status = 'active'
+       and (g.expires_at is null or g.expires_at > now())
+      where c.slug = ${complexSlug}
+        and c.status <> 'inactive'
+      order by g.granted_at desc nulls last
+      limit 1
+    `;
+
+    const row = rows[0];
+    if (!row) {
+      return fail('COMPLEX_NOT_FOUND', 'Apartment complex not found', 404, requestId);
+    }
+
+    const complexId = String(row.complex_id);
+    if (!row.operator_grant_id) {
+      await recordOperatorDecision(
+        sql,
+        actor,
+        requestId,
+        scope,
+        'denied',
+        'COMPLEX_OPERATOR_SCOPE_MISSING',
+        null,
+        complexId,
+        requiredKind
+      );
+      return fail('COMPLEX_OPERATOR_FORBIDDEN', 'Complex operator authorization required', 403, requestId);
+    }
+
+    const operatorKind = String(row.operator_kind);
+    if (operatorKind !== requiredKind) {
+      await recordOperatorDecision(
+        sql,
+        actor,
+        requestId,
+        scope,
+        'denied',
+        'COMPLEX_OPERATOR_KIND_MISMATCH',
+        null,
+        complexId,
+        requiredKind
+      );
+      return fail('COMPLEX_OPERATOR_FORBIDDEN', 'Complex operator authorization required', 403, requestId);
+    }
+
+    const grantedScope = String(row.scope);
+    await recordOperatorDecision(
+      sql,
+      actor,
+      requestId,
+      scope,
+      'allowed',
+      'COMPLEX_OPERATOR_SCOPE_GRANTED',
+      grantedScope,
+      complexId,
+      requiredKind
+    );
+
+    return {
+      ...actor,
+      complexId,
+      complexSlug: String(row.complex_slug),
+      operatorGrantId: String(row.operator_grant_id),
+      operatorKind: requiredKind,
+      requestedScope: scope,
+      grantedScope
+    };
+  } catch (error) {
+    console.error('[DanjiOn Complex Operator AuthZ]', requestId, error instanceof Error ? error.name : 'complex_operator_authz_failed');
+    return fail('COMPLEX_OPERATOR_AUTHZ_FAILED', 'Complex operator authorization could not be verified and audited', 500, requestId);
   }
 }
