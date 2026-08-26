@@ -19,8 +19,8 @@ assert.match(server, /username\(\{/);
 assert.match(server, /displayUsername:\s*false/);
 assert.match(server, /usernameNormalization:\s*normalizeKoreanPhone/);
 assert.match(server, /usernameValidator:/);
-assert.match(server, /SMS|sms/, 'contract should explicitly record the no-SMS boundary in docs/tests');
 assert.doesNotMatch(server, /phoneNumber\(/, 'phone plugin would couple this v1 path to phone verification/OTP semantics');
+assert.doesNotMatch(server, /sendOTP|sendVerificationOTP|verifyPhoneNumber/, 'v1 phone login must not fake or require SMS verification');
 
 assert.match(server, /jwt\(\{/);
 assert.match(authResolver, /\/api\/auth\/jwks/);
