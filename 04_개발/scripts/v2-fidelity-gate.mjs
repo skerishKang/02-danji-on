@@ -11,9 +11,10 @@ const releaseMode = args.has('--release') || process.env.DANJION_V2_GATE_MODE ==
 const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 const npx = process.platform === 'win32' ? 'npx.cmd' : 'npx';
 
+// CURRENT VISUAL AUTHORITY — sibling Gate1 final, approved by product owner 2026-08-26.
 const fixedSource = {
-  fileId: '18Tl6-J5q9_7ZXx0Rb9FZS--QifQ09aZB',
-  sha256: '70d925fffdb24f752cce489fccd97bda2b5856edafe982be4a7e6abc54546f85'
+  fileId: '1aFaUaB1HIpb5iVaDvi_fJUYWs5i29MYB',
+  sha256: 'AE736CFD66D53D72D94DAC7EAC2FDBCB6864C6C05680E61E748DA6576B7F22CC'
 };
 
 const requirements = {
@@ -59,8 +60,8 @@ if (existsSync(mainPath)) {
   }
 }
 
-console.log(`[V2 QA] fixed source id=${fixedSource.fileId}`);
-console.log(`[V2 QA] fixed source sha256=${fixedSource.sha256}`);
+console.log(`[V2 QA] current visual source id=${fixedSource.fileId}`);
+console.log(`[V2 QA] current visual source sha256=${fixedSource.sha256}`);
 if (blockers.length) {
   for (const blocker of blockers) {
     console.log(`BLOCKED_V2_${blocker.track}: ${blocker.missing.join('; ')}`);
