@@ -82,6 +82,32 @@ async function fingerprint(input: ApplicationInput): Promise<string> {
   return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('');
 }
 
+async function existingBusinessApplication(sql: Sql, applicantUserId: string, submissionKey: string) {
+  const rows = await sql`
+    select id, relation_type, business_name, category_name, service_summary,
+           price_text, contact_method, service_area, benefit_text,
+           availability_text, representative_image_object_key, status,
+           review_note, approved_business_id, submission_key,
+           submission_fingerprint, created_at, updated_at
+    from business_applications
+    where applicant_user_id = ${applicantUserId}::uuid
+      and submission_key = ${submissionKey}
+    limit 1
+  `;
+  return rows[0] ?? null;
+}
+
+function idempotentReplayResponse(
+  existing: Record<string, unknown>,
+  requestFingerprint: string,
+  requestId: string
+): Response {
+  if (String(existing.submission_fingerprint) !== requestFingerprint) {
+    return fail('IDEMPOTENCY_KEY_REUSED', 'The Idempotency-Key was already used with a different request body', 409, requestId);
+  }
+  return ok({ ...existing, idempotency_replayed: true }, requestId);
+}
+
 async function createBusinessApplication(
   request: Request,
   env: CoreEnv,
@@ -97,17 +123,6 @@ async function createBusinessApplication(
   if (residentOrResponse instanceof Response) return residentOrResponse;
   const resident = residentOrResponse;
 
-  if (input.representativeImageObjectKey) {
-    const imageReferenceError = await validateBusinessImageReference(
-      env,
-      input.representativeImageObjectKey,
-      resident.id,
-      resident.complexSlug,
-      requestId
-    );
-    if (imageReferenceError) return imageReferenceError;
-  }
-
   const rawKey = request.headers.get('idempotency-key')?.trim() || null;
   if (rawKey && !validIdempotencyKey(rawKey)) {
     return fail(
@@ -118,6 +133,28 @@ async function createBusinessApplication(
     );
   }
   const requestFingerprint = rawKey ? await fingerprint(input) : null;
+
+  // A completed idempotent request replays its stored result before any
+  // external Drive revalidation. External file state must not change the
+  // semantics of an operation that already completed with the same body.
+  if (rawKey && requestFingerprint) {
+    const existing = await existingBusinessApplication(sql, resident.id, rawKey);
+    if (existing) return idempotentReplayResponse(existing as Record<string, unknown>, requestFingerprint, requestId);
+  }
+
+  // Only a new application may introduce a representative-image reference.
+  // Validate server-controlled Drive metadata after verified-resident AuthZ and
+  // before the application row can persist the key.
+  if (input.representativeImageObjectKey) {
+    const imageReferenceError = await validateBusinessImageReference(
+      env,
+      input.representativeImageObjectKey,
+      resident.id,
+      resident.complexSlug,
+      requestId
+    );
+    if (imageReferenceError) return imageReferenceError;
+  }
 
   const inserted = await sql`
     insert into business_applications (
@@ -154,23 +191,12 @@ async function createBusinessApplication(
   if (inserted[0]) return ok({ ...inserted[0], idempotency_replayed: false }, requestId, 201);
   if (!rawKey || !requestFingerprint) return fail('CONFLICT', 'Application could not be created', 409, requestId);
 
-  const existingRows = await sql`
-    select id, relation_type, business_name, category_name, service_summary,
-           price_text, contact_method, service_area, benefit_text,
-           availability_text, representative_image_object_key, status,
-           review_note, approved_business_id, submission_key,
-           submission_fingerprint, created_at, updated_at
-    from business_applications
-    where applicant_user_id = ${resident.id}::uuid
-      and submission_key = ${rawKey}
-    limit 1
-  `;
-  const existing = existingRows[0];
-  if (!existing) return fail('CONFLICT', 'Idempotent application could not be resolved', 409, requestId);
-  if (String(existing.submission_fingerprint) !== requestFingerprint) {
-    return fail('IDEMPOTENCY_KEY_REUSED', 'The Idempotency-Key was already used with a different request body', 409, requestId);
-  }
-  return ok({ ...existing, idempotency_replayed: true }, requestId);
+  // A concurrent request may have won the unique-key race after the pre-read.
+  // Resolve it with the same fingerprint contract rather than treating it as a
+  // generic conflict.
+  const racedExisting = await existingBusinessApplication(sql, resident.id, rawKey);
+  if (!racedExisting) return fail('CONFLICT', 'Idempotent application could not be resolved', 409, requestId);
+  return idempotentReplayResponse(racedExisting as Record<string, unknown>, requestFingerprint, requestId);
 }
 
 async function claimBenefit(
