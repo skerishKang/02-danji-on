@@ -8,6 +8,7 @@ const admin = read('src/admin-v1.ts');
 const adminAudit = read('src/admin-audit-v1.ts');
 const adminReviewContext = read('src/admin-review-context-v1.ts');
 const adminVerification = read('src/admin-verification-v1.ts');
+const operationalAuthz = read('src/operational-authz-v2.ts');
 const residentApplication = read('src/resident-application-v1.ts');
 const residentVerification = read('src/resident-verification-v1.ts');
 const benefitWallet = read('src/benefit-wallet-v1.ts');
@@ -46,12 +47,14 @@ const checks = [
   ['active admin uses narrow Neon type', admin.includes('NeonQueryFunction<false, false>')],
   ['admin audit uses narrow Neon type', adminAudit.includes('NeonQueryFunction<false, false>')],
   ['review context uses narrow Neon type', adminReviewContext.includes('NeonQueryFunction<false, false>')],
-  ['review context requires verified manager membership', adminReviewContext.includes("role in ('manager','admin')") && adminReviewContext.includes("verification_status = 'verified'")],
-  ['review context exposes only aggregate verification evidence', adminReviewContext.includes('verification_evidence_count') && adminReviewContext.includes('membershipVerificationStatus') && adminReviewContext.includes('evidenceCount')],
+  ['review context uses explicit PADIEM or council business-review authority', adminReviewContext.includes('requireOperationalAuthority') && adminReviewContext.includes("'business.review'") && adminReviewContext.includes("'council.business.review'")],
+  ['review context exposes only aggregate verification evidence', adminReviewContext.includes('verification_evidence_count') && adminReviewContext.includes('residentVerificationStatus') && adminReviewContext.includes('verificationEvidenceCount')],
   ['review context never selects residence coordinates or evidence object key', !adminReviewContext.includes('building_code') && !adminReviewContext.includes('unit_code') && !adminReviewContext.includes('evidence_object_key')],
-  ['admin audit requires verified manager membership', adminAudit.includes("m.role in ('manager','admin')") && adminAudit.includes("m.verification_status = 'verified'")],
-  ['admin audit is complex scoped', adminAudit.includes('e.complex_id = ${String(manager.complex_id)}::uuid')],
+  ['admin audit uses explicit PADIEM or council business-review authority', adminAudit.includes('requireOperationalAuthority') && adminAudit.includes("'business.review'") && adminAudit.includes("'council.business.review'")],
+  ['admin audit is complex scoped', adminAudit.includes('e.complex_id = ${operator.complexId}::uuid')],
   ['admin audit supports application filter and limit', adminAudit.includes("url.searchParams.get('applicationId')") && adminAudit.includes("url.searchParams.get('limit')")],
+  ['resident verification admin is policy-hold fail closed', adminVerification.includes('RESIDENT_VERIFICATION_POLICY_HOLD') && !adminVerification.includes("role in ('manager','admin')") && !adminVerification.includes('evidence_object_key')],
+  ['operational auth never trusts legacy manager/admin membership', !operationalAuthz.includes('complex_memberships') && operationalAuthz.includes('padiem_operator_grants') && operationalAuthz.includes('complex_operator_grants')],
   ['resident workflow uses narrow Neon type', residentApplication.includes('NeonQueryFunction<false, false>')],
   ['resident resubmit is owner scoped', residentApplication.includes('a.applicant_user_id = ${actor.id}::uuid')],
   ['resident resubmit only accepts changes requested state', residentApplication.includes("a.status = 'changes_requested'") && residentApplication.includes("status = 'pending'")],
@@ -79,7 +82,7 @@ const checks = [
   ['production dev bypass is disabled centrally', auth.includes("env.APP_ENV === 'production'") && auth.includes("env.DEV_AUTH_BYPASS !== 'true'")],
   ['auth has controlled missing and invalid errors', auth.includes("fail('AUTH_REQUIRED'") && auth.includes("fail('AUTH_INVALID'") && auth.includes("fail('AUTH_NOT_CONFIGURED'")],
   ['auth has controlled identity-link error', auth.includes('AUTH_IDENTITY_LINK_FAILED')],
-  ['all private and admin routers use shared auth resolver', privateRouters.every((source) => source.includes("from './auth-v1'"))],
+  ['all private and admin routers use shared auth boundary', privateRouters.every((source) => source.includes("from './auth-v1'") || source.includes("from './operational-authz-v2'"))],
   ['legacy auth adapter pending boundary is removed', privateRouters.every((source) => !source.includes('AUTH_ADAPTER_PENDING'))],
   ['admin list endpoint exists', admin.includes('business-applications$/') && admin.includes("request.method === 'GET'")],
   ['admin approval uses atomic update gate', admin.includes('with approved as') && admin.includes("a.status in ('pending','changes_requested')")],
