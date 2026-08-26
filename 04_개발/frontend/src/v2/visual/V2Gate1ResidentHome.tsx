@@ -5,6 +5,10 @@ import { V2_REFERENCE_IMAGES } from './visual-data';
 
 const LOCAL_IMAGE_FALLBACK = '/field-demo/scenes-sprite.jpg';
 
+function scrollTo(id: string) {
+  document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
 export function V2Gate1ResidentHome({
   complexName = '방림명지로드힐',
   onBrowse,
@@ -19,6 +23,10 @@ export function V2Gate1ResidentHome({
   onOpenCommunity?: () => void;
 }) {
   const [projectStoryOpen, setProjectStoryOpen] = useState(false);
+  const browse = onBrowse ?? (() => scrollTo('v2-discovery'));
+  const benefits = onOpenBenefits ?? (() => scrollTo('v2-benefits'));
+  const community = onOpenCommunity ?? (() => scrollTo('v2-ending'));
+  const register = onRegister ?? (() => scrollTo('v2-registration'));
 
   return (
     <>
@@ -38,26 +46,26 @@ export function V2Gate1ResidentHome({
               <small>살아 있는 이웃의 일 · React Preview</small>
               <h3>오래 쓰는 것을<br />고치는 손</h3>
               <p>우리 단지 가까이에서 만나는 생활 수선 이야기</p>
-              <button type="button" onClick={onBrowse}>이웃의 일 둘러보기 →</button>
+              <button type="button" onClick={browse}>이웃의 일 둘러보기 →</button>
             </div>
           </article>
 
           <article className="v2-gate1-home-benefit">
             <div><span>RESIDENT BENEFIT 01</span><strong>10%</strong></div>
-            <div><h3>{complexName}<br />주민 혜택</h3><p>이웃의 일을 알고, 주민만의 작은 혜택을 나눕니다.</p><button type="button" onClick={onOpenBenefits}>혜택 보기 →</button></div>
+            <div><h3>{complexName}<br />주민 혜택</h3><p>이웃의 일을 알고, 주민만의 작은 혜택을 나눕니다.</p><button type="button" onClick={benefits}>혜택 보기 →</button></div>
           </article>
 
           <article className="v2-gate1-home-quick">
             <div className="v2-gate1-home-quick-title">바로가기</div>
             <button type="button" onClick={() => setProjectStoryOpen(true)}>회장 인사 <span>→</span></button>
             <button type="button" onClick={() => setProjectStoryOpen(true)}>단지온 도입과 운영 <span>→</span></button>
-            <button type="button" onClick={onRegister}>내 일 알리기 <span>→</span></button>
-            <button type="button" onClick={onOpenCommunity}>우리단지 <span>→</span></button>
+            <button type="button" onClick={register}>내 일 알리기 <span>→</span></button>
+            <button type="button" onClick={community}>우리단지 <span>→</span></button>
           </article>
         </div>
 
         <div className="v2-gate1-home-archive">
-          <div className="v2-gate1-home-archive-head"><h3>우리 단지의 변화</h3><button type="button" onClick={onOpenCommunity}>전체 기록 보기 →</button></div>
+          <div className="v2-gate1-home-archive-head"><h3>우리 단지의 변화</h3><button type="button" onClick={community}>전체 기록 보기 →</button></div>
           <div className="v2-gate1-home-timeline">
             <article><div><span>2026.09 · 서비스 준비</span><b>진행중</b></div><h4>주민 생활편의 서비스<br />단지온 도입 준비</h4><p><span>제안 · 주민 대표</span><span>운영 · PADIEM</span></p></article>
             <article><div><span>2026.08 · 주민 안내</span><b>준비</b></div><h4>주민 안내와 이용 방법을<br />쉽게 설명하는 단계</h4><p><span>안내 · 단지온</span><span>협조 · 관리주체</span></p></article>
