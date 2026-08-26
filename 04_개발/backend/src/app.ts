@@ -4,6 +4,7 @@ import { handleAdminReviewContextRequest } from './admin-review-context-v1';
 import { handleAdminVerificationRequest } from './admin-verification-v1';
 import { handleAdminRequest } from './admin-v1';
 import { handleBenefitWalletRequest } from './benefit-wallet-v1';
+import { handleCommunityResidentRequest } from './community-resident-v1';
 import { validateRequestPayload } from './payload-policy';
 import { handleResidentApplicationRequest } from './resident-application-v1';
 import { handleResidentVerificationRequest } from './resident-verification-v1';
@@ -14,6 +15,7 @@ const SAFE_ID = /^[A-Za-z0-9._:-]{1,80}$/;
 
 type AppEnv = CoreEnv & {
   CORS_ALLOWED_ORIGINS?: string;
+  COMMUNITY_PUBLISH_MODE?: string;
 };
 
 function requestId(request: Request): string {
@@ -138,6 +140,9 @@ export default {
         const response = await handleAdminRequest(request, env, id);
         if (response) return respond(response);
       }
+
+      const communityResidentResponse = await handleCommunityResidentRequest(request, env, id);
+      if (communityResidentResponse) return respond(communityResidentResponse);
 
       const residentVerificationResponse = await handleResidentVerificationRequest(request, env, id);
       if (residentVerificationResponse) return respond(residentVerificationResponse);
