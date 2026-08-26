@@ -9,6 +9,17 @@ DANJION_AUTH_BASE_URL=http://localhost:8787
 AUTH_TRUSTED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
 BETTER_AUTH_SECRET=replace-with-at-least-32-random-characters
 
+# Email is the canonical recovery channel for direct accounts.
+# Verification is required by default; set false only for an explicit local/sandbox test.
+AUTH_REQUIRE_EMAIL_VERIFICATION=true
+
+# Provider-neutral transactional email relay. The relay may later be backed by
+# Resend, SES, Postmark, or a PADIEM common mail service without exposing provider
+# credentials to the browser. Keep the token in .dev.vars / Cloudflare secrets.
+AUTH_EMAIL_RELAY_URL=https://replace-with-private-mail-relay.example/send
+AUTH_EMAIL_RELAY_TOKEN=replace-with-private-relay-token
+AUTH_EMAIL_FROM=단지온 <noreply@example.com>
+
 # Optional social providers. Configure only the providers currently under test.
 GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
