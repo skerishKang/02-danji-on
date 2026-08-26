@@ -1,4 +1,4 @@
-import { authProvider } from './auth';
+import { authenticatedFetch } from './auth-fetch';
 
 export type StorageKind = 'business-image' | 'resident-evidence';
 export type StorageMode = 'mock' | 'drive';
@@ -209,11 +209,10 @@ class GoogleDriveStorageAdapter implements StorageAdapter {
     body.append('complexSlug', import.meta.env.VITE_COMPLEX_SLUG || 'bangnim-myeongji-roadhill');
     body.append('file', file, safeFileName(file.name));
 
-    const response = await fetch(storageUrl('/api/v1/storage/objects'), {
+    const response = await authenticatedFetch(storageUrl('/api/v1/storage/objects'), {
       method: 'POST',
-      headers: authProvider.headers('resident'),
       body
-    });
+    }, 'resident');
     const stored = await parseJsonResponse<StoredObject>(response);
     return { ...stored, previewUrl: URL.createObjectURL(file) };
   }
@@ -225,9 +224,10 @@ class GoogleDriveStorageAdapter implements StorageAdapter {
         ? '/api/v1/storage/private'
         : null;
     if (!endpoint) return null;
-    const response = await fetch(storageUrl(endpoint, objectKey), {
-      headers: endpoint.endsWith('/private') ? authProvider.headers('resident') : undefined
-    });
+    const url = storageUrl(endpoint, objectKey);
+    const response = endpoint.endsWith('/private')
+      ? await authenticatedFetch(url, {}, 'resident')
+      : await fetch(url);
     if (response.status === 404) return null;
     if (!response.ok) {
       const payload = await response.json().catch(() => ({})) as ApiEnvelope<never>;
@@ -238,10 +238,9 @@ class GoogleDriveStorageAdapter implements StorageAdapter {
 
   async delete(objectKey: string): Promise<void> {
     if (!objectKey.startsWith('gdrive/')) return;
-    const response = await fetch(storageUrl('/api/v1/storage/objects', objectKey), {
-      method: 'DELETE',
-      headers: authProvider.headers('resident')
-    });
+    const response = await authenticatedFetch(storageUrl('/api/v1/storage/objects', objectKey), {
+      method: 'DELETE'
+    }, 'resident');
     if (!response.ok) {
       const payload = await response.json().catch(() => ({})) as ApiEnvelope<never>;
       throw new Error(payload.error?.message || `Storage delete failed (${response.status})`);
