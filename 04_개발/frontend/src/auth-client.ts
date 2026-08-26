@@ -36,8 +36,8 @@ export async function signUpWithPhone(input: {
   const username = normalizePhoneCredential(input.phone);
   if (!isSupportedPhoneCredential(username)) throw new Error('지원하지 않는 휴대폰 번호 형식입니다.');
 
-  // Better Auth requires the canonical recovery email. The phone number is
-  // intentionally a username credential, not an SMS/OTP verification claim.
+  // The recovery email is canonical. The phone number is intentionally an
+  // alternate username credential, not an SMS/OTP verification claim.
   return danjionAuthClient.signUp.email({
     email: input.email.trim(),
     name: input.name.trim(),
@@ -52,11 +52,22 @@ export async function signInWithPhone(phone: string, password: string) {
   return danjionAuthClient.signIn.username({ username, password });
 }
 
-export async function signUpWithEmail(input: { email: string; name: string; password: string }) {
+export async function signUpWithEmail(input: {
+  email: string;
+  name: string;
+  password: string;
+  phone?: string;
+}) {
+  const normalizedPhone = input.phone?.trim() ? normalizePhoneCredential(input.phone) : undefined;
+  if (normalizedPhone && !isSupportedPhoneCredential(normalizedPhone)) {
+    throw new Error('지원하지 않는 휴대폰 번호 형식입니다.');
+  }
+
   return danjionAuthClient.signUp.email({
     email: input.email.trim(),
     name: input.name.trim(),
-    password: input.password
+    password: input.password,
+    ...(normalizedPhone ? { username: normalizedPhone } : {})
   });
 }
 
