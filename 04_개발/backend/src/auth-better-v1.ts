@@ -3,13 +3,15 @@ import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { jwt, username } from 'better-auth/plugins';
 import { drizzle } from 'drizzle-orm/neon-http';
 import { betterAuthSchema } from './auth-better-schema';
+import { sendDanjionAuthEmail, type AuthEmailEnv } from './auth-email-v1';
 
-export interface BetterAuthEnv {
+export interface BetterAuthEnv extends AuthEmailEnv {
   DATABASE_URL: string;
   DANJION_AUTH_BASE_URL?: string;
   BETTER_AUTH_SECRET?: string;
   AUTH_TRUSTED_ORIGINS?: string;
   CORS_ALLOWED_ORIGINS?: string;
+  AUTH_REQUIRE_EMAIL_VERIFICATION?: string;
   GOOGLE_CLIENT_ID?: string;
   GOOGLE_CLIENT_SECRET?: string;
   KAKAO_CLIENT_ID?: string;
@@ -54,6 +56,10 @@ function trustedOrigins(env: BetterAuthEnv, baseUrl: string): string[] {
   return Array.from(new Set([baseOrigin, ...values]));
 }
 
+function emailVerificationRequired(env: BetterAuthEnv): boolean {
+  return env.AUTH_REQUIRE_EMAIL_VERIFICATION?.trim().toLowerCase() !== 'false';
+}
+
 function configuredSocialProviders(env: BetterAuthEnv) {
   const googleId = env.GOOGLE_CLIENT_ID?.trim();
   const googleSecret = env.GOOGLE_CLIENT_SECRET?.trim();
@@ -75,6 +81,7 @@ export function createDanjionAuth(env: BetterAuthEnv) {
   if (secret.length < 32) throw new Error('BETTER_AUTH_SECRET must be at least 32 characters');
 
   const db = drizzle(env.DATABASE_URL, { schema: betterAuthSchema });
+  const requireEmailVerification = emailVerificationRequired(env);
 
   return betterAuth({
     appName: '단지온',
@@ -86,9 +93,33 @@ export function createDanjionAuth(env: BetterAuthEnv) {
       schema: betterAuthSchema,
       schemaName: 'danjion_auth'
     }),
+    emailVerification: {
+      sendVerificationEmail: async ({ user, url }) => {
+        await sendDanjionAuthEmail(env, {
+          kind: 'verify-email',
+          to: user.email,
+          userName: user.name,
+          actionUrl: url
+        });
+      },
+      sendOnSignUp: requireEmailVerification,
+      sendOnSignIn: requireEmailVerification,
+      autoSignInAfterVerification: false,
+      expiresIn: 3600
+    },
     emailAndPassword: {
       enabled: true,
-      requireEmailVerification: false
+      requireEmailVerification,
+      sendResetPassword: async ({ user, url }) => {
+        await sendDanjionAuthEmail(env, {
+          kind: 'reset-password',
+          to: user.email,
+          userName: user.name,
+          actionUrl: url
+        });
+      },
+      resetPasswordTokenExpiresIn: 3600,
+      revokeSessionsOnPasswordReset: true
     },
     socialProviders: configuredSocialProviders(env),
     disabledPaths: ['/is-username-available'],
