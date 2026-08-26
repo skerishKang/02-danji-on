@@ -66,6 +66,10 @@ This prevents a deleted, moved, replaced-scope or foreign-owned public image ref
 - uploader or complex mismatch -> `BUSINESS_IMAGE_REFERENCE_FORBIDDEN` / 403
 - storage verification unavailable -> fail closed / 503
 
+## Executable verification
+
+The backend contract uses mocked OAuth/Drive responses only. It performs no live Google Drive write and exercises the validator as a read-only integrity boundary for valid ownership/scope, foreign uploader, foreign complex, trash state, folder mismatch, kind mismatch, and invalid namespace cases.
+
 ## Preserved boundaries
 
 - no representative image -> application and approval remain Drive-independent
