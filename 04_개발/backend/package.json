@@ -16,8 +16,9 @@
     "test:authz-v2-migrations": "node tests/authorization-v2-migration-contract.mjs",
     "test:community-c2-schema": "node tests/community-c2-schema-contract.mjs",
     "test:household-master-v2": "tsx tests/household-master-v2.test.mjs",
+    "test:household-claim-v2": "tsx tests/household-claim-v2.test.mjs",
     "test:cloudflare-preview-contract": "node tests/cloudflare-preview-contract.mjs",
-    "check": "npm run typecheck && npm run test:storage && npm run test:storage-contract && npm run test:contract && npm run test:auth && npm run test:authz-v2 && npm run test:authz-v2-schema && npm run test:authz-v2-migrations && npm run test:community-c2-schema && npm run test:household-master-v2 && npm run test:cloudflare-preview-contract"
+    "check": "npm run typecheck && npm run test:storage && npm run test:storage-contract && npm run test:contract && npm run test:auth && npm run test:authz-v2 && npm run test:authz-v2-schema && npm run test:authz-v2-migrations && npm run test:community-c2-schema && npm run test:household-master-v2 && npm run test:household-claim-v2 && npm run test:cloudflare-preview-contract"
   },
   "dependencies": {
     "@neondatabase/serverless": "1.1.0",

@@ -4,6 +4,7 @@ import { handleAdminReviewContextRequest } from './admin-review-context-v1';
 import { handleAdminVerificationRequest } from './admin-verification-v1';
 import { handleAdminRequest } from './admin-v1';
 import { handleBenefitWalletRequest } from './benefit-wallet-v1';
+import { handleHouseholdPrimaryClaimRequest } from './household-claim-v2';
 import { handleHouseholdUnitMasterRequest } from './household-master-v2';
 import { validateRequestPayload } from './payload-policy';
 import { handleResidentApplicationRequest } from './resident-application-v1';
@@ -125,6 +126,9 @@ export default {
 
       const storageResponse = await handleStorageRequest(request, env, id);
       if (storageResponse) return respond(storageResponse);
+
+      const householdClaimResponse = await handleHouseholdPrimaryClaimRequest(request, env, id);
+      if (householdClaimResponse) return respond(householdClaimResponse);
 
       const householdMasterResponse = await handleHouseholdUnitMasterRequest(request, env, id);
       if (householdMasterResponse) return respond(householdMasterResponse);
