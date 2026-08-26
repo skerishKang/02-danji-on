@@ -13,6 +13,7 @@ on:
       - feat/v2-platform-20260808
       - feat/current-product-baseline-20260826
       - feat/current-ui-sibling-gate1-20260826
+      - feat/current-ui-react-completion-20260826
     paths:
       - '04_개발/frontend/**'
       - '04_개발/scripts/v2-*'
@@ -29,7 +30,7 @@ permissions:
 
 jobs:
   fidelity-gate:
-    if: github.event_name != 'pull_request' || github.head_ref == 'feat/v2-platform-20260808' || github.head_ref == 'feat/current-product-baseline-20260826' || github.head_ref == 'feat/current-ui-sibling-gate1-20260826'
+    if: github.event_name != 'pull_request' || github.head_ref == 'feat/v2-platform-20260808' || github.head_ref == 'feat/current-product-baseline-20260826' || github.head_ref == 'feat/current-ui-sibling-gate1-20260826' || github.head_ref == 'feat/current-ui-react-completion-20260826'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -66,7 +67,7 @@ jobs:
             echo '- Existing V1 Playwright: PASS'
             echo '- Unset/invalid variant -> V1: PASS'
             echo '- Gateway isolation: PASS'
-            echo '- V2 current sibling Gate1 visual/product flow/responsive/accessibility/current Product Shell: PASS'
+            echo '- V2 current sibling Gate1 visual/product flow/responsive/accessibility/current Product Shell/React completion: PASS'
             echo '- Verdict: `V2_FIDELITY_GATE_PASS`'
             echo '- Production readiness: NOT CLAIMED'
           } >> "$GITHUB_STEP_SUMMARY"
