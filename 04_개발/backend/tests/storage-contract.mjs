@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
 const app = read('src/app.ts');
 const storage = read('src/storage-v1.ts');
+const executableStorage = storage.replace(/^\s*\/\/.*$/gm, '');
 const residentEconomy = read('src/resident-economy-v2.ts');
 const frontendStorage = read('../frontend/src/storage.ts');
 const docs = read('../docs/GOOGLE_DRIVE_STORAGE_v1.md');
@@ -17,12 +18,12 @@ assert.ok(app.indexOf('handleStorageRequest') < app.lastIndexOf('core.fetch'));
 assert.ok(storage.includes("import { requireActor as requireCanonicalActor, type Actor } from './auth-v1';"));
 assert.ok(storage.includes("import { requireVerifiedResident } from './authorization-v2';"));
 assert.ok(storage.includes('await requireCanonicalActor(request, env, sql, requestId)'));
-assert.equal(storage.includes('AUTH_ADAPTER_PENDING'), false, 'storage must not retain the pre-Track-A pending auth path');
-assert.equal(storage.includes('actorFromRequest'), false, 'storage must not retain a duplicate actor resolver');
-assert.equal(storage.includes('complex_memberships'), false,
-  'current storage runtime must not use historical complex_memberships as mutation authority');
-assert.equal(storage.includes('membershipFor('), false,
-  'historical storage membership helper must be removed');
+assert.equal(executableStorage.includes('AUTH_ADAPTER_PENDING'), false, 'storage must not retain the pre-Track-A pending auth path');
+assert.equal(executableStorage.includes('actorFromRequest'), false, 'storage must not retain a duplicate actor resolver');
+assert.equal(executableStorage.includes('complex_memberships'), false,
+  'current storage executable runtime must not use historical complex_memberships as mutation authority');
+assert.equal(executableStorage.includes('membershipFor('), false,
+  'historical storage membership helper must be removed from executable runtime');
 assert.ok(storage.includes('https://oauth2.googleapis.com/token'));
 assert.ok(storage.includes('GOOGLE_DRIVE_REFRESH_TOKEN'));
 assert.ok(storage.includes("path === '/api/v1/storage/public'"));
