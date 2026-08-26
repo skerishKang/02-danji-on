@@ -10,7 +10,7 @@ const [server, mailer, vars] = await Promise.all([
 
 assert.match(server, /emailVerification:\s*\{/);
 assert.match(server, /sendVerificationEmail:/);
-assert.match(server, /sendOnSignUp:\s*requireEmailVerification/);
+assert.match(server, /sendOnSignUp:\s*true/);
 assert.match(server, /sendOnSignIn:\s*requireEmailVerification/);
 assert.match(server, /expiresIn:\s*3600/);
 assert.match(server, /requireEmailVerification,/);
