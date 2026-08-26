@@ -34,7 +34,7 @@ const checks = [
   ['closed account requires closed timestamp', migration.includes('chk_app_users_closed_at') && migration.includes('closed_at is not null')],
   ['auth reads product account state', auth.includes('account_status') && auth.includes('accountStatus')],
   ['auth rejects closed product accounts', auth.includes('AUTH_ACCOUNT_CLOSED') && auth.includes("actor === 'closed'")],
-  ['external auth token never silently re-bootstraps a closed account', auth.includes("existing.accountStatus === 'closed'") && auth.includes("return 'closed'")],
+  ['external auth token never silently re-bootstraps a closed account', auth.includes('actorBySubject(sql, subject)') && auth.includes("record.accountStatus === 'closed'") && auth.includes("return 'closed'")],
   ['payload policy bounds lifecycle fields', payload.includes('consentType: 80') && payload.includes('policyVersion: 80') && payload.includes('confirm: 80')],
   ['consent persistence foundation remains available', consentMigration.includes('create table if not exists consent_records')],
   ['household revocation target exists', householdMigration.includes('create table if not exists household_memberships')],
