@@ -1,8 +1,11 @@
 import { neon, type NeonQueryFunction } from '@neondatabase/serverless';
-import { requireActor } from './auth-v1';
 import type { CoreEnv } from './core-v1';
+import { requireOperationalAuthority } from './operational-authz-v2';
 
 type Sql = NeonQueryFunction<false, false>;
+
+const BUSINESS_REVIEW_SCOPE = 'business.review';
+const COUNCIL_BUSINESS_REVIEW_SCOPE = 'council.business.review';
 
 const REQUEST_ID_HEADER = 'x-danjion-request-id';
 
@@ -25,33 +28,18 @@ function fail(code: string, message: string, status: number, requestId: string):
   return json({ error: { code, message }, requestId }, status, requestId);
 }
 
-async function requireManager(sql: Sql, actorId: string, complexId: string, requestId: string) {
-  const rows = await sql`
-    select role
-    from complex_memberships
-    where user_id = ${actorId}::uuid
-      and complex_id = ${complexId}::uuid
-      and role in ('manager','admin')
-      and verification_status = 'verified'
-    limit 1
-  `;
-  if (!rows[0]) return fail('FORBIDDEN', 'Manager or admin membership required', 403, requestId);
-  return rows[0];
-}
-
 export async function handleAdminReviewContextRequest(request: Request, env: CoreEnv, requestId: string): Promise<Response | null> {
   const path = new URL(request.url).pathname;
   const match = path.match(/^\/api\/v1\/admin\/business-applications\/([0-9a-fA-F-]+)\/review-context$/);
   if (!match || request.method !== 'GET') return null;
+  if (!env.DATABASE_URL) return fail('DATABASE_NOT_CONFIGURED', 'DATABASE_URL is not configured', 503, requestId);
 
   const sql: Sql = neon(env.DATABASE_URL);
-  const actorOrResponse = await requireActor(request, env, sql, requestId);
-  if (actorOrResponse instanceof Response) return actorOrResponse;
-
   const rows = await sql`
     select
       a.id,
       a.complex_id,
+      c.slug as complex_slug,
       a.status,
       a.approved_business_id,
       a.business_name,
@@ -71,6 +59,7 @@ export async function handleAdminReviewContextRequest(request: Request, env: Cor
         where rv.membership_id = m.id
       ), 0)::int as verification_evidence_count
     from business_applications a
+    join complexes c on c.id = a.complex_id
     join app_users u on u.id = a.applicant_user_id
     left join complex_memberships m
       on m.user_id = a.applicant_user_id
@@ -81,8 +70,17 @@ export async function handleAdminReviewContextRequest(request: Request, env: Cor
 
   const row = rows[0];
   if (!row) return fail('NOT_FOUND', 'Business application not found', 404, requestId);
-  const manager = await requireManager(sql, actorOrResponse.id, String(row.complex_id), requestId);
-  if (manager instanceof Response) return manager;
+
+  const operator = await requireOperationalAuthority(
+    request,
+    env,
+    sql,
+    requestId,
+    String(row.complex_slug),
+    BUSINESS_REVIEW_SCOPE,
+    COUNCIL_BUSINESS_REVIEW_SCOPE
+  );
+  if (operator instanceof Response) return operator;
 
   return ok({
     id: row.id,
@@ -98,11 +96,11 @@ export async function handleAdminReviewContextRequest(request: Request, env: Cor
       benefitText: row.benefit_text,
       representativeImageObjectKey: row.representative_image_object_key
     },
-    privateVerification: {
-      applicantName: row.applicant_name,
+    reviewBasis: {
+      applicantDisplayName: row.applicant_name,
       relationType: row.relation_type,
-      membershipVerificationStatus: row.membership_verification_status,
-      evidenceCount: Number(row.verification_evidence_count || 0)
+      residentVerificationStatus: row.membership_verification_status,
+      verificationEvidenceCount: Number(row.verification_evidence_count || 0)
     }
   }, requestId);
 }
