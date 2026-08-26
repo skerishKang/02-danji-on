@@ -3,6 +3,7 @@ import { handleAdminAuditRequest } from './admin-audit-v1';
 import { handleAdminReviewContextRequest } from './admin-review-context-v1';
 import { handleAdminVerificationRequest } from './admin-verification-v1';
 import { handleAdminRequest } from './admin-v1';
+import { handleBetterAuthRequest, type BetterAuthEnv } from './auth-better-v1';
 import { handleBenefitWalletRequest } from './benefit-wallet-v1';
 import { validateRequestPayload } from './payload-policy';
 import { handleResidentApplicationRequest } from './resident-application-v1';
@@ -12,7 +13,7 @@ import { handleStorageRequest } from './storage-v1';
 const REQUEST_ID_HEADER = 'x-danjion-request-id';
 const SAFE_ID = /^[A-Za-z0-9._:-]{1,80}$/;
 
-type AppEnv = CoreEnv & {
+type AppEnv = CoreEnv & BetterAuthEnv & {
   CORS_ALLOWED_ORIGINS?: string;
 };
 
@@ -118,6 +119,12 @@ export default {
 
     try {
       if (request.method === 'OPTIONS') return preflight(request, env);
+
+      // Better Auth owns /api/auth/* payloads and OAuth callbacks. Route them
+      // before the application-wide JSON payload policy to avoid corrupting
+      // provider form/callback semantics.
+      const authResponse = await handleBetterAuthRequest(request, env);
+      if (authResponse) return respond(authResponse);
 
       const policyResponse = await validateRequestPayload(request, id);
       if (policyResponse) return respond(policyResponse);
