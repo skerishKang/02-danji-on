@@ -19,11 +19,11 @@ const checks = [
   ['resident submission keeps verification record pending', resident.includes("set status = 'pending'") && resident.includes("'pending',\n        ${method}")],
   ['resident submission upserts one verification per membership', resident.includes('on conflict (membership_id) do update')],
   ['admin verification uses narrow Neon type', admin.includes('NeonQueryFunction<false, false>')],
-  ['admin verification requires verified manager', admin.includes("m.role in ('manager','admin')") && admin.includes("m.verification_status = 'verified'")],
-  ['admin verification is complex scoped', admin.includes('m.complex_id = ${String(manager.complex_id)}::uuid')],
-  ['admin only allows verified or rejected decision', admin.includes("['verified','rejected'].includes(status)")],
-  ['admin review updates membership and verification together', admin.includes('with updated_membership as') && admin.includes('updated_verification as')],
-  ['admin review synchronizes verification record status', admin.includes('set status = ${status}') && admin.includes('verification_record_status')],
+  ['admin verification authenticates caller before policy hold', admin.includes('requireActor') && admin.includes('actorOrResponse instanceof Response')],
+  ['admin verification is policy-hold fail closed', admin.includes('RESIDENT_VERIFICATION_POLICY_HOLD') && admin.includes('503')],
+  ['admin verification no longer grants manager/admin authority', !admin.includes("role in ('manager','admin')") && !admin.includes('requireManager')],
+  ['admin verification discloses no resident evidence while held', !admin.includes('evidence_object_key') && !admin.includes('auth_user_id') && !admin.includes('verification_record_status')],
+  ['admin verification performs no resident decision mutation while held', !admin.includes('updated_membership') && !admin.includes('updated_verification') && !admin.includes('set status = ${status}')],
   ['base schema keeps verification separate from auth', /create table if not exists resident_verifications\s*\(/i.test(schema) && schema.includes('verification_status')],
   ['verification constraints add live-api columns', constraints.includes('add column if not exists building') && constraints.includes('add column if not exists unit') && constraints.includes('add column if not exists requested_at') && constraints.includes('add column if not exists note')],
   ['resident verification has one current row per membership', constraints.includes('uq_resident_verifications_membership')],
@@ -31,7 +31,7 @@ const checks = [
   ['verification method is constrained', constraints.includes('chk_resident_verification_method')],
   ['verification note and evidence key are bounded', constraints.includes('chk_resident_verification_note_length') && constraints.includes('chk_resident_verification_evidence_key_length')],
   ['verification review history trigger exists', history.includes('record_resident_verification_review_event') && history.includes('trg_resident_verification_review_history')],
-  ['verification review history attributes applicant and manager actors', history.includes("then 'manager'") && history.includes("then 'applicant'")]
+  ['verification review history preserves historical applicant/manager attribution', history.includes("then 'manager'") && history.includes("then 'applicant'")]
 ];
 
 const failed = checks.filter(([, pass]) => !pass);
