@@ -1,6 +1,7 @@
 import { neon, type NeonQueryFunction } from '@neondatabase/serverless';
 import type { CoreEnv } from './core-v1';
 import { requireOperationalAuthority, type OperationalAuthority } from './operational-authz-v2';
+import { validateBusinessImageReference } from './storage-v1';
 
 type Sql = NeonQueryFunction<false, false>;
 
@@ -78,7 +79,8 @@ async function authority(
 
 async function applicationContext(sql: Sql, applicationId: string) {
   const rows = await sql`
-    select a.id, a.status, a.approved_business_id, c.slug as complex_slug
+    select a.id, a.status, a.approved_business_id, a.applicant_user_id,
+           a.representative_image_object_key, c.slug as complex_slug
     from business_applications a
     join complexes c on c.id = a.complex_id
     where a.id = ${applicationId}::uuid
@@ -191,6 +193,21 @@ async function patchApplication(
     if (String(current.status) === 'approved' && current.approved_business_id) {
       return ok({ id: current.id, status: 'approved', approvedBusinessId: current.approved_business_id, alreadyApproved: true }, requestId);
     }
+
+    const imageKey = current.representative_image_object_key
+      ? String(current.representative_image_object_key).trim()
+      : '';
+    if (imageKey) {
+      const imageReferenceError = await validateBusinessImageReference(
+        env,
+        imageKey,
+        String(current.applicant_user_id),
+        String(current.complex_slug),
+        requestId
+      );
+      if (imageReferenceError) return imageReferenceError;
+    }
+
     const approved = await approveApplication(sql, operator.id, applicationId, reviewNote);
     if (approved) return ok(approved, requestId);
     const latest = await applicationContext(sql, applicationId);
