@@ -1,5 +1,6 @@
 import core, { type CoreEnv } from './core-v1';
 import { handleAdminAuditRequest } from './admin-audit-v1';
+import { handleAdminOperationalRequest } from './admin-operational-v2';
 import { handleAdminReviewContextRequest } from './admin-review-context-v1';
 import { handleAdminVerificationRequest } from './admin-verification-v1';
 import { handleAdminRequest } from './admin-v1';
@@ -140,6 +141,13 @@ export default {
 
       const adminVerificationResponse = await handleAdminVerificationRequest(request, env, id);
       if (adminVerificationResponse) return respond(adminVerificationResponse);
+
+      // Phase-B governance interception. These six day-to-day operational routes
+      // are owned by explicit PADIEM / resident-council grants, never legacy
+      // apartment manager/admin membership. Unrelated legacy admin routes remain
+      // reachable below until their bounded migrations are completed.
+      const adminOperationalResponse = await handleAdminOperationalRequest(request, env, id);
+      if (adminOperationalResponse) return respond(adminOperationalResponse);
 
       if (new URL(request.url).pathname.startsWith('/api/v1/admin/')) {
         const response = await handleAdminRequest(request, env, id);
