@@ -11,14 +11,14 @@ DanjiOn stores Google Drive business-image object keys as product references in 
 - `business_applications.representative_image_object_key`
 - `business_media.object_key`
 
-The storage object is intentionally public-readable, while mutation remains uploader-only. Uploader ownership by itself, however, does not mean the object is safe to delete. Before this overlay, the uploader could trash an image that was still referenced by a pending/reviewed application or an already materialized business-media row, leaving a broken product reference.
+The storage object is intentionally public-readable, while mutation remains uploader-only. Uploader ownership by itself, however, does not mean the object is safe to delete. Before this overlay, the uploader could trash an image that was already referenced by a pending/reviewed application or an already materialized business-media row, leaving a broken product reference.
 
 ## Current invariant
 
 ```text
 UPLOADER_OWNS_OBJECT != OBJECT_SAFE_TO_DELETE
 
-REFERENCED_BUSINESS_IMAGE -> DELETE_DENY
+EXISTING_REFERENCED_BUSINESS_IMAGE -> DELETE_DENY
 
 PRODUCT_REFERENCE_CHECK -> BEFORE_DRIVE_TRASH
 ```
@@ -32,12 +32,12 @@ PRODUCT_REFERENCE_CHECK -> BEFORE_DRIVE_TRASH
 3. read Google Drive metadata and verify expected folder/kind/visibility/not-trashed state;
 4. require uploader mutation authority through the existing `authorizeObject()` boundary;
 5. only for `business-image`, query current product references by exact object key;
-6. if referenced, return `BUSINESS_IMAGE_IN_USE` / HTTP 409;
+6. if already referenced, return `BUSINESS_IMAGE_IN_USE` / HTTP 409;
 7. only an unreferenced image reaches the Google Drive `trashed: true` PATCH.
 
 The product-reference query is deliberately after object/uploader authorization so it does not disclose application/business reference state to an unauthorized caller.
 
-## Protected references
+## Protected existing references
 
 ### Materialized business media
 
@@ -70,7 +70,7 @@ If the PostgreSQL reference query cannot complete, deletion fails closed:
 BUSINESS_IMAGE_REFERENCE_CHECK_UNAVAILABLE -> HTTP 503
 ```
 
-No Drive trash mutation occurs when reference safety cannot be established.
+No Drive trash mutation occurs when existing-reference safety cannot be established.
 
 ## Error contract
 
@@ -78,6 +78,22 @@ No Drive trash mutation occurs when reference safety cannot be established.
 - referenced by active/current application state -> `BUSINESS_IMAGE_IN_USE` / 409
 - reference database query unavailable -> `BUSINESS_IMAGE_REFERENCE_CHECK_UNAVAILABLE` / 503
 - unreferenced and uploader-authorized -> existing Drive trash path remains allowed
+
+## Cross-system atomicity boundary
+
+This overlay protects references that already exist in PostgreSQL at delete-check time. It does **not** claim full atomicity across Google Drive and PostgreSQL.
+
+A separate TOCTOU race remains possible because application create/resubmit performs external Drive validation before its PostgreSQL write, while delete performs a PostgreSQL reference check before its external Drive trash mutation. Without a coordinated storage-object state/locking protocol, those multi-system operations are not one atomic transaction.
+
+Therefore:
+
+```text
+REFERENCE_CHECK_PASS != CROSS_SYSTEM_ATOMICITY
+
+VALIDATE_THEN_INSERT + CHECK_THEN_TRASH -> TOCTOU_RISK
+```
+
+Closing that race requires a separate architecture decision and must not be silently folded into this bounded delete-guard repair.
 
 ## Preserved boundaries
 
@@ -101,12 +117,14 @@ No Drive trash mutation occurs when reference safety cannot be established.
 - application state set is exactly `draft/pending/changes_requested/approved`, excluding `rejected`;
 - object/uploader authorization precedes the product-reference check;
 - product-reference check precedes Google Drive trash mutation;
-- the reference guard runs only for `business-image`.
+- the reference guard runs only for `business-image`;
+- resident-evidence self-delete stays outside this business-reference policy.
 
 The test is part of backend `npm run check`.
 
 ## Out of scope
 
+- cross-system create/resubmit/delete atomicity;
 - retention duration policy;
 - rejected-application retention;
 - orphan-media garbage collection;
@@ -120,4 +138,4 @@ The test is part of backend `npm run check`.
 
 Required exact-head verdict after CI:
 
-`BUSINESS_IMAGE_REFERENCE_LIFECYCLE_PROTECTED`
+`BUSINESS_IMAGE_EXISTING_REFERENCE_DELETE_GUARD_ENFORCED`
