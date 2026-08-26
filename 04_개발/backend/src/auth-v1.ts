@@ -130,13 +130,17 @@ function publicActor(record: ActorRecord): Actor {
   };
 }
 
+async function actorBySubject(sql: Sql, subject: string): Promise<Actor | 'closed' | null> {
+  const record = await actorRecordBySubject(sql, subject);
+  if (!record) return null;
+  return record.accountStatus === 'closed' ? 'closed' : publicActor(record);
+}
+
 async function devActor(request: Request, env: AuthEnv, sql: Sql): Promise<Actor | 'closed' | null> {
   if (env.APP_ENV === 'production' || env.DEV_AUTH_BYPASS !== 'true') return null;
   const subject = request.headers.get(DEV_AUTH_HEADER)?.trim();
   if (!subject) return null;
-  const record = await actorRecordBySubject(sql, subject);
-  if (!record) return null;
-  return record.accountStatus === 'closed' ? 'closed' : publicActor(record);
+  return actorBySubject(sql, subject);
 }
 
 function displayNameFromClaims(payload: JWTPayload): string {
@@ -153,8 +157,8 @@ async function resolveOrBootstrapActor(sql: Sql, payload: JWTPayload): Promise<A
   const subject = typeof payload.sub === 'string' ? payload.sub.trim() : '';
   if (!subject) return null;
 
-  const existing = await actorRecordBySubject(sql, subject);
-  if (existing) return existing.accountStatus === 'closed' ? 'closed' : publicActor(existing);
+  const existing = await actorBySubject(sql, subject);
+  if (existing) return existing;
 
   const displayName = displayNameFromClaims(payload);
   const avatarUrl = avatarFromClaims(payload);
@@ -175,9 +179,7 @@ async function resolveOrBootstrapActor(sql: Sql, payload: JWTPayload): Promise<A
     };
   }
 
-  const raced = await actorRecordBySubject(sql, subject);
-  if (!raced) return null;
-  return raced.accountStatus === 'closed' ? 'closed' : publicActor(raced);
+  return actorBySubject(sql, subject);
 }
 
 async function verifyToken(token: string, config: { issuer: string; audience: string; jwksUrl: string }): Promise<JWTPayload | null> {
