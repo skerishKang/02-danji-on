@@ -102,7 +102,7 @@ export function createDanjionAuth(env: BetterAuthEnv) {
           actionUrl: url
         });
       },
-      sendOnSignUp: requireEmailVerification,
+      sendOnSignUp: true,
       sendOnSignIn: requireEmailVerification,
       autoSignInAfterVerification: false,
       expiresIn: 3600
