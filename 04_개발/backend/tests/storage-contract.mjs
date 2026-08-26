@@ -4,18 +4,25 @@ import { readFileSync } from 'node:fs';
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
 const app = read('src/app.ts');
 const storage = read('src/storage-v1.ts');
+const residentEconomy = read('src/resident-economy-v2.ts');
 const frontendStorage = read('../frontend/src/storage.ts');
 const docs = read('../docs/GOOGLE_DRIVE_STORAGE_v1.md');
 const privacyHold = read('../docs/RESIDENT_EVIDENCE_STORAGE_PRIVACY_HOLD_20260827.md');
 const uploadHold = read('../docs/RESIDENT_EVIDENCE_UPLOAD_POLICY_HOLD_20260827.md');
+const businessMediaAuthz = read('../docs/BUSINESS_MEDIA_STORAGE_AUTHZ_CURRENT_20260827.md');
 const devVars = read('.dev.vars.example');
 
 assert.ok(app.includes("import { handleStorageRequest } from './storage-v1';"));
 assert.ok(app.indexOf('handleStorageRequest') < app.lastIndexOf('core.fetch'));
 assert.ok(storage.includes("import { requireActor as requireCanonicalActor, type Actor } from './auth-v1';"));
+assert.ok(storage.includes("import { requireVerifiedResident } from './authorization-v2';"));
 assert.ok(storage.includes('await requireCanonicalActor(request, env, sql, requestId)'));
-assert.equal(storage.includes('AUTH_ADAPTER_PENDING'), false, 'Track C storage must not retain the pre-Track-A pending auth path');
-assert.equal(storage.includes('actorFromRequest'), false, 'Track C storage must not retain a duplicate actor resolver');
+assert.equal(storage.includes('AUTH_ADAPTER_PENDING'), false, 'storage must not retain the pre-Track-A pending auth path');
+assert.equal(storage.includes('actorFromRequest'), false, 'storage must not retain a duplicate actor resolver');
+assert.equal(storage.includes('complex_memberships'), false,
+  'current storage runtime must not use historical complex_memberships as mutation authority');
+assert.equal(storage.includes('membershipFor('), false,
+  'historical storage membership helper must be removed');
 assert.ok(storage.includes('https://oauth2.googleapis.com/token'));
 assert.ok(storage.includes('GOOGLE_DRIVE_REFRESH_TOKEN'));
 assert.ok(storage.includes("path === '/api/v1/storage/public'"));
@@ -28,20 +35,22 @@ assert.ok(uploadStart >= 0 && uploadEnd > uploadStart, 'upload block must exist'
 const upload = storage.slice(uploadStart, uploadEnd);
 const uploadAuthIndex = upload.indexOf('await requireStorageActor(request, env, requestId)');
 const uploadHoldIndex = upload.indexOf("if (kind === 'resident-evidence')");
-const uploadLegacyMembershipIndex = upload.indexOf('await membershipFor(auth.sql, auth.actor.id, complexSlug)');
-const driveUploadIndex = upload.indexOf('await uploadDriveFile(env, validation.kind, file, auth.actor, complexSlug)');
+const uploadValidationIndex = upload.indexOf('validateStorageUpload(kind, files)');
+const verifiedResidentIndex = upload.indexOf('await requireVerifiedResident(request, env, auth.sql, requestId, complexSlug)');
+const driveUploadIndex = upload.indexOf('await uploadDriveFile(env, validation.kind, file, resident, resident.complexSlug)');
 assert.ok(uploadAuthIndex >= 0, 'storage upload must require canonical product authentication');
 assert.ok(uploadHoldIndex > uploadAuthIndex, 'resident-evidence HOLD must execute only after canonical account authentication');
 assert.ok(upload.includes("'RESIDENT_VERIFICATION_POLICY_HOLD'"), 'new resident-evidence persistence must fail closed under Issue #59');
-assert.ok(uploadLegacyMembershipIndex > uploadHoldIndex,
-  'resident-evidence HOLD must return before any historical complex-membership lookup can become evidence collection authority');
-assert.ok(driveUploadIndex > uploadHoldIndex,
-  'resident-evidence HOLD must return before the Google Drive persistence helper');
-assert.ok(upload.indexOf('validateStorageUpload(kind, files)') > uploadHoldIndex,
-  'held resident evidence must not enter the historical storage-kind validation/persistence workflow');
+assert.ok(uploadValidationIndex > uploadHoldIndex,
+  'held resident evidence must not enter storage validation/persistence workflow');
+assert.ok(verifiedResidentIndex > uploadValidationIndex,
+  'business-image upload must require current Household-v2 verified resident after payload validation');
+assert.ok(driveUploadIndex > verifiedResidentIndex,
+  'Google Drive persistence must occur only after current verified-resident authorization');
 assert.ok(upload.includes("const kind = String(form.get('kind') || '').trim()"));
-assert.ok(upload.includes('await uploadDriveFile(env, validation.kind, file, auth.actor, complexSlug)'),
-  'business-image uploads must retain the existing validated Google Drive upload path');
+assert.ok(upload.includes('const resident = residentOrResponse;'));
+assert.ok(residentEconomy.includes('await requireVerifiedResident(request, env, sql, requestId, input.complexSlug)'),
+  'business application create must retain the same current verified-resident authority family');
 
 const authorizeStart = storage.indexOf('async function authorizeObject(');
 const authorizeEnd = storage.indexOf('async function upload(', authorizeStart);
@@ -49,25 +58,30 @@ assert.ok(authorizeStart >= 0 && authorizeEnd > authorizeStart, 'authorizeObject
 const authorize = storage.slice(authorizeStart, authorizeEnd);
 const uploaderIndex = authorize.indexOf('props.danjionUploaderUserId === actor.id');
 const holdIndex = authorize.indexOf("props.danjionKind === 'resident-evidence' || props.danjionVisibility === 'private'");
-const legacyManagerIndex = authorize.indexOf("['manager', 'admin'].includes(String(membership.role))");
+const businessDenyIndex = authorize.indexOf("'Only the storage uploader may mutate this business image until explicit media moderation authority is defined'");
 assert.ok(uploaderIndex >= 0, 'uploader self-access must remain explicit');
 assert.ok(holdIndex > uploaderIndex, 'non-uploader resident evidence must hit policy HOLD after uploader self-access');
 assert.ok(authorize.includes('RESIDENT_VERIFICATION_POLICY_HOLD'), 'resident evidence non-uploader access must fail closed under Issue #59');
-assert.ok(legacyManagerIndex > holdIndex,
-  'any historical legacy manager/admin fallback must occur only after the resident-evidence HOLD branch and therefore cannot authorize resident evidence');
-assert.ok(authorize.includes("String(membership.verification_status) !== 'verified'"));
+assert.ok(businessDenyIndex > holdIndex,
+  'non-uploader business media must fail after preserving the stronger resident-evidence HOLD');
+assert.equal(authorize.includes("['manager', 'admin']"), false,
+  'legacy manager/admin must not be business-media mutation authority');
+assert.equal(authorize.includes('requireOperationalAuthority'), false,
+  'application-review scopes must not be silently widened into storage media-delete authority');
 
 const streamStart = storage.indexOf('async function streamObject(');
 const streamEnd = storage.indexOf('async function removeObject(', streamStart);
 const streamBlock = storage.slice(streamStart, streamEnd);
-assert.ok(streamBlock.includes('const denied = await authorizeObject(auth.sql, auth.actor, metadata, requestId)'),
+assert.ok(streamBlock.includes('const denied = await authorizeObject(auth.actor, metadata, requestId)'),
   'private evidence read must use the current fail-closed object authorization boundary');
+assert.ok(streamBlock.includes("parsed.visibility !== 'public' || parsed.kind !== 'business-image'"),
+  'public business-image read route must remain public-display-only');
 
 const removeStart = storage.indexOf('async function removeObject(');
 const removeEnd = storage.indexOf('export async function handleStorageRequest', removeStart);
 const removeBlock = storage.slice(removeStart, removeEnd);
-assert.ok(removeBlock.includes('const denied = await authorizeObject(auth.sql, auth.actor, metadata, requestId)'),
-  'resident evidence delete/trash must use the same current fail-closed object authorization boundary');
+assert.ok(removeBlock.includes('const denied = await authorizeObject(auth.actor, metadata, requestId)'),
+  'all storage delete/trash mutations must use uploader/HOLD/current deny boundary');
 assert.ok(storage.includes("body: JSON.stringify({ trashed: true })"));
 
 assert.equal(storage.includes('/permissions'), false, 'storage implementation must not create Drive public permissions');
@@ -84,7 +98,11 @@ assert.ok(privacyHold.includes('PADIEM_OR_COUNCIL_OPERATIONAL_SCOPE != RESIDENT_
 assert.ok(uploadHold.includes('ISSUE_59_OPEN -> NEW_RESIDENT_EVIDENCE_PERSISTENCE_DENY'));
 assert.ok(uploadHold.includes('BUSINESS_IMAGE_UPLOAD != RESIDENT_EVIDENCE_UPLOAD'));
 assert.ok(uploadHold.includes('PREEXISTING_UPLOADER_SELF_ACCESS != NEW_EVIDENCE_COLLECTION_AUTHORITY'));
+assert.ok(businessMediaAuthz.includes('BUSINESS_IMAGE_UPLOAD_AUTHZ == HOUSEHOLD_V2_VERIFIED_RESIDENT'));
+assert.ok(businessMediaAuthz.includes('LEGACY_COMPLEX_MEMBERSHIP != BUSINESS_MEDIA_STORAGE_AUTHORITY'));
+assert.ok(businessMediaAuthz.includes('LEGACY_MANAGER_ADMIN != BUSINESS_MEDIA_DELETE_AUTHORITY'));
+assert.ok(businessMediaAuthz.includes('PUBLIC_MEDIA_READ != PUBLIC_MEDIA_MUTATION'));
 assert.ok(devVars.includes('GOOGLE_DRIVE_CLIENT_SECRET=replace-with-oauth-client-secret'));
 assert.ok(devVars.includes('GOOGLE_DRIVE_REFRESH_TOKEN=replace-with-refresh-token'));
 
-console.log('PASS Google Drive storage contract, canonical auth integration, evidence access HOLD and new evidence persistence HOLD');
+console.log('PASS Google Drive storage contract, evidence HOLD and current Household-v2 business-media authorization');
