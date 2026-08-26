@@ -1,5 +1,5 @@
 import { neon, type NeonQueryFunction } from '@neondatabase/serverless';
-import { requirePadiemOperator } from './authorization-v2';
+import { requireOperationalAuthority } from './operational-authz-v2';
 import type { CoreEnv } from './core-v1';
 
 type Sql = NeonQueryFunction<false, false>;
@@ -287,7 +287,15 @@ export async function handleCommunityModerationRequest(
   if (targetId && !validId(targetId)) return fail('NOT_FOUND', 'Community moderation target not found', 404, requestId);
 
   const sql: Sql = neon(env.DATABASE_URL);
-  const operatorOrResponse = await requirePadiemOperator(request, env, sql, requestId, 'community.moderate');
+  const operatorOrResponse = await requireOperationalAuthority(
+    request,
+    env,
+    sql,
+    requestId,
+    complexSlug,
+    'community.moderate',
+    'council.community.moderate'
+  );
   if (operatorOrResponse instanceof Response) return operatorOrResponse;
   const operator = operatorOrResponse;
 
@@ -340,6 +348,7 @@ export async function handleCommunityModerationRequest(
 
     return ok({
       complex: { slug: String(complex.slug), name: String(complex.name) },
+      authority: { kind: operator.authorityKind, scope: operator.grantedScope },
       pendingPosts: posts.map((row) => ({
         id: String(row.id),
         kind: String(row.kind),
@@ -395,7 +404,8 @@ export async function handleCommunityModerationRequest(
     return ok({
       id: String(result.id),
       status: String(result.status),
-      moderationEventId: String(result.moderation_event_id)
+      moderationEventId: String(result.moderation_event_id),
+      authorityKind: operator.authorityKind
     }, requestId);
   }
 
@@ -409,7 +419,8 @@ export async function handleCommunityModerationRequest(
       id: String(result.id),
       status: String(result.status),
       moderationEventId: String(result.moderation_event_id),
-      resolvedAt: asDate(result.resolved_at)
+      resolvedAt: asDate(result.resolved_at),
+      authorityKind: operator.authorityKind
     }, requestId);
   }
 

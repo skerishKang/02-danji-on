@@ -7,11 +7,14 @@ import { handleAdminVerificationRequest } from './admin-verification-v1';
 import { handleAdminRequest } from './admin-v1';
 import { handleBetterAuthRequest, type BetterAuthEnv } from './auth-better-v1';
 import { handleBenefitWalletRequest } from './benefit-wallet-v1';
+import { handleCommunityModerationRequest } from './community-moderation-v1';
+import { handleCommunityResidentRequest } from './community-resident-v1';
 import { handleHouseholdPrimaryClaimRequest } from './household-claim-v2';
 import { handleHouseholdFamilyRequest } from './household-family-v2';
 import { handleHouseholdUnitMasterRequest } from './household-master-v2';
 import { validateRequestPayload } from './payload-policy';
 import { handleResidentApplicationRequest } from './resident-application-v1';
+import { handleResidentEconomyMutationRequest } from './resident-economy-v2';
 import { handleResidentVerificationRequest } from './resident-verification-v1';
 import { handleStorageRequest } from './storage-v1';
 
@@ -20,6 +23,7 @@ const SAFE_ID = /^[A-Za-z0-9._:-]{1,80}$/;
 
 type AppEnv = CoreEnv & BetterAuthEnv & {
   CORS_ALLOWED_ORIGINS?: string;
+  COMMUNITY_PUBLISH_MODE?: string;
 };
 
 function requestId(request: Request): string {
@@ -130,6 +134,9 @@ export default {
       const adminOperationalResponse = await handleAdminOperationalRequest(request, env, id);
       if (adminOperationalResponse) return respond(adminOperationalResponse);
 
+      const communityModerationResponse = await handleCommunityModerationRequest(request, env, id);
+      if (communityModerationResponse) return respond(communityModerationResponse);
+
       if (new URL(request.url).pathname.startsWith('/api/v1/admin/')) {
         const response = await handleAdminRequest(request, env, id);
         if (response) return respond(response);
@@ -148,8 +155,16 @@ export default {
       const householdFamilyResponse = await handleHouseholdFamilyRequest(request, env, id);
       if (householdFamilyResponse) return respond(householdFamilyResponse);
 
+      const communityResidentResponse = await handleCommunityResidentRequest(request, env, id);
+      if (communityResidentResponse) return respond(communityResidentResponse);
+
       const residentVerificationResponse = await handleResidentVerificationRequest(request, env, id);
       if (residentVerificationResponse) return respond(residentVerificationResponse);
+
+      // Household-v2 verified-resident mutations intercept the legacy handlers first.
+      // Legacy wallet/applicant ownership reads remain available below.
+      const residentEconomyResponse = await handleResidentEconomyMutationRequest(request, env, id);
+      if (residentEconomyResponse) return respond(residentEconomyResponse);
 
       const benefitWalletResponse = await handleBenefitWalletRequest(request, env, id);
       if (benefitWalletResponse) return respond(benefitWalletResponse);
