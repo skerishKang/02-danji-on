@@ -5,6 +5,7 @@ import { validateBusinessImageReference } from '../src/storage-v1.ts';
 const root = new URL('../', import.meta.url);
 const economy = await readFile(new URL('src/resident-economy-v2.ts', root), 'utf8');
 const admin = await readFile(new URL('src/admin-operational-v2.ts', root), 'utf8');
+const app = await readFile(new URL('src/app.ts', root), 'utf8');
 const storage = await readFile(new URL('src/storage-v1.ts', root), 'utf8');
 
 const env = {
@@ -90,7 +91,7 @@ assert.ok(storage.includes('props.danjionUploaderUserId !== expectedUploaderUser
 assert.ok(storage.includes('props.danjionComplexSlug !== expectedComplexSlug'));
 
 const createStart = economy.indexOf('async function createBusinessApplication(');
-const createEnd = economy.indexOf('async function claimBenefit(', createStart);
+const createEnd = economy.indexOf('async function resubmitBusinessApplication(', createStart);
 const createBlock = economy.slice(createStart, createEnd);
 const createAuth = createBlock.indexOf('requireVerifiedResident(request, env, sql, requestId, input.complexSlug)');
 const replayLookup = createBlock.indexOf('await existingBusinessApplication(sql, resident.id, rawKey)');
@@ -104,6 +105,33 @@ assert.ok(createInsert > createValidate,
   'new application insert must occur only after image reference validation');
 assert.ok(createBlock.includes('resident.id'));
 assert.ok(createBlock.includes('resident.complexSlug'));
+
+const resubmitStart = economy.indexOf('async function resubmitBusinessApplication(');
+const resubmitEnd = economy.indexOf('async function claimBenefit(', resubmitStart);
+const resubmitBlock = economy.slice(resubmitStart, resubmitEnd);
+const resubmitActor = resubmitBlock.indexOf('await requireActor(request, env, sql, requestId)');
+const resubmitOwnerLookup = resubmitBlock.indexOf('const currentRows = await sql');
+const resubmitState = resubmitBlock.indexOf("String(current.status) !== 'changes_requested'");
+const resubmitVerified = resubmitBlock.indexOf('await requireVerifiedResident(request, env, sql, requestId, complexSlug)');
+const resubmitValidate = resubmitBlock.indexOf('await validateBusinessImageReference(');
+const resubmitUpdate = resubmitBlock.indexOf('update business_applications a');
+assert.ok(resubmitActor >= 0 && resubmitOwnerLookup > resubmitActor,
+  'resubmit must authenticate before owner-scoped application lookup');
+assert.ok(resubmitState > resubmitOwnerLookup && resubmitVerified > resubmitState,
+  'resubmit must prove changes_requested state before current verified-resident authorization');
+assert.ok(resubmitValidate > resubmitVerified,
+  'resubmit image validation must use current verified-resident authority');
+assert.ok(resubmitUpdate > resubmitValidate,
+  'resubmit must not persist a replacement image reference before validation');
+assert.ok(resubmitBlock.includes('a.applicant_user_id = ${actor.id}::uuid'));
+assert.ok(resubmitBlock.includes('a.applicant_user_id = ${resident.id}::uuid'));
+assert.ok(resubmitBlock.includes('resident.complexSlug'));
+assert.ok(economy.includes("const applicationResubmit = request.method === 'PATCH'"));
+assert.ok(economy.includes('return resubmitBusinessApplication(request, env, sql, requestId, applicationResubmit[1], payload)'));
+const economyRoute = app.indexOf('handleResidentEconomyMutationRequest(request, env, id)');
+const legacyApplicationRoute = app.indexOf('handleResidentApplicationRequest(request, env, id)');
+assert.ok(economyRoute >= 0 && legacyApplicationRoute > economyRoute,
+  'current economy mutation handler must intercept resubmit before legacy application handler');
 
 assert.ok(admin.includes("import { validateBusinessImageReference } from './storage-v1';"));
 assert.ok(admin.includes('a.applicant_user_id'));
@@ -124,4 +152,4 @@ assert.ok(materialize > approvalValidate,
 assert.ok(patchBlock.includes('String(current.applicant_user_id)'));
 assert.ok(patchBlock.includes('String(current.complex_slug)'));
 
-console.log('PASS business image reference integrity: create ownership binding + approval revalidation');
+console.log('PASS business image reference integrity: create + resubmit ownership binding + approval revalidation');
