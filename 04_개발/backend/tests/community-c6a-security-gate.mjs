@@ -65,7 +65,7 @@ assert.match(operationalAuthz, /operator_kind = 'resident_council'/i);
 assert.match(operationalAuthz, /PADIEM or resident-council authorization required/);
 assert.doesNotMatch(operationalAuthz, /complex_memberships/);
 assert.match(operationalAuthzTest, /PADIEM \+ council allowed, support\/legacy manager denied/);
-assert.match(operationalAuthzTest, /onboarding_support/);
+assert.match(operationalAuthzTest, /supportDenied/);
 assert.match(operationalAuthzTest, /resident_council/);
 
 // Moderation changes state only, never resident content, and audit is atomic.
