@@ -3,6 +3,7 @@
   "name": "danjion-api",
   "main": "src/app.ts",
   "compatibility_date": "2026-08-07",
+  "compatibility_flags": ["nodejs_compat"],
   "observability": {
     "enabled": true
   },
