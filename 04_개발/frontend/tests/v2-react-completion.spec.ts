@@ -51,6 +51,27 @@ test.describe('Sibling Gate1 React completion', () => {
     await expect(onboarding).toHaveCount(0);
   });
 
+  test('direct account choices expose recovery email and phone-password login without SMS claims', async ({ page }) => {
+    await page.goto('/');
+    await page.getByRole('button', { name: /가입하고 시작하기/ }).click();
+    const onboarding = page.locator('[data-v2-onboarding]');
+
+    await expect(onboarding.getByRole('button', { name: '처음 가입' })).toHaveClass(/is-active/);
+    await expect(onboarding.locator('[data-account-form="phone"]')).toBeVisible();
+    await expect(onboarding.getByText('이메일 · 필수 복구수단')).toBeVisible();
+    await expect(onboarding.getByPlaceholder('010-1234-5678')).toBeVisible();
+    await expect(onboarding.getByText(/SMS 인증을 사용하지 않으며/)).toBeVisible();
+
+    await onboarding.getByRole('button', { name: /이메일로 시작하기/ }).click();
+    await expect(onboarding.locator('[data-account-form="email"]')).toBeVisible();
+    await expect(onboarding.getByText('휴대폰 번호 · 선택')).toBeVisible();
+    await expect(onboarding.getByText(/다음 로그인부터 휴대폰 번호 \+ 비밀번호/)).toBeVisible();
+
+    await onboarding.getByRole('button', { name: '이미 회원' }).click();
+    await expect(onboarding.getByPlaceholder('name@example.com')).toBeVisible();
+    await expect(onboarding.getByPlaceholder('8자 이상')).toBeVisible();
+  });
+
   test('project story is a React surface, not a separate HTML runtime', async ({ page }) => {
     await page.goto('/');
     const home = page.locator('#v2-resident-home');
