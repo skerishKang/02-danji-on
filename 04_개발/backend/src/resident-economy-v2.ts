@@ -1,4 +1,5 @@
 import { neon, type NeonQueryFunction } from '@neondatabase/serverless';
+import { requireActor } from './auth-v1';
 import { requireVerifiedResident } from './authorization-v2';
 import { validateBusinessImageReference } from './storage-v1';
 import type { CoreEnv } from './core-v1';
@@ -199,6 +200,79 @@ async function createBusinessApplication(
   return idempotentReplayResponse(racedExisting as Record<string, unknown>, requestFingerprint, requestId);
 }
 
+async function resubmitBusinessApplication(
+  request: Request,
+  env: CoreEnv,
+  sql: Sql,
+  requestId: string,
+  applicationId: string,
+  payload: Record<string, unknown>
+): Promise<Response> {
+  const actorOrResponse = await requireActor(request, env, sql, requestId);
+  if (actorOrResponse instanceof Response) return actorOrResponse;
+  const actor = actorOrResponse;
+
+  const currentRows = await sql`
+    select a.id, a.status, c.slug as complex_slug
+    from business_applications a
+    join complexes c on c.id = a.complex_id
+    where a.id = ${applicationId}::uuid
+      and a.applicant_user_id = ${actor.id}::uuid
+    limit 1
+  `;
+  const current = currentRows[0];
+  if (!current) return fail('NOT_FOUND', 'Business application not found', 404, requestId);
+  if (String(current.status) !== 'changes_requested') {
+    return fail('CONFLICT', 'Only changes_requested applications can be resubmitted', 409, requestId);
+  }
+
+  const complexSlug = String(current.complex_slug);
+  const input = applicationInput({ ...payload, complexSlug });
+  const invalid = validateApplication(input, requestId);
+  if (invalid) return invalid;
+
+  const residentOrResponse = await requireVerifiedResident(request, env, sql, requestId, complexSlug);
+  if (residentOrResponse instanceof Response) return residentOrResponse;
+  const resident = residentOrResponse;
+
+  if (input.representativeImageObjectKey) {
+    const imageReferenceError = await validateBusinessImageReference(
+      env,
+      input.representativeImageObjectKey,
+      resident.id,
+      resident.complexSlug,
+      requestId
+    );
+    if (imageReferenceError) return imageReferenceError;
+  }
+
+  const rows = await sql`
+    update business_applications a
+    set relation_type = ${input.relationType},
+        business_name = ${input.businessName},
+        category_name = ${input.categoryName},
+        service_summary = ${input.serviceSummary},
+        price_text = ${input.priceText},
+        contact_method = ${input.contactMethod},
+        service_area = ${input.serviceArea},
+        benefit_text = ${input.benefitText},
+        availability_text = ${input.availabilityText},
+        representative_image_object_key = ${input.representativeImageObjectKey},
+        status = 'pending',
+        reviewed_by = null,
+        reviewed_at = null
+    where a.id = ${applicationId}::uuid
+      and a.applicant_user_id = ${resident.id}::uuid
+      and a.status = 'changes_requested'
+    returning a.id, a.relation_type, a.business_name, a.category_name,
+              a.service_summary, a.price_text, a.contact_method, a.service_area,
+              a.benefit_text, a.availability_text, a.representative_image_object_key,
+              a.status, a.review_note, a.approved_business_id, a.created_at, a.updated_at
+  `;
+  if (rows[0]) return ok(rows[0], requestId);
+  return fail('CONFLICT', 'Application can no longer be resubmitted from its current state', 409, requestId);
+}
+
 async function claimBenefit(
   request: Request,
   env: CoreEnv,
@@ -259,12 +333,15 @@ export async function handleResidentEconomyMutationRequest(
   env: CoreEnv,
   requestId: string
 ): Promise<Response | null> {
-  if (request.method !== 'POST') return null;
-
   const path = new URL(request.url).pathname;
-  const applicationCreate = path === '/api/v1/me/business-applications';
-  const benefitClaim = path.match(/^\/api\/v1\/me\/benefits\/([0-9a-fA-F-]+)\/claim$/);
-  if (!applicationCreate && !benefitClaim) return null;
+  const applicationCreate = request.method === 'POST' && path === '/api/v1/me/business-applications';
+  const applicationResubmit = request.method === 'PATCH'
+    ? path.match(/^\/api\/v1\/me\/business-applications\/([0-9a-fA-F-]+)$/)
+    : null;
+  const benefitClaim = request.method === 'POST'
+    ? path.match(/^\/api\/v1\/me\/benefits\/([0-9a-fA-F-]+)\/claim$/)
+    : null;
+  if (!applicationCreate && !applicationResubmit && !benefitClaim) return null;
   if (!env.DATABASE_URL) return fail('DATABASE_NOT_CONFIGURED', 'DATABASE_URL is not configured', 503, requestId);
 
   const payload = await bodyJson(request, requestId);
@@ -272,5 +349,8 @@ export async function handleResidentEconomyMutationRequest(
   const sql: Sql = neon(env.DATABASE_URL);
 
   if (applicationCreate) return createBusinessApplication(request, env, sql, requestId, payload);
+  if (applicationResubmit) {
+    return resubmitBusinessApplication(request, env, sql, requestId, applicationResubmit[1], payload);
+  }
   return claimBenefit(request, env, sql, requestId, benefitClaim![1], payload);
 }
