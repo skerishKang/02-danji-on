@@ -27,5 +27,7 @@ jobs:
         run: npm install --ignore-scripts
       - name: Typecheck
         run: npm run typecheck
+      - name: Auth JWT API bridge contract
+        run: node tests/auth-jwt-api-bridge-contract.mjs
       - name: Build
         run: npm run build
