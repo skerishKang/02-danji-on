@@ -18,13 +18,15 @@ assert.match(server, /sendResetPassword:/);
 assert.match(server, /resetPasswordTokenExpiresIn:\s*3600/);
 assert.match(server, /revokeSessionsOnPasswordReset:\s*true/);
 assert.match(server, /AUTH_REQUIRE_EMAIL_VERIFICATION/);
+assert.match(server, /kind:\s*'verify-email'/);
+assert.match(server, /kind:\s*'reset-password'/);
 
+assert.match(mailer, /AuthEmailKind\s*=\s*'verify-email'\s*\|\s*'reset-password'/);
 assert.match(mailer, /AUTH_EMAIL_RELAY_URL/);
 assert.match(mailer, /AUTH_EMAIL_RELAY_TOKEN/);
 assert.match(mailer, /AUTH_EMAIL_FROM/);
 assert.match(mailer, /authorization:\s*`Bearer \$\{relayToken\}`/);
-assert.match(mailer, /kind:\s*'verify-email'/);
-assert.match(mailer, /kind:\s*'reset-password'/);
+assert.match(mailer, /kind:\s*message\.kind/);
 assert.doesNotMatch(mailer, /console\.(?:log|info|debug)/, 'auth mailer must not log email addresses or action URLs');
 assert.doesNotMatch(mailer, /localStorage|sessionStorage/, 'server email tokens must never enter browser storage');
 
