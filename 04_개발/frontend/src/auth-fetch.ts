@@ -3,7 +3,7 @@ import { authProvider, type AuthSurface } from './auth';
 
 const DANJION_AUTH_MODE = import.meta.env.VITE_AUTH_MODE === 'danjion';
 const TOKEN_REFRESH_SKEW_MS = 30_000;
-const FALLBACK_CACHE_MS = 30_000;
+const TOKEN_CACHE_MAX_AGE_MS = 30_000;
 
 type CachedToken = {
   token: string;
@@ -27,7 +27,7 @@ function jwtExpiryMs(token: string): number | null {
 }
 
 async function freshBearerToken(): Promise<string> {
-  if (cachedToken && Date.now() < cachedToken.expiresAt - TOKEN_REFRESH_SKEW_MS) {
+  if (cachedToken && Date.now() < cachedToken.expiresAt) {
     return cachedToken.token;
   }
   if (tokenRequest) return tokenRequest;
@@ -35,10 +35,12 @@ async function freshBearerToken(): Promise<string> {
   tokenRequest = (async () => {
     const token = await getProductApiBearerToken();
     if (!token) throw new Error('로그인이 필요합니다.');
+    const now = Date.now();
     const jwtExpiry = jwtExpiryMs(token);
+    const safeJwtExpiry = jwtExpiry ? Math.max(now, jwtExpiry - TOKEN_REFRESH_SKEW_MS) : now + TOKEN_CACHE_MAX_AGE_MS;
     cachedToken = {
       token,
-      expiresAt: jwtExpiry ?? Date.now() + FALLBACK_CACHE_MS
+      expiresAt: Math.min(safeJwtExpiry, now + TOKEN_CACHE_MAX_AGE_MS)
     };
     return token;
   })();
