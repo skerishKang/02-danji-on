@@ -11,6 +11,7 @@ const m009 = read('009_household_foundation.sql');
 const m010 = read('010_household_invite_family_lifecycle.sql');
 const m011 = read('011_consent_authorization_audit.sql');
 const m012 = read('012_padiem_operator_grants.sql');
+const m015 = read('015_complex_operator_grants.sql');
 
 assert.match(m009, /create table if not exists complex_units/i);
 assert.match(m009, /create table if not exists households/i);
@@ -26,5 +27,9 @@ assert.doesNotMatch(m010, /phone|mobile|resident_name/i);
 assert.match(m011, /create table if not exists consent_records/i);
 assert.match(m011, /create table if not exists audit_events/i);
 assert.match(m012, /create table if not exists padiem_operator_grants/i);
+assert.match(m015, /create table if not exists complex_operator_grants/i);
+assert.doesNotMatch(m015, /do\s+\$\$/i, 'complex operator migration must remain runner-safe');
+assert.match(m015, /references complexes\(id\) on delete cascade/i);
+assert.match(m015, /references app_users\(id\) on delete cascade/i);
 
 console.log('Authorization v2 migration ordering/runner contract PASS');
