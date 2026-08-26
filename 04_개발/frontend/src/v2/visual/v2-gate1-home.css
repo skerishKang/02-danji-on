@@ -50,7 +50,7 @@
 .v2-gate1-home-benefit span { font-size: 10px; font-weight: 900; letter-spacing: .12em; }
 .v2-gate1-home-benefit strong { font-size: clamp(58px, 6vw, 94px); line-height: .9; letter-spacing: -.07em; }
 .v2-gate1-home-benefit h3 { margin: 0 0 14px; font-size: 27px; line-height: 1.12; letter-spacing: -.04em; }
-.v2-gate1-home-benefit p { color: #4a271f; font-size: 13px; line-height: 1.55; }
+.v2-gate1-home-benefit p { color: #11110f; font-size: 13px; line-height: 1.55; }
 .v2-gate1-home-benefit button { color: #11110f; }
 
 .v2-gate1-home-quick { background: #fbfaf5; }
