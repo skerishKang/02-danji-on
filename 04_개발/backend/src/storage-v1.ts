@@ -267,6 +267,19 @@ async function upload(request: Request, env: DriveEnv, requestId: string): Promi
   const form = await request.formData();
   const kind = String(form.get('kind') || '').trim();
   const complexSlug = String(form.get('complexSlug') || '').trim();
+
+  // Issue #59 leaves the resident-verification provider, evidence collection,
+  // retention and review authority unresolved. A direct generic-storage call
+  // must not become an alternate evidence-collection workflow while held.
+  if (kind === 'resident-evidence') {
+    return fail(
+      'RESIDENT_VERIFICATION_POLICY_HOLD',
+      'Resident verification evidence upload is unavailable until the verification and privacy policy is approved',
+      503,
+      requestId
+    );
+  }
+
   const files = form.getAll('file').filter((value): value is File => value instanceof File);
   const validation = validateStorageUpload(kind, files);
   if (!validation.ok) {
