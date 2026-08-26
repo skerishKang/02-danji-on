@@ -93,7 +93,7 @@ async function accessToken(env: DriveEnv): Promise<string> {
     value: payload.access_token,
     expiresAt: now + Math.max(300, Number(payload.expires_in || 3600)) * 1000
   };
-  return payload.access_token;
+  return cachedAccessToken.value;
 }
 
 async function googleFetch(env: DriveEnv, url: string, init: RequestInit = {}): Promise<Response> {
@@ -223,6 +223,48 @@ export async function validateBusinessImageReference(
       'BUSINESS_IMAGE_REFERENCE_FORBIDDEN',
       'Representative image does not belong to this resident and complex',
       403,
+      requestId
+    );
+  }
+  return null;
+}
+
+export async function businessImageDeleteConflict(
+  sql: Sql,
+  objectKeyValue: string,
+  requestId: string
+): Promise<Response | null> {
+  let rows;
+  try {
+    rows = await sql`
+      select
+        exists (
+          select 1
+          from business_media bm
+          where bm.object_key = ${objectKeyValue}
+        ) as business_media_in_use,
+        exists (
+          select 1
+          from business_applications a
+          where a.representative_image_object_key = ${objectKeyValue}
+            and a.status in ('draft', 'pending', 'changes_requested', 'approved')
+        ) as application_in_use
+    `;
+  } catch {
+    return fail(
+      'BUSINESS_IMAGE_REFERENCE_CHECK_UNAVAILABLE',
+      'Business image usage could not be verified before deletion',
+      503,
+      requestId
+    );
+  }
+
+  const usage = rows[0] as { business_media_in_use?: boolean; application_in_use?: boolean } | undefined;
+  if (usage?.business_media_in_use || usage?.application_in_use) {
+    return fail(
+      'BUSINESS_IMAGE_IN_USE',
+      'Business image is still referenced by an active application or business record',
+      409,
       requestId
     );
   }
@@ -392,6 +434,11 @@ async function removeObject(request: Request, env: DriveEnv, requestId: string):
   if (!metadata || !metadataMatches(env, parsed, metadata)) return fail('NOT_FOUND', 'Storage object not found', 404, requestId);
   const denied = await authorizeObject(auth.actor, metadata, requestId);
   if (denied) return denied;
+
+  if (parsed.kind === 'business-image') {
+    const conflict = await businessImageDeleteConflict(auth.sql, parsed.objectKey, requestId);
+    if (conflict) return conflict;
+  }
 
   const response = await googleFetch(env, `${DRIVE_API}/files/${encodeURIComponent(parsed.fileId)}?supportsAllDrives=true`, {
     method: 'PATCH',
