@@ -4,6 +4,7 @@ import { handleAdminReviewContextRequest } from './admin-review-context-v1';
 import { handleAdminVerificationRequest } from './admin-verification-v1';
 import { handleAdminRequest } from './admin-v1';
 import { handleBenefitWalletRequest } from './benefit-wallet-v1';
+import { handleCommunityModerationRequest } from './community-moderation-v1';
 import { handleCommunityResidentRequest } from './community-resident-v1';
 import { validateRequestPayload } from './payload-policy';
 import { handleResidentApplicationRequest } from './resident-application-v1';
@@ -140,6 +141,9 @@ export default {
         const response = await handleAdminRequest(request, env, id);
         if (response) return respond(response);
       }
+
+      const communityModerationResponse = await handleCommunityModerationRequest(request, env, id);
+      if (communityModerationResponse) return respond(communityModerationResponse);
 
       const communityResidentResponse = await handleCommunityResidentRequest(request, env, id);
       if (communityResidentResponse) return respond(communityResidentResponse);
