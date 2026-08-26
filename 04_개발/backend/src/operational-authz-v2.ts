@@ -77,7 +77,7 @@ async function auditOperationalDecision(
  * PADIEM platform operator OR explicitly granted resident-council operator for this complex.
  *
  * Management-office/onboarding-support grants are deliberately excluded from this helper.
- * Legacy complex_memberships manager/admin state is never consulted.
+ * Legacy apartment manager/admin membership state is never consulted.
  */
 export async function requireOperationalAuthority(
   request: Request,
