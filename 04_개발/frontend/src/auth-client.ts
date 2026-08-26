@@ -74,11 +74,7 @@ export async function signUpWithPhone(input: {
 export async function signInWithPhone(phone: string, password: string) {
   const username = normalizePhoneCredential(phone);
   if (!isSupportedPhoneCredential(username)) throw new Error('지원하지 않는 휴대폰 번호 형식입니다.');
-  const result = await danjionAuthClient.signIn.username({
-    username,
-    password,
-    callbackURL: emailVerificationCallbackURL()
-  });
+  const result = await danjionAuthClient.signIn.username({ username, password });
   assertAuthSuccess(result, '휴대폰 번호로 로그인하지 못했습니다.');
   return result.data;
 }
@@ -106,11 +102,7 @@ export async function signUpWithEmail(input: {
 }
 
 export async function signInWithEmail(email: string, password: string) {
-  const result = await danjionAuthClient.signIn.email({
-    email: email.trim(),
-    password,
-    callbackURL: emailVerificationCallbackURL()
-  });
+  const result = await danjionAuthClient.signIn.email({ email: email.trim(), password });
   assertAuthSuccess(result, '이메일로 로그인하지 못했습니다.');
   return result.data;
 }
