@@ -1,4 +1,5 @@
 import core, { type CoreEnv } from './core-v1';
+import { handleAccountLifecycleRequest } from './account-lifecycle-v1';
 import { handleAdminAuditRequest } from './admin-audit-v1';
 import { handleAdminOperationalRequest } from './admin-operational-v2';
 import { handleAdminReviewContextRequest } from './admin-review-context-v1';
@@ -110,6 +111,9 @@ export default {
 
       const policyResponse = await validateRequestPayload(request, id);
       if (policyResponse) return respond(policyResponse);
+
+      const accountLifecycleResponse = await handleAccountLifecycleRequest(request, env, id);
+      if (accountLifecycleResponse) return respond(accountLifecycleResponse);
 
       const storageResponse = await handleStorageRequest(request, env, id);
       if (storageResponse) return respond(storageResponse);
