@@ -6,6 +6,9 @@ import { handleAdminVerificationRequest } from './admin-verification-v1';
 import { handleAdminRequest } from './admin-v1';
 import { handleBetterAuthRequest, type BetterAuthEnv } from './auth-better-v1';
 import { handleBenefitWalletRequest } from './benefit-wallet-v1';
+import { handleHouseholdPrimaryClaimRequest } from './household-claim-v2';
+import { handleHouseholdFamilyRequest } from './household-family-v2';
+import { handleHouseholdUnitMasterRequest } from './household-master-v2';
 import { validateRequestPayload } from './payload-policy';
 import { handleResidentApplicationRequest } from './resident-application-v1';
 import { handleResidentVerificationRequest } from './resident-verification-v1';
@@ -33,15 +36,12 @@ function fail(message: string, id: string): Response {
 
 function originMatchesRule(origin: string, rule: string): boolean {
   if (origin === rule) return true;
-
   const marker = '://*.';
   const markerIndex = rule.indexOf(marker);
   if (markerIndex < 1) return false;
-
   const protocol = rule.slice(0, markerIndex);
   const hostnameSuffix = rule.slice(markerIndex + marker.length);
   if (!hostnameSuffix || hostnameSuffix.includes('/') || hostnameSuffix.includes(':')) return false;
-
   try {
     const candidate = new URL(origin);
     return candidate.protocol === `${protocol}:`
@@ -55,12 +55,7 @@ function originMatchesRule(origin: string, rule: string): boolean {
 function allowedOrigin(request: Request, env: AppEnv): string | null {
   const origin = request.headers.get('origin')?.trim();
   if (!origin) return null;
-
-  const rules = (env.CORS_ALLOWED_ORIGINS || '')
-    .split(',')
-    .map((value) => value.trim())
-    .filter(Boolean);
-
+  const rules = (env.CORS_ALLOWED_ORIGINS || '').split(',').map((value) => value.trim()).filter(Boolean);
   return rules.some((rule) => originMatchesRule(origin, rule)) ? origin : null;
 }
 
@@ -70,7 +65,6 @@ function appendVaryOrigin(headers: Headers): void {
     headers.set('vary', 'Origin');
     return;
   }
-
   const values = vary.split(',').map((value) => value.trim().toLowerCase());
   if (!values.includes('origin')) headers.set('vary', `${vary}, Origin`);
 }
@@ -78,29 +72,19 @@ function appendVaryOrigin(headers: Headers): void {
 function withCors(response: Response, request: Request, env: AppEnv): Response {
   const origin = allowedOrigin(request, env);
   if (!origin) return response;
-
   const headers = new Headers(response.headers);
   headers.set('access-control-allow-origin', origin);
   headers.set('access-control-expose-headers', REQUEST_ID_HEADER);
   appendVaryOrigin(headers);
-
-  return new Response(response.body, {
-    status: response.status,
-    statusText: response.statusText,
-    headers
-  });
+  return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
 }
 
 function preflight(request: Request, env: AppEnv): Response {
   const incomingOrigin = request.headers.get('origin')?.trim();
   const origin = allowedOrigin(request, env);
   if (incomingOrigin && !origin) {
-    return new Response(null, {
-      status: 403,
-      headers: { 'cache-control': 'no-store', 'vary': 'Origin' }
-    });
+    return new Response(null, { status: 403, headers: { 'cache-control': 'no-store', 'vary': 'Origin' } });
   }
-
   const headers = new Headers({
     'access-control-allow-methods': 'GET,POST,PATCH,DELETE,OPTIONS',
     'access-control-allow-headers': `content-type,authorization,idempotency-key,${REQUEST_ID_HEADER},x-danjion-dev-auth-user`,
@@ -109,7 +93,6 @@ function preflight(request: Request, env: AppEnv): Response {
   });
   if (origin) headers.set('access-control-allow-origin', origin);
   appendVaryOrigin(headers);
-
   return new Response(null, { status: 204, headers });
 }
 
@@ -121,9 +104,7 @@ export default {
     try {
       if (request.method === 'OPTIONS') return preflight(request, env);
 
-      // Better Auth owns /api/auth/* payloads and OAuth callbacks. Route them
-      // before the application-wide JSON payload policy to avoid corrupting
-      // provider form/callback semantics.
+      // Better Auth owns /api/auth/* payloads and OAuth callbacks.
       const authResponse = await handleBetterAuthRequest(request, env);
       if (authResponse) return respond(authResponse);
 
@@ -142,10 +123,6 @@ export default {
       const adminVerificationResponse = await handleAdminVerificationRequest(request, env, id);
       if (adminVerificationResponse) return respond(adminVerificationResponse);
 
-      // Phase-B governance interception. These six day-to-day operational routes
-      // are owned by explicit PADIEM / resident-council grants, never legacy
-      // apartment manager/admin membership. Unrelated legacy admin routes remain
-      // reachable below until their bounded migrations are completed.
       const adminOperationalResponse = await handleAdminOperationalRequest(request, env, id);
       if (adminOperationalResponse) return respond(adminOperationalResponse);
 
@@ -153,6 +130,19 @@ export default {
         const response = await handleAdminRequest(request, env, id);
         if (response) return respond(response);
       }
+
+      // Household onboarding / association is separate from resident authorization.
+      // Unit selection is account-authenticated only; primary claim is token-gated;
+      // family invite acceptance creates only a pending membership and never bypasses
+      // resident-verification policy HOLD.
+      const householdMasterResponse = await handleHouseholdUnitMasterRequest(request, env, id);
+      if (householdMasterResponse) return respond(householdMasterResponse);
+
+      const householdClaimResponse = await handleHouseholdPrimaryClaimRequest(request, env, id);
+      if (householdClaimResponse) return respond(householdClaimResponse);
+
+      const householdFamilyResponse = await handleHouseholdFamilyRequest(request, env, id);
+      if (householdFamilyResponse) return respond(householdFamilyResponse);
 
       const residentVerificationResponse = await handleResidentVerificationRequest(request, env, id);
       if (residentVerificationResponse) return respond(residentVerificationResponse);
