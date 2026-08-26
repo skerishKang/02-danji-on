@@ -1,5 +1,6 @@
 import { neon, type NeonQueryFunction } from '@neondatabase/serverless';
 import { requireVerifiedResident } from './authorization-v2';
+import { validateBusinessImageReference } from './storage-v1';
 import type { CoreEnv } from './core-v1';
 
 type Sql = NeonQueryFunction<false, false>;
@@ -95,6 +96,17 @@ async function createBusinessApplication(
   const residentOrResponse = await requireVerifiedResident(request, env, sql, requestId, input.complexSlug);
   if (residentOrResponse instanceof Response) return residentOrResponse;
   const resident = residentOrResponse;
+
+  if (input.representativeImageObjectKey) {
+    const imageReferenceError = await validateBusinessImageReference(
+      env,
+      input.representativeImageObjectKey,
+      resident.id,
+      resident.complexSlug,
+      requestId
+    );
+    if (imageReferenceError) return imageReferenceError;
+  }
 
   const rawKey = request.headers.get('idempotency-key')?.trim() || null;
   if (rawKey && !validIdempotencyKey(rawKey)) {
