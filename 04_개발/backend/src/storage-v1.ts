@@ -235,6 +235,21 @@ async function authorizeObject(
 ): Promise<Response | null> {
   const props = metadata.appProperties || {};
   if (props.danjionUploaderUserId === actor.id) return null;
+
+  // Issue #59 keeps resident-verification evidence administration on HOLD.
+  // No non-uploader actor class (legacy manager/admin, PADIEM, resident council,
+  // or onboarding support) receives evidence-original access by operational role.
+  if (props.danjionKind === 'resident-evidence' || props.danjionVisibility === 'private') {
+    return fail(
+      'RESIDENT_VERIFICATION_POLICY_HOLD',
+      'Resident verification evidence access is unavailable until the verification and privacy policy is approved',
+      503,
+      requestId
+    );
+  }
+
+  // Historical business-media fallback is preserved for this bounded privacy
+  // repair only. It is not authority for resident-verification evidence.
   const complexSlug = props.danjionComplexSlug?.trim();
   if (!complexSlug) return fail('FORBIDDEN', 'Storage object is missing complex scope', 403, requestId);
   const membership = await membershipFor(sql, actor.id, complexSlug);
