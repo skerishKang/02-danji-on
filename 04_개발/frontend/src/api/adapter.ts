@@ -1,3 +1,4 @@
+import { authenticatedFetch } from '../auth-fetch';
 import { authProvider } from '../auth';
 import { mockBenefits, mockBusinesses, mockPosts } from '../data/mock';
 import { listStoredMockBenefits, listStoredMockPosts } from '../mock-content-store';
@@ -168,15 +169,17 @@ type ApiEnvelope<T> = { data: T; requestId: string };
 type RequestOptions = { auth?: boolean };
 
 async function request<T>(path: string, init?: RequestInit, options: RequestOptions = {}): Promise<T> {
-  const authHeaders = options.auth === false ? {} : authProvider.headers('resident');
-  const response = await fetch(`${API_BASE}${path}`, {
+  const target = `${API_BASE}${path}`;
+  const requestInit: RequestInit = {
     ...init,
     headers: {
       'content-type': 'application/json',
-      ...authHeaders,
       ...(init?.headers || {})
     }
-  });
+  };
+  const response = options.auth === false
+    ? await fetch(target, requestInit)
+    : await authenticatedFetch(target, requestInit, 'resident');
   const payload = await response.json() as ApiEnvelope<T> | { error?: { message?: string } };
   if (!response.ok) {
     const message = 'error' in payload ? payload.error?.message : undefined;
