@@ -43,7 +43,8 @@ test.describe('Sibling Gate1 React completion', () => {
 
   test('project story is a React surface, not a separate HTML runtime', async ({ page }) => {
     await page.goto('/');
-    await page.getByRole('button', { name: '단지온 소개·운영안내' }).click();
+    const home = page.locator('#v2-resident-home');
+    await home.getByRole('button', { name: '단지온 도입과 운영' }).click();
     await expect(page.getByRole('heading', { name: /같은 단지에 사는 이웃을/ })).toBeVisible();
     await expect(page.getByText('PADIEM', { exact: true }).first()).toBeVisible();
     await page.getByRole('button', { name: '닫기', exact: true }).click();
