@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
-import { V2Gate1Onboarding, V2Gate1ProjectStory } from './V2Gate1Onboarding';
+import { V2Gate1ProjectStory } from './V2Gate1Onboarding';
+import { V2Gate1Onboarding } from './V2Gate1LiveOnboarding';
 import { V2Gate1ResidentHome } from './V2Gate1ResidentHome';
 import { V2Icon } from './V2Icon';
 import { V2VisualImage } from './V2VisualImage';
