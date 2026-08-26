@@ -8,7 +8,7 @@ Refs: #102, #101, #100, #90
 
 A `gdrive/public/business-image/*` object key is intentionally usable for anonymous display. Possession of that public reference is therefore not proof that the current applicant uploaded the image or that the image belongs to the applicant's complex.
 
-Before this overlay, `representativeImageObjectKey` could be stored on a business application and later copied into `business_media` without binding the reference to the applicant and complex at the application/approval boundaries.
+Before this overlay, `representativeImageObjectKey` could enter or re-enter a business application and later be copied into `business_media` without binding the reference to the applicant and complex across the full application lifecycle.
 
 ## Current invariant
 
@@ -18,7 +18,7 @@ PUBLIC_OBJECT_KEY_POSSESSION != IMAGE_OWNERSHIP
 APPLICATION_IMAGE_OWNER == APPLICANT_USER
 APPLICATION_IMAGE_COMPLEX == APPLICATION_COMPLEX
 
-APPLICATION_CREATE_VALIDATION + APPROVAL_REVALIDATION
+APPLICATION_CREATE_VALIDATION + RESUBMIT_VALIDATION + APPROVAL_REVALIDATION
 ```
 
 ## Server-controlled storage authority
@@ -47,6 +47,22 @@ When a new application contains `representativeImageObjectKey`:
 
 Applications without an image do not depend on Google Drive availability.
 
+## Changes-requested resubmit boundary
+
+The current resident-economy mutation handler now intercepts applicant `PATCH /api/v1/me/business-applications/:id` before the legacy application handler.
+
+For a resubmit:
+
+1. authenticate the canonical applicant;
+2. resolve the application with an owner-scoped lookup;
+3. require the current state to be `changes_requested`;
+4. derive the canonical complex from the stored application rather than trusting a client-supplied complex;
+5. require current Household-v2 verified-resident authority for that complex;
+6. if a replacement representative image is supplied, validate its Drive metadata against the verified resident id and canonical complex slug;
+7. only then persist the replacement application fields and return the application to `pending`.
+
+This prevents a foreign public object key from entering the application through the resubmit path after a valid original submission.
+
 ## Approval boundary
 
 For `status=approved`:
@@ -57,7 +73,7 @@ For `status=approved`:
 4. if a representative image is present, re-read and revalidate the image against the stored applicant user id and application complex slug;
 5. only after successful revalidation run the approval SQL that materializes `businesses`, `business_complex_relations`, and `business_media`.
 
-This prevents a deleted, moved, replaced-scope or foreign-owned public image reference from being promoted between submission and approval.
+This prevents a deleted, moved, replaced-scope or foreign-owned public image reference from being promoted between submission/resubmission and approval.
 
 ## Failure behavior
 
@@ -70,6 +86,12 @@ This prevents a deleted, moved, replaced-scope or foreign-owned public image ref
 
 The backend contract uses mocked OAuth/Drive responses only. It performs no live Google Drive write and exercises the validator as a read-only integrity boundary for valid ownership/scope, foreign uploader, foreign complex, trash state, folder mismatch, kind mismatch, and invalid namespace cases.
 
+The contract also fixes lifecycle ordering for:
+
+- create: verified-resident AuthZ -> completed idempotent replay -> image validation -> insert;
+- resubmit: canonical actor -> owner/state lookup -> verified-resident AuthZ -> replacement-image validation -> update;
+- approval: business-review AuthZ -> already-approved replay -> image revalidation -> materialization.
+
 ## Preserved boundaries
 
 - no representative image -> application and approval remain Drive-independent
@@ -80,9 +102,11 @@ The backend contract uses mocked OAuth/Drive responses only. It performs no live
 - `business.review` / `council.business.review` remains the operational review authority
 - no operator media-delete scope is invented
 - no DB metadata table or migration is introduced
+- resident application GET/read behavior remains on the existing lower handler; only current mutations are intercepted above it
 
 ## Out of scope
 
+- referenced-object delete protection (#104)
 - orphan-media cleanup
 - retention policy
 - production Google Drive write
