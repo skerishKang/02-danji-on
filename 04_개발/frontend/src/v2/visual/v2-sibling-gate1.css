@@ -1,0 +1,159 @@
+/* 2026-08-26 CURRENT VISUAL AUTHORITY
+   Source: sibling Gate1 final / ROADHILL LIGHTS.
+   This file intentionally overrides the historical V2 visual grammar while
+   preserving the existing React/data/auth contracts. */
+
+.v2-visual-surface{
+  --v2-canvas:#F4F0E6;
+  --v2-paper:#FFFDF8;
+  --v2-ink:#11130F;
+  --v2-muted:#686860;
+  --v2-line:rgba(17,19,15,.16);
+  --v2-food:#EF5B3F;
+  --v2-accent:#EF5B3F;
+  --v2-gate-night:#111B2A;
+  --v2-gate-gold:#F0AD45;
+  --v2-gate-blue:#3048F0;
+  background:var(--v2-canvas);
+}
+
+/* Gate1 desktop editorial navigation */
+.v2-gate1-topbar{
+  height:78px;
+  background:rgba(244,240,230,.93);
+  border-bottom:1px solid var(--v2-line);
+  backdrop-filter:blur(16px);
+}
+.v2-gate1-topbar .v2-topbar-inner{min-height:78px;grid-template-columns:minmax(190px,auto) 1fr auto;gap:18px}
+.v2-gate1-topbar .v2-brand{gap:8px}
+.v2-gate1-topbar .v2-wordmark{font-size:24px;letter-spacing:-.065em;font-weight:950}
+.v2-byline{font-size:9px;letter-spacing:.12em;font-weight:900;color:#6e6d65;text-transform:none}
+.v2-gate1-topbar .v2-complex{margin-left:8px;font-size:11px;color:#75736b}
+.v2-gate1-topbar .v2-desktop-nav{gap:4px}
+.v2-gate1-topbar .v2-nav-link{padding:11px 14px;border-radius:999px;font-weight:850;min-height:44px}
+.v2-gate1-topbar .v2-nav-link::after{display:none}
+.v2-gate1-topbar .v2-nav-link:hover,.v2-gate1-topbar .v2-nav-link.is-active{background:#fff}
+.v2-gate1-topbar .v2-icon-btn{width:44px;height:44px;border-radius:12px}
+.v2-gate1-announce{height:44px;border:0;border-radius:12px;padding:0 16px;background:var(--v2-ink);color:#fff;font-weight:900;white-space:nowrap}
+
+/* Gate1 desktop launch */
+.v2-gate1-hero{min-height:auto;background:var(--v2-canvas);overflow:visible}
+.v2-gate1-hero-grid{
+  width:min(1400px,100%);
+  min-height:690px;
+  margin:auto;
+  padding:56px clamp(18px,4vw,56px) 72px;
+  grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);
+  gap:54px;
+  align-items:center;
+}
+.v2-gate1-hero-copy{padding:0;justify-content:center}
+.v2-gate1-kicker-row{margin:0 0 18px;gap:12px}
+.v2-gate1-kicker{display:flex;align-items:center;gap:11px;font-size:12px;font-weight:950;letter-spacing:.12em;color:#5d5f58}
+.v2-gate1-kicker::after{content:"";width:68px;height:1px;background:#a9a79e}
+.v2-gate1-title{font-size:clamp(54px,5.8vw,91px);line-height:.94;letter-spacing:-.075em;margin:22px 0;max-width:720px;font-weight:950}
+.v2-gate1-title em{font-style:normal;color:#EF5B3F}
+.v2-gate1-lead{font-size:19px;line-height:1.78;color:#55554f;max-width:620px;margin:0}
+.v2-gate1-actions{margin-top:30px;display:flex;gap:10px;flex-wrap:wrap}
+.v2-gate1-actions .v2-btn{min-height:54px;border-radius:12px}
+.v2-gate1-actions .v2-btn-primary{background:var(--v2-gate-blue);border-color:var(--v2-gate-blue);box-shadow:0 12px 28px rgba(48,72,240,.24)}
+.v2-gate1-trust{display:flex;gap:22px;flex-wrap:wrap;margin-top:32px;color:#66655f;font-size:12px}
+.v2-gate1-trust span{display:flex;align-items:center;gap:8px}
+.v2-gate1-trust i{width:7px;height:7px;border-radius:50%;background:var(--v2-gate-gold);box-shadow:0 0 16px rgba(240,173,69,.34)}
+.v2-gate1-stat{margin-top:24px;max-width:620px}
+
+/* Three-image editorial stage from the approved desktop Gate1 board. */
+.v2-gate1-stage{height:565px;overflow:visible;clip-path:none;animation:none;background:transparent;position:relative}
+.v2-gate1-stage::after{display:none}
+.v2-gate1-main-photo{position:absolute;left:0;top:60px;width:68%;height:455px;overflow:hidden;box-shadow:0 24px 70px rgba(18,22,18,.12);background:#2d2d2a}
+.v2-gate1-main-photo::after{content:"";position:absolute;inset:0;background:linear-gradient(0deg,rgba(13,16,13,.56),transparent 52%);pointer-events:none}
+.v2-gate1-main-photo .v2-hero-photo-bg{width:100%;height:100%;object-fit:cover;transform:scale(1.08);animation:v2Gate1SlowZoom 12s ease-out forwards}
+@keyframes v2Gate1SlowZoom{to{transform:scale(1)}}
+.v2-gate1-photo-caption{position:absolute;z-index:3;left:20px;bottom:20px;color:#fff}
+.v2-gate1-photo-caption small{display:block;opacity:.8;font-size:11px;letter-spacing:.08em}
+.v2-gate1-photo-caption b{display:block;font-size:25px;margin-top:5px}
+.v2-gate1-side-photo{position:absolute;right:0;width:34%;height:230px;overflow:hidden;border:9px solid var(--v2-canvas);box-shadow:0 24px 70px rgba(18,22,18,.12);background:#333}
+.v2-gate1-side-photo img,.v2-gate1-side-photo .v2-photo-fallback{width:100%;height:100%;object-fit:cover}
+.v2-gate1-side-top{top:0}
+.v2-gate1-side-bottom{bottom:0}
+.v2-gate1-side-photo::after{content:"";position:absolute;inset:0;background:linear-gradient(0deg,rgba(15,15,15,.48),transparent 52%);pointer-events:none}
+.v2-gate1-side-photo>span{position:absolute;z-index:3;left:10px;bottom:10px;padding:7px 9px;background:rgba(15,15,15,.72);color:#fff;font-size:11px;font-weight:850}
+.v2-gate1-light-line{position:absolute;left:-28px;bottom:64px;width:112px;height:7px;background:var(--v2-gate-gold);box-shadow:0 0 28px rgba(240,173,69,.6)}
+.v2-gate1-vertical{position:absolute;right:12px;bottom:20px;writing-mode:vertical-rl;font-size:10px;font-weight:850;letter-spacing:.14em;color:#77746d}
+
+/* Search is a separate editorial band, as in the approved launch composition. */
+.v2-gate1-search-band{border-top:1px solid var(--v2-line);border-bottom:1px solid var(--v2-line);background:var(--v2-paper);padding:28px clamp(18px,4vw,56px)}
+.v2-gate1-search-band .v2-search-wrap{max-width:960px;margin:auto;border:1px solid #cbc7bd;background:#fff;min-height:62px;border-radius:0}
+.v2-gate1-search-band .v2-search-input{font-size:18px}
+.v2-gate1-search-band .v2-search-submit{background:var(--v2-ink);border-radius:0}
+
+/* Keep later product sections editorial rather than card-heavy. */
+.v2-visual-surface .v2-integration-section{background:var(--v2-canvas)}
+.v2-visual-surface .v2-section-title{font-weight:900;letter-spacing:-.06em}
+.v2-visual-surface .v2-integrated-shop-card{border-radius:0}
+
+@media(max-width:1050px) and (min-width:801px){
+  .v2-gate1-topbar .v2-byline,.v2-gate1-topbar .v2-complex{display:none}
+  .v2-gate1-topbar .v2-desktop-nav{gap:2px}
+  .v2-gate1-topbar .v2-nav-link{padding-left:9px;padding-right:9px}
+  .v2-gate1-hero-grid{grid-template-columns:44% 56%;gap:30px}
+  .v2-gate1-title{font-size:clamp(48px,6.5vw,68px)}
+  .v2-gate1-stage{height:500px}
+  .v2-gate1-main-photo{height:400px}
+  .v2-gate1-side-photo{height:205px}
+}
+
+/* Mobile Gate1: dark cinematic door, then bright search/product body. */
+@media(max-width:800px){
+  .v2-visual-surface{--v2-header-h:64px}
+  .v2-gate1-topbar{height:64px;background:rgba(17,27,42,.96);border-color:rgba(255,255,255,.13);color:#fff}
+  .v2-gate1-topbar .v2-topbar-inner{min-height:64px;padding:0 18px}
+  .v2-gate1-topbar .v2-wordmark{font-size:21px;color:#fff}
+  .v2-gate1-topbar .v2-byline{color:rgba(255,255,255,.58)}
+  .v2-gate1-topbar .v2-complex{display:none}
+  .v2-gate1-topbar .v2-header-tools .v2-verified-pill,.v2-gate1-topbar .v2-search-tool,.v2-gate1-topbar .v2-gate1-announce{display:none}
+  .v2-gate1-topbar .v2-icon-btn{border-color:rgba(255,255,255,.2);color:#fff;background:rgba(255,255,255,.05)}
+
+  .v2-gate1-hero{position:relative;background:var(--v2-gate-night);color:#fff;min-height:calc(100svh - 64px)}
+  .v2-gate1-hero-grid{position:relative;display:block;min-height:calc(100svh - 64px);padding:0}
+  .v2-gate1-stage{position:absolute;inset:0;width:100%;height:100%;min-height:0;overflow:hidden;z-index:0;background:var(--v2-gate-night)}
+  .v2-gate1-main-photo{position:absolute;inset:0;width:100%;height:68%;border:0;box-shadow:none;opacity:.88}
+  .v2-gate1-main-photo::after{background:linear-gradient(180deg,rgba(9,14,23,.12) 0%,rgba(12,18,29,.28) 48%,rgba(12,18,29,.94) 100%)}
+  .v2-gate1-main-photo .v2-hero-photo-bg{height:100%;object-position:center;filter:saturate(.78) contrast(1.04)}
+  .v2-gate1-photo-caption,.v2-gate1-side-photo,.v2-gate1-light-line,.v2-gate1-vertical{display:none}
+  .v2-gate1-stage::before{content:"";position:absolute;z-index:2;inset:0;background:linear-gradient(180deg,rgba(9,14,23,.16) 0%,rgba(12,18,29,.14) 28%,rgba(12,18,29,.76) 64%,rgba(12,18,29,.99) 100%);pointer-events:none}
+  .v2-gate1-stage::after{display:block;content:"";position:absolute;z-index:3;right:-18px;top:84px;width:190px;height:190px;opacity:.75;background:
+    linear-gradient(90deg,transparent 0 23%,rgba(255,255,255,.12) 23% 25%,transparent 25% 48%,rgba(255,255,255,.12) 48% 50%,transparent 50% 73%,rgba(255,255,255,.12) 73% 75%,transparent 75%),
+    linear-gradient(0deg,transparent 0 23%,rgba(255,255,255,.12) 23% 25%,transparent 25% 48%,rgba(255,255,255,.12) 48% 50%,transparent 50% 73%,rgba(255,255,255,.12) 73% 75%,transparent 75%);transform:rotate(-4deg)}
+
+  .v2-gate1-hero-copy{position:relative;z-index:5;min-height:calc(100svh - 64px);padding:clamp(220px,36vh,330px) 22px 26px;display:flex;flex-direction:column;justify-content:flex-end;color:#fff}
+  .v2-gate1-kicker-row{margin-bottom:14px}
+  .v2-gate1-kicker{font-size:11px;color:rgba(255,255,255,.78)}
+  .v2-gate1-kicker::after{background:rgba(255,255,255,.3);width:42px}
+  .v2-gate1-kicker-row .v2-demo-chip{display:none}
+  .v2-gate1-title{font-size:41px;line-height:1.08;letter-spacing:-.055em;margin:0;font-weight:950;color:#fff}
+  .v2-gate1-title em{color:var(--v2-gate-gold)}
+  .v2-gate1-lead{margin:14px 0 20px;font-size:16px;line-height:1.55;color:rgba(255,255,255,.76)}
+  .v2-gate1-actions{display:grid;grid-template-columns:1fr;gap:9px;margin-top:0}
+  .v2-gate1-actions .v2-btn{min-height:54px;border-radius:3px}
+  .v2-gate1-actions .v2-btn-primary{background:var(--v2-gate-blue);border-color:var(--v2-gate-blue);color:#fff}
+  .v2-gate1-actions .v2-btn:not(.v2-btn-primary){color:rgba(255,255,255,.88);border-color:rgba(255,255,255,.26);background:rgba(255,255,255,.08)}
+  .v2-gate1-trust{margin-top:14px;padding-top:12px;border-top:1px solid rgba(255,255,255,.16);gap:10px 16px;color:rgba(255,255,255,.6);font-size:10.5px}
+  .v2-gate1-trust i{width:5px;height:5px}
+  .v2-gate1-stat{display:none}
+
+  .v2-gate1-search-band{position:relative;z-index:6;padding:18px;background:var(--v2-paper);border-top:0}
+  .v2-gate1-search-band .v2-search-wrap{min-height:58px}
+  .v2-gate1-search-band .v2-search-input{font-size:16px}
+
+  .v2-mobile-nav{background:rgba(255,253,248,.97);border-top-color:#C8C2B8}
+}
+
+@media(max-width:380px){
+  .v2-gate1-hero-copy{padding-left:18px;padding-right:18px}
+  .v2-gate1-title{font-size:37px}
+}
+
+@media(prefers-reduced-motion:reduce){
+  .v2-gate1-main-photo .v2-hero-photo-bg{animation:none;transform:none}
+}
