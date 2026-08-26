@@ -77,5 +77,7 @@ assert.ok(referenceIndex > kindGuardIndex,
 assert.ok(trashIndex > referenceIndex,
   'Drive trash mutation must occur only after the business-image reference check');
 assert.ok(removeBlock.includes('if (conflict) return conflict;'));
+assert.equal(removeBlock.includes("parsed.kind === 'resident-evidence'"), false,
+  'resident-evidence self-delete must stay separate from business product-reference policy');
 
 console.log('PASS business image delete guard: referenced product/application images cannot be trashed');
