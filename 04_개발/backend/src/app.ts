@@ -13,6 +13,7 @@ import { handleHouseholdPrimaryClaimRequest } from './household-claim-v2';
 import { handleHouseholdFamilyRequest } from './household-family-v2';
 import { handleHouseholdUnitMasterRequest } from './household-master-v2';
 import { validateRequestPayload } from './payload-policy';
+import { handleProductMutationRateLimitRequest } from './product-rate-limit-v1';
 import { handleResidentApplicationRequest } from './resident-application-v1';
 import { handleResidentEconomyMutationRequest } from './resident-economy-v2';
 import { handleResidentVerificationRequest } from './resident-verification-v1';
@@ -118,6 +119,12 @@ export default {
 
       const accountLifecycleResponse = await handleAccountLifecycleRequest(request, env, id);
       if (accountLifecycleResponse) return respond(accountLifecycleResponse);
+
+      // Bounded high-abuse product writes consume an internal actor bucket before
+      // entering the existing endpoint. Passing this guard never grants endpoint
+      // authorization; Household/RBAC/ownership checks still run downstream.
+      const productMutationRateLimitResponse = await handleProductMutationRateLimitRequest(request, env, id);
+      if (productMutationRateLimitResponse) return respond(productMutationRateLimitResponse);
 
       const storageResponse = await handleStorageRequest(request, env, id);
       if (storageResponse) return respond(storageResponse);

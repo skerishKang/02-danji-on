@@ -111,6 +111,15 @@ export function createDanjionAuth(env: BetterAuthEnv) {
       schema: betterAuthSchema,
       schemaName: 'danjion_auth'
     }),
+    advanced: {
+      ipAddress: {
+        ipAddressHeaders: ['cf-connecting-ip']
+      }
+    },
+    rateLimit: {
+      storage: 'database',
+      modelName: 'rateLimit'
+    },
     user: {
       deleteUser: {
         enabled: true,

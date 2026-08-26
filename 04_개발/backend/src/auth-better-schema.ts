@@ -1,4 +1,4 @@
-import { boolean, index, pgSchema, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
+import { bigint, boolean, index, integer, pgSchema, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
 
 export const danjionAuthSchema = pgSchema('danjion_auth');
 
@@ -61,4 +61,11 @@ export const jwks = danjionAuthSchema.table('jwks', {
   expiresAt: timestamp('expires_at', { withTimezone: true })
 });
 
-export const betterAuthSchema = { user, session, account, verification, jwks };
+export const rateLimit = danjionAuthSchema.table('rate_limit', {
+  id: text('id').primaryKey(),
+  key: text('key').notNull(),
+  count: integer('count').notNull(),
+  lastRequest: bigint('last_request', { mode: 'number' }).notNull()
+}, (table) => [uniqueIndex('danjion_auth_rate_limit_key_uidx').on(table.key)]);
+
+export const betterAuthSchema = { user, session, account, verification, jwks, rateLimit };
