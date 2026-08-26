@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { V2Gate1Onboarding, V2Gate1ProjectStory } from './V2Gate1Onboarding';
+import { V2Gate1ResidentHome } from './V2Gate1ResidentHome';
 import { V2Icon } from './V2Icon';
 import { V2VisualImage } from './V2VisualImage';
 import { V2_REFERENCE_IMAGES } from './visual-data';
@@ -103,6 +104,7 @@ export function V2Hero({
         </div>
       </section>
 
+      <V2Gate1ResidentHome complexName={complexName} onBrowse={onBrowse} onRegister={onRegister} />
       <V2Gate1Onboarding open={onboardingOpen} complexName={complexName} onClose={() => setOnboardingOpen(false)} onFinish={finishOnboarding} />
       <V2Gate1ProjectStory open={projectStoryOpen} onClose={() => setProjectStoryOpen(false)} />
     </>
