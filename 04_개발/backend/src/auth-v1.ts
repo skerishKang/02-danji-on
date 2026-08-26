@@ -17,6 +17,10 @@ export type Actor = {
   displayName: string;
 };
 
+type ActorRecord = Actor & {
+  accountStatus: 'active' | 'closed';
+};
+
 type Sql = NeonQueryFunction<false, false>;
 type RemoteJwks = ReturnType<typeof createRemoteJWKSet>;
 
@@ -99,27 +103,40 @@ function bearerToken(request: Request): string | null {
   return match?.[1] ?? '';
 }
 
-async function actorBySubject(sql: Sql, subject: string): Promise<Actor | null> {
+async function actorRecordBySubject(sql: Sql, subject: string): Promise<ActorRecord | null> {
   const rows = await sql`
-    select id, auth_user_id, display_name
+    select id, auth_user_id, display_name, account_status
     from app_users
     where auth_user_id = ${subject}
     limit 1
   `;
   const row = rows[0];
   if (!row) return null;
+  const rawStatus = row.account_status == null ? 'active' : String(row.account_status);
+  const accountStatus: 'active' | 'closed' = rawStatus === 'closed' ? 'closed' : 'active';
   return {
     id: String(row.id),
     authUserId: String(row.auth_user_id),
-    displayName: String(row.display_name)
+    displayName: String(row.display_name),
+    accountStatus
   };
 }
 
-async function devActor(request: Request, env: AuthEnv, sql: Sql): Promise<Actor | null> {
+function publicActor(record: ActorRecord): Actor {
+  return {
+    id: record.id,
+    authUserId: record.authUserId,
+    displayName: record.displayName
+  };
+}
+
+async function devActor(request: Request, env: AuthEnv, sql: Sql): Promise<Actor | 'closed' | null> {
   if (env.APP_ENV === 'production' || env.DEV_AUTH_BYPASS !== 'true') return null;
   const subject = request.headers.get(DEV_AUTH_HEADER)?.trim();
   if (!subject) return null;
-  return actorBySubject(sql, subject);
+  const record = await actorRecordBySubject(sql, subject);
+  if (!record) return null;
+  return record.accountStatus === 'closed' ? 'closed' : publicActor(record);
 }
 
 function displayNameFromClaims(payload: JWTPayload): string {
@@ -132,12 +149,12 @@ function avatarFromClaims(payload: JWTPayload): string | null {
   return image || null;
 }
 
-async function resolveOrBootstrapActor(sql: Sql, payload: JWTPayload): Promise<Actor | null> {
+async function resolveOrBootstrapActor(sql: Sql, payload: JWTPayload): Promise<Actor | 'closed' | null> {
   const subject = typeof payload.sub === 'string' ? payload.sub.trim() : '';
   if (!subject) return null;
 
-  const existing = await actorBySubject(sql, subject);
-  if (existing) return existing;
+  const existing = await actorRecordBySubject(sql, subject);
+  if (existing) return existing.accountStatus === 'closed' ? 'closed' : publicActor(existing);
 
   const displayName = displayNameFromClaims(payload);
   const avatarUrl = avatarFromClaims(payload);
@@ -145,10 +162,12 @@ async function resolveOrBootstrapActor(sql: Sql, payload: JWTPayload): Promise<A
     insert into app_users (auth_user_id, display_name, avatar_url)
     values (${subject}, ${displayName}, ${avatarUrl})
     on conflict (auth_user_id) do nothing
-    returning id, auth_user_id, display_name
+    returning id, auth_user_id, display_name, account_status
   `;
   const row = inserted[0];
   if (row) {
+    const rawStatus = row.account_status == null ? 'active' : String(row.account_status);
+    if (rawStatus === 'closed') return 'closed';
     return {
       id: String(row.id),
       authUserId: String(row.auth_user_id),
@@ -156,7 +175,9 @@ async function resolveOrBootstrapActor(sql: Sql, payload: JWTPayload): Promise<A
     };
   }
 
-  return actorBySubject(sql, subject);
+  const raced = await actorRecordBySubject(sql, subject);
+  if (!raced) return null;
+  return raced.accountStatus === 'closed' ? 'closed' : publicActor(raced);
 }
 
 async function verifyToken(token: string, config: { issuer: string; audience: string; jwksUrl: string }): Promise<JWTPayload | null> {
@@ -179,6 +200,9 @@ export async function requireActor(
   requestId: string
 ): Promise<Actor | Response> {
   const developmentActor = await devActor(request, env, sql);
+  if (developmentActor === 'closed') {
+    return fail('AUTH_ACCOUNT_CLOSED', 'DanjiOn product account is closed', 403, requestId);
+  }
   if (developmentActor) return developmentActor;
 
   const token = bearerToken(request);
@@ -212,6 +236,9 @@ export async function requireActor(
 
   try {
     const actor = await resolveOrBootstrapActor(sql, payload);
+    if (actor === 'closed') {
+      return fail('AUTH_ACCOUNT_CLOSED', 'DanjiOn product account is closed', 403, requestId);
+    }
     if (!actor) {
       return fail('AUTH_IDENTITY_LINK_FAILED', 'Authenticated user could not be linked', 500, requestId);
     }
