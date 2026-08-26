@@ -1,8 +1,11 @@
 import { neon, type NeonQueryFunction } from '@neondatabase/serverless';
-import { requireActor } from './auth-v1';
 import type { CoreEnv } from './core-v1';
+import { requireOperationalAuthority } from './operational-authz-v2';
 
 type Sql = NeonQueryFunction<false, false>;
+
+const BUSINESS_REVIEW_SCOPE = 'business.review';
+const COUNCIL_BUSINESS_REVIEW_SCOPE = 'council.business.review';
 
 function ok(data: unknown, requestId: string): Response {
   return Response.json(
@@ -16,21 +19,6 @@ function fail(code: string, message: string, status: number, requestId: string):
     { error: { code, message }, requestId },
     { status, headers: { 'x-danjion-request-id': requestId, 'cache-control': 'no-store' } }
   );
-}
-
-async function managerComplex(sql: Sql, actorId: string, complexSlug: string, requestId: string) {
-  const rows = await sql`
-    select c.id as complex_id
-    from complex_memberships m
-    join complexes c on c.id = m.complex_id
-    where m.user_id = ${actorId}::uuid
-      and c.slug = ${complexSlug}
-      and m.role in ('manager','admin')
-      and m.verification_status = 'verified'
-    limit 1
-  `;
-  if (!rows[0]) return fail('FORBIDDEN', 'Manager or admin membership required', 403, requestId);
-  return rows[0];
 }
 
 function clampLimit(value: string | null) {
@@ -58,14 +46,20 @@ export async function handleAdminAuditRequest(
   if (!validOptionalUuid(applicationId)) {
     return fail('VALIDATION_ERROR', 'applicationId must be a UUID', 400, requestId);
   }
+
   const limit = clampLimit(url.searchParams.get('limit'));
   const complexSlug = decodeURIComponent(match[1]);
   const sql: Sql = neon(env.DATABASE_URL);
-  const actorOrResponse = await requireActor(request, env, sql, requestId);
-  if (actorOrResponse instanceof Response) return actorOrResponse;
-  const actor = actorOrResponse;
-  const manager = await managerComplex(sql, actor.id, complexSlug, requestId);
-  if (manager instanceof Response) return manager;
+  const operator = await requireOperationalAuthority(
+    request,
+    env,
+    sql,
+    requestId,
+    complexSlug,
+    BUSINESS_REVIEW_SCOPE,
+    COUNCIL_BUSINESS_REVIEW_SCOPE
+  );
+  if (operator instanceof Response) return operator;
 
   const rows = await sql`
     select e.id, e.application_id, e.actor_type,
@@ -75,7 +69,7 @@ export async function handleAdminAuditRequest(
     from business_application_review_events e
     join business_applications a on a.id = e.application_id
     left join app_users u on u.id = e.actor_user_id
-    where e.complex_id = ${String(manager.complex_id)}::uuid
+    where e.complex_id = ${operator.complexId}::uuid
       and (${applicationId}::text is null or e.application_id = ${applicationId}::uuid)
     order by e.created_at desc
     limit ${limit}
