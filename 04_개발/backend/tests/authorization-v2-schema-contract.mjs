@@ -12,6 +12,7 @@ const m009 = migration('009_household_foundation.sql');
 const m010 = migration('010_household_invite_family_lifecycle.sql');
 const m011 = migration('011_consent_authorization_audit.sql');
 const m012 = migration('012_padiem_operator_grants.sql');
+const m015 = migration('015_complex_operator_grants.sql');
 
 assert.match(m009, /create table if not exists complex_units/i);
 assert.match(m009, /create table if not exists households/i);
@@ -30,10 +31,21 @@ assert.match(m011, /decision text check \(decision in \('allowed','denied','reco
 assert.match(m012, /create table if not exists padiem_operator_grants/i);
 assert.match(m012, /never infer these grants from apartment complex manager\/admin membership/i);
 
+assert.match(m015, /create table if not exists complex_operator_grants/i);
+assert.match(m015, /operator_kind in \('resident_council','onboarding_support'\)/i);
+assert.match(m015, /operator_kind = 'resident_council' and scope like 'council\.%'/i);
+assert.match(m015, /operator_kind = 'onboarding_support' and scope like 'onboarding\.%'/i);
+assert.match(m015, /never infer resident-council or onboarding authority from legacy complex_memberships manager\/admin roles/i);
+assert.doesNotMatch(m015, /email|phone|mobile|resident_name/i, 'operator grants must not duplicate resident contact PII');
+
 assert.match(source, /requireVerifiedResident/);
 assert.match(source, /requirePadiemOperator/);
+assert.match(source, /requireComplexOperator/);
 assert.match(source, /from household_memberships hm/i);
 assert.match(source, /from padiem_operator_grants/i);
+assert.match(source, /left join complex_operator_grants g/i);
+assert.match(source, /scope\.startsWith\('council\.'\)/);
+assert.match(source, /scope\.startsWith\('onboarding\.'\)/);
 assert.match(source, /insert into audit_events/i);
 assert.doesNotMatch(source, /from complex_memberships/i, 'v2 authorization must not derive authority from legacy complex_memberships');
 assert.doesNotMatch(source, /x-danjion-role|x-danjion-verified|x-danjion-complex/i, 'v2 authorization must not trust client authorization headers');
