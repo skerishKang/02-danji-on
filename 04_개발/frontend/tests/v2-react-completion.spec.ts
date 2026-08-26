@@ -13,7 +13,17 @@ test.describe('Sibling Gate1 React completion', () => {
     await expect(onboarding).toHaveAttribute('data-phase', 'join');
     await expect(onboarding).toHaveAttribute('data-step', '1');
     await expect(onboarding.getByRole('heading', { name: '어떻게 시작할까요?' })).toBeVisible();
-    await expect(onboarding.getByRole('button', { name: /휴대전화로 시작하기/ })).toHaveAttribute('aria-pressed', 'true');
+
+    await expect(onboarding.getByRole('button', { name: /카카오로 계속하기/ })).toBeVisible();
+    await expect(onboarding.getByRole('button', { name: /네이버로 계속하기/ })).toBeVisible();
+    await expect(onboarding.getByRole('button', { name: /Google로 계속하기/ })).toBeVisible();
+    await expect(onboarding.getByRole('button', { name: /휴대폰 번호로 시작하기/ })).toHaveAttribute('aria-pressed', 'true');
+    await expect(onboarding.getByRole('button', { name: /이메일로 시작하기/ })).toBeVisible();
+    await expect(onboarding.getByText(/SMS 인증 없음/)).toBeVisible();
+    await expect(onboarding.getByText(/이메일은 계정 복구의 기준/)).toBeVisible();
+
+    await onboarding.getByRole('button', { name: /카카오로 계속하기/ }).click();
+    await expect(onboarding.getByRole('button', { name: /카카오로 계속하기/ })).toHaveAttribute('aria-pressed', 'true');
 
     await onboarding.getByRole('button', { name: '다음', exact: true }).click();
     await expect(onboarding).toHaveAttribute('data-step', '2');
@@ -30,7 +40,7 @@ test.describe('Sibling Gate1 React completion', () => {
 
     await expect(onboarding).toHaveAttribute('data-step', '4');
     await expect(onboarding.getByText('입주민 확인 전', { exact: true })).toBeVisible();
-    await expect(onboarding.getByText(/실제 주민 확인은 Neon 인증·DB 연결 단계에서 구현합니다/)).toBeVisible();
+    await expect(onboarding.getByText(/계정 로그인과 주민 확인은 분리합니다/)).toBeVisible();
 
     await onboarding.getByRole('button', { name: '가족초대로 이동' }).click();
     await expect(onboarding).toHaveAttribute('data-phase', 'family');
