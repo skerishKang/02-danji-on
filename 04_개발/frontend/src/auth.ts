@@ -1,5 +1,5 @@
 export type AuthSurface = 'resident' | 'admin';
-export type AuthMode = 'dev' | 'neon';
+export type AuthMode = 'dev' | 'danjion' | 'neon';
 
 export interface AuthSnapshot {
   mode: AuthMode;
@@ -32,16 +32,30 @@ class DevAuthProvider implements AuthProvider {
   }
 }
 
-class NeonAuthProvider implements AuthProvider {
+class DanjionAuthProvider implements AuthProvider {
+  snapshot(): AuthSnapshot {
+    return { mode: 'danjion', subject: null, displayName: '입주민', authenticated: false };
+  }
+
+  headers(): HeadersInit {
+    throw new Error('Danjion Better Auth requires the async JWT bridge. Do not fall back to dev identity in VITE_AUTH_MODE=danjion.');
+  }
+}
+
+class LegacyNeonAuthProvider implements AuthProvider {
   snapshot(): AuthSnapshot {
     return { mode: 'neon', subject: null, displayName: '입주민', authenticated: false };
   }
 
   headers(): HeadersInit {
-    throw new Error('Neon Auth adapter is not configured yet. Use VITE_AUTH_MODE=dev until the sibling-owned Neon project is connected.');
+    throw new Error('Legacy Neon Auth browser adapter is not configured. Use VITE_AUTH_MODE=dev or the Danjion Better Auth bridge.');
   }
 }
 
-export const authProvider: AuthProvider = import.meta.env.VITE_AUTH_MODE === 'neon'
-  ? new NeonAuthProvider()
-  : new DevAuthProvider();
+const authMode = import.meta.env.VITE_AUTH_MODE;
+
+export const authProvider: AuthProvider = authMode === 'danjion'
+  ? new DanjionAuthProvider()
+  : authMode === 'neon'
+    ? new LegacyNeonAuthProvider()
+    : new DevAuthProvider();
