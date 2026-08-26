@@ -5,6 +5,8 @@ export interface AuthEnv {
   DATABASE_URL: string;
   APP_ENV?: string;
   DEV_AUTH_BYPASS?: string;
+  DANJION_AUTH_BASE_URL?: string;
+  DANJION_AUTH_JWKS_URL?: string;
   NEON_AUTH_BASE_URL?: string;
   NEON_AUTH_JWKS_URL?: string;
 }
@@ -37,31 +39,49 @@ function fail(code: string, message: string, status: number, requestId: string):
   return json({ error: { code, message }, requestId }, status, requestId);
 }
 
-function authConfig(env: AuthEnv): { issuer: string; audience: string; jwksUrl: string } | null {
+function secureUrl(raw: string): URL | null {
+  try {
+    const parsed = new URL(raw);
+    if (parsed.protocol === 'https:') return parsed;
+    if ((parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1') && parsed.protocol === 'http:') return parsed;
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function danjionAuthConfig(env: AuthEnv): { issuer: string; audience: string; jwksUrl: string } | null {
+  const rawBaseUrl = env.DANJION_AUTH_BASE_URL?.trim();
+  if (!rawBaseUrl) return null;
+  const baseUrl = secureUrl(rawBaseUrl);
+  if (!baseUrl) return null;
+
+  const issuer = baseUrl.toString().replace(/\/$/, '');
+  const rawJwksUrl = env.DANJION_AUTH_JWKS_URL?.trim();
+  const jwksUrl = secureUrl(rawJwksUrl || `${issuer}/api/auth/jwks`);
+  if (!jwksUrl) return null;
+  return { issuer, audience: issuer, jwksUrl: jwksUrl.toString() };
+}
+
+function neonAuthConfig(env: AuthEnv): { issuer: string; audience: string; jwksUrl: string } | null {
   const rawBaseUrl = env.NEON_AUTH_BASE_URL?.trim();
   if (!rawBaseUrl) return null;
 
-  let baseUrl: URL;
-  try {
-    baseUrl = new URL(rawBaseUrl);
-  } catch {
-    return null;
-  }
-  if (baseUrl.protocol !== 'https:') return null;
+  const baseUrl = secureUrl(rawBaseUrl);
+  if (!baseUrl) return null;
 
+  // Preserve the historical managed-Neon contract for compatibility. Managed
+  // Neon Auth can remain present while Danjion Better Auth is validated in an
+  // isolated schema and rolled out independently.
   const issuer = baseUrl.origin;
   const rawJwksUrl = env.NEON_AUTH_JWKS_URL?.trim();
-  let jwksUrl: URL;
-  try {
-    jwksUrl = rawJwksUrl
-      ? new URL(rawJwksUrl)
-      : new URL(`${rawBaseUrl.replace(/\/$/, '')}/.well-known/jwks.json`);
-  } catch {
-    return null;
-  }
-  if (jwksUrl.protocol !== 'https:') return null;
-
+  const jwksUrl = secureUrl(rawJwksUrl || `${rawBaseUrl.replace(/\/$/, '')}/.well-known/jwks.json`);
+  if (!jwksUrl) return null;
   return { issuer, audience: issuer, jwksUrl: jwksUrl.toString() };
+}
+
+function authConfig(env: AuthEnv): { issuer: string; audience: string; jwksUrl: string } | null {
+  return danjionAuthConfig(env) ?? neonAuthConfig(env);
 }
 
 function remoteJwks(jwksUrl: string): RemoteJwks {
@@ -171,7 +191,7 @@ export async function requireActor(
 
   const config = authConfig(env);
   if (!config) {
-    return fail('AUTH_NOT_CONFIGURED', 'Neon Auth verification is not configured', 503, requestId);
+    return fail('AUTH_NOT_CONFIGURED', 'Authentication verification is not configured', 503, requestId);
   }
 
   const payload = await verifyToken(token, config);
