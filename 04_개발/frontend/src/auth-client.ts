@@ -19,7 +19,7 @@ function browserUrl(path: string): string {
 }
 
 export function emailVerificationCallbackURL(): string {
-  return browserUrl('/?auth=email-verified');
+  return browserUrl('/auth-recovery.html?mode=verified');
 }
 
 export function passwordResetCallbackURL(): string {
