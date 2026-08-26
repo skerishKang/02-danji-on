@@ -1,8 +1,10 @@
 export const V2_REFERENCE = {
   source: {
-    driveFileId: '18Tl6-J5q9_7ZXx0Rb9FZS--QifQ09aZB',
-    sha256: '70d925fffdb24f752cce489fccd97bda2b5856edafe982be4a7e6abc54546f85',
-    title: '01_단지온_8월현장시연_통합시제품_v1_이미지리프레시.html',
+    driveFileId: '1aFaUaB1HIpb5iVaDvi_fJUYWs5i29MYB',
+    sha256: 'AE736CFD66D53D72D94DAC7EAC2FDBCB6864C6C05680E61E748DA6576B7F22CC',
+    title: '01_CURRENT_GATE1_RENDER.html',
+    // Historical motion recording remains a motion donor only. The current visual
+    // source of truth is the sibling Gate1 render pinned above.
     recordingDriveFileId: '13kpM0HeS_WG9lXbuWk9uVvbBConKJ6ai',
     recordingDurationSeconds: 115.472834,
     recordingViewport: { width: 1920, height: 1080 }
@@ -14,7 +16,7 @@ export const V2_REFERENCE = {
     mobile320: { width: 320, height: 720 }
   },
   copy: {
-    heroHeading: '필요한 일, 우리 단지에서 먼저 찾아보세요',
+    heroHeading: '우리 아파트에, 단지온이 켜졌습니다.',
     heroSearchPlaceholder: '무슨 일이 필요하세요?',
     discoveryHeading: '가까운 사람의 일을 먼저 보여줍니다.',
     benefitHeading: '혜택이 실제 행동이 됩니다.',
