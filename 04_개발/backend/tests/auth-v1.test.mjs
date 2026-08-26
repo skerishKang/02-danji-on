@@ -27,7 +27,8 @@ function mockSql(existing = null) {
       linked = {
         id: APP_USER_ID,
         auth_user_id: String(values[0]),
-        display_name: String(values[1])
+        display_name: String(values[1]),
+        account_status: 'active'
       };
       return [linked];
     }
@@ -103,7 +104,8 @@ async function main() {
       const existing = {
         id: APP_USER_ID,
         auth_user_id: SUBJECT,
-        display_name: '기존 사용자'
+        display_name: '기존 사용자',
+        account_status: 'active'
       };
       const { sql, queries } = mockSql(existing);
       const request = new Request('https://api.example.test/api/v1/me', {
@@ -116,6 +118,22 @@ async function main() {
         displayName: '기존 사용자'
       });
       assert.equal(queries.filter((query) => query.includes('insert into app_users')).length, 0);
+    }
+
+    {
+      const existing = {
+        id: APP_USER_ID,
+        auth_user_id: SUBJECT,
+        display_name: '탈퇴한 사용자',
+        account_status: 'closed'
+      };
+      const { sql, queries } = mockSql(existing);
+      const request = new Request('https://api.example.test/api/v1/me', {
+        headers: { authorization: `Bearer ${await token()}` }
+      });
+      const result = await requireActor(request, BASE_ENV, sql, 'req-closed');
+      assert.equal(await errorCode(result), 'AUTH_ACCOUNT_CLOSED');
+      assert.equal(queries.filter((query) => query.includes('insert into app_users')).length, 0, 'closed account must never be re-bootstrapped');
     }
 
     {
