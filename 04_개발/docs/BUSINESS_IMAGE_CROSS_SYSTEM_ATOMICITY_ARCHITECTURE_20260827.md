@@ -2,7 +2,7 @@
 
 Status: design-independent backend architecture decision
 
-Refs: #106, #105, #104, #103, #102, #101, #100, #90
+Refs: #106, #107, #105, #104, #103, #102, #101, #100, #90
 
 Architecture base:
 
@@ -22,7 +22,7 @@ Selected lifecycle:
 active -> delete_pending -> retired
 ```
 
-The database serializes **new reference acquisition** against **delete intent**. Google Drive is not called while a database transaction or row lock is held.
+The database serializes **new reference acquisition** against **delete intent**. Google Drive is never called while a database transaction or row lock is held.
 
 Architecture verdict:
 
@@ -120,9 +120,9 @@ Current backend characteristics at the architecture base:
 - no session-oriented Pool/Client transaction layer;
 - Google Drive is an external HTTP side effect.
 
-The Neon HTTP transaction helper is non-interactive: multiple SQL operations can be grouped, but application code cannot hold that HTTP transaction open across a Google Drive call.
+The Neon HTTP transaction helper is non-interactive: multiple SQL commands may be grouped in one database transaction, but application code cannot pause that transaction, perform arbitrary Google Drive I/O, then continue it interactively.
 
-A session-capable driver could technically support interactive locks, but Cloudflare/Neon connection guidance favors short transaction lifetimes and avoiding unrelated external network I/O while DB transactions are held.
+A session-capable driver could technically support interactive locks, but the selected design does not require that connection-model change.
 
 ### Rejected architecture
 
@@ -141,7 +141,7 @@ This is rejected because it would:
 - require a new connection model solely for this boundary;
 - introduce long lock/transaction duration across external I/O;
 - increase timeout and failure-recovery complexity;
-- still require compensation if process execution dies around the external side effect;
+- still require compensation if execution dies around the external side effect;
 - be unnecessary when the race can be serialized with short DB state transitions.
 
 Hyperdrive is not introduced by this architecture decision.
@@ -208,30 +208,91 @@ If Drive upload succeeds but DB registry insertion fails:
 
 The Drive file may become an orphan candidate. This is a resource-leak concern, not a broken-reference safety violation. Orphan cleanup is deliberately separate from this atomicity lane.
 
-A later implementation may make best-effort compensation, but safety must not depend on compensation succeeding.
+Safety must not depend on cleanup compensation succeeding.
 
 ---
 
-## 7. New reference acquisition — create
+## 7. PostgreSQL snapshot rule — implementation-critical
+
+The serialization design depends on a subtle PostgreSQL rule and must not be simplified incorrectly.
+
+At the default `READ COMMITTED` isolation level, each **command** receives a statement snapshot. If a command starts, then waits on a row lock held by another transaction, it is unsafe to assume every unrelated-table read later inside that same command will necessarily observe rows committed while the command was waiting.
+
+Therefore, the accepted delete protocol must **not** collapse all of the following into one SQL statement without a separate, proven isolation argument:
+
+```text
+lock registry row
++ wait for competitor
++ query business_applications/business_media
++ mark delete_pending
+```
+
+The bounded implementation contract is instead:
+
+```text
+SHORT DB TRANSACTION
+  Statement A: lock the registry row
+  Statement B: with a new READ COMMITTED command snapshot,
+               check protected references and conditionally change state
+COMMIT
+```
+
+Statement B executes only after Statement A has acquired the serialization row lock. If Statement A had to wait for a competing reference transaction to commit, Statement B obtains a fresh command snapshot and can observe that newly committed reference.
+
+This transaction remains non-interactive from application code and contains DB commands only. It is compatible in principle with the current Neon HTTP transaction model.
+
+The same conservative multi-command pattern may be used for reference acquisition as well. A single-statement reference acquisition can be accepted only if its row-lock/state recheck semantics are explicitly tested under concurrency.
+
+### Mandatory concurrency test implication
+
+Implementation tests must exercise real concurrent DB transactions, not only source-order assertions or sequential mocks.
+
+Required cases:
+
+```text
+REFERENCE_TRANSACTION_LOCKS_FIRST
+  -> DELETE lock waits
+  -> reference commits
+  -> DELETE second command sees reference
+  -> DELETE denied
+
+DELETE_TRANSACTION_LOCKS_FIRST
+  -> delete_pending commits
+  -> REFERENCE lock/state check resumes
+  -> non-active registry detected
+  -> REFERENCE denied
+```
+
+---
+
+## 8. New reference acquisition — create
 
 PR #103 Drive validation remains first as an external-integrity check.
 
 For an application containing a representative image, the DB persistence phase must then atomically:
 
 ```text
-LOCK registry row by object_key
-REQUIRE state = active
-REQUIRE uploader_user_id = verified resident id
-REQUIRE complex_id = canonical resident complex id
-INSERT business_applications with object_key
+BEGIN short DB transaction
+  lock registry row by object_key
+  require state = active
+  require uploader_user_id = verified resident id
+  require complex_id = canonical resident complex id
+  insert business_applications with object_key only if all requirements remain true
 COMMIT
 ```
 
-The registry check/lock and application insert must be one PostgreSQL critical section.
+The registry lock/state check and application insert must share one database transaction.
 
-Preferred implementation shape is a single SQL statement/CTE with row locking and conditional INSERT, or an equivalent short non-interactive transaction supported by the current Neon HTTP execution model.
+A safe implementation may use two short SQL commands in the existing non-interactive transaction helper:
 
-The external Drive call is **not** inside this DB critical section.
+```text
+A. SELECT registry row FOR UPDATE
+B. conditional INSERT ... SELECT from active/matching registry row
+```
+
+No external Drive call is inside this transaction.
+
+If a one-statement CTE form is chosen instead, implementation must prove with an actual concurrency test that a row updated to `delete_pending` while the statement waits cannot still authorize the reference insert.
 
 ### Idempotency
 
@@ -241,52 +302,74 @@ No-image applications remain independent of the registry.
 
 ---
 
-## 8. Reference replacement — changes-requested resubmit
+## 9. Reference replacement — changes-requested resubmit
 
 Resubmit may replace one representative image with another.
 
 For a replacement image, after the existing owner/state/verified-resident checks and PR #103 Drive validation, the DB mutation must atomically:
 
 ```text
-LOCK new image registry row
-REQUIRE new image state = active
-REQUIRE new image uploader/complex binding
-UPDATE application representative_image_object_key + status=pending
+BEGIN short DB transaction
+  lock new image registry row
+  require new image state = active
+  require new image uploader/complex binding
+  update application representative_image_object_key + status=pending
 COMMIT
 ```
 
-If implementation later introduces explicit reference-count/release rows, old-reference release and new-reference acquisition must occur in the same short DB transaction. With the current direct-reference query model, the application row itself remains the authoritative reference and delete checks observe it after commit.
+A conservative two-command transaction is preferred for the same reason as create.
+
+With the current direct application-reference model, the application row itself remains the protected reference. If implementation later introduces an explicit reference table/count, old-reference release and new-reference acquisition must occur in the same short transaction.
 
 No external Drive call belongs inside the DB critical section.
 
 ---
 
-## 9. Delete-intent acquisition
+## 10. Delete-intent acquisition
 
-Business-image delete becomes a two-stage operation.
+Business-image delete becomes a lifecycle-aware two-stage operation.
 
-### Stage A — database delete intent
+### Stage A — short database transaction
 
-After canonical authentication, Drive object metadata validation, and uploader mutation authorization, execute one short PostgreSQL critical section:
+For a registry row currently `active`:
 
 ```text
-LOCK business_image_objects row by object_key
-REQUIRE uploader binding
-REQUIRE state = active
-CHECK protected application/business references
-IF referenced:
-  return 409, keep active
-ELSE:
-  set state = delete_pending
-  set delete_requested_at
+BEGIN short DB transaction
+
+Statement A
+  lock business_image_objects row by object_key FOR UPDATE
+  require canonical uploader binding
+
+Statement B — fresh READ COMMITTED command snapshot
+  require state still active
+  check protected application/business references
+  if referenced:
+    no state change
+  else:
+    set state = delete_pending
+    set delete_requested_at
+
 COMMIT
 ```
+
+After transaction results are returned:
+
+- protected reference -> 409;
+- registry missing/foreign/non-active -> controlled lifecycle result;
+- DB unavailable -> 503 fail closed;
+- only a committed transition to `delete_pending` authorizes a new Drive trash attempt.
 
 The existing PR #105 protected-reference policy remains:
 
 - any `business_media.object_key` reference blocks delete;
 - application states `draft`, `pending`, `changes_requested`, `approved` block delete;
 - `rejected` is not an indefinite retention rule.
+
+### Why two DB commands are required
+
+If a create/resubmit transaction already holds the registry row lock, delete Statement A waits. When that reference transaction commits, delete Statement A acquires the row. Statement B then starts with a fresh command snapshot and sees the newly committed application reference.
+
+That fresh second snapshot is part of the architecture contract.
 
 ### Stage B — external Drive side effect
 
@@ -300,20 +383,22 @@ No new reference can be acquired while this request is in flight because every r
 
 ---
 
-## 10. Serialization proof
+## 11. Serialization proof
 
-### Case A — reference acquisition gets the registry row first
+### Case A — reference acquisition wins first
 
 ```text
-CREATE/RESUBMIT
+CREATE/RESUBMIT transaction
   lock active registry row
   persist application reference
   commit
 
-DELETE
-  waits for registry row
-  obtains lock after commit
-  sees protected reference
+DELETE transaction
+  Statement A was waiting for registry row
+  acquires lock after reference commit
+  Statement B starts fresh snapshot
+  sees committed protected reference
+  leaves registry active
   returns 409
 ```
 
@@ -324,20 +409,20 @@ REFERENCE committed
 DELETE_INTENT denied
 ```
 
-### Case B — delete gets the registry row first
+### Case B — delete intent wins first
 
 ```text
-DELETE
+DELETE transaction
   lock active registry row
-  sees no protected reference
+  fresh second command sees no protected ref
   set delete_pending
   commit
 
-CREATE/RESUBMIT
-  waits for registry row
-  obtains lock after commit
+CREATE/RESUBMIT transaction
+  waits for same registry row
+  resumes after delete commit
   sees state != active
-  reference acquisition fails closed
+  conditional reference write returns no row / fails closed
 ```
 
 Result:
@@ -347,11 +432,48 @@ DELETE_INTENT committed
 NEW_REFERENCE denied
 ```
 
-This closes the race without keeping a DB transaction open during Google Drive I/O.
+This closes the application-controlled race without keeping a DB transaction open during Google Drive I/O.
 
 ---
 
-## 11. Drive completion state
+## 12. Delete authorization and retry ordering
+
+The initial #105 runtime authorizes mutation by reading current Drive metadata, requiring the object to be valid/not trashed, then checking uploader metadata.
+
+The registry implementation must preserve **uploader-only authority**, but retry semantics require a lifecycle-aware ordering change.
+
+### Active initial delete
+
+For `active`, implementation may continue to corroborate the current Drive metadata/folder/kind/uploader before acquiring delete intent. The registry uploader binding must also match the canonical caller.
+
+### delete_pending retry
+
+For `delete_pending`, the endpoint must **not** begin with a helper that rejects `trashed=true` or Drive 404 as an ordinary invalid/not-found object.
+
+A prior delete attempt may already have successfully trashed the file before the Worker crashed or lost the response.
+
+Therefore retry flow must first authenticate/parse and read the registry lifecycle state, then use a retirement-aware Drive probe that can distinguish:
+
+- live/not-yet-trashed -> retry trash;
+- already trashed -> finalize retired;
+- absent in a way consistent with completed retirement -> finalize retired under the bounded retirement rule;
+- ambiguous/unavailable -> remain delete_pending and return 503.
+
+### retired retry
+
+`retired` returns an idempotent success without requiring the object to remain readable from Drive.
+
+Thus:
+
+```text
+STRICT_ACTIVE_METADATA_VALIDATION != RETIREMENT_RECONCILIATION_PROBE
+```
+
+The implementation should separate those helpers rather than weakening PR #103 active-reference validation.
+
+---
+
+## 13. Drive completion and crash recovery
 
 ### Success
 
@@ -361,6 +483,8 @@ If Drive trash succeeds, use a new short DB update:
 delete_pending -> retired
 retired_at = now()
 ```
+
+The finalize update must require the expected current state so an unrelated transition cannot be overwritten.
 
 ### Failed or ambiguous Drive response
 
@@ -374,54 +498,36 @@ state = delete_pending
 
 and return a controlled 503-class error.
 
-Reason: the side effect may have succeeded even if the Worker did not receive/finish processing the response. Reopening the object for new references could create a stale reference.
+Reason: the side effect may have succeeded even if the Worker did not receive or finish processing the response. Reopening the object for new references could create a stale reference.
 
-Safety favors an temporarily unavailable image over allowing a new reference to an ambiguously retired object.
+Safety favors temporary unavailability over allowing a new reference to an ambiguously retired object.
 
----
+### Crash windows covered
 
-## 12. Idempotent delete retry / crash recovery
-
-DELETE behavior by registry state:
-
-### active
-
-Acquire delete intent normally.
-
-### delete_pending
-
-Do not run the normal “new delete intent” path again and do not allow new references. Reconcile/retry the Drive retirement.
-
-If Drive proves the object already trashed or otherwise irreversibly unavailable for product use, finalize `retired`.
-
-### retired
-
-Return successful idempotent result such as `alreadyRetired=true`; do not call Drive unnecessarily.
-
-This safely recovers:
+The state machine safely recovers:
 
 - crash after `delete_pending` commit but before Drive PATCH;
 - crash after Drive PATCH succeeds but before DB finalization;
-- transient Drive errors;
-- lost/ambiguous Drive responses.
+- transient Drive error;
+- lost/ambiguous Drive response.
 
-A scheduled reconciler can later handle long-lived `delete_pending` rows, but it is not required for concurrency safety because `delete_pending` already blocks reference acquisition.
+A scheduled reconciler may later process long-lived `delete_pending` rows, but it is not required for concurrency safety because `delete_pending` already blocks reference acquisition.
 
 ---
 
-## 13. Approval and `business_media`
+## 14. Approval and `business_media`
 
 No new cross-system lock is required during approval.
 
-Before approval, the application already contains the representative image reference. The delete-intent critical section therefore observes that protected application reference and cannot transition the registry to `delete_pending`.
+Before approval, the application already contains the representative image reference. The delete-intent transaction therefore observes that protected application reference and cannot transition the registry to `delete_pending`.
 
 PR #103 approval-time Drive revalidation remains required before approval materialization.
 
-The approved business public API consumes `business_media.object_key`; this remains a business-image relationship under the current product write/read paths.
+The approved business public API consumes `business_media.object_key`; under current write/read paths that relationship is the materialized representative business image.
 
 ---
 
-## 14. Referential-integrity recommendation
+## 15. Referential-integrity recommendation
 
 During implementation, evaluate nullable foreign keys:
 
@@ -441,15 +547,15 @@ Important:
 FK_EXISTENCE != ACTIVE_STATE_AUTHORIZATION
 ```
 
-The concurrency guarantee comes from explicit registry state + row-lock serialization in the mutation paths. A foreign key only improves existence integrity.
+The concurrency guarantee comes from explicit registry state + transaction serialization in mutation paths. A foreign key only improves existence integrity.
 
 Avoid trigger-based hidden lifecycle authority unless explicit bounded write paths prove insufficient.
 
 ---
 
-## 15. Error semantics for implementation
+## 16. Error semantics for implementation
 
-Exact public wording can be finalized in implementation, but the semantic classes should be stable.
+Exact public wording can be finalized in implementation, but semantic classes should be stable.
 
 ### Reference acquisition
 
@@ -489,7 +595,7 @@ Ambiguous Drive retirement after authoritative `delete_pending`:
 
 ---
 
-## 16. Production / rollout gate
+## 17. Production / rollout gate
 
 Read-only production audit on 2026-08-27:
 
@@ -517,13 +623,13 @@ fresh production reference count > 0
   -> perform Drive-metadata-backed backfill audit first
 ```
 
-Do not infer production schema parity from GitHub accepted code. Deployment must apply/validate the full migration ancestry in order.
+Do not infer production schema parity from GitHub accepted code. Deployment must apply and validate the full migration ancestry in order.
 
 The likely next repository migration number is 019 after 018, but this architecture document does not create migration 019.
 
 ---
 
-## 17. Explicit non-goals
+## 18. Explicit non-goals
 
 This architecture phase does not decide or implement:
 
@@ -540,36 +646,40 @@ This architecture phase does not decide or implement:
 
 ---
 
-## 18. Implementation phase acceptance criteria
+## 19. Implementation phase acceptance criteria
 
 A later implementation is not complete until executable contracts prove at least:
 
 1. business-image upload returns a key only after `active` registry registration;
-2. create acquires an `active` registry row in the same DB critical section as application insert;
+2. create locks/checks an `active` registry row in the same DB transaction as application insert;
 3. resubmit does the same for replacement reference update;
-4. delete intent and reference acquisition serialize on the same object registry row;
-5. referenced objects remain 409;
-6. `delete_pending` rejects every new reference;
-7. Drive is called only after delete intent commits;
-8. Drive failure keeps `delete_pending`;
-9. retry can finalize a stuck `delete_pending` object;
-10. `retired` is idempotent and cannot become a new reference;
-11. PR #103 owner/complex Drive validation remains present;
-12. PR #105 existing-reference semantics remain present;
-13. resident-evidence remains outside the registry;
-14. no frontend/UI source changes;
-15. isolated Neon migration validation succeeds before any production consideration.
+4. delete uses a short transaction with a registry-lock command followed by a fresh-snapshot reference-check/state-transition command;
+5. implementation does not collapse delete into an unproven single-statement stale-snapshot pattern;
+6. referenced objects remain 409;
+7. `delete_pending` rejects every new reference;
+8. Drive is called only after delete intent commits;
+9. Drive failure keeps `delete_pending`;
+10. retry path can observe already-trashed/missing retirement state instead of being blocked by strict active metadata validation;
+11. retry can finalize a stuck `delete_pending` object;
+12. `retired` delete is idempotent and cannot become a new reference;
+13. PR #103 owner/complex Drive validation remains present for active reference acquisition;
+14. PR #105 existing-reference semantics remain present;
+15. resident-evidence remains outside the registry;
+16. no frontend/UI source changes;
+17. isolated Neon migration validation succeeds before any production consideration.
 
-Concurrency tests must explicitly demonstrate both ordering cases:
+Concurrency tests must use actual overlapping DB transactions and demonstrate both orderings:
 
 ```text
 REFERENCE_FIRST -> DELETE_DENIED
 DELETE_INTENT_FIRST -> REFERENCE_DENIED
 ```
 
+A sequential mock that only asserts source order is insufficient evidence for this concurrency boundary.
+
 ---
 
-## 19. Final architecture verdict
+## 20. Final architecture verdict
 
 ```text
 BUSINESS_IMAGE_CROSS_SYSTEM_ATOMICITY_DESIGNED
@@ -580,15 +690,23 @@ Selected mechanism:
 ```text
 DB-authoritative business_image_objects registry
 + active/delete_pending/retired lifecycle
-+ short row-lock critical sections
++ short DB-only transactions
++ explicit registry-lock command before delete reference-check command
 + external Drive saga after DB commit
-+ fail-closed retry/reconciliation
++ lifecycle-aware retry/reconciliation
++ fail-closed ambiguous retirement
 ```
 
 Rejected mechanism:
 
 ```text
 long advisory/session DB lock held across Google Drive HTTP I/O
+```
+
+Rejected implementation shortcut:
+
+```text
+unproven one-statement delete lock + reference check that may rely on a stale READ COMMITTED command snapshot
 ```
 
 Next phase is a separate migration/runtime implementation lane starting from this architecture's exact accepted head.
