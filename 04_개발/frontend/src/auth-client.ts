@@ -18,6 +18,10 @@ function browserUrl(path: string): string {
   return new URL(path, window.location.origin).toString();
 }
 
+function assertAuthSuccess(result: { error?: { message?: string } | null }, fallback: string): void {
+  if (result.error) throw new Error(result.error.message || fallback);
+}
+
 export function emailVerificationCallbackURL(): string {
   return browserUrl('/auth-recovery.html?mode=verified');
 }
@@ -37,7 +41,12 @@ export function isSupportedPhoneCredential(value: string): boolean {
 }
 
 export async function signInWithSocial(provider: SocialLoginProvider) {
-  return danjionAuthClient.signIn.social({ provider });
+  const result = await danjionAuthClient.signIn.social({
+    provider,
+    callbackURL: browserUrl('/')
+  });
+  assertAuthSuccess(result, '소셜 로그인을 시작하지 못했습니다.');
+  return result.data;
 }
 
 export async function signUpWithPhone(input: {
@@ -51,23 +60,27 @@ export async function signUpWithPhone(input: {
 
   // The recovery email is canonical. The phone number is intentionally an
   // alternate username credential, not an SMS/OTP verification claim.
-  return danjionAuthClient.signUp.email({
+  const result = await danjionAuthClient.signUp.email({
     email: input.email.trim(),
     name: input.name.trim(),
     password: input.password,
     username,
     callbackURL: emailVerificationCallbackURL()
   });
+  assertAuthSuccess(result, '단지온 계정을 만들지 못했습니다.');
+  return result.data;
 }
 
 export async function signInWithPhone(phone: string, password: string) {
   const username = normalizePhoneCredential(phone);
   if (!isSupportedPhoneCredential(username)) throw new Error('지원하지 않는 휴대폰 번호 형식입니다.');
-  return danjionAuthClient.signIn.username({
+  const result = await danjionAuthClient.signIn.username({
     username,
     password,
     callbackURL: emailVerificationCallbackURL()
   });
+  assertAuthSuccess(result, '휴대폰 번호로 로그인하지 못했습니다.');
+  return result.data;
 }
 
 export async function signUpWithEmail(input: {
@@ -81,42 +94,52 @@ export async function signUpWithEmail(input: {
     throw new Error('지원하지 않는 휴대폰 번호 형식입니다.');
   }
 
-  return danjionAuthClient.signUp.email({
+  const result = await danjionAuthClient.signUp.email({
     email: input.email.trim(),
     name: input.name.trim(),
     password: input.password,
     callbackURL: emailVerificationCallbackURL(),
     ...(normalizedPhone ? { username: normalizedPhone } : {})
   });
+  assertAuthSuccess(result, '단지온 계정을 만들지 못했습니다.');
+  return result.data;
 }
 
 export async function signInWithEmail(email: string, password: string) {
-  return danjionAuthClient.signIn.email({
+  const result = await danjionAuthClient.signIn.email({
     email: email.trim(),
     password,
     callbackURL: emailVerificationCallbackURL()
   });
+  assertAuthSuccess(result, '이메일로 로그인하지 못했습니다.');
+  return result.data;
 }
 
 export async function resendVerificationEmail(email: string) {
-  return danjionAuthClient.sendVerificationEmail({
+  const result = await danjionAuthClient.sendVerificationEmail({
     email: email.trim(),
     callbackURL: emailVerificationCallbackURL()
   });
+  assertAuthSuccess(result, '이메일 확인 링크를 보내지 못했습니다.');
+  return result.data;
 }
 
 export async function requestPasswordReset(email: string) {
-  return danjionAuthClient.requestPasswordReset({
+  const result = await danjionAuthClient.requestPasswordReset({
     email: email.trim(),
     redirectTo: passwordResetCallbackURL()
   });
+  assertAuthSuccess(result, '비밀번호 재설정 이메일을 보내지 못했습니다.');
+  return result.data;
 }
 
 export async function resetPasswordWithToken(token: string, newPassword: string) {
-  return danjionAuthClient.resetPassword({
+  const result = await danjionAuthClient.resetPassword({
     token,
     newPassword
   });
+  assertAuthSuccess(result, '비밀번호를 변경하지 못했습니다.');
+  return result.data;
 }
 
 export async function getProductApiBearerToken(): Promise<string | null> {
