@@ -22,7 +22,10 @@ const FIELD_LIMITS: Record<string, number> = {
   status: 32,
   startsAt: 80,
   endsAt: 80,
-  publishedAt: 80
+  publishedAt: 80,
+  consentType: 80,
+  policyVersion: 80,
+  confirm: 80
 };
 
 function errorResponse(code: string, message: string, status: number, requestId: string): Response {
