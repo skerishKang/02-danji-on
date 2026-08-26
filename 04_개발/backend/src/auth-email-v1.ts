@@ -1,4 +1,4 @@
-export type AuthEmailKind = 'verify-email' | 'reset-password';
+export type AuthEmailKind = 'verify-email' | 'reset-password' | 'delete-account';
 
 export interface AuthEmailEnv {
   AUTH_EMAIL_RELAY_URL?: string;
@@ -50,6 +50,13 @@ function template(message: AuthEmailMessage) {
     const subject = '[단지온] 이메일 주소를 확인해 주세요';
     const text = `${name}님, 단지온 계정의 이메일 주소를 확인하려면 다음 링크를 열어 주세요.\n\n${actionUrl}\n\n이 요청을 하지 않았다면 이 메일을 무시해 주세요.`;
     const html = `<p>${htmlEscape(name)}님,</p><p>단지온 계정의 이메일 주소를 확인하려면 아래 링크를 열어 주세요.</p><p><a href="${htmlEscape(actionUrl)}">이메일 확인하기</a></p><p>이 요청을 하지 않았다면 이 메일을 무시해 주세요.</p>`;
+    return { subject, text, html };
+  }
+
+  if (message.kind === 'delete-account') {
+    const subject = '[단지온] 로그인 계정 삭제를 확인해 주세요';
+    const text = `${name}님, 이미 닫은 단지온 제품 계정의 로그인 계정과 로그인 세션을 삭제하려면 다음 링크를 열어 주세요.\n\n${actionUrl}\n\n이 링크는 단지온 제품 계정이 먼저 닫힌 경우에만 동작합니다. 본인이 요청하지 않았다면 이 메일을 무시해 주세요.`;
+    const html = `<p>${htmlEscape(name)}님,</p><p>이미 닫은 단지온 제품 계정의 로그인 계정과 로그인 세션을 삭제하려면 아래 링크를 열어 주세요.</p><p><a href="${htmlEscape(actionUrl)}">로그인 계정 삭제 확인하기</a></p><p>이 링크는 단지온 제품 계정이 먼저 닫힌 경우에만 동작합니다. 본인이 요청하지 않았다면 이 메일을 무시해 주세요.</p>`;
     return { subject, text, html };
   }
 

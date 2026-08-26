@@ -1,4 +1,6 @@
+import { neon } from '@neondatabase/serverless';
 import { betterAuth } from 'better-auth';
+import { APIError } from 'better-auth/api';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { jwt, username } from 'better-auth/plugins';
 import { drizzle } from 'drizzle-orm/neon-http';
@@ -75,6 +77,22 @@ function configuredSocialProviders(env: BetterAuthEnv) {
   };
 }
 
+async function requireClosedProductAccount(env: BetterAuthEnv, authUserId: string): Promise<void> {
+  const sql = neon(env.DATABASE_URL);
+  const rows = await sql`
+    select account_status
+    from app_users
+    where auth_user_id = ${authUserId}
+    limit 1
+  `;
+  const row = rows[0];
+  if (!row || String(row.account_status) !== 'closed') {
+    throw new APIError('FORBIDDEN', {
+      message: 'DanjiOn product account must be closed before deleting the login account.'
+    });
+  }
+}
+
 export function createDanjionAuth(env: BetterAuthEnv) {
   const baseURL = normalizeBaseUrl(requireValue(env.DANJION_AUTH_BASE_URL, 'DANJION_AUTH_BASE_URL'));
   const secret = requireValue(env.BETTER_AUTH_SECRET, 'BETTER_AUTH_SECRET');
@@ -93,6 +111,25 @@ export function createDanjionAuth(env: BetterAuthEnv) {
       schema: betterAuthSchema,
       schemaName: 'danjion_auth'
     }),
+    user: {
+      deleteUser: {
+        enabled: true,
+        sendDeleteAccountVerification: async ({ user, url }) => {
+          await sendDanjionAuthEmail(env, {
+            kind: 'delete-account',
+            to: user.email,
+            userName: user.name,
+            actionUrl: url
+          });
+        },
+        beforeDelete: async (user) => {
+          // Product authorization is the first safety boundary. Better Auth hard
+          // deletion may only happen after /api/v1/me/account/close has already
+          // revoked DanjiOn household/operator authority and closed app_users.
+          await requireClosedProductAccount(env, user.id);
+        }
+      }
+    },
     emailVerification: {
       sendVerificationEmail: async ({ user, url }) => {
         await sendDanjionAuthEmail(env, {

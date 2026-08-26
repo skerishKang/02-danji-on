@@ -13,6 +13,7 @@
     "test:auth": "tsx tests/auth-v1.test.mjs",
     "test:auth-better-contract": "node tests/auth-better-contract.mjs",
     "test:auth-email-recovery": "node tests/auth-email-recovery-contract.mjs",
+    "test:auth-delete-boundary": "node tests/auth-delete-boundary-contract.mjs",
     "test:authz-v2": "tsx tests/authorization-v2.test.mjs",
     "test:authz-v2-schema": "node tests/authorization-v2-schema-contract.mjs",
     "test:authz-v2-migrations": "node tests/authorization-v2-migration-contract.mjs",
@@ -23,7 +24,7 @@
     "test:account-lifecycle": "node tests/account-lifecycle-contract.mjs",
     "test:community-c2-schema": "node tests/community-c2-schema-contract.mjs",
     "test:cloudflare-preview-contract": "node tests/cloudflare-preview-contract.mjs",
-    "check": "npm run typecheck && npm run test:storage && npm run test:storage-contract && npm run test:contract && npm run test:auth && npm run test:auth-better-contract && npm run test:auth-email-recovery && npm run test:authz-v2 && npm run test:authz-v2-schema && npm run test:authz-v2-migrations && npm run test:operational-authz-v2 && npm run test:admin-operational-rbac && npm run test:admin-review-privacy-rbac && npm run test:household-family-lifecycle && npm run test:account-lifecycle && npm run test:community-c2-schema && npm run test:cloudflare-preview-contract"
+    "check": "npm run typecheck && npm run test:storage && npm run test:storage-contract && npm run test:contract && npm run test:auth && npm run test:auth-better-contract && npm run test:auth-email-recovery && npm run test:auth-delete-boundary && npm run test:authz-v2 && npm run test:authz-v2-schema && npm run test:authz-v2-migrations && npm run test:operational-authz-v2 && npm run test:admin-operational-rbac && npm run test:admin-review-privacy-rbac && npm run test:household-family-lifecycle && npm run test:account-lifecycle && npm run test:community-c2-schema && npm run test:cloudflare-preview-contract"
   },
   "dependencies": {
     "@neondatabase/serverless": "1.1.0",
