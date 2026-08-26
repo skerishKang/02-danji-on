@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 
-type JoinMethod = 'phone' | 'google';
+type JoinMethod = 'phone' | 'email' | 'kakao' | 'naver' | 'google';
 type Relation = 'spouse' | 'parent' | 'adult-child' | 'other';
 type OnboardingPhase = 'join' | 'family';
 
@@ -38,6 +38,22 @@ function Choice({
       <span className="v2-onboarding-choice-icon" aria-hidden="true">{icon}</span>
       <span><strong>{title}</strong><small>{detail}</small></span>
     </button>
+  );
+}
+
+function AccountChoices({ method, onChange, compact = false }: {
+  method: JoinMethod;
+  onChange: (method: JoinMethod) => void;
+  compact?: boolean;
+}) {
+  return (
+    <>
+      <Choice selected={method === 'kakao'} icon="K" title="카카오로 계속하기" detail="카카오 계정을 같은 단지온 계정에 연결" onClick={() => onChange('kakao')} />
+      <Choice selected={method === 'naver'} icon="N" title="네이버로 계속하기" detail="네이버 계정을 같은 단지온 계정에 연결" onClick={() => onChange('naver')} />
+      <Choice selected={method === 'google'} icon="G" title="Google로 계속하기" detail="Google 계정을 같은 단지온 계정에 연결" onClick={() => onChange('google')} />
+      <Choice selected={method === 'phone'} icon="☎" title={compact ? '휴대폰 번호로 가입' : '휴대폰 번호로 시작하기'} detail="휴대폰 번호 + 비밀번호 · SMS 인증 없음" onClick={() => onChange('phone')} />
+      <Choice selected={method === 'email'} icon="@" title={compact ? '이메일로 가입' : '이메일로 시작하기'} detail="이메일 + 비밀번호 · 계정 복구 기준" onClick={() => onChange('email')} />
+    </>
   );
 }
 
@@ -123,10 +139,9 @@ export function V2Gate1Onboarding({
             <>
               <div className="v2-onboarding-kicker">{complexName} 단지온</div>
               <h2 id="v2-onboarding-title">어떻게 시작할까요?</h2>
-              <p>본인에게 편한 방법을 선택해 주세요. 지금은 React UI만 완성한 상태이며 실제 로그인 연결은 하지 않습니다.</p>
-              <Choice selected={method === 'phone'} icon="☎" title="휴대전화로 시작하기" detail="본인 휴대전화로 확인" onClick={() => setMethod('phone')} />
-              <Choice selected={method === 'google'} icon="G" title="Google로 시작하기" detail="Google 계정으로 간편하게" onClick={() => setMethod('google')} />
-              <Notice>관리사무소의 입주자명부·전화번호를 단지온이 받아 일괄 가입시키지 않습니다.</Notice>
+              <p>다섯 가지 로그인 수단 중 편한 방법을 선택해 주세요. 지금은 계정 UI와 연결 경계만 확정하며 실제 인증 provider는 아직 연결하지 않습니다.</p>
+              <AccountChoices method={method} onChange={setMethod} />
+              <Notice>이메일은 계정 복구의 기준으로 사용합니다. 휴대폰 번호 로그인에는 현재 SMS OTP를 사용하지 않으며, 휴대폰 번호 확인과 주민 확인은 별도 절차입니다.</Notice>
             </>
           )}
 
@@ -167,7 +182,7 @@ export function V2Gate1Onboarding({
                 <p>{complexName} {building}동<br />입력한 호수는 다른 주민에게 보이지 않아요.</p>
                 <b>입주민 확인 전</b>
               </div>
-              <Notice>실제 주민 확인은 Neon 인증·DB 연결 단계에서 구현합니다. 지금 React 화면에서는 상태를 임의로 확정하지 않습니다.</Notice>
+              <Notice>계정 로그인과 주민 확인은 분리합니다. 주민 확인 방식은 관리소 승인·세대코드·향후 외부 provider 중에서 별도로 확정합니다.</Notice>
             </>
           )}
 
@@ -198,8 +213,7 @@ export function V2Gate1Onboarding({
               <div className="v2-onboarding-kicker">가족초대 화면</div>
               <h2 id="v2-onboarding-title">가족이 단지온으로<br />초대했습니다.</h2>
               <p>본인 계정으로 시작하고 가족 관계를 선택하는 화면입니다.</p>
-              <Choice selected={method === 'phone'} icon="☎" title="휴대전화로 가입" detail="본인 휴대전화 확인" onClick={() => setMethod('phone')} />
-              <Choice selected={method === 'google'} icon="G" title="Google로 가입" detail="Google 계정 사용" onClick={() => setMethod('google')} />
+              <AccountChoices method={method} onChange={setMethod} compact />
               <h3 className="v2-family-relation-title">초대한 가족과의 관계</h3>
               <div className="v2-family-relations">{RELATIONS.map((item) => <button type="button" key={item.key} className={relation === item.key ? 'is-active' : ''} onClick={() => setRelation(item.key)}>{item.label}</button>)}</div>
             </>
@@ -212,7 +226,7 @@ export function V2Gate1Onboarding({
               <div className="v2-onboarding-status-card is-family"><span className="v2-onboarding-status-icon">✓</span><h3>가족 연결 UI 완료</h3><p>실제 계정·주민 상태는 아직 생성하지 않습니다.</p></div>
               <div className="v2-family-state"><span>김</span><div><strong>김○○ · {RELATIONS.find((item) => item.key === relation)?.label}</strong><small>React 화면 연결 완료</small></div></div>
               <div className="v2-family-state is-add"><span>+</span><div><strong>다른 가족 초대</strong><small>새 초대 화면 열기</small></div></div>
-              <Notice>React UI 완성 단계와 실제 주민인증 단계는 분리합니다. Neon 연결 전에는 이 화면이 권한을 부여하지 않습니다.</Notice>
+              <Notice>계정 로그인과 주민 확인은 분리합니다. 인증 provider가 연결되기 전에는 이 화면이 실제 권한을 부여하지 않습니다.</Notice>
             </>
           )}
         </div>
