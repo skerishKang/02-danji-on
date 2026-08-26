@@ -18,7 +18,7 @@ AUTH_REQUIRE_EMAIL_VERIFICATION=true
 # credentials to the browser. Keep the token in .dev.vars / Cloudflare secrets.
 AUTH_EMAIL_RELAY_URL=https://replace-with-private-mail-relay.example/send
 AUTH_EMAIL_RELAY_TOKEN=replace-with-private-relay-token
-AUTH_EMAIL_FROM=단지온 <noreply@example.com>
+AUTH_EMAIL_FROM="단지온 <noreply@example.com>"
 
 # Optional social providers. Configure only the providers currently under test.
 GOOGLE_CLIENT_ID=
