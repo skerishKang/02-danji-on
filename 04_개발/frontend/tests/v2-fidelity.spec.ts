@@ -6,17 +6,19 @@ test.beforeEach(async ({ page }) => {
   await openV2(page);
 });
 
-test('V2 keeps the fixed editorial topbar and first-screen hero/search composition', async ({ page }, testInfo) => {
-  const topbar = await firstVisible(page, V2_SELECTORS.topbar, 'fixed editorial topbar');
-  await expect(page.getByText('단지온').first()).toBeVisible();
+test('V2 uses the current sibling Gate1 launch composition on desktop and mobile', async ({ page }, testInfo) => {
+  const topbar = await firstVisible(page, V2_SELECTORS.topbar, 'current editorial topbar');
   const topbarPosition = await topbar.evaluate((element) => getComputedStyle(element).position);
   expect(topbarPosition).toBe('fixed');
 
-  await expect(page.getByRole('heading', { name: V2_REFERENCE.copy.heroHeading })).toBeVisible();
-  const search = page.getByPlaceholder(new RegExp(V2_REFERENCE.copy.heroSearchPlaceholder));
-  await expect(search).toBeVisible();
-  await expectInsideFirstViewport(page, search);
+  const heading = page.getByRole('heading', { name: V2_REFERENCE.copy.heroHeading });
+  await expect(heading).toBeVisible();
+  await expect(page.getByText('DANJION').first()).toBeVisible();
+  await expect(page.getByText('주민이 직접 가입')).toBeVisible();
+  await expect(page.getByText('주민명부 제공 없음')).toBeVisible();
+  await expect(page.getByText('동·호 비공개')).toBeVisible();
 
+  const hero = await firstVisible(page, V2_SELECTORS.hero, 'current Gate1 hero');
   const heroImage = await firstVisible(page, V2_SELECTORS.heroImage, 'real-photo hero image');
   const imageState = await heroImage.evaluate((element) => {
     const image = element as HTMLImageElement;
@@ -26,13 +28,25 @@ test('V2 keeps the fixed editorial topbar and first-screen hero/search compositi
   expect(imageState.naturalHeight).toBeGreaterThan(200);
   expect(imageState.src).toBeTruthy();
 
-  if (testInfo.project.name === 'desktop-1440') {
-    const hero = await firstVisible(page, V2_SELECTORS.hero, 'hero section');
+  const search = page.getByPlaceholder(new RegExp(V2_REFERENCE.copy.heroSearchPlaceholder));
+  await expect(search).toBeVisible();
+
+  const viewport = page.viewportSize();
+  if (testInfo.project.name === 'desktop-1440' || testInfo.project.name === 'tablet-1024') {
+    await expectInsideFirstViewport(page, search);
     const heroBox = await hero.boundingBox();
     const imageBox = await heroImage.boundingBox();
     expect(heroBox).not.toBeNull();
     expect(imageBox).not.toBeNull();
-    expect(imageBox!.width).toBeGreaterThan(heroBox!.width * 0.38);
+    expect(imageBox!.width).toBeGreaterThan(heroBox!.width * 0.28);
+    await expect(page.locator('.v2-gate1-side-photo')).toHaveCount(2);
+  } else {
+    const heroBox = await hero.boundingBox();
+    expect(heroBox).not.toBeNull();
+    expect(heroBox!.height).toBeGreaterThan((viewport?.height ?? 720) * 0.78);
+    const heroBg = await hero.evaluate((element) => getComputedStyle(element).backgroundColor);
+    expect(heroBg).not.toBe('rgba(0, 0, 0, 0)');
+    await expect(page.locator('.v2-gate1-side-photo')).toHaveCount(2);
   }
 });
 
