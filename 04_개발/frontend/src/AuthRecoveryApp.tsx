@@ -5,7 +5,7 @@ import {
   resetPasswordWithToken
 } from './auth-client';
 
-type RecoveryMode = 'reset-request' | 'verify-resend' | 'reset-token' | 'verified';
+type RecoveryMode = 'reset-request' | 'verify-resend' | 'reset-token' | 'verified' | 'check-email';
 
 const LIVE_AUTH = import.meta.env.VITE_AUTH_MODE === 'danjion';
 
@@ -14,6 +14,7 @@ function readInitialMode(): { mode: RecoveryMode; token: string; callbackError: 
   const token = params.get('token')?.trim() || '';
   const callbackError = params.get('error')?.trim() || '';
   if (params.get('mode') === 'verified') return { mode: 'verified', token, callbackError };
+  if (params.get('mode') === 'check-email') return { mode: 'check-email', token, callbackError };
   if (token) return { mode: 'reset-token', token, callbackError };
   if (params.get('mode') === 'verify') return { mode: 'verify-resend', token, callbackError };
   return { mode: 'reset-request', token, callbackError };
@@ -49,7 +50,7 @@ export default function AuthRecoveryApp() {
 
     setBusy(true);
     try {
-      if (mode === 'verify-resend') {
+      if (mode === 'verify-resend' || mode === 'check-email') {
         await resendVerificationEmail(email);
         setMessage('확인 가능한 계정이라면 이메일 확인 링크를 보냈습니다. 메일함을 확인해 주세요.');
       } else {
@@ -99,6 +100,7 @@ export default function AuthRecoveryApp() {
 
   const verified = mode === 'verified' && !initial.callbackError;
   const tokenMode = mode === 'reset-token';
+  const verificationMode = mode === 'verify-resend' || mode === 'check-email';
 
   return (
     <main className="auth-recovery-page">
@@ -136,15 +138,21 @@ export default function AuthRecoveryApp() {
           </form>
         ) : (
           <form onSubmit={submitEmail}>
-            <p className="auth-recovery-kicker">ACCOUNT RECOVERY</p>
-            <h1 id="auth-recovery-title">{mode === 'verify-resend' ? <>이메일 확인 링크를<br />다시 보내드릴게요.</> : <>비밀번호를<br />잊으셨나요?</>}</h1>
-            <p className="auth-recovery-lead">{mode === 'verify-resend'
-              ? '가입할 때 등록한 이메일을 입력해 주세요.'
-              : '단지온은 가입할 때 등록한 이메일로만 비밀번호 재설정 링크를 보냅니다.'}</p>
+            <p className="auth-recovery-kicker">{mode === 'check-email' ? 'CHECK YOUR EMAIL' : 'ACCOUNT RECOVERY'}</p>
+            <h1 id="auth-recovery-title">{mode === 'check-email'
+              ? <>가입은 접수됐어요.<br />이메일을 확인해 주세요.</>
+              : verificationMode
+                ? <>이메일 확인 링크를<br />다시 보내드릴게요.</>
+                : <>비밀번호를<br />잊으셨나요?</>}</h1>
+            <p className="auth-recovery-lead">{mode === 'check-email'
+              ? '가입할 때 입력한 이메일로 확인 링크를 보냈습니다. 링크를 누른 뒤 단지온에 로그인해 주세요. 메일이 오지 않았다면 아래에서 다시 받을 수 있습니다.'
+              : verificationMode
+                ? '가입할 때 등록한 이메일을 입력해 주세요.'
+                : '단지온은 가입할 때 등록한 이메일로만 비밀번호 재설정 링크를 보냅니다.'}</p>
 
             <div className="auth-recovery-tabs" role="group" aria-label="계정 복구 방법">
               <button type="button" className={mode === 'reset-request' ? 'is-active' : ''} onClick={() => { setMode('reset-request'); setError(''); setMessage(''); }}>비밀번호 찾기</button>
-              <button type="button" className={mode === 'verify-resend' ? 'is-active' : ''} onClick={() => { setMode('verify-resend'); setError(''); setMessage(''); }}>인증메일 다시 받기</button>
+              <button type="button" className={verificationMode ? 'is-active' : ''} onClick={() => { setMode('verify-resend'); setError(''); setMessage(''); }}>인증메일 다시 받기</button>
             </div>
 
             <label>
@@ -153,7 +161,7 @@ export default function AuthRecoveryApp() {
             </label>
             {error && <div className="auth-recovery-error" role="alert">{error}</div>}
             {message && <div className="auth-recovery-success" role="status">{message}</div>}
-            <button className="auth-recovery-submit" type="submit" disabled={busy}>{busy ? '보내는 중…' : mode === 'verify-resend' ? '확인 이메일 보내기' : '재설정 이메일 보내기'}</button>
+            <button className="auth-recovery-submit" type="submit" disabled={busy}>{busy ? '보내는 중…' : verificationMode ? '확인 이메일 보내기' : '재설정 이메일 보내기'}</button>
             <div className="auth-recovery-note">보안을 위해 계정 존재 여부는 화면에서 구분해 알려드리지 않습니다.</div>
             <a className="auth-recovery-secondary-link" href="/">단지온 홈으로 돌아가기</a>
           </form>
