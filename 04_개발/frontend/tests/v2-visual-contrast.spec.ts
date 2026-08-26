@@ -31,8 +31,9 @@ test.beforeEach(async ({ page }) => {
 });
 
 test('hero primary CTA and search submit keep readable foreground contrast', async ({ page }) => {
-  const primary = page.getByRole('button', { name: /가게와 서비스 찾기/ }).first();
-  const searchSubmit = page.getByRole('button', { name: '찾기', exact: true }).first();
+  const hero = page.locator('[data-v2-section="hero"]').first();
+  const primary = hero.getByRole('button', { name: /이웃가게 둘러보기/ }).first();
+  const searchSubmit = hero.getByRole('button', { name: '찾기', exact: true }).first();
 
   await expect(primary).toBeVisible();
   await expect(searchSubmit).toBeVisible();

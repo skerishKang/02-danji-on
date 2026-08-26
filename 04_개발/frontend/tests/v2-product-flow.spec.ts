@@ -37,9 +37,11 @@ test('search, relation/category filtering and detail preserve the reference disc
 });
 
 test('resident benefit moves from claim to stored code to used state', async ({ page }) => {
-  await page.getByRole('heading', { name: V2_REFERENCE.copy.benefitHeading }).scrollIntoViewIfNeeded();
-  await expect(page.getByText('오늘의 반찬', { exact: true }).first()).toBeVisible();
-  const claim = page.getByRole('button', { name: '주민혜택 받기' }).first();
+  const benefits = page.locator('[data-v2-section="benefits"]').first();
+  const benefitHeading = benefits.getByRole('heading', { name: V2_REFERENCE.copy.benefitHeading });
+  await benefitHeading.scrollIntoViewIfNeeded();
+  await expect(benefits.getByText('오늘의 반찬', { exact: true }).first()).toBeVisible();
+  const claim = benefits.getByRole('button', { name: '주민혜택 받기' }).first();
   await claim.click();
 
   await expect(page.getByText(/DANJION-[A-Z0-9]{4,8}/).first()).toBeVisible();

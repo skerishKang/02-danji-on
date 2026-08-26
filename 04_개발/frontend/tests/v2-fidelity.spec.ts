@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { V2_REFERENCE, V2_SELECTORS } from './v2/reference-contract';
-import { expectInsideFirstViewport, firstVisible, openV2 } from './v2/v2-test-helpers';
+import { firstVisible, openV2 } from './v2/v2-test-helpers';
 
 test.beforeEach(async ({ page }) => {
   await openV2(page);
@@ -31,9 +31,19 @@ test('V2 uses the current sibling Gate1 launch composition on desktop and mobile
   const search = page.getByPlaceholder(new RegExp(V2_REFERENCE.copy.heroSearchPlaceholder));
   await expect(search).toBeVisible();
 
+  // Gate1 deliberately stages search as a separate editorial band after the
+  // launch composition. Do not regress to the historical "search must be fully
+  // inside the first viewport" contract, especially on tablet/mobile.
+  const heroGrid = page.locator('.v2-gate1-hero-grid').first();
+  const searchBand = page.locator('.v2-gate1-search-band').first();
+  const [heroGridBottom, searchBandTop] = await Promise.all([
+    heroGrid.evaluate((element) => element.getBoundingClientRect().bottom + window.scrollY),
+    searchBand.evaluate((element) => element.getBoundingClientRect().top + window.scrollY)
+  ]);
+  expect(searchBandTop).toBeGreaterThanOrEqual(heroGridBottom - 2);
+
   const viewport = page.viewportSize();
   if (testInfo.project.name === 'desktop-1440' || testInfo.project.name === 'tablet-1024') {
-    await expectInsideFirstViewport(page, search);
     const heroBox = await hero.boundingBox();
     const imageBox = await heroImage.boundingBox();
     expect(heroBox).not.toBeNull();

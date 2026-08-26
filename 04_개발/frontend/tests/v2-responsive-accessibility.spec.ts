@@ -3,7 +3,6 @@ import { expect, test } from '@playwright/test';
 import { V2_REFERENCE, V2_SELECTORS } from './v2/reference-contract';
 import {
   activeLongAnimations,
-  expectInsideFirstViewport,
   expectKeyboardFocusVisible,
   expectNoHorizontalOverflow,
   firstVisible,
@@ -15,9 +14,9 @@ test.beforeEach(async ({ page }) => {
   await openV2(page);
 });
 
-test('desktop/tablet/mobile layouts keep first-screen search and no horizontal overflow', async ({ page }, testInfo) => {
+test('desktop/tablet/mobile layouts preserve the Gate1 launch/search sequence and no horizontal overflow', async ({ page }, testInfo) => {
   const search = page.getByPlaceholder(new RegExp(V2_REFERENCE.copy.heroSearchPlaceholder));
-  await expectInsideFirstViewport(page, search);
+  await expect(search).toBeVisible();
   await expectNoHorizontalOverflow(page);
 
   const width = page.viewportSize()!.width;
@@ -30,6 +29,14 @@ test('desktop/tablet/mobile layouts keep first-screen search and no horizontal o
   } else {
     await expect(mobileNav).toBeHidden();
   }
+
+  const heroGrid = page.locator('.v2-gate1-hero-grid').first();
+  const searchBand = page.locator('.v2-gate1-search-band').first();
+  const [heroGridBottom, searchBandTop] = await Promise.all([
+    heroGrid.evaluate((element) => element.getBoundingClientRect().bottom + window.scrollY),
+    searchBand.evaluate((element) => element.getBoundingClientRect().top + window.scrollY)
+  ]);
+  expect(searchBandTop).toBeGreaterThanOrEqual(heroGridBottom - 2);
 
   const stage = await firstVisible(page, V2_SELECTORS.cinematicStage, 'cinematic stage');
   const position = await stage.evaluate((element) => getComputedStyle(element).position);

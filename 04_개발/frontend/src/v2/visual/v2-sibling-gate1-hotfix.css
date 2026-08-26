@@ -1,0 +1,19 @@
+/* Gate1 exact-head QA corrections.
+   These preserve the approved sibling visual grammar while closing WCAG and
+   regression-selector mismatches exposed by the V2 integration gate. */
+
+/* Small complex label needs >=4.5:1 on the warm launch canvas. */
+.v2-gate1-topbar .v2-complex{color:#6e6d65}
+
+/* The approved coral missed the large-text 3:1 threshold by a narrow margin
+   on the desktop/tablet canvas. Mobile keeps the approved gold-on-night cue. */
+@media(min-width:801px){
+  .v2-gate1-title em{color:#D94B31}
+}
+
+/* The generic editorial integration background must not flatten the dark
+   circular-economy ending. Restore its intended dark surface and readable copy. */
+.v2-visual-surface .v2-ending-section{background:#171717;color:#fff}
+.v2-visual-surface .v2-ending-section .v2-kicker,
+.v2-visual-surface .v2-ending-section .v2-section-title{color:#fff}
+.v2-visual-surface .v2-ending-section p{color:rgba(255,255,255,.82)}
