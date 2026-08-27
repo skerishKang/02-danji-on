@@ -17,6 +17,7 @@ import { handleProductMutationRateLimitRequest } from './product-rate-limit-v1';
 import { handleResidentApplicationRequest } from './resident-application-v1';
 import { handleResidentEconomyMutationRequest } from './resident-economy-v2';
 import { handleResidentVerificationRequest } from './resident-verification-v1';
+import { handleTrackedStorageUploadRequest } from './storage-upload-v2';
 import { handleStorageRequest } from './storage-v1';
 
 const REQUEST_ID_HEADER = 'x-danjion-request-id';
@@ -125,6 +126,11 @@ export default {
       // authorization; Household/RBAC/ownership checks still run downstream.
       const productMutationRateLimitResponse = await handleProductMutationRateLimitRequest(request, env, id);
       if (productMutationRateLimitResponse) return respond(productMutationRateLimitResponse);
+
+      // Business-image POST is currentized by the pre-generated-id/upload_pending
+      // protocol before the legacy storage router. GET/DELETE remain on storage-v1.
+      const trackedStorageUploadResponse = await handleTrackedStorageUploadRequest(request, env, id);
+      if (trackedStorageUploadResponse) return respond(trackedStorageUploadResponse);
 
       const storageResponse = await handleStorageRequest(request, env, id);
       if (storageResponse) return respond(storageResponse);
