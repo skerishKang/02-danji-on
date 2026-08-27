@@ -26,6 +26,8 @@ type RegistryRow = {
   uploader_user_id?: string;
   complex_id?: string;
   state?: string;
+  upload_idempotency_key?: string | null;
+  upload_request_fingerprint?: string | null;
 };
 type TrackedResident = Actor & {
   complexId: string;
@@ -34,6 +36,11 @@ type TrackedResident = Actor & {
 type UploadSuccess = {
   objectKey: string;
   metadata: DriveMetadata;
+  idempotencyReplayed?: boolean;
+};
+type IdempotentReservation = {
+  reserved: boolean;
+  row: RegistryRow;
 };
 
 const DRIVE_API = 'https://www.googleapis.com/drive/v3';
@@ -41,6 +48,7 @@ const DRIVE_UPLOAD_API = 'https://www.googleapis.com/upload/drive/v3';
 const TOKEN_ENDPOINT = 'https://oauth2.googleapis.com/token';
 const MAX_UPLOAD_REQUEST_BYTES = 12 * 1024 * 1024;
 const DRIVE_FILE_ID = /^[A-Za-z0-9_-]{10,200}$/;
+const UPLOAD_IDEMPOTENCY_KEY = /^[A-Za-z0-9._:-]{8,80}$/;
 let cachedAccessToken: { value: string; expiresAt: number } | null = null;
 
 function json(data: unknown, status: number, requestId: string): Response {
@@ -195,6 +203,27 @@ async function uploadDriveFileWithId(
   );
 }
 
+function hexDigest(buffer: ArrayBuffer): string {
+  return [...new Uint8Array(buffer)].map((byte) => byte.toString(16).padStart(2, '0')).join('');
+}
+
+export function validBusinessImageUploadIdempotencyKey(value: string): boolean {
+  return UPLOAD_IDEMPOTENCY_KEY.test(value);
+}
+
+export async function businessImageUploadRequestFingerprint(file: File, complexSlug: string): Promise<string> {
+  const fileHash = hexDigest(await crypto.subtle.digest('SHA-256', await file.arrayBuffer()));
+  const canonical = JSON.stringify({
+    kind: 'business-image',
+    complexSlug,
+    fileName: file.name,
+    contentType: file.type,
+    size: file.size,
+    fileSha256: fileHash
+  });
+  return hexDigest(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(canonical)));
+}
+
 export async function reserveBusinessImageUpload(
   sql: Sql,
   objectKeyValue: string,
@@ -223,6 +252,85 @@ export async function reserveBusinessImageUpload(
     return fail(
       'BUSINESS_IMAGE_REGISTRY_UNAVAILABLE',
       'Business image lifecycle registry is unavailable before upload',
+      503,
+      requestId
+    );
+  }
+}
+
+async function readIdempotentRegistryRow(
+  sql: Sql,
+  uploaderUserId: string,
+  idempotencyKey: string,
+  requestId: string
+): Promise<RegistryRow | Response | null> {
+  try {
+    const rows = await sql`
+      select object_key, uploader_user_id::text, complex_id::text, state,
+             upload_idempotency_key, upload_request_fingerprint
+      from business_image_objects
+      where uploader_user_id = ${uploaderUserId}::uuid
+        and upload_idempotency_key = ${idempotencyKey}
+      limit 1
+    `;
+    return (rows[0] as RegistryRow | undefined) ?? null;
+  } catch {
+    return fail(
+      'BUSINESS_IMAGE_REGISTRY_UNAVAILABLE',
+      'Business image upload idempotency registry could not be read',
+      503,
+      requestId
+    );
+  }
+}
+
+export async function reserveIdempotentBusinessImageUpload(
+  sql: Sql,
+  objectKeyValue: string,
+  uploaderUserId: string,
+  complexId: string,
+  idempotencyKey: string,
+  requestFingerprint: string,
+  requestId: string
+): Promise<IdempotentReservation | Response> {
+  try {
+    const rows = await sql`
+      insert into business_image_objects (
+        object_key, uploader_user_id, complex_id, state,
+        upload_idempotency_key, upload_request_fingerprint
+      ) values (
+        ${objectKeyValue}, ${uploaderUserId}::uuid, ${complexId}::uuid, 'upload_pending',
+        ${idempotencyKey}, ${requestFingerprint}
+      )
+      on conflict do nothing
+      returning object_key, uploader_user_id::text, complex_id::text, state,
+                upload_idempotency_key, upload_request_fingerprint
+    `;
+    if (rows[0]) {
+      return { reserved: true, row: rows[0] as RegistryRow };
+    }
+
+    const existing = await sql`
+      select object_key, uploader_user_id::text, complex_id::text, state,
+             upload_idempotency_key, upload_request_fingerprint
+      from business_image_objects
+      where uploader_user_id = ${uploaderUserId}::uuid
+        and upload_idempotency_key = ${idempotencyKey}
+      limit 1
+    `;
+    const row = existing[0] as RegistryRow | undefined;
+    if (row) return { reserved: false, row };
+
+    return fail(
+      'BUSINESS_IMAGE_UPLOAD_RESERVATION_CONFLICT',
+      'Business image upload id could not be reserved safely',
+      409,
+      requestId
+    );
+  } catch {
+    return fail(
+      'BUSINESS_IMAGE_REGISTRY_UNAVAILABLE',
+      'Business image upload idempotency reservation is unavailable',
       503,
       requestId
     );
@@ -364,13 +472,184 @@ export async function reconcileBusinessImageUploadPending(
   return { objectKey: objectKeyValue, metadata };
 }
 
+async function idempotentReplay(
+  env: CoreEnv,
+  sql: Sql,
+  row: RegistryRow,
+  resident: TrackedResident,
+  requestFingerprint: string,
+  requestId: string
+): Promise<UploadSuccess | Response> {
+  if (row.upload_request_fingerprint !== requestFingerprint) {
+    return fail(
+      'IDEMPOTENCY_KEY_REUSED',
+      'The Idempotency-Key was already used with a different business image upload',
+      409,
+      requestId
+    );
+  }
+  if (row.uploader_user_id !== resident.id || row.complex_id !== resident.complexId) {
+    return fail(
+      'BUSINESS_IMAGE_UPLOAD_IDEMPOTENCY_SCOPE_CONFLICT',
+      'The Idempotency-Key is bound to a different business image scope',
+      409,
+      requestId
+    );
+  }
+  const objectKeyValue = String(row.object_key || '');
+  if (row.state !== 'upload_pending' && row.state !== 'active') {
+    return fail(
+      'BUSINESS_IMAGE_UPLOAD_IDEMPOTENCY_STATE_CONFLICT',
+      'The original idempotent business image upload is no longer replayable',
+      409,
+      requestId
+    );
+  }
+  const replay = await reconcileBusinessImageUploadPending(
+    env, sql, objectKeyValue, resident.id, resident.complexId, resident.complexSlug, requestId
+  );
+  if (replay instanceof Response) return replay;
+  return { ...replay, idempotencyReplayed: true };
+}
+
+async function persistIdempotentReservedBusinessImageUpload(
+  env: CoreEnv,
+  sql: Sql,
+  file: File,
+  resident: TrackedResident,
+  objectKeyValue: string,
+  requestId: string
+): Promise<UploadSuccess | Response> {
+  const driveEnv = env as DriveEnv;
+  const fileId = fileIdFromBusinessImageObjectKey(objectKeyValue);
+  if (!fileId) {
+    return fail('INVALID_BUSINESS_IMAGE_REFERENCE', 'Reserved business image object key is invalid', 400, requestId);
+  }
+
+  let uploadResponse: Response;
+  try {
+    uploadResponse = await uploadDriveFileWithId(driveEnv, fileId, file, resident);
+  } catch {
+    return reconcileBusinessImageUploadPending(
+      env, sql, objectKeyValue, resident.id, resident.complexId, resident.complexSlug, requestId
+    );
+  }
+
+  if (!uploadResponse.ok) {
+    if (uploadResponse.status === 409 || uploadResponse.status >= 500) {
+      return reconcileBusinessImageUploadPending(
+        env, sql, objectKeyValue, resident.id, resident.complexId, resident.complexSlug, requestId
+      );
+    }
+    return fail(
+      'BUSINESS_IMAGE_UPLOAD_FAILED',
+      'Business image remains durably reserved but Google Drive rejected the upload',
+      502,
+      requestId
+    );
+  }
+
+  let metadata: DriveMetadata | null;
+  try {
+    metadata = await readDriveMetadata(driveEnv, fileId);
+  } catch {
+    return fail(
+      'BUSINESS_IMAGE_UPLOAD_RECONCILIATION_PENDING',
+      'Business image remains reserved because persisted metadata could not be confirmed',
+      503,
+      requestId
+    );
+  }
+  if (!metadata || !businessImageMetadataMatches(driveEnv, metadata, fileId, resident.id, resident.complexSlug)) {
+    return fail(
+      'BUSINESS_IMAGE_UPLOAD_RECONCILIATION_PENDING',
+      'Business image remains reserved because persisted metadata does not match the reservation',
+      503,
+      requestId
+    );
+  }
+
+  const activationError = await activateBusinessImageUpload(
+    sql, objectKeyValue, resident.id, resident.complexId, requestId
+  );
+  if (activationError) return activationError;
+  return { objectKey: objectKeyValue, metadata };
+}
+
+async function runIdempotentTrackedBusinessImageUpload(
+  env: CoreEnv,
+  sql: Sql,
+  file: File,
+  resident: TrackedResident,
+  requestId: string,
+  idempotencyKey: string
+): Promise<UploadSuccess | Response> {
+  let requestFingerprint: string;
+  try {
+    requestFingerprint = await businessImageUploadRequestFingerprint(file, resident.complexSlug);
+  } catch {
+    return fail(
+      'BUSINESS_IMAGE_UPLOAD_FINGERPRINT_UNAVAILABLE',
+      'Business image upload fingerprint could not be calculated',
+      503,
+      requestId
+    );
+  }
+
+  const existing = await readIdempotentRegistryRow(sql, resident.id, idempotencyKey, requestId);
+  if (existing instanceof Response) return existing;
+  if (existing) {
+    return idempotentReplay(env, sql, existing, resident, requestFingerprint, requestId);
+  }
+
+  let fileId: string;
+  try {
+    fileId = await generateDriveFileId(env as DriveEnv);
+  } catch {
+    return fail('BUSINESS_IMAGE_ID_RESERVATION_UNAVAILABLE', 'Google Drive could not reserve an upload id', 503, requestId);
+  }
+  const candidateObjectKey = businessImageObjectKey(fileId);
+  const reservation = await reserveIdempotentBusinessImageUpload(
+    sql,
+    candidateObjectKey,
+    resident.id,
+    resident.complexId,
+    idempotencyKey,
+    requestFingerprint,
+    requestId
+  );
+  if (reservation instanceof Response) return reservation;
+  if (!reservation.reserved) {
+    return idempotentReplay(env, sql, reservation.row, resident, requestFingerprint, requestId);
+  }
+
+  return persistIdempotentReservedBusinessImageUpload(
+    env, sql, file, resident, candidateObjectKey, requestId
+  );
+}
+
 export async function runTrackedBusinessImageUpload(
   env: CoreEnv,
   sql: Sql,
   file: File,
   resident: TrackedResident,
-  requestId: string
+  requestId: string,
+  idempotencyKey: string | null = null
 ): Promise<UploadSuccess | Response> {
+  if (idempotencyKey) {
+    if (!validBusinessImageUploadIdempotencyKey(idempotencyKey)) {
+      return fail(
+        'INVALID_IDEMPOTENCY_KEY',
+        'Idempotency-Key must be 8-80 characters using letters, numbers, dot, underscore, colon or dash',
+        400,
+        requestId
+      );
+    }
+    return runIdempotentTrackedBusinessImageUpload(
+      env, sql, file, resident, requestId, idempotencyKey
+    );
+  }
+
   const driveEnv = env as DriveEnv;
   let fileId: string;
   try {
@@ -489,7 +768,19 @@ export async function handleTrackedStorageUploadRequest(
   const resident = residentOrResponse as TrackedResident;
   const file = files[0];
 
-  const result = await runTrackedBusinessImageUpload(env, sql, file, resident, requestId);
+  const rawIdempotencyKey = request.headers.get('idempotency-key')?.trim() || null;
+  if (rawIdempotencyKey && !validBusinessImageUploadIdempotencyKey(rawIdempotencyKey)) {
+    return fail(
+      'INVALID_IDEMPOTENCY_KEY',
+      'Idempotency-Key must be 8-80 characters using letters, numbers, dot, underscore, colon or dash',
+      400,
+      requestId
+    );
+  }
+
+  const result = await runTrackedBusinessImageUpload(
+    env, sql, file, resident, requestId, rawIdempotencyKey
+  );
   if (result instanceof Response) return result;
 
   return ok({
@@ -497,6 +788,7 @@ export async function handleTrackedStorageUploadRequest(
     fileName: file.name,
     contentType: file.type,
     size: file.size,
-    visibility: validation.policy.visibility
+    visibility: validation.policy.visibility,
+    idempotencyReplayed: result.idempotencyReplayed === true
   }, requestId, 201);
 }
