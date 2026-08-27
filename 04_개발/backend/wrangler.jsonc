@@ -1,7 +1,7 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "danjion-api",
-  "main": "src/app.ts",
+  "main": "src/worker-v2.ts",
   "compatibility_date": "2026-08-07",
   "compatibility_flags": ["nodejs_compat"],
   "observability": {
@@ -27,6 +27,9 @@
       "name": "padiem-danjion-api-production",
       "workers_dev": false,
       "preview_urls": false,
+      "triggers": {
+        "crons": ["*/15 * * * *"]
+      },
       "vars": {
         "APP_ENV": "production",
         "DEV_AUTH_BYPASS": "false",
