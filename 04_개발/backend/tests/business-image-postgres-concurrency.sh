@@ -6,11 +6,12 @@ PSQL=(psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -X -q)
 
 USER_ID='11111111-1111-4111-8111-111111111111'
 COMPLEX_ID='22222222-2222-4222-8222-222222222222'
+KEY_UPLOAD='gdrive/public/business-image/upload_pending_1234567890'
 KEY_REF_FIRST='gdrive/public/business-image/concurrency_ref_first_1234567890'
 KEY_DELETE_FIRST='gdrive/public/business-image/concurrency_delete_first_1234567890'
 
-# Minimal prerequisite product schema. Migration 019 itself is applied from the
-# repository file below, so the lifecycle DDL under test is not duplicated here.
+# Minimal prerequisite product schema. Migrations 019 and 020 are applied from
+# repository files below, so lifecycle DDL under test is not duplicated here.
 "${PSQL[@]}" <<SQL
 create extension if not exists pgcrypto;
 drop table if exists business_media cascade;
@@ -53,6 +54,7 @@ values ('$COMPLEX_ID', 'atomicity-ci-complex', 'Atomicity CI Complex');
 SQL
 
 "${PSQL[@]}" -f migrations/019_business_image_lifecycle_registry.sql
+"${PSQL[@]}" -f migrations/020_business_image_upload_pending.sql
 
 cleanup_case() {
   local key="$1"
@@ -77,6 +79,35 @@ assert_scalar() {
   fi
   echo "PASS $label: $actual"
 }
+
+# ---------------------------------------------------------------------------
+# Upload lifecycle: a final object key is durably upload_pending before it can
+# become active, and the extended state machine preserves the #109 retirement
+# states after activation.
+# ---------------------------------------------------------------------------
+"${PSQL[@]}" <<SQL
+delete from business_image_objects where object_key = '$KEY_UPLOAD';
+insert into business_image_objects (object_key, uploader_user_id, complex_id, state)
+values ('$KEY_UPLOAD', '$USER_ID', '$COMPLEX_ID', 'upload_pending');
+SQL
+assert_scalar "select state from business_image_objects where object_key='$KEY_UPLOAD'" "upload_pending" "UPLOAD lifecycle durable reservation"
+
+"${PSQL[@]}" -c "update business_image_objects set state='active', updated_at=now() where object_key='$KEY_UPLOAD' and state='upload_pending'"
+assert_scalar "select state from business_image_objects where object_key='$KEY_UPLOAD'" "active" "UPLOAD lifecycle activation"
+
+"${PSQL[@]}" -c "update business_image_objects set state='delete_pending', delete_requested_at=now(), updated_at=now() where object_key='$KEY_UPLOAD' and state='active'"
+assert_scalar "select state from business_image_objects where object_key='$KEY_UPLOAD'" "delete_pending" "UPLOAD lifecycle delete intent"
+
+"${PSQL[@]}" -c "update business_image_objects set state='retired', retired_at=now(), updated_at=now() where object_key='$KEY_UPLOAD' and state='delete_pending'"
+assert_scalar "select state from business_image_objects where object_key='$KEY_UPLOAD'" "retired" "UPLOAD lifecycle retirement"
+
+# upload_pending must not satisfy the active predicate used by new product refs.
+"${PSQL[@]}" <<SQL
+delete from business_image_objects where object_key = '$KEY_UPLOAD';
+insert into business_image_objects (object_key, uploader_user_id, complex_id, state)
+values ('$KEY_UPLOAD', '$USER_ID', '$COMPLEX_ID', 'upload_pending');
+SQL
+assert_scalar "select count(*) from business_image_objects where object_key='$KEY_UPLOAD' and state='active'" "0" "UPLOAD_PENDING reference predicate denied"
 
 # ---------------------------------------------------------------------------
 # Case 1: reference transaction owns registry row first.
@@ -212,15 +243,21 @@ wait "$REFERENCE_PID"
 assert_scalar "select state from business_image_objects where object_key='$KEY_DELETE_FIRST'" "delete_pending" "DELETE_INTENT_FIRST registry becomes delete_pending"
 assert_scalar "select count(*) from business_applications where representative_image_object_key='$KEY_DELETE_FIRST'" "0" "DELETE_INTENT_FIRST reference denied"
 
-# Lifecycle constraints must also reject incoherent state/timestamps.
+# Lifecycle constraints must reject incoherent state/timestamps for old and new states.
 set +e
 "${PSQL[@]}" -c "update business_image_objects set state='retired', retired_at=now() where object_key='$KEY_REF_FIRST'" >/dev/null 2>&1
 BAD_LIFECYCLE_STATUS=$?
+"${PSQL[@]}" -c "update business_image_objects set state='upload_pending', delete_requested_at=now() where object_key='$KEY_REF_FIRST'" >/dev/null 2>&1
+BAD_PENDING_STATUS=$?
 set -e
 if [[ "$BAD_LIFECYCLE_STATUS" -eq 0 ]]; then
   echo "FAIL lifecycle timestamp constraint accepted retired without delete_requested_at" >&2
   exit 1
 fi
-echo "PASS lifecycle timestamp constraint rejects incoherent retirement"
+if [[ "$BAD_PENDING_STATUS" -eq 0 ]]; then
+  echo "FAIL lifecycle timestamp constraint accepted upload_pending with delete_requested_at" >&2
+  exit 1
+fi
+echo "PASS lifecycle timestamp constraint rejects incoherent retirement and upload_pending timestamps"
 
-echo "PASS PostgreSQL 18 business-image atomicity concurrency: REFERENCE_FIRST -> DELETE_DENIED; DELETE_INTENT_FIRST -> REFERENCE_DENIED"
+echo "PASS PostgreSQL 18 business-image lifecycle + atomicity: UPLOAD_PENDING -> ACTIVE; REFERENCE_FIRST -> DELETE_DENIED; DELETE_INTENT_FIRST -> REFERENCE_DENIED"
