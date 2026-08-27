@@ -20,6 +20,13 @@ type ApplicationInput = {
   representativeImageObjectKey: string | null;
 };
 
+type BusinessImageRegistryRow = {
+  object_key?: string;
+  uploader_user_id?: string;
+  complex_id?: string;
+  state?: string;
+};
+
 function ok(data: unknown, requestId: string, status = 200): Response {
   return Response.json({ data, requestId }, {
     status,
@@ -109,6 +116,32 @@ function idempotentReplayResponse(
   return ok({ ...existing, idempotency_replayed: true }, requestId);
 }
 
+function businessImageRegistryFailure(
+  registry: BusinessImageRegistryRow | undefined,
+  expectedUploaderUserId: string,
+  expectedComplexId: string,
+  requestId: string
+): Response | null {
+  if (!registry || String(registry.state ?? '') !== 'active') {
+    return fail(
+      'BUSINESS_IMAGE_NOT_ACTIVE',
+      'Representative image is not active for new product references',
+      409,
+      requestId
+    );
+  }
+  if (String(registry.uploader_user_id ?? '') !== expectedUploaderUserId ||
+      String(registry.complex_id ?? '') !== expectedComplexId) {
+    return fail(
+      'BUSINESS_IMAGE_REGISTRY_MISMATCH',
+      'Representative image registry binding does not match this resident and complex',
+      409,
+      requestId
+    );
+  }
+  return null;
+}
+
 async function createBusinessApplication(
   request: Request,
   env: CoreEnv,
@@ -144,8 +177,8 @@ async function createBusinessApplication(
   }
 
   // Only a new application may introduce a representative-image reference.
-  // Validate server-controlled Drive metadata after verified-resident AuthZ and
-  // before the application row can persist the key.
+  // Keep PR #103 strict Drive validation before the DB reference-acquisition
+  // critical section. The Drive call is never held inside a DB transaction.
   if (input.representativeImageObjectKey) {
     const imageReferenceError = await validateBusinessImageReference(
       env,
@@ -157,37 +190,103 @@ async function createBusinessApplication(
     if (imageReferenceError) return imageReferenceError;
   }
 
-  const inserted = await sql`
-    insert into business_applications (
-      complex_id, applicant_user_id, relation_type, business_name, category_name,
-      service_summary, price_text, contact_method, service_area, benefit_text,
-      availability_text, representative_image_object_key, submission_key,
-      submission_fingerprint, status
-    ) values (
-      ${resident.complexId}::uuid,
-      ${resident.id}::uuid,
-      ${input.relationType},
-      ${input.businessName},
-      ${input.categoryName},
-      ${input.serviceSummary},
-      ${input.priceText},
-      ${input.contactMethod},
-      ${input.serviceArea},
-      ${input.benefitText},
-      ${input.availabilityText},
-      ${input.representativeImageObjectKey},
-      ${rawKey},
-      ${requestFingerprint},
-      'pending'
-    )
-    on conflict (applicant_user_id, submission_key)
-      where submission_key is not null
-    do nothing
-    returning id, relation_type, business_name, category_name, service_summary,
-              price_text, contact_method, service_area, benefit_text,
-              availability_text, representative_image_object_key, status,
-              review_note, approved_business_id, submission_key, created_at, updated_at
-  `;
+  let inserted;
+  if (input.representativeImageObjectKey) {
+    let registryRows;
+    try {
+      [registryRows, inserted] = await sql.transaction([
+        sql`
+          select object_key, uploader_user_id, complex_id, state
+          from business_image_objects
+          where object_key = ${input.representativeImageObjectKey}
+          for update
+        `,
+        sql`
+          insert into business_applications (
+            complex_id, applicant_user_id, relation_type, business_name, category_name,
+            service_summary, price_text, contact_method, service_area, benefit_text,
+            availability_text, representative_image_object_key, submission_key,
+            submission_fingerprint, status
+          )
+          select
+            ${resident.complexId}::uuid,
+            ${resident.id}::uuid,
+            ${input.relationType},
+            ${input.businessName},
+            ${input.categoryName},
+            ${input.serviceSummary},
+            ${input.priceText},
+            ${input.contactMethod},
+            ${input.serviceArea},
+            ${input.benefitText},
+            ${input.availabilityText},
+            bio.object_key,
+            ${rawKey},
+            ${requestFingerprint},
+            'pending'
+          from business_image_objects bio
+          where bio.object_key = ${input.representativeImageObjectKey}
+            and bio.state = 'active'
+            and bio.uploader_user_id = ${resident.id}::uuid
+            and bio.complex_id = ${resident.complexId}::uuid
+          on conflict (applicant_user_id, submission_key)
+            where submission_key is not null
+          do nothing
+          returning id, relation_type, business_name, category_name, service_summary,
+                    price_text, contact_method, service_area, benefit_text,
+                    availability_text, representative_image_object_key, status,
+                    review_note, approved_business_id, submission_key, created_at, updated_at
+        `
+      ]);
+    } catch {
+      return fail(
+        'BUSINESS_IMAGE_REGISTRY_UNAVAILABLE',
+        'Business image lifecycle registry is unavailable',
+        503,
+        requestId
+      );
+    }
+
+    const registryFailure = businessImageRegistryFailure(
+      (registryRows as BusinessImageRegistryRow[])[0],
+      resident.id,
+      resident.complexId,
+      requestId
+    );
+    if (registryFailure) return registryFailure;
+  } else {
+    inserted = await sql`
+      insert into business_applications (
+        complex_id, applicant_user_id, relation_type, business_name, category_name,
+        service_summary, price_text, contact_method, service_area, benefit_text,
+        availability_text, representative_image_object_key, submission_key,
+        submission_fingerprint, status
+      ) values (
+        ${resident.complexId}::uuid,
+        ${resident.id}::uuid,
+        ${input.relationType},
+        ${input.businessName},
+        ${input.categoryName},
+        ${input.serviceSummary},
+        ${input.priceText},
+        ${input.contactMethod},
+        ${input.serviceArea},
+        ${input.benefitText},
+        ${input.availabilityText},
+        null,
+        ${rawKey},
+        ${requestFingerprint},
+        'pending'
+      )
+      on conflict (applicant_user_id, submission_key)
+        where submission_key is not null
+      do nothing
+      returning id, relation_type, business_name, category_name, service_summary,
+                price_text, contact_method, service_area, benefit_text,
+                availability_text, representative_image_object_key, status,
+                review_note, approved_business_id, submission_key, created_at, updated_at
+    `;
+  }
 
   if (inserted[0]) return ok({ ...inserted[0], idempotency_replayed: false }, requestId, 201);
   if (!rawKey || !requestFingerprint) return fail('CONFLICT', 'Application could not be created', 409, requestId);
@@ -246,29 +345,88 @@ async function resubmitBusinessApplication(
     if (imageReferenceError) return imageReferenceError;
   }
 
-  const rows = await sql`
-    update business_applications a
-    set relation_type = ${input.relationType},
-        business_name = ${input.businessName},
-        category_name = ${input.categoryName},
-        service_summary = ${input.serviceSummary},
-        price_text = ${input.priceText},
-        contact_method = ${input.contactMethod},
-        service_area = ${input.serviceArea},
-        benefit_text = ${input.benefitText},
-        availability_text = ${input.availabilityText},
-        representative_image_object_key = ${input.representativeImageObjectKey},
-        status = 'pending',
-        reviewed_by = null,
-        reviewed_at = null
-    where a.id = ${applicationId}::uuid
-      and a.applicant_user_id = ${resident.id}::uuid
-      and a.status = 'changes_requested'
-    returning a.id, a.relation_type, a.business_name, a.category_name,
-              a.service_summary, a.price_text, a.contact_method, a.service_area,
-              a.benefit_text, a.availability_text, a.representative_image_object_key,
-              a.status, a.review_note, a.approved_business_id, a.created_at, a.updated_at
-  `;
+  let rows;
+  if (input.representativeImageObjectKey) {
+    let registryRows;
+    try {
+      [registryRows, rows] = await sql.transaction([
+        sql`
+          select object_key, uploader_user_id, complex_id, state
+          from business_image_objects
+          where object_key = ${input.representativeImageObjectKey}
+          for update
+        `,
+        sql`
+          update business_applications a
+          set relation_type = ${input.relationType},
+              business_name = ${input.businessName},
+              category_name = ${input.categoryName},
+              service_summary = ${input.serviceSummary},
+              price_text = ${input.priceText},
+              contact_method = ${input.contactMethod},
+              service_area = ${input.serviceArea},
+              benefit_text = ${input.benefitText},
+              availability_text = ${input.availabilityText},
+              representative_image_object_key = bio.object_key,
+              status = 'pending',
+              reviewed_by = null,
+              reviewed_at = null
+          from business_image_objects bio
+          where a.id = ${applicationId}::uuid
+            and a.applicant_user_id = ${resident.id}::uuid
+            and a.status = 'changes_requested'
+            and bio.object_key = ${input.representativeImageObjectKey}
+            and bio.state = 'active'
+            and bio.uploader_user_id = ${resident.id}::uuid
+            and bio.complex_id = ${resident.complexId}::uuid
+          returning a.id, a.relation_type, a.business_name, a.category_name,
+                    a.service_summary, a.price_text, a.contact_method, a.service_area,
+                    a.benefit_text, a.availability_text, a.representative_image_object_key,
+                    a.status, a.review_note, a.approved_business_id, a.created_at, a.updated_at
+        `
+      ]);
+    } catch {
+      return fail(
+        'BUSINESS_IMAGE_REGISTRY_UNAVAILABLE',
+        'Business image lifecycle registry is unavailable',
+        503,
+        requestId
+      );
+    }
+
+    const registryFailure = businessImageRegistryFailure(
+      (registryRows as BusinessImageRegistryRow[])[0],
+      resident.id,
+      resident.complexId,
+      requestId
+    );
+    if (registryFailure) return registryFailure;
+  } else {
+    rows = await sql`
+      update business_applications a
+      set relation_type = ${input.relationType},
+          business_name = ${input.businessName},
+          category_name = ${input.categoryName},
+          service_summary = ${input.serviceSummary},
+          price_text = ${input.priceText},
+          contact_method = ${input.contactMethod},
+          service_area = ${input.serviceArea},
+          benefit_text = ${input.benefitText},
+          availability_text = ${input.availabilityText},
+          representative_image_object_key = null,
+          status = 'pending',
+          reviewed_by = null,
+          reviewed_at = null
+      where a.id = ${applicationId}::uuid
+        and a.applicant_user_id = ${resident.id}::uuid
+        and a.status = 'changes_requested'
+      returning a.id, a.relation_type, a.business_name, a.category_name,
+                a.service_summary, a.price_text, a.contact_method, a.service_area,
+                a.benefit_text, a.availability_text, a.representative_image_object_key,
+                a.status, a.review_note, a.approved_business_id, a.created_at, a.updated_at
+    `;
+  }
+
   if (rows[0]) return ok(rows[0], requestId);
   return fail('CONFLICT', 'Application can no longer be resubmitted from its current state', 409, requestId);
 }

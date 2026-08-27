@@ -33,6 +33,19 @@ type ParsedObjectKey = {
   kind: StorageKind;
   fileId: string;
 };
+type BusinessImageRegistryRow = {
+  object_key?: string;
+  uploader_user_id?: string;
+  complex_id?: string;
+  state?: string;
+};
+type DeleteIntentDecision = {
+  state?: string;
+  uploader_user_id?: string;
+  business_media_in_use?: boolean;
+  application_in_use?: boolean;
+  delete_intent_acquired?: boolean;
+};
 
 const DRIVE_API = 'https://www.googleapis.com/drive/v3';
 const DRIVE_UPLOAD_API = 'https://www.googleapis.com/upload/drive/v3';
@@ -175,6 +188,20 @@ function metadataMatches(env: DriveEnv, parsed: ParsedObjectKey, metadata: Drive
   return props.danjionKind === parsed.kind && props.danjionVisibility === parsed.visibility;
 }
 
+function retirementMetadataMatches(
+  env: DriveEnv,
+  parsed: ParsedObjectKey,
+  metadata: DriveMetadata,
+  expectedUploaderUserId: string
+): boolean {
+  const expectedFolder = folderFor(env, parsed.kind);
+  const props = metadata.appProperties || {};
+  return Boolean(expectedFolder) && metadata.parents?.includes(expectedFolder!) === true &&
+    props.danjionKind === 'business-image' &&
+    props.danjionVisibility === 'public' &&
+    props.danjionUploaderUserId === expectedUploaderUserId;
+}
+
 export async function validateBusinessImageReference(
   env: CoreEnv,
   objectKeyValue: string,
@@ -269,6 +296,180 @@ export async function businessImageDeleteConflict(
     );
   }
   return null;
+}
+
+export async function registerBusinessImageObject(
+  sql: Sql,
+  objectKeyValue: string,
+  uploaderUserId: string,
+  complexId: string,
+  requestId: string
+): Promise<Response | null> {
+  try {
+    const rows = await sql`
+      insert into business_image_objects (
+        object_key, uploader_user_id, complex_id, state
+      ) values (
+        ${objectKeyValue}, ${uploaderUserId}::uuid, ${complexId}::uuid, 'active'
+      )
+      on conflict (object_key) do nothing
+      returning object_key
+    `;
+    if (rows[0]) return null;
+    return fail(
+      'BUSINESS_IMAGE_REGISTRY_CONFLICT',
+      'Business image object key is already registered',
+      409,
+      requestId
+    );
+  } catch {
+    return fail(
+      'BUSINESS_IMAGE_REGISTRY_UNAVAILABLE',
+      'Business image lifecycle registry is unavailable',
+      503,
+      requestId
+    );
+  }
+}
+
+async function readBusinessImageRegistry(
+  sql: Sql,
+  objectKeyValue: string,
+  requestId: string
+): Promise<BusinessImageRegistryRow | Response | null> {
+  try {
+    const rows = await sql`
+      select object_key, uploader_user_id, complex_id, state
+      from business_image_objects
+      where object_key = ${objectKeyValue}
+      limit 1
+    `;
+    return (rows[0] as BusinessImageRegistryRow | undefined) ?? null;
+  } catch {
+    return fail(
+      'BUSINESS_IMAGE_REGISTRY_UNAVAILABLE',
+      'Business image lifecycle registry is unavailable',
+      503,
+      requestId
+    );
+  }
+}
+
+export async function acquireBusinessImageDeleteIntent(
+  sql: Sql,
+  objectKeyValue: string,
+  uploaderUserId: string,
+  requestId: string
+): Promise<{ acquired: boolean; state: string } | Response> {
+  let lockedRows;
+  let decisionRows;
+  try {
+    [lockedRows, decisionRows] = await sql.transaction([
+      sql`
+        select object_key, uploader_user_id, complex_id, state
+        from business_image_objects
+        where object_key = ${objectKeyValue}
+        for update
+      `,
+      sql`
+        with usage as (
+          select
+            exists (
+              select 1 from business_media bm
+              where bm.object_key = ${objectKeyValue}
+            ) as business_media_in_use,
+            exists (
+              select 1 from business_applications a
+              where a.representative_image_object_key = ${objectKeyValue}
+                and a.status in ('draft', 'pending', 'changes_requested', 'approved')
+            ) as application_in_use
+        ),
+        updated as (
+          update business_image_objects bio
+          set state = 'delete_pending',
+              delete_requested_at = coalesce(bio.delete_requested_at, now()),
+              updated_at = now()
+          from usage u
+          where bio.object_key = ${objectKeyValue}
+            and bio.uploader_user_id = ${uploaderUserId}::uuid
+            and bio.state = 'active'
+            and not u.business_media_in_use
+            and not u.application_in_use
+          returning bio.object_key
+        )
+        select
+          (select state from business_image_objects where object_key = ${objectKeyValue}) as state,
+          (select uploader_user_id::text from business_image_objects where object_key = ${objectKeyValue}) as uploader_user_id,
+          u.business_media_in_use,
+          u.application_in_use,
+          exists (select 1 from updated) as delete_intent_acquired
+        from usage u
+      `
+    ]);
+  } catch {
+    return fail(
+      'BUSINESS_IMAGE_REFERENCE_CHECK_UNAVAILABLE',
+      'Business image lifecycle/reference state could not be verified before deletion',
+      503,
+      requestId
+    );
+  }
+
+  const locked = (lockedRows as BusinessImageRegistryRow[])[0];
+  if (!locked) {
+    return fail('BUSINESS_IMAGE_NOT_REGISTERED', 'Business image is not registered for lifecycle mutation', 409, requestId);
+  }
+  if (String(locked.uploader_user_id ?? '') !== uploaderUserId) {
+    return fail('FORBIDDEN', 'Only the storage uploader may mutate this business image', 403, requestId);
+  }
+
+  const decision = (decisionRows as DeleteIntentDecision[])[0];
+  if (decision?.business_media_in_use || decision?.application_in_use) {
+    return fail(
+      'BUSINESS_IMAGE_IN_USE',
+      'Business image is still referenced by an active application or business record',
+      409,
+      requestId
+    );
+  }
+  if (decision?.delete_intent_acquired) return { acquired: true, state: 'delete_pending' };
+  return { acquired: false, state: String(decision?.state ?? locked.state ?? '') };
+}
+
+async function finalizeBusinessImageRetired(
+  sql: Sql,
+  objectKeyValue: string,
+  requestId: string
+): Promise<Response | null> {
+  try {
+    const rows = await sql`
+      update business_image_objects
+      set state = 'retired', retired_at = coalesce(retired_at, now()), updated_at = now()
+      where object_key = ${objectKeyValue}
+        and state = 'delete_pending'
+      returning state
+    `;
+    if (rows[0]) return null;
+    const current = await sql`
+      select state from business_image_objects
+      where object_key = ${objectKeyValue}
+      limit 1
+    `;
+    if (String(current[0]?.state ?? '') === 'retired') return null;
+    return fail(
+      'BUSINESS_IMAGE_RETIREMENT_STATE_UNAVAILABLE',
+      'Business image retirement could not be finalized safely',
+      503,
+      requestId
+    );
+  } catch {
+    return fail(
+      'BUSINESS_IMAGE_REGISTRY_UNAVAILABLE',
+      'Business image lifecycle registry is unavailable',
+      503,
+      requestId
+    );
+  }
 }
 
 async function uploadDriveFile(
@@ -382,8 +583,24 @@ async function upload(request: Request, env: DriveEnv, requestId: string): Promi
   const file = files[0];
   const uploaded = await uploadDriveFile(env, validation.kind, file, resident, resident.complexSlug);
   if (!uploaded.id) throw new Error('Google Drive upload returned no file id');
+  const uploadedObjectKey = objectKey(validation.kind, uploaded.id);
+
+  // An uploaded business image is not referenceable until PostgreSQL owns an
+  // active lifecycle row. If registration fails, do not return the key; the
+  // Drive object is an orphan candidate rather than a product reference.
+  if (validation.kind === 'business-image') {
+    const registrationError = await registerBusinessImageObject(
+      auth.sql,
+      uploadedObjectKey,
+      resident.id,
+      resident.complexId,
+      requestId
+    );
+    if (registrationError) return registrationError;
+  }
+
   return ok({
-    objectKey: objectKey(validation.kind, uploaded.id),
+    objectKey: uploadedObjectKey,
     fileName: file.name,
     contentType: file.type,
     size: file.size,
@@ -425,28 +642,206 @@ async function streamObject(request: Request, env: DriveEnv, requestId: string, 
   return new Response(response.body, { status: 200, headers });
 }
 
+async function trashBusinessImageAndFinalize(
+  env: DriveEnv,
+  sql: Sql,
+  parsed: ParsedObjectKey,
+  requestId: string
+): Promise<Response> {
+  let response: Response;
+  try {
+    response = await googleFetch(env, `${DRIVE_API}/files/${encodeURIComponent(parsed.fileId)}?supportsAllDrives=true`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ trashed: true })
+    });
+  } catch {
+    return fail(
+      'BUSINESS_IMAGE_RETIREMENT_PENDING',
+      'Business image delete intent is recorded but Google Drive retirement is not yet confirmed',
+      503,
+      requestId
+    );
+  }
+
+  if (!response.ok && response.status !== 404) {
+    return fail(
+      'BUSINESS_IMAGE_RETIREMENT_PENDING',
+      'Business image delete intent is recorded but Google Drive retirement is not yet confirmed',
+      503,
+      requestId
+    );
+  }
+
+  const finalizeError = await finalizeBusinessImageRetired(sql, parsed.objectKey, requestId);
+  if (finalizeError) return finalizeError;
+  return ok({ objectKey: parsed.objectKey, deleted: true, retired: true }, requestId);
+}
+
+async function reconcileBusinessImageRetirement(
+  env: DriveEnv,
+  sql: Sql,
+  actor: Actor,
+  parsed: ParsedObjectKey,
+  requestId: string
+): Promise<Response> {
+  let metadata: DriveMetadata | null;
+  try {
+    metadata = await readDriveMetadata(env, parsed);
+  } catch {
+    return fail(
+      'BUSINESS_IMAGE_RETIREMENT_PENDING',
+      'Business image retirement state could not be reconciled with Google Drive',
+      503,
+      requestId
+    );
+  }
+
+  if (!metadata) {
+    const finalizeError = await finalizeBusinessImageRetired(sql, parsed.objectKey, requestId);
+    if (finalizeError) return finalizeError;
+    return ok({ objectKey: parsed.objectKey, deleted: true, retired: true, reconciled: true }, requestId);
+  }
+
+  if (!retirementMetadataMatches(env, parsed, metadata, actor.id)) {
+    return fail(
+      'BUSINESS_IMAGE_RETIREMENT_PENDING',
+      'Business image retirement metadata could not be verified safely',
+      503,
+      requestId
+    );
+  }
+
+  if (metadata.trashed) {
+    const finalizeError = await finalizeBusinessImageRetired(sql, parsed.objectKey, requestId);
+    if (finalizeError) return finalizeError;
+    return ok({ objectKey: parsed.objectKey, deleted: true, retired: true, reconciled: true }, requestId);
+  }
+
+  return trashBusinessImageAndFinalize(env, sql, parsed, requestId);
+}
+
+async function removeRegisteredBusinessImage(
+  auth: { actor: Actor; sql: Sql },
+  env: DriveEnv,
+  parsed: ParsedObjectKey,
+  registry: BusinessImageRegistryRow,
+  requestId: string
+): Promise<Response> {
+  if (String(registry.uploader_user_id ?? '') !== auth.actor.id) {
+    return fail('FORBIDDEN', 'Only the storage uploader may mutate this business image', 403, requestId);
+  }
+
+  const state = String(registry.state ?? '');
+  if (state === 'retired') {
+    return ok({ objectKey: parsed.objectKey, deleted: true, retired: true, alreadyRetired: true }, requestId);
+  }
+  if (state === 'delete_pending') {
+    return reconcileBusinessImageRetirement(env, auth.sql, auth.actor, parsed, requestId);
+  }
+  if (state !== 'active') {
+    return fail('BUSINESS_IMAGE_NOT_ACTIVE', 'Business image is not active for lifecycle mutation', 409, requestId);
+  }
+
+  let metadata: DriveMetadata | null;
+  try {
+    metadata = await readDriveMetadata(env, parsed);
+  } catch {
+    return fail('BUSINESS_IMAGE_REFERENCE_UNAVAILABLE', 'Business image could not be verified against storage', 503, requestId);
+  }
+  if (!metadata || !metadataMatches(env, parsed, metadata)) return fail('NOT_FOUND', 'Storage object not found', 404, requestId);
+  const denied = await authorizeObject(auth.actor, metadata, requestId);
+  if (denied) return denied;
+
+  const intent = await acquireBusinessImageDeleteIntent(auth.sql, parsed.objectKey, auth.actor.id, requestId);
+  if (intent instanceof Response) return intent;
+  if (!intent.acquired) {
+    if (intent.state === 'delete_pending') {
+      return reconcileBusinessImageRetirement(env, auth.sql, auth.actor, parsed, requestId);
+    }
+    if (intent.state === 'retired') {
+      return ok({ objectKey: parsed.objectKey, deleted: true, retired: true, alreadyRetired: true }, requestId);
+    }
+    return fail('BUSINESS_IMAGE_NOT_ACTIVE', 'Business image is not active for deletion', 409, requestId);
+  }
+
+  // The DB delete intent is committed before this external Drive side effect.
+  return trashBusinessImageAndFinalize(env, auth.sql, parsed, requestId);
+}
+
+async function removeLegacyUnregisteredBusinessImage(
+  auth: { actor: Actor; sql: Sql },
+  env: DriveEnv,
+  parsed: ParsedObjectKey,
+  requestId: string
+): Promise<Response> {
+  let metadata: DriveMetadata | null;
+  try {
+    metadata = await readDriveMetadata(env, parsed);
+  } catch {
+    return fail('BUSINESS_IMAGE_REFERENCE_UNAVAILABLE', 'Business image could not be verified against storage', 503, requestId);
+  }
+  if (!metadata || !metadataMatches(env, parsed, metadata)) return fail('NOT_FOUND', 'Storage object not found', 404, requestId);
+  const denied = await authorizeObject(auth.actor, metadata, requestId);
+  if (denied) return denied;
+
+  // Compatibility only for pre-registry objects. New reference acquisition now
+  // requires an active registry row, so an unregistered key cannot enter the
+  // current product reference workflow while this legacy delete completes.
+  const conflict = await businessImageDeleteConflict(auth.sql, parsed.objectKey, requestId);
+  if (conflict) return conflict;
+
+  let response: Response;
+  try {
+    response = await googleFetch(env, `${DRIVE_API}/files/${encodeURIComponent(parsed.fileId)}?supportsAllDrives=true`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ trashed: true })
+    });
+  } catch {
+    return fail('BUSINESS_IMAGE_RETIREMENT_PENDING', 'Google Drive retirement could not be confirmed', 503, requestId);
+  }
+  if (!response.ok && response.status !== 404) {
+    return fail('BUSINESS_IMAGE_RETIREMENT_PENDING', 'Google Drive retirement could not be confirmed', 503, requestId);
+  }
+  return ok({ objectKey: parsed.objectKey, deleted: true, legacyUnregistered: true }, requestId);
+}
+
 async function removeObject(request: Request, env: DriveEnv, requestId: string): Promise<Response> {
   const auth = await requireStorageActor(request, env, requestId);
   if (auth instanceof Response) return auth;
   const parsed = parseObjectKey(new URL(request.url).searchParams.get('objectKey') || '');
   if (!parsed) return fail('INVALID_OBJECT_KEY', 'Invalid storage object key', 400, requestId);
-  const metadata = await readDriveMetadata(env, parsed);
-  if (!metadata || !metadataMatches(env, parsed, metadata)) return fail('NOT_FOUND', 'Storage object not found', 404, requestId);
-  const denied = await authorizeObject(auth.actor, metadata, requestId);
-  if (denied) return denied;
 
-  if (parsed.kind === 'business-image') {
-    const conflict = await businessImageDeleteConflict(auth.sql, parsed.objectKey, requestId);
-    if (conflict) return conflict;
+  // Resident evidence remains exactly on its existing uploader/HOLD path and
+  // never enters the business-image lifecycle registry.
+  if (parsed.kind === 'resident-evidence') {
+    let metadata: DriveMetadata | null;
+    try {
+      metadata = await readDriveMetadata(env, parsed);
+    } catch {
+      return fail('STORAGE_UNAVAILABLE', 'Storage object could not be verified', 503, requestId);
+    }
+    if (!metadata || !metadataMatches(env, parsed, metadata)) return fail('NOT_FOUND', 'Storage object not found', 404, requestId);
+    const denied = await authorizeObject(auth.actor, metadata, requestId);
+    if (denied) return denied;
+    const response = await googleFetch(env, `${DRIVE_API}/files/${encodeURIComponent(parsed.fileId)}?supportsAllDrives=true`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ trashed: true })
+    });
+    if (!response.ok) throw new Error(`Google Drive delete failed (${response.status})`);
+    return ok({ objectKey: parsed.objectKey, deleted: true }, requestId);
   }
 
-  const response = await googleFetch(env, `${DRIVE_API}/files/${encodeURIComponent(parsed.fileId)}?supportsAllDrives=true`, {
-    method: 'PATCH',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ trashed: true })
-  });
-  if (!response.ok) throw new Error(`Google Drive delete failed (${response.status})`);
-  return ok({ objectKey: parsed.objectKey, deleted: true }, requestId);
+  if (parsed.kind === 'business-image') {
+    const registry = await readBusinessImageRegistry(auth.sql, parsed.objectKey, requestId);
+    if (registry instanceof Response) return registry;
+    if (registry) return removeRegisteredBusinessImage(auth, env, parsed, registry, requestId);
+    return removeLegacyUnregisteredBusinessImage(auth, env, parsed, requestId);
+  }
+
+  return fail('INVALID_OBJECT_KEY', 'Invalid storage object key', 400, requestId);
 }
 
 export async function handleStorageRequest(request: Request, env: CoreEnv, requestId: string): Promise<Response | null> {

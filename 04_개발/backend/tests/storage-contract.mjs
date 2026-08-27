@@ -11,6 +11,8 @@ const docs = read('../docs/GOOGLE_DRIVE_STORAGE_v1.md');
 const privacyHold = read('../docs/RESIDENT_EVIDENCE_STORAGE_PRIVACY_HOLD_20260827.md');
 const uploadHold = read('../docs/RESIDENT_EVIDENCE_UPLOAD_POLICY_HOLD_20260827.md');
 const businessMediaAuthz = read('../docs/BUSINESS_MEDIA_STORAGE_AUTHZ_CURRENT_20260827.md');
+const atomicityArchitecture = read('../docs/BUSINESS_IMAGE_CROSS_SYSTEM_ATOMICITY_ARCHITECTURE_20260827.md');
+const lifecycleMigration = read('migrations/019_business_image_lifecycle_registry.sql');
 const devVars = read('.dev.vars.example');
 
 assert.ok(app.includes("import { handleStorageRequest } from './storage-v1';"));
@@ -39,6 +41,8 @@ const uploadHoldIndex = upload.indexOf("if (kind === 'resident-evidence')");
 const uploadValidationIndex = upload.indexOf('validateStorageUpload(kind, files)');
 const verifiedResidentIndex = upload.indexOf('await requireVerifiedResident(request, env, auth.sql, requestId, complexSlug)');
 const driveUploadIndex = upload.indexOf('await uploadDriveFile(env, validation.kind, file, resident, resident.complexSlug)');
+const registryIndex = upload.indexOf('await registerBusinessImageObject(');
+const returnObjectIndex = upload.indexOf('objectKey: uploadedObjectKey');
 assert.ok(uploadAuthIndex >= 0, 'storage upload must require canonical product authentication');
 assert.ok(uploadHoldIndex > uploadAuthIndex, 'resident-evidence HOLD must execute only after canonical account authentication');
 assert.ok(upload.includes("'RESIDENT_VERIFICATION_POLICY_HOLD'"), 'new resident-evidence persistence must fail closed under Issue #59');
@@ -48,6 +52,12 @@ assert.ok(verifiedResidentIndex > uploadValidationIndex,
   'business-image upload must require current Household-v2 verified resident after payload validation');
 assert.ok(driveUploadIndex > verifiedResidentIndex,
   'Google Drive persistence must occur only after current verified-resident authorization');
+assert.ok(registryIndex > driveUploadIndex,
+  'business-image lifecycle registration must follow successful Drive upload');
+assert.ok(returnObjectIndex > registryIndex,
+  'business-image object key must not be returned before active registry registration succeeds');
+assert.ok(upload.includes("if (validation.kind === 'business-image')"));
+assert.ok(upload.includes('resident.complexId'));
 assert.ok(upload.includes("const kind = String(form.get('kind') || '').trim()"));
 assert.ok(upload.includes('const resident = residentOrResponse;'));
 assert.ok(residentEconomy.includes('await requireVerifiedResident(request, env, sql, requestId, input.complexSlug)'),
@@ -71,7 +81,7 @@ assert.equal(authorize.includes('requireOperationalAuthority'), false,
   'application-review scopes must not be silently widened into storage media-delete authority');
 
 const streamStart = storage.indexOf('async function streamObject(');
-const streamEnd = storage.indexOf('async function removeObject(', streamStart);
+const streamEnd = storage.indexOf('async function trashBusinessImageAndFinalize(', streamStart);
 const streamBlock = storage.slice(streamStart, streamEnd);
 assert.ok(streamBlock.includes('const denied = await authorizeObject(auth.actor, metadata, requestId)'),
   'private evidence read must use the current fail-closed object authorization boundary');
@@ -81,10 +91,24 @@ assert.ok(streamBlock.includes("parsed.visibility !== 'public' || parsed.kind !=
 const removeStart = storage.indexOf('async function removeObject(');
 const removeEnd = storage.indexOf('export async function handleStorageRequest', removeStart);
 const removeBlock = storage.slice(removeStart, removeEnd);
+assert.ok(removeBlock.includes("if (parsed.kind === 'resident-evidence')"),
+  'resident evidence delete must remain an explicit separate path');
 assert.ok(removeBlock.includes('const denied = await authorizeObject(auth.actor, metadata, requestId)'),
-  'all storage delete/trash mutations must use uploader/HOLD/current deny boundary');
-assert.ok(storage.includes("body: JSON.stringify({ trashed: true })"));
+  'resident-evidence delete/trash must retain uploader/HOLD authorization');
+assert.ok(removeBlock.includes("if (parsed.kind === 'business-image')"),
+  'business image delete must enter lifecycle registry routing');
+assert.ok(removeBlock.includes('await readBusinessImageRegistry(auth.sql, parsed.objectKey, requestId)'));
 
+const registeredStart = storage.indexOf('async function removeRegisteredBusinessImage(');
+const registeredEnd = storage.indexOf('async function removeLegacyUnregisteredBusinessImage(', registeredStart);
+const registeredBlock = storage.slice(registeredStart, registeredEnd);
+assert.ok(registeredBlock.includes('String(registry.uploader_user_id ?? \'\') !== auth.actor.id'),
+  'registry does not create non-uploader media mutation authority');
+assert.ok(registeredBlock.includes('await acquireBusinessImageDeleteIntent('));
+assert.ok(registeredBlock.includes("state === 'delete_pending'"));
+assert.ok(registeredBlock.includes("state === 'retired'"));
+
+assert.ok(storage.includes("body: JSON.stringify({ trashed: true })"));
 assert.equal(storage.includes('/permissions'), false, 'storage implementation must not create Drive public permissions');
 assert.equal(storage.includes('webContentLink'), false, 'storage implementation must not expose Drive webContentLink');
 assert.equal(storage.includes('webViewLink'), false, 'storage implementation must not expose Drive webViewLink');
@@ -103,6 +127,9 @@ assert.ok(businessMediaAuthz.includes('BUSINESS_IMAGE_UPLOAD_AUTHZ == HOUSEHOLD_
 assert.ok(businessMediaAuthz.includes('LEGACY_COMPLEX_MEMBERSHIP != BUSINESS_MEDIA_STORAGE_AUTHORITY'));
 assert.ok(businessMediaAuthz.includes('LEGACY_MANAGER_ADMIN != BUSINESS_MEDIA_DELETE_AUTHORITY'));
 assert.ok(businessMediaAuthz.includes('PUBLIC_MEDIA_READ != PUBLIC_MEDIA_MUTATION'));
+assert.ok(atomicityArchitecture.includes('NEW_REFERENCE XOR DELETE_INTENT'));
+assert.ok(lifecycleMigration.includes('create table if not exists business_image_objects'));
+assert.equal(lifecycleMigration.includes('resident-evidence'), false);
 assert.ok(devVars.includes('GOOGLE_DRIVE_CLIENT_SECRET=replace-with-oauth-client-secret'));
 assert.ok(devVars.includes('GOOGLE_DRIVE_REFRESH_TOKEN=replace-with-refresh-token'));
 
