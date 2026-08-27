@@ -55,7 +55,9 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y postgresql-client
-      - name: Run real PostgreSQL concurrency probe
+      - name: Run real PostgreSQL lifecycle and idempotency probes
         env:
           DATABASE_URL: postgresql://postgres@127.0.0.1:5432/danjion_atomicity?sslmode=disable
-        run: bash tests/business-image-postgres-concurrency.sh
+        run: |
+          bash tests/business-image-postgres-concurrency.sh
+          bash tests/business-image-upload-idempotency-postgres.sh
