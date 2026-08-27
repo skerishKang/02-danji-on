@@ -9,9 +9,14 @@ COMPLEX_ID='22222222-2222-4222-8222-222222222222'
 KEY_UPLOAD='gdrive/public/business-image/upload_pending_1234567890'
 KEY_REF_FIRST='gdrive/public/business-image/concurrency_ref_first_1234567890'
 KEY_DELETE_FIRST='gdrive/public/business-image/concurrency_delete_first_1234567890'
+KEY_LEASE_UPLOAD='gdrive/public/business-image/reconcile_upload_1234567890'
+KEY_LEASE_DELETE='gdrive/public/business-image/reconcile_delete_1234567890'
+KEY_LEASE_ACTIVE='gdrive/public/business-image/reconcile_active_1234567890'
+LEASE_A='44444444-4444-4444-8444-444444444444'
+LEASE_B='55555555-5555-4555-8555-555555555555'
 
-# Minimal prerequisite product schema. Migrations 019 and 020 are applied from
-# repository files below, so lifecycle DDL under test is not duplicated here.
+# Minimal prerequisite product schema. Migrations 019/020/021 are applied from
+# repository files below, so lifecycle/reconciliation DDL under test is not duplicated here.
 "${PSQL[@]}" <<SQL
 create extension if not exists pgcrypto;
 drop table if exists business_media cascade;
@@ -55,6 +60,7 @@ SQL
 
 "${PSQL[@]}" -f migrations/019_business_image_lifecycle_registry.sql
 "${PSQL[@]}" -f migrations/020_business_image_upload_pending.sql
+"${PSQL[@]}" -f migrations/021_business_image_reconciliation_lease.sql
 
 cleanup_case() {
   local key="$1"
@@ -108,6 +114,192 @@ insert into business_image_objects (object_key, uploader_user_id, complex_id, st
 values ('$KEY_UPLOAD', '$USER_ID', '$COMPLEX_ID', 'upload_pending');
 SQL
 assert_scalar "select count(*) from business_image_objects where object_key='$KEY_UPLOAD' and state='active'" "0" "UPLOAD_PENDING reference predicate denied"
+
+# ---------------------------------------------------------------------------
+# Background reconciliation lease: pending-only bounded claim, live-lease
+# overlap exclusion, stale-token finalize denial and expired-lease reclaim.
+# ---------------------------------------------------------------------------
+"${PSQL[@]}" <<SQL
+delete from business_image_objects where object_key in ('$KEY_LEASE_UPLOAD', '$KEY_LEASE_DELETE', '$KEY_LEASE_ACTIVE');
+insert into business_image_objects (
+  object_key, uploader_user_id, complex_id, state, updated_at
+) values (
+  '$KEY_LEASE_UPLOAD', '$USER_ID', '$COMPLEX_ID', 'upload_pending', now() - interval '10 minutes'
+);
+insert into business_image_objects (
+  object_key, uploader_user_id, complex_id, state, delete_requested_at, updated_at
+) values (
+  '$KEY_LEASE_DELETE', '$USER_ID', '$COMPLEX_ID', 'delete_pending', now() - interval '10 minutes', now() - interval '10 minutes'
+);
+insert into business_image_objects (
+  object_key, uploader_user_id, complex_id, state, updated_at
+) values (
+  '$KEY_LEASE_ACTIVE', '$USER_ID', '$COMPLEX_ID', 'active', now() - interval '10 minutes'
+);
+SQL
+
+CLAIM_A=$("${PSQL[@]}" -At <<SQL | tr -d '[:space:]'
+with candidates as (
+  select bio.object_key
+  from business_image_objects bio
+  where bio.state in ('upload_pending', 'delete_pending')
+    and bio.updated_at <= now() - interval '2 minutes'
+    and (bio.reconcile_next_attempt_at is null or bio.reconcile_next_attempt_at <= now())
+    and (bio.reconcile_lease_expires_at is null or bio.reconcile_lease_expires_at <= now())
+  order by coalesce(bio.reconcile_next_attempt_at, bio.updated_at), bio.updated_at, bio.object_key
+  limit 25
+  for update skip locked
+), claimed as (
+  update business_image_objects bio
+  set reconcile_lease_token = '$LEASE_A'::uuid,
+      reconcile_lease_expires_at = now() + interval '5 minutes',
+      reconcile_attempt_count = bio.reconcile_attempt_count + 1,
+      reconcile_last_attempt_at = now(),
+      updated_at = now()
+  from candidates c
+  where bio.object_key = c.object_key
+  returning bio.object_key
+)
+select count(*) from claimed;
+SQL
+)
+if [[ "$CLAIM_A" != "2" ]]; then
+  echo "FAIL RECONCILE first claim: expected=2 actual=$CLAIM_A" >&2
+  exit 1
+fi
+echo "PASS RECONCILE first claim pending-only: $CLAIM_A"
+
+assert_scalar "select count(*) from business_image_objects where object_key='$KEY_LEASE_ACTIVE' and reconcile_lease_token is not null" "0" "RECONCILE active row never claimed"
+assert_scalar "select reconcile_attempt_count from business_image_objects where object_key='$KEY_LEASE_UPLOAD'" "1" "RECONCILE attempt count increments"
+
+# Make rows old again while the lease remains live. A second worker must still
+# be excluded by the lease boundary rather than the age threshold alone.
+"${PSQL[@]}" -c "update business_image_objects set updated_at=now()-interval '10 minutes' where object_key in ('$KEY_LEASE_UPLOAD','$KEY_LEASE_DELETE')"
+
+CLAIM_B_LIVE=$("${PSQL[@]}" -At <<SQL | tr -d '[:space:]'
+with candidates as (
+  select bio.object_key
+  from business_image_objects bio
+  where bio.state in ('upload_pending', 'delete_pending')
+    and bio.updated_at <= now() - interval '2 minutes'
+    and (bio.reconcile_next_attempt_at is null or bio.reconcile_next_attempt_at <= now())
+    and (bio.reconcile_lease_expires_at is null or bio.reconcile_lease_expires_at <= now())
+  order by coalesce(bio.reconcile_next_attempt_at, bio.updated_at), bio.updated_at, bio.object_key
+  limit 25
+  for update skip locked
+), claimed as (
+  update business_image_objects bio
+  set reconcile_lease_token = '$LEASE_B'::uuid,
+      reconcile_lease_expires_at = now() + interval '5 minutes',
+      reconcile_attempt_count = bio.reconcile_attempt_count + 1,
+      reconcile_last_attempt_at = now(),
+      updated_at = now()
+  from candidates c
+  where bio.object_key = c.object_key
+  returning bio.object_key
+)
+select count(*) from claimed;
+SQL
+)
+if [[ "$CLAIM_B_LIVE" != "0" ]]; then
+  echo "FAIL RECONCILE overlapping live lease: expected=0 actual=$CLAIM_B_LIVE" >&2
+  exit 1
+fi
+echo "PASS RECONCILE overlapping live lease excluded: $CLAIM_B_LIVE"
+
+# Wrong/stale worker token cannot finalize the upload row.
+WRONG_FINALIZE=$("${PSQL[@]}" -At <<SQL | tr -d '[:space:]'
+with finalized as (
+  update business_image_objects
+  set state='active', reconcile_lease_token=null, reconcile_lease_expires_at=null, updated_at=now()
+  where object_key='$KEY_LEASE_UPLOAD'
+    and state='upload_pending'
+    and reconcile_lease_token='$LEASE_B'::uuid
+  returning state
+)
+select count(*) from finalized;
+SQL
+)
+if [[ "$WRONG_FINALIZE" != "0" ]]; then
+  echo "FAIL RECONCILE stale token finalized row" >&2
+  exit 1
+fi
+echo "PASS RECONCILE stale token finalize denied: $WRONG_FINALIZE"
+assert_scalar "select state from business_image_objects where object_key='$KEY_LEASE_UPLOAD'" "upload_pending" "RECONCILE stale finalize preserves state"
+
+# Correct lease owner may finalize upload_pending -> active.
+"${PSQL[@]}" <<SQL
+update business_image_objects
+set state='active',
+    reconcile_lease_token=null,
+    reconcile_lease_expires_at=null,
+    reconcile_next_attempt_at=null,
+    reconcile_last_error_code=null,
+    updated_at=now()
+where object_key='$KEY_LEASE_UPLOAD'
+  and state='upload_pending'
+  and reconcile_lease_token='$LEASE_A'::uuid;
+SQL
+assert_scalar "select state from business_image_objects where object_key='$KEY_LEASE_UPLOAD'" "active" "RECONCILE correct token activates upload"
+assert_scalar "select count(*) from business_image_objects where object_key='$KEY_LEASE_UPLOAD' and reconcile_lease_token is not null" "0" "RECONCILE activation clears lease"
+
+# Expire the delete lease. A later worker must be able to reclaim exactly that
+# still-pending row and increment its attempt counter.
+"${PSQL[@]}" <<SQL
+update business_image_objects
+set reconcile_lease_expires_at=now()-interval '1 minute',
+    updated_at=now()-interval '10 minutes'
+where object_key='$KEY_LEASE_DELETE'
+  and reconcile_lease_token='$LEASE_A'::uuid;
+SQL
+
+CLAIM_B_EXPIRED=$("${PSQL[@]}" -At <<SQL | tr -d '[:space:]'
+with candidates as (
+  select bio.object_key
+  from business_image_objects bio
+  where bio.state in ('upload_pending', 'delete_pending')
+    and bio.updated_at <= now() - interval '2 minutes'
+    and (bio.reconcile_next_attempt_at is null or bio.reconcile_next_attempt_at <= now())
+    and (bio.reconcile_lease_expires_at is null or bio.reconcile_lease_expires_at <= now())
+  order by coalesce(bio.reconcile_next_attempt_at, bio.updated_at), bio.updated_at, bio.object_key
+  limit 25
+  for update skip locked
+), claimed as (
+  update business_image_objects bio
+  set reconcile_lease_token = '$LEASE_B'::uuid,
+      reconcile_lease_expires_at = now() + interval '5 minutes',
+      reconcile_attempt_count = bio.reconcile_attempt_count + 1,
+      reconcile_last_attempt_at = now(),
+      updated_at = now()
+  from candidates c
+  where bio.object_key = c.object_key
+  returning bio.object_key
+)
+select count(*) from claimed;
+SQL
+)
+if [[ "$CLAIM_B_EXPIRED" != "1" ]]; then
+  echo "FAIL RECONCILE expired lease reclaim: expected=1 actual=$CLAIM_B_EXPIRED" >&2
+  exit 1
+fi
+echo "PASS RECONCILE expired lease reclaimed: $CLAIM_B_EXPIRED"
+assert_scalar "select reconcile_attempt_count from business_image_objects where object_key='$KEY_LEASE_DELETE'" "2" "RECONCILE reclaim increments attempt count"
+assert_scalar "select (reconcile_lease_token='$LEASE_B'::uuid)::int from business_image_objects where object_key='$KEY_LEASE_DELETE'" "1" "RECONCILE new lease token owns row"
+
+"${PSQL[@]}" <<SQL
+update business_image_objects
+set state='retired',
+    retired_at=coalesce(retired_at, now()),
+    reconcile_lease_token=null,
+    reconcile_lease_expires_at=null,
+    reconcile_next_attempt_at=null,
+    reconcile_last_error_code=null,
+    updated_at=now()
+where object_key='$KEY_LEASE_DELETE'
+  and state='delete_pending'
+  and reconcile_lease_token='$LEASE_B'::uuid;
+SQL
+assert_scalar "select state from business_image_objects where object_key='$KEY_LEASE_DELETE'" "retired" "RECONCILE reclaimed delete retires"
 
 # ---------------------------------------------------------------------------
 # Case 1: reference transaction owns registry row first.
@@ -249,6 +441,8 @@ set +e
 BAD_LIFECYCLE_STATUS=$?
 "${PSQL[@]}" -c "update business_image_objects set state='upload_pending', delete_requested_at=now() where object_key='$KEY_REF_FIRST'" >/dev/null 2>&1
 BAD_PENDING_STATUS=$?
+"${PSQL[@]}" -c "update business_image_objects set reconcile_lease_token='$LEASE_A'::uuid, reconcile_lease_expires_at=null where object_key='$KEY_REF_FIRST'" >/dev/null 2>&1
+BAD_LEASE_PAIR_STATUS=$?
 set -e
 if [[ "$BAD_LIFECYCLE_STATUS" -eq 0 ]]; then
   echo "FAIL lifecycle timestamp constraint accepted retired without delete_requested_at" >&2
@@ -258,6 +452,10 @@ if [[ "$BAD_PENDING_STATUS" -eq 0 ]]; then
   echo "FAIL lifecycle timestamp constraint accepted upload_pending with delete_requested_at" >&2
   exit 1
 fi
-echo "PASS lifecycle timestamp constraint rejects incoherent retirement and upload_pending timestamps"
+if [[ "$BAD_LEASE_PAIR_STATUS" -eq 0 ]]; then
+  echo "FAIL reconciliation lease constraint accepted token without expiry" >&2
+  exit 1
+fi
+echo "PASS lifecycle/reconciliation constraints reject incoherent timestamps and lease pairs"
 
-echo "PASS PostgreSQL 18 business-image lifecycle + atomicity: UPLOAD_PENDING -> ACTIVE; REFERENCE_FIRST -> DELETE_DENIED; DELETE_INTENT_FIRST -> REFERENCE_DENIED"
+echo "PASS PostgreSQL 18 business-image lifecycle + atomicity + reconciliation lease: PENDING_CLAIM; LIVE_LEASE_EXCLUDED; STALE_TOKEN_DENIED; EXPIRED_LEASE_RECLAIMED; REFERENCE_FIRST -> DELETE_DENIED; DELETE_INTENT_FIRST -> REFERENCE_DENIED"
