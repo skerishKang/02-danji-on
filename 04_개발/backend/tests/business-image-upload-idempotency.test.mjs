@@ -82,7 +82,7 @@ assert.ok(resumeStart >= 0 && resumeEnd > resumeStart, 'same-ID resume helper mu
 const resumeBlock = uploadSource.slice(resumeStart, resumeEnd);
 assert.equal(resumeBlock.includes('generateDriveFileId('), false, 'same-ID resume must never generate a replacement Drive id');
 assert.ok(resumeBlock.includes('await readDriveMetadata('), 'resume must prove exact Drive state before binary upload');
-assert.ok(resumeBlock.includes('await persistIdempotentReservedBusinessImageUpload('), '404 resume must persist using the existing reserved object key');
+assert.ok(resumeBlock.includes('return persistIdempotentReservedBusinessImageUpload('), '404 resume must persist using the existing reserved object key');
 
 function cloneRow(row) {
   return row ? { ...row } : null;
