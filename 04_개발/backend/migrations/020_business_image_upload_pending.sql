@@ -1,5 +1,5 @@
 -- DanjiOn business-image pre-upload reservation lifecycle.
--- Extends migration 019 without changing resident-evidence policy.
+-- Extends migration 019 for the business-image registry only.
 
 alter table business_image_objects
   drop constraint if exists chk_business_image_object_state;
