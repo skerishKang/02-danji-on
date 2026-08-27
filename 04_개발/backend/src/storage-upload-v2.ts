@@ -347,7 +347,12 @@ export async function activateBusinessImageUpload(
   try {
     const rows = await sql`
       update business_image_objects
-      set state = 'active', updated_at = now()
+      set state = 'active',
+          reconcile_lease_token = null,
+          reconcile_lease_expires_at = null,
+          reconcile_next_attempt_at = null,
+          reconcile_last_error_code = null,
+          updated_at = now()
       where object_key = ${objectKeyValue}
         and uploader_user_id = ${uploaderUserId}::uuid
         and complex_id = ${complexId}::uuid
