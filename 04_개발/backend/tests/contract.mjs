@@ -10,6 +10,7 @@ const adminReviewContext = read('src/admin-review-context-v1.ts');
 const adminVerification = read('src/admin-verification-v1.ts');
 const operationalAuthz = read('src/operational-authz-v2.ts');
 const residentApplication = read('src/resident-application-v1.ts');
+const residentEconomy = read('src/resident-economy-v2.ts');
 const residentVerification = read('src/resident-verification-v1.ts');
 const benefitWallet = read('src/benefit-wallet-v1.ts');
 const payloadPolicy = read('src/payload-policy.ts');
@@ -29,6 +30,7 @@ const privateRouters = [
   adminReviewContext,
   adminVerification,
   residentApplication,
+  residentEconomy,
   residentVerification,
   benefitWallet
 ];
@@ -55,21 +57,21 @@ const checks = [
   ['admin audit supports application filter and limit', adminAudit.includes("url.searchParams.get('applicationId')") && adminAudit.includes("url.searchParams.get('limit')")],
   ['resident verification admin is policy-hold fail closed', adminVerification.includes('RESIDENT_VERIFICATION_POLICY_HOLD') && !adminVerification.includes("role in ('manager','admin')") && !adminVerification.includes('evidence_object_key')],
   ['operational auth never trusts legacy manager/admin membership', !operationalAuthz.includes('complex_memberships') && operationalAuthz.includes('padiem_operator_grants') && operationalAuthz.includes('complex_operator_grants')],
-  ['resident workflow uses narrow Neon type', residentApplication.includes('NeonQueryFunction<false, false>')],
-  ['resident resubmit is owner scoped', residentApplication.includes('a.applicant_user_id = ${actor.id}::uuid')],
-  ['resident resubmit only accepts changes requested state', residentApplication.includes("a.status = 'changes_requested'") && residentApplication.includes("status = 'pending'")],
-  ['resident create reads idempotency key', residentApplication.includes("request.headers.get('idempotency-key')")],
-  ['idempotency key validates format', residentApplication.includes('validIdempotencyKey') && residentApplication.includes('INVALID_IDEMPOTENCY_KEY')],
-  ['idempotency request fingerprint uses SHA-256', residentApplication.includes("crypto.subtle.digest('SHA-256'") && residentApplication.includes('submission_fingerprint')],
-  ['idempotency conflict rejects changed body', residentApplication.includes('IDEMPOTENCY_KEY_REUSED') && residentApplication.includes('different request body')],
-  ['idempotency replay returns existing request', residentApplication.includes('idempotency_replayed: true')],
+  ['resident workflow uses narrow Neon type', residentEconomy.includes('NeonQueryFunction<false, false>')],
+  ['resident resubmit is owner scoped', residentEconomy.includes('a.applicant_user_id = ${actor.id}::uuid') && residentEconomy.includes('a.applicant_user_id = ${resident.id}::uuid')],
+  ['resident resubmit only accepts changes requested state', residentEconomy.includes("a.status = 'changes_requested'") && residentEconomy.includes("status = 'pending'")],
+  ['resident create reads idempotency key', residentEconomy.includes("request.headers.get('idempotency-key')")],
+  ['idempotency key validates format', residentEconomy.includes('validIdempotencyKey') && residentEconomy.includes('INVALID_IDEMPOTENCY_KEY')],
+  ['idempotency request fingerprint uses SHA-256', residentEconomy.includes("crypto.subtle.digest('SHA-256'") && residentEconomy.includes('submission_fingerprint')],
+  ['idempotency conflict rejects changed body', residentEconomy.includes('IDEMPOTENCY_KEY_REUSED') && residentEconomy.includes('different request body')],
+  ['idempotency replay returns existing request', residentEconomy.includes('idempotency_replayed: true')],
   ['idempotency schema binds user and key uniquely', idempotencyMigration.includes('uq_business_application_submission_key') && idempotencyMigration.includes('applicant_user_id, submission_key')],
   ['idempotency schema binds key and fingerprint pair', idempotencyMigration.includes('chk_application_submission_pair') && idempotencyMigration.includes('submission_fingerprint')],
   ['public business list exists', core.includes('/businesses') && core.includes('business_complex_relations')],
   ['verified resident contact boundary exists', core.includes('RESIDENT_VERIFICATION_REQUIRED') && core.includes('business_contacts')],
-  ['benefit wallet requires verified membership to claim', benefitWallet.includes('requireVerifiedMembership') && benefitWallet.includes('RESIDENT_VERIFICATION_REQUIRED')],
-  ['benefit wallet claim is one-per-user-and-benefit', benefitClaimsMigration.includes('unique (user_id, benefit_id)') && benefitWallet.includes('on conflict (user_id, benefit_id) do nothing')],
-  ['benefit wallet claim codes are server issued', benefitWallet.includes("'DANJION-' || upper") && benefitClaimsMigration.includes('chk_benefit_claim_code_format')],
+  ['benefit claim requires Household-v2 verified resident authority', residentEconomy.includes('requireVerifiedResident(request, env, sql, requestId, complexSlug)')],
+  ['benefit wallet claim is one-per-user-and-benefit', benefitClaimsMigration.includes('unique (user_id, benefit_id)') && residentEconomy.includes('on conflict (user_id, benefit_id) do nothing')],
+  ['benefit wallet claim codes are server issued', residentEconomy.includes("'DANJION-' || upper") && benefitClaimsMigration.includes('chk_benefit_claim_code_format')],
   ['benefit wallet supports stored to used lifecycle', benefitClaimsMigration.includes("status in ('stored','used')") && benefitWallet.includes("set status = 'used'")],
   ['benefit wallet use is owner scoped and idempotent', benefitWallet.includes('where user_id = ${actor.id}::uuid') && benefitWallet.includes("and status = 'stored'") && benefitWallet.includes('return ok(existing[0], requestId)')],
   ['live auth dependency is pinned', packageJson.includes('"jose": "6.2.4"')],
