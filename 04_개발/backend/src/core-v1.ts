@@ -323,48 +323,6 @@ async function handlePrivate(request: Request, env: CoreEnv, sql: Sql, id: strin
     return ok({ businessId, bookmarked: false }, id);
   }
 
-  if (request.method === 'POST' && path === '/api/v1/me/business-applications') {
-    const payload = await bodyJson(request, id);
-    if (payload instanceof Response) return payload;
-    const complexSlug = String(payload.complexSlug ?? '').trim();
-    const relationType = String(payload.relationType ?? '').trim();
-    const businessName = String(payload.businessName ?? '').trim();
-    const categoryName = String(payload.categoryName ?? '').trim();
-    const serviceSummary = String(payload.serviceSummary ?? '').trim();
-    if (!complexSlug || !businessName || !categoryName || !serviceSummary) {
-      return fail('VALIDATION_ERROR', 'complexSlug, businessName, categoryName and serviceSummary are required', 400, id);
-    }
-    if (!['resident','resident_family','neighbor','local'].includes(relationType)) {
-      return fail('VALIDATION_ERROR', 'Invalid relationType', 400, id);
-    }
-    const member = await membership(sql, actor.id, complexSlug);
-    if (!member) return fail('FORBIDDEN', 'No membership for target complex', 403, id);
-    const rows = await sql`
-      insert into business_applications (
-        complex_id, applicant_user_id, relation_type, business_name, category_name,
-        service_summary, price_text, contact_method, service_area, benefit_text,
-        availability_text, representative_image_object_key, status
-      )
-      values (
-        ${String(member.complex_id)}::uuid,
-        ${actor.id}::uuid,
-        ${relationType},
-        ${businessName},
-        ${categoryName},
-        ${serviceSummary},
-        ${String(payload.priceText ?? '') || null},
-        ${String(payload.contactMethod ?? '') || null},
-        ${String(payload.serviceArea ?? '') || null},
-        ${String(payload.benefitText ?? '') || null},
-        ${String(payload.availabilityText ?? '') || null},
-        ${String(payload.representativeImageObjectKey ?? '') || null},
-        'pending'
-      )
-      returning id, status, created_at
-    `;
-    return ok(rows[0], id, 201);
-  }
-
   if (request.method === 'GET' && path === '/api/v1/me/business-applications') {
     const rows = await sql`
       select a.id, c.slug as complex_slug, a.relation_type, a.business_name,
