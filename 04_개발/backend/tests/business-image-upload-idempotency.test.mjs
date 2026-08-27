@@ -38,12 +38,10 @@ assert.equal(validBusinessImageUploadIdempotencyKey('bad key with spaces'), fals
 
 const fp1 = await businessImageUploadRequestFingerprint(file, complexSlug);
 const fp2 = await businessImageUploadRequestFingerprint(
-  new File(['same-business-image'], 'shop.png', { type: 'image/png' }),
-  complexSlug
+  new File(['same-business-image'], 'shop.png', { type: 'image/png' }), complexSlug
 );
 const fpDifferent = await businessImageUploadRequestFingerprint(
-  new File(['different-business-image'], 'shop.png', { type: 'image/png' }),
-  complexSlug
+  new File(['different-business-image'], 'shop.png', { type: 'image/png' }), complexSlug
 );
 assert.equal(fp1, fp2, 'same logical file request must have a stable fingerprint');
 assert.notEqual(fp1, fpDifferent, 'different file bytes must change the fingerprint');
@@ -59,7 +57,7 @@ assert.ok(migration022.includes("upload_request_fingerprint ~ '^[0-9a-f]{64}$'")
 assert.ok(uploadSource.includes("request.headers.get('idempotency-key')"));
 assert.ok(uploadSource.includes("'IDEMPOTENCY_KEY_REUSED'"));
 assert.ok(uploadSource.includes("'BUSINESS_IMAGE_UPLOAD_IDEMPOTENCY_STATE_CONFLICT'"));
-assert.ok(architecture.includes('BACKEND_IDEMPOTENCY_CAPABILITY != CLIENT_RETRY_DEDUPLICATION_ACTIVE'));
+assert.ok(architecture.includes('BACKEND_IDEMPOTENCY_CAPABILITY_READY != CLIENT_RETRY_DEDUPLICATION_ACTIVE'));
 
 const keyedStart = uploadSource.indexOf('async function runIdempotentTrackedBusinessImageUpload(');
 const keyedEnd = uploadSource.indexOf('export async function runTrackedBusinessImageUpload(', keyedStart);
@@ -207,7 +205,6 @@ function installFetch(options = {}) {
 
 const originalFetch = globalThis.fetch;
 try {
-  // First keyed request wins the durable binding and uploads exactly one binary.
   let fixture = makeSql();
   let counters = installFetch();
   let result = await runTrackedBusinessImageUpload(env, fixture.sql, file, resident, 'req-first', key);
@@ -220,7 +217,6 @@ try {
   assert.equal(counters.generated(), 1);
   assert.equal(counters.uploaded(), 1);
 
-  // Lost HTTP success -> same logical retry replays the exact active object.
   const beforeGenerate = counters.generated();
   const beforeUpload = counters.uploaded();
   result = await runTrackedBusinessImageUpload(env, fixture.sql, file, resident, 'req-retry', key);
@@ -231,7 +227,6 @@ try {
   assert.equal(counters.uploaded(), beforeUpload, 'active replay must not upload another binary');
   assert.equal(counters.metadataReads() >= 2, true, 'active replay must confirm exact Drive metadata');
 
-  // Same key with different bytes is a deterministic 409 before any Drive operation.
   const differentFile = new File(['different-business-image'], 'shop.png', { type: 'image/png' });
   const generateBeforeConflict = counters.generated();
   const uploadBeforeConflict = counters.uploaded();
@@ -242,14 +237,12 @@ try {
   assert.equal(counters.generated(), generateBeforeConflict);
   assert.equal(counters.uploaded(), uploadBeforeConflict);
 
-  // Lifecycle retirement is authoritative: a keyed retry may never resurrect it.
   fixture.setState(objectKey, 'delete_pending');
   result = await runTrackedBusinessImageUpload(env, fixture.sql, file, resident, 'req-retired-state', key);
   assert.ok(result instanceof Response);
   assert.equal(result.status, 409);
   assert.equal((await result.json()).error.code, 'BUSINESS_IMAGE_UPLOAD_IDEMPOTENCY_STATE_CONFLICT');
 
-  // Direct reservation race: one key may bind only one candidate object.
   fixture = makeSql();
   const candidateA = 'gdrive/public/business-image/idem_candidate_A_1234567890';
   const candidateB = 'gdrive/public/business-image/idem_candidate_B_1234567890';
@@ -265,8 +258,6 @@ try {
   assert.equal(reservation.reserved, false);
   assert.equal(reservation.row.object_key, candidateA);
 
-  // Simulated concurrency loser: first lookup misses, unique reservation loses,
-  // candidate id is unused, and only the winner's exact object is reconciled.
   const winnerRow = {
     object_key: objectKey,
     uploader_user_id: uploader,
