@@ -475,6 +475,7 @@ export async function reconcileBusinessImageUploadPending(
 async function idempotentReplay(
   env: CoreEnv,
   sql: Sql,
+  file: File,
   row: RegistryRow,
   resident: TrackedResident,
   requestFingerprint: string,
@@ -505,9 +506,14 @@ async function idempotentReplay(
       requestId
     );
   }
-  const replay = await reconcileBusinessImageUploadPending(
-    env, sql, objectKeyValue, resident.id, resident.complexId, resident.complexSlug, requestId
-  );
+
+  const replay = row.state === 'upload_pending'
+    ? await resumeIdempotentBusinessImageUploadPending(
+        env, sql, file, resident, objectKeyValue, requestId
+      )
+    : await reconcileBusinessImageUploadPending(
+        env, sql, objectKeyValue, resident.id, resident.complexId, resident.complexSlug, requestId
+      );
   if (replay instanceof Response) return replay;
   return { ...replay, idempotencyReplayed: true };
 }
@@ -576,6 +582,109 @@ async function persistIdempotentReservedBusinessImageUpload(
   return { objectKey: objectKeyValue, metadata };
 }
 
+async function resumeIdempotentBusinessImageUploadPending(
+  env: CoreEnv,
+  sql: Sql,
+  file: File,
+  resident: TrackedResident,
+  objectKeyValue: string,
+  requestId: string
+): Promise<UploadSuccess | Response> {
+  const driveEnv = env as DriveEnv;
+  const fileId = fileIdFromBusinessImageObjectKey(objectKeyValue);
+  if (!fileId) {
+    return fail('INVALID_BUSINESS_IMAGE_REFERENCE', 'Reserved business image object key is invalid', 400, requestId);
+  }
+
+  const registry = await readRegistryRow(sql, objectKeyValue, requestId);
+  if (registry instanceof Response) return registry;
+  if (!registry) {
+    return fail('BUSINESS_IMAGE_NOT_REGISTERED', 'Reserved business image lifecycle row is missing', 503, requestId);
+  }
+  if (registry.uploader_user_id !== resident.id || registry.complex_id !== resident.complexId) {
+    return fail(
+      'BUSINESS_IMAGE_UPLOAD_IDEMPOTENCY_SCOPE_CONFLICT',
+      'The idempotent business image reservation no longer matches the verified resident scope',
+      409,
+      requestId
+    );
+  }
+  if (registry.state === 'active') {
+    return reconcileBusinessImageUploadPending(
+      env, sql, objectKeyValue, resident.id, resident.complexId, resident.complexSlug, requestId
+    );
+  }
+  if (registry.state !== 'upload_pending') {
+    return fail(
+      'BUSINESS_IMAGE_UPLOAD_IDEMPOTENCY_STATE_CONFLICT',
+      'The original idempotent business image upload is no longer resumable',
+      409,
+      requestId
+    );
+  }
+
+  let metadata: DriveMetadata | null;
+  try {
+    metadata = await readDriveMetadata(driveEnv, fileId);
+  } catch {
+    return fail(
+      'BUSINESS_IMAGE_UPLOAD_RECONCILIATION_PENDING',
+      'Reserved business image could not prove exact Google Drive absence for safe resume',
+      503,
+      requestId
+    );
+  }
+
+  if (metadata) {
+    if (!businessImageMetadataMatches(driveEnv, metadata, fileId, resident.id, resident.complexSlug)) {
+      return fail(
+        'BUSINESS_IMAGE_UPLOAD_RECONCILIATION_PENDING',
+        'An object exists at the reserved Drive id but does not match the DanjiOn reservation',
+        503,
+        requestId
+      );
+    }
+    const activationError = await activateBusinessImageUpload(
+      sql, objectKeyValue, resident.id, resident.complexId, requestId
+    );
+    if (activationError) return activationError;
+    return { objectKey: objectKeyValue, metadata };
+  }
+
+  // The exact reserved ID returned 404. Re-read lifecycle state before I/O;
+  // no database lock is held across the subsequent Google Drive request.
+  const freshRegistry = await readRegistryRow(sql, objectKeyValue, requestId);
+  if (freshRegistry instanceof Response) return freshRegistry;
+  if (!freshRegistry) {
+    return fail('BUSINESS_IMAGE_NOT_REGISTERED', 'Reserved business image lifecycle row is missing', 503, requestId);
+  }
+  if (freshRegistry.uploader_user_id !== resident.id || freshRegistry.complex_id !== resident.complexId) {
+    return fail(
+      'BUSINESS_IMAGE_UPLOAD_IDEMPOTENCY_SCOPE_CONFLICT',
+      'The idempotent business image reservation changed scope before resume',
+      409,
+      requestId
+    );
+  }
+  if (freshRegistry.state === 'active') {
+    return reconcileBusinessImageUploadPending(
+      env, sql, objectKeyValue, resident.id, resident.complexId, resident.complexSlug, requestId
+    );
+  }
+  if (freshRegistry.state !== 'upload_pending') {
+    return fail(
+      'BUSINESS_IMAGE_UPLOAD_IDEMPOTENCY_STATE_CONFLICT',
+      'The original idempotent business image upload changed lifecycle before resume',
+      409,
+      requestId
+    );
+  }
+
+  return persistIdempotentReservedBusinessImageUpload(
+    env, sql, file, resident, objectKeyValue, requestId
+  );
+}
+
 async function runIdempotentTrackedBusinessImageUpload(
   env: CoreEnv,
   sql: Sql,
@@ -599,7 +708,7 @@ async function runIdempotentTrackedBusinessImageUpload(
   const existing = await readIdempotentRegistryRow(sql, resident.id, idempotencyKey, requestId);
   if (existing instanceof Response) return existing;
   if (existing) {
-    return idempotentReplay(env, sql, existing, resident, requestFingerprint, requestId);
+    return idempotentReplay(env, sql, file, existing, resident, requestFingerprint, requestId);
   }
 
   let fileId: string;
@@ -620,7 +729,7 @@ async function runIdempotentTrackedBusinessImageUpload(
   );
   if (reservation instanceof Response) return reservation;
   if (!reservation.reserved) {
-    return idempotentReplay(env, sql, reservation.row, resident, requestFingerprint, requestId);
+    return idempotentReplay(env, sql, file, reservation.row, resident, requestFingerprint, requestId);
   }
 
   return persistIdempotentReservedBusinessImageUpload(
