@@ -9,8 +9,11 @@ import {
 
 const root = new URL('../', import.meta.url);
 const runtime = await readFile(new URL('src/storage-reconciliation-v1.ts', root), 'utf8');
+const uploadRuntime = await readFile(new URL('src/storage-upload-v2.ts', root), 'utf8');
+const storageRuntime = await readFile(new URL('src/storage-v1.ts', root), 'utf8');
 const worker = await readFile(new URL('src/worker-v2.ts', root), 'utf8');
 const migration021 = await readFile(new URL('migrations/021_business_image_reconciliation_lease.sql', root), 'utf8');
+const migration023 = await readFile(new URL('migrations/023_business_image_resolved_reconciliation_cleanup.sql', root), 'utf8');
 const wrangler = JSON.parse(await readFile(new URL('wrangler.jsonc', root), 'utf8'));
 
 const uploader = '11111111-1111-4111-8111-111111111111';
@@ -71,6 +74,52 @@ assert.ok(migration021.includes('reconcile_attempt_count integer not null defaul
 assert.ok(migration021.includes('chk_business_image_reconcile_lease_pair'));
 assert.ok(migration021.includes("where state in ('upload_pending', 'delete_pending')"));
 assert.equal(migration021.includes('resident-evidence'), false);
+
+assert.ok(migration023.includes("where state in ('active', 'retired')"));
+assert.ok(migration023.includes('chk_business_image_resolved_reconciliation_clear'));
+assert.ok(migration023.includes("state in ('upload_pending', 'delete_pending')"));
+for (const field of [
+  'reconcile_lease_token = null',
+  'reconcile_lease_expires_at = null',
+  'reconcile_next_attempt_at = null',
+  'reconcile_last_error_code = null'
+]) {
+  assert.ok(migration023.includes(field), `migration 023 must clear ${field}`);
+}
+assert.equal(migration023.includes('reconcile_attempt_count = null'), false, 'attempt count is retained as history');
+assert.equal(migration023.includes('reconcile_last_attempt_at = null'), false, 'last attempt timestamp is retained as history');
+
+const activationStart = uploadRuntime.indexOf('export async function activateBusinessImageUpload(');
+const activationEnd = uploadRuntime.indexOf('async function readRegistryRow(', activationStart);
+const activationBlock = uploadRuntime.slice(activationStart, activationEnd);
+assert.ok(activationStart >= 0 && activationEnd > activationStart);
+assert.ok(activationBlock.includes("set state = 'active'"));
+for (const field of [
+  'reconcile_lease_token = null',
+  'reconcile_lease_expires_at = null',
+  'reconcile_next_attempt_at = null',
+  'reconcile_last_error_code = null'
+]) {
+  assert.ok(activationBlock.includes(field), `foreground activation must clear ${field}`);
+}
+assert.equal(activationBlock.includes('reconcile_attempt_count ='), false, 'foreground activation preserves attempt history');
+assert.equal(activationBlock.includes('reconcile_last_attempt_at ='), false, 'foreground activation preserves last-attempt history');
+
+const retirementStart = storageRuntime.indexOf('async function finalizeBusinessImageRetired(');
+const retirementEnd = storageRuntime.indexOf('async function uploadDriveFile(', retirementStart);
+const retirementBlock = storageRuntime.slice(retirementStart, retirementEnd);
+assert.ok(retirementStart >= 0 && retirementEnd > retirementStart);
+assert.ok(retirementBlock.includes("set state = 'retired'"));
+for (const field of [
+  'reconcile_lease_token = null',
+  'reconcile_lease_expires_at = null',
+  'reconcile_next_attempt_at = null',
+  'reconcile_last_error_code = null'
+]) {
+  assert.ok(retirementBlock.includes(field), `foreground retirement must clear ${field}`);
+}
+assert.equal(retirementBlock.includes('reconcile_attempt_count ='), false, 'foreground retirement preserves attempt history');
+assert.equal(retirementBlock.includes('reconcile_last_attempt_at ='), false, 'foreground retirement preserves last-attempt history');
 
 assert.ok(runtime.includes("bio.state in ('upload_pending', 'delete_pending')"));
 assert.ok(runtime.includes('for update skip locked'));
@@ -252,4 +301,4 @@ try {
   globalThis.fetch = originalFetch;
 }
 
-console.log('PASS business-image background reconciliation lease/Drive/scheduled contract');
+console.log('PASS business-image background reconciliation + resolved-state lease cleanup contract');
