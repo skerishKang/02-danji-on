@@ -70,3 +70,39 @@ jobs:
             04_개발/frontend/test-results
           if-no-files-found: ignore
           retention-days: 7
+
+  community-api-e2e:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: 04_개발/frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: 04_개발/frontend/package.json
+      - name: Install frontend dependencies
+        run: npm install --ignore-scripts
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Run Community API-mode browser gate
+        env:
+          VITE_DATA_MODE: api
+          VITE_AUTH_MODE: dev
+          VITE_STORAGE_MODE: mock
+          VITE_COMPLEX_SLUG: bangnim-myeongji-roadhill
+          VITE_DEV_AUTH_USER: dev-resident-001
+          VITE_DEV_ADMIN_AUTH_USER: dev-manager-001
+        run: npx playwright test --config=playwright.community-api.config.ts
+      - name: Upload Community API-mode diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: community-api-playwright-diagnostics
+          path: |
+            04_개발/frontend/playwright-report
+            04_개발/frontend/test-results
+          if-no-files-found: ignore
+          retention-days: 7
