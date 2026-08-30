@@ -6,7 +6,7 @@ const [api, view, topbar, residentBackend] = await Promise.all([
   readFile(new URL('src/community-api.ts', root), 'utf8'),
   readFile(new URL('src/v2/visual/V2CommunityView.tsx', root), 'utf8'),
   readFile(new URL('src/v2/visual/V2Topbar.tsx', root), 'utf8'),
-  readFile(new URL('../../backend/src/community-resident-v1.ts', root), 'utf8')
+  readFile(new URL('../backend/src/community-resident-v1.ts', root), 'utf8')
 ]);
 
 // The Product Shell adapter must use the same authenticated resident boundary as
