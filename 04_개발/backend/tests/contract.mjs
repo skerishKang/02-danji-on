@@ -68,7 +68,7 @@ const checks = [
   ['idempotency schema binds user and key uniquely', idempotencyMigration.includes('uq_business_application_submission_key') && idempotencyMigration.includes('applicant_user_id, submission_key')],
   ['idempotency schema binds key and fingerprint pair', idempotencyMigration.includes('chk_application_submission_pair') && idempotencyMigration.includes('submission_fingerprint')],
   ['public business list exists', core.includes('/businesses') && core.includes('business_complex_relations')],
-  ['verified resident contact boundary exists', core.includes('RESIDENT_VERIFICATION_REQUIRED') && core.includes('business_contacts')],
+  ['verified resident contact boundary exists', core.includes('requireVerifiedResident(request, env, sql, id, complexSlug)') && core.includes('business_contacts') && !core.includes("['manager','admin']")],
   ['benefit claim requires Household-v2 verified resident authority', residentEconomy.includes('requireVerifiedResident(request, env, sql, requestId, complexSlug)')],
   ['benefit wallet claim is one-per-user-and-benefit', benefitClaimsMigration.includes('unique (user_id, benefit_id)') && residentEconomy.includes('on conflict (user_id, benefit_id) do nothing')],
   ['benefit wallet claim codes are server issued', residentEconomy.includes("'DANJION-' || upper") && benefitClaimsMigration.includes('chk_benefit_claim_code_format')],
