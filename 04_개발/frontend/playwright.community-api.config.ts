@@ -15,7 +15,10 @@ export default defineConfig({
     ...devices['Desktop Chrome']
   },
   webServer: {
-    command: 'npm run build && npm run preview -- --host 127.0.0.1 --port 4174',
+    // Dev mode is deliberate here: DevAuthProvider only emits the synthetic
+    // x-danjion-dev-auth-user header under import.meta.env.DEV. Production
+    // build/typecheck remains covered by the normal frontend CI jobs.
+    command: 'npm run dev -- --host 127.0.0.1 --port 4174',
     url: 'http://127.0.0.1:4174',
     reuseExistingServer: !process.env.CI,
     timeout: 30_000
