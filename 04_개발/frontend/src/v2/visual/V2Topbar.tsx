@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { V2CommunityView } from './V2CommunityView';
 import { V2Icon, type V2IconName } from './V2Icon';
 
@@ -34,7 +34,12 @@ export function V2Topbar({
   onRegister?: () => void;
 }) {
   const [communityOpen, setCommunityOpen] = useState(false);
+  const [residentVerified, setResidentVerified] = useState(verified);
   const safeProgress = Math.min(1, Math.max(0, progress));
+
+  useEffect(() => {
+    setResidentVerified(verified);
+  }, [verified]);
 
   function navigate(key: V2VisualNavKey) {
     if (key === 'community') setCommunityOpen(true);
@@ -64,7 +69,7 @@ export function V2Topbar({
             ))}
           </nav>
           <div className="v2-header-tools">
-            {verified && <span className="v2-verified-pill"><span className="v2-verified-dot" />{complexName} 입주민</span>}
+            {residentVerified && <span className="v2-verified-pill"><span className="v2-verified-dot" />{complexName} 입주민</span>}
             <button className="v2-icon-btn v2-search-tool" type="button" onClick={onOpenSearch} aria-label="검색 열기"><V2Icon name="search" /></button>
             <button className="v2-icon-btn" type="button" onClick={onOpenProfile} aria-label="내정보 열기"><V2Icon name="me" /></button>
             {onRegister && <button className="v2-gate1-announce" type="button" onClick={onRegister}>내 일 알리기</button>}
@@ -79,7 +84,13 @@ export function V2Topbar({
           </button>
         ))}
       </nav>
-      {communityOpen && <V2CommunityView verified={verified} onClose={closeCommunity} />}
+      {communityOpen && (
+        <V2CommunityView
+          verified={residentVerified}
+          onVerified={() => setResidentVerified(true)}
+          onClose={closeCommunity}
+        />
+      )}
     </>
   );
 }
