@@ -41,12 +41,18 @@ assert.equal(legacyWallet.includes('complex_memberships'), false);
 assert.equal(legacyWallet.includes('requireVerifiedMembership'), false);
 assert.equal(legacyWallet.includes('insert into benefit_claims'), false);
 
-// Core remains the collection-read fallback only. It may still use historical
-// membership data for unrelated self-profile/contact compatibility, but it may
-// never own the business-application create mutation again.
+// Core remains the collection-read fallback only. Business-contact disclosure
+// must use current Household-v2 verified-resident authority and must never
+// revive legacy complex_memberships manager/admin privilege as an access path.
 assert.ok(core.includes("request.method === 'GET' && path === '/api/v1/me/business-applications'"));
 assert.equal(core.includes("request.method === 'POST' && path === '/api/v1/me/business-applications'"), false);
 assert.equal(core.includes('insert into business_applications'), false);
+assert.ok(core.includes("import { requireVerifiedResident } from './authorization-v2';"));
+assert.ok(core.includes('requireVerifiedResident(request, env, sql, id, complexSlug)'));
+assert.ok(core.includes("bc.visibility in ('public','verified_residents')"));
+assert.equal(core.includes('async function membership('), false);
+assert.equal(core.includes("['manager','admin']"), false);
+assert.equal(core.includes('No membership for target complex'), false);
 
 // Routing order remains defense in depth even though legacy mutation ownership
 // is now removed from the lower handlers themselves.
@@ -56,4 +62,4 @@ const application = app.indexOf('handleResidentApplicationRequest(request, env, 
 const coreFallback = app.indexOf('return respond(await core.fetch(request, env))');
 assert.ok(v2 >= 0 && wallet > v2 && application > v2 && coreFallback > application);
 
-console.log('PASS resident economy Household v2 sole-mutation-authority contract');
+console.log('PASS resident economy Household v2 sole-mutation-authority and business-contact authz contract');
