@@ -1,5 +1,6 @@
 import { neon, type NeonQueryFunction } from '@neondatabase/serverless';
-import { requireActor, type Actor, type AuthEnv } from './auth-v1';
+import { requireActor, type AuthEnv } from './auth-v1';
+import { requireVerifiedResident } from './authorization-v2';
 
 export type CoreEnv = AuthEnv;
 
@@ -59,18 +60,6 @@ async function bodyJson(request: Request, id: string): Promise<Record<string, un
   } catch {
     return fail('INVALID_JSON', 'Invalid JSON', 400, id);
   }
-}
-
-async function membership(sql: Sql, userId: string, complexSlug: string) {
-  const rows = await sql`
-    select m.id, m.role, m.verification_status,
-           c.id as complex_id, c.slug as complex_slug, c.name as complex_name
-    from complex_memberships m
-    join complexes c on c.id = m.complex_id
-    where m.user_id = ${userId}::uuid and c.slug = ${complexSlug}
-    limit 1
-  `;
-  return rows[0];
 }
 
 function relationFilter(value: string | null): string | null {
@@ -340,13 +329,8 @@ async function handlePrivate(request: Request, env: CoreEnv, sql: Sql, id: strin
   if (match && request.method === 'GET') {
     const complexSlug = decodeURIComponent(match[1]);
     const businessId = match[2];
-    const member = await membership(sql, actor.id, complexSlug);
-    if (!member) return fail('FORBIDDEN', 'No membership for target complex', 403, id);
-    const verified = String(member.verification_status) === 'verified';
-    const privileged = ['manager','admin'].includes(String(member.role));
-    if (!verified && !privileged) {
-      return fail('RESIDENT_VERIFICATION_REQUIRED', 'Verified resident required', 403, id);
-    }
+    const residentOrResponse = await requireVerifiedResident(request, env, sql, id, complexSlug);
+    if (residentOrResponse instanceof Response) return residentOrResponse;
     const rows = await sql`
       select bc.contact_type, bc.contact_value
       from business_contacts bc
