@@ -1,0 +1,1 @@
+C5 integration is statically contracted and existing mock E2E remains regression coverage. Full C6 synthetic-principal API-mode/live-persistence evidence is intentionally not claimed by this file and remains under Issue #45.
