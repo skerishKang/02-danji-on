@@ -89,6 +89,7 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Run Community API-mode browser gate
         env:
+          VITE_UI_VARIANT: v2
           VITE_DATA_MODE: api
           VITE_AUTH_MODE: dev
           VITE_STORAGE_MODE: mock
