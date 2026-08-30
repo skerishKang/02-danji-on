@@ -22,7 +22,7 @@ test.describe('Community C6 API-mode browser gate', () => {
   test('403 resident probe keeps Community locked and carries dev resident identity', async ({ page }) => {
     let residentProbeHeader = '';
 
-    await page.route('**/api/**', async (route) => {
+    await page.route('**/api/v1/**', async (route) => {
       const request = route.request();
       const url = new URL(request.url());
       if (request.method() === 'GET' && url.pathname === COMMUNITY_POSTS) {
@@ -61,7 +61,7 @@ test.describe('Community C6 API-mode browser gate', () => {
       }
     ];
 
-    await page.route('**/api/**', async (route) => {
+    await page.route('**/api/v1/**', async (route) => {
       const request = route.request();
       const url = new URL(request.url());
       const method = request.method();
