@@ -8,17 +8,6 @@ on:
       - '04_개발/scripts/v2-*'
       - '04_개발/docs/v2/**'
       - '.github/workflows/v2-integration-gate.yml'
-  push:
-    branches:
-      - feat/v2-platform-20260808
-      - feat/current-product-baseline-20260826
-      - feat/current-ui-sibling-gate1-20260826
-      - feat/current-ui-react-completion-20260826
-    paths:
-      - '04_개발/frontend/**'
-      - '04_개발/scripts/v2-*'
-      - '04_개발/docs/v2/**'
-      - '.github/workflows/v2-integration-gate.yml'
   workflow_dispatch:
 
 concurrency:
@@ -30,7 +19,6 @@ permissions:
 
 jobs:
   fidelity-gate:
-    if: github.event_name != 'pull_request' || github.head_ref == 'feat/v2-platform-20260808' || github.head_ref == 'feat/current-product-baseline-20260826' || github.head_ref == 'feat/current-ui-sibling-gate1-20260826' || github.head_ref == 'feat/current-ui-react-completion-20260826'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
