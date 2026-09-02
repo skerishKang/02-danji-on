@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { publicComplexNewsClient } from '../../public-complex-news-client';
 import type { ComplexPost } from '../../types';
+import './v2-complex-news.css';
 
 function publishedLabel(value: string): string {
   const date = new Date(value);
