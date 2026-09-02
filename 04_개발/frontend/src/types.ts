@@ -98,6 +98,33 @@ export interface BusinessApplication {
   updatedAt?: string;
 }
 
+export type ShopRecommendationRelationType = Exclude<RelationType, 'resident'>;
+export type ShopRecommendationStatus = 'pending' | 'changes_requested' | 'approved' | 'rejected';
+
+export interface ShopRecommendationInput {
+  relationType: ShopRecommendationRelationType;
+  businessName: string;
+  categoryName: string;
+  serviceSummary: string;
+  serviceArea?: string;
+  reporterNote?: string;
+}
+
+export interface ShopRecommendation {
+  id: string;
+  relationType: ShopRecommendationRelationType;
+  businessName: string;
+  categoryName: string;
+  serviceSummary: string;
+  serviceArea?: string | null;
+  reporterNote?: string | null;
+  status: ShopRecommendationStatus;
+  reviewNote?: string | null;
+  approvedBusinessId?: string | null;
+  createdAt: string;
+  updatedAt?: string;
+}
+
 export interface DataAdapter {
   listBusinesses(filters?: BusinessFilters): Promise<Business[]>;
   getBusiness(id: string): Promise<Business | null>;
@@ -114,6 +141,7 @@ export interface DataAdapter {
   listMyBusinessApplications(): Promise<BusinessApplication[]>;
   getMyBusinessApplication(id: string): Promise<BusinessApplication | null>;
   resubmitBusinessApplication(id: string, input: BusinessApplicationInput): Promise<BusinessApplication>;
+  createShopRecommendation(input: ShopRecommendationInput): Promise<ShopRecommendation>;
 }
 
 export const relationLabels: Record<RelationType, string> = {
