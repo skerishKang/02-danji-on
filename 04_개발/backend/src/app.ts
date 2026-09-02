@@ -8,6 +8,7 @@ import { handleAdminRequest } from './admin-v1';
 import { handleBetterAuthRequest, type BetterAuthEnv } from './auth-better-v1';
 import { handleBenefitWalletRequest } from './benefit-wallet-v1';
 import { handleBusinessReviewRequest } from './business-reviews-v1';
+import { handleBusinessShareRequest } from './business-share-v1';
 import { handleCommunityModerationRequest } from './community-moderation-v1';
 import { handleCommunityReplyRequest } from './community-replies-v1';
 import { handleCommunityResidentRequest } from './community-resident-v1';
@@ -122,6 +123,8 @@ export default {
       if (authResponse) return respond(authResponse);
       const policyResponse = await validateRequestPayload(request, id);
       if (policyResponse) return respond(policyResponse);
+      const businessShareResponse = await handleBusinessShareRequest(request, env, id);
+      if (businessShareResponse) return respond(businessShareResponse);
       const accountLifecycleResponse = await handleAccountLifecycleRequest(request, env, id);
       if (accountLifecycleResponse) return respond(accountLifecycleResponse);
       const productMutationRateLimitResponse = await handleProductMutationRateLimitRequest(request, env, id);
