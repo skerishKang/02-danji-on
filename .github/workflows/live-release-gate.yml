@@ -9,6 +9,12 @@ on:
       - '04_개발/backend/src/app.ts'
       - '04_개발/frontend/e2e/live-release.spec.ts'
       - '04_개발/frontend/playwright.live.config.ts'
+      - '04_개발/frontend/package.json'
+      - '04_개발/frontend/.env.example'
+      - '04_개발/frontend/scripts/assert-live-build-env.mjs'
+      - '04_개발/frontend/tests/live-build-profile-contract.mjs'
+      - '04_개발/frontend/src/api/adapter.ts'
+      - '04_개발/frontend/src/storage.ts'
       - '04_개발/docs/LIVE_INTEGRATION_RELEASE_GATE_v1.md'
       - '.github/workflows/live-release-gate.yml'
   workflow_dispatch:
@@ -68,6 +74,13 @@ jobs:
         run: |
           npm install --ignore-scripts
           npx playwright test --config=playwright.live.config.ts --list
+      - name: Build fail-closed live frontend artifact profile
+        working-directory: 04_개발/frontend
+        env:
+          VITE_DATA_MODE: api
+          VITE_AUTH_MODE: danjion
+          VITE_STORAGE_MODE: drive
+        run: npm run build:live
 
   live-db-child:
     name: Neon child DB integration
