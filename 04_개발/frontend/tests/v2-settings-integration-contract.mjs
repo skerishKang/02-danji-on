@@ -19,8 +19,8 @@ assert.match(client, /JSON\.stringify\(\{ publicProfileEnabled: enabled \}\)/,
   'settings client may mutate only public profile visibility');
 assert.doesNotMatch(client, /localStorage|sessionStorage|indexedDB/i,
   'server-owned settings must never be reconstructed from browser persistence');
-assert.doesNotMatch(client, /consentType|policyVersion.*PATCH/s,
-  'settings client must not fabricate versioned consent mutations');
+assert.doesNotMatch(client, /\/api\/v1\/me\/consents|consentType/,
+  'settings client must not create a second versioned-consent mutation path');
 
 assert.match(panel, /data-v2-settings-panel/);
 assert.match(panel, /residentSettingsClient\.get\(\)/,
