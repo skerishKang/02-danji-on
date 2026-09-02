@@ -32,7 +32,7 @@ This document reconciles the 2026-09-02 Google Drive backend handoff with the cu
 | Area | Classification | Current disposition / evidence |
 |---|---|---|
 | Phase 0 environment separation | ALREADY_IMPLEMENTED | Cloudflare development/preview/production environment contracts exist. |
-| Phase 0 migrations | ALREADY_IMPLEMENTED | Normal migration chain now reaches `029_shop_recommendations.sql`; dev-only seeds remain `900+`. |
+| Phase 0 migrations | ALREADY_IMPLEMENTED | Normal migration chain now reaches `030_inquiries.sql`; dev-only seeds remain `900+`. |
 | Phase 0 public/private storage | ALREADY_IMPLEMENTED | Storage v1/v2 + tracked business-image lifecycle and reconciliation exist. |
 | Phase 0 API errors/request id | ALREADY_IMPLEMENTED | Central app/router and bounded handlers use request IDs and fail-closed error responses. |
 | Phase 0 logging/audit | ALREADY_IMPLEMENTED | Audit events and admin audit surfaces exist. |
@@ -52,7 +52,7 @@ This document reconciles the 2026-09-02 Google Drive backend handoff with the cu
 | Shop owner replies | ALREADY_IMPLEMENTED | #152 / PR #153 added one canonical owner reply per review with DB-level owner enforcement. |
 | Owner business application | ALREADY_IMPLEMENTED | Resident economy v2 plus application/review lifecycle exists. |
 | Business image upload | ALREADY_IMPLEMENTED | Tracked upload, lifecycle registry, reference integrity and background reconciliation exist. |
-| Private proof-document model | MISSING_IMPLEMENTATION | Business image privacy is implemented; a distinct proof-document application model is not established by current source. Requires bounded implementation only when workflow requires it. |
+| Private proof-document model | BLOCKED_BY_OWNER_DECISION | Handoff fixes private visibility and at least one operating-proof document for owner applications, but explicitly says per-file max MB is not decided and backend must not invent it. Existing `resident-evidence` storage is a different HOLD-bound domain and must not be repurposed silently. |
 | Neighbor/family shop recommendation | ALREADY_IMPLEMENTED | #159 / PR #161 adds a non-owner recommendation lane. Approval materializes an unowned canonical business and verified complex relation; reporter is never asserted as owner. |
 | Business approval workflow | ALREADY_IMPLEMENTED | Admin operational handler approves/requests changes/rejects owner applications; shop recommendations reuse the same business-review RBAC with separate non-owner semantics. |
 | Official notices/content | ALREADY_IMPLEMENTED | `complex_posts` remains trusted/official content storage. |
@@ -67,13 +67,13 @@ This document reconciles the 2026-09-02 Google Drive backend handoff with the cu
 | Resident conversations/messages | ALREADY_IMPLEMENTED | #140 / PR #147 added complex-scoped verified-resident 1:1 conversations/messages plus block enforcement. |
 | Notifications | ALREADY_IMPLEMENTED | #148 / PR #149 added notification persistence/list/read/read-all and atomic message notification production. |
 | Public resident profile | ALREADY_IMPLEMENTED | #150 / PR #151 added safe same-complex verified-resident profile reads and self-edit; exact residence/provider PII is excluded. |
-| Warmth score | MISSING_IMPLEMENTATION | No scoring engine exists. Weight/formula policy must not be invented. |
-| Activity surface | MISSING_IMPLEMENTATION | No dedicated resident activity API exists. Scope must reuse existing domain events rather than duplicate content. |
+| Warmth score | BLOCKED_BY_OWNER_DECISION | Event-based direction is known, but score weights/formula and penalty rules are explicitly not approved. |
+| Activity surface | MISSING_IMPLEMENTATION | No dedicated resident activity API exists. Scope must reuse existing domain data rather than duplicate content. |
 | Household members/invites | ALREADY_IMPLEMENTED | Household v2 master/claim/family lifecycle exists. |
 | Third household member evidence policy | BLOCKED_BY_OWNER_DECISION | Final proof/review rule remains HOLD. |
 | Generic blocks API | ALREADY_IMPLEMENTED | #157 / PR #158 exposes resident block/list/unblock controls on the existing canonical `blocks` table; messaging/profile safety continues consuming the same relation. |
-| Settings | MISSING_IMPLEMENTATION | No canonical backend settings/preferences surface is confirmed. |
-| Inquiries/support | NEEDS_FRESH_TECHNICAL_AUDIT | Handoff requires inquiry handling; current source needs a dedicated bounded audit before implementation to avoid duplicating legacy paths. |
+| Settings | MISSING_IMPLEMENTATION | No canonical backend settings/preferences surface is confirmed. Notification/marketing consent semantics must not be duplicated when implementing it. |
+| Inquiries/support | IMPLEMENTED_BUT_CONTRACT_DRIFT | #162 implements resident inquiry core, operator status/response and idempotent answer notification. Handoff-required photo attachment remains HOLD with the unresolved private-file max-MB decision. |
 | Product-account closure | ALREADY_IMPLEMENTED | Product account close revokes grants/memberships/invites, anonymizes presentation identity and writes audit evidence. |
 | Auth-provider credential deletion | IMPLEMENTED_BUT_CONTRACT_DRIFT | Product account close explicitly does not delete provider credentials; provider deletion is a separate boundary. |
 | Admin/operator RBAC | SUPERSEDED_BY_CURRENT_ARCHITECTURE | Generic handoff `ADMIN` wording is superseded by explicit PADIEM + complex/resident-council scopes. |
@@ -83,89 +83,63 @@ This document reconciles the 2026-09-02 Google Drive backend handoff with the cu
 ## Newly completed implementation slices
 
 ### Resident messaging
-
 - Issue #140 / PR #147.
 - Migration `024_resident_messages.sql`.
-- Verified-resident 1:1 conversations/messages.
-- Block relationship checks.
-- No exact residence/provider PII in message API.
+- Verified-resident 1:1 conversations/messages; block relationship checks; no exact residence/provider PII.
 
 ### Resident notifications
-
 - Issue #148 / PR #149.
 - Migration `025_resident_notifications.sql`.
-- List/unread/read/read-all.
-- Message insert creates recipient notification transactionally without copying message body.
-- Complex-scoped notifications require current verified membership.
-- Dedicated PostgreSQL 18 lifecycle CI is permanent.
+- List/unread/read/read-all; message insert creates recipient notification transactionally without copying message body.
 
 ### Safe resident public profile
-
 - Issue #150 / PR #151.
 - Migration `026_resident_public_profiles.sql`.
-- Same-complex verified-resident access.
-- Reuses nickname/avatar/join month; adds bounded public bio.
-- Blocked relationships hide profile access.
-- Exact building/unit, email/provider identity, evidence and household details are excluded.
-- Dedicated PostgreSQL 18 lifecycle CI is permanent.
+- Same-complex verified-resident access, bounded public bio, blocked relationship hiding, no exact residence/provider evidence.
 
 ### Shop reviews and owner replies
-
 - Issue #152 / PR #153.
 - Migration `027_business_reviews.sql`.
-- Text-only reviews; no rating/star policy invented.
-- Review read/create requires active verified resident in the target complex.
-- Reply requires canonical `businesses.owner_user_id`.
-- DB trigger rejects forged/non-owner replies.
-- Composite FKs reject cross-complex review/reply targets.
-- Dedicated PostgreSQL 18 lifecycle CI is permanent.
+- Text-only resident reviews and canonical owner reply with DB-level owner enforcement.
 
 ### Community nested comment replies
-
 - Issue #155 / PR #156.
 - Migration `028_community_comment_replies.sql`.
-- Replies remain canonical `community_comments` with nullable `parent_comment_id`.
-- Composite self-FK enforces the same parent post and complex.
-- Existing Community publish mode, reports and operator moderation continue to apply.
-- Dedicated PostgreSQL 18 lifecycle verifies cross-post/cross-complex/self-parent rejection.
+- Canonical comments gain parent relation; same post/complex FK and existing moderation/reporting reused.
 
 ### Resident block management
-
 - Issue #157 / PR #158.
-- No new migration or block table: reuses `blocks` from `024_resident_messages.sql`.
-- Verified resident can list, create and remove their own block relations.
-- New block target must be an active verified resident of the same complex.
-- Existing messages and safe resident profiles continue to honor the same bidirectional safety relation.
-- API returns presentation-safe fields only and excludes residence/provider PII.
-- PostgreSQL 18 lifecycle permanently verifies uniqueness, self-block rejection and unblock removal.
+- Reuses `blocks` from migration 024; list/create/remove with same-complex verified-target creation checks.
 
 ### Non-owner shop recommendations
-
 - Issue #159 / PR #161.
 - Migration `029_shop_recommendations.sql`.
-- Verified residents can recommend `resident_family`, `neighbor`, or `local` shops without asserting ownership.
-- `changes_requested` recommendations can be corrected and resubmitted by the reporter.
-- PADIEM/resident-council business-review scopes review the queue.
-- Approval materializes canonical `businesses` + `business_complex_relations` with `owner_user_id = null`.
-- Existing owner applications retain applicant-as-owner semantics unchanged.
-- External owner signup/claim remains an explicit HOLD boundary.
-- PostgreSQL 18 lifecycle verifies relation bounds and unowned materialization.
+- Verified resident recommendation lane; approval materializes `owner_user_id = null` business and verified relation; owner application semantics remain unchanged.
+
+### Resident inquiry core
+- Issue #162.
+- Migration `030_inquiries.sql`.
+- Verified residents can create/list/read their own inquiries and close answered inquiries.
+- Status lifecycle: `received -> in_progress -> answered -> closed` with DB constraints preventing answered/closed states without a response.
+- Operator queue/response uses explicit `inquiry.respond` / `council.inquiry.respond` operational scopes; no grants are auto-created.
+- Answer creates an idempotent resident notification without copying inquiry body or response text.
+- Photo attachment remains outside this slice until private-file size policy is owner-approved.
+- Dedicated PostgreSQL 18 lifecycle validates state constraints, answer notification idempotency and no private-text copy.
 
 ## Owner / legal / operations HOLD
-
 Do not infer or implement these decisions:
 
 1. Final resident-verification provider/mechanism.
 2. Resident-code issuance/loss/reissue/move-out/change operating policy.
 3. Personal-data controller / processor / third-party handling conclusion.
-4. Final file-per-upload MB limit.
+4. Final file-per-upload MB limit, including owner proof documents and inquiry attachments.
 5. Guest visibility depth for apartment news.
 6. Guest visibility depth for exact resident-benefit details.
 7. Definition of “benefits received” count.
 8. Existing-content disposition after product-account deletion.
 9. Required evidence for third household member approval.
 10. Separate signup/identity/claim flow for nonresident family or external shop owners.
-11. Warmth score formula/event weights, until explicitly approved.
+11. Warmth score formula/event weights/penalty rules.
 
 ## Frontend integration status
 
@@ -179,12 +153,9 @@ Known remaining risk: demo/mock stores still coexist in frontend source and requ
 
 ## Ranked non-HOLD next work
 
-1. Distinct private proof-document attachment boundary for owner applications if required by the final application workflow.
-2. Settings/preferences backend surface limited to decision-free preferences.
-3. Inquiry/support lane fresh audit, then bounded implementation if truly missing.
-4. Activity API derived from existing domain data.
-5. Warmth persistence/event framework only after scoring policy is explicitly defined; do not invent weights.
-6. Frontend production-route API reconciliation and E2E replacement of remaining mock/session authority.
+1. Settings/preferences backend surface limited to decision-free preferences and canonical consent reuse.
+2. Activity API derived from existing domain data.
+3. Frontend production-route API reconciliation and E2E replacement of remaining mock/session authority.
 
 ## Current verdict
 
