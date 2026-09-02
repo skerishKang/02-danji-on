@@ -16,6 +16,7 @@ import { validateRequestPayload } from './payload-policy';
 import { handleProductMutationRateLimitRequest } from './product-rate-limit-v1';
 import { handleResidentApplicationRequest } from './resident-application-v1';
 import { handleResidentEconomyMutationRequest } from './resident-economy-v2';
+import { handleResidentMessageRequest } from './resident-messages-v1';
 import { handleResidentVerificationRequest } from './resident-verification-v1';
 import { handleTrackedStorageUploadRequest } from './storage-upload-v2';
 import { handleStorageRequest } from './storage-v1';
@@ -167,6 +168,9 @@ export default {
 
       const householdFamilyResponse = await handleHouseholdFamilyRequest(request, env, id);
       if (householdFamilyResponse) return respond(householdFamilyResponse);
+
+      const residentMessageResponse = await handleResidentMessageRequest(request, env, id);
+      if (residentMessageResponse) return respond(residentMessageResponse);
 
       const communityResidentResponse = await handleCommunityResidentRequest(request, env, id);
       if (communityResidentResponse) return respond(communityResidentResponse);
