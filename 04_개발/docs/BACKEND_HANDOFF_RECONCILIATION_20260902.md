@@ -32,7 +32,7 @@ This document reconciles the 2026-09-02 Google Drive backend handoff with the cu
 | Area | Classification | Current disposition / evidence |
 |---|---|---|
 | Phase 0 environment separation | ALREADY_IMPLEMENTED | Cloudflare development/preview/production environment contracts exist. |
-| Phase 0 migrations | ALREADY_IMPLEMENTED | Normal migration chain now reaches `027_business_reviews.sql`; dev-only seeds remain `900+`. |
+| Phase 0 migrations | ALREADY_IMPLEMENTED | Normal migration chain now reaches `028_community_comment_replies.sql`; dev-only seeds remain `900+`. |
 | Phase 0 public/private storage | ALREADY_IMPLEMENTED | Storage v1/v2 + tracked business-image lifecycle and reconciliation exist. |
 | Phase 0 API errors/request id | ALREADY_IMPLEMENTED | Central app/router and bounded handlers use request IDs and fail-closed error responses. |
 | Phase 0 logging/audit | ALREADY_IMPLEMENTED | Audit events and admin audit surfaces exist. |
@@ -59,8 +59,8 @@ This document reconciles the 2026-09-02 Google Drive backend handoff with the cu
 | Apartment news vs notice semantics | IMPLEMENTED_BUT_CONTRACT_DRIFT | Official content shares `complex_posts`; final guest visibility for apartment news remains owner-policy sensitive. |
 | Resident news submission/review | IMPLEMENTED_BUT_CONTRACT_DRIFT | Community supports resident-authored content and moderation, but handoff’s distinct resident-news product lane is not a separate canonical table/API. |
 | Community posts CRUD | ALREADY_IMPLEMENTED | Resident-only Community persistence/API exists. |
-| Community comments | ALREADY_IMPLEMENTED | Flat comments exist with create/read/update/delete/moderation boundaries. |
-| Community nested replies | MISSING_IMPLEMENTATION | `community_comments` currently has no parent/reply relation. |
+| Community comments | ALREADY_IMPLEMENTED | Comments exist with create/read/update/delete/moderation boundaries. |
+| Community nested replies | ALREADY_IMPLEMENTED | #155 / PR #156 adds `parent_comment_id` on canonical `community_comments`; replies reuse existing reporting/moderation and same publish-mode semantics. |
 | Community reactions | ALREADY_IMPLEMENTED | Like reaction persistence/API exists. |
 | Community reports/moderation | ALREADY_IMPLEMENTED | Reports, moderation events and operator flows exist. |
 | My summary | IMPLEMENTED_BUT_CONTRACT_DRIFT | Multiple `/me` product surfaces exist; one handoff-shaped aggregate summary is not canonicalized. |
@@ -124,6 +124,15 @@ This document reconciles the 2026-09-02 Google Drive backend handoff with the cu
 - Composite FKs reject cross-complex review/reply targets.
 - Dedicated PostgreSQL 18 lifecycle CI is permanent.
 
+### Community nested comment replies
+
+- Issue #155 / PR #156.
+- Migration `028_community_comment_replies.sql`.
+- Replies remain canonical `community_comments` with nullable `parent_comment_id`.
+- Composite self-FK enforces the same parent post and complex.
+- Existing Community publish mode, reports and operator moderation continue to apply.
+- Dedicated PostgreSQL 18 lifecycle verifies cross-post/cross-complex/self-parent rejection.
+
 ## Owner / legal / operations HOLD
 
 Do not infer or implement these decisions:
@@ -152,15 +161,14 @@ Known remaining risk: demo/mock stores still coexist in frontend source and requ
 
 ## Ranked non-HOLD next work
 
-1. Community nested comment replies using the existing `community_comments` moderation/reporting architecture.
-2. Resident-facing block management API reusing the existing `blocks` table.
-3. Neighbor/family shop report submission flow, after confirming it does not overlap business application semantics.
-4. Distinct private proof-document attachment boundary for applications if required by the final application workflow.
-5. Settings/preferences backend surface limited to decision-free preferences.
-6. Inquiry/support lane fresh audit, then bounded implementation if truly missing.
-7. Activity API derived from existing domain data.
-8. Warmth persistence/event framework only after scoring policy is explicitly defined; do not invent weights.
-9. Frontend production-route API reconciliation and E2E replacement of remaining mock/session authority.
+1. Resident-facing block management API reusing the existing `blocks` table.
+2. Neighbor/family shop report submission flow, after confirming it does not overlap business application semantics.
+3. Distinct private proof-document attachment boundary for applications if required by the final application workflow.
+4. Settings/preferences backend surface limited to decision-free preferences.
+5. Inquiry/support lane fresh audit, then bounded implementation if truly missing.
+6. Activity API derived from existing domain data.
+7. Warmth persistence/event framework only after scoring policy is explicitly defined; do not invent weights.
+8. Frontend production-route API reconciliation and E2E replacement of remaining mock/session authority.
 
 ## Current verdict
 

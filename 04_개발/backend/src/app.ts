@@ -9,6 +9,7 @@ import { handleBetterAuthRequest, type BetterAuthEnv } from './auth-better-v1';
 import { handleBenefitWalletRequest } from './benefit-wallet-v1';
 import { handleBusinessReviewRequest } from './business-reviews-v1';
 import { handleCommunityModerationRequest } from './community-moderation-v1';
+import { handleCommunityReplyRequest } from './community-replies-v1';
 import { handleCommunityResidentRequest } from './community-resident-v1';
 import { handleHouseholdPrimaryClaimRequest } from './household-claim-v2';
 import { handleHouseholdFamilyRequest } from './household-family-v2';
@@ -173,6 +174,9 @@ export default {
 
       const residentMessageResponse = await handleResidentMessageRequest(request, env, id);
       if (residentMessageResponse) return respond(residentMessageResponse);
+
+      const communityReplyResponse = await handleCommunityReplyRequest(request, env, id);
+      if (communityReplyResponse) return respond(communityReplyResponse);
 
       const communityResidentResponse = await handleCommunityResidentRequest(request, env, id);
       if (communityResidentResponse) return respond(communityResidentResponse);
