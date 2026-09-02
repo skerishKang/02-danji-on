@@ -12,6 +12,9 @@ import {
   type MockApplicationRecord
 } from '../mock-store';
 import type {
+  ActivityItem,
+  ActivityListOptions,
+  ActivityPage,
   Benefit,
   BenefitClaim,
   Business,
@@ -70,6 +73,42 @@ function fromMockApplication(record: MockApplicationRecord): BusinessApplication
     createdAt: record.createdAt,
     updatedAt: record.updatedAt
   };
+}
+
+const MOCK_ACTIVITY: ActivityItem[] = [
+  {
+    type: 'review', id: 'mock-activity-review', occurredAt: '2026-09-02T08:00:00.000Z', status: 'active',
+    targetType: 'business', targetId: 'v5-1', parentCommentId: null,
+    title: '오늘의 반찬', bodyPreview: '이웃에게 도움이 되는 후기를 남겼습니다.'
+  },
+  {
+    type: 'reaction', id: 'mock-activity-reaction', occurredAt: '2026-09-02T07:00:00.000Z', status: 'published',
+    targetType: 'community_post', targetId: 'mock-post-2', parentCommentId: null,
+    title: '주민 생활정보', bodyPreview: null
+  },
+  {
+    type: 'reply', id: 'mock-activity-reply', occurredAt: '2026-09-02T06:00:00.000Z', status: 'published',
+    targetType: 'community_post', targetId: 'mock-post-1', parentCommentId: 'mock-comment-1',
+    title: '우리 단지 이야기', bodyPreview: '답글을 남겼습니다.'
+  },
+  {
+    type: 'comment', id: 'mock-activity-comment', occurredAt: '2026-09-02T05:00:00.000Z', status: 'published',
+    targetType: 'community_post', targetId: 'mock-post-1', parentCommentId: null,
+    title: '우리 단지 이야기', bodyPreview: '댓글을 남겼습니다.'
+  },
+  {
+    type: 'post', id: 'mock-activity-post', occurredAt: '2026-09-02T04:00:00.000Z', status: 'published',
+    targetType: 'community_post', targetId: 'mock-post-1', parentCommentId: null,
+    title: '우리 단지 이야기', bodyPreview: '주민 게시글을 작성했습니다.'
+  }
+];
+
+function activityFilterMatches(item: ActivityItem, type: ActivityListOptions['type']): boolean {
+  if (!type || type === 'all') return true;
+  if (type === 'posts') return item.type === 'post';
+  if (type === 'comments') return item.type === 'comment' || item.type === 'reply';
+  if (type === 'reactions') return item.type === 'reaction';
+  return item.type === 'review';
 }
 
 export class MockAdapter implements DataAdapter {
@@ -182,6 +221,22 @@ export class MockAdapter implements DataAdapter {
       approvedBusinessId: null,
       createdAt,
       updatedAt: createdAt
+    };
+  }
+
+  async listMyActivity(options: ActivityListOptions = {}): Promise<ActivityPage> {
+    const filtered = MOCK_ACTIVITY.filter((item) => activityFilterMatches(item, options.type));
+    const rawOffset = options.cursor?.startsWith('mock-activity:')
+      ? Number(options.cursor.slice('mock-activity:'.length))
+      : 0;
+    const offset = Number.isInteger(rawOffset) && rawOffset >= 0 ? rawOffset : 0;
+    const requested = Number.isInteger(options.limit) ? Number(options.limit) : 5;
+    const limit = Math.min(Math.max(requested, 1), 50);
+    const items = filtered.slice(offset, offset + limit);
+    const nextOffset = offset + items.length;
+    return {
+      items,
+      nextCursor: nextOffset < filtered.length ? `mock-activity:${nextOffset}` : null
     };
   }
 }
@@ -302,6 +357,22 @@ function mapRecommendation(raw: Record<string, unknown>): ShopRecommendation {
     approvedBusinessId: raw.approved_business_id || raw.approvedBusinessId ? String(raw.approved_business_id ?? raw.approvedBusinessId) : null,
     createdAt: String(raw.created_at ?? raw.createdAt ?? nowIso()),
     updatedAt: raw.updated_at || raw.updatedAt ? String(raw.updated_at ?? raw.updatedAt) : undefined
+  };
+}
+
+function mapActivity(raw: Record<string, unknown>): ActivityItem {
+  return {
+    type: String(raw.type ?? raw.activity_type) as ActivityItem['type'],
+    id: String(raw.id),
+    occurredAt: String(raw.occurredAt ?? raw.occurred_at ?? ''),
+    status: String(raw.status ?? ''),
+    targetType: String(raw.targetType ?? raw.target_type) as ActivityItem['targetType'],
+    targetId: String(raw.targetId ?? raw.target_id ?? ''),
+    parentCommentId: raw.parentCommentId || raw.parent_comment_id ? String(raw.parentCommentId ?? raw.parent_comment_id) : null,
+    title: raw.title === null || raw.title === undefined ? null : String(raw.title),
+    bodyPreview: raw.bodyPreview === null || raw.body_preview === null || (raw.bodyPreview === undefined && raw.body_preview === undefined)
+      ? null
+      : String(raw.bodyPreview ?? raw.body_preview)
   };
 }
 
@@ -437,6 +508,18 @@ export class ApiAdapter implements DataAdapter {
       body: JSON.stringify({ complexSlug: COMPLEX_SLUG, ...input })
     });
     return mapRecommendation(row);
+  }
+
+  async listMyActivity(options: ActivityListOptions = {}): Promise<ActivityPage> {
+    const params = new URLSearchParams({ complexSlug: COMPLEX_SLUG });
+    if (options.type && options.type !== 'all') params.set('type', options.type);
+    if (options.limit) params.set('limit', String(options.limit));
+    if (options.cursor) params.set('cursor', options.cursor);
+    const page = await request<{ items: Record<string, unknown>[]; nextCursor: string | null }>(`/api/v1/me/activity?${params.toString()}`);
+    return {
+      items: page.items.map(mapActivity),
+      nextCursor: page.nextCursor || null
+    };
   }
 }
 

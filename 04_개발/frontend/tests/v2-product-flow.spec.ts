@@ -58,6 +58,24 @@ test('resident benefit moves from claim to stored code to used state', async ({ 
   await expect(myDialog.getByText('사용 완료', { exact: true }).first()).toBeVisible();
 });
 
+test('My DanjiOn lazy-loads resident Activity without replacing existing benefits', async ({ page }) => {
+  await page.getByRole('button', { name: '내정보' }).first().click();
+  const myDialog = page.getByRole('dialog');
+  await expect(myDialog).toBeVisible();
+  await expect(myDialog.getByRole('heading', { name: '내 주민혜택' })).toBeVisible();
+  await expect(myDialog.getByRole('heading', { name: '나의 활동' })).toBeVisible();
+
+  const activity = myDialog.locator('[data-v2-profile-activity]');
+  await expect(activity).toBeVisible();
+  await expect(activity.locator('article')).toHaveCount(5);
+  await expect(activity).toContainText('후기');
+  await expect(activity).toContainText('오늘의 반찬');
+  await expect(activity).toContainText('공감');
+  await expect(activity).toContainText('댓글');
+  await expect(activity).toContainText('답글');
+  await expect(activity).toContainText('게시글');
+});
+
 test('resident-owned registration -> promo -> operator approval -> rediscovery closes the V2 reference loop', async ({ page }) => {
   const uniqueName = `QA 한결수학 ${Date.now()}`;
   await page.getByRole('button', { name: V2_REFERENCE.registration.ownerTrigger, exact: true }).first().click();
