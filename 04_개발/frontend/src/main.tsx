@@ -13,6 +13,7 @@ import V2BusinessShareIntegration from './v2/integration/V2BusinessShareIntegrat
 import V2IntegratedApp from './v2/integration/V2IntegratedApp';
 import V2MessagesIntegration from './v2/integration/V2MessagesIntegration';
 import V2NotificationsPortal from './v2/integration/V2NotificationsPortal';
+import V2ResidentProfileIntegration from './v2/integration/V2ResidentProfileIntegration';
 import V2SettingsPortal from './v2/integration/V2SettingsPortal';
 
 const uiVariant = getDanjiOnUiVariant();
@@ -39,7 +40,7 @@ async function bootstrap() {
       <UiVariantRoot
         variant={uiVariant}
         v1={<App />}
-        v2={<><V2IntegratedApp /><V2ActivityPortal /><V2SettingsPortal /><V2NotificationsPortal /><V2MessagesIntegration /><V2BusinessShareIntegration /></>}
+        v2={<><V2IntegratedApp /><V2ActivityPortal /><V2SettingsPortal /><V2NotificationsPortal /><V2MessagesIntegration /><V2ResidentProfileIntegration /><V2BusinessShareIntegration /></>}
         gateway={<GatewayApp />}
       />
     </StrictMode>
