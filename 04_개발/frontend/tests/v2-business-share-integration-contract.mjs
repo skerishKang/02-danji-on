@@ -19,8 +19,12 @@ assert.match(adapter, /businesses\/share\/\$\{encodeURIComponent\(shareSlug\)\}`
   'share slug -> UUID resolver must be public and encode the opaque slug');
 assert.match(adapter, /return mapBusinessShare\(row\)/);
 
-assert.match(integration, /searchParams\.set\('shop', reference\.shareSlug\)/,
-  'shared URL must use the opaque backend share slug');
+assert.match(integration, /function buildShareUrl\(shareSlug: string\)/,
+  'share URL helper must accept an opaque share slug');
+assert.match(integration, /url\.searchParams\.set\('shop', shareSlug\)/,
+  'share URL helper must write only its opaque share-slug argument');
+assert.match(integration, /buildShareUrl\(reference\.shareSlug\)/,
+  'share action must pass the backend-issued slug into the URL helper');
 assert.match(integration, /dataAdapter\.resolveBusinessShare\(shareSlug!\)/,
   'incoming share link must resolve through backend authority');
 assert.match(integration, /element\.dataset\.shopId === businessId/,
