@@ -1,0 +1,48 @@
+name: Community Notification CI
+
+on:
+  pull_request:
+    paths:
+      - '04_개발/backend/migrations/013_community_core.sql'
+      - '04_개발/backend/migrations/025_resident_notifications.sql'
+      - '04_개발/backend/migrations/028_community_comment_replies.sql'
+      - '04_개발/backend/migrations/035_community_notification_producers.sql'
+      - '04_개발/backend/tests/community-notifications-contract.mjs'
+      - '04_개발/backend/tests/community-notifications-postgres-lifecycle.sh'
+      - '04_개발/backend/package.json'
+      - '.github/workflows/community-notification-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  postgres-lifecycle:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_DB: danjion_community_notifications
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d danjion_community_notifications"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    defaults:
+      run:
+        working-directory: 04_개발/backend
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+      - name: Run Community notification PostgreSQL lifecycle
+        env:
+          DATABASE_URL: postgresql://postgres@127.0.0.1:5432/danjion_community_notifications?sslmode=disable
+        run: bash tests/community-notifications-postgres-lifecycle.sh
