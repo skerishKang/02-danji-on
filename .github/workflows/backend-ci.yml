@@ -30,6 +30,36 @@ jobs:
       - name: Typecheck and contract tests
         run: npm run check
 
+  resident-activity-postgres-lifecycle:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_DB: danjion_activity
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d danjion_activity"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    defaults:
+      run:
+        working-directory: 04_개발/backend
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+      - name: Run resident activity PostgreSQL lifecycle
+        env:
+          DATABASE_URL: postgresql://postgres@127.0.0.1:5432/danjion_activity?sslmode=disable
+        run: bash tests/resident-activity-postgres-lifecycle.sh
+
   resident-notification-postgres-lifecycle:
     runs-on: ubuntu-latest
     services:

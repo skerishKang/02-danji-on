@@ -17,6 +17,7 @@ import { handleHouseholdUnitMasterRequest } from './household-master-v2';
 import { handleInquiryRequest } from './inquiries-v1';
 import { validateRequestPayload } from './payload-policy';
 import { handleProductMutationRateLimitRequest } from './product-rate-limit-v1';
+import { handleResidentActivityRequest } from './resident-activity-v1';
 import { handleResidentApplicationRequest } from './resident-application-v1';
 import { handleResidentBlockRequest } from './resident-blocks-v1';
 import { handleResidentEconomyMutationRequest } from './resident-economy-v2';
@@ -157,6 +158,8 @@ export default {
       if (residentBlockResponse) return respond(residentBlockResponse);
       const businessReviewResponse = await handleBusinessReviewRequest(request, env, id);
       if (businessReviewResponse) return respond(businessReviewResponse);
+      const residentActivityResponse = await handleResidentActivityRequest(request, env, id);
+      if (residentActivityResponse) return respond(residentActivityResponse);
       const residentProfileResponse = await handleResidentProfileRequest(request, env, id);
       if (residentProfileResponse) return respond(residentProfileResponse);
       const residentNotificationResponse = await handleResidentNotificationRequest(request, env, id);
