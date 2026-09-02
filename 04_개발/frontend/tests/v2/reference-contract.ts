@@ -4,7 +4,9 @@ export const V2_REFERENCE = {
     sha256: 'AE736CFD66D53D72D94DAC7EAC2FDBCB6864C6C05680E61E748DA6576B7F22CC',
     title: '01_CURRENT_GATE1_RENDER.html',
     // Historical motion recording remains a motion donor only. The current visual
-    // source of truth is the sibling Gate1 render pinned above.
+    // source of truth is the sibling Gate1 render pinned above. Product-flow copy
+    // may evolve when required to preserve a stronger ownership/data contract,
+    // but section order, composition, imagery, and interaction hierarchy remain locked.
     recordingDriveFileId: '13kpM0HeS_WG9lXbuWk9uVvbBConKJ6ai',
     recordingDurationSeconds: 115.472834,
     recordingViewport: { width: 1920, height: 1080 }
@@ -20,7 +22,7 @@ export const V2_REFERENCE = {
     heroSearchPlaceholder: '무슨 일이 필요하세요?',
     discoveryHeading: '가까운 사람의 일을 먼저 보여줍니다.',
     benefitHeading: '혜택이 실제 행동이 됩니다.',
-    registrationHeading: '이번에는 내 일을 알립니다.',
+    registrationHeading: '내 일은 등록하고, 좋은 이웃가게는 추천합니다.',
     promoHeading: '입력한 생활정보가 홍보물로 정돈됩니다.',
     endingHeading: '우리 단지의 소비가 우리 이웃의 일로 이어집니다.'
   },
@@ -33,6 +35,10 @@ export const V2_REFERENCE = {
   categoryFilters: ['전체', '먹고 마시는 일', '배우고 가르치는 일', '집을 돌보는 일', '사업을 돕는 일', '만들고 기록하는 일'],
   relationFilters: ['전체', '우리 단지 주민', '주민 가족', '이웃 단지', '일반 제휴'],
   registration: {
+    ownerTrigger: '등록 또는 추천',
+    ownerRelation: '현재 단지 주민 직접 운영 · 내 가게 등록',
+    recommendationRelation: '이웃 단지 주민 운영 · 이웃가게 추천',
+    recommendationSubmit: '이웃가게 추천 접수',
     steps: [
       '주민 관계를 선택하세요',
       '기본 정보를 확인하세요',
