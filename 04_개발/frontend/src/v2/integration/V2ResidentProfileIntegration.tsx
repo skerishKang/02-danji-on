@@ -178,7 +178,7 @@ export default function V2ResidentProfileIntegration() {
             공개 소개
             <textarea value={publicBio} maxLength={300} rows={3} disabled={busy} onChange={(event) => setPublicBio(event.target.value)} />
           </label>
-          <p>인증 주민 · 가입 {selfProfile.joinedMonth}</p>
+          <p>인증 주민 · 가입 {selfProfile.joinedMonth} · 공개 활동 {selfProfile.publicActivityCount}개</p>
           <button type="submit" className="v2-btn v2-btn-small" disabled={busy}>프로필 저장</button>
         </form>
       )}
@@ -194,7 +194,7 @@ export default function V2ResidentProfileIntegration() {
         <span className="v2-eyebrow">VERIFIED RESIDENT</span>
         <h2 id="v2-resident-profile-title">{otherProfile.nickname}</h2>
         <p>{otherProfile.publicBio || '공개 소개가 없습니다.'}</p>
-        <p>인증 주민 · 가입 {otherProfile.joinedMonth}</p>
+        <p>인증 주민 · 가입 {otherProfile.joinedMonth} · 공개 활동 {otherProfile.publicActivityCount}개</p>
         <div className="v2-dialog-actions">
           <button type="button" className="v2-btn v2-btn-primary" disabled={busy} onClick={() => void messageResident()}>메시지 보내기</button>
           <button type="button" className="v2-btn" disabled={busy} onClick={() => void blockResident()}>차단</button>
