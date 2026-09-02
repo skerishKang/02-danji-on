@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
 
 const root = new URL('../', import.meta.url);
-const scriptUrl = new URL('scripts/assert-live-build-env.mjs', root);
+const scriptPath = fileURLToPath(new URL('scripts/assert-live-build-env.mjs', root));
 const [adapter, storage, envExample] = await Promise.all([
   readFile(new URL('src/api/adapter.ts', root), 'utf8'),
   readFile(new URL('src/storage.ts', root), 'utf8'),
@@ -11,7 +12,7 @@ const [adapter, storage, envExample] = await Promise.all([
 ]);
 
 function run(extraEnv) {
-  return spawnSync(process.execPath, [scriptUrl.pathname], {
+  return spawnSync(process.execPath, [scriptPath], {
     encoding: 'utf8',
     env: { ...process.env, ...extraEnv }
   });
