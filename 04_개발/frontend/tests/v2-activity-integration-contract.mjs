@@ -36,7 +36,10 @@ assert.match(portal, /\.v2-profile-dialog/,
   'Activity integration must remain scoped to the V2 My dialog');
 assert.match(portal, /createPortal\(<V2ActivityPanel \/>, target\)/);
 assert.match(main, /V2ActivityPortal/);
-assert.match(main, /v2=\{<>\s*<V2IntegratedApp \/><V2ActivityPortal \/><\/>\}/,
-  'Activity portal must mount only alongside V2');
+const v2Mount = main.match(/v2=\{<>([\s\S]*?)<\/>\}/)?.[1] ?? '';
+assert.match(v2Mount, /<V2IntegratedApp \/>/,
+  'V2 must retain the integrated product shell');
+assert.match(v2Mount, /<V2ActivityPortal \/>/,
+  'Activity portal must remain mounted inside the V2 fragment even as other V2 integrations are added');
 
 console.log('PASS V2 resident Activity adapter/portal/redaction contract');
