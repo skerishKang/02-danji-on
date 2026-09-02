@@ -25,6 +25,10 @@ function setConversationQuery(conversationId: string | null) {
   window.history.replaceState(null, '', url);
 }
 
+function openResidentProfile(userId: string) {
+  window.dispatchEvent(new CustomEvent('danjion:v2-open-resident-profile', { detail: { userId } }));
+}
+
 export default function V2MessagesIntegration() {
   const [profileTarget, setProfileTarget] = useState<HTMLElement | null>(null);
   const [conversations, setConversations] = useState<ResidentConversation[]>([]);
@@ -110,9 +114,23 @@ export default function V2MessagesIntegration() {
       const detail = (event as CustomEvent<{ conversationId?: unknown }>).detail;
       void openConversation(detail?.conversationId);
     };
+    const onBlocked = (event: Event) => {
+      const userId = (event as CustomEvent<{ userId?: unknown }>).detail?.userId;
+      if (typeof userId !== 'string') return;
+      if (selected?.participant.userId === userId) {
+        setSelected(null);
+        setMessages([]);
+        setConversationQuery(null);
+      }
+      void loadInbox();
+    };
     window.addEventListener('danjion:v2-open-conversation', onOpen);
-    return () => window.removeEventListener('danjion:v2-open-conversation', onOpen);
-  }, [openConversation]);
+    window.addEventListener('danjion:v2-resident-blocked', onBlocked);
+    return () => {
+      window.removeEventListener('danjion:v2-open-conversation', onOpen);
+      window.removeEventListener('danjion:v2-resident-blocked', onBlocked);
+    };
+  }, [loadInbox, openConversation, selected?.participant.userId]);
 
   async function send(event: FormEvent) {
     event.preventDefault();
@@ -170,6 +188,9 @@ export default function V2MessagesIntegration() {
           </div>
           <div>
             {conversation.unreadCount > 0 && <b>{conversation.unreadCount}</b>}
+            <button type="button" className="v2-btn v2-btn-small" onClick={() => openResidentProfile(conversation.participant.userId)}>
+              프로필 보기
+            </button>
             <button type="button" className="v2-btn v2-btn-small" disabled={busy} onClick={() => void openConversation(conversation.id)}>
               대화 열기
             </button>
@@ -187,6 +208,7 @@ export default function V2MessagesIntegration() {
         <button type="button" className="v2-dialog-close" onClick={closeConversation}>닫기</button>
         <span className="v2-eyebrow">RESIDENT MESSAGE</span>
         <h2 id="v2-conversation-title">{selected.participant.nickname}님과의 대화</h2>
+        <button type="button" className="v2-btn v2-btn-small" onClick={() => openResidentProfile(selected.participant.userId)}>주민 프로필 보기</button>
         <div data-v2-message-thread aria-live="polite">
           {messages.length === 0 && <p>아직 메시지가 없습니다.</p>}
           {messages.map((message) => {
