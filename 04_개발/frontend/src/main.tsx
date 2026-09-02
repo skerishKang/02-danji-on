@@ -11,6 +11,7 @@ import { getDanjiOnUiVariant, UiVariantRoot } from './ui-variant';
 import V2ActivityPortal from './v2/integration/V2ActivityPortal';
 import V2BusinessShareIntegration from './v2/integration/V2BusinessShareIntegration';
 import V2IntegratedApp from './v2/integration/V2IntegratedApp';
+import V2MessagesIntegration from './v2/integration/V2MessagesIntegration';
 import V2NotificationsPortal from './v2/integration/V2NotificationsPortal';
 import V2SettingsPortal from './v2/integration/V2SettingsPortal';
 
@@ -38,7 +39,7 @@ async function bootstrap() {
       <UiVariantRoot
         variant={uiVariant}
         v1={<App />}
-        v2={<><V2IntegratedApp /><V2ActivityPortal /><V2SettingsPortal /><V2NotificationsPortal /><V2BusinessShareIntegration /></>}
+        v2={<><V2IntegratedApp /><V2ActivityPortal /><V2SettingsPortal /><V2NotificationsPortal /><V2MessagesIntegration /><V2BusinessShareIntegration /></>}
         gateway={<GatewayApp />}
       />
     </StrictMode>
