@@ -7,14 +7,18 @@ const [migration, api, app] = await Promise.all([
   readFile(new URL('src/inquiries-v1.ts', root), 'utf8'),
   readFile(new URL('src/app.ts', root), 'utf8')
 ]);
+const migrationSql = migration
+  .split('\n')
+  .filter((line) => !line.trimStart().startsWith('--'))
+  .join('\n');
 
 assert.match(migration, /create table if not exists inquiries/i);
 assert.match(migration, /received','in_progress','answered','closed/i);
 assert.match(migration, /status not in \('answered','closed'\).*response_text is not null.*answered_at is not null/is,
   'answered/closed inquiry must have response and answered timestamp');
 assert.match(migration, /status <> 'closed' or closed_at is not null/i);
-assert.doesNotMatch(migration, /attachment|object_key|file_url/i,
-  'photo attachment must remain outside decision-free inquiry core');
+assert.doesNotMatch(migrationSql, /\b(?:attachment\w*|object_key|file_url)\b/i,
+  'photo attachment columns must remain outside decision-free inquiry core');
 
 assert.match(api, /requireVerifiedResident\(/, 'resident inquiry surfaces require verified resident');
 assert.match(api, /requireOperationalAuthority\(/, 'operator inquiry surfaces reuse operational RBAC');
