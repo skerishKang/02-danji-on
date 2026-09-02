@@ -23,6 +23,7 @@ import { handleResidentMessageRequest } from './resident-messages-v1';
 import { handleResidentNotificationRequest } from './resident-notifications-v1';
 import { handleResidentProfileRequest } from './resident-profile-v1';
 import { handleResidentVerificationRequest } from './resident-verification-v1';
+import { handleShopRecommendationRequest } from './shop-recommendations-v1';
 import { handleTrackedStorageUploadRequest } from './storage-upload-v2';
 import { handleStorageRequest } from './storage-v1';
 
@@ -137,6 +138,8 @@ export default {
       if (adminOperationalResponse) return respond(adminOperationalResponse);
       const communityModerationResponse = await handleCommunityModerationRequest(request, env, id);
       if (communityModerationResponse) return respond(communityModerationResponse);
+      const shopRecommendationResponse = await handleShopRecommendationRequest(request, env, id);
+      if (shopRecommendationResponse) return respond(shopRecommendationResponse);
       if (new URL(request.url).pathname.startsWith('/api/v1/admin/')) {
         const response = await handleAdminRequest(request, env, id);
         if (response) return respond(response);
