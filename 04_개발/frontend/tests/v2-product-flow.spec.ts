@@ -42,8 +42,6 @@ test('resident benefit moves from claim to stored code to used state', async ({ 
   await benefitHeading.scrollIntoViewIfNeeded();
   await expect(benefitHeading).toBeVisible();
 
-  // This flow validates benefit state transitions, not a historical demo shop
-  // name. The current Gate1 visual can change the featured service independently.
   const claim = benefits.getByRole('button', { name: '주민혜택 받기' }).first();
   await expect(claim).toBeVisible();
   await claim.click();
@@ -60,15 +58,15 @@ test('resident benefit moves from claim to stored code to used state', async ({ 
   await expect(myDialog.getByText('사용 완료', { exact: true }).first()).toBeVisible();
 });
 
-test('registration -> promo -> operator approval -> rediscovery closes the V2 reference loop', async ({ page }) => {
+test('resident-owned registration -> promo -> operator approval -> rediscovery closes the V2 reference loop', async ({ page }) => {
   const uniqueName = `QA 한결수학 ${Date.now()}`;
-  await page.getByRole('button', { name: '내 일 알리기', exact: true }).first().click();
+  await page.getByRole('button', { name: V2_REFERENCE.registration.ownerTrigger, exact: true }).first().click();
   const registration = page.getByRole('dialog');
   await expect(registration).toBeVisible();
   await expect(registration.getByText('STEP 1 / 4')).toBeVisible();
   await expect(registration.getByRole('heading', { name: V2_REFERENCE.registration.steps[0] })).toBeVisible();
 
-  await registration.getByText('현재 단지 주민 직접 운영', { exact: true }).click();
+  await registration.getByText(V2_REFERENCE.registration.ownerRelation, { exact: true }).click();
   await registration.getByRole('button', { name: /^다음(?: 단계)?$/ }).click();
   await expect(registration.getByText('STEP 2 / 4')).toBeVisible();
   await registration.getByLabel('이름 또는 가게명').fill(uniqueName);
@@ -103,4 +101,34 @@ test('registration -> promo -> operator approval -> rediscovery closes the V2 re
 
   const rediscovered = page.getByText(uniqueName, { exact: true }).first();
   await expect(rediscovered).toBeVisible();
+});
+
+test('non-owner recommendation never enters owner-only price/contact/image/promo flow', async ({ page }) => {
+  const uniqueName = `QA 추천가게 ${Date.now()}`;
+  await page.getByRole('button', { name: V2_REFERENCE.registration.ownerTrigger, exact: true }).first().click();
+  const registration = page.getByRole('dialog');
+  await expect(registration).toBeVisible();
+
+  await registration.getByText(V2_REFERENCE.registration.recommendationRelation, { exact: true }).click();
+  await registration.getByRole('button', { name: /^다음(?: 단계)?$/ }).click();
+  await expect(registration.getByRole('heading', { name: '추천할 가게 정보를 알려주세요' })).toBeVisible();
+  await registration.getByLabel('이름 또는 가게명').fill(uniqueName);
+  await registration.getByLabel('무슨 일을 하나요?').fill('동네 자전거 수리');
+  await registration.getByLabel('이용 지역과 방식').fill('방림동 방문 가능');
+  await expect(registration.getByLabel('가격 또는 상담 기준')).toHaveCount(0);
+  await expect(registration.getByLabel('문의 방식')).toHaveCount(0);
+
+  await registration.getByRole('button', { name: /^다음(?: 단계)?$/ }).click();
+  await expect(registration.getByRole('heading', { name: '추천 범위를 확인하세요' })).toBeVisible();
+  await expect(registration.getByLabel('대표 이미지')).toHaveCount(0);
+  await expect(registration.getByLabel('입주민 혜택')).toHaveCount(0);
+  await expect(registration).toContainText('추천은 소유자 등록이 아닙니다.');
+
+  await registration.getByRole('button', { name: /^다음(?: 단계)?$/ }).click();
+  await expect(registration.getByRole('heading', { name: '이웃가게 추천을 확인하세요' })).toBeVisible();
+  await expect(registration).toContainText('추천자는 가게 운영자나 소유자로 등록되지 않습니다.');
+  await registration.getByRole('button', { name: V2_REFERENCE.registration.recommendationSubmit }).click();
+
+  await expect(page.getByText('이웃가게 추천이 접수되었습니다. 운영 확인 후 공개 목록에 반영됩니다.', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: '홍보물 만들기' })).toBeDisabled();
 });
