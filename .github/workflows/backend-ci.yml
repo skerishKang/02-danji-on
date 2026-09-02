@@ -150,6 +150,36 @@ jobs:
           DATABASE_URL: postgresql://postgres@127.0.0.1:5432/danjion_shop_recommendations?sslmode=disable
         run: bash tests/shop-recommendations-postgres-lifecycle.sh
 
+  inquiries-postgres-lifecycle:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_DB: danjion_inquiries
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d danjion_inquiries"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    defaults:
+      run:
+        working-directory: 04_개발/backend
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+      - name: Run inquiry PostgreSQL lifecycle
+        env:
+          DATABASE_URL: postgresql://postgres@127.0.0.1:5432/danjion_inquiries?sslmode=disable
+        run: bash tests/inquiries-postgres-lifecycle.sh
+
   business-reviews-postgres-lifecycle:
     runs-on: ubuntu-latest
     services:
