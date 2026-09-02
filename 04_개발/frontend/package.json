@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "typecheck": "tsc -b --pretty false && npm run test:community-contract && npm run test:v2-recommendation-contract && npm run test:v2-activity-contract && npm run test:v2-business-share-contract && npm run test:v2-settings-contract && npm run test:v2-notifications-contract && npm run test:v2-messages-contract && npm run test:v2-resident-profile-safety-contract && npm run test:v2-complex-news-contract",
+    "typecheck": "tsc -b --pretty false && npm run test:community-contract && npm run test:v2-recommendation-contract && npm run test:v2-activity-contract && npm run test:v2-business-share-contract && npm run test:v2-settings-contract && npm run test:v2-notifications-contract && npm run test:v2-messages-contract && npm run test:v2-resident-profile-safety-contract && npm run test:v2-complex-news-contract && npm run test:v2-business-reviews-contract",
     "test:community-contract": "node tests/community-current-integration-contract.mjs",
     "test:v2-recommendation-contract": "node tests/v2-shop-recommendation-contract.mjs",
     "test:v2-activity-contract": "node tests/v2-activity-integration-contract.mjs",
@@ -17,6 +17,7 @@
     "test:v2-messages-contract": "node tests/v2-messages-integration-contract.mjs",
     "test:v2-resident-profile-safety-contract": "node tests/v2-resident-profile-safety-contract.mjs",
     "test:v2-complex-news-contract": "node tests/v2-complex-news-contract.mjs",
+    "test:v2-business-reviews-contract": "node tests/v2-business-reviews-contract.mjs",
     "test:e2e": "playwright test",
     "test:e2e:headed": "playwright test --headed"
   },
