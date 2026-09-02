@@ -76,9 +76,14 @@ begin
     raise exception 'expected exactly one active review, got %', review_count;
   end if;
 
-  select count(*), max(owner_user_id) into reply_count, owner_id
+  select count(*) into reply_count
   from business_review_replies
   where review_id = '60000000-0000-4000-8000-000000000001';
+
+  select owner_user_id into owner_id
+  from business_review_replies
+  where review_id = '60000000-0000-4000-8000-000000000001';
+
   if reply_count <> 1 or owner_id <> '20000000-0000-4000-8000-000000000002'::uuid then
     raise exception 'owner reply integrity failed: count=% owner=%', reply_count, owner_id;
   end if;
