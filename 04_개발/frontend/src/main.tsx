@@ -8,6 +8,7 @@ import GatewayApp from './gateway/GatewayApp';
 import { installPromoMaterialLaunchers } from './promo-launcher';
 import { installResidentDeepLink } from './resident-deep-link';
 import { getDanjiOnUiVariant, UiVariantRoot } from './ui-variant';
+import V2AccountClosurePortal from './v2/integration/V2AccountClosurePortal';
 import V2ActivityPortal from './v2/integration/V2ActivityPortal';
 import V2BusinessReviewsIntegration from './v2/integration/V2BusinessReviewsIntegration';
 import V2BusinessShareIntegration from './v2/integration/V2BusinessShareIntegration';
@@ -44,7 +45,7 @@ async function bootstrap() {
       <UiVariantRoot
         variant={uiVariant}
         v1={<App />}
-        v2={<><V2IntegratedApp /><V2ComplexNewsPortal /><V2ActivityPortal /><V2SettingsPortal /><V2NotificationsPortal /><V2MessagesIntegration /><V2ResidentProfileIntegration /><V2BusinessShareIntegration /><V2BusinessReviewsIntegration /><V2InquiriesPortal /><V2HouseholdPortal /></>}
+        v2={<><V2IntegratedApp /><V2ComplexNewsPortal /><V2ActivityPortal /><V2SettingsPortal /><V2NotificationsPortal /><V2MessagesIntegration /><V2ResidentProfileIntegration /><V2BusinessShareIntegration /><V2BusinessReviewsIntegration /><V2InquiriesPortal /><V2HouseholdPortal /><V2AccountClosurePortal /></>}
         gateway={<GatewayApp />}
       />
     </StrictMode>
