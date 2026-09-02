@@ -32,7 +32,7 @@ assert.match(integration, /residentProfileClient\.getResident\(userId\)/);
 assert.match(integration, /residentMessagesClient\.startConversation\(otherProfile\.userId\)/);
 assert.match(integration, /residentSafetyClient\.blockResident\(userId\)/);
 assert.match(integration, /residentSafetyClient\.reportResident\(otherProfile\.userId/);
-assert.match(integration, /nickname\.length > 40/);
+assert.match(integration, /nextNickname\.length > 40/);
 assert.match(integration, /nextBio\.length > 300/);
 assert.match(integration, /reportDetail\.trim\(\)\.length > 1000/);
 assert.doesNotMatch(integration, /warmth|score|building|unitCode|buildingCode|auth_user|provider/i,
