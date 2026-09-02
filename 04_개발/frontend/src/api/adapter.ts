@@ -21,7 +21,10 @@ import type {
   BusinessFilters,
   ComplexPost,
   DataAdapter,
-  RelationType
+  RelationType,
+  ShopRecommendation,
+  ShopRecommendationInput,
+  ShopRecommendationRelationType
 } from '../types';
 import { createApplicationIdempotencyKey, retryNetworkOnce } from './idempotency';
 
@@ -163,6 +166,24 @@ export class MockAdapter implements DataAdapter {
     const subject = authProvider.snapshot('resident').subject || 'dev-resident-001';
     return fromMockApplication(resubmitMockApplication(id, subject, input));
   }
+
+  async createShopRecommendation(input: ShopRecommendationInput): Promise<ShopRecommendation> {
+    const createdAt = nowIso();
+    return {
+      id: `mock-recommendation-${crypto.randomUUID()}`,
+      relationType: input.relationType,
+      businessName: input.businessName,
+      categoryName: input.categoryName,
+      serviceSummary: input.serviceSummary,
+      serviceArea: input.serviceArea || null,
+      reporterNote: input.reporterNote || null,
+      status: 'pending',
+      reviewNote: null,
+      approvedBusinessId: null,
+      createdAt,
+      updatedAt: createdAt
+    };
+  }
 }
 
 type ApiEnvelope<T> = { data: T; requestId: string };
@@ -264,6 +285,23 @@ function mapApplication(raw: Record<string, unknown>): BusinessApplication {
     approvedBusinessId: raw.approved_business_id ? String(raw.approved_business_id) : null,
     createdAt: String(raw.created_at ?? nowIso()),
     updatedAt: raw.updated_at ? String(raw.updated_at) : undefined
+  };
+}
+
+function mapRecommendation(raw: Record<string, unknown>): ShopRecommendation {
+  return {
+    id: String(raw.id),
+    relationType: String(raw.relation_type ?? raw.relationType ?? 'local') as ShopRecommendationRelationType,
+    businessName: String(raw.business_name ?? raw.businessName ?? ''),
+    categoryName: String(raw.category_name ?? raw.categoryName ?? ''),
+    serviceSummary: String(raw.service_summary ?? raw.serviceSummary ?? ''),
+    serviceArea: raw.service_area || raw.serviceArea ? String(raw.service_area ?? raw.serviceArea) : null,
+    reporterNote: raw.reporter_note || raw.reporterNote ? String(raw.reporter_note ?? raw.reporterNote) : null,
+    status: String(raw.status ?? 'pending') as ShopRecommendation['status'],
+    reviewNote: raw.review_note || raw.reviewNote ? String(raw.review_note ?? raw.reviewNote) : null,
+    approvedBusinessId: raw.approved_business_id || raw.approvedBusinessId ? String(raw.approved_business_id ?? raw.approvedBusinessId) : null,
+    createdAt: String(raw.created_at ?? raw.createdAt ?? nowIso()),
+    updatedAt: raw.updated_at || raw.updatedAt ? String(raw.updated_at ?? raw.updatedAt) : undefined
   };
 }
 
@@ -391,6 +429,14 @@ export class ApiAdapter implements DataAdapter {
       body: JSON.stringify(input)
     });
     return mapApplication(row);
+  }
+
+  async createShopRecommendation(input: ShopRecommendationInput): Promise<ShopRecommendation> {
+    const row = await request<Record<string, unknown>>('/api/v1/me/shop-recommendations', {
+      method: 'POST',
+      body: JSON.stringify({ complexSlug: COMPLEX_SLUG, ...input })
+    });
+    return mapRecommendation(row);
   }
 }
 
