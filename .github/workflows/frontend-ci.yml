@@ -31,5 +31,11 @@ jobs:
         run: node tests/auth-jwt-api-bridge-contract.mjs
       - name: Auth email recovery contract
         run: node tests/auth-email-recovery-contract.mjs
-      - name: Build
+      - name: Build ordinary preview artifact
         run: npm run build
+      - name: Build fail-closed live authority artifact
+        env:
+          VITE_DATA_MODE: api
+          VITE_AUTH_MODE: danjion
+          VITE_STORAGE_MODE: drive
+        run: npm run build:live
