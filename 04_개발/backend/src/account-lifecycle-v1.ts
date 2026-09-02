@@ -6,7 +6,15 @@ export type AccountLifecycleEnv = AuthEnv;
 
 const REQUEST_ID_HEADER = 'x-danjion-request-id';
 const MAX_BODY_BYTES = 8 * 1024;
-const CONSENT_TYPES = new Set(['terms', 'privacy', 'resident_rules', 'community_rules', 'marketing']);
+const CONSENT_TYPES = new Set([
+  'terms',
+  'privacy',
+  'resident_rules',
+  'community_rules',
+  'marketing',
+  'service_notifications',
+  'benefit_marketing'
+]);
 const CONSENT_STATUSES = new Set(['accepted', 'withdrawn']);
 const CLOSE_CONFIRMATION = 'CLOSE_DANJION_ACCOUNT';
 
