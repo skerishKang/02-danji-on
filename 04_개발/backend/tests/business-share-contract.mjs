@@ -20,9 +20,9 @@ assert.match(migration, /before update of share_slug/i,
 assert.doesNotMatch(migration, /business.*name/i,
   'share slug generation must not depend on mutable business name');
 
-assert.match(api, /businesses\\\/\\\(\[0-9a-fA-F-\]\+\)\\\/share/,
+assert.ok(api.includes('businesses\\/([0-9a-fA-F-]+)\\/share'),
   'UUID to share-slug resolver route must exist');
-assert.match(api, /businesses\\\/share\\\/\\\(\[\^\/\]\+\)/,
+assert.ok(api.includes('businesses\\/share\\/([^/]+)'),
   'share-slug to UUID resolver route must exist');
 assert.match(api, /request\.method !== 'GET'/,
   'resolver must be read-only');
