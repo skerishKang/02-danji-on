@@ -19,6 +19,7 @@ export default function V2BusinessReviewsIntegration() {
   const [detailTarget, setDetailTarget] = useState<HTMLElement | null>(null);
   const [reviews, setReviews] = useState<BusinessReview[]>([]);
   const [reviewBody, setReviewBody] = useState('');
+  const [reviewEditDrafts, setReviewEditDrafts] = useState<Record<string, string>>({});
   const [ownerReplyDrafts, setOwnerReplyDrafts] = useState<Record<string, string>>({});
   const [isOwner, setIsOwner] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -30,10 +31,12 @@ export default function V2BusinessReviewsIntegration() {
     try {
       const rows = await businessReviewsClient.list(id);
       setReviews(rows);
+      setReviewEditDrafts(Object.fromEntries(rows.filter((review) => review.isMine).map((review) => [review.id, review.body])));
       setOwnerReplyDrafts(Object.fromEntries(rows.map((review) => [review.id, review.reply?.body ?? ''])));
       setStatus('');
     } catch {
       setReviews([]);
+      setReviewEditDrafts({});
       setStatus('입주민 인증 후 이 가게의 후기를 확인할 수 있습니다.');
     } finally {
       setBusy(false);
@@ -94,6 +97,44 @@ export default function V2BusinessReviewsIntegration() {
     }
   }
 
+  async function saveOwnReview(reviewId: string) {
+    if (!businessId || busy) return;
+    const review = reviews.find((item) => item.id === reviewId);
+    if (!review?.isMine) return;
+    const body = (reviewEditDrafts[reviewId] ?? '').trim();
+    if (!body || body.length > 2000) {
+      setStatus('후기는 1~2000자로 입력해 주세요.');
+      return;
+    }
+    setBusy(true);
+    setStatus('후기를 수정하는 중입니다.');
+    try {
+      await businessReviewsClient.update(businessId, reviewId, body);
+      await refresh(businessId);
+      setStatus('후기를 수정했습니다.');
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : '후기를 수정하지 못했습니다.');
+      setBusy(false);
+    }
+  }
+
+  async function deleteOwnReview(reviewId: string) {
+    if (!businessId || busy) return;
+    const review = reviews.find((item) => item.id === reviewId);
+    if (!review?.isMine) return;
+    if (!window.confirm('이 후기를 삭제할까요?')) return;
+    setBusy(true);
+    setStatus('후기를 삭제하는 중입니다.');
+    try {
+      await businessReviewsClient.remove(businessId, reviewId);
+      await refresh(businessId);
+      setStatus('후기를 삭제했습니다.');
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : '후기를 삭제하지 못했습니다.');
+      setBusy(false);
+    }
+  }
+
   async function saveOwnerReply(reviewId: string) {
     if (!businessId || !isOwner || busy) return;
     const body = (ownerReplyDrafts[reviewId] ?? '').trim();
@@ -122,12 +163,30 @@ export default function V2BusinessReviewsIntegration() {
         <b>{reviews.length}개</b>
       </div>
       {reviews.map((review) => (
-        <article key={review.id} data-v2-business-review>
+        <article key={review.id} data-v2-business-review data-review-owned={review.isMine ? 'true' : 'false'}>
           <div>
             <strong>{review.author.nickname}</strong>
             <small>{shortDate(review.createdAt)}</small>
             <p>{review.body}</p>
           </div>
+          {review.isMine && (
+            <div data-v2-own-review-editor>
+              <label>
+                내 후기 수정
+                <textarea
+                  rows={2}
+                  maxLength={2000}
+                  value={reviewEditDrafts[review.id] ?? review.body}
+                  disabled={busy}
+                  onChange={(event) => setReviewEditDrafts((current) => ({ ...current, [review.id]: event.target.value }))}
+                />
+              </label>
+              <div className="v2-dialog-actions">
+                <button type="button" className="v2-btn v2-btn-small" disabled={busy || !(reviewEditDrafts[review.id] ?? '').trim()} onClick={() => void saveOwnReview(review.id)}>후기 수정</button>
+                <button type="button" className="v2-btn v2-btn-small" disabled={busy} onClick={() => void deleteOwnReview(review.id)}>후기 삭제</button>
+              </div>
+            </div>
+          )}
           {review.reply && (
             <blockquote data-v2-owner-reply>
               <strong>사장님 답글</strong>
