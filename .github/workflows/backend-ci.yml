@@ -120,6 +120,36 @@ jobs:
           DATABASE_URL: postgresql://postgres@127.0.0.1:5432/danjion_reviews?sslmode=disable
         run: bash tests/business-reviews-postgres-lifecycle.sh
 
+  community-replies-postgres-lifecycle:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_DB: danjion_community_replies
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d danjion_community_replies"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    defaults:
+      run:
+        working-directory: 04_개발/backend
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+      - name: Run Community nested replies PostgreSQL lifecycle
+        env:
+          DATABASE_URL: postgresql://postgres@127.0.0.1:5432/danjion_community_replies?sslmode=disable
+        run: bash tests/community-replies-postgres-lifecycle.sh
+
   community-postgres-security:
     runs-on: ubuntu-latest
     services:
