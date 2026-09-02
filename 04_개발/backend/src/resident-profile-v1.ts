@@ -19,6 +19,7 @@ type PublicProfileRow = {
   joined_month: unknown;
   public_bio: unknown;
   is_discoverable: unknown;
+  public_activity_count: unknown;
 };
 
 function json(data: unknown, status: number, requestId: string): Response {
@@ -106,7 +107,38 @@ async function loadPublicProfile(sql: Sql, userId: string, complexId: string): P
       u.avatar_url,
       to_char(u.created_at at time zone 'UTC', 'YYYY-MM') as joined_month,
       coalesce(p.public_bio, '') as public_bio,
-      coalesce(p.is_discoverable, true) as is_discoverable
+      coalesce(p.is_discoverable, true) as is_discoverable,
+      (
+        (select count(*)
+         from community_posts cp
+         where cp.author_user_id = u.id
+           and cp.complex_id = ${complexId}::uuid
+           and cp.status = 'published'
+           and cp.visibility = 'verified_residents')
+        +
+        (select count(*)
+         from community_comments cc
+         join community_posts parent_post
+           on parent_post.id = cc.post_id
+          and parent_post.complex_id = cc.complex_id
+         where cc.author_user_id = u.id
+           and cc.complex_id = ${complexId}::uuid
+           and cc.status = 'published'
+           and parent_post.status = 'published'
+           and parent_post.visibility = 'verified_residents')
+        +
+        (select count(*)
+         from business_reviews br
+         join businesses b on b.id = br.business_id
+         join business_complex_relations bcr
+           on bcr.business_id = br.business_id
+          and bcr.complex_id = br.complex_id
+         where br.author_user_id = u.id
+           and br.complex_id = ${complexId}::uuid
+           and br.status = 'active'
+           and b.status = 'approved'
+           and bcr.verification_status = 'verified')
+      )::int as public_activity_count
     from app_users u
     left join resident_public_profiles p on p.user_id = u.id
     where u.id = ${userId}::uuid
@@ -128,13 +160,15 @@ async function loadPublicProfile(sql: Sql, userId: string, complexId: string): P
 }
 
 function presentProfile(row: PublicProfileRow): Record<string, unknown> {
+  const publicActivityCount = Number(row.public_activity_count ?? 0);
   return {
     userId: String(row.id),
     nickname: String(row.display_name),
     avatarUrl: row.avatar_url ? String(row.avatar_url) : null,
     residentLabel: PROFILE_LABEL,
     joinedMonth: String(row.joined_month),
-    publicBio: String(row.public_bio ?? '')
+    publicBio: String(row.public_bio ?? ''),
+    publicActivityCount: Number.isFinite(publicActivityCount) && publicActivityCount > 0 ? Math.floor(publicActivityCount) : 0
   };
 }
 
