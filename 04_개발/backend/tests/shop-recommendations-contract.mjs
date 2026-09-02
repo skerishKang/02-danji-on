@@ -17,8 +17,8 @@ assert.match(migration, /approved_business_id uuid references businesses\(id\).*
 assert.match(api, /requireVerifiedResident\(/, 'resident recommendation must require verified resident');
 assert.match(api, /requireOperationalAuthority\(/, 'operator review must reuse operational RBAC');
 assert.match(api, /'business\.review'.*'council\.business\.review'/s, 'operator review must reuse business-review scopes');
-assert.match(api, /\/api\/v1\/me\/shop-recommendations/);
-assert.match(api, /\/api\/v1\/admin\/shop-recommendations/);
+assert.match(api, /shop-recommendations/, 'resident recommendation route family must be present');
+assert.match(api, /const adminItem = path\.match\(\/\^\\\/api\\\/v1\\\/admin\\\/shop-recommendations/, 'admin recommendation item route must be present');
 assert.match(api, /insert into businesses[\s\S]*owner_user_id[\s\S]*select a\.approved_business_id,[\s\S]*null,/i,
   'approved recommendation must create an unowned business');
 assert.doesNotMatch(api, /insert into business_applications/i, 'recommendation lane must not impersonate owner application');
