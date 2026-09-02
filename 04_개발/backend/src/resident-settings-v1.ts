@@ -72,7 +72,7 @@ async function loadSettings(sql: Sql, userId: string): Promise<Record<string, un
     where user_id = ${userId}::uuid
       and complex_id is null
       and consent_type in ('service_notifications','benefit_marketing')
-    order by consent_type, recorded_at desc, id desc
+    order by consent_type, recorded_at desc, event_seq desc
   `;
   const serviceRow = consentRows.find((row) => String(row.consent_type) === 'service_notifications') as Record<string, unknown> | undefined;
   const benefitRow = consentRows.find((row) => String(row.consent_type) === 'benefit_marketing') as Record<string, unknown> | undefined;
