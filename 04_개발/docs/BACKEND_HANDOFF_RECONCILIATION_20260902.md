@@ -71,7 +71,7 @@ This document reconciles the 2026-09-02 Google Drive backend handoff with the cu
 | Activity surface | MISSING_IMPLEMENTATION | No dedicated resident activity API exists. Scope must reuse existing domain events rather than duplicate content. |
 | Household members/invites | ALREADY_IMPLEMENTED | Household v2 master/claim/family lifecycle exists. |
 | Third household member evidence policy | BLOCKED_BY_OWNER_DECISION | Final proof/review rule remains HOLD. |
-| Generic blocks API | MISSING_IMPLEMENTATION | `blocks` persistence is present for messaging safety; user-facing manage-block endpoints are not yet canonicalized. |
+| Generic blocks API | ALREADY_IMPLEMENTED | #157 / PR #158 exposes resident block/list/unblock controls on the existing canonical `blocks` table; messaging/profile safety continues consuming the same relation. |
 | Settings | MISSING_IMPLEMENTATION | No canonical backend settings/preferences surface is confirmed. |
 | Inquiries/support | NEEDS_FRESH_TECHNICAL_AUDIT | Handoff requires inquiry handling; current source needs a dedicated bounded audit before implementation to avoid duplicating legacy paths. |
 | Product-account closure | ALREADY_IMPLEMENTED | Product account close revokes grants/memberships/invites, anonymizes presentation identity and writes audit evidence. |
@@ -133,6 +133,16 @@ This document reconciles the 2026-09-02 Google Drive backend handoff with the cu
 - Existing Community publish mode, reports and operator moderation continue to apply.
 - Dedicated PostgreSQL 18 lifecycle verifies cross-post/cross-complex/self-parent rejection.
 
+### Resident block management
+
+- Issue #157 / PR #158.
+- No new migration or block table: reuses `blocks` from `024_resident_messages.sql`.
+- Verified resident can list, create and remove their own block relations.
+- New block target must be an active verified resident of the same complex.
+- Existing messages and safe resident profiles continue to honor the same bidirectional safety relation.
+- API returns presentation-safe fields only and excludes residence/provider PII.
+- PostgreSQL 18 lifecycle permanently verifies uniqueness, self-block rejection and unblock removal.
+
 ## Owner / legal / operations HOLD
 
 Do not infer or implement these decisions:
@@ -161,14 +171,13 @@ Known remaining risk: demo/mock stores still coexist in frontend source and requ
 
 ## Ranked non-HOLD next work
 
-1. Resident-facing block management API reusing the existing `blocks` table.
-2. Neighbor/family shop report submission flow, after confirming it does not overlap business application semantics.
-3. Distinct private proof-document attachment boundary for applications if required by the final application workflow.
-4. Settings/preferences backend surface limited to decision-free preferences.
-5. Inquiry/support lane fresh audit, then bounded implementation if truly missing.
-6. Activity API derived from existing domain data.
-7. Warmth persistence/event framework only after scoring policy is explicitly defined; do not invent weights.
-8. Frontend production-route API reconciliation and E2E replacement of remaining mock/session authority.
+1. Neighbor/family shop report submission flow, after confirming it does not overlap business application semantics.
+2. Distinct private proof-document attachment boundary for applications if required by the final application workflow.
+3. Settings/preferences backend surface limited to decision-free preferences.
+4. Inquiry/support lane fresh audit, then bounded implementation if truly missing.
+5. Activity API derived from existing domain data.
+6. Warmth persistence/event framework only after scoring policy is explicitly defined; do not invent weights.
+7. Frontend production-route API reconciliation and E2E replacement of remaining mock/session authority.
 
 ## Current verdict
 
