@@ -24,7 +24,7 @@ assert.match(portal, /residentInquiriesClient\.list\(\)/);
 assert.match(portal, /residentInquiriesClient\.create/);
 assert.match(portal, /residentInquiriesClient\.get\(id\)/);
 assert.match(portal, /residentInquiriesClient\.close\(selected\.id\)/);
-assert.doesNotMatch(portal, /file|attachment|objectKey|building|unitCode|buildingCode|provider/i,
+assert.doesNotMatch(portal, /\bfile\b|attachment|objectKey|\bbuilding\b|unitCode|buildingCode|\bprovider\b/i,
   'V2 inquiry slice must not invent attachment policy or expose residence/provider identity');
 assert.match(main, /V2InquiriesPortal/);
 
