@@ -77,7 +77,7 @@ async function listConsents(sql: Sql, userId: string, requestId: string): Promis
     from consent_records
     where user_id = ${userId}::uuid
       and complex_id is null
-    order by consent_type, recorded_at desc, id desc
+    order by consent_type, recorded_at desc, event_seq desc
   `;
 
   return ok({
