@@ -85,13 +85,42 @@ async function listNotifications(request: Request, env: CoreEnv, sql: Sql, reque
     from notifications n
     left join app_users actor_user on actor_user.id = n.actor_user_id
     where n.user_id = ${actor.id}::uuid
+      and (
+        n.complex_id is null
+        or exists (
+          select 1
+          from household_memberships hm
+          join households h on h.id = hm.household_id and h.complex_id = hm.complex_id
+          join complex_units cu on cu.id = h.complex_unit_id and cu.complex_id = h.complex_id
+          where hm.user_id = ${actor.id}::uuid
+            and hm.complex_id = n.complex_id
+            and hm.status = 'verified'
+            and h.status = 'active'
+            and cu.status = 'active'
+        )
+      )
     order by n.created_at desc, n.id desc
     limit 100
   `;
   const unreadRows = await sql`
     select count(*)::int as unread_count
-    from notifications
-    where user_id = ${actor.id}::uuid and read_at is null
+    from notifications n
+    where n.user_id = ${actor.id}::uuid
+      and n.read_at is null
+      and (
+        n.complex_id is null
+        or exists (
+          select 1
+          from household_memberships hm
+          join households h on h.id = hm.household_id and h.complex_id = hm.complex_id
+          join complex_units cu on cu.id = h.complex_unit_id and cu.complex_id = h.complex_id
+          where hm.user_id = ${actor.id}::uuid
+            and hm.complex_id = n.complex_id
+            and hm.status = 'verified'
+            and h.status = 'active'
+            and cu.status = 'active'
+        )
+      )
   `;
 
   return ok({
@@ -122,11 +151,25 @@ async function markNotificationRead(
   const actor = await requireNotificationActor(request, env, sql, requestId);
   if (actor instanceof Response) return actor;
   const rows = await sql`
-    update notifications
-    set read_at = coalesce(read_at, now())
-    where id = ${notificationId}::uuid
-      and user_id = ${actor.id}::uuid
-    returning id, read_at
+    update notifications n
+    set read_at = coalesce(n.read_at, now())
+    where n.id = ${notificationId}::uuid
+      and n.user_id = ${actor.id}::uuid
+      and (
+        n.complex_id is null
+        or exists (
+          select 1
+          from household_memberships hm
+          join households h on h.id = hm.household_id and h.complex_id = hm.complex_id
+          join complex_units cu on cu.id = h.complex_unit_id and cu.complex_id = h.complex_id
+          where hm.user_id = ${actor.id}::uuid
+            and hm.complex_id = n.complex_id
+            and hm.status = 'verified'
+            and h.status = 'active'
+            and cu.status = 'active'
+        )
+      )
+    returning n.id, n.read_at
   `;
   if (!rows[0]) return fail('NOTIFICATION_NOT_FOUND', 'Notification not found', 404, requestId);
   return ok({ id: String(rows[0].id), readAt: rows[0].read_at }, requestId);
@@ -141,11 +184,25 @@ async function markAllNotificationsRead(
   const actor = await requireNotificationActor(request, env, sql, requestId);
   if (actor instanceof Response) return actor;
   const rows = await sql`
-    update notifications
+    update notifications n
     set read_at = now()
-    where user_id = ${actor.id}::uuid
-      and read_at is null
-    returning id
+    where n.user_id = ${actor.id}::uuid
+      and n.read_at is null
+      and (
+        n.complex_id is null
+        or exists (
+          select 1
+          from household_memberships hm
+          join households h on h.id = hm.household_id and h.complex_id = hm.complex_id
+          join complex_units cu on cu.id = h.complex_unit_id and cu.complex_id = h.complex_id
+          where hm.user_id = ${actor.id}::uuid
+            and hm.complex_id = n.complex_id
+            and hm.status = 'verified'
+            and h.status = 'active'
+            and cu.status = 'active'
+        )
+      )
+    returning n.id
   `;
   return ok({ updatedCount: rows.length }, requestId);
 }
