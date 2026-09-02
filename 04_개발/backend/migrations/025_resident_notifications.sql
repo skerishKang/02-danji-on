@@ -4,6 +4,7 @@
 create table if not exists notifications (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references app_users(id) on delete cascade,
+  complex_id uuid references complexes(id) on delete cascade,
   type text not null check (char_length(type) between 1 and 64),
   actor_user_id uuid references app_users(id) on delete set null,
   resource_type text,
@@ -32,15 +33,19 @@ create index if not exists idx_notifications_user_unread
   on notifications (user_id, created_at desc)
   where read_at is null;
 
+create index if not exists idx_notifications_user_complex
+  on notifications (user_id, complex_id, created_at desc);
+
 create or replace function notify_resident_message_insert()
 returns trigger
 language plpgsql
 as $$
 declare
   recipient_id uuid;
+  notification_complex_id uuid;
 begin
-  select cm.user_id
-  into recipient_id
+  select cm.user_id, c.complex_id
+  into recipient_id, notification_complex_id
   from conversation_members cm
   join conversations c on c.id = cm.conversation_id
   where cm.conversation_id = new.conversation_id
@@ -49,12 +54,13 @@ begin
   order by cm.user_id
   limit 1;
 
-  if recipient_id is null then
+  if recipient_id is null or notification_complex_id is null then
     return new;
   end if;
 
   insert into notifications (
     user_id,
+    complex_id,
     type,
     actor_user_id,
     resource_type,
@@ -63,6 +69,7 @@ begin
     title
   ) values (
     recipient_id,
+    notification_complex_id,
     'message',
     new.sender_user_id,
     'conversation',
