@@ -24,6 +24,18 @@ assert.match(api, /new Set\(\['nickname', 'avatarUrl', 'publicBio'\]\)/, 'own up
 assert.match(api, /url\.protocol !== 'https:'/, 'avatar URL must be HTTPS');
 assert.match(api, /MAX_NICKNAME_CHARS = 40/, 'nickname must be bounded');
 assert.match(api, /MAX_BIO_CHARS = 300/, 'bio must be bounded');
+
+assert.match(api, /public_activity_count/i, 'profile must derive a public activity count');
+assert.match(api, /from community_posts cp[\s\S]*cp\.status = 'published'[\s\S]*cp\.visibility = 'verified_residents'/i,
+  'public count must include only published resident-visible posts');
+assert.match(api, /from community_comments cc[\s\S]*cc\.status = 'published'[\s\S]*parent_post\.status = 'published'[\s\S]*parent_post\.visibility = 'verified_residents'/i,
+  'public count must include only published comments/replies on published resident-visible posts');
+assert.match(api, /from business_reviews br[\s\S]*br\.status = 'active'[\s\S]*b\.status = 'approved'[\s\S]*bcr\.verification_status = 'verified'/i,
+  'public count must include only active reviews on approved verified-complex businesses');
+assert.match(api, /publicActivityCount:/,
+  'profile response must expose the server-derived count');
+assert.doesNotMatch(api, /community_reactions/i,
+  'public profile count must not expose or count reactions');
 assert.doesNotMatch(api, /building_code|unit_code|resident_verifications|evidence_object_key|auth_user_id/i,
   'profile runtime must not read residence/provider proof fields');
 
@@ -37,4 +49,4 @@ for (const route of [
 assert.match(app, /handleResidentProfileRequest/);
 assert.match(app, /const residentProfileResponse = await handleResidentProfileRequest\(request, env, id\)/);
 
-console.log('PASS safe resident public profile schema/API/privacy contract');
+console.log('PASS safe resident public profile schema/API/public-activity/privacy contract');
