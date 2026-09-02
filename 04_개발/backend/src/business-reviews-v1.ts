@@ -119,6 +119,7 @@ async function listReviews(
     reviews: rows.map((row) => ({
       id: String(row.id),
       body: String(row.body),
+      isMine: String(row.author_user_id) === resident.id,
       author: {
         userId: String(row.author_user_id),
         nickname: String(row.author_nickname),
@@ -165,9 +166,83 @@ async function createReview(
     id: String(row.id),
     businessId,
     body: String(row.body),
+    isMine: true,
     createdAt: row.created_at,
     updatedAt: row.updated_at
   }, requestId, 201);
+}
+
+async function updateOwnReview(
+  request: Request,
+  env: CoreEnv,
+  sql: Sql,
+  requestId: string,
+  complexSlug: string,
+  businessId: string,
+  reviewId: string
+): Promise<Response> {
+  const resident = await requireVerifiedResident(request, env, sql, requestId, complexSlug);
+  if (resident instanceof Response) return resident;
+  const business = await businessInComplex(sql, complexSlug, businessId);
+  if (!business || String(business.complex_id) !== resident.complexId) {
+    return fail('BUSINESS_NOT_FOUND', 'Business not found', 404, requestId);
+  }
+  const payload = await bodyJson(request, requestId);
+  if (payload instanceof Response) return payload;
+  const body = reviewText(payload, requestId);
+  if (body instanceof Response) return body;
+
+  const rows = await sql`
+    update business_reviews
+    set body = ${body}
+    where id = ${reviewId}::uuid
+      and business_id = ${businessId}::uuid
+      and complex_id = ${resident.complexId}::uuid
+      and author_user_id = ${resident.id}::uuid
+      and status = 'active'
+    returning id, body, created_at, updated_at
+  `;
+  const row = rows[0];
+  if (!row) return fail('REVIEW_NOT_FOUND', 'Review not found', 404, requestId);
+  return ok({
+    id: String(row.id),
+    businessId,
+    body: String(row.body),
+    isMine: true,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
+  }, requestId);
+}
+
+async function deleteOwnReview(
+  request: Request,
+  env: CoreEnv,
+  sql: Sql,
+  requestId: string,
+  complexSlug: string,
+  businessId: string,
+  reviewId: string
+): Promise<Response> {
+  const resident = await requireVerifiedResident(request, env, sql, requestId, complexSlug);
+  if (resident instanceof Response) return resident;
+  const business = await businessInComplex(sql, complexSlug, businessId);
+  if (!business || String(business.complex_id) !== resident.complexId) {
+    return fail('BUSINESS_NOT_FOUND', 'Business not found', 404, requestId);
+  }
+
+  const rows = await sql`
+    update business_reviews
+    set status = 'deleted'
+    where id = ${reviewId}::uuid
+      and business_id = ${businessId}::uuid
+      and complex_id = ${resident.complexId}::uuid
+      and author_user_id = ${resident.id}::uuid
+      and status = 'active'
+    returning id
+  `;
+  const row = rows[0];
+  if (!row) return fail('REVIEW_NOT_FOUND', 'Review not found', 404, requestId);
+  return ok({ id: String(row.id), businessId, deleted: true }, requestId);
 }
 
 async function upsertOwnerReply(
@@ -242,6 +317,17 @@ export async function handleBusinessReviewWithSql(
     if (!businessId) return fail('VALIDATION_ERROR', 'Invalid business id', 400, requestId);
     if (request.method === 'GET') return listReviews(request, env, sql, requestId, complexSlug, businessId);
     if (request.method === 'POST') return createReview(request, env, sql, requestId, complexSlug, businessId);
+    return fail('METHOD_NOT_ALLOWED', 'Method not allowed', 405, requestId);
+  }
+
+  match = path.match(/^\/api\/v1\/complexes\/([^/]+)\/businesses\/([0-9a-fA-F-]+)\/reviews\/([0-9a-fA-F-]+)$/);
+  if (match) {
+    const complexSlug = decodeURIComponent(match[1]);
+    const businessId = canonicalUuid(match[2]);
+    const reviewId = canonicalUuid(match[3]);
+    if (!businessId || !reviewId) return fail('VALIDATION_ERROR', 'Invalid business or review id', 400, requestId);
+    if (request.method === 'PATCH') return updateOwnReview(request, env, sql, requestId, complexSlug, businessId, reviewId);
+    if (request.method === 'DELETE') return deleteOwnReview(request, env, sql, requestId, complexSlug, businessId, reviewId);
     return fail('METHOD_NOT_ALLOWED', 'Method not allowed', 405, requestId);
   }
 
