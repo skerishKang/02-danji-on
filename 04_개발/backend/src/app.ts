@@ -18,6 +18,7 @@ import { handleResidentApplicationRequest } from './resident-application-v1';
 import { handleResidentEconomyMutationRequest } from './resident-economy-v2';
 import { handleResidentMessageRequest } from './resident-messages-v1';
 import { handleResidentNotificationRequest } from './resident-notifications-v1';
+import { handleResidentProfileRequest } from './resident-profile-v1';
 import { handleResidentVerificationRequest } from './resident-verification-v1';
 import { handleTrackedStorageUploadRequest } from './storage-upload-v2';
 import { handleStorageRequest } from './storage-v1';
@@ -169,6 +170,9 @@ export default {
 
       const householdFamilyResponse = await handleHouseholdFamilyRequest(request, env, id);
       if (householdFamilyResponse) return respond(householdFamilyResponse);
+
+      const residentProfileResponse = await handleResidentProfileRequest(request, env, id);
+      if (residentProfileResponse) return respond(residentProfileResponse);
 
       const residentNotificationResponse = await handleResidentNotificationRequest(request, env, id);
       if (residentNotificationResponse) return respond(residentNotificationResponse);
