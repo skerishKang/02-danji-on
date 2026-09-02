@@ -44,6 +44,11 @@ export interface Business {
   activeBenefit?: Benefit | null;
 }
 
+export interface BusinessShareRef {
+  businessId: string;
+  shareSlug: string;
+}
+
 export interface BusinessContact {
   type: 'phone' | 'sms' | 'kakao' | 'url';
   value: string;
@@ -154,6 +159,8 @@ export interface ActivityListOptions {
 export interface DataAdapter {
   listBusinesses(filters?: BusinessFilters): Promise<Business[]>;
   getBusiness(id: string): Promise<Business | null>;
+  getBusinessShare(id: string): Promise<BusinessShareRef>;
+  resolveBusinessShare(shareSlug: string): Promise<BusinessShareRef>;
   listBenefits(): Promise<Benefit[]>;
   listBenefitClaims(): Promise<BenefitClaim[]>;
   claimBenefit(benefitId: string): Promise<BenefitClaim>;

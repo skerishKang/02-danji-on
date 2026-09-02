@@ -22,6 +22,7 @@ import type {
   BusinessApplicationInput,
   BusinessContact,
   BusinessFilters,
+  BusinessShareRef,
   ComplexPost,
   DataAdapter,
   RelationType,
@@ -111,6 +112,10 @@ function activityFilterMatches(item: ActivityItem, type: ActivityListOptions['ty
   return item.type === 'review';
 }
 
+function mockShareSlug(businessId: string): string {
+  return `demo-${businessId.toLowerCase()}`;
+}
+
 export class MockAdapter implements DataAdapter {
   private bookmarks = new Set<string>(['v5-1', 'v5-4']);
   private contacts: Record<string, BusinessContact[]> = {
@@ -140,6 +145,18 @@ export class MockAdapter implements DataAdapter {
 
   async getBusiness(id: string): Promise<Business | null> {
     return allMockBusinesses().find((business) => business.id === id) ?? null;
+  }
+
+  async getBusinessShare(id: string): Promise<BusinessShareRef> {
+    return { businessId: id, shareSlug: mockShareSlug(id) };
+  }
+
+  async resolveBusinessShare(shareSlug: string): Promise<BusinessShareRef> {
+    if (!shareSlug.startsWith('demo-') || shareSlug.length <= 'demo-'.length) {
+      throw new Error('공유 링크를 찾을 수 없습니다.');
+    }
+    const businessId = shareSlug.slice('demo-'.length);
+    return { businessId, shareSlug };
   }
 
   async listBenefits(): Promise<Benefit[]> {
@@ -322,6 +339,13 @@ function mapBusiness(raw: Record<string, unknown>): Business {
   };
 }
 
+function mapBusinessShare(raw: Record<string, unknown>): BusinessShareRef {
+  return {
+    businessId: String(raw.businessId ?? raw.business_id ?? ''),
+    shareSlug: String(raw.shareSlug ?? raw.share_slug ?? '')
+  };
+}
+
 function mapApplication(raw: Record<string, unknown>): BusinessApplication {
   return {
     id: String(raw.id),
@@ -395,6 +419,16 @@ export class ApiAdapter implements DataAdapter {
       if (error instanceof Error && error.message.toLowerCase().includes('not found')) return null;
       throw error;
     }
+  }
+
+  async getBusinessShare(id: string): Promise<BusinessShareRef> {
+    const row = await request<Record<string, unknown>>(`/api/v1/complexes/${COMPLEX_SLUG}/businesses/${id}/share`, undefined, { auth: false });
+    return mapBusinessShare(row);
+  }
+
+  async resolveBusinessShare(shareSlug: string): Promise<BusinessShareRef> {
+    const row = await request<Record<string, unknown>>(`/api/v1/complexes/${COMPLEX_SLUG}/businesses/share/${encodeURIComponent(shareSlug)}`, undefined, { auth: false });
+    return mapBusinessShare(row);
   }
 
   async listBenefits(): Promise<Benefit[]> {

@@ -76,6 +76,26 @@ test('My DanjiOn lazy-loads resident Activity without replacing existing benefit
   await expect(activity).toContainText('게시글');
 });
 
+test('stable business share link copies opaque slug and reopens canonical detail', async ({ page }) => {
+  const card = page.locator('.v2-integrated-shop-card[data-shop-id="food-01"]').first();
+  await expect(card).toBeVisible();
+  const shopName = (await card.locator('h3').textContent())?.trim();
+  expect(shopName).toBeTruthy();
+
+  await card.getByRole('button', { name: '공유 링크 복사' }).click();
+  const shared = card.getByRole('link', { name: '공유 링크 열기' });
+  await expect(shared).toBeVisible();
+  const href = await shared.getAttribute('href');
+  expect(href).toBeTruthy();
+  expect(new URL(href!).searchParams.get('shop')).toBe('demo-food-01');
+  expect(href).not.toContain('businessName=');
+
+  await page.goto(href!);
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole('heading', { name: shopName! })).toBeVisible();
+});
+
 test('resident-owned registration -> promo -> operator approval -> rediscovery closes the V2 reference loop', async ({ page }) => {
   const uniqueName = `QA 한결수학 ${Date.now()}`;
   await page.getByRole('button', { name: V2_REFERENCE.registration.ownerTrigger, exact: true }).first().click();

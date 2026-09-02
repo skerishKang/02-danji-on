@@ -9,6 +9,7 @@ import { installPromoMaterialLaunchers } from './promo-launcher';
 import { installResidentDeepLink } from './resident-deep-link';
 import { getDanjiOnUiVariant, UiVariantRoot } from './ui-variant';
 import V2ActivityPortal from './v2/integration/V2ActivityPortal';
+import V2BusinessShareIntegration from './v2/integration/V2BusinessShareIntegration';
 import V2IntegratedApp from './v2/integration/V2IntegratedApp';
 
 const uiVariant = getDanjiOnUiVariant();
@@ -35,7 +36,7 @@ async function bootstrap() {
       <UiVariantRoot
         variant={uiVariant}
         v1={<App />}
-        v2={<><V2IntegratedApp /><V2ActivityPortal /></>}
+        v2={<><V2IntegratedApp /><V2ActivityPortal /><V2BusinessShareIntegration /></>}
         gateway={<GatewayApp />}
       />
     </StrictMode>
