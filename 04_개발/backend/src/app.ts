@@ -7,6 +7,7 @@ import { handleAdminVerificationRequest } from './admin-verification-v1';
 import { handleAdminRequest } from './admin-v1';
 import { handleBetterAuthRequest, type BetterAuthEnv } from './auth-better-v1';
 import { handleBenefitWalletRequest } from './benefit-wallet-v1';
+import { handleBusinessReviewRequest } from './business-reviews-v1';
 import { handleCommunityModerationRequest } from './community-moderation-v1';
 import { handleCommunityResidentRequest } from './community-resident-v1';
 import { handleHouseholdPrimaryClaimRequest } from './household-claim-v2';
@@ -114,7 +115,6 @@ export default {
     try {
       if (request.method === 'OPTIONS') return preflight(request, env);
 
-      // Better Auth owns /api/auth/* payloads and OAuth callbacks.
       const authResponse = await handleBetterAuthRequest(request, env);
       if (authResponse) return respond(authResponse);
 
@@ -124,14 +124,9 @@ export default {
       const accountLifecycleResponse = await handleAccountLifecycleRequest(request, env, id);
       if (accountLifecycleResponse) return respond(accountLifecycleResponse);
 
-      // Bounded high-abuse product writes consume an internal actor bucket before
-      // entering the existing endpoint. Passing this guard never grants endpoint
-      // authorization; Household/RBAC/ownership checks still run downstream.
       const productMutationRateLimitResponse = await handleProductMutationRateLimitRequest(request, env, id);
       if (productMutationRateLimitResponse) return respond(productMutationRateLimitResponse);
 
-      // Business-image POST is currentized by the pre-generated-id/upload_pending
-      // protocol before the legacy storage router. GET/DELETE remain on storage-v1.
       const trackedStorageUploadResponse = await handleTrackedStorageUploadRequest(request, env, id);
       if (trackedStorageUploadResponse) return respond(trackedStorageUploadResponse);
 
@@ -158,10 +153,6 @@ export default {
         if (response) return respond(response);
       }
 
-      // Household onboarding / association is separate from resident authorization.
-      // Unit selection is account-authenticated only; primary claim is token-gated;
-      // family invite acceptance creates only a pending membership and never bypasses
-      // resident-verification policy HOLD.
       const householdMasterResponse = await handleHouseholdUnitMasterRequest(request, env, id);
       if (householdMasterResponse) return respond(householdMasterResponse);
 
@@ -170,6 +161,9 @@ export default {
 
       const householdFamilyResponse = await handleHouseholdFamilyRequest(request, env, id);
       if (householdFamilyResponse) return respond(householdFamilyResponse);
+
+      const businessReviewResponse = await handleBusinessReviewRequest(request, env, id);
+      if (businessReviewResponse) return respond(businessReviewResponse);
 
       const residentProfileResponse = await handleResidentProfileRequest(request, env, id);
       if (residentProfileResponse) return respond(residentProfileResponse);
@@ -186,8 +180,6 @@ export default {
       const residentVerificationResponse = await handleResidentVerificationRequest(request, env, id);
       if (residentVerificationResponse) return respond(residentVerificationResponse);
 
-      // Household-v2 verified-resident mutations intercept the legacy handlers first.
-      // Legacy wallet/applicant ownership reads remain available below.
       const residentEconomyResponse = await handleResidentEconomyMutationRequest(request, env, id);
       if (residentEconomyResponse) return respond(residentEconomyResponse);
 
