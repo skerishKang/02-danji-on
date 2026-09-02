@@ -8,7 +8,8 @@ import type {
   BenefitClaim,
   BusinessApplication,
   BusinessApplicationInput,
-  BusinessContact
+  BusinessContact,
+  ShopRecommendationRelationType
 } from '../../types';
 import {
   V2CinematicScenes,
@@ -83,11 +84,18 @@ const emptyApplication: BusinessApplicationInput = {
   availabilityText: '상담 후 협의'
 };
 
-const REGISTRATION_STEP_TITLES: Record<1 | 2 | 3 | 4, string> = {
+const OWNER_STEP_TITLES: Record<1 | 2 | 3 | 4, string> = {
   1: '주민 관계를 선택하세요',
   2: '기본 정보를 확인하세요',
   3: '사진과 주민혜택을 정하세요',
   4: '공개정보와 비공개 정보를 확인하세요'
+};
+
+const RECOMMENDATION_STEP_TITLES: Record<1 | 2 | 3 | 4, string> = {
+  1: '주민 관계를 선택하세요',
+  2: '추천할 가게 정보를 알려주세요',
+  3: '추천 범위를 확인하세요',
+  4: '이웃가게 추천을 확인하세요'
 };
 
 function matchesQuery(shop: V2ShopVisual, query: string) {
@@ -158,7 +166,8 @@ export default function V2IntegratedApp() {
   const primaryClaim = primaryBenefit ? claims.find((claim) => claim.benefitId === primaryBenefit.id) ?? null : null;
   const primaryBenefitShop = primaryBenefit ? allShops.find((shop) => shop.id === primaryBenefit.businessId || adapterIdForShop(shop.id) === primaryBenefit.businessId) : null;
   const primaryBenefitImage = primaryBenefitShop?.image ?? V2_REFERENCE_IMAGES.food;
-  const registrationStepTitle = REGISTRATION_STEP_TITLES[registrationStep];
+  const isOwnerRegistration = registration.relationType === 'resident';
+  const registrationStepTitle = (isOwnerRegistration ? OWNER_STEP_TITLES : RECOMMENDATION_STEP_TITLES)[registrationStep];
 
   useEffect(() => {
     const media = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -369,7 +378,7 @@ export default function V2IntegratedApp() {
   }
 
   function openRegistration() {
-    if (!requirePrivateSession('내 일 알리기')) return;
+    if (!requirePrivateSession('가게 등록 또는 추천')) return;
     resetRegistrationImage();
     setRegistration({ ...emptyApplication });
     setRegistrationStep(1);
@@ -382,8 +391,41 @@ export default function V2IntegratedApp() {
     setRegistration((current) => ({ ...current, [key]: value }));
   }
 
+  async function selectRegistrationRelation(value: BusinessApplicationInput['relationType']) {
+    if (busy || value === registration.relationType) return;
+    const uploadedObjectKey = registration.representativeImageObjectKey;
+    if (value !== 'resident' && uploadedObjectKey) {
+      setBusy(true);
+      setMessage('');
+      try {
+        await storageAdapter.delete(uploadedObjectKey);
+        resetRegistrationImage();
+      } catch (error) {
+        setMessage(error instanceof Error ? error.message : '업로드한 대표 이미지를 정리하지 못해 추천 모드로 전환하지 않았습니다.');
+        setBusy(false);
+        return;
+      }
+      setBusy(false);
+    }
+    setRegistration((current) => ({
+      ...current,
+      relationType: value,
+      ...(value === 'resident' ? {} : {
+        priceText: '',
+        contactMethod: '',
+        benefitText: '',
+        availabilityText: '',
+        representativeImageObjectKey: undefined
+      })
+    }));
+  }
+
   async function uploadRegistrationImage(file: File | null) {
     if (!file || !requirePrivateSession('대표 이미지 업로드')) return;
+    if (registration.relationType !== 'resident') {
+      setMessage('가족·이웃·동네가게 추천은 사진이나 운영서류 없이 접수합니다.');
+      return;
+    }
     setBusy(true);
     setMessage('');
     try {
@@ -402,7 +444,7 @@ export default function V2IntegratedApp() {
 
   async function submitRegistration(event: FormEvent) {
     event.preventDefault();
-    if (!requirePrivateSession('등록 신청')) return;
+    if (!requirePrivateSession(isOwnerRegistration ? '등록 신청' : '이웃가게 추천')) return;
     if (!registration.businessName.trim() || !registration.serviceSummary.trim()) {
       setRegistrationStep(2);
       setMessage('이름과 하는 일을 입력해 주세요.');
@@ -411,18 +453,38 @@ export default function V2IntegratedApp() {
     setBusy(true);
     setMessage('');
     try {
-      const submitted = await dataAdapter.createBusinessApplication({
-        ...registration,
-        businessName: registration.businessName.trim(),
-        serviceSummary: registration.serviceSummary.trim(),
-        categoryName: registration.categoryName.trim() || '과외·수업'
-      });
-      setActiveApplication(submitted);
-      setRegistrationOpen(false);
-      setPromoGenerated(false);
-      window.requestAnimationFrame(() => scrollToSection('v2-promo'));
+      const businessName = registration.businessName.trim();
+      const serviceSummary = registration.serviceSummary.trim();
+      const categoryName = registration.categoryName.trim() || '과외·수업';
+      if (isOwnerRegistration) {
+        const submitted = await dataAdapter.createBusinessApplication({
+          ...registration,
+          relationType: 'resident',
+          businessName,
+          serviceSummary,
+          categoryName
+        });
+        setActiveApplication(submitted);
+        setRegistrationOpen(false);
+        setPromoGenerated(false);
+        window.requestAnimationFrame(() => scrollToSection('v2-promo'));
+      } else {
+        await dataAdapter.createShopRecommendation({
+          relationType: registration.relationType as ShopRecommendationRelationType,
+          businessName,
+          categoryName,
+          serviceSummary,
+          serviceArea: registration.serviceArea?.trim() || undefined,
+          reporterNote: 'V2 이웃가게 추천에서 접수'
+        });
+        setActiveApplication(null);
+        setRegistrationOpen(false);
+        setPromoGenerated(false);
+        setMessage('이웃가게 추천이 접수되었습니다. 운영 확인 후 공개 목록에 반영됩니다.');
+        window.requestAnimationFrame(() => scrollToSection('v2-discovery'));
+      }
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : '등록 신청을 접수하지 못했습니다.');
+      setMessage(error instanceof Error ? error.message : (isOwnerRegistration ? '등록 신청을 접수하지 못했습니다.' : '이웃가게 추천을 접수하지 못했습니다.'));
     } finally {
       setBusy(false);
     }
@@ -485,7 +547,7 @@ export default function V2IntegratedApp() {
                 <div className="v2-kicker">SCENE 03 · 가까운 일부터 발견</div>
                 <h2 className="v2-section-title">가까운 사람의 일을 먼저 보여줍니다.</h2>
               </div>
-              <p>V2의 시각 기준은 이미지 리프레시 원본을 따르고, 등록·혜택·승인 데이터 흐름은 기존 단지온 adapter 계약을 유지합니다.</p>
+              <p>V2의 시각 기준은 이미지 리프레시 원본을 따르고, 공개 가게와 주민 행동은 현재 단지온 API 계약을 사용합니다.</p>
             </div>
 
             {publicLoadError && <div className="v2-data-notice" role="alert">가게 정보를 불러오지 못했습니다. {publicLoadError}</div>}
@@ -547,8 +609,8 @@ export default function V2IntegratedApp() {
 
         <section id="v2-registration" data-v2-section="registration" className="v2-integration-section v2-registration-section">
           <div className="v2-section-inner v2-registration-teaser">
-            <div><div className="v2-kicker">SCENE 05 · ROLE SHIFT</div><h2 className="v2-section-title">이번에는 내 일을 알립니다.</h2><p>소비자로 둘러보던 주민이 공급자로 전환되는 순간을 별도의 로그인 역할이 아니라 기존 BusinessApplication 계약으로 연결합니다.</p></div>
-            <button type="button" className="v2-btn v2-btn-primary" onClick={openRegistration}>내 일 알리기</button>
+            <div><div className="v2-kicker">SCENE 05 · ROLE SHIFT</div><h2 className="v2-section-title">내 일은 등록하고, 좋은 이웃가게는 추천합니다.</h2><p>직접 운영하는 일은 소유자 등록으로, 가족·이웃·동네가게는 소유권을 주장하지 않는 추천으로 분리합니다.</p></div>
+            <button type="button" className="v2-btn v2-btn-primary" onClick={openRegistration}>등록 또는 추천</button>
           </div>
         </section>
 
@@ -556,10 +618,10 @@ export default function V2IntegratedApp() {
           <div className="v2-section-inner">
             <div className="v2-section-heading">
               <div><div className="v2-kicker">SCENE 06 · PROMOTION</div><h2 className="v2-section-title">입력한 생활정보가 홍보물로 정돈됩니다.</h2></div>
-              <p>홍보물은 신청 데이터를 재배치한 브라우저 미리보기입니다. 별도 홍보물 DB나 저장 규칙을 만들지 않습니다.</p>
+              <p>홍보물은 직접 운영 등록 신청 데이터를 재배치한 브라우저 미리보기입니다. 이웃가게 추천에는 소유자 홍보물을 만들지 않습니다.</p>
             </div>
             <div className="v2-promo-control">
-              <div><span>현재 신청</span><strong>{activeApplication?.businessName ?? '아직 등록 신청이 없습니다.'}</strong></div>
+              <div><span>현재 신청</span><strong>{activeApplication?.businessName ?? '아직 직접 운영 등록 신청이 없습니다.'}</strong></div>
               <button type="button" className="v2-btn v2-btn-primary" disabled={!activeApplication} onClick={() => setPromoGenerated(true)}>홍보물 만들기</button>
             </div>
             {promoGenerated && activeApplication && (
@@ -580,7 +642,7 @@ export default function V2IntegratedApp() {
         </section>
 
         <section id="v2-ending" data-v2-section="ending" className="v2-integration-section v2-ending-section">
-          <div className="v2-section-inner"><div className="v2-kicker">SCENE 07 · CIRCULAR NEIGHBOR ECONOMY</div><h2 className="v2-section-title">우리 단지의 소비가 우리 이웃의 일로 이어집니다.</h2><p>발견 → 혜택 → 등록 → 홍보 → 운영확인 → 다시 발견의 순환을 한 화면에서 확인합니다.</p></div>
+          <div className="v2-section-inner"><div className="v2-kicker">SCENE 07 · CIRCULAR NEIGHBOR ECONOMY</div><h2 className="v2-section-title">우리 단지의 소비가 우리 이웃의 일로 이어집니다.</h2><p>발견 → 혜택 → 등록·추천 → 운영확인 → 다시 발견의 순환을 한 화면에서 확인합니다.</p></div>
         </section>
       </main>
 
@@ -626,14 +688,14 @@ export default function V2IntegratedApp() {
             <div className="v2-step-label">STEP {registrationStep} / 4</div>
             <h2 id="v2-registration-dialog-title" className="v2-registration-heading">{registrationStepTitle}</h2>
             <form onSubmit={(event) => void submitRegistration(event)}>
-              {registrationStep === 1 && <fieldset><legend className="v2-sr-only">{registrationStepTitle}</legend><p>사업 공개정보와 주민 인증자료는 분리해서 다룹니다.</p><label className="v2-choice"><input type="radio" name="relation" checked={registration.relationType === 'resident'} onChange={() => updateRegistration('relationType', 'resident')} />현재 단지 주민 직접 운영</label><label className="v2-choice"><input type="radio" name="relation" checked={registration.relationType === 'resident_family'} onChange={() => updateRegistration('relationType', 'resident_family')} />현재 단지 주민 가족 운영</label><label className="v2-choice"><input type="radio" name="relation" checked={registration.relationType === 'neighbor'} onChange={() => updateRegistration('relationType', 'neighbor')} />이웃 단지 주민 운영</label><label className="v2-choice"><input type="radio" name="relation" checked={registration.relationType === 'local'} onChange={() => updateRegistration('relationType', 'local')} />일반 동네 제휴가게</label></fieldset>}
-              {registrationStep === 2 && <fieldset><legend className="v2-sr-only">{registrationStepTitle}</legend><div className="v2-registration-fields"><label>이름 또는 가게명<input value={registration.businessName} onChange={(event) => updateRegistration('businessName', event.target.value)} /></label><label>무슨 일을 하나요?<textarea rows={3} value={registration.serviceSummary} onChange={(event) => updateRegistration('serviceSummary', event.target.value)} /></label><label>가격 또는 상담 기준<input value={registration.priceText || ''} onChange={(event) => updateRegistration('priceText', event.target.value)} /></label><label>이용 지역과 방식<input value={registration.serviceArea || ''} onChange={(event) => updateRegistration('serviceArea', event.target.value)} /></label><label>문의 방식<input value={registration.contactMethod || ''} onChange={(event) => updateRegistration('contactMethod', event.target.value)} /></label></div></fieldset>}
-              {registrationStep === 3 && <fieldset><legend className="v2-sr-only">{registrationStepTitle}</legend><div className="v2-registration-photo-preview">{registrationImagePreview ? <img src={registrationImagePreview} alt="등록할 대표 이미지 미리보기" /> : <V2VisualImage src={V2_REFERENCE_IMAGES.learning.src} fallbackSrc={LOCAL_IMAGE_FALLBACK} alt="등록 대표 이미지 예시" fallbackLabel="대표 이미지" />}<span>대표 사진은 기존 StorageAdapter 계약으로 저장되며 공개 가게 이미지에 연결됩니다.</span></div><label className="v2-full-label">대표 이미지<input type="file" accept="image/jpeg,image/png,image/webp" disabled={busy} onChange={(event) => void uploadRegistrationImage(event.currentTarget.files?.[0] ?? null)} /></label><label className="v2-full-label">입주민 혜택<input value={registration.benefitText || ''} onChange={(event) => updateRegistration('benefitText', event.target.value)} /></label></fieldset>}
-              {registrationStep === 4 && <fieldset><legend className="v2-sr-only">{registrationStepTitle}</legend><div className="v2-public-private"><article><span>공개정보 확인</span><h3>{registration.businessName || '가게명'}</h3><p>{registration.serviceSummary || '하는 일'}</p><strong>{registration.priceText || '상담 후 안내'}</strong></article><article><span>비공개 주민관계 확인</span><h3>{registration.relationType === 'resident' ? '현재 단지 주민 직접 운영' : registration.relationType === 'resident_family' ? '현재 단지 주민 가족 운영' : registration.relationType === 'neighbor' ? '이웃 단지 주민 운영' : '일반 동네 제휴가게'}</h3><p>동·호수와 인증 증빙은 공개하지 않습니다.</p></article></div></fieldset>}
+              {registrationStep === 1 && <fieldset><legend className="v2-sr-only">{registrationStepTitle}</legend><p>직접 운영하는 일만 소유자 등록으로 처리합니다. 가족·이웃·동네가게는 추천자로 접수하며 가게 소유권을 주장하지 않습니다.</p><label className="v2-choice"><input type="radio" name="relation" checked={registration.relationType === 'resident'} disabled={busy} onChange={() => void selectRegistrationRelation('resident')} />현재 단지 주민 직접 운영 · 내 가게 등록</label><label className="v2-choice"><input type="radio" name="relation" checked={registration.relationType === 'resident_family'} disabled={busy} onChange={() => void selectRegistrationRelation('resident_family')} />현재 단지 주민 가족 운영 · 이웃가게 추천</label><label className="v2-choice"><input type="radio" name="relation" checked={registration.relationType === 'neighbor'} disabled={busy} onChange={() => void selectRegistrationRelation('neighbor')} />이웃 단지 주민 운영 · 이웃가게 추천</label><label className="v2-choice"><input type="radio" name="relation" checked={registration.relationType === 'local'} disabled={busy} onChange={() => void selectRegistrationRelation('local')} />일반 동네가게 · 이웃가게 추천</label></fieldset>}
+              {registrationStep === 2 && <fieldset><legend className="v2-sr-only">{registrationStepTitle}</legend><div className="v2-registration-fields"><label>이름 또는 가게명<input value={registration.businessName} onChange={(event) => updateRegistration('businessName', event.target.value)} /></label><label>무슨 일을 하나요?<textarea rows={3} value={registration.serviceSummary} onChange={(event) => updateRegistration('serviceSummary', event.target.value)} /></label>{isOwnerRegistration && <label>가격 또는 상담 기준<input value={registration.priceText || ''} onChange={(event) => updateRegistration('priceText', event.target.value)} /></label>}<label>이용 지역과 방식<input value={registration.serviceArea || ''} onChange={(event) => updateRegistration('serviceArea', event.target.value)} /></label>{isOwnerRegistration && <label>문의 방식<input value={registration.contactMethod || ''} onChange={(event) => updateRegistration('contactMethod', event.target.value)} /></label>}</div></fieldset>}
+              {registrationStep === 3 && (isOwnerRegistration ? <fieldset><legend className="v2-sr-only">{registrationStepTitle}</legend><div className="v2-registration-photo-preview">{registrationImagePreview ? <img src={registrationImagePreview} alt="등록할 대표 이미지 미리보기" /> : <V2VisualImage src={V2_REFERENCE_IMAGES.learning.src} fallbackSrc={LOCAL_IMAGE_FALLBACK} alt="등록 대표 이미지 예시" fallbackLabel="대표 이미지" />}<span>대표 사진은 기존 StorageAdapter 계약으로 저장되며 공개 가게 이미지에 연결됩니다.</span></div><label className="v2-full-label">대표 이미지<input type="file" accept="image/jpeg,image/png,image/webp" disabled={busy} onChange={(event) => void uploadRegistrationImage(event.currentTarget.files?.[0] ?? null)} /></label><label className="v2-full-label">입주민 혜택<input value={registration.benefitText || ''} onChange={(event) => updateRegistration('benefitText', event.target.value)} /></label></fieldset> : <fieldset><legend className="v2-sr-only">{registrationStepTitle}</legend><div className="v2-data-notice" role="note"><strong>추천은 소유자 등록이 아닙니다.</strong><p>사진·운영서류·가격·연락처·주민혜택은 추천자가 대신 등록하지 않습니다. 가게명, 하는 일, 이용 지역만 운영 확인용으로 접수합니다.</p></div></fieldset>)}
+              {registrationStep === 4 && <fieldset><legend className="v2-sr-only">{registrationStepTitle}</legend><div className="v2-public-private"><article><span>{isOwnerRegistration ? '공개정보 확인' : '추천정보 확인'}</span><h3>{registration.businessName || '가게명'}</h3><p>{registration.serviceSummary || '하는 일'}</p><strong>{isOwnerRegistration ? (registration.priceText || '상담 후 안내') : (registration.serviceArea || '이용 지역 미입력')}</strong></article><article><span>{isOwnerRegistration ? '비공개 주민관계 확인' : '소유권 경계 확인'}</span><h3>{registration.relationType === 'resident' ? '현재 단지 주민 직접 운영' : registration.relationType === 'resident_family' ? '현재 단지 주민 가족 운영 추천' : registration.relationType === 'neighbor' ? '이웃 단지 주민 운영 추천' : '일반 동네가게 추천'}</h3><p>{isOwnerRegistration ? '동·호수와 인증 증빙은 공개하지 않습니다.' : '추천자는 가게 운영자나 소유자로 등록되지 않습니다. 운영 확인 후 미소유 가게로 공개될 수 있습니다.'}</p></article></div></fieldset>}
               <div className="v2-dialog-actions">
                 {registrationStep > 1 && <button type="button" className="v2-btn" onClick={() => setRegistrationStep((registrationStep - 1) as 1 | 2 | 3 | 4)}>이전</button>}
                 {registrationStep < 4 && <button type="button" className="v2-btn v2-btn-primary" onClick={() => setRegistrationStep((registrationStep + 1) as 1 | 2 | 3 | 4)}>다음</button>}
-                {registrationStep === 4 && <button type="submit" className="v2-btn v2-btn-primary" disabled={busy}>등록 검토 요청</button>}
+                {registrationStep === 4 && <button type="submit" className="v2-btn v2-btn-primary" disabled={busy}>{isOwnerRegistration ? '등록 검토 요청' : '이웃가게 추천 접수'}</button>}
               </div>
             </form>
           </section>
