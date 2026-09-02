@@ -125,6 +125,32 @@ export interface ShopRecommendation {
   updatedAt?: string;
 }
 
+export type ActivityItemType = 'post' | 'comment' | 'reply' | 'reaction' | 'review';
+export type ActivityFilter = 'all' | 'posts' | 'comments' | 'reactions' | 'reviews';
+
+export interface ActivityItem {
+  type: ActivityItemType;
+  id: string;
+  occurredAt: string;
+  status: string;
+  targetType: 'community_post' | 'business';
+  targetId: string;
+  parentCommentId: string | null;
+  title: string | null;
+  bodyPreview: string | null;
+}
+
+export interface ActivityPage {
+  items: ActivityItem[];
+  nextCursor: string | null;
+}
+
+export interface ActivityListOptions {
+  type?: ActivityFilter;
+  limit?: number;
+  cursor?: string | null;
+}
+
 export interface DataAdapter {
   listBusinesses(filters?: BusinessFilters): Promise<Business[]>;
   getBusiness(id: string): Promise<Business | null>;
@@ -142,6 +168,7 @@ export interface DataAdapter {
   getMyBusinessApplication(id: string): Promise<BusinessApplication | null>;
   resubmitBusinessApplication(id: string, input: BusinessApplicationInput): Promise<BusinessApplication>;
   createShopRecommendation(input: ShopRecommendationInput): Promise<ShopRecommendation>;
+  listMyActivity(options?: ActivityListOptions): Promise<ActivityPage>;
 }
 
 export const relationLabels: Record<RelationType, string> = {
