@@ -14,6 +14,7 @@ import { handleCommunityResidentRequest } from './community-resident-v1';
 import { handleHouseholdPrimaryClaimRequest } from './household-claim-v2';
 import { handleHouseholdFamilyRequest } from './household-family-v2';
 import { handleHouseholdUnitMasterRequest } from './household-master-v2';
+import { handleInquiryRequest } from './inquiries-v1';
 import { validateRequestPayload } from './payload-policy';
 import { handleProductMutationRateLimitRequest } from './product-rate-limit-v1';
 import { handleResidentApplicationRequest } from './resident-application-v1';
@@ -140,6 +141,8 @@ export default {
       if (communityModerationResponse) return respond(communityModerationResponse);
       const shopRecommendationResponse = await handleShopRecommendationRequest(request, env, id);
       if (shopRecommendationResponse) return respond(shopRecommendationResponse);
+      const inquiryResponse = await handleInquiryRequest(request, env, id);
+      if (inquiryResponse) return respond(inquiryResponse);
       if (new URL(request.url).pathname.startsWith('/api/v1/admin/')) {
         const response = await handleAdminRequest(request, env, id);
         if (response) return respond(response);
