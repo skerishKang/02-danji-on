@@ -76,6 +76,29 @@ test('My DanjiOn lazy-loads resident Activity without replacing existing benefit
   await expect(activity).toContainText('게시글');
 });
 
+test('My DanjiOn exposes backend-owned Settings without inventing consent versions', async ({ page }) => {
+  await page.getByRole('button', { name: '내정보' }).first().click();
+  const myDialog = page.getByRole('dialog');
+  await expect(myDialog).toBeVisible();
+
+  const settings = myDialog.locator('[data-v2-settings-panel]');
+  await expect(settings).toBeVisible();
+  await expect(settings.getByRole('heading', { name: '이용 설정' })).toBeVisible();
+  await expect(settings).toContainText('서비스 알림');
+  await expect(settings).toContainText('혜택·이벤트 알림');
+  await expect(settings).toContainText('약관 동의 기록');
+  await expect(settings).toContainText('이 기기의 접근성 설정');
+
+  const hide = settings.getByRole('button', { name: '공개프로필 숨기기' });
+  await expect(hide).toBeVisible();
+  await hide.click();
+  await expect(settings).toContainText('다른 주민에게 비공개');
+  await expect(settings.getByRole('button', { name: '공개프로필 다시 공개' })).toBeVisible();
+
+  await settings.getByRole('button', { name: '공개프로필 다시 공개' }).click();
+  await expect(settings).toContainText('다른 인증 주민에게 공개 중');
+});
+
 test('stable business share link copies opaque slug and reopens canonical detail', async ({ page }) => {
   const card = page.locator('.v2-integrated-shop-card[data-shop-id="food-01"]').first();
   await expect(card).toBeVisible();
