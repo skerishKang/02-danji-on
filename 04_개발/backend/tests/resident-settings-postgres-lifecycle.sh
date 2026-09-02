@@ -29,19 +29,20 @@ begin
     raise exception 'public profile default must preserve existing discoverability';
   end if;
 
-  -- Canonical consent table accepts both new handoff-specific notification consent types.
-  insert into consent_records (user_id, consent_type, policy_version, status, source)
+  -- Force the same recorded_at for accepted and withdrawn events to prove event_seq resolves the tie.
+  insert into consent_records (user_id, consent_type, policy_version, status, source, recorded_at)
   values
-    ('10000000-0000-4000-8000-000000000021', 'service_notifications', 'service-notify-v1', 'accepted', 'web'),
-    ('10000000-0000-4000-8000-000000000021', 'benefit_marketing', 'benefit-marketing-v1', 'accepted', 'web'),
-    ('10000000-0000-4000-8000-000000000021', 'marketing', 'legacy-marketing-v1', 'accepted', 'web');
+    ('10000000-0000-4000-8000-000000000021', 'service_notifications', 'service-notify-v1', 'accepted', 'web', '2026-09-02T00:00:00Z'),
+    ('10000000-0000-4000-8000-000000000021', 'benefit_marketing', 'benefit-marketing-v1', 'accepted', 'web', '2026-09-02T00:00:00Z'),
+    ('10000000-0000-4000-8000-000000000021', 'marketing', 'legacy-marketing-v1', 'accepted', 'web', '2026-09-02T00:00:00Z');
 
-  -- A later withdrawal is a new event, not an update of consent history.
+  -- A later append event at the exact same timestamp must still win deterministically.
   insert into consent_records (
-    user_id, consent_type, policy_version, status, source, withdrawn_at
+    user_id, consent_type, policy_version, status, source, recorded_at, withdrawn_at
   ) values (
     '10000000-0000-4000-8000-000000000021',
-    'service_notifications', 'service-notify-v1', 'withdrawn', 'web', now()
+    'service_notifications', 'service-notify-v1', 'withdrawn', 'web',
+    '2026-09-02T00:00:00Z', '2026-09-02T00:00:00Z'
   );
 
   begin
@@ -68,28 +69,32 @@ begin
   end if;
 end $$;
 
--- Latest settings projection must select the newest append-only consent event.
+-- Latest settings projection must select the newest append-only consent event deterministically.
 do $$
 declare
   service_status text;
   benefit_status text;
   service_count integer;
+  seq_count integer;
+  min_seq bigint;
+  max_seq bigint;
 begin
   select status into service_status
   from consent_records
   where user_id = '10000000-0000-4000-8000-000000000021'::uuid
     and consent_type = 'service_notifications'
-  order by recorded_at desc, id desc
+  order by recorded_at desc, event_seq desc
   limit 1;
 
   select status into benefit_status
   from consent_records
   where user_id = '10000000-0000-4000-8000-000000000021'::uuid
     and consent_type = 'benefit_marketing'
-  order by recorded_at desc, id desc
+  order by recorded_at desc, event_seq desc
   limit 1;
 
-  select count(*) into service_count
+  select count(*), count(event_seq), min(event_seq), max(event_seq)
+    into service_count, seq_count, min_seq, max_seq
   from consent_records
   where user_id = '10000000-0000-4000-8000-000000000021'::uuid
     and consent_type = 'service_notifications';
@@ -100,8 +105,9 @@ begin
   if benefit_status <> 'accepted' then
     raise exception 'latest benefit-marketing consent should be accepted: %', benefit_status;
   end if;
-  if service_count <> 2 then
-    raise exception 'consent history should remain append-only, got % rows', service_count;
+  if service_count <> 2 or seq_count <> 2 or min_seq >= max_seq then
+    raise exception 'consent history needs two append-ordered sequence values: count %, seq_count %, min %, max %',
+      service_count, seq_count, min_seq, max_seq;
   end if;
 end $$;
 
@@ -120,4 +126,4 @@ begin
 end $$;
 SQL
 
-echo "PASS resident settings PostgreSQL lifecycle: canonical consent types/history, legacy compatibility and public-profile opt-out"
+echo "PASS resident settings PostgreSQL lifecycle: canonical consent types/history, deterministic event ordering, legacy compatibility and public-profile opt-out"
