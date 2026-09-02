@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "typecheck": "tsc -b --pretty false && npm run test:community-contract && npm run test:v2-recommendation-contract && npm run test:v2-activity-contract && npm run test:v2-business-share-contract && npm run test:v2-settings-contract && npm run test:v2-notifications-contract && npm run test:v2-messages-contract && npm run test:v2-resident-profile-safety-contract && npm run test:v2-complex-news-contract && npm run test:v2-business-reviews-contract && npm run test:v2-inquiries-contract && npm run test:v2-household-contract && npm run test:v2-account-closure-contract",
+    "typecheck": "tsc -b --pretty false && npm run test:community-contract && npm run test:v2-recommendation-contract && npm run test:v2-activity-contract && npm run test:v2-business-share-contract && npm run test:v2-settings-contract && npm run test:v2-notifications-contract && npm run test:v2-messages-contract && npm run test:v2-resident-profile-safety-contract && npm run test:v2-complex-news-contract && npm run test:v2-business-reviews-contract && npm run test:v2-inquiries-contract && npm run test:v2-household-contract && npm run test:v2-account-closure-contract && npm run test:v2-community-replies-contract",
     "test:community-contract": "node tests/community-current-integration-contract.mjs",
     "test:v2-recommendation-contract": "node tests/v2-shop-recommendation-contract.mjs",
     "test:v2-activity-contract": "node tests/v2-activity-integration-contract.mjs",
@@ -21,6 +21,7 @@
     "test:v2-inquiries-contract": "node tests/v2-inquiries-contract.mjs",
     "test:v2-household-contract": "node tests/v2-household-contract.mjs",
     "test:v2-account-closure-contract": "node tests/v2-account-closure-contract.mjs",
+    "test:v2-community-replies-contract": "node tests/v2-community-replies-contract.mjs",
     "test:e2e": "playwright test",
     "test:e2e:headed": "playwright test --headed"
   },
@@ -34,7 +35,6 @@
     "@playwright/test": "1.62.0",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
-    "@vitejs/plugin-react": "6.0.4",
     "typescript": "7.0.2",
     "vite": "8.1.5"
   }
