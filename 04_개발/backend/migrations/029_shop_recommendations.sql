@@ -15,7 +15,7 @@ create table if not exists shop_recommendations (
   review_note text,
   reviewed_by uuid references app_users(id) on delete set null,
   reviewed_at timestamptz,
-  approved_business_id uuid references businesses(id) on delete set null,
+  approved_business_id uuid references businesses(id) on delete set null deferrable initially deferred,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   check (char_length(business_name) between 1 and 160),
