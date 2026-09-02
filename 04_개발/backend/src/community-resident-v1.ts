@@ -276,6 +276,7 @@ export async function handleCommunityResidentRequest(
         join app_users u on u.id = c.author_user_id
         where c.post_id = ${postId}::uuid
           and c.complex_id = ${resident.complexId}::uuid
+          and c.parent_comment_id is null
           and c.status <> 'deleted'
           and (c.status = 'published' or c.author_user_id = ${resident.id}::uuid)
         order by c.created_at asc

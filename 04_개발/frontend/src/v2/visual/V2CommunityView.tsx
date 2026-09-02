@@ -6,7 +6,8 @@ import {
   communityApi,
   type CommunityComment,
   type CommunityPost,
-  type CommunityPostKind
+  type CommunityPostKind,
+  type CommunityReply
 } from '../../community-api';
 import type { ComplexPost } from '../../types';
 import './v2-community.css';
@@ -32,6 +33,7 @@ type Post = {
 };
 
 type Comment = { id: string; nick: string; text: string; pending?: boolean };
+type Reply = Comment & { parentCommentId: string };
 
 const TABS: Tab[] = ['전체', '공식소식', '주민이야기', '질문', '같이해요', '생활제보', '우리 단지의 변화', '함께하는 곳'];
 const WRITE_KIND_TO_API: Record<WriteKind, CommunityPostKind> = {
@@ -155,6 +157,16 @@ function mapResidentComment(comment: CommunityComment): Comment {
   };
 }
 
+function mapResidentReply(reply: CommunityReply): Reply {
+  return {
+    id: reply.id,
+    parentCommentId: reply.parentCommentId,
+    nick: reply.author.nickname || '입주민 확인 주민',
+    text: reply.body,
+    pending: reply.status !== 'published'
+  };
+}
+
 function accessError(error: unknown) {
   return error instanceof CommunityApiError && (error.status === 401 || error.status === 403);
 }
@@ -173,7 +185,9 @@ export function V2CommunityView({
   const [selected, setSelected] = useState<Post | null>(null);
   const [writeKind, setWriteKind] = useState<WriteKind | null>(null);
   const [comments, setComments] = useState<Record<string, Comment[]>>({});
+  const [replies, setReplies] = useState<Record<string, Reply[]>>({});
   const [commenting, setCommenting] = useState(false);
+  const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [notice, setNotice] = useState('');
   const [hasPublishedBefore, setHasPublishedBefore] = useState(false);
   const [reported, setReported] = useState<Set<string>>(() => new Set());
@@ -218,6 +232,8 @@ export function V2CommunityView({
   async function openPost(post: Post) {
     setSelected(post);
     setCommenting(false);
+    setReplyingTo(null);
+    setReplies({});
     if (!COMMUNITY_API_MODE || post.source !== 'resident') return;
     setBusy(true);
     try {
@@ -228,6 +244,28 @@ export function V2CommunityView({
     } finally {
       setBusy(false);
     }
+  }
+
+  async function loadReplies(parentCommentId: string) {
+    if (!selected || selected.source !== 'resident' || replies[parentCommentId] !== undefined) return;
+    if (!COMMUNITY_API_MODE) {
+      setReplies((current) => ({ ...current, [parentCommentId]: [] }));
+      return;
+    }
+    setBusy(true);
+    try {
+      const rows = await communityApi.listReplies(selected.id, parentCommentId);
+      setReplies((current) => ({ ...current, [parentCommentId]: rows.map(mapResidentReply) }));
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : '답글을 불러오지 못했습니다.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function beginReply(parentCommentId: string) {
+    await loadReplies(parentCommentId);
+    setReplyingTo(parentCommentId);
   }
 
   async function submitPost(event: FormEvent<HTMLFormElement>) {
@@ -313,6 +351,50 @@ export function V2CommunityView({
     setComments((current) => ({ ...current, [selected.id]: [...(current[selected.id] ?? []), item] }));
     setCommenting(false);
     setNotice(item.pending ? '댓글을 운영확인 중입니다.' : '댓글을 게시했습니다.');
+  }
+
+  async function submitReply(event: FormEvent<HTMLFormElement>, parentCommentId: string) {
+    event.preventDefault();
+    if (!selected || selected.source !== 'resident') return;
+    const form = new FormData(event.currentTarget);
+    const text = String(form.get('reply') ?? '').trim();
+    if (!text) return;
+    const checked = screenCommunityText('', text);
+    if (checked.action === 'block') {
+      setNotice(checked.reason);
+      return;
+    }
+
+    if (COMMUNITY_API_MODE) {
+      setBusy(true);
+      try {
+        const created = await communityApi.createReply(selected.id, parentCommentId, text);
+        const item = mapResidentReply(created);
+        setReplies((current) => ({ ...current, [parentCommentId]: [...(current[parentCommentId] ?? []), item] }));
+        if (!item.pending) {
+          setPosts((current) => current.map((post) => post.id === selected.id ? { ...post, comments: post.comments + 1 } : post));
+          setSelected((current) => current?.id === selected.id ? { ...current, comments: current.comments + 1 } : current);
+        }
+        setReplyingTo(null);
+        setNotice(item.pending ? '답글이 접수되어 운영확인 중입니다.' : '답글을 게시했습니다.');
+      } catch (error) {
+        setNotice(error instanceof Error ? error.message : '답글을 등록하지 못했습니다.');
+      } finally {
+        setBusy(false);
+      }
+      return;
+    }
+
+    const item: Reply = {
+      id: `reply-${Date.now()}`,
+      parentCommentId,
+      nick: '방림이웃',
+      text,
+      pending: checked.action === 'review'
+    };
+    setReplies((current) => ({ ...current, [parentCommentId]: [...(current[parentCommentId] ?? []), item] }));
+    setReplyingTo(null);
+    setNotice(item.pending ? '답글을 운영확인 중입니다.' : '답글을 게시했습니다.');
   }
 
   async function toggleLike(post: Post) {
@@ -458,11 +540,47 @@ export function V2CommunityView({
       {selected && (
         <div className="v2-community-modal-backdrop" role="presentation">
           <article className="v2-community-modal v2-community-detail">
-            <button type="button" className="v2-community-close" onClick={() => { setSelected(null); setCommenting(false); }} aria-label="게시물 닫기">×</button>
+            <button type="button" className="v2-community-close" onClick={() => { setSelected(null); setCommenting(false); setReplyingTo(null); setReplies({}); }} aria-label="게시물 닫기">×</button>
             <div className="v2-community-detail-meta"><span>{selected.official ? '공식소식' : selected.type}</span><span>{selected.time}</span><span>{selected.official ? selected.nick || '공식 발행' : selected.nick ?? '입주민 확인 주민'}</span></div>
             <h3>{selected.title}</h3>
             <p>{selected.body}</p>
-            {!!selectedComments.length && <div className="v2-community-comments">{selectedComments.map((comment) => <div key={comment.id}><small>{comment.nick} · {comment.pending ? '운영확인 중' : '게시됨'}</small><p>{comment.text}</p></div>)}</div>}
+            {!!selectedComments.length && (
+              <div className="v2-community-comments">
+                {selectedComments.map((comment) => {
+                  const childReplies = replies[comment.id];
+                  return (
+                    <div key={comment.id} data-v2-community-comment>
+                      <small>{comment.nick} · {comment.pending ? '운영확인 중' : '게시됨'}</small>
+                      <p>{comment.text}</p>
+                      {!comment.pending && (
+                        <div className="v2-community-detail-actions">
+                          {childReplies === undefined && <button type="button" disabled={busy} onClick={() => void loadReplies(comment.id)}>답글 보기</button>}
+                          <button type="button" disabled={busy} onClick={() => void beginReply(comment.id)}>답글 남기기</button>
+                        </div>
+                      )}
+                      {childReplies !== undefined && (
+                        <div data-v2-community-replies>
+                          {childReplies.map((reply) => (
+                            <div key={reply.id} data-v2-community-reply>
+                              <small>{reply.nick} · 답글 · {reply.pending ? '운영확인 중' : '게시됨'}</small>
+                              <p>{reply.text}</p>
+                            </div>
+                          ))}
+                          {!childReplies.length && <small>아직 답글이 없습니다.</small>}
+                        </div>
+                      )}
+                      {replyingTo === comment.id && (
+                        <form className="v2-community-comment-form" data-v2-community-reply-form onSubmit={(event) => void submitReply(event, comment.id)}>
+                          <label>답글<textarea name="reply" maxLength={300} required placeholder="댓글 내용에 답하면서 개인정보나 공격적 표현은 적지 말아 주세요." /></label>
+                          <button type="submit" className="v2-community-primary" disabled={busy}>답글 게시</button>
+                          <button type="button" disabled={busy} onClick={() => setReplyingTo(null)}>취소</button>
+                        </form>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
             {selected.source === 'resident' ? (
               <>
                 <div className="v2-community-detail-actions">

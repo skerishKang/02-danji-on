@@ -33,6 +33,10 @@ export interface CommunityComment {
   updatedAt: string | null;
 }
 
+export interface CommunityReply extends CommunityComment {
+  parentCommentId: string;
+}
+
 export class CommunityApiError extends Error {
   readonly status: number;
   readonly code: string | null;
@@ -80,6 +84,10 @@ function postPath(suffix = '') {
   return `/api/v1/complexes/${COMMUNITY_COMPLEX_SLUG}/community/posts${suffix}`;
 }
 
+function replyPath(postId: string, parentCommentId: string) {
+  return postPath(`/${encodeURIComponent(postId)}/comments/${encodeURIComponent(parentCommentId)}/replies`);
+}
+
 export const communityApi = {
   async listPosts(kind?: CommunityPostKind): Promise<CommunityPost[]> {
     const params = new URLSearchParams();
@@ -105,6 +113,17 @@ export const communityApi = {
 
   async createComment(postId: string, body: string): Promise<CommunityComment> {
     return request<CommunityComment>(postPath(`/${encodeURIComponent(postId)}/comments`), {
+      method: 'POST',
+      body: JSON.stringify({ body })
+    });
+  },
+
+  async listReplies(postId: string, parentCommentId: string): Promise<CommunityReply[]> {
+    return request<CommunityReply[]>(replyPath(postId, parentCommentId));
+  },
+
+  async createReply(postId: string, parentCommentId: string, body: string): Promise<CommunityReply> {
+    return request<CommunityReply>(replyPath(postId, parentCommentId), {
       method: 'POST',
       body: JSON.stringify({ body })
     });

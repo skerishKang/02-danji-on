@@ -2,9 +2,10 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
 const root = new URL('../', import.meta.url);
-const [migration, api, app] = await Promise.all([
+const [migration, api, residentApi, app] = await Promise.all([
   readFile(new URL('migrations/028_community_comment_replies.sql', root), 'utf8'),
   readFile(new URL('src/community-replies-v1.ts', root), 'utf8'),
+  readFile(new URL('src/community-resident-v1.ts', root), 'utf8'),
   readFile(new URL('src/app.ts', root), 'utf8')
 ]);
 
@@ -24,6 +25,9 @@ assert.match(api, /\/comments\\\/\(\[0-9a-fA-F-\]\+\)\\\/replies\$|comments.*rep
   'nested reply route must be present');
 assert.doesNotMatch(api, /building_code|unit_code|resident_code|\bemail\b|auth_user_id|evidence_object_key/i,
   'reply API must not query residence/provider PII');
+
+assert.match(residentApi, /c\.parent_comment_id is null/i,
+  'ordinary comment list must return only top-level comments so nested replies are not duplicated');
 
 assert.match(app, /handleCommunityReplyRequest/);
 const replyMount = app.indexOf('const communityReplyResponse = await handleCommunityReplyRequest(request, env, id)');
