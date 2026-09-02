@@ -27,7 +27,10 @@ assert.match(portal, /revokeInvite\(invite\.inviteId\)/);
 assert.match(portal, /redeemInvite\(redeemToken\)/);
 assert.match(portal, /verificationRequired/);
 assert.match(portal, /주민 권한은 아직 부여되지 않습니다/);
-assert.match(portal, /confirmRemoveId === membershipId/);
+assert.match(portal, /confirmRemoveId !== membershipId/,
+  'first member-removal click must arm confirmation instead of mutating');
+assert.match(portal, /confirmRemoveId === member\.membershipId/,
+  'armed member must render the explicit second-step confirmation action');
 assert.match(portal, /confirmLeave/);
 assert.doesNotMatch(portal, /buildingCode|unitCode|unitId|evidenceObjectKey|provider/i,
   'V2 Household UI must not render exact residence/provider identity');
