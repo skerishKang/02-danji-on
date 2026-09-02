@@ -32,7 +32,7 @@ This document reconciles the 2026-09-02 Google Drive backend handoff with the cu
 | Area | Classification | Current disposition / evidence |
 |---|---|---|
 | Phase 0 environment separation | ALREADY_IMPLEMENTED | Cloudflare development/preview/production environment contracts exist. |
-| Phase 0 migrations | ALREADY_IMPLEMENTED | Normal migration chain now reaches `028_community_comment_replies.sql`; dev-only seeds remain `900+`. |
+| Phase 0 migrations | ALREADY_IMPLEMENTED | Normal migration chain now reaches `029_shop_recommendations.sql`; dev-only seeds remain `900+`. |
 | Phase 0 public/private storage | ALREADY_IMPLEMENTED | Storage v1/v2 + tracked business-image lifecycle and reconciliation exist. |
 | Phase 0 API errors/request id | ALREADY_IMPLEMENTED | Central app/router and bounded handlers use request IDs and fail-closed error responses. |
 | Phase 0 logging/audit | ALREADY_IMPLEMENTED | Audit events and admin audit surfaces exist. |
@@ -53,8 +53,8 @@ This document reconciles the 2026-09-02 Google Drive backend handoff with the cu
 | Owner business application | ALREADY_IMPLEMENTED | Resident economy v2 plus application/review lifecycle exists. |
 | Business image upload | ALREADY_IMPLEMENTED | Tracked upload, lifecycle registry, reference integrity and background reconciliation exist. |
 | Private proof-document model | MISSING_IMPLEMENTATION | Business image privacy is implemented; a distinct proof-document application model is not established by current source. Requires bounded implementation only when workflow requires it. |
-| Neighbor shop report | MISSING_IMPLEMENTATION | No confirmed dedicated resident “report a neighbor/family shop” submission flow exists. |
-| Business approval workflow | ALREADY_IMPLEMENTED | Admin operational handler approves/requests changes/rejects and materializes business relations/media/benefits. |
+| Neighbor/family shop recommendation | ALREADY_IMPLEMENTED | #159 / PR #161 adds a non-owner recommendation lane. Approval materializes an unowned canonical business and verified complex relation; reporter is never asserted as owner. |
+| Business approval workflow | ALREADY_IMPLEMENTED | Admin operational handler approves/requests changes/rejects owner applications; shop recommendations reuse the same business-review RBAC with separate non-owner semantics. |
 | Official notices/content | ALREADY_IMPLEMENTED | `complex_posts` remains trusted/official content storage. |
 | Apartment news vs notice semantics | IMPLEMENTED_BUT_CONTRACT_DRIFT | Official content shares `complex_posts`; final guest visibility for apartment news remains owner-policy sensitive. |
 | Resident news submission/review | IMPLEMENTED_BUT_CONTRACT_DRIFT | Community supports resident-authored content and moderation, but handoff’s distinct resident-news product lane is not a separate canonical table/API. |
@@ -84,8 +84,7 @@ This document reconciles the 2026-09-02 Google Drive backend handoff with the cu
 
 ### Resident messaging
 
-- Issue #140.
-- Merged via PR #147.
+- Issue #140 / PR #147.
 - Migration `024_resident_messages.sql`.
 - Verified-resident 1:1 conversations/messages.
 - Block relationship checks.
@@ -93,8 +92,7 @@ This document reconciles the 2026-09-02 Google Drive backend handoff with the cu
 
 ### Resident notifications
 
-- Issue #148.
-- Merged via PR #149.
+- Issue #148 / PR #149.
 - Migration `025_resident_notifications.sql`.
 - List/unread/read/read-all.
 - Message insert creates recipient notification transactionally without copying message body.
@@ -103,8 +101,7 @@ This document reconciles the 2026-09-02 Google Drive backend handoff with the cu
 
 ### Safe resident public profile
 
-- Issue #150.
-- Merged via PR #151.
+- Issue #150 / PR #151.
 - Migration `026_resident_public_profiles.sql`.
 - Same-complex verified-resident access.
 - Reuses nickname/avatar/join month; adds bounded public bio.
@@ -114,8 +111,7 @@ This document reconciles the 2026-09-02 Google Drive backend handoff with the cu
 
 ### Shop reviews and owner replies
 
-- Issue #152.
-- Merged via PR #153.
+- Issue #152 / PR #153.
 - Migration `027_business_reviews.sql`.
 - Text-only reviews; no rating/star policy invented.
 - Review read/create requires active verified resident in the target complex.
@@ -143,6 +139,18 @@ This document reconciles the 2026-09-02 Google Drive backend handoff with the cu
 - API returns presentation-safe fields only and excludes residence/provider PII.
 - PostgreSQL 18 lifecycle permanently verifies uniqueness, self-block rejection and unblock removal.
 
+### Non-owner shop recommendations
+
+- Issue #159 / PR #161.
+- Migration `029_shop_recommendations.sql`.
+- Verified residents can recommend `resident_family`, `neighbor`, or `local` shops without asserting ownership.
+- `changes_requested` recommendations can be corrected and resubmitted by the reporter.
+- PADIEM/resident-council business-review scopes review the queue.
+- Approval materializes canonical `businesses` + `business_complex_relations` with `owner_user_id = null`.
+- Existing owner applications retain applicant-as-owner semantics unchanged.
+- External owner signup/claim remains an explicit HOLD boundary.
+- PostgreSQL 18 lifecycle verifies relation bounds and unowned materialization.
+
 ## Owner / legal / operations HOLD
 
 Do not infer or implement these decisions:
@@ -156,7 +164,7 @@ Do not infer or implement these decisions:
 7. Definition of “benefits received” count.
 8. Existing-content disposition after product-account deletion.
 9. Required evidence for third household member approval.
-10. Separate signup/identity flow for nonresident family or external shop owners.
+10. Separate signup/identity/claim flow for nonresident family or external shop owners.
 11. Warmth score formula/event weights, until explicitly approved.
 
 ## Frontend integration status
@@ -171,13 +179,12 @@ Known remaining risk: demo/mock stores still coexist in frontend source and requ
 
 ## Ranked non-HOLD next work
 
-1. Neighbor/family shop report submission flow, after confirming it does not overlap business application semantics.
-2. Distinct private proof-document attachment boundary for applications if required by the final application workflow.
-3. Settings/preferences backend surface limited to decision-free preferences.
-4. Inquiry/support lane fresh audit, then bounded implementation if truly missing.
-5. Activity API derived from existing domain data.
-6. Warmth persistence/event framework only after scoring policy is explicitly defined; do not invent weights.
-7. Frontend production-route API reconciliation and E2E replacement of remaining mock/session authority.
+1. Distinct private proof-document attachment boundary for owner applications if required by the final application workflow.
+2. Settings/preferences backend surface limited to decision-free preferences.
+3. Inquiry/support lane fresh audit, then bounded implementation if truly missing.
+4. Activity API derived from existing domain data.
+5. Warmth persistence/event framework only after scoring policy is explicitly defined; do not invent weights.
+6. Frontend production-route API reconciliation and E2E replacement of remaining mock/session authority.
 
 ## Current verdict
 
