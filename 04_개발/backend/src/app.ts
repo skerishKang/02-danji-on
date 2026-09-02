@@ -17,6 +17,7 @@ import { handleHouseholdUnitMasterRequest } from './household-master-v2';
 import { validateRequestPayload } from './payload-policy';
 import { handleProductMutationRateLimitRequest } from './product-rate-limit-v1';
 import { handleResidentApplicationRequest } from './resident-application-v1';
+import { handleResidentBlockRequest } from './resident-blocks-v1';
 import { handleResidentEconomyMutationRequest } from './resident-economy-v2';
 import { handleResidentMessageRequest } from './resident-messages-v1';
 import { handleResidentNotificationRequest } from './resident-notifications-v1';
@@ -112,87 +113,62 @@ export default {
   async fetch(request: Request, env: AppEnv): Promise<Response> {
     const id = requestId(request);
     const respond = (response: Response) => withCors(response, request, env);
-
     try {
       if (request.method === 'OPTIONS') return preflight(request, env);
-
       const authResponse = await handleBetterAuthRequest(request, env);
       if (authResponse) return respond(authResponse);
-
       const policyResponse = await validateRequestPayload(request, id);
       if (policyResponse) return respond(policyResponse);
-
       const accountLifecycleResponse = await handleAccountLifecycleRequest(request, env, id);
       if (accountLifecycleResponse) return respond(accountLifecycleResponse);
-
       const productMutationRateLimitResponse = await handleProductMutationRateLimitRequest(request, env, id);
       if (productMutationRateLimitResponse) return respond(productMutationRateLimitResponse);
-
       const trackedStorageUploadResponse = await handleTrackedStorageUploadRequest(request, env, id);
       if (trackedStorageUploadResponse) return respond(trackedStorageUploadResponse);
-
       const storageResponse = await handleStorageRequest(request, env, id);
       if (storageResponse) return respond(storageResponse);
-
       const adminAuditResponse = await handleAdminAuditRequest(request, env, id);
       if (adminAuditResponse) return respond(adminAuditResponse);
-
       const adminReviewContextResponse = await handleAdminReviewContextRequest(request, env, id);
       if (adminReviewContextResponse) return respond(adminReviewContextResponse);
-
       const adminVerificationResponse = await handleAdminVerificationRequest(request, env, id);
       if (adminVerificationResponse) return respond(adminVerificationResponse);
-
       const adminOperationalResponse = await handleAdminOperationalRequest(request, env, id);
       if (adminOperationalResponse) return respond(adminOperationalResponse);
-
       const communityModerationResponse = await handleCommunityModerationRequest(request, env, id);
       if (communityModerationResponse) return respond(communityModerationResponse);
-
       if (new URL(request.url).pathname.startsWith('/api/v1/admin/')) {
         const response = await handleAdminRequest(request, env, id);
         if (response) return respond(response);
       }
-
       const householdMasterResponse = await handleHouseholdUnitMasterRequest(request, env, id);
       if (householdMasterResponse) return respond(householdMasterResponse);
-
       const householdClaimResponse = await handleHouseholdPrimaryClaimRequest(request, env, id);
       if (householdClaimResponse) return respond(householdClaimResponse);
-
       const householdFamilyResponse = await handleHouseholdFamilyRequest(request, env, id);
       if (householdFamilyResponse) return respond(householdFamilyResponse);
-
+      const residentBlockResponse = await handleResidentBlockRequest(request, env, id);
+      if (residentBlockResponse) return respond(residentBlockResponse);
       const businessReviewResponse = await handleBusinessReviewRequest(request, env, id);
       if (businessReviewResponse) return respond(businessReviewResponse);
-
       const residentProfileResponse = await handleResidentProfileRequest(request, env, id);
       if (residentProfileResponse) return respond(residentProfileResponse);
-
       const residentNotificationResponse = await handleResidentNotificationRequest(request, env, id);
       if (residentNotificationResponse) return respond(residentNotificationResponse);
-
       const residentMessageResponse = await handleResidentMessageRequest(request, env, id);
       if (residentMessageResponse) return respond(residentMessageResponse);
-
       const communityReplyResponse = await handleCommunityReplyRequest(request, env, id);
       if (communityReplyResponse) return respond(communityReplyResponse);
-
       const communityResidentResponse = await handleCommunityResidentRequest(request, env, id);
       if (communityResidentResponse) return respond(communityResidentResponse);
-
       const residentVerificationResponse = await handleResidentVerificationRequest(request, env, id);
       if (residentVerificationResponse) return respond(residentVerificationResponse);
-
       const residentEconomyResponse = await handleResidentEconomyMutationRequest(request, env, id);
       if (residentEconomyResponse) return respond(residentEconomyResponse);
-
       const benefitWalletResponse = await handleBenefitWalletRequest(request, env, id);
       if (benefitWalletResponse) return respond(benefitWalletResponse);
-
       const residentApplicationResponse = await handleResidentApplicationRequest(request, env, id);
       if (residentApplicationResponse) return respond(residentApplicationResponse);
-
       return respond(await core.fetch(request, env));
     } catch (error) {
       console.error('[DanjiOn App]', id, error);
