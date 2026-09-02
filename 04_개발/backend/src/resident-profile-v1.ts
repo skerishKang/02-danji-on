@@ -18,6 +18,7 @@ type PublicProfileRow = {
   avatar_url: unknown;
   joined_month: unknown;
   public_bio: unknown;
+  is_discoverable: unknown;
 };
 
 function json(data: unknown, status: number, requestId: string): Response {
@@ -104,7 +105,8 @@ async function loadPublicProfile(sql: Sql, userId: string, complexId: string): P
       u.display_name,
       u.avatar_url,
       to_char(u.created_at at time zone 'UTC', 'YYYY-MM') as joined_month,
-      coalesce(p.public_bio, '') as public_bio
+      coalesce(p.public_bio, '') as public_bio,
+      coalesce(p.is_discoverable, true) as is_discoverable
     from app_users u
     left join resident_public_profiles p on p.user_id = u.id
     where u.id = ${userId}::uuid
@@ -157,11 +159,14 @@ async function getProfile(
 ): Promise<Response> {
   const viewer = await viewerForComplex(request, env, sql, requestId, complexSlug);
   if (viewer instanceof Response) return viewer;
-  if (targetUserId !== viewer.id.toLowerCase() && await isBlocked(sql, viewer.id, targetUserId)) {
+  const isSelf = targetUserId === viewer.id.toLowerCase();
+  if (!isSelf && await isBlocked(sql, viewer.id, targetUserId)) {
     return fail('PROFILE_NOT_FOUND', 'Profile not found', 404, requestId);
   }
   const row = await loadPublicProfile(sql, targetUserId, viewer.complexId);
-  if (!row) return fail('PROFILE_NOT_FOUND', 'Profile not found', 404, requestId);
+  if (!row || (!isSelf && row.is_discoverable !== true)) {
+    return fail('PROFILE_NOT_FOUND', 'Profile not found', 404, requestId);
+  }
   return ok(presentProfile(row), requestId);
 }
 

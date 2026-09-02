@@ -25,6 +25,7 @@ import { handleResidentEconomyMutationRequest } from './resident-economy-v2';
 import { handleResidentMessageRequest } from './resident-messages-v1';
 import { handleResidentNotificationRequest } from './resident-notifications-v1';
 import { handleResidentProfileRequest } from './resident-profile-v1';
+import { handleResidentSettingsRequest } from './resident-settings-v1';
 import { handleResidentVerificationRequest } from './resident-verification-v1';
 import { handleShopRecommendationRequest } from './shop-recommendations-v1';
 import { handleTrackedStorageUploadRequest } from './storage-upload-v2';
@@ -163,6 +164,8 @@ export default {
       if (businessReviewResponse) return respond(businessReviewResponse);
       const residentActivityResponse = await handleResidentActivityRequest(request, env, id);
       if (residentActivityResponse) return respond(residentActivityResponse);
+      const residentSettingsResponse = await handleResidentSettingsRequest(request, env, id);
+      if (residentSettingsResponse) return respond(residentSettingsResponse);
       const residentProfileResponse = await handleResidentProfileRequest(request, env, id);
       if (residentProfileResponse) return respond(residentProfileResponse);
       const residentNotificationResponse = await handleResidentNotificationRequest(request, env, id);
