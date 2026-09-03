@@ -28,6 +28,7 @@ import { handleResidentNotificationRequest } from './resident-notifications-v1';
 import { handleResidentProfileRequest } from './resident-profile-v1';
 import { handleResidentSafetyReportRequest } from './resident-safety-reports-v1';
 import { handleResidentSettingsRequest } from './resident-settings-v1';
+import { handleResidentSummaryRequest } from './resident-summary-v1';
 import { handleResidentVerificationRequest } from './resident-verification-v1';
 import { handleShopRecommendationRequest } from './shop-recommendations-v1';
 import { handleTrackedStorageUploadRequest } from './storage-upload-v2';
@@ -168,6 +169,8 @@ export default {
       if (residentBlockResponse) return respond(residentBlockResponse);
       const businessReviewResponse = await handleBusinessReviewRequest(request, env, id);
       if (businessReviewResponse) return respond(businessReviewResponse);
+      const residentSummaryResponse = await handleResidentSummaryRequest(request, env, id);
+      if (residentSummaryResponse) return respond(residentSummaryResponse);
       const residentActivityResponse = await handleResidentActivityRequest(request, env, id);
       if (residentActivityResponse) return respond(residentActivityResponse);
       const residentSettingsResponse = await handleResidentSettingsRequest(request, env, id);
