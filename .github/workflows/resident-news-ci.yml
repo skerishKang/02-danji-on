@@ -28,13 +28,25 @@ jobs:
     defaults:
       run:
         working-directory: 04_개발/backend
+    env:
+      DATABASE_URL: postgresql://postgres@127.0.0.1:5432/danjion_resident_news?sslmode=disable
     steps:
       - uses: actions/checkout@v4
       - name: Install PostgreSQL client
         run: |
           sudo apt-get update
           sudo apt-get install -y postgresql-client
-      - name: Run resident news PostgreSQL lifecycle
+      - name: Apply initial schema
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -q -f migrations/001_initial_schema.sql
+      - name: Apply Household-v2 schema
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -q -f migrations/009_household_foundation.sql
+      - name: Apply resident message dependency
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -q -f migrations/024_resident_messages.sql
+      - name: Apply notification schema
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -q -f migrations/025_resident_notifications.sql
+      - name: Apply resident news schema
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -q -f migrations/036_resident_news.sql
+      - name: Run resident news lifecycle assertions
         env:
-          DATABASE_URL: postgresql://postgres@127.0.0.1:5432/danjion_resident_news?sslmode=disable
+          RESIDENT_NEWS_SCHEMA_READY: '1'
         run: bash tests/resident-news-postgres-lifecycle.sh
