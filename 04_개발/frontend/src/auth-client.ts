@@ -96,16 +96,15 @@ export async function signInWithSocial(provider: SocialLoginProvider) {
 }
 
 /**
- * Canonical social signup order:
- * OAuth first -> Better Auth account/session -> DanjiOn phone onboarding.
- * `disableImplicitSignUp` remains enabled server-side, so a new account is only
- * created when the user explicitly selected signup and requestSignUp=true.
+ * Google/Naver/Kakao signup is explicit OAuth signup with no additional phone
+ * second factor. `disableImplicitSignUp` remains enabled server-side, so a new
+ * account is only created when the user explicitly selected signup.
  */
 export async function signUpWithSocial(provider: SocialLoginProvider) {
   const result = await danjionAuthClient.signIn.social({
     provider,
     callbackURL: browserUrl('/'),
-    newUserCallbackURL: browserUrl('/?account_onboarding=phone'),
+    newUserCallbackURL: browserUrl('/'),
     requestSignUp: true
   });
   assertAuthSuccess(result, '소셜 가입을 시작하지 못했습니다.');
@@ -118,6 +117,7 @@ export async function getSocialOnboardingStatus() {
     email: string;
     accountOnboarding: 'complete' | 'phone_required';
     phoneVerified: boolean;
+    socialProviderAccount: boolean;
     residentVerified: false;
   }>('/auth/social-onboarding/status', { method: 'GET' }, '계정 가입 상태를 확인하지 못했습니다.');
 }
@@ -129,14 +129,14 @@ export async function completeSocialOnboarding(input: {
   return sessionAuthRequest<{
     accepted: true;
     accountOnboarding: 'complete';
-    phoneVerified: true;
-    identityAssurance: 'contact_possession_only';
+    phoneVerified: boolean;
+    identityAssurance: 'contact_possession_only' | 'oauth_provider_account';
     legalIdentityVerified: false;
     residentVerified: false;
   }>('/auth/social-onboarding/complete', {
     method: 'POST',
     body: JSON.stringify(input)
-  }, '소셜 계정의 휴대폰 인증을 완료하지 못했습니다.');
+  }, '계정 가입 상태를 완료하지 못했습니다.');
 }
 
 export async function startSignupPhoneVerification(input: {
