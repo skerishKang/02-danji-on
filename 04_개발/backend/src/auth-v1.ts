@@ -21,8 +21,10 @@ type ActorRecord = Actor & {
   accountStatus: 'active' | 'closed';
 };
 
+type ActorResolution = Actor | 'closed' | 'onboarding' | null;
 type Sql = NeonQueryFunction<false, false>;
 type RemoteJwks = ReturnType<typeof createRemoteJWKSet>;
+type AuthConfig = { issuer: string; audience: string; jwksUrl: string; authority: 'danjion' | 'neon' };
 
 const REQUEST_ID_HEADER = 'x-danjion-request-id';
 const DEV_AUTH_HEADER = 'x-danjion-dev-auth-user';
@@ -54,37 +56,31 @@ function secureUrl(raw: string): URL | null {
   }
 }
 
-function danjionAuthConfig(env: AuthEnv): { issuer: string; audience: string; jwksUrl: string } | null {
+function danjionAuthConfig(env: AuthEnv): AuthConfig | null {
   const rawBaseUrl = env.DANJION_AUTH_BASE_URL?.trim();
   if (!rawBaseUrl) return null;
   const baseUrl = secureUrl(rawBaseUrl);
   if (!baseUrl) return null;
-
   const issuer = baseUrl.toString().replace(/\/$/, '');
   const rawJwksUrl = env.DANJION_AUTH_JWKS_URL?.trim();
   const jwksUrl = secureUrl(rawJwksUrl || `${issuer}/api/auth/jwks`);
   if (!jwksUrl) return null;
-  return { issuer, audience: issuer, jwksUrl: jwksUrl.toString() };
+  return { issuer, audience: issuer, jwksUrl: jwksUrl.toString(), authority: 'danjion' };
 }
 
-function neonAuthConfig(env: AuthEnv): { issuer: string; audience: string; jwksUrl: string } | null {
+function neonAuthConfig(env: AuthEnv): AuthConfig | null {
   const rawBaseUrl = env.NEON_AUTH_BASE_URL?.trim();
   if (!rawBaseUrl) return null;
-
   const baseUrl = secureUrl(rawBaseUrl);
   if (!baseUrl) return null;
-
-  // Preserve the historical managed-Neon contract for compatibility. Managed
-  // Neon Auth can remain present while Danjion Better Auth is validated in an
-  // isolated schema and rolled out independently.
   const issuer = baseUrl.origin;
   const rawJwksUrl = env.NEON_AUTH_JWKS_URL?.trim();
   const jwksUrl = secureUrl(rawJwksUrl || `${rawBaseUrl.replace(/\/$/, '')}/.well-known/jwks.json`);
   if (!jwksUrl) return null;
-  return { issuer, audience: issuer, jwksUrl: jwksUrl.toString() };
+  return { issuer, audience: issuer, jwksUrl: jwksUrl.toString(), authority: 'neon' };
 }
 
-function authConfig(env: AuthEnv): { issuer: string; audience: string; jwksUrl: string } | null {
+function authConfig(env: AuthEnv): AuthConfig | null {
   return danjionAuthConfig(env) ?? neonAuthConfig(env);
 }
 
@@ -123,17 +119,24 @@ async function actorRecordBySubject(sql: Sql, subject: string): Promise<ActorRec
 }
 
 function publicActor(record: ActorRecord): Actor {
-  return {
-    id: record.id,
-    authUserId: record.authUserId,
-    displayName: record.displayName
-  };
+  return { id: record.id, authUserId: record.authUserId, displayName: record.displayName };
 }
 
 async function actorBySubject(sql: Sql, subject: string): Promise<Actor | 'closed' | null> {
   const record = await actorRecordBySubject(sql, subject);
   if (!record) return null;
   return record.accountStatus === 'closed' ? 'closed' : publicActor(record);
+}
+
+async function completedContactOnboarding(sql: Sql, subject: string): Promise<boolean> {
+  const rows = await sql`
+    select 1
+    from signup_contact_receipts
+    where auth_user_id = ${subject}
+      and consumed_at is not null
+    limit 1
+  `;
+  return Boolean(rows[0]);
 }
 
 async function devActor(request: Request, env: AuthEnv, sql: Sql): Promise<Actor | 'closed' | null> {
@@ -153,12 +156,22 @@ function avatarFromClaims(payload: JWTPayload): string | null {
   return image || null;
 }
 
-async function resolveOrBootstrapActor(sql: Sql, payload: JWTPayload): Promise<Actor | 'closed' | null> {
+async function resolveOrBootstrapActor(
+  sql: Sql,
+  payload: JWTPayload,
+  requireContactOnboarding: boolean
+): Promise<ActorResolution> {
   const subject = typeof payload.sub === 'string' ? payload.sub.trim() : '';
   if (!subject) return null;
 
+  // Preserve all existing product users. The onboarding gate applies only when
+  // a new DanjiOn Better Auth identity attempts its first product bootstrap.
   const existing = await actorBySubject(sql, subject);
   if (existing) return existing;
+
+  if (requireContactOnboarding && !await completedContactOnboarding(sql, subject)) {
+    return 'onboarding';
+  }
 
   const displayName = displayNameFromClaims(payload);
   const avatarUrl = avatarFromClaims(payload);
@@ -178,11 +191,10 @@ async function resolveOrBootstrapActor(sql: Sql, payload: JWTPayload): Promise<A
       displayName: String(row.display_name)
     };
   }
-
   return actorBySubject(sql, subject);
 }
 
-async function verifyToken(token: string, config: { issuer: string; audience: string; jwksUrl: string }): Promise<JWTPayload | null> {
+async function verifyToken(token: string, config: AuthConfig): Promise<JWTPayload | null> {
   try {
     const { payload } = await jwtVerify(token, remoteJwks(config.jwksUrl), {
       issuer: config.issuer,
@@ -208,42 +220,34 @@ export async function requireActor(
   if (developmentActor) return developmentActor;
 
   const token = bearerToken(request);
-  if (token === null) {
-    return fail('AUTH_REQUIRED', 'Authentication required', 401, requestId);
-  }
-  if (!token) {
-    return fail('AUTH_INVALID', 'Invalid authorization header', 401, requestId);
-  }
+  if (token === null) return fail('AUTH_REQUIRED', 'Authentication required', 401, requestId);
+  if (!token) return fail('AUTH_INVALID', 'Invalid authorization header', 401, requestId);
 
   const config = authConfig(env);
-  if (!config) {
-    return fail('AUTH_NOT_CONFIGURED', 'Authentication verification is not configured', 503, requestId);
-  }
+  if (!config) return fail('AUTH_NOT_CONFIGURED', 'Authentication verification is not configured', 503, requestId);
 
   const payload = await verifyToken(token, config);
-  if (!payload) {
-    return fail('AUTH_INVALID', 'Invalid or expired authentication token', 401, requestId);
-  }
+  if (!payload) return fail('AUTH_INVALID', 'Invalid or expired authentication token', 401, requestId);
 
   const subject = typeof payload.sub === 'string' ? payload.sub.trim() : '';
-  if (!subject) {
-    return fail('AUTH_INVALID', 'Authenticated subject is missing', 401, requestId);
-  }
+  if (!subject) return fail('AUTH_INVALID', 'Authenticated subject is missing', 401, requestId);
   if (typeof payload.id === 'string' && payload.id.trim() && payload.id.trim() !== subject) {
     return fail('AUTH_INVALID', 'Authenticated subject is inconsistent', 401, requestId);
   }
-  if (payload.banned === true) {
-    return fail('AUTH_FORBIDDEN', 'Authenticated user is blocked', 403, requestId);
-  }
+  if (payload.banned === true) return fail('AUTH_FORBIDDEN', 'Authenticated user is blocked', 403, requestId);
 
   try {
-    const actor = await resolveOrBootstrapActor(sql, payload);
-    if (actor === 'closed') {
-      return fail('AUTH_ACCOUNT_CLOSED', 'DanjiOn product account is closed', 403, requestId);
+    const actor = await resolveOrBootstrapActor(sql, payload, config.authority === 'danjion');
+    if (actor === 'closed') return fail('AUTH_ACCOUNT_CLOSED', 'DanjiOn product account is closed', 403, requestId);
+    if (actor === 'onboarding') {
+      return fail(
+        'AUTH_ACCOUNT_ONBOARDING_REQUIRED',
+        'Phone contact verification is required before using DanjiOn product features',
+        403,
+        requestId
+      );
     }
-    if (!actor) {
-      return fail('AUTH_IDENTITY_LINK_FAILED', 'Authenticated user could not be linked', 500, requestId);
-    }
+    if (!actor) return fail('AUTH_IDENTITY_LINK_FAILED', 'Authenticated user could not be linked', 500, requestId);
     return actor;
   } catch (error) {
     console.error('[DanjiOn Auth Link]', requestId, error instanceof Error ? error.name : 'identity_link_failed');

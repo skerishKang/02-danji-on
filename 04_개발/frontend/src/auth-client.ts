@@ -28,12 +28,7 @@ function assertAuthSuccess(result: { error?: { message?: string } | null }, fall
   if (result.error) throw new Error(result.error.message || fallback);
 }
 
-async function publicAuthPost<T>(path: string, payload: Record<string, unknown>, fallback: string): Promise<T> {
-  const response = await fetch(apiUrl(path), {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(payload)
-  });
+async function parseApiResult<T>(response: Response, fallback: string): Promise<T> {
   const result = await response.json().catch(() => null) as {
     data?: T;
     error?: { message?: string };
@@ -42,6 +37,31 @@ async function publicAuthPost<T>(path: string, payload: Record<string, unknown>,
     throw new Error(result?.error?.message || fallback);
   }
   return result.data;
+}
+
+async function publicAuthPost<T>(path: string, payload: Record<string, unknown>, fallback: string): Promise<T> {
+  const response = await fetch(apiUrl(path), {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+  return parseApiResult<T>(response, fallback);
+}
+
+async function sessionAuthRequest<T>(
+  path: string,
+  init: RequestInit,
+  fallback: string
+): Promise<T> {
+  const response = await fetch(apiUrl(path), {
+    ...init,
+    credentials: 'include',
+    headers: {
+      ...(init.body ? { 'content-type': 'application/json' } : {}),
+      ...(init.headers || {})
+    }
+  });
+  return parseApiResult<T>(response, fallback);
 }
 
 function moveToVerificationLanding(): void {
@@ -75,27 +95,48 @@ export async function signInWithSocial(provider: SocialLoginProvider) {
   return result.data;
 }
 
-export async function signUpWithVerifiedSocial(provider: SocialLoginProvider, input: {
-  signupSessionRef: string;
-  verificationReceiptRef: string;
-}) {
-  if (!input.signupSessionRef || !input.verificationReceiptRef) {
-    throw new Error('휴대폰 인증을 먼저 완료해 주세요.');
-  }
+/**
+ * Canonical social signup order:
+ * OAuth first -> Better Auth account/session -> DanjiOn phone onboarding.
+ * `disableImplicitSignUp` remains enabled server-side, so a new account is only
+ * created when the user explicitly selected signup and requestSignUp=true.
+ */
+export async function signUpWithSocial(provider: SocialLoginProvider) {
   const result = await danjionAuthClient.signIn.social({
     provider,
-    callbackURL: browserUrl('/verification.html'),
-    newUserCallbackURL: browserUrl('/verification.html'),
-    requestSignUp: true,
-    additionalData: {
-      danjionSocialSignup: {
-        signupSessionRef: input.signupSessionRef,
-        verificationReceiptRef: input.verificationReceiptRef
-      }
-    }
+    callbackURL: browserUrl('/'),
+    newUserCallbackURL: browserUrl('/?account_onboarding=phone'),
+    requestSignUp: true
   });
   assertAuthSuccess(result, '소셜 가입을 시작하지 못했습니다.');
   return result.data;
+}
+
+export async function getSocialOnboardingStatus() {
+  return sessionAuthRequest<{
+    authenticated: true;
+    email: string;
+    accountOnboarding: 'complete' | 'phone_required';
+    phoneVerified: boolean;
+    residentVerified: false;
+  }>('/auth/social-onboarding/status', { method: 'GET' }, '계정 가입 상태를 확인하지 못했습니다.');
+}
+
+export async function completeSocialOnboarding(input: {
+  signupSessionRef: string;
+  verificationReceiptRef: string;
+}) {
+  return sessionAuthRequest<{
+    accepted: true;
+    accountOnboarding: 'complete';
+    phoneVerified: true;
+    identityAssurance: 'contact_possession_only';
+    legalIdentityVerified: false;
+    residentVerified: false;
+  }>('/auth/social-onboarding/complete', {
+    method: 'POST',
+    body: JSON.stringify(input)
+  }, '소셜 계정의 휴대폰 인증을 완료하지 못했습니다.');
 }
 
 export async function startSignupPhoneVerification(input: {
@@ -166,8 +207,6 @@ export async function completeVerifiedSignup(input: {
 /**
  * Legacy Gate1 visual compatibility only. These names used to call Better Auth
  * signup directly, which would now bypass the verified-phone product boundary.
- * They intentionally fail closed until that visual surface is migrated to
- * startSignupPhoneVerification -> verifySignupPhoneCode -> completeVerifiedSignup.
  */
 export async function signUpWithPhone(_input: {
   email: string;

@@ -5,7 +5,7 @@ import { handleAdminOperationalRequest } from './admin-operational-v2';
 import { handleAdminReviewContextRequest } from './admin-review-context-v1';
 import { handleAdminVerificationRequest } from './admin-verification-v1';
 import { handleAdminRequest } from './admin-v1';
-import { handleBetterAuthRequest, type BetterAuthEnv } from './auth-better-v1';
+import { createDanjionAuth, handleBetterAuthRequest, type BetterAuthEnv } from './auth-better-v1';
 import { handleBenefitWalletRequest } from './benefit-wallet-v1';
 import { handleBusinessReviewRequest } from './business-reviews-v1';
 import { handleBusinessShareRequest } from './business-share-v1';
@@ -31,6 +31,7 @@ import { handleResidentSettingsRequest } from './resident-settings-v1';
 import { handleResidentSummaryRequest } from './resident-summary-v1';
 import { handleResidentVerificationRequest } from './resident-verification-v1';
 import { handleShopRecommendationRequest } from './shop-recommendations-v1';
+import { handleSocialOnboardingRequest } from './social-onboarding-v1';
 import {
   handleSignupContactVerificationRequest,
   type SignupContactVerificationEnv
@@ -100,6 +101,7 @@ function withCors(response: Response, request: Request, env: AppEnv): Response {
   if (!origin) return response;
   const headers = new Headers(response.headers);
   headers.set('access-control-allow-origin', origin);
+  headers.set('access-control-allow-credentials', 'true');
   headers.set('access-control-expose-headers', `${REQUEST_ID_HEADER}, Retry-After, X-Retry-After`);
   appendVaryOrigin(headers);
   return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
@@ -117,7 +119,10 @@ function preflight(request: Request, env: AppEnv): Response {
     'access-control-max-age': '86400',
     'cache-control': 'no-store'
   });
-  if (origin) headers.set('access-control-allow-origin', origin);
+  if (origin) {
+    headers.set('access-control-allow-origin', origin);
+    headers.set('access-control-allow-credentials', 'true');
+  }
   appendVaryOrigin(headers);
   return new Response(null, { status: 204, headers });
 }
@@ -134,6 +139,13 @@ export default {
       if (verifiedSignupResponse) return respond(verifiedSignupResponse);
       const signupVerificationResponse = await handleSignupContactVerificationRequest(request, env, id);
       if (signupVerificationResponse) return respond(signupVerificationResponse);
+      const socialOnboardingResponse = await handleSocialOnboardingRequest(
+        request,
+        env,
+        id,
+        async (candidateRequest) => createDanjionAuth(env).api.getSession({ headers: candidateRequest.headers })
+      );
+      if (socialOnboardingResponse) return respond(socialOnboardingResponse);
       const policyResponse = await validateRequestPayload(request, id);
       if (policyResponse) return respond(policyResponse);
       const businessShareResponse = await handleBusinessShareRequest(request, env, id);
