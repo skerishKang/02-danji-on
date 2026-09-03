@@ -5,7 +5,7 @@ import { handleAdminOperationalRequest } from './admin-operational-v2';
 import { handleAdminReviewContextRequest } from './admin-review-context-v1';
 import { handleAdminVerificationRequest } from './admin-verification-v1';
 import { handleAdminRequest } from './admin-v1';
-import { handleBetterAuthRequest, type BetterAuthEnv } from './auth-better-v1';
+import { createDanjionAuth, handleBetterAuthRequest, type BetterAuthEnv } from './auth-better-v1';
 import { handleBenefitWalletRequest } from './benefit-wallet-v1';
 import { handleBusinessReviewRequest } from './business-reviews-v1';
 import { handleBusinessShareRequest } from './business-share-v1';
@@ -139,7 +139,12 @@ export default {
       if (verifiedSignupResponse) return respond(verifiedSignupResponse);
       const signupVerificationResponse = await handleSignupContactVerificationRequest(request, env, id);
       if (signupVerificationResponse) return respond(signupVerificationResponse);
-      const socialOnboardingResponse = await handleSocialOnboardingRequest(request, env, id);
+      const socialOnboardingResponse = await handleSocialOnboardingRequest(
+        request,
+        env,
+        id,
+        async (candidateRequest) => createDanjionAuth(env).api.getSession({ headers: candidateRequest.headers })
+      );
       if (socialOnboardingResponse) return respond(socialOnboardingResponse);
       const policyResponse = await validateRequestPayload(request, id);
       if (policyResponse) return respond(policyResponse);
