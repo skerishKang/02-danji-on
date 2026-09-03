@@ -23,6 +23,7 @@ import { handleResidentApplicationRequest } from './resident-application-v1';
 import { handleResidentBlockRequest } from './resident-blocks-v1';
 import { handleResidentEconomyMutationRequest } from './resident-economy-v2';
 import { handleResidentMessageRequest } from './resident-messages-v1';
+import { handleResidentNewsRequest } from './resident-news-v1';
 import { handleResidentNotificationRequest } from './resident-notifications-v1';
 import { handleResidentProfileRequest } from './resident-profile-v1';
 import { handleResidentSafetyReportRequest } from './resident-safety-reports-v1';
@@ -145,6 +146,8 @@ export default {
       if (adminOperationalResponse) return respond(adminOperationalResponse);
       const communityModerationResponse = await handleCommunityModerationRequest(request, env, id);
       if (communityModerationResponse) return respond(communityModerationResponse);
+      const residentNewsResponse = await handleResidentNewsRequest(request, env, id);
+      if (residentNewsResponse) return respond(residentNewsResponse);
       const residentSafetyReportResponse = await handleResidentSafetyReportRequest(request, env, id);
       if (residentSafetyReportResponse) return respond(residentSafetyReportResponse);
       const shopRecommendationResponse = await handleShopRecommendationRequest(request, env, id);
