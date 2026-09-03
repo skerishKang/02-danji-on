@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
 const root = new URL('../', import.meta.url);
-const [server, schema, migration, app, authResolver, wranglerSource, verificationRpc, verificationMigration, signupVerification] = await Promise.all([
+const [server, schema, migration, app, authResolver, wranglerSource, verificationRpc, verificationMigration, verifiedSignup] = await Promise.all([
   readFile(new URL('src/auth-better-v1.ts', root), 'utf8'),
   readFile(new URL('src/auth-better-schema.ts', root), 'utf8'),
   readFile(new URL('migrations/014_danjion_better_auth.sql', root), 'utf8'),
@@ -11,7 +11,7 @@ const [server, schema, migration, app, authResolver, wranglerSource, verificatio
   readFile(new URL('wrangler.jsonc', root), 'utf8'),
   readFile(new URL('src/padiem-contact-verification-v1.ts', root), 'utf8'),
   readFile(new URL('migrations/038_signup_contact_verification.sql', root), 'utf8'),
-  readFile(new URL('src/signup-contact-verification-v1.ts', root), 'utf8')
+  readFile(new URL('src/verified-signup-v1.ts', root), 'utf8')
 ]);
 
 for (const provider of ['google', 'kakao', 'naver']) {
@@ -24,14 +24,18 @@ assert.match(server, /displayUsername:\s*false/);
 assert.match(server, /usernameNormalization:\s*normalizeKoreanPhone/);
 assert.match(server, /usernameValidator:/);
 assert.doesNotMatch(server, /phoneNumber\(/, 'phone plugin would couple this v1 path to phone verification/OTP semantics');
-assert.doesNotMatch(server, /sendOTP|sendVerificationOTP|verifyPhoneNumber/, 'v1 phone login must not fake or require SMS verification');
+assert.doesNotMatch(server, /sendOTP|sendVerificationOTP|verifyPhoneNumber/, 'Better Auth must not own the Padiem OTP algorithm');
+assert.match(server, /directEmailSignupBlocked/);
+assert.match(server, /\/api\/auth\/sign-up\/email/);
+assert.match(server, /PHONE_VERIFICATION_REQUIRED/);
+assert.match(server, /disableImplicitSignUp:\s*true/g, 'new social users must not bypass verified-phone onboarding');
 
 assert.match(server, /jwt\(\{/);
 assert.match(authResolver, /\/api\/auth\/jwks/);
 assert.match(app, /handleBetterAuthRequest/);
+assert.match(app, /handleVerifiedSignupRequest/);
 assert.match(app, /handleSignupContactVerificationRequest/);
-assert.ok(app.indexOf('handleBetterAuthRequest') < app.indexOf('handleSignupContactVerificationRequest'), 'Better Auth routes must remain canonical');
-assert.ok(app.indexOf('handleSignupContactVerificationRequest') < app.indexOf('validateRequestPayload(request'), 'signup verification must be mounted before /api/v1-only payload policy');
+assert.ok(app.indexOf('handleBetterAuthRequest') < app.indexOf('validateRequestPayload(request'), 'auth handler must be mounted before app JSON payload policy');
 
 assert.match(schema, /pgSchema\('danjion_auth'\)/);
 assert.match(migration, /create schema if not exists danjion_auth/i);
@@ -77,20 +81,21 @@ assert.doesNotMatch(verificationMigration, /\bverification_code\s+(?:text|varcha
 assert.match(verificationMigration, /identity_verified_at timestamptz/);
 assert.match(verificationMigration, /never resident or legal identity authority/i);
 
-// Public command layer: only Padiem owns the OTP lifecycle. DanjiOn may derive
-// opaque PII references, persist returned challenge state and call a trusted
-// delivery binding, but never expose/persist the delivery code.
-assert.match(signupVerification, /\/auth\/verification\/start/);
-assert.match(signupVerification, /\/auth\/verification\/verify/);
-assert.match(signupVerification, /issuePadiemContactChallenge/);
-assert.match(signupVerification, /resendPadiemContactChallenge/);
-assert.match(signupVerification, /verifyPadiemContactChallenge/);
-assert.match(signupVerification, /PADIEM_CONTACT_DELIVERY/);
-assert.match(signupVerification, /DANJION_CONTACT_REF_SECRET/);
-assert.match(signupVerification, /Raw delivery_code is intentionally not included in this browser response/);
-assert.match(signupVerification, /residentVerified:\s*false/);
-assert.match(signupVerification, /legalIdentityVerified:\s*false/);
-assert.doesNotMatch(signupVerification, /body\[['"]phoneVerified['"]\]|body\.phoneVerified|phone_verified\s*=\s*body/i, 'browser phone verification claims must never become authority');
-assert.doesNotMatch(signupVerification, /generateNumericOtp|randbelow|Math\.random\(\).*otp|createHmac.*otp/i, 'DanjiOn command layer must not fork the OTP algorithm');
+// Final direct signup gate: exact receipt consumption precedes Better Auth.
+assert.match(verifiedSignup, /\/auth\/signup/);
+assert.match(verifiedSignup, /consumeVerifiedReceipt/);
+assert.match(verifiedSignup, /r\.consumed_at is null/);
+assert.match(verifiedSignup, /c\.state = 'verified'/);
+assert.match(verifiedSignup, /s\.phone_verified_at is not null/);
+assert.match(verifiedSignup, /auth\.api\.signUpEmail/);
+assert.ok(
+  verifiedSignup.indexOf('consumeVerifiedReceipt(') < verifiedSignup.indexOf('auth.api.signUpEmail'),
+  'one-time verification receipt must be consumed before Better Auth account creation'
+);
+assert.match(verifiedSignup, /username:\s*phone/);
+assert.match(verifiedSignup, /contact_possession_only/);
+assert.match(verifiedSignup, /legalIdentityVerified:\s*false/);
+assert.match(verifiedSignup, /residentVerified:\s*false/);
+assert.doesNotMatch(verifiedSignup, /phoneVerified:\s*true[\s\S]*VERIFIED_RESIDENT/);
 
-console.log('PASS Danjion Better Auth and Padiem contact-verification boundary contract');
+console.log('PASS Danjion Better Auth and Padiem verified-phone signup boundary contract');
