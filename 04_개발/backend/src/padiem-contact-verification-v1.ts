@@ -68,6 +68,9 @@ type VerifySuccess = {
   receipt: PadiemVerificationReceipt | null;
 };
 
+export type PadiemIssueCommandSuccess = IssueSuccess & { operation: 'issue' };
+export type PadiemResendCommandSuccess = ResendSuccess & { operation: 'resend' };
+
 export interface PadiemContactVerificationRpc {
   issue(payload: Record<string, unknown>): Promise<IssueSuccess | RpcFailure>;
   resend(payload: Record<string, unknown>): Promise<ResendSuccess | RpcFailure>;
@@ -115,15 +118,15 @@ function unwrap<T extends { ok: true }>(result: T | RpcFailure): T {
 export async function issuePadiemContactChallenge(
   env: PadiemContactVerificationEnv,
   payload: Record<string, unknown>
-): Promise<IssueSuccess> {
-  return unwrap(await rpc(env).issue(payload));
+): Promise<PadiemIssueCommandSuccess> {
+  return { ...unwrap(await rpc(env).issue(payload)), operation: 'issue' };
 }
 
 export async function resendPadiemContactChallenge(
   env: PadiemContactVerificationEnv,
   payload: Record<string, unknown>
-): Promise<ResendSuccess> {
-  return unwrap(await rpc(env).resend(payload));
+): Promise<PadiemResendCommandSuccess> {
+  return { ...unwrap(await rpc(env).resend(payload)), operation: 'resend' };
 }
 
 export async function verifyPadiemContactChallenge(

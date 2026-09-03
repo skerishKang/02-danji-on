@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
 const root = new URL('../', import.meta.url);
-const [server, schema, migration, app, authResolver, wranglerSource, verificationRpc, verificationMigration] = await Promise.all([
+const [server, schema, migration, app, authResolver, wranglerSource, verificationRpc, verificationMigration, signupVerification] = await Promise.all([
   readFile(new URL('src/auth-better-v1.ts', root), 'utf8'),
   readFile(new URL('src/auth-better-schema.ts', root), 'utf8'),
   readFile(new URL('migrations/014_danjion_better_auth.sql', root), 'utf8'),
@@ -10,7 +10,8 @@ const [server, schema, migration, app, authResolver, wranglerSource, verificatio
   readFile(new URL('src/auth-v1.ts', root), 'utf8'),
   readFile(new URL('wrangler.jsonc', root), 'utf8'),
   readFile(new URL('src/padiem-contact-verification-v1.ts', root), 'utf8'),
-  readFile(new URL('migrations/038_signup_contact_verification.sql', root), 'utf8')
+  readFile(new URL('migrations/038_signup_contact_verification.sql', root), 'utf8'),
+  readFile(new URL('src/signup-contact-verification-v1.ts', root), 'utf8')
 ]);
 
 for (const provider of ['google', 'kakao', 'naver']) {
@@ -28,7 +29,9 @@ assert.doesNotMatch(server, /sendOTP|sendVerificationOTP|verifyPhoneNumber/, 'v1
 assert.match(server, /jwt\(\{/);
 assert.match(authResolver, /\/api\/auth\/jwks/);
 assert.match(app, /handleBetterAuthRequest/);
-assert.ok(app.indexOf('handleBetterAuthRequest') < app.indexOf('validateRequestPayload(request'), 'auth handler must be mounted before app JSON payload policy');
+assert.match(app, /handleSignupContactVerificationRequest/);
+assert.ok(app.indexOf('handleBetterAuthRequest') < app.indexOf('handleSignupContactVerificationRequest'), 'Better Auth routes must remain canonical');
+assert.ok(app.indexOf('handleSignupContactVerificationRequest') < app.indexOf('validateRequestPayload(request'), 'signup verification must be mounted before /api/v1-only payload policy');
 
 assert.match(schema, /pgSchema\('danjion_auth'\)/);
 assert.match(migration, /create schema if not exists danjion_auth/i);
@@ -73,5 +76,21 @@ assert.doesNotMatch(verificationMigration, /\braw_otp\s+(?:text|varchar|char)/i,
 assert.doesNotMatch(verificationMigration, /\bverification_code\s+(?:text|varchar|char)/i, 'browser-entered verification code must never be persisted');
 assert.match(verificationMigration, /identity_verified_at timestamptz/);
 assert.match(verificationMigration, /never resident or legal identity authority/i);
+
+// Public command layer: only Padiem owns the OTP lifecycle. DanjiOn may derive
+// opaque PII references, persist returned challenge state and call a trusted
+// delivery binding, but never expose/persist the delivery code.
+assert.match(signupVerification, /\/auth\/verification\/start/);
+assert.match(signupVerification, /\/auth\/verification\/verify/);
+assert.match(signupVerification, /issuePadiemContactChallenge/);
+assert.match(signupVerification, /resendPadiemContactChallenge/);
+assert.match(signupVerification, /verifyPadiemContactChallenge/);
+assert.match(signupVerification, /PADIEM_CONTACT_DELIVERY/);
+assert.match(signupVerification, /DANJION_CONTACT_REF_SECRET/);
+assert.match(signupVerification, /Raw delivery_code is intentionally not included in this browser response/);
+assert.match(signupVerification, /residentVerified:\s*false/);
+assert.match(signupVerification, /legalIdentityVerified:\s*false/);
+assert.doesNotMatch(signupVerification, /body\[['"]phoneVerified['"]\]|body\.phoneVerified|phone_verified\s*=\s*body/i, 'browser phone verification claims must never become authority');
+assert.doesNotMatch(signupVerification, /generateNumericOtp|randbelow|Math\.random\(\).*otp|createHmac.*otp/i, 'DanjiOn command layer must not fork the OTP algorithm');
 
 console.log('PASS Danjion Better Auth and Padiem contact-verification boundary contract');
