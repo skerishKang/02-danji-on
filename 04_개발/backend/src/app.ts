@@ -31,13 +31,17 @@ import { handleResidentSettingsRequest } from './resident-settings-v1';
 import { handleResidentSummaryRequest } from './resident-summary-v1';
 import { handleResidentVerificationRequest } from './resident-verification-v1';
 import { handleShopRecommendationRequest } from './shop-recommendations-v1';
+import {
+  handleSignupContactVerificationRequest,
+  type SignupContactVerificationEnv
+} from './signup-contact-verification-v1';
 import { handleTrackedStorageUploadRequest } from './storage-upload-v2';
 import { handleStorageRequest } from './storage-v1';
 
 const REQUEST_ID_HEADER = 'x-danjion-request-id';
 const SAFE_ID = /^[A-Za-z0-9._:-]{1,80}$/;
 
-type AppEnv = CoreEnv & BetterAuthEnv & {
+type AppEnv = CoreEnv & BetterAuthEnv & SignupContactVerificationEnv & {
   CORS_ALLOWED_ORIGINS?: string;
   COMMUNITY_PUBLISH_MODE?: string;
 };
@@ -125,6 +129,8 @@ export default {
       if (request.method === 'OPTIONS') return preflight(request, env);
       const authResponse = await handleBetterAuthRequest(request, env);
       if (authResponse) return respond(authResponse);
+      const signupVerificationResponse = await handleSignupContactVerificationRequest(request, env, id);
+      if (signupVerificationResponse) return respond(signupVerificationResponse);
       const policyResponse = await validateRequestPayload(request, id);
       if (policyResponse) return respond(policyResponse);
       const businessShareResponse = await handleBusinessShareRequest(request, env, id);
