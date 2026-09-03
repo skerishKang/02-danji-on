@@ -1,10 +1,8 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  completeSocialOnboarding,
   completeVerifiedSignup,
   getProductApiBearerToken,
-  getSocialOnboardingStatus,
   signInWithEmail,
   signInWithPhone,
   signInWithSocial,
@@ -44,7 +42,6 @@ export default function V2AuthEntryPortal() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [authenticated, setAuthenticated] = useState(false);
-  const [socialOnboardingRequired, setSocialOnboardingRequired] = useState(false);
 
   function resetPhoneVerification() {
     setOtpCode('');
@@ -67,40 +64,13 @@ export default function V2AuthEntryPortal() {
   useEffect(() => {
     if (!LIVE_AUTH) return;
     let cancelled = false;
-
     void getProductApiBearerToken()
-      .then(async (token) => {
-        if (cancelled) return;
-        const hasSession = Boolean(token);
-        setAuthenticated(hasSession);
-        if (!hasSession) return;
-
-        try {
-          const status = await getSocialOnboardingStatus();
-          if (cancelled) return;
-          const phoneRequired = status.accountOnboarding === 'phone_required';
-          setSocialOnboardingRequired(phoneRequired);
-          if (!phoneRequired) return;
-
-          setMode('signup');
-          setMethod('email');
-          setEmail(status.email);
-          resetPhoneVerification();
-          const requested = new URL(window.location.href).searchParams.get('account_onboarding') === 'phone';
-          if (requested) setOpen(true);
-        } catch (statusError) {
-          if (cancelled) return;
-          const requested = new URL(window.location.href).searchParams.get('account_onboarding') === 'phone';
-          if (requested) {
-            setError(errorMessage(statusError));
-            setOpen(true);
-          }
-        }
+      .then((token) => {
+        if (!cancelled) setAuthenticated(Boolean(token));
       })
       .catch(() => {
         if (!cancelled) setAuthenticated(false);
       });
-
     return () => { cancelled = true; };
   }, []);
 
@@ -120,12 +90,6 @@ export default function V2AuthEntryPortal() {
   }, [open]);
 
   function openDialog(nextMode: AccountMode = 'signup') {
-    if (socialOnboardingRequired) {
-      setMode('signup');
-      setError('');
-      setOpen(true);
-      return;
-    }
     setMode(nextMode);
     setError('');
     if (nextMode === 'signup') resetPhoneVerification();
@@ -133,7 +97,6 @@ export default function V2AuthEntryPortal() {
   }
 
   function switchMode(nextMode: AccountMode) {
-    if (socialOnboardingRequired) return;
     setMode(nextMode);
     setError('');
     resetPhoneVerification();
@@ -162,9 +125,7 @@ export default function V2AuthEntryPortal() {
       return;
     }
     if (!email.trim() || !phone.trim()) {
-      setError(socialOnboardingRequired
-        ? '소셜 계정 이메일을 확인할 수 없거나 휴대폰 번호가 비어 있습니다.'
-        : '이메일과 휴대폰 번호를 먼저 입력해 주세요.');
+      setError('이메일과 휴대폰 번호를 먼저 입력해 주세요.');
       return;
     }
     setBusy(true);
@@ -218,23 +179,6 @@ export default function V2AuthEntryPortal() {
 
     if (!LIVE_AUTH) {
       setError('현재 화면은 개발 미리보기입니다. 실제 회원가입은 live auth 배포에서만 실행합니다.');
-      return;
-    }
-
-    if (socialOnboardingRequired) {
-      if (!verificationReceiptRef || phoneVerificationState !== 'verified') {
-        setError('휴대폰 인증을 먼저 완료해 주세요.');
-        return;
-      }
-      setBusy(true);
-      try {
-        await completeSocialOnboarding({ signupSessionRef, verificationReceiptRef });
-        setSocialOnboardingRequired(false);
-        window.location.assign(VERIFICATION_PATH);
-      } catch (requestError) {
-        setError(errorMessage(requestError));
-        setBusy(false);
-      }
       return;
     }
 
@@ -300,15 +244,9 @@ export default function V2AuthEntryPortal() {
 
   const launcher = host ? createPortal(
     authenticated ? (
-      socialOnboardingRequired ? (
-        <button className="v2-gate1-announce" type="button" onClick={() => openDialog('signup')}>
-          휴대폰 인증 완료
-        </button>
-      ) : (
-        <button className="v2-gate1-announce" type="button" onClick={() => window.location.assign(VERIFICATION_PATH)}>
-          입주민 확인
-        </button>
-      )
+      <button className="v2-gate1-announce" type="button" onClick={() => window.location.assign(VERIFICATION_PATH)}>
+        입주민 확인
+      </button>
     ) : (
       <button className="v2-gate1-announce" type="button" onClick={() => openDialog('signup')}>
         가입·로그인
@@ -325,29 +263,23 @@ export default function V2AuthEntryPortal() {
         <button ref={closeRef} type="button" className="v2-onboarding-close" onClick={() => setOpen(false)} aria-label="가입·로그인 화면 닫기">닫기</button>
         <div className="v2-onboarding-top">
           <div className="v2-onboarding-brand"><strong>DANJION</strong><small>by PADIEM</small></div>
-          <span>{socialOnboardingRequired ? '계정 가입 마무리' : '실제 계정'}</span>
+          <span>실제 계정</span>
         </div>
 
         <form onSubmit={(event) => void submit(event)}>
           <div className="v2-onboarding-body">
             <div className="v2-onboarding-kicker">ACCOUNT</div>
-            <h2 id="v2-auth-entry-title">{socialOnboardingRequired
-              ? '휴대폰 연락처를 확인해 주세요.'
-              : mode === 'signup' ? '단지온 계정을 만들어요.' : '다시 만나서 반가워요.'}</h2>
-            <p>{socialOnboardingRequired
-              ? '소셜 계정 연결은 완료되었습니다. 단지온 기능을 사용하기 전에 휴대폰 연락처 사용 가능 여부를 확인합니다.'
-              : mode === 'signup'
-                ? '직접 가입은 이메일과 휴대폰 연락처를 확인한 뒤 계정을 만듭니다. 소셜 가입은 소셜 계정 연결 후 휴대폰 인증을 이어서 진행합니다.'
-                : '로그인하면 입주민 확인 상태를 확인하거나 신청할 수 있습니다.'}</p>
+            <h2 id="v2-auth-entry-title">{mode === 'signup' ? '단지온 계정을 만들어요.' : '다시 만나서 반가워요.'}</h2>
+            <p>{mode === 'signup'
+              ? '이메일 직접가입은 이메일과 휴대폰 연락처를 확인합니다. Google·Naver·Kakao 가입은 추가 휴대폰 2차 인증 없이 OAuth로 진행합니다.'
+              : '로그인하면 입주민 확인 상태를 확인하거나 신청할 수 있습니다.'}</p>
 
-            {!socialOnboardingRequired && (
-              <div className="v2-auth-mode" role="group" aria-label="가입 또는 로그인 선택">
-                <button type="button" className={mode === 'signup' ? 'is-active' : ''} onClick={() => switchMode('signup')}>처음 가입</button>
-                <button type="button" className={mode === 'signin' ? 'is-active' : ''} onClick={() => switchMode('signin')}>이미 회원</button>
-              </div>
-            )}
+            <div className="v2-auth-mode" role="group" aria-label="가입 또는 로그인 선택">
+              <button type="button" className={mode === 'signup' ? 'is-active' : ''} onClick={() => switchMode('signup')}>처음 가입</button>
+              <button type="button" className={mode === 'signin' ? 'is-active' : ''} onClick={() => switchMode('signin')}>이미 회원</button>
+            </div>
 
-            {mode === 'signin' && !socialOnboardingRequired && (
+            {mode === 'signin' && (
               <div className="v2-auth-mode" role="group" aria-label="이메일 또는 휴대폰 로그인 방식">
                 <button type="button" className={method === 'email' ? 'is-active' : ''} onClick={() => { setMethod('email'); setError(''); }}>이메일</button>
                 <button type="button" className={method === 'phone' ? 'is-active' : ''} onClick={() => { setMethod('phone'); setError(''); }}>휴대폰 번호</button>
@@ -355,14 +287,14 @@ export default function V2AuthEntryPortal() {
             )}
 
             <div className="v2-auth-fields">
-              {mode === 'signup' && !socialOnboardingRequired && (
+              {mode === 'signup' && (
                 <label><span>이름 또는 닉네임</span><input value={name} onChange={(event) => setName(event.target.value)} autoComplete="name" placeholder="단지온에서 사용할 이름" /></label>
               )}
-              {(socialOnboardingRequired || mode === 'signup' || method === 'email') && (
-                <label><span>{socialOnboardingRequired ? '소셜 계정 이메일' : mode === 'signup' ? '이메일 · 필수 확인/복구 수단' : '이메일'}</span><input type="email" value={email} readOnly={socialOnboardingRequired} onChange={(event) => { setEmail(event.target.value); if (mode === 'signup' && !socialOnboardingRequired) resetPhoneVerification(); }} autoComplete="email" placeholder="name@example.com" /></label>
+              {(mode === 'signup' || method === 'email') && (
+                <label><span>{mode === 'signup' ? '이메일 · 필수 확인/복구 수단' : '이메일'}</span><input type="email" value={email} onChange={(event) => { setEmail(event.target.value); if (mode === 'signup') resetPhoneVerification(); }} autoComplete="email" placeholder="name@example.com" /></label>
               )}
               {(mode === 'signup' || method === 'phone') && (
-                <label><span>휴대폰 번호{mode === 'signup' ? ' · 필수 인증' : ''}</span><input inputMode="tel" value={phone} onChange={(event) => { setPhone(event.target.value); if (mode === 'signup') resetPhoneVerification(); }} autoComplete="tel" placeholder="010-1234-5678" /></label>
+                <label><span>휴대폰 번호{mode === 'signup' ? ' · 이메일 가입 시 필수 인증' : ''}</span><input inputMode="tel" value={phone} onChange={(event) => { setPhone(event.target.value); if (mode === 'signup') resetPhoneVerification(); }} autoComplete="tel" placeholder="010-1234-5678" /></label>
               )}
 
               {mode === 'signup' && (
@@ -377,36 +309,30 @@ export default function V2AuthEntryPortal() {
                 </>
               )}
 
-              {!socialOnboardingRequired && (
-                <label><span>비밀번호</span><input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete={mode === 'signup' ? 'new-password' : 'current-password'} placeholder="8자 이상" /></label>
-              )}
+              <label><span>비밀번호</span><input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete={mode === 'signup' ? 'new-password' : 'current-password'} placeholder="8자 이상" /></label>
             </div>
 
             {error && <div className="v2-auth-error" role="alert">{error}</div>}
 
             <div className="v2-onboarding-notice">
-              {socialOnboardingRequired
-                ? '휴대폰 인증은 연락처 소유를 확인하는 절차일 뿐 법적 본인확인이나 입주민 인증이 아닙니다. 인증 완료 전에는 단지온 product 권한이 열리지 않습니다.'
-                : mode === 'signup'
-                  ? '직접 가입은 휴대폰 인증 receipt를 계정 생성 전에 확인합니다. 소셜 가입은 OAuth 계정 연결 후 같은 receipt를 현재 소셜 계정에 일회성으로 연결합니다.'
-                  : '계정 로그인과 입주민 권한은 분리되어 있습니다. 로그인 후 입주민 확인 단계로 이어집니다.'}
+              {mode === 'signup'
+                ? '이메일 직접가입의 휴대폰 인증은 연락처 소유 확인일 뿐 법적 본인확인이나 입주민 인증이 아닙니다. Google·Naver·Kakao 소셜 가입에는 추가 휴대폰 2차 인증을 요구하지 않습니다.'
+                : '계정 로그인과 입주민 권한은 분리되어 있습니다. 로그인 후 입주민 확인 단계로 이어집니다.'}
             </div>
 
-            {!socialOnboardingRequired && (
-              <div className="v2-auth-social" aria-label={mode === 'signup' ? '소셜 계정으로 가입' : '소셜 계정으로 로그인'}>
-                <button type="button" disabled={busy} onClick={() => void social('kakao')}>{mode === 'signup' ? 'Kakao로 가입' : 'Kakao'}</button>
-                <button type="button" disabled={busy} onClick={() => void social('naver')}>{mode === 'signup' ? 'Naver로 가입' : 'Naver'}</button>
-                <button type="button" disabled={busy} onClick={() => void social('google')}>{mode === 'signup' ? 'Google로 가입' : 'Google'}</button>
-              </div>
-            )}
+            <div className="v2-auth-social" aria-label={mode === 'signup' ? '소셜 계정으로 가입' : '소셜 계정으로 로그인'}>
+              <button type="button" disabled={busy} onClick={() => void social('kakao')}>{mode === 'signup' ? 'Kakao로 가입' : 'Kakao'}</button>
+              <button type="button" disabled={busy} onClick={() => void social('naver')}>{mode === 'signup' ? 'Naver로 가입' : 'Naver'}</button>
+              <button type="button" disabled={busy} onClick={() => void social('google')}>{mode === 'signup' ? 'Google로 가입' : 'Google'}</button>
+            </div>
 
-            {mode === 'signin' && !socialOnboardingRequired && <a href="/auth-recovery.html">비밀번호를 잊으셨나요?</a>}
+            {mode === 'signin' && <a href="/auth-recovery.html">비밀번호를 잊으셨나요?</a>}
           </div>
 
           <div className="v2-onboarding-actions">
             <button type="button" className="v2-onboarding-secondary" onClick={() => setOpen(false)}>취소</button>
             <button type="submit" className="v2-onboarding-primary" disabled={busy || (mode === 'signup' && phoneVerificationState !== 'verified')}>
-              {busy ? '처리 중…' : socialOnboardingRequired ? '인증 완료하고 계속' : mode === 'signup' ? '가입하기' : '로그인'}
+              {busy ? '처리 중…' : mode === 'signup' ? '가입하기' : '로그인'}
             </button>
           </div>
         </form>
