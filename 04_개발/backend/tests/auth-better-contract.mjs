@@ -2,13 +2,15 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
 const root = new URL('../', import.meta.url);
-const [server, schema, migration, app, authResolver, wranglerSource] = await Promise.all([
+const [server, schema, migration, app, authResolver, wranglerSource, verificationRpc, verificationMigration] = await Promise.all([
   readFile(new URL('src/auth-better-v1.ts', root), 'utf8'),
   readFile(new URL('src/auth-better-schema.ts', root), 'utf8'),
   readFile(new URL('migrations/014_danjion_better_auth.sql', root), 'utf8'),
   readFile(new URL('src/app.ts', root), 'utf8'),
   readFile(new URL('src/auth-v1.ts', root), 'utf8'),
-  readFile(new URL('wrangler.jsonc', root), 'utf8')
+  readFile(new URL('wrangler.jsonc', root), 'utf8'),
+  readFile(new URL('src/padiem-contact-verification-v1.ts', root), 'utf8'),
+  readFile(new URL('migrations/038_signup_contact_verification.sql', root), 'utf8')
 ]);
 
 for (const provider of ['google', 'kakao', 'naver']) {
@@ -53,4 +55,23 @@ assert.equal(
 assert.equal(production?.vars?.AUTH_REQUIRE_EMAIL_VERIFICATION, 'true', 'production direct accounts must require email verification');
 assert.equal(production?.vars?.DEV_AUTH_BYPASS, 'false', 'production must never enable the dev auth bypass');
 
-console.log('PASS Danjion Better Auth five-method boundary contract');
+// Padiem contact-verification reuse boundary. DanjiOn persists product state but
+// must never fork the OTP algorithm implemented in ai-revenue-lab.
+assert.match(verificationRpc, /PADIEM_CONTACT_VERIFICATION/);
+assert.match(verificationRpc, /\.issue\(payload\)/);
+assert.match(verificationRpc, /\.resend\(payload\)/);
+assert.match(verificationRpc, /\.verify\(payload\)/);
+assert.match(verificationRpc, /ai-revenue-lab PR #1703 \+ PR #1710/);
+assert.doesNotMatch(verificationRpc, /Math\.random|crypto\.getRandomValues|subtle\.sign|createHmac|sha256/i, 'DanjiOn must not implement the OTP algorithm locally');
+
+assert.match(verificationMigration, /create table if not exists signup_contact_sessions/i);
+assert.match(verificationMigration, /create table if not exists signup_contact_challenges/i);
+assert.match(verificationMigration, /create table if not exists signup_contact_rate_budgets/i);
+assert.match(verificationMigration, /create table if not exists signup_contact_receipts/i);
+assert.match(verificationMigration, /otp_digest text not null/i);
+assert.doesNotMatch(verificationMigration, /\braw_otp\s+(?:text|varchar|char)/i, 'raw OTP must never be persisted');
+assert.doesNotMatch(verificationMigration, /\bverification_code\s+(?:text|varchar|char)/i, 'browser-entered verification code must never be persisted');
+assert.match(verificationMigration, /identity_verified_at timestamptz/);
+assert.match(verificationMigration, /never resident or legal identity authority/i);
+
+console.log('PASS Danjion Better Auth and Padiem contact-verification boundary contract');
