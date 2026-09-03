@@ -3,6 +3,7 @@ import { neon, type NeonQueryFunction } from '@neondatabase/serverless';
 type Sql = NeonQueryFunction<false, false>;
 type SessionUser = { id: string; email: string };
 type SessionResolver = (request: Request) => Promise<{ user?: SessionUser | null } | null>;
+type OnboardingState = { complete: boolean; phoneVerified: boolean; socialProvider: boolean };
 
 export interface SocialOnboardingEnv { DATABASE_URL: string; }
 
@@ -42,31 +43,40 @@ function requiredRef(body: Record<string, unknown>, key: string): string | null 
   return typeof value === 'string' && SAFE_REF.test(value) ? value : null;
 }
 
-async function onboardingComplete(sql: Sql, authUserId: string): Promise<boolean> {
+async function onboardingState(sql: Sql, authUserId: string): Promise<OnboardingState> {
   const rows = await sql`
-    select (
+    select
       exists(
         select 1 from app_users
         where auth_user_id = ${authUserId} and account_status = 'active'
-      )
-      or exists(
+      ) as product_user,
+      exists(
         select 1 from signup_contact_receipts
         where auth_user_id = ${authUserId} and consumed_at is not null
-      )
-    ) as complete
+      ) as phone_verified,
+      exists(
+        select 1 from danjion_auth.account
+        where user_id = ${authUserId}
+          and provider_id in ('google', 'naver', 'kakao')
+      ) as social_provider
   `;
-  return rows[0]?.complete === true;
+  const row = rows[0] || {};
+  const productUser = row.product_user === true;
+  const phoneVerified = row.phone_verified === true;
+  const socialProvider = row.social_provider === true;
+  return { complete: productUser || phoneVerified || socialProvider, phoneVerified, socialProvider };
 }
 
 async function status(request: Request, env: SocialOnboardingEnv, requestId: string, resolveSession: SessionResolver): Promise<Response> {
   const session = await resolveSession(request);
   if (!session?.user?.id) return fail('AUTH_REQUIRED', 'Authentication required', 401, requestId);
-  const complete = await onboardingComplete(sqlFor(env), session.user.id);
+  const state = await onboardingState(sqlFor(env), session.user.id);
   return ok({
     authenticated: true,
     email: session.user.email,
-    accountOnboarding: complete ? 'complete' : 'phone_required',
-    phoneVerified: complete,
+    accountOnboarding: state.complete ? 'complete' : 'phone_required',
+    phoneVerified: state.phoneVerified,
+    socialProviderAccount: state.socialProvider,
     residentVerified: false
   }, requestId);
 }
@@ -77,16 +87,24 @@ async function complete(request: Request, env: SocialOnboardingEnv, requestId: s
   const email = normalizeEmail(session?.user?.email || '');
   if (!authUserId || !email) return fail('AUTH_REQUIRED', 'Authentication required', 401, requestId);
 
+  const sql = sqlFor(env);
+  const current = await onboardingState(sql, authUserId);
+  if (current.complete) {
+    return ok({
+      accepted: true,
+      accountOnboarding: 'complete',
+      phoneVerified: current.phoneVerified,
+      identityAssurance: current.phoneVerified ? 'contact_possession_only' : 'oauth_provider_account',
+      legalIdentityVerified: false,
+      residentVerified: false
+    }, requestId);
+  }
+
   const body = await bodyJson(request, requestId);
   if (body instanceof Response) return body;
   const signupSessionRef = requiredRef(body, 'signupSessionRef');
   const verificationReceiptRef = requiredRef(body, 'verificationReceiptRef');
   if (!signupSessionRef || !verificationReceiptRef) return fail('INVALID_REQUEST', 'Verification receipt is required', 400, requestId);
-
-  const sql = sqlFor(env);
-  if (await onboardingComplete(sql, authUserId)) {
-    return ok({ accepted: true, accountOnboarding: 'complete', phoneVerified: true, identityAssurance: 'contact_possession_only', legalIdentityVerified: false, residentVerified: false }, requestId);
-  }
 
   const rows = await sql`
     update signup_contact_receipts r
@@ -106,12 +124,23 @@ async function complete(request: Request, env: SocialOnboardingEnv, requestId: s
       and c.state = 'verified'
     returning r.receipt_id
   `;
-  if (!rows[0]) return fail('VERIFICATION_REQUIRED', 'Verified phone contact must match the authenticated social account email.', 409, requestId);
+  if (!rows[0]) return fail('VERIFICATION_REQUIRED', 'Verified phone contact must match the authenticated account email.', 409, requestId);
 
-  return ok({ accepted: true, accountOnboarding: 'complete', phoneVerified: true, identityAssurance: 'contact_possession_only', legalIdentityVerified: false, residentVerified: false }, requestId);
+  return ok({
+    accepted: true,
+    accountOnboarding: 'complete',
+    phoneVerified: true,
+    identityAssurance: 'contact_possession_only',
+    legalIdentityVerified: false,
+    residentVerified: false
+  }, requestId);
 }
 
-/** Better Auth login/session may exist before DanjiOn product onboarding completes. */
+/**
+ * Compatibility endpoint for account-onboarding status and legacy phone receipt
+ * completion. Approved Google/Naver/Kakao OAuth accounts are complete without a
+ * second-factor phone gate; direct credential signup remains receipt-gated.
+ */
 export async function handleSocialOnboardingRequest(
   request: Request,
   env: SocialOnboardingEnv,
