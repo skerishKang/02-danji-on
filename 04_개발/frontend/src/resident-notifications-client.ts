@@ -24,8 +24,17 @@ const API_BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
 const API_MODE = import.meta.env.VITE_DATA_MODE === 'api';
 
 let mockFeed: ResidentNotificationFeed = {
-  unreadCount: 2,
+  unreadCount: 3,
   notifications: [
+    {
+      id: '00000000-0000-4000-8000-000000000279',
+      type: 'resident_news',
+      title: '새 주민소식이 등록되었습니다',
+      actor: null,
+      resource: { type: 'resident_news', id: '00000000-0000-4000-8000-000000000281' },
+      readAt: null,
+      createdAt: '2026-09-02T13:00:00.000Z'
+    },
     {
       id: '00000000-0000-4000-8000-000000000271',
       type: 'message',

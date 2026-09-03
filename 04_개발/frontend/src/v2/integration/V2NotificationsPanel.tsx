@@ -17,11 +17,20 @@ function safeConversationId(item: ResidentNotification): string | null {
   return UUID_RE.test(item.resource.id) ? item.resource.id.toLowerCase() : null;
 }
 
+function safeResidentNewsId(item: ResidentNotification): string | null {
+  if (item.resource?.type !== 'resident_news') return null;
+  return UUID_RE.test(item.resource.id) ? item.resource.id.toLowerCase() : null;
+}
+
 function openConversation(conversationId: string) {
   const url = new URL(window.location.href);
   url.searchParams.set('conversation', conversationId);
   window.history.replaceState(null, '', url);
   window.dispatchEvent(new CustomEvent('danjion:v2-open-conversation', { detail: { conversationId } }));
+}
+
+function openResidentNews(postId: string) {
+  window.dispatchEvent(new CustomEvent('danjion:v2-open-resident-news', { detail: { postId } }));
 }
 
 export default function V2NotificationsPanel() {
@@ -53,6 +62,7 @@ export default function V2NotificationsPanel() {
   async function markRead(item: ResidentNotification, navigate = false) {
     if (busyId || busyAll) return;
     const conversationId = safeConversationId(item);
+    const residentNewsId = safeResidentNewsId(item);
     setBusyId(item.id);
     setStatus('알림 상태를 저장하는 중입니다.');
     try {
@@ -61,6 +71,7 @@ export default function V2NotificationsPanel() {
       setFeed(next);
       setStatus('');
       if (navigate && conversationId) openConversation(conversationId);
+      if (navigate && residentNewsId) openResidentNews(residentNewsId);
     } catch {
       setStatus('알림 상태를 저장하지 못했습니다.');
     } finally {
@@ -98,6 +109,7 @@ export default function V2NotificationsPanel() {
       {feed && feed.notifications.length === 0 && <p>새 알림이 없습니다.</p>}
       {feed?.notifications.map((item) => {
         const conversationId = safeConversationId(item);
+        const residentNewsId = safeResidentNewsId(item);
         return (
           <article key={item.id} data-v2-notification-item data-read={item.readAt ? 'true' : 'false'}>
             <div>
@@ -113,6 +125,11 @@ export default function V2NotificationsPanel() {
               {conversationId && (
                 <button type="button" className="v2-btn v2-btn-small" disabled={busyId === item.id || busyAll} onClick={() => void markRead(item, true)}>
                   메시지함 열기
+                </button>
+              )}
+              {residentNewsId && (
+                <button type="button" className="v2-btn v2-btn-small" disabled={busyId === item.id || busyAll} onClick={() => void markRead(item, true)}>
+                  주민소식 열기
                 </button>
               )}
             </div>
