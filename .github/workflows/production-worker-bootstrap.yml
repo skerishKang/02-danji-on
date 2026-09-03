@@ -53,11 +53,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-          cache: npm
-          cache-dependency-path: 04_개발/backend/package-lock.json
 
       - name: Install backend dependencies
-        run: npm ci --ignore-scripts
+        run: npm install --ignore-scripts
 
       - name: Verify source-side production safety contract
         run: |
