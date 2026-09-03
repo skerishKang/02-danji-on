@@ -3,6 +3,7 @@ set -euo pipefail
 
 : "${DATABASE_URL:?DATABASE_URL is required}"
 psql_cmd=(psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -q)
+stage="${RESIDENT_NEWS_STAGE:-all}"
 
 expect_fail() {
   local label="$1"
@@ -19,15 +20,16 @@ expect_fail() {
   echo "PASS $label"
 }
 
-if [[ "${RESIDENT_NEWS_SCHEMA_READY:-0}" != "1" ]]; then
+apply_schema() {
   "${psql_cmd[@]}" -f migrations/001_initial_schema.sql
   "${psql_cmd[@]}" -f migrations/009_household_foundation.sql
   "${psql_cmd[@]}" -f migrations/024_resident_messages.sql
   "${psql_cmd[@]}" -f migrations/025_resident_notifications.sql
   "${psql_cmd[@]}" -f migrations/036_resident_news.sql
-fi
+}
 
-"${psql_cmd[@]}" <<'SQL'
+seed_fixture() {
+  "${psql_cmd[@]}" <<'SQL'
 insert into complexes (id, slug, name, status) values
   ('10000000-0000-4000-8000-000000000001', 'complex-1', 'Complex One', 'active'),
   ('10000000-0000-4000-8000-000000000002', 'complex-2', 'Complex Two', 'active');
@@ -71,7 +73,12 @@ begin
   if post_count <> 0 then raise exception 'submission leaked into publication store'; end if;
   if notification_count <> 0 then raise exception 'submission created premature notifications'; end if;
 end $$;
+SQL
+  echo "PASS resident-news fixture: pending source exists with no publication/notification"
+}
 
+publish_fixture() {
+  "${psql_cmd[@]}" <<'SQL'
 insert into resident_news_posts (
   id, complex_id, source_submission_id, title, body
 ) values (
@@ -96,7 +103,12 @@ insert into resident_news_review_events (
   'approved',
   'verified by operator'
 );
+SQL
+  echo "PASS resident-news publish fixture: publication/source/audit writes completed"
+}
 
+assert_routing() {
+  "${psql_cmd[@]}" <<'SQL'
 do $$
 declare
   notification_count integer;
@@ -138,13 +150,46 @@ begin
   if post_title = original_title then raise exception 'test must prove source/publication rows can diverge'; end if;
 end $$;
 SQL
+  echo "PASS resident-news routing assertions: verified-only fanout, linkage, privacy and audit"
+}
 
-expect_fail \
-  "one publication per submission" \
-  "insert into resident_news_posts (complex_id, source_submission_id, title, body) values ('10000000-0000-4000-8000-000000000001', '60000000-0000-4000-8000-000000000001', 'duplicate', 'duplicate')"
+assert_negative_constraints() {
+  expect_fail \
+    "one publication per submission" \
+    "insert into resident_news_posts (complex_id, source_submission_id, title, body) values ('10000000-0000-4000-8000-000000000001', '60000000-0000-4000-8000-000000000001', 'duplicate', 'duplicate')"
 
-expect_fail \
-  "publication cannot cross complex boundary" \
-  "insert into resident_news_submissions (id, complex_id, submitter_user_id, title, body) values ('60000000-0000-4000-8000-000000000002', '10000000-0000-4000-8000-000000000001', '20000000-0000-4000-8000-000000000001', 'cross', 'cross'); insert into resident_news_posts (complex_id, source_submission_id, title, body) values ('10000000-0000-4000-8000-000000000002', '60000000-0000-4000-8000-000000000002', 'cross', 'cross')"
+  expect_fail \
+    "publication cannot cross complex boundary" \
+    "insert into resident_news_submissions (id, complex_id, submitter_user_id, title, body) values ('60000000-0000-4000-8000-000000000002', '10000000-0000-4000-8000-000000000001', '20000000-0000-4000-8000-000000000001', 'cross', 'cross'); insert into resident_news_posts (complex_id, source_submission_id, title, body) values ('10000000-0000-4000-8000-000000000002', '60000000-0000-4000-8000-000000000002', 'cross', 'cross')"
 
-echo "PASS resident-news PostgreSQL lifecycle: isolated submission/publication, approval audit, Household-v2 notification fanout, no body copy, dedupe and tenant FK"
+  echo "PASS resident-news negative constraints: publication dedupe and tenant FK"
+}
+
+case "$stage" in
+  schema)
+    apply_schema
+    ;;
+  fixture)
+    seed_fixture
+    ;;
+  publish)
+    publish_fixture
+    ;;
+  assertions)
+    assert_routing
+    ;;
+  negative)
+    assert_negative_constraints
+    ;;
+  all)
+    if [[ "${RESIDENT_NEWS_SCHEMA_READY:-0}" != "1" ]]; then apply_schema; fi
+    seed_fixture
+    publish_fixture
+    assert_routing
+    assert_negative_constraints
+    ;;
+  *)
+    echo "Unknown RESIDENT_NEWS_STAGE=$stage" >&2
+    exit 2
+    ;;
+esac
