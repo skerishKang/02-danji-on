@@ -66,7 +66,8 @@ assert.match(authResolver, /AUTH_ACCOUNT_ONBOARDING_REQUIRED/);
 assert.match(authResolver, /signup_contact_receipts/);
 assert.match(authResolver, /const existing = await actorBySubject/);
 assert.ok(
-  authResolver.indexOf('const existing = await actorBySubject') < authResolver.indexOf('completedContactOnboarding'),
+  authResolver.indexOf('const existing = await actorBySubject')
+    < authResolver.indexOf('if (requireContactOnboarding && !await completedContactOnboarding'),
   'existing product users must be accepted before the first-bootstrap onboarding gate'
 );
 
