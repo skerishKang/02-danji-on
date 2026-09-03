@@ -1,2 +1,4 @@
-#v2-ending [data-v2-complex-news-entry]{color:#171717}
-#v2-ending [data-v2-complex-news-entry] p{color:#625e57}
+#v2-ending [data-v2-complex-news-entry],
+#v2-ending [data-v2-resident-news-entry]{color:#171717}
+#v2-ending [data-v2-complex-news-entry] p,
+#v2-ending [data-v2-resident-news-entry] p{color:#625e57}
