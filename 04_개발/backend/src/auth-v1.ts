@@ -128,6 +128,17 @@ async function actorBySubject(sql: Sql, subject: string): Promise<Actor | 'close
   return record.accountStatus === 'closed' ? 'closed' : publicActor(record);
 }
 
+async function approvedSocialProviderAccount(sql: Sql, subject: string): Promise<boolean> {
+  const rows = await sql`
+    select provider_id
+    from danjion_auth.account
+    where user_id = ${subject}
+      and provider_id in ('google', 'naver', 'kakao')
+    limit 1
+  `;
+  return Boolean(rows[0]);
+}
+
 async function completedContactOnboarding(sql: Sql, subject: string): Promise<boolean> {
   const rows = await sql`
     select 1
@@ -164,13 +175,18 @@ async function resolveOrBootstrapActor(
   const subject = typeof payload.sub === 'string' ? payload.sub.trim() : '';
   if (!subject) return null;
 
-  // Preserve all existing product users. The onboarding gate applies only when
-  // a new DanjiOn Better Auth identity attempts its first product bootstrap.
+  // Existing product users keep their current product authority. New Google,
+  // Naver and Kakao OAuth accounts do not receive a second-factor phone gate.
+  // Credential/email accounts continue to require the verified-phone receipt;
+  // the future KakaoTalk delivery route for that direct path is tracked by #235.
   const existing = await actorBySubject(sql, subject);
   if (existing) return existing;
 
-  if (requireContactOnboarding && !await completedContactOnboarding(sql, subject)) {
-    return 'onboarding';
+  if (requireContactOnboarding) {
+    const socialAccount = await approvedSocialProviderAccount(sql, subject);
+    if (!socialAccount && !await completedContactOnboarding(sql, subject)) {
+      return 'onboarding';
+    }
   }
 
   const displayName = displayNameFromClaims(payload);
@@ -242,7 +258,7 @@ export async function requireActor(
     if (actor === 'onboarding') {
       return fail(
         'AUTH_ACCOUNT_ONBOARDING_REQUIRED',
-        'Phone contact verification is required before using DanjiOn product features',
+        'Phone contact verification is required for direct email signup before using DanjiOn product features',
         403,
         requestId
       );

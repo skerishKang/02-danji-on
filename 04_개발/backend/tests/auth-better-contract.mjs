@@ -42,33 +42,43 @@ assert.match(server, /\/api\/auth\/sign-up\/email/);
 assert.match(server, /PHONE_VERIFICATION_REQUIRED/);
 assert.match(server, /disableImplicitSignUp:\s*true/g, 'new social users must require explicit signup intent');
 
-// Canonical social signup ordering is OAuth first, then product phone onboarding.
-// There must be no pre-OAuth receipt authority hidden in Better Auth state.
+// Google/Naver/Kakao use explicit OAuth signup without an additional phone
+// second factor. The compatibility status endpoint must distinguish account
+// onboarding from phone-possession evidence rather than equating the two.
 assert.doesNotMatch(server, /addOAuthServerContext|getOAuthState|prepareSocialSignupServerContext|consumeSocialSignupServerContext/);
 assert.match(socialOnboarding, /\/auth\/social-onboarding\/status/);
 assert.match(socialOnboarding, /\/auth\/social-onboarding\/complete/);
+assert.match(socialOnboarding, /danjion_auth\.account/);
+assert.match(socialOnboarding, /provider_id in \('google', 'naver', 'kakao'\)/);
+assert.match(socialOnboarding, /social_provider/);
+assert.match(socialOnboarding, /phone_verified/);
+assert.match(socialOnboarding, /accountOnboarding:\s*state\.complete \? 'complete' : 'phone_required'/);
+assert.match(socialOnboarding, /phoneVerified:\s*state\.phoneVerified/);
 assert.match(socialOnboarding, /signup_contact_receipts/);
 assert.match(socialOnboarding, /r\.consumed_at is null/);
 assert.match(socialOnboarding, /r\.auth_user_id is null/);
 assert.match(socialOnboarding, /c\.state = 'verified'/);
 assert.match(socialOnboarding, /s\.phone_verified_at is not null/);
-assert.match(socialOnboarding, /s\.email_normalized = \$\{email\}/);
 assert.match(socialOnboarding, /set consumed_at = now\(\), auth_user_id = \$\{authUserId\}/);
-assert.match(socialOnboarding, /app_users/, 'existing product users must not be retroactively blocked by the new signup policy');
-assert.doesNotMatch(socialOnboarding, /otp_digest|delivery_code|submitted_code/i, 'social onboarding consumes only a verified receipt, never OTP material');
+assert.doesNotMatch(socialOnboarding, /otp_digest|delivery_code|submitted_code/i, 'account onboarding must never own OTP material');
 
-// Newly-created Better Auth identities must not bootstrap a DanjiOn product
-// actor until the receipt is bound to the exact auth subject. Legacy Neon auth
-// and already-existing app_users remain compatible.
+// Product bootstrap policy: existing product users remain compatible; approved
+// Google/Naver/Kakao accounts may bootstrap without a phone receipt; direct or
+// unknown Better Auth providers remain fail-closed until phone onboarding.
+assert.match(authResolver, /approvedSocialProviderAccount/);
+assert.match(authResolver, /danjion_auth\.account/);
+assert.match(authResolver, /provider_id in \('google', 'naver', 'kakao'\)/);
 assert.match(authResolver, /completedContactOnboarding/);
 assert.match(authResolver, /config\.authority === 'danjion'/);
 assert.match(authResolver, /AUTH_ACCOUNT_ONBOARDING_REQUIRED/);
 assert.match(authResolver, /signup_contact_receipts/);
 assert.match(authResolver, /const existing = await actorBySubject/);
+assert.match(authResolver, /const socialAccount = await approvedSocialProviderAccount/);
+assert.match(authResolver, /if \(!socialAccount && !await completedContactOnboarding/);
 assert.ok(
   authResolver.indexOf('const existing = await actorBySubject')
-    < authResolver.indexOf('if (requireContactOnboarding && !await completedContactOnboarding'),
-  'existing product users must be accepted before the first-bootstrap onboarding gate'
+    < authResolver.indexOf('const socialAccount = await approvedSocialProviderAccount'),
+  'existing product users must be accepted before the first-bootstrap provider/phone gate'
 );
 
 assert.match(server, /jwt\(\{/);
@@ -80,7 +90,7 @@ assert.match(app, /handleSocialOnboardingRequest/);
 assert.match(app, /createDanjionAuth\(env\)\.api\.getSession/);
 assert.match(app, /access-control-allow-credentials/);
 assert.ok(app.indexOf('handleBetterAuthRequest') < app.indexOf('validateRequestPayload(request'), 'auth handler must be mounted before app JSON payload policy');
-assert.ok(app.indexOf('handleSocialOnboardingRequest') < app.indexOf('validateRequestPayload(request'), 'social onboarding must run before generic product payload policy');
+assert.ok(app.indexOf('handleSocialOnboardingRequest') < app.indexOf('validateRequestPayload(request'), 'account onboarding status must run before generic product payload policy');
 
 assert.match(schema, /pgSchema\('danjion_auth'\)/);
 assert.match(migration, /create schema if not exists danjion_auth/i);
@@ -143,4 +153,4 @@ assert.match(verifiedSignup, /legalIdentityVerified:\s*false/);
 assert.match(verifiedSignup, /residentVerified:\s*false/);
 assert.doesNotMatch(verifiedSignup, /phoneVerified:\s*true[\s\S]*VERIFIED_RESIDENT/);
 
-console.log('PASS Danjion Better Auth and post-OAuth verified-phone onboarding contract');
+console.log('PASS Danjion Better Auth direct-phone and social-no-second-factor contract');

@@ -13,8 +13,15 @@ const BASE_ENV = {
   NEON_AUTH_BASE_URL: `${ISSUER}/neondb/auth`,
   NEON_AUTH_JWKS_URL: JWKS_URL
 };
+const DANJION_ENV = {
+  DATABASE_URL: BASE_ENV.DATABASE_URL,
+  APP_ENV: 'production',
+  DEV_AUTH_BYPASS: 'false',
+  DANJION_AUTH_BASE_URL: ISSUER,
+  DANJION_AUTH_JWKS_URL: JWKS_URL
+};
 
-function mockSql(existing = null) {
+function mockSql(existing = null, { providerId = null, phoneOnboarding = false } = {}) {
   let linked = existing;
   const queries = [];
   const sql = async (strings, ...values) => {
@@ -22,6 +29,12 @@ function mockSql(existing = null) {
     queries.push(text);
     if (text.includes('select id, auth_user_id, display_name')) {
       return linked ? [linked] : [];
+    }
+    if (text.includes('from danjion_auth.account')) {
+      return ['google', 'naver', 'kakao'].includes(providerId) ? [{ provider_id: providerId }] : [];
+    }
+    if (text.includes('from signup_contact_receipts')) {
+      return phoneOnboarding ? [{ accepted: 1 }] : [];
     }
     if (text.includes('insert into app_users')) {
       linked = {
@@ -151,6 +164,49 @@ async function main() {
       assert.equal(queries.some((query) => query.includes('complex_memberships')), false);
     }
 
+    for (const providerId of ['google', 'naver', 'kakao']) {
+      const { sql, queries } = mockSql(null, { providerId });
+      const request = new Request('https://api.example.test/api/v1/me', {
+        headers: { authorization: `Bearer ${await token()}` }
+      });
+      const result = await requireActor(request, DANJION_ENV, sql, `req-social-${providerId}`);
+      assert.deepEqual(result, {
+        id: APP_USER_ID,
+        authUserId: SUBJECT,
+        displayName: '테스트 사용자'
+      });
+      assert.equal(queries.filter((query) => query.includes('from danjion_auth.account')).length, 1);
+      assert.equal(queries.filter((query) => query.includes('from signup_contact_receipts')).length, 0, `${providerId} must not require a phone receipt`);
+      assert.equal(queries.filter((query) => query.includes('insert into app_users')).length, 1);
+    }
+
+    {
+      const { sql, queries } = mockSql(null, { providerId: 'credential' });
+      const request = new Request('https://api.example.test/api/v1/me', {
+        headers: { authorization: `Bearer ${await token()}` }
+      });
+      const result = await requireActor(request, DANJION_ENV, sql, 'req-direct-without-phone');
+      assert.equal(await errorCode(result), 'AUTH_ACCOUNT_ONBOARDING_REQUIRED');
+      assert.equal(queries.filter((query) => query.includes('from danjion_auth.account')).length, 1);
+      assert.equal(queries.filter((query) => query.includes('from signup_contact_receipts')).length, 1);
+      assert.equal(queries.filter((query) => query.includes('insert into app_users')).length, 0);
+    }
+
+    {
+      const { sql, queries } = mockSql(null, { providerId: 'credential', phoneOnboarding: true });
+      const request = new Request('https://api.example.test/api/v1/me', {
+        headers: { authorization: `Bearer ${await token()}` }
+      });
+      const result = await requireActor(request, DANJION_ENV, sql, 'req-direct-with-phone');
+      assert.deepEqual(result, {
+        id: APP_USER_ID,
+        authUserId: SUBJECT,
+        displayName: '테스트 사용자'
+      });
+      assert.equal(queries.filter((query) => query.includes('from signup_contact_receipts')).length, 1);
+      assert.equal(queries.filter((query) => query.includes('insert into app_users')).length, 1);
+    }
+
     {
       const { sql } = mockSql();
       const request = new Request('https://api.example.test/api/v1/me', {
@@ -169,7 +225,7 @@ async function main() {
       assert.equal(await errorCode(result), 'AUTH_INVALID');
     }
 
-    console.log('PASS auth-v1 live Neon Auth contract');
+    console.log('PASS auth-v1 provider-aware account bootstrap contract');
   } finally {
     globalThis.fetch = originalFetch;
   }
