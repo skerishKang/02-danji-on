@@ -6,8 +6,9 @@ import {
   type AdminBusiness,
   type AdminReviewEvent
 } from './admin-api';
+import ResidentNewsReviewPanel from './ResidentNewsReviewPanel';
 
-type AdminTab = 'applications' | 'audit' | 'posts' | 'benefits';
+type AdminTab = 'applications' | 'audit' | 'residentNews' | 'posts' | 'benefits';
 type ReviewStatus = Exclude<AdminApplicationStatus, 'draft'>;
 
 const statusLabels: Record<AdminApplicationStatus, string> = {
@@ -165,6 +166,7 @@ export default function AdminApp() {
       <nav className="admin-tabs" aria-label="운영관리 메뉴">
         <button className={tab === 'applications' ? 'active' : ''} onClick={() => void openTab('applications')}>등록 신청</button>
         <button className={tab === 'audit' ? 'active' : ''} onClick={() => void openTab('audit')}>검토 이력</button>
+        <button className={tab === 'residentNews' ? 'active' : ''} onClick={() => void openTab('residentNews')}>주민소식 검토</button>
         <button className={tab === 'posts' ? 'active' : ''} onClick={() => void openTab('posts')}>단지소식</button>
         <button className={tab === 'benefits' ? 'active' : ''} onClick={() => void openTab('benefits')}>주민혜택</button>
       </nav>
@@ -241,6 +243,8 @@ export default function AdminApp() {
           </div>
         </main>
       )}
+
+      {tab === 'residentNews' && <ResidentNewsReviewPanel />}
 
       {tab === 'posts' && (
         <main className="admin-section narrow">

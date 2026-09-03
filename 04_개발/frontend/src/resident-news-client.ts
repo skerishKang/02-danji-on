@@ -1,4 +1,10 @@
 import { authenticatedFetch } from './auth-fetch';
+import {
+  createMockResidentNewsSubmission,
+  getMockResidentNewsPost,
+  listMockOwnResidentNewsSubmissions,
+  listMockResidentNewsPosts
+} from './mock-resident-news-store';
 
 export type ResidentNewsPost = {
   id: string;
@@ -27,27 +33,6 @@ export type ResidentNewsSubmissionInput = {
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
 const COMPLEX_SLUG = import.meta.env.VITE_COMPLEX_SLUG || 'bangnim-myeongji-roadhill';
 const API_MODE = import.meta.env.VITE_DATA_MODE === 'api';
-
-let mockPosts: ResidentNewsPost[] = [
-  {
-    id: '00000000-0000-4000-8000-000000000281',
-    title: '우리 단지 산책길 정비 소식',
-    body: '주민 제보를 운영 확인한 뒤 게시한 주민소식 예시입니다.',
-    publishedAt: '2026-09-02T09:00:00.000Z',
-    createdAt: '2026-09-02T09:00:00.000Z'
-  }
-];
-
-let mockSubmissions: ResidentNewsSubmission[] = [
-  {
-    id: '00000000-0000-4000-8000-000000000282',
-    title: '공용 자전거 거치대 제보',
-    status: 'reviewing',
-    publishedPostId: null,
-    createdAt: '2026-09-02T08:00:00.000Z',
-    updatedAt: '2026-09-02T08:30:00.000Z'
-  }
-];
 
 type ApiEnvelope<T> = { data: T; requestId: string };
 type ErrorEnvelope = { error?: { message?: string } };
@@ -111,16 +96,16 @@ function feedPath(): string {
 
 export const residentNewsClient = {
   async listPosts(): Promise<ResidentNewsPost[]> {
-    if (!API_MODE) return structuredClone(mockPosts);
+    if (!API_MODE) return listMockResidentNewsPosts().map(mapPost);
     const data = await request<{ posts?: unknown[] }>(feedPath());
     return Array.isArray(data.posts) ? data.posts.map(mapPost) : [];
   },
 
   async getPost(postId: string): Promise<ResidentNewsPost> {
     if (!API_MODE) {
-      const found = mockPosts.find((item) => item.id === postId);
+      const found = getMockResidentNewsPost(postId);
       if (!found) throw new Error('주민소식을 찾을 수 없습니다.');
-      return structuredClone(found);
+      return mapPost(found);
     }
     return mapPost(await request<unknown>(`${feedPath()}/${encodeURIComponent(postId)}`));
   },
@@ -130,19 +115,7 @@ export const residentNewsClient = {
     if (!normalized.title || normalized.title.length > 160) throw new Error('제목은 1~160자로 입력해 주세요.');
     if (!normalized.body || normalized.body.length > 10000) throw new Error('내용은 1~10000자로 입력해 주세요.');
 
-    if (!API_MODE) {
-      const now = new Date().toISOString();
-      const created: ResidentNewsSubmission = {
-        id: crypto.randomUUID(),
-        title: normalized.title,
-        status: 'submitted',
-        publishedPostId: null,
-        createdAt: now,
-        updatedAt: now
-      };
-      mockSubmissions = [created, ...mockSubmissions];
-      return structuredClone(created);
-    }
+    if (!API_MODE) return mapSubmission(createMockResidentNewsSubmission(normalized));
 
     return mapSubmission(await request<unknown>(`${feedPath()}/submissions`, {
       method: 'POST',
@@ -151,7 +124,7 @@ export const residentNewsClient = {
   },
 
   async listOwnSubmissions(): Promise<ResidentNewsSubmission[]> {
-    if (!API_MODE) return structuredClone(mockSubmissions);
+    if (!API_MODE) return listMockOwnResidentNewsSubmissions().map(mapSubmission);
     const data = await request<{ submissions?: unknown[] }>(
       `/api/v1/me/resident-news/submissions?complexSlug=${encodeURIComponent(COMPLEX_SLUG)}`
     );
