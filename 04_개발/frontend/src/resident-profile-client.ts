@@ -7,6 +7,7 @@ export type ResidentPublicProfile = {
   residentLabel: 'verified_resident' | string;
   joinedMonth: string;
   publicBio: string;
+  publicActivityCount: number;
 };
 
 export type ResidentProfilePatch = {
@@ -29,7 +30,8 @@ let mockSelf: ResidentPublicProfile = {
   avatarUrl: null,
   residentLabel: 'verified_resident',
   joinedMonth: '2026-09',
-  publicBio: '이웃과 필요한 정보를 나누는 주민입니다.'
+  publicBio: '이웃과 필요한 정보를 나누는 주민입니다.',
+  publicActivityCount: 7
 };
 
 const mockOthers = new Map<string, ResidentPublicProfile>([[MOCK_OTHER_ID, {
@@ -38,11 +40,17 @@ const mockOthers = new Map<string, ResidentPublicProfile>([[MOCK_OTHER_ID, {
   avatarUrl: null,
   residentLabel: 'verified_resident',
   joinedMonth: '2026-08',
-  publicBio: '반갑습니다. 우리 단지 생활정보를 함께 나눠요.'
+  publicBio: '반갑습니다. 우리 단지 생활정보를 함께 나눠요.',
+  publicActivityCount: 12
 }]]);
 
 function row(raw: unknown): Record<string, unknown> {
   return raw && typeof raw === 'object' ? raw as Record<string, unknown> : {};
+}
+
+function nonNegativeCount(value: unknown): number {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : 0;
 }
 
 function mapProfile(raw: unknown): ResidentPublicProfile {
@@ -53,7 +61,8 @@ function mapProfile(raw: unknown): ResidentPublicProfile {
     avatarUrl: typeof value.avatarUrl === 'string' ? value.avatarUrl : null,
     residentLabel: String(value.residentLabel ?? 'verified_resident'),
     joinedMonth: String(value.joinedMonth ?? ''),
-    publicBio: String(value.publicBio ?? '')
+    publicBio: String(value.publicBio ?? ''),
+    publicActivityCount: nonNegativeCount(value.publicActivityCount)
   };
 }
 

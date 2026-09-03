@@ -15,6 +15,10 @@ assert.match(profileClient, /\/api\/v1\/me\/profile\?\$\{query\(\)\}/,
 assert.match(profileClient, /\/api\/v1\/profiles\/\$\{encodeURIComponent\(userId\)\}\?\$\{query\(\)\}/,
   'other resident profile must use canonical same-complex backend route');
 assert.match(profileClient, /authenticatedFetch\(/);
+assert.match(profileClient, /publicActivityCount: number/,
+  'typed profile contract must carry server-derived public activity count');
+assert.match(profileClient, /publicActivityCount: nonNegativeCount\(value\.publicActivityCount\)/,
+  'API count must be normalized as a non-negative number');
 assert.doesNotMatch(profileClient, /localStorage|sessionStorage|indexedDB/i);
 
 assert.match(safetyClient, /\/api\/v1\/me\/blocks\?\$\{query\(\)\}/,
@@ -29,6 +33,10 @@ assert.match(integration, /data-v2-resident-profile-dialog/);
 assert.match(integration, /residentProfileClient\.getSelf\(\)/);
 assert.match(integration, /residentProfileClient\.updateSelf/);
 assert.match(integration, /residentProfileClient\.getResident\(userId\)/);
+assert.match(integration, /selfProfile\.publicActivityCount/,
+  'self public profile must render the public-only activity count');
+assert.match(integration, /otherProfile\.publicActivityCount/,
+  'other resident profile must render the same public-only activity count');
 assert.match(integration, /residentMessagesClient\.startConversation\(otherProfile\.userId\)/);
 assert.match(integration, /residentSafetyClient\.blockResident\(userId\)/);
 assert.match(integration, /residentSafetyClient\.reportResident\(otherProfile\.userId/);
@@ -44,4 +52,4 @@ assert.doesNotMatch(messages, /placeholder=.*UUID|name=.*participantUserId/is,
   'message/profile surface must not expose raw user ID entry');
 assert.match(main, /V2ResidentProfileIntegration/);
 
-console.log('PASS V2 resident profile/message/block/report authority and privacy contract');
+console.log('PASS V2 resident profile/public-activity/message/block/report authority and privacy contract');
