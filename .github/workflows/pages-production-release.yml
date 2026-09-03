@@ -1,0 +1,165 @@
+name: Pages Production Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_production:
+        description: 'Deploy the V2 DanjiOn live artifact to canonical Cloudflare Pages production'
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: danjion-pages-production
+  cancel-in-progress: false
+
+jobs:
+  deploy-pages-production:
+    name: Guarded DanjiOn Pages production deploy
+    if: inputs.confirm_production
+    runs-on: ubuntu-latest
+    environment: production
+    defaults:
+      run:
+        working-directory: 04_개발/frontend
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      API_BASE_URL: https://padiem-danjion-api-production.padiem.workers.dev
+      AUTH_BASE_URL: https://padiem-danjion-api-production.padiem.workers.dev
+      VITE_UI_VARIANT: v2
+      VITE_DATA_MODE: api
+      VITE_AUTH_MODE: danjion
+      VITE_STORAGE_MODE: drive
+      VITE_API_BASE_URL: https://padiem-danjion-api-production.padiem.workers.dev
+      VITE_AUTH_BASE_URL: https://padiem-danjion-api-production.padiem.workers.dev
+      VITE_COMPLEX_SLUG: bangnim-myeongji-roadhill
+      PAGES_PROJECT: danjion
+      PAGES_PRODUCTION_BRANCH: main
+      CANONICAL_PAGES_URL: https://danjion.pages.dev
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Install frontend dependencies
+        run: npm install --ignore-scripts
+
+      - name: Verify frontend source and live-profile contracts
+        run: npm run typecheck
+
+      - name: Fail closed on missing Cloudflare deployment authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          missing=0
+          for key in CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID; do
+            if [ -z "${!key:-}" ]; then
+              echo "::error::Required Pages deployment authority is missing: ${key}"
+              missing=1
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then
+            exit 1
+          fi
+          echo "Cloudflare deployment authority is present. Values were not printed."
+
+      - name: Verify Padiem account and canonical Pages project
+        shell: bash
+        run: |
+          set -euo pipefail
+          auth_header="Authorization: Bearer ${CLOUDFLARE_API_TOKEN}"
+          account_json="$(curl --silent --show-error --fail \
+            -H "$auth_header" \
+            "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}")"
+          account_name="$(printf '%s' "$account_json" | jq -r '.result.name // empty')"
+          if [ "$account_name" != "Padiem" ]; then
+            echo "::error::Cloudflare account guard failed; refusing Pages production mutation."
+            exit 1
+          fi
+
+          project_json="$(curl --silent --show-error --fail \
+            -H "$auth_header" \
+            "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/pages/projects/${PAGES_PROJECT}")"
+          project_name="$(printf '%s' "$project_json" | jq -r '.result.name // empty')"
+          production_branch="$(printf '%s' "$project_json" | jq -r '.result.production_branch // empty')"
+          if [ "$project_name" != "$PAGES_PROJECT" ] || [ "$production_branch" != "$PAGES_PRODUCTION_BRANCH" ]; then
+            echo "::error::Canonical DanjiOn Pages project/production-branch guard failed."
+            exit 1
+          fi
+          echo "Padiem account + canonical DanjiOn Pages project guard: PASS"
+
+      - name: Require live production API and Better Auth before Pages mutation
+        shell: bash
+        run: |
+          set -euo pipefail
+          health_json="$(curl --silent --show-error --fail --retry 3 --retry-delay 2 "${API_BASE_URL}/api/health")"
+          if ! printf '%s' "$health_json" | jq -e '.data.status == "ok" and .data.database == "ok"' >/dev/null; then
+            echo "::error::Production API is not DB-ready; refusing Pages production deployment."
+            exit 1
+          fi
+
+          jwks_json="$(curl --silent --show-error --fail --retry 3 --retry-delay 2 "${AUTH_BASE_URL}/api/auth/jwks")"
+          if ! printf '%s' "$jwks_json" | jq -e '.keys | type == "array"' >/dev/null; then
+            echo "::error::Production Better Auth JWKS is not ready; refusing Pages production deployment."
+            exit 1
+          fi
+          echo "Production API + Better Auth preflight: PASS"
+
+      - name: Build exact V2 live artifact
+        run: npm run build:live
+
+      - name: Verify built artifact is bound to production API and not dev auth
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! grep -R -q 'padiem-danjion-api-production.padiem.workers.dev' dist; then
+            echo "::error::Built artifact does not contain the canonical production API/Auth URL."
+            exit 1
+          fi
+          if grep -R -q 'x-danjion-dev-auth-user' dist; then
+            echo "::error::Built live artifact contains the development auth header."
+            exit 1
+          fi
+          echo "Built artifact authority scan: PASS"
+
+      - name: Deploy canonical Pages production
+        shell: bash
+        run: |
+          set -euo pipefail
+          commit_message="$(git log -1 --pretty=%s)"
+          npx wrangler@4.114.0 pages deploy dist \
+            --project-name "$PAGES_PROJECT" \
+            --branch "$PAGES_PRODUCTION_BRANCH" \
+            --commit-hash "$GITHUB_SHA" \
+            --commit-message "$commit_message"
+
+      - name: Verify canonical Pages URL
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --silent --show-error --fail --retry 5 --retry-delay 2 --output /dev/null "$CANONICAL_PAGES_URL/"
+          echo "Canonical DanjiOn Pages HTTP smoke: PASS"
+
+      - name: Record Pages release disposition
+        shell: bash
+        run: |
+          {
+            echo '## DanjiOn Pages production release'
+            echo ''
+            echo '- Project: `danjion`'
+            echo '- Production branch: `main`'
+            echo '- UI variant: `v2`'
+            echo '- Data/Auth/Storage: `api / danjion / drive`'
+            echo '- API/Auth origin: `padiem-danjion-api-production.padiem.workers.dev`'
+            echo '- Production API/JWKS preflight: PASS'
+            echo '- Canonical Pages smoke: PASS'
+            echo '- Real phone OTP delivery: separate HOLD #235'
+            echo '- Vite secrets: NONE'
+          } >> "$GITHUB_STEP_SUMMARY"
