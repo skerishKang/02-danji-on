@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties, type FormEven
 import { adminAdapter } from '../../admin-api';
 import { dataAdapter } from '../../api/adapter';
 import { authProvider } from '../../auth';
+import { getProductApiBearerToken } from '../../auth-client';
 import { storageAdapter } from '../../storage';
 import type {
   Benefit,
@@ -119,7 +120,12 @@ function adapterIdForShop(shopId: string) {
 
 export default function V2IntegratedApp() {
   const residentAuth = authProvider.snapshot('resident');
-  const privateSessionReady = !V2_API_DATA_MODE || import.meta.env.DEV || (residentAuth.mode === 'neon' && residentAuth.authenticated);
+  const danjionAuthMode = residentAuth.mode === 'danjion';
+  const [danjionSessionReady, setDanjionSessionReady] = useState(false);
+  const privateSessionReady = !V2_API_DATA_MODE
+    || (!danjionAuthMode && import.meta.env.DEV)
+    || (residentAuth.mode === 'neon' && residentAuth.authenticated)
+    || (danjionAuthMode && danjionSessionReady);
 
   const [activeNav, setActiveNav] = useState<V2VisualNavKey>('home');
   const [progress, setProgress] = useState(0);
@@ -168,6 +174,23 @@ export default function V2IntegratedApp() {
   const primaryBenefitImage = primaryBenefitShop?.image ?? V2_REFERENCE_IMAGES.food;
   const isOwnerRegistration = registration.relationType === 'resident';
   const registrationStepTitle = (isOwnerRegistration ? OWNER_STEP_TITLES : RECOMMENDATION_STEP_TITLES)[registrationStep];
+
+  useEffect(() => {
+    if (!V2_API_DATA_MODE || !danjionAuthMode) return;
+    let cancelled = false;
+
+    void getProductApiBearerToken()
+      .then((token) => {
+        if (!cancelled) setDanjionSessionReady(Boolean(token));
+      })
+      .catch(() => {
+        if (!cancelled) setDanjionSessionReady(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [danjionAuthMode]);
 
   useEffect(() => {
     const media = window.matchMedia('(prefers-reduced-motion: reduce)');
