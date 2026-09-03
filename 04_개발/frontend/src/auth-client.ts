@@ -140,6 +140,30 @@ export async function completeVerifiedSignup(input: {
   return data;
 }
 
+/**
+ * Legacy Gate1 visual compatibility only. These names used to call Better Auth
+ * signup directly, which would now bypass the verified-phone product boundary.
+ * They intentionally fail closed until that visual surface is migrated to
+ * startSignupPhoneVerification -> verifySignupPhoneCode -> completeVerifiedSignup.
+ */
+export async function signUpWithPhone(_input: {
+  email: string;
+  name: string;
+  phone: string;
+  password: string;
+}): Promise<never> {
+  throw new Error('휴대폰 인증이 필요한 새 가입 화면에서 가입해 주세요.');
+}
+
+export async function signUpWithEmail(_input: {
+  email: string;
+  name: string;
+  password: string;
+  phone?: string;
+}): Promise<never> {
+  throw new Error('휴대폰 인증이 필요한 새 가입 화면에서 가입해 주세요.');
+}
+
 export async function signInWithPhone(phone: string, password: string) {
   const username = normalizePhoneCredential(phone);
   if (!isSupportedPhoneCredential(username)) throw new Error('지원하지 않는 휴대폰 번호 형식입니다.');
