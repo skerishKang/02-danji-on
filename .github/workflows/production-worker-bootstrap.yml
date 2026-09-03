@@ -1,0 +1,222 @@
+name: Production Worker Bootstrap
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_production:
+        description: 'Deploy the DanjiOn production Worker in the Padiem Cloudflare account'
+        required: true
+        default: false
+        type: boolean
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/production-worker-bootstrap.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: danjion-production-worker
+  cancel-in-progress: false
+
+jobs:
+  deploy-production-worker:
+    name: Guarded production Worker deploy
+    if: >-
+      (github.event_name == 'workflow_dispatch' && inputs.confirm_production) ||
+      (github.event_name == 'push' && contains(github.event.head_commit.message, '[production-bootstrap]'))
+    runs-on: ubuntu-latest
+    environment: production
+    defaults:
+      run:
+        working-directory: 04_개발/backend
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      DANJION_PRODUCTION_DB_URL: ${{ secrets.DANJION_PRODUCTION_DB_URL }}
+      DANJION_GOOGLE_CLIENT_ID: ${{ secrets.DANJION_GOOGLE_CLIENT_ID }}
+      DANJION_GOOGLE_CLIENT_SECRET: ${{ secrets.DANJION_GOOGLE_CLIENT_SECRET }}
+      DANJION_KAKAO_CLIENT_ID: ${{ secrets.DANJION_KAKAO_CLIENT_ID }}
+      DANJION_KAKAO_CLIENT_SECRET: ${{ secrets.DANJION_KAKAO_CLIENT_SECRET }}
+      DANJION_NAVER_CLIENT_ID: ${{ secrets.DANJION_NAVER_CLIENT_ID }}
+      DANJION_NAVER_CLIENT_SECRET: ${{ secrets.DANJION_NAVER_CLIENT_SECRET }}
+      TARGET_WORKER: padiem-danjion-api-production
+      VERIFICATION_WORKER: padiem-contact-verification
+      HEALTH_URL: https://padiem-danjion-api-production.padiem.workers.dev/api/health
+      JWKS_URL: https://padiem-danjion-api-production.padiem.workers.dev/api/auth/jwks
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: 04_개발/backend/package-lock.json
+
+      - name: Install backend dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Verify source-side production safety contract
+        run: |
+          npm run typecheck
+          npm run test:production-bootstrap-safety
+
+      - name: Fail closed on missing GitHub deployment authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          missing=0
+          for key in CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID DANJION_PRODUCTION_DB_URL; do
+            if [ -z "${!key:-}" ]; then
+              echo "::error::Required production deployment input is missing: ${key}"
+              missing=1
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then
+            exit 1
+          fi
+          echo "Required production deployment inputs are present. Values were not printed."
+
+      - name: Verify Padiem Cloudflare account and private verification service
+        shell: bash
+        run: |
+          set -euo pipefail
+          auth_header="Authorization: Bearer ${CLOUDFLARE_API_TOKEN}"
+          account_json="$(curl --silent --show-error --fail \
+            -H "$auth_header" \
+            "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}")"
+          account_name="$(printf '%s' "$account_json" | jq -r '.result.name // empty')"
+          if [ "$account_name" != "Padiem" ]; then
+            echo "::error::Cloudflare account guard failed; refusing production mutation."
+            exit 1
+          fi
+
+          verification_status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' \
+            -H "$auth_header" \
+            "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/workers/services/${VERIFICATION_WORKER}")"
+          if [ "$verification_status" != "200" ]; then
+            echo "::error::Required private Padiem contact-verification Worker is not available."
+            exit 1
+          fi
+          echo "Padiem account and private verification Worker guard: PASS"
+
+      - name: Prepare encrypted Worker secret payload
+        id: secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          secrets_file="${RUNNER_TEMP}/danjion-production-secrets.json"
+          secret_list_file="${RUNNER_TEMP}/danjion-production-secret-names.json"
+          printf '%s' '{}' > "$secrets_file"
+          chmod 600 "$secrets_file"
+
+          add_secret() {
+            local key="$1"
+            local value="$2"
+            jq --arg key "$key" --arg value "$value" '. + {($key): $value}' "$secrets_file" > "${secrets_file}.tmp"
+            mv "${secrets_file}.tmp" "$secrets_file"
+            chmod 600 "$secrets_file"
+          }
+
+          add_secret DATABASE_URL "$DANJION_PRODUCTION_DB_URL"
+
+          auth_header="Authorization: Bearer ${CLOUDFLARE_API_TOKEN}"
+          target_status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' \
+            -H "$auth_header" \
+            "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/workers/services/${TARGET_WORKER}")"
+
+          has_secret() {
+            local name="$1"
+            jq -e --arg name "$name" '.[] | select(.name == $name)' "$secret_list_file" >/dev/null 2>&1
+          }
+
+          if [ "$target_status" = "200" ]; then
+            npx wrangler secret list --env production --format json > "$secret_list_file"
+          elif [ "$target_status" = "404" ]; then
+            printf '%s' '[]' > "$secret_list_file"
+          else
+            echo "::error::Could not determine existing production Worker state."
+            exit 1
+          fi
+
+          if ! has_secret BETTER_AUTH_SECRET; then
+            add_secret BETTER_AUTH_SECRET "$(openssl rand -hex 32)"
+          fi
+          if ! has_secret DANJION_CONTACT_REF_SECRET; then
+            add_secret DANJION_CONTACT_REF_SECRET "$(openssl rand -hex 32)"
+          fi
+
+          add_optional_pair() {
+            local public_value="$1"
+            local secret_value="$2"
+            local public_key="$3"
+            local secret_key="$4"
+            if [ -n "$public_value" ] || [ -n "$secret_value" ]; then
+              if [ -z "$public_value" ] || [ -z "$secret_value" ]; then
+                echo "::error::Optional OAuth provider credentials must be configured as a complete pair: ${public_key}/${secret_key}"
+                exit 1
+              fi
+              add_secret "$public_key" "$public_value"
+              add_secret "$secret_key" "$secret_value"
+            fi
+          }
+
+          add_optional_pair "$DANJION_GOOGLE_CLIENT_ID" "$DANJION_GOOGLE_CLIENT_SECRET" GOOGLE_CLIENT_ID GOOGLE_CLIENT_SECRET
+          add_optional_pair "$DANJION_KAKAO_CLIENT_ID" "$DANJION_KAKAO_CLIENT_SECRET" KAKAO_CLIENT_ID KAKAO_CLIENT_SECRET
+          add_optional_pair "$DANJION_NAVER_CLIENT_ID" "$DANJION_NAVER_CLIENT_SECRET" NAVER_CLIENT_ID NAVER_CLIENT_SECRET
+
+          echo "path=${secrets_file}" >> "$GITHUB_OUTPUT"
+          echo "Secret payload prepared. Secret values were not printed."
+
+      - name: Deploy production Worker with encrypted secrets
+        shell: bash
+        run: npx wrangler deploy --env production --secrets-file "${{ steps.secrets.outputs.path }}"
+
+      - name: Verify required Worker secret names
+        shell: bash
+        run: |
+          set -euo pipefail
+          secret_names="$(npx wrangler secret list --env production --format json)"
+          for key in DATABASE_URL BETTER_AUTH_SECRET DANJION_CONTACT_REF_SECRET; do
+            if ! printf '%s' "$secret_names" | jq -e --arg key "$key" '.[] | select(.name == $key)' >/dev/null; then
+              echo "::error::Required Worker secret is not bound: ${key}"
+              exit 1
+            fi
+          done
+          echo "Required Worker secret-name readback: PASS"
+
+      - name: Production health and Better Auth JWKS smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+          health_json="$(curl --silent --show-error --fail --retry 5 --retry-delay 2 "$HEALTH_URL")"
+          if ! printf '%s' "$health_json" | jq -e '.data.status == "ok" and .data.database == "ok"' >/dev/null; then
+            echo "::error::Production Worker health response did not confirm database readiness."
+            exit 1
+          fi
+
+          jwks_json="$(curl --silent --show-error --fail --retry 5 --retry-delay 2 "$JWKS_URL")"
+          if ! printf '%s' "$jwks_json" | jq -e '.keys | type == "array"' >/dev/null; then
+            echo "::error::Better Auth JWKS endpoint is not ready."
+            exit 1
+          fi
+          echo "Production health + Better Auth JWKS smoke: PASS"
+
+      - name: Record production bootstrap disposition
+        shell: bash
+        run: |
+          {
+            echo '## DanjiOn production Worker bootstrap'
+            echo ''
+            echo '- Worker: `padiem-danjion-api-production`'
+            echo '- Cloudflare account guard: PASS (`Padiem`)'
+            echo '- Production DB health: PASS'
+            echo '- Better Auth JWKS: PASS'
+            echo '- Padiem contact-verification Service Binding: PRESENT'
+            echo '- Business-image background reconciliation: DISABLED'
+            echo '- Real phone OTP delivery: HOLD / Issue #235'
+            echo '- Secret values: NOT OUTPUT'
+          } >> "$GITHUB_STEP_SUMMARY"
