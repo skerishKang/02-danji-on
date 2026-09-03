@@ -10,6 +10,7 @@ import './v2-resident-news.css';
 
 type View = 'feed' | 'submit' | 'mine';
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const STATUS_LABELS: Record<string, string> = {
   submitted: '접수됨',
   reviewing: '운영 확인 중',
@@ -50,6 +51,20 @@ export default function V2ResidentNewsPortal() {
     const observer = new MutationObserver(sync);
     observer.observe(document.body, { childList: true, subtree: true });
     return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    const openFromNotification = (event: Event) => {
+      const postId = (event as CustomEvent<{ postId?: unknown }>).detail?.postId;
+      if (typeof postId !== 'string' || !UUID_RE.test(postId)) return;
+      setOpen(true);
+      setView('feed');
+      setSelected(null);
+      setStatus('');
+      void openDetail(postId.toLowerCase());
+    };
+    window.addEventListener('danjion:v2-open-resident-news', openFromNotification);
+    return () => window.removeEventListener('danjion:v2-open-resident-news', openFromNotification);
   }, []);
 
   async function loadFeed() {
