@@ -17,6 +17,7 @@ import V2HouseholdPortal from './v2/integration/V2HouseholdPortal';
 import V2InquiriesPortal from './v2/integration/V2InquiriesPortal';
 import V2IntegratedApp from './v2/integration/V2IntegratedApp';
 import V2MessagesIntegration from './v2/integration/V2MessagesIntegration';
+import V2MySummaryPortal from './v2/integration/V2MySummaryPortal';
 import V2NotificationsPortal from './v2/integration/V2NotificationsPortal';
 import V2ResidentNewsPortal from './v2/integration/V2ResidentNewsPortal';
 import V2ResidentProfileIntegration from './v2/integration/V2ResidentProfileIntegration';
@@ -46,7 +47,7 @@ async function bootstrap() {
       <UiVariantRoot
         variant={uiVariant}
         v1={<App />}
-        v2={<><V2IntegratedApp /><V2ComplexNewsPortal /><V2ResidentNewsPortal /><V2ActivityPortal /><V2SettingsPortal /><V2NotificationsPortal /><V2MessagesIntegration /><V2ResidentProfileIntegration /><V2BusinessShareIntegration /><V2BusinessReviewsIntegration /><V2InquiriesPortal /><V2HouseholdPortal /><V2AccountClosurePortal /></>}
+        v2={<><V2IntegratedApp /><V2ComplexNewsPortal /><V2ResidentNewsPortal /><V2MySummaryPortal /><V2ActivityPortal /><V2SettingsPortal /><V2NotificationsPortal /><V2MessagesIntegration /><V2ResidentProfileIntegration /><V2BusinessShareIntegration /><V2BusinessReviewsIntegration /><V2InquiriesPortal /><V2HouseholdPortal /><V2AccountClosurePortal /></>}
         gateway={<GatewayApp />}
       />
     </StrictMode>
