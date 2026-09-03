@@ -19,11 +19,13 @@ expect_fail() {
   echo "PASS $label"
 }
 
-"${psql_cmd[@]}" -f migrations/001_initial_schema.sql
-"${psql_cmd[@]}" -f migrations/009_household_foundation.sql
-"${psql_cmd[@]}" -f migrations/024_resident_messages.sql
-"${psql_cmd[@]}" -f migrations/025_resident_notifications.sql
-"${psql_cmd[@]}" -f migrations/036_resident_news.sql
+if [[ "${RESIDENT_NEWS_SCHEMA_READY:-0}" != "1" ]]; then
+  "${psql_cmd[@]}" -f migrations/001_initial_schema.sql
+  "${psql_cmd[@]}" -f migrations/009_household_foundation.sql
+  "${psql_cmd[@]}" -f migrations/024_resident_messages.sql
+  "${psql_cmd[@]}" -f migrations/025_resident_notifications.sql
+  "${psql_cmd[@]}" -f migrations/036_resident_news.sql
+fi
 
 "${psql_cmd[@]}" <<'SQL'
 insert into complexes (id, slug, name, status) values
@@ -70,7 +72,6 @@ begin
   if notification_count <> 0 then raise exception 'submission created premature notifications'; end if;
 end $$;
 
--- Simulate the operator approval transaction: preserve source and create a separate publication.
 insert into resident_news_posts (
   id, complex_id, source_submission_id, title, body
 ) values (
