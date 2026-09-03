@@ -32,4 +32,29 @@ test.describe('DanjiOn current Product Shell C1', () => {
     await expect(page.getByRole('button', { name: /생활 불편 알리기/ })).toBeVisible();
     await expect(page.getByText(/닉네임만 공개됩니다/)).toBeVisible();
   });
+
+  test('resident news stays separate from public official news and supports verified submission workflow', async ({ page }) => {
+    await page.goto('/');
+    const entry = page.locator('[data-v2-resident-news-entry]');
+    await expect(entry).toBeVisible();
+    await entry.getByRole('button', { name: '주민소식 보기', exact: true }).click();
+
+    const dialog = page.locator('[data-v2-resident-news-dialog]');
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByRole('heading', { name: '입주민 주민소식', exact: true })).toBeVisible();
+    await expect(dialog.getByText('입주민 확인을 거쳐 게시된 주민소식입니다', { exact: true })).toBeVisible();
+
+    await dialog.getByRole('button', { name: '내용 보기', exact: true }).click();
+    await expect(dialog.locator('[data-v2-resident-news-detail]')).toContainText('주민이 제보한 내용은 운영 확인 후 주민전용 소식으로 별도 게시됩니다.');
+    await dialog.getByRole('button', { name: '목록으로', exact: true }).click();
+
+    await dialog.getByRole('button', { name: '소식 제보하기', exact: true }).click();
+    await dialog.getByLabel('제목', { exact: true }).fill('엘리베이터 앞 조명 확인 부탁드립니다');
+    await dialog.getByLabel('내용', { exact: true }).fill('공용부 조명이 꺼져 있어 운영 확인을 요청드립니다.');
+    await dialog.getByRole('button', { name: '제보 접수', exact: true }).click();
+
+    await expect(dialog.locator('[data-v2-resident-news-mine]')).toContainText('엘리베이터 앞 조명 확인 부탁드립니다');
+    await expect(dialog.locator('[data-v2-resident-news-mine]')).toContainText('접수됨');
+    await expect(dialog.getByText(/운영 확인 전에는 주민소식 피드에 게시되지 않습니다/)).toBeVisible();
+  });
 });
