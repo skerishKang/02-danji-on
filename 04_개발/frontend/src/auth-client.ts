@@ -75,6 +75,29 @@ export async function signInWithSocial(provider: SocialLoginProvider) {
   return result.data;
 }
 
+export async function signUpWithVerifiedSocial(provider: SocialLoginProvider, input: {
+  signupSessionRef: string;
+  verificationReceiptRef: string;
+}) {
+  if (!input.signupSessionRef || !input.verificationReceiptRef) {
+    throw new Error('휴대폰 인증을 먼저 완료해 주세요.');
+  }
+  const result = await danjionAuthClient.signIn.social({
+    provider,
+    callbackURL: browserUrl('/verification.html'),
+    newUserCallbackURL: browserUrl('/verification.html'),
+    requestSignUp: true,
+    additionalData: {
+      danjionSocialSignup: {
+        signupSessionRef: input.signupSessionRef,
+        verificationReceiptRef: input.verificationReceiptRef
+      }
+    }
+  });
+  assertAuthSuccess(result, '소셜 가입을 시작하지 못했습니다.');
+  return result.data;
+}
+
 export async function startSignupPhoneVerification(input: {
   email: string;
   phone: string;

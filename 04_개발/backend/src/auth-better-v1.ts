@@ -1,11 +1,17 @@
 import { neon } from '@neondatabase/serverless';
 import { betterAuth } from 'better-auth';
-import { APIError } from 'better-auth/api';
+import { APIError, addOAuthServerContext, createAuthMiddleware, getOAuthState } from 'better-auth/api';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { jwt, username } from 'better-auth/plugins';
 import { drizzle } from 'drizzle-orm/neon-http';
 import { betterAuthSchema } from './auth-better-schema';
 import { sendDanjionAuthEmail, type AuthEmailEnv } from './auth-email-v1';
+import {
+  consumeSocialSignupServerContext,
+  parseSocialSignupClientData,
+  prepareSocialSignupServerContext,
+  type SocialSignupServerContext
+} from './social-signup-verification-v1';
 
 export interface BetterAuthEnv extends AuthEmailEnv {
   DATABASE_URL: string;
@@ -70,9 +76,9 @@ function configuredSocialProviders(env: BetterAuthEnv) {
   const naverId = env.NAVER_CLIENT_ID?.trim();
   const naverSecret = env.NAVER_CLIENT_SECRET?.trim();
 
-  // Existing linked social accounts may still sign in. New implicit social
-  // account creation is blocked until the post-OAuth verified-phone completion
-  // path is implemented, otherwise it would bypass the direct signup gate.
+  // Existing linked social accounts may sign in normally. New social users can
+  // be created only when the client explicitly requests signup and the server
+  // promotes an unused verified-phone receipt into OAuth serverContext.
   return {
     ...(googleId && googleSecret ? { google: { clientId: googleId, clientSecret: googleSecret, disableImplicitSignUp: true } } : {}),
     ...(kakaoId && kakaoSecret ? { kakao: { clientId: kakaoId, clientSecret: kakaoSecret, disableImplicitSignUp: true } } : {}),
@@ -94,6 +100,15 @@ async function requireClosedProductAccount(env: BetterAuthEnv, authUserId: strin
       message: 'DanjiOn product account must be closed before deleting the login account.'
     });
   }
+}
+
+function requestedSocialSignupData(body: unknown): unknown {
+  if (!body || typeof body !== 'object' || Array.isArray(body)) return null;
+  const requestBody = body as Record<string, unknown>;
+  if (requestBody.requestSignUp !== true) return null;
+  const additionalData = requestBody.additionalData;
+  if (!additionalData || typeof additionalData !== 'object' || Array.isArray(additionalData)) return null;
+  return (additionalData as Record<string, unknown>).danjionSocialSignup;
 }
 
 export function createDanjionAuth(env: BetterAuthEnv) {
@@ -122,6 +137,62 @@ export function createDanjionAuth(env: BetterAuthEnv) {
     rateLimit: {
       storage: 'database',
       modelName: 'rateLimit'
+    },
+    hooks: {
+      before: createAuthMiddleware(async (ctx) => {
+        if (ctx.path !== '/sign-in/social') return;
+        const candidate = requestedSocialSignupData(ctx.body);
+        if (!candidate) {
+          // Normal sign-in for an existing linked account is unaffected. A new
+          // account remains blocked by disableImplicitSignUp unless requestSignUp
+          // is explicitly true and carries the verified DanjiOn receipt refs.
+          return;
+        }
+        const clientData = parseSocialSignupClientData(candidate);
+        if (!clientData) {
+          throw new APIError('FORBIDDEN', {
+            message: 'Verified phone contact is required before social signup.'
+          });
+        }
+        const trustedContext = await prepareSocialSignupServerContext(env, clientData);
+        if (!trustedContext) {
+          throw new APIError('FORBIDDEN', {
+            message: 'Phone verification receipt is invalid or already used.'
+          });
+        }
+        await addOAuthServerContext({
+          danjionSocialSignup: trustedContext
+        });
+      })
+    },
+    databaseHooks: {
+      user: {
+        create: {
+          before: async (user, ctx) => {
+            if (ctx?.path !== '/callback/:id') return;
+            const oauthState = await getOAuthState() as unknown as {
+              serverContext?: { danjionSocialSignup?: SocialSignupServerContext };
+            } | null;
+            const trustedContext = oauthState?.serverContext?.danjionSocialSignup;
+            if (!trustedContext) {
+              throw new APIError('FORBIDDEN', {
+                message: 'Verified phone contact is required before social signup.'
+              });
+            }
+            const consumed = await consumeSocialSignupServerContext(
+              env,
+              trustedContext,
+              user.email,
+              user.id
+            );
+            if (!consumed) {
+              throw new APIError('FORBIDDEN', {
+                message: 'Social account email must match the verified signup email and receipt must be unused.'
+              });
+            }
+          }
+        }
+      }
     },
     user: {
       deleteUser: {
@@ -217,7 +288,7 @@ export async function handleBetterAuthRequest(
   // Direct email/password account creation is intentionally product-gated.
   // `/auth/signup` consumes an exact one-time phone-verification receipt and
   // then calls createDanjionAuth(env).api.signUpEmail server-side. Social OAuth
-  // remains sign-in-only for existing accounts until phone completion is built.
+  // uses the same receipt authority through server-trusted OAuth state.
   const blockedSignup = directEmailSignupBlocked(request, path);
   if (blockedSignup) return blockedSignup;
 

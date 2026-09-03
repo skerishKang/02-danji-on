@@ -2,7 +2,18 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
 const root = new URL('../', import.meta.url);
-const [server, schema, migration, app, authResolver, wranglerSource, verificationRpc, verificationMigration, verifiedSignup] = await Promise.all([
+const [
+  server,
+  schema,
+  migration,
+  app,
+  authResolver,
+  wranglerSource,
+  verificationRpc,
+  verificationMigration,
+  verifiedSignup,
+  socialSignup
+] = await Promise.all([
   readFile(new URL('src/auth-better-v1.ts', root), 'utf8'),
   readFile(new URL('src/auth-better-schema.ts', root), 'utf8'),
   readFile(new URL('migrations/014_danjion_better_auth.sql', root), 'utf8'),
@@ -11,7 +22,8 @@ const [server, schema, migration, app, authResolver, wranglerSource, verificatio
   readFile(new URL('wrangler.jsonc', root), 'utf8'),
   readFile(new URL('src/padiem-contact-verification-v1.ts', root), 'utf8'),
   readFile(new URL('migrations/038_signup_contact_verification.sql', root), 'utf8'),
-  readFile(new URL('src/verified-signup-v1.ts', root), 'utf8')
+  readFile(new URL('src/verified-signup-v1.ts', root), 'utf8'),
+  readFile(new URL('src/social-signup-verification-v1.ts', root), 'utf8')
 ]);
 
 for (const provider of ['google', 'kakao', 'naver']) {
@@ -29,6 +41,23 @@ assert.match(server, /directEmailSignupBlocked/);
 assert.match(server, /\/api\/auth\/sign-up\/email/);
 assert.match(server, /PHONE_VERIFICATION_REQUIRED/);
 assert.match(server, /disableImplicitSignUp:\s*true/g, 'new social users must not bypass verified-phone onboarding');
+
+// Social signup gate: client-supplied refs are validated against DanjiOn DB,
+// promoted to server-only OAuth state, and consumed exactly once on user create.
+assert.match(server, /addOAuthServerContext/);
+assert.match(server, /getOAuthState/);
+assert.match(server, /ctx\.path !== '\/sign-in\/social'/);
+assert.match(server, /requestSignUp/);
+assert.match(server, /prepareSocialSignupServerContext/);
+assert.match(server, /consumeSocialSignupServerContext/);
+assert.match(server, /ctx\?\.path !== '\/callback\/:id'/);
+assert.match(socialSignup, /r\.consumed_at is null/);
+assert.match(socialSignup, /r\.auth_user_id is null/);
+assert.match(socialSignup, /c\.state = 'verified'/);
+assert.match(socialSignup, /s\.phone_verified_at is not null/);
+assert.match(socialSignup, /normalizedOauthEmail !== context\.email/);
+assert.match(socialSignup, /set consumed_at = now\(\), auth_user_id = \$\{authUserId\}/);
+assert.doesNotMatch(socialSignup, /otp_digest|delivery_code|submitted_code/i, 'social signup gate must consume only the verification receipt, never OTP material');
 
 assert.match(server, /jwt\(\{/);
 assert.match(authResolver, /\/api\/auth\/jwks/);

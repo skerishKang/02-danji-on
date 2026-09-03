@@ -6,6 +6,7 @@ import {
   signInWithEmail,
   signInWithPhone,
   signInWithSocial,
+  signUpWithVerifiedSocial,
   startSignupPhoneVerification,
   verifySignupPhoneCode,
   type SocialLoginProvider
@@ -107,9 +108,20 @@ export default function V2AuthEntryPortal() {
       setError('개발 미리보기에서는 실제 소셜 계정을 만들거나 로그인하지 않습니다.');
       return;
     }
+    if (mode === 'signup' && (!verificationReceiptRef || phoneVerificationState !== 'verified')) {
+      setError('소셜 가입도 휴대폰 인증을 먼저 완료해 주세요.');
+      return;
+    }
     setBusy(true);
     try {
-      await signInWithSocial(provider);
+      if (mode === 'signup') {
+        await signUpWithVerifiedSocial(provider, {
+          signupSessionRef,
+          verificationReceiptRef
+        });
+      } else {
+        await signInWithSocial(provider);
+      }
     } catch (requestError) {
       setError(errorMessage(requestError));
       setBusy(false);
@@ -227,15 +239,12 @@ export default function V2AuthEntryPortal() {
           signupSessionRef,
           verificationReceiptRef
         });
-        // completeVerifiedSignup moves to the existing check-email page.
         return;
       }
 
       if (method === 'phone') await signInWithPhone(phone, password);
       else await signInWithEmail(email, password);
 
-      // Account authentication is intentionally separate from resident authority.
-      // A successful login continues into the existing resident-verification surface.
       window.location.assign(VERIFICATION_PATH);
     } catch (requestError) {
       setError(errorMessage(requestError));
@@ -317,17 +326,15 @@ export default function V2AuthEntryPortal() {
 
             <div className="v2-onboarding-notice">
               {mode === 'signup'
-                ? '휴대폰 인증은 해당 연락처를 사용할 수 있음을 확인하는 절차입니다. 법적 본인확인이나 입주민 인증을 대신하지 않으며, 가입 후 이메일 확인 링크도 완료해야 합니다.'
+                ? '휴대폰 인증은 해당 연락처를 사용할 수 있음을 확인하는 절차입니다. 법적 본인확인이나 입주민 인증을 대신하지 않습니다. 소셜 가입도 같은 휴대폰 인증 receipt를 서버에서 일회성으로 확인합니다.'
                 : '계정 로그인과 입주민 권한은 분리되어 있습니다. 로그인 후 입주민 확인 단계로 이어집니다.'}
             </div>
 
-            {mode === 'signin' && (
-              <div className="v2-auth-social" aria-label="소셜 계정으로 로그인">
-                <button type="button" disabled={busy} onClick={() => void social('kakao')}>Kakao</button>
-                <button type="button" disabled={busy} onClick={() => void social('naver')}>Naver</button>
-                <button type="button" disabled={busy} onClick={() => void social('google')}>Google</button>
-              </div>
-            )}
+            <div className="v2-auth-social" aria-label={mode === 'signup' ? '소셜 계정으로 가입' : '소셜 계정으로 로그인'}>
+              <button type="button" disabled={busy || (mode === 'signup' && phoneVerificationState !== 'verified')} onClick={() => void social('kakao')}>{mode === 'signup' ? 'Kakao로 가입' : 'Kakao'}</button>
+              <button type="button" disabled={busy || (mode === 'signup' && phoneVerificationState !== 'verified')} onClick={() => void social('naver')}>{mode === 'signup' ? 'Naver로 가입' : 'Naver'}</button>
+              <button type="button" disabled={busy || (mode === 'signup' && phoneVerificationState !== 'verified')} onClick={() => void social('google')}>{mode === 'signup' ? 'Google로 가입' : 'Google'}</button>
+            </div>
 
             {mode === 'signin' && <a href="/auth-recovery.html">비밀번호를 잊으셨나요?</a>}
           </div>
