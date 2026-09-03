@@ -6,6 +6,7 @@ import { jwt, username } from 'better-auth/plugins';
 import { drizzle } from 'drizzle-orm/neon-http';
 import { betterAuthSchema } from './auth-better-schema';
 import { sendDanjionAuthEmail, type AuthEmailEnv } from './auth-email-v1';
+import { handleSocialOnboardingRequest } from './social-onboarding-v1';
 
 export interface BetterAuthEnv extends AuthEmailEnv {
   DATABASE_URL: string;
@@ -69,11 +70,6 @@ function configuredSocialProviders(env: BetterAuthEnv) {
   const kakaoSecret = env.KAKAO_CLIENT_SECRET?.trim();
   const naverId = env.NAVER_CLIENT_ID?.trim();
   const naverSecret = env.NAVER_CLIENT_SECRET?.trim();
-
-  // Existing linked social accounts sign in normally. A new social account may
-  // be created only when the client explicitly sends requestSignUp=true. Product
-  // authority remains fail-closed after OAuth until DanjiOn binds a verified
-  // phone receipt to the new auth user through /auth/social-onboarding/complete.
   return {
     ...(googleId && googleSecret ? { google: { clientId: googleId, clientSecret: googleSecret, disableImplicitSignUp: true } } : {}),
     ...(kakaoId && kakaoSecret ? { kakao: { clientId: kakaoId, clientSecret: kakaoSecret, disableImplicitSignUp: true } } : {}),
@@ -84,16 +80,11 @@ function configuredSocialProviders(env: BetterAuthEnv) {
 async function requireClosedProductAccount(env: BetterAuthEnv, authUserId: string): Promise<void> {
   const sql = neon(env.DATABASE_URL);
   const rows = await sql`
-    select account_status
-    from app_users
-    where auth_user_id = ${authUserId}
-    limit 1
+    select account_status from app_users where auth_user_id = ${authUserId} limit 1
   `;
   const row = rows[0];
   if (!row || String(row.account_status) !== 'closed') {
-    throw new APIError('FORBIDDEN', {
-      message: 'DanjiOn product account must be closed before deleting the login account.'
-    });
+    throw new APIError('FORBIDDEN', { message: 'DanjiOn product account must be closed before deleting the login account.' });
   }
 }
 
@@ -101,7 +92,6 @@ export function createDanjionAuth(env: BetterAuthEnv) {
   const baseURL = normalizeBaseUrl(requireValue(env.DANJION_AUTH_BASE_URL, 'DANJION_AUTH_BASE_URL'));
   const secret = requireValue(env.BETTER_AUTH_SECRET, 'BETTER_AUTH_SECRET');
   if (secret.length < 32) throw new Error('BETTER_AUTH_SECRET must be at least 32 characters');
-
   const db = drizzle(env.DATABASE_URL, { schema: betterAuthSchema });
   const requireEmailVerification = emailVerificationRequired(env);
 
@@ -110,44 +100,21 @@ export function createDanjionAuth(env: BetterAuthEnv) {
     baseURL,
     secret,
     trustedOrigins: trustedOrigins(env, baseURL),
-    database: drizzleAdapter(db, {
-      provider: 'pg',
-      schema: betterAuthSchema,
-      schemaName: 'danjion_auth'
-    }),
-    advanced: {
-      ipAddress: {
-        ipAddressHeaders: ['cf-connecting-ip']
-      }
-    },
-    rateLimit: {
-      storage: 'database',
-      modelName: 'rateLimit'
-    },
+    database: drizzleAdapter(db, { provider: 'pg', schema: betterAuthSchema, schemaName: 'danjion_auth' }),
+    advanced: { ipAddress: { ipAddressHeaders: ['cf-connecting-ip'] } },
+    rateLimit: { storage: 'database', modelName: 'rateLimit' },
     user: {
       deleteUser: {
         enabled: true,
         sendDeleteAccountVerification: async ({ user, url }) => {
-          await sendDanjionAuthEmail(env, {
-            kind: 'delete-account',
-            to: user.email,
-            userName: user.name,
-            actionUrl: url
-          });
+          await sendDanjionAuthEmail(env, { kind: 'delete-account', to: user.email, userName: user.name, actionUrl: url });
         },
-        beforeDelete: async (user) => {
-          await requireClosedProductAccount(env, user.id);
-        }
+        beforeDelete: async (user) => { await requireClosedProductAccount(env, user.id); }
       }
     },
     emailVerification: {
       sendVerificationEmail: async ({ user, url }) => {
-        await sendDanjionAuthEmail(env, {
-          kind: 'verify-email',
-          to: user.email,
-          userName: user.name,
-          actionUrl: url
-        });
+        await sendDanjionAuthEmail(env, { kind: 'verify-email', to: user.email, userName: user.name, actionUrl: url });
       },
       sendOnSignUp: true,
       sendOnSignIn: requireEmailVerification,
@@ -158,12 +125,7 @@ export function createDanjionAuth(env: BetterAuthEnv) {
       enabled: true,
       requireEmailVerification,
       sendResetPassword: async ({ user, url }) => {
-        await sendDanjionAuthEmail(env, {
-          kind: 'reset-password',
-          to: user.email,
-          userName: user.name,
-          actionUrl: url
-        });
+        await sendDanjionAuthEmail(env, { kind: 'reset-password', to: user.email, userName: user.name, actionUrl: url });
       },
       resetPasswordTokenExpiresIn: 3600,
       revokeSessionsOnPasswordReset: true
@@ -180,13 +142,7 @@ export function createDanjionAuth(env: BetterAuthEnv) {
         usernameValidator: (value) => KOREAN_MOBILE.test(value),
         validationOrder: { username: 'post-normalization' }
       }),
-      jwt({
-        jwt: {
-          issuer: baseURL,
-          audience: baseURL,
-          expirationTime: '15m'
-        }
-      })
+      jwt({ jwt: { issuer: baseURL, audience: baseURL, expirationTime: '15m' } })
     ]
   });
 }
@@ -195,25 +151,30 @@ function directEmailSignupBlocked(request: Request, path: string): Response | nu
   const normalized = path.replace(/\/+$/, '');
   if (request.method !== 'POST' || normalized !== '/api/auth/sign-up/email') return null;
   return Response.json({
-    error: {
-      code: 'PHONE_VERIFICATION_REQUIRED',
-      message: 'Direct DanjiOn signup requires verified phone contact.'
-    }
-  }, {
-    status: 409,
-    headers: { 'cache-control': 'no-store' }
-  });
+    error: { code: 'PHONE_VERIFICATION_REQUIRED', message: 'Direct DanjiOn signup requires verified phone contact.' }
+  }, { status: 409, headers: { 'cache-control': 'no-store' } });
 }
 
-export async function handleBetterAuthRequest(
-  request: Request,
-  env: BetterAuthEnv
-): Promise<Response | null> {
-  const path = new URL(request.url).pathname;
-  if (!path.startsWith('/api/auth/')) return null;
+function requestId(request: Request): string {
+  const incoming = request.headers.get('x-danjion-request-id')?.trim();
+  return incoming && /^[A-Za-z0-9._:-]{1,80}$/.test(incoming) ? incoming : `req-${crypto.randomUUID()}`;
+}
 
+export async function handleBetterAuthRequest(request: Request, env: BetterAuthEnv): Promise<Response | null> {
+  const path = new URL(request.url).pathname;
+  const auth = createDanjionAuth(env);
+
+  if (path.startsWith('/auth/social-onboarding/')) {
+    return handleSocialOnboardingRequest(
+      request,
+      env,
+      requestId(request),
+      async (incoming) => auth.api.getSession({ headers: incoming.headers })
+    );
+  }
+
+  if (!path.startsWith('/api/auth/')) return null;
   const blockedSignup = directEmailSignupBlocked(request, path);
   if (blockedSignup) return blockedSignup;
-
-  return createDanjionAuth(env).handler(request);
+  return auth.handler(request);
 }
