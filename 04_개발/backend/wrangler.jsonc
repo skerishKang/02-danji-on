@@ -30,6 +30,12 @@
       "triggers": {
         "crons": ["*/15 * * * *"]
       },
+      "services": [
+        {
+          "binding": "PADIEM_CONTACT_VERIFICATION",
+          "service": "padiem-contact-verification"
+        }
+      ],
       "vars": {
         "APP_ENV": "production",
         "DEV_AUTH_BYPASS": "false",
