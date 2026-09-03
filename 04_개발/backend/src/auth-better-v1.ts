@@ -70,10 +70,13 @@ function configuredSocialProviders(env: BetterAuthEnv) {
   const naverId = env.NAVER_CLIENT_ID?.trim();
   const naverSecret = env.NAVER_CLIENT_SECRET?.trim();
 
+  // Existing linked social accounts may still sign in. New implicit social
+  // account creation is blocked until the post-OAuth verified-phone completion
+  // path is implemented, otherwise it would bypass the direct signup gate.
   return {
-    ...(googleId && googleSecret ? { google: { clientId: googleId, clientSecret: googleSecret } } : {}),
-    ...(kakaoId && kakaoSecret ? { kakao: { clientId: kakaoId, clientSecret: kakaoSecret } } : {}),
-    ...(naverId && naverSecret ? { naver: { clientId: naverId, clientSecret: naverSecret } } : {})
+    ...(googleId && googleSecret ? { google: { clientId: googleId, clientSecret: googleSecret, disableImplicitSignUp: true } } : {}),
+    ...(kakaoId && kakaoSecret ? { kakao: { clientId: kakaoId, clientSecret: kakaoSecret, disableImplicitSignUp: true } } : {}),
+    ...(naverId && naverSecret ? { naver: { clientId: naverId, clientSecret: naverSecret, disableImplicitSignUp: true } } : {})
   };
 }
 
@@ -190,11 +193,33 @@ export function createDanjionAuth(env: BetterAuthEnv) {
   });
 }
 
+function directEmailSignupBlocked(request: Request, path: string): Response | null {
+  const normalized = path.replace(/\/+$/, '');
+  if (request.method !== 'POST' || normalized !== '/api/auth/sign-up/email') return null;
+  return Response.json({
+    error: {
+      code: 'PHONE_VERIFICATION_REQUIRED',
+      message: 'Direct DanjiOn signup requires verified phone contact.'
+    }
+  }, {
+    status: 409,
+    headers: { 'cache-control': 'no-store' }
+  });
+}
+
 export async function handleBetterAuthRequest(
   request: Request,
   env: BetterAuthEnv
 ): Promise<Response | null> {
   const path = new URL(request.url).pathname;
   if (!path.startsWith('/api/auth/')) return null;
+
+  // Direct email/password account creation is intentionally product-gated.
+  // `/auth/signup` consumes an exact one-time phone-verification receipt and
+  // then calls createDanjionAuth(env).api.signUpEmail server-side. Social OAuth
+  // remains sign-in-only for existing accounts until phone completion is built.
+  const blockedSignup = directEmailSignupBlocked(request, path);
+  if (blockedSignup) return blockedSignup;
+
   return createDanjionAuth(env).handler(request);
 }

@@ -37,6 +37,7 @@ import {
 } from './signup-contact-verification-v1';
 import { handleTrackedStorageUploadRequest } from './storage-upload-v2';
 import { handleStorageRequest } from './storage-v1';
+import { handleVerifiedSignupRequest } from './verified-signup-v1';
 
 const REQUEST_ID_HEADER = 'x-danjion-request-id';
 const SAFE_ID = /^[A-Za-z0-9._:-]{1,80}$/;
@@ -129,6 +130,8 @@ export default {
       if (request.method === 'OPTIONS') return preflight(request, env);
       const authResponse = await handleBetterAuthRequest(request, env);
       if (authResponse) return respond(authResponse);
+      const verifiedSignupResponse = await handleVerifiedSignupRequest(request, env, id);
+      if (verifiedSignupResponse) return respond(verifiedSignupResponse);
       const signupVerificationResponse = await handleSignupContactVerificationRequest(request, env, id);
       if (signupVerificationResponse) return respond(signupVerificationResponse);
       const policyResponse = await validateRequestPayload(request, id);

@@ -4,6 +4,7 @@ import { jwtClient, usernameClient } from 'better-auth/client/plugins';
 export type SocialLoginProvider = 'kakao' | 'naver' | 'google';
 
 const authBaseURL = import.meta.env.VITE_AUTH_BASE_URL?.trim();
+const apiBaseURL = import.meta.env.VITE_API_BASE_URL?.trim();
 
 export const danjionAuthClient = createAuthClient({
   ...(authBaseURL ? { baseURL: authBaseURL } : {}),
@@ -18,8 +19,29 @@ function browserUrl(path: string): string {
   return new URL(path, window.location.origin).toString();
 }
 
+function apiUrl(path: string): string {
+  if (!apiBaseURL) return path;
+  return new URL(path, apiBaseURL.endsWith('/') ? apiBaseURL : `${apiBaseURL}/`).toString();
+}
+
 function assertAuthSuccess(result: { error?: { message?: string } | null }, fallback: string): void {
   if (result.error) throw new Error(result.error.message || fallback);
+}
+
+async function publicAuthPost<T>(path: string, payload: Record<string, unknown>, fallback: string): Promise<T> {
+  const response = await fetch(apiUrl(path), {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+  const result = await response.json().catch(() => null) as {
+    data?: T;
+    error?: { message?: string };
+  } | null;
+  if (!response.ok || !result?.data) {
+    throw new Error(result?.error?.message || fallback);
+  }
+  return result.data;
 }
 
 function moveToVerificationLanding(): void {
@@ -53,27 +75,69 @@ export async function signInWithSocial(provider: SocialLoginProvider) {
   return result.data;
 }
 
-export async function signUpWithPhone(input: {
+export async function startSignupPhoneVerification(input: {
+  email: string;
+  phone: string;
+  signupSessionRef?: string;
+}) {
+  const phone = normalizePhoneCredential(input.phone);
+  if (!isSupportedPhoneCredential(phone)) throw new Error('지원하지 않는 휴대폰 번호 형식입니다.');
+  return publicAuthPost<{
+    signupSessionRef: string;
+    challengeId: string;
+    channel: string;
+    expiresAt: string;
+    resendNotBefore: string;
+  }>('/auth/verification/start', {
+    email: input.email.trim(),
+    phone,
+    ...(input.signupSessionRef ? { signupSessionRef: input.signupSessionRef } : {})
+  }, '인증번호를 보내지 못했습니다.');
+}
+
+export async function verifySignupPhoneCode(input: {
+  signupSessionRef: string;
+  challengeId: string;
+  code: string;
+}) {
+  return publicAuthPost<{
+    verified: true;
+    signupSessionRef: string;
+    verificationReceiptRef: string;
+    phoneVerified: true;
+    identityAssurance: 'contact_possession_only';
+    legalIdentityVerified: false;
+    residentVerified: false;
+  }>('/auth/verification/verify', input, '휴대폰 인증을 완료하지 못했습니다.');
+}
+
+export async function completeVerifiedSignup(input: {
   email: string;
   name: string;
   phone: string;
   password: string;
+  signupSessionRef: string;
+  verificationReceiptRef: string;
 }) {
-  const username = normalizePhoneCredential(input.phone);
-  if (!isSupportedPhoneCredential(username)) throw new Error('지원하지 않는 휴대폰 번호 형식입니다.');
-
-  // The recovery email is canonical. The phone number is intentionally an
-  // alternate username credential, not an SMS/OTP verification claim.
-  const result = await danjionAuthClient.signUp.email({
+  const phone = normalizePhoneCredential(input.phone);
+  if (!isSupportedPhoneCredential(phone)) throw new Error('지원하지 않는 휴대폰 번호 형식입니다.');
+  const data = await publicAuthPost<{
+    accepted: true;
+    emailVerificationRequired: true;
+    phoneVerified: true;
+    identityAssurance: 'contact_possession_only';
+    legalIdentityVerified: false;
+    residentVerified: false;
+  }>('/auth/signup', {
     email: input.email.trim(),
     name: input.name.trim(),
+    phone,
     password: input.password,
-    username,
-    callbackURL: emailVerificationCallbackURL()
-  });
-  assertAuthSuccess(result, '단지온 계정을 만들지 못했습니다.');
+    signupSessionRef: input.signupSessionRef,
+    verificationReceiptRef: input.verificationReceiptRef
+  }, '단지온 계정을 만들지 못했습니다.');
   moveToVerificationLanding();
-  return result.data;
+  return data;
 }
 
 export async function signInWithPhone(phone: string, password: string) {
@@ -81,29 +145,6 @@ export async function signInWithPhone(phone: string, password: string) {
   if (!isSupportedPhoneCredential(username)) throw new Error('지원하지 않는 휴대폰 번호 형식입니다.');
   const result = await danjionAuthClient.signIn.username({ username, password });
   assertAuthSuccess(result, '휴대폰 번호로 로그인하지 못했습니다.');
-  return result.data;
-}
-
-export async function signUpWithEmail(input: {
-  email: string;
-  name: string;
-  password: string;
-  phone?: string;
-}) {
-  const normalizedPhone = input.phone?.trim() ? normalizePhoneCredential(input.phone) : undefined;
-  if (normalizedPhone && !isSupportedPhoneCredential(normalizedPhone)) {
-    throw new Error('지원하지 않는 휴대폰 번호 형식입니다.');
-  }
-
-  const result = await danjionAuthClient.signUp.email({
-    email: input.email.trim(),
-    name: input.name.trim(),
-    password: input.password,
-    callbackURL: emailVerificationCallbackURL(),
-    ...(normalizedPhone ? { username: normalizedPhone } : {})
-  });
-  assertAuthSuccess(result, '단지온 계정을 만들지 못했습니다.');
-  moveToVerificationLanding();
   return result.data;
 }
 
