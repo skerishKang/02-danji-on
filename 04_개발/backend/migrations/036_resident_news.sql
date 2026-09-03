@@ -95,7 +95,7 @@ begin
     hm.user_id,
     new.complex_id,
     'resident_news',
-    null,
+    null::uuid,
     'resident_news',
     new.id,
     'resident-news:' || new.id::text,
