@@ -1,23 +1,17 @@
 import { neon, type NeonQueryFunction } from '@neondatabase/serverless';
 
 type Sql = NeonQueryFunction<false, false>;
-
 type SessionUser = { id: string; email: string };
 type SessionResolver = (request: Request) => Promise<{ user?: SessionUser | null } | null>;
 
-export interface SocialOnboardingEnv {
-  DATABASE_URL: string;
-}
+export interface SocialOnboardingEnv { DATABASE_URL: string; }
 
 const MAX_BODY_BYTES = 16 * 1024;
 const SAFE_REF = /^[A-Za-z0-9._:-]{1,128}$/;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function json(data: unknown, status: number, requestId: string): Response {
-  return Response.json(data, {
-    status,
-    headers: { 'x-danjion-request-id': requestId, 'cache-control': 'no-store' }
-  });
+  return Response.json(data, { status, headers: { 'x-danjion-request-id': requestId, 'cache-control': 'no-store' } });
 }
 function ok(data: unknown, requestId: string): Response { return json({ data, requestId }, 200, requestId); }
 function fail(code: string, message: string, status: number, requestId: string): Response {
@@ -32,13 +26,9 @@ function normalizeEmail(value: string): string | null {
   return normalized.length <= 320 && EMAIL.test(normalized) ? normalized : null;
 }
 async function bodyJson(request: Request, requestId: string): Promise<Record<string, unknown> | Response> {
-  if (!(request.headers.get('content-type') || '').includes('application/json')) {
-    return fail('INVALID_CONTENT_TYPE', 'JSON request required', 415, requestId);
-  }
+  if (!(request.headers.get('content-type') || '').includes('application/json')) return fail('INVALID_CONTENT_TYPE', 'JSON request required', 415, requestId);
   const text = await request.text();
-  if (new TextEncoder().encode(text).byteLength > MAX_BODY_BYTES) {
-    return fail('PAYLOAD_TOO_LARGE', 'Payload too large', 413, requestId);
-  }
+  if (new TextEncoder().encode(text).byteLength > MAX_BODY_BYTES) return fail('PAYLOAD_TOO_LARGE', 'Payload too large', 413, requestId);
   try {
     const parsed = JSON.parse(text);
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return fail('INVALID_JSON', 'JSON object required', 400, requestId);
@@ -51,21 +41,24 @@ function requiredRef(body: Record<string, unknown>, key: string): string | null 
   const value = body[key];
   return typeof value === 'string' && SAFE_REF.test(value) ? value : null;
 }
+
 async function onboardingComplete(sql: Sql, authUserId: string): Promise<boolean> {
   const rows = await sql`
-    select 1 from signup_contact_receipts
-    where auth_user_id = ${authUserId} and consumed_at is not null
-    limit 1
+    select (
+      exists(
+        select 1 from app_users
+        where auth_user_id = ${authUserId} and account_status = 'active'
+      )
+      or exists(
+        select 1 from signup_contact_receipts
+        where auth_user_id = ${authUserId} and consumed_at is not null
+      )
+    ) as complete
   `;
-  return Boolean(rows[0]);
+  return rows[0]?.complete === true;
 }
 
-async function status(
-  request: Request,
-  env: SocialOnboardingEnv,
-  requestId: string,
-  resolveSession: SessionResolver
-): Promise<Response> {
+async function status(request: Request, env: SocialOnboardingEnv, requestId: string, resolveSession: SessionResolver): Promise<Response> {
   const session = await resolveSession(request);
   if (!session?.user?.id) return fail('AUTH_REQUIRED', 'Authentication required', 401, requestId);
   const complete = await onboardingComplete(sqlFor(env), session.user.id);
@@ -78,12 +71,7 @@ async function status(
   }, requestId);
 }
 
-async function complete(
-  request: Request,
-  env: SocialOnboardingEnv,
-  requestId: string,
-  resolveSession: SessionResolver
-): Promise<Response> {
+async function complete(request: Request, env: SocialOnboardingEnv, requestId: string, resolveSession: SessionResolver): Promise<Response> {
   const session = await resolveSession(request);
   const authUserId = session?.user?.id?.trim();
   const email = normalizeEmail(session?.user?.email || '');
