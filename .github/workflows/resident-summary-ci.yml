@@ -1,0 +1,42 @@
+name: Resident Summary CI
+
+on:
+  pull_request:
+    paths:
+      - '04_개발/backend/src/resident-summary-v1.ts'
+      - '04_개발/backend/tests/resident-summary-*'
+      - '.github/workflows/resident-summary-ci.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  resident-summary-postgres-lifecycle:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_DB: danjion_resident_summary
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d danjion_resident_summary"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    defaults:
+      run:
+        working-directory: 04_개발/backend
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+      - name: Run resident summary PostgreSQL lifecycle
+        env:
+          DATABASE_URL: postgresql://postgres@127.0.0.1:5432/danjion_resident_summary?sslmode=disable
+        run: bash tests/resident-summary-postgres-lifecycle.sh
