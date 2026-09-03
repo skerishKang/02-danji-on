@@ -1,0 +1,52 @@
+name: Resident News CI
+
+on:
+  pull_request:
+    paths:
+      - '04_개발/backend/migrations/036_resident_news.sql'
+      - '04_개발/backend/src/resident-news-v1.ts'
+      - '04_개발/backend/tests/resident-news-*'
+      - '.github/workflows/resident-news-ci.yml'
+
+jobs:
+  resident-news-postgres-lifecycle:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_DB: danjion_resident_news
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d danjion_resident_news"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    defaults:
+      run:
+        working-directory: 04_개발/backend
+    env:
+      DATABASE_URL: postgresql://postgres@127.0.0.1:5432/danjion_resident_news?sslmode=disable
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+      - name: Apply initial schema
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -q -f migrations/001_initial_schema.sql
+      - name: Apply Household-v2 schema
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -q -f migrations/009_household_foundation.sql
+      - name: Apply resident message dependency
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -q -f migrations/024_resident_messages.sql
+      - name: Apply notification schema
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -q -f migrations/025_resident_notifications.sql
+      - name: Apply resident news schema
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -q -f migrations/036_resident_news.sql
+      - name: Run resident news lifecycle assertions
+        env:
+          RESIDENT_NEWS_SCHEMA_READY: '1'
+        run: bash tests/resident-news-postgres-lifecycle.sh
