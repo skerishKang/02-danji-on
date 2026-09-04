@@ -54,7 +54,11 @@ export default function V2BusinessReviewsIntegration() {
 
   useEffect(() => {
     const sync = () => {
-      const next = document.querySelector<HTMLElement>('.v2-detail-dialog');
+      const dialog = document.querySelector<HTMLElement>('.v2-detail-dialog');
+      const dialogBusinessId = dialog?.dataset.shopId?.trim();
+      if (dialogBusinessId) setBusinessId(dialogBusinessId);
+      const slot = dialog?.querySelector<HTMLElement>('[data-v2-business-reviews-slot]') ?? null;
+      const next = slot ?? (dialog?.classList.contains('v2-008-shop-detail') ? null : dialog);
       setDetailTarget((current) => current === next ? current : next);
     };
     sync();

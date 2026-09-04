@@ -55,8 +55,12 @@ assert.match(shell, /grid-template-columns:repeat\(4,minmax\(0,1fr\)\)/,
   'mobile current home scene selector must use four equal columns');
 assert.match(shell, /v2-008-home-summary/,
   'current home must include the benefit/news after-stage geometry');
-assert.ok(visualEntry.trim().endsWith("@import './visual/v2-008-home.css';"),
-  'current daily-home parity CSS must load last');
+const homeCssImport = "@import './visual/v2-008-home.css';";
+const shopsCssImport = "@import './visual/v2-008-shops.css';";
+assert.ok(visualEntry.includes(homeCssImport),
+  'current daily-home parity CSS must remain loaded');
+assert.ok(visualEntry.indexOf(homeCssImport) < visualEntry.indexOf(shopsCssImport),
+  'current shop parity may layer after home without removing the daily-home authority');
 
 assert.match(authEntry, /\[data-v2-topbar\] \.v2-header-tools/,
   'canonical auth entry must remain mounted in the common header tools host');
