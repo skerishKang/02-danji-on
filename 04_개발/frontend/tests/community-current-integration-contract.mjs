@@ -19,16 +19,19 @@ assert.match(api, /\/reactions/);
 assert.match(api, /\/community\/reports/);
 assert.match(api, /method: active \? 'POST' : 'DELETE'/);
 
-// Official complex_posts remain a separate public read boundary while resident
-// Community content and mutations use the resident-only API.
-assert.match(view, /dataAdapter\.listPosts\(\)/);
+// 008 screen 12 is resident-only. Official complex_posts remain on the separate
+// public resident-news boundary and must not be merged into Neighbor Talk.
+assert.doesNotMatch(view, /dataAdapter\.listPosts\(\)/);
+assert.doesNotMatch(view, /source: 'official'/);
+assert.doesNotMatch(view, /공식 단지 콘텐츠는 기존 public 게시물 경계에서 읽기 전용/);
 assert.match(view, /communityApi\.listPosts\(\)/);
 assert.match(view, /communityApi\.createPost/);
 assert.match(view, /communityApi\.listComments/);
 assert.match(view, /communityApi\.createComment/);
+assert.match(view, /communityApi\.listReplies/);
+assert.match(view, /communityApi\.createReply/);
 assert.match(view, /communityApi\.setLike/);
 assert.match(view, /communityApi\.report/);
-assert.match(view, /source: 'official'/);
 assert.match(view, /source: 'resident'/);
 
 // Household-v2 authorization is server-authoritative. A successful resident feed
@@ -46,9 +49,10 @@ assert.match(view, /pending: comment\.status !== 'published'/);
 assert.doesNotMatch(view, /dangerouslySetInnerHTML/);
 assert.doesNotMatch(view, /innerHTML\s*=/);
 
-// The current Product Shell must not mutate official complex_posts through the
-// resident Community mutation endpoints.
-assert.match(view, /selected\.source === 'resident'/);
-assert.match(view, /공식 단지 콘텐츠는 기존 public 게시물 경계에서 읽기 전용/);
+// Unsupported 008 fields must not be disguised as another server kind or hidden in
+// browser persistence. Greeting remains visibly deferred until a backend kind exists.
+assert.match(view, /가입인사 전용 글쓰기는 서버 카테고리 계약이 추가된 뒤 열립니다/);
+assert.doesNotMatch(view, /localStorage|sessionStorage/);
+assert.doesNotMatch(view, /가입인사:\s*'resident_story'/);
 
-console.log('PASS Community C5 current Product Shell API integration contract');
+console.log('PASS Community C5 resident-only Product Shell API integration contract');
