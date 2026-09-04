@@ -145,6 +145,18 @@ function accessError(error: unknown) {
   return error instanceof CommunityApiError && (error.status === 401 || error.status === 403);
 }
 
+function writerHeading(kind: PersistedWriteKind) {
+  if (kind === '단지이야기') return '단지에서 나누고 싶은 이야기를 바로 적어보세요.';
+  if (kind === '궁금해요') return '궁금한 종류를 고르고 바로 물어보세요.';
+  return '함께할 일을 고르고 필요한 정보만 적어보세요.';
+}
+
+function writerLead(kind: PersistedWriteKind) {
+  if (kind === '단지이야기') return '종류는 이미 선택했습니다. 바로 작성하면 됩니다.';
+  if (kind === '궁금해요') return '궁금해요 안에서 필요한 유형만 탭으로 바꿉니다. 다른 글쓰기 화면을 다시 고를 필요는 없습니다.';
+  return '네 가지 전용 폼의 유형을 보여주되, 현재 서버에 없는 구조화 필드는 게시 데이터로 저장하지 않습니다.';
+}
+
 export function V2CommunityView({
   verified,
   onClose,
@@ -527,14 +539,70 @@ export function V2CommunityView({
 
       {writeKind && (
         <div className="v2-community-modal-backdrop" role="presentation">
-          <form className="v2-community-modal" onSubmit={(event) => void submitPost(event)}>
+          <form className="v2-community-modal v2-community-writer" onSubmit={(event) => void submitPost(event)}>
             <button type="button" className="v2-community-close" onClick={() => setWriteKind(null)} aria-label="글쓰기 닫기">×</button>
-            <div className="v2-community-eyebrow">{writeKind}</div>
-            <h3>{writeKind === '궁금해요' ? '생활 속 궁금한 것을 물어보세요.' : writeKind === '같이해요' ? '같이할 이웃을 찾아보세요.' : '단지의 정보와 일상을 나눠보세요.'}</h3>
-            <label>제목<input name="title" maxLength={160} required placeholder="무엇을 나누고 싶은지 짧게 적어 주세요." /></label>
-            <label>내용<textarea name="body" maxLength={10000} required rows={7} placeholder="사람을 특정하거나 개인정보를 적지 않고 상황과 경험 중심으로 이야기해 주세요." /></label>
-            <div className="v2-community-policy-note">사진첨부, 질문 하위유형, 같이해요 구조화 필드는 현재 서버 계약에 없어 이 화면에서 별도로 저장하지 않습니다.</div>
-            <button type="submit" className="v2-community-primary" disabled={busy}>{busy ? '등록 중…' : '글 등록'}</button>
+            <div className="v2-community-writer-bar"><span>←</span><strong>{writeKind} 글쓰기</strong><span>게시</span></div>
+            <span className="v2-community-writer-category">{writeKind}</span>
+            <h3>{writerHeading(writeKind)}</h3>
+            <p className="v2-community-writer-lead">{writerLead(writeKind)}</p>
+
+            {writeKind === '궁금해요' && (
+              <>
+                <div className="v2-community-write-type-tabs" aria-label="궁금해요 질문 유형">
+                  {['생활·살림', '단지시설', '이웃추천', '기타'].map((item, index) => <button key={item} type="button" disabled className={index === 0 ? 'is-active' : ''}>{item}</button>)}
+                </div>
+                <p className="v2-community-write-type-help">현재 서버 글 계약에는 질문 유형 저장 필드가 없어 유형은 표시만 하며 게시 데이터에는 포함하지 않습니다.</p>
+              </>
+            )}
+
+            {writeKind === '같이해요' && (
+              <>
+                <div className="v2-community-write-type-tabs" aria-label="같이해요 유형">
+                  {['산책·운동', '취미활동', '육아 같이해요', '공동구매'].map((item, index) => <button key={item} type="button" disabled className={index === 0 ? 'is-active' : ''}>{item}</button>)}
+                </div>
+                <p className="v2-community-write-type-help">전용 폼의 구조화 항목은 현재 서버 계약에 없어 유형과 안내만 표시하고 별도 필드를 저장하지 않습니다.</p>
+              </>
+            )}
+
+            <div className="v2-community-writer-editor">
+              <label>{writeKind === '궁금해요' ? '질문 제목' : '제목'}
+                <input
+                  name="title"
+                  maxLength={writeKind === '같이해요' ? 40 : writeKind === '궁금해요' ? 60 : 80}
+                  required
+                  placeholder={writeKind === '단지이야기' ? '오늘 단지에서 있었던 일을 알려주세요' : writeKind === '궁금해요' ? '무엇이 궁금한가요?' : '무엇을 같이하고 싶은지 적어주세요.'}
+                />
+              </label>
+              <label>{writeKind === '궁금해요' ? '궁금한 내용' : writeKind === '같이해요' ? '자세한 내용' : '내용'}
+                <textarea
+                  name="body"
+                  maxLength={writeKind === '같이해요' ? 1000 : writeKind === '궁금해요' ? 1500 : 2000}
+                  required
+                  rows={8}
+                  placeholder={writeKind === '단지이야기' ? '사진이나 상황 설명이 필요하면 내용에 함께 적어주세요.' : writeKind === '궁금해요' ? '알고 싶은 내용과 이미 확인한 점이 있다면 함께 적어주세요.' : '누가, 언제, 어디에서, 어떻게 함께하면 되는지 적어주세요.'}
+                />
+              </label>
+            </div>
+
+            {writeKind !== '같이해요' && (
+              <div className="v2-community-write-tools" aria-label="사진 첨부 상태">
+                <button type="button" disabled>사진 추가</button><span>0 / 3</span>
+              </div>
+            )}
+
+            {writeKind === '궁금해요' && (
+              <section className="v2-community-answer-box" aria-label="답변받는 방법">
+                <div><span><b>댓글로 답변받기</b><small>이웃의 답변이 글 아래에 공개됩니다.</small></span><strong>기본 사용</strong></div>
+                <div><span><b>1:1 메시지도 받기</b><small>게시글별 수신 설정은 현재 서버 계약에 없어 이 화면에서 변경하지 않습니다.</small></span><button type="button" role="switch" aria-checked="false" disabled aria-label="1대1 메시지도 받기"></button></div>
+              </section>
+            )}
+
+            {writeKind === '같이해요' && <p className="v2-community-writer-safety">공개 글에는 개인 연락처를 적지 마세요. 필요한 연락은 단지온 메시지를 이용합니다.</p>}
+
+            <div className="v2-community-policy-note">
+              {writeKind === '단지이야기' ? '사진 첨부는 현재 Community create 계약에 없어 이번 화면에서는 비활성입니다. 제목과 내용만 서버에 저장합니다.' : writeKind === '궁금해요' ? '질문 유형·사진·게시글별 1:1 수신 설정은 저장하지 않습니다. 제목과 내용은 기존 question 계약으로 게시합니다.' : '같이해요 유형과 구조화 필드는 저장하지 않습니다. 제목과 내용은 기존 together 계약으로 게시합니다.'}
+            </div>
+            <button type="submit" className="v2-community-primary" disabled={busy}>{busy ? '등록 중…' : writeKind === '단지이야기' ? '단지이야기 게시하기' : writeKind === '궁금해요' ? '질문 게시하기' : '같이해요 게시하기'}</button>
           </form>
         </div>
       )}
