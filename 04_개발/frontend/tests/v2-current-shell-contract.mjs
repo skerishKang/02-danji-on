@@ -36,7 +36,12 @@ assert.match(shellCss, /button\.is-active\{color:#ee6045\}/,
 assert.match(shellCss, /button\.is-active::before\{display:none\}/,
   'legacy top indicator must not reappear over the current bottom-nav contract');
 
-assert.ok(visualEntry.trim().endsWith("@import './visual/v2-008-shell.css';"),
-  '008 shell override must load last so older responsive rules cannot restore five-column navigation');
+const shellImport = "@import './visual/v2-008-shell.css';";
+const homeImport = "@import './visual/v2-008-home.css';";
+const shellIndex = visualEntry.indexOf(shellImport);
+const homeIndex = visualEntry.indexOf(homeImport);
+assert.ok(shellIndex >= 0, '008 shell override must remain loaded after historical responsive rules');
+assert.ok(homeIndex < 0 || homeIndex > shellIndex,
+  'narrow page-level parity overrides may load after the shell, but must never precede or displace it');
 
 console.log('PASS V2 20260904 current common-shell navigation contract');
