@@ -113,7 +113,7 @@ export function V2CinematicScenes({
               <button className="v2-btn v2-btn-small" type="button" aria-pressed={isSaved} onClick={() => onToggleSave?.(activeScene.shopId)}><V2Icon name="heart" /> {isSaved ? '저장됨' : '저장'}</button>
             </div>
           </aside>
-          <div className="v2-scene-tabs" role="tablist" aria-label="이웃가게 장면 선택">
+          <div className="v2-scene-tabs" role="group" aria-label="이웃가게 장면 선택">
             {scenes.map((scene, index) => (
               <button
                 data-v2-scene-tab
