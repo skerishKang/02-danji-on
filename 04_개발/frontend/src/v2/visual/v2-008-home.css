@@ -1,0 +1,179 @@
+/* 2026-09-04 frontend-check-1 daily-home parity.
+   Source authority: 008_프론트엔드점검1기_통합수정본_20260904/04_데일리홈.html.
+   This file is loaded after historical Gate1 styles so the current app-content
+   home wins without rewriting the existing product/data flows. */
+
+.v2-008-home-intro{
+  width:min(1440px,calc(100% - 80px));
+  margin:0 auto;
+  padding:31px 0 24px;
+  display:grid;
+  grid-template-columns:1fr 520px;
+  align-items:end;
+  gap:46px;
+  border-bottom:1px solid var(--v2-ink);
+}
+.v2-008-home-hello small{
+  display:block;
+  color:#B9422B;
+  font-size:14px;
+  font-weight:900;
+  letter-spacing:.055em;
+  margin-bottom:9px;
+}
+.v2-008-home-hello h1{
+  margin:0;
+  font-size:42px;
+  line-height:1.08;
+  letter-spacing:-.055em;
+  font-weight:880;
+}
+.v2-008-home-hello p{
+  margin:10px 0 0;
+  color:var(--v2-muted);
+  font-size:15px;
+  line-height:1.55;
+}
+.v2-008-home-search{
+  height:58px;
+  display:grid;
+  grid-template-columns:46px minmax(0,1fr) 66px;
+  align-items:center;
+  background:rgba(255,255,255,.65);
+  border-top:2px solid var(--v2-ink);
+  border-bottom:1px solid var(--v2-line);
+}
+.v2-008-home-search>.v2-icon{width:20px;height:20px;margin:auto}
+.v2-008-home-search input{
+  width:100%;height:55px;min-width:0;border:0;background:transparent;outline:none;font-size:15px;
+}
+.v2-008-home-search input:focus-visible{outline:3px solid var(--v2-focus);outline-offset:-3px}
+.v2-008-home-search button{
+  height:46px;margin-right:6px;border:0;background:var(--v2-ink);color:#fff;font-size:21px;font-weight:800;
+}
+
+/* Current 04 uses one finite cinematic stage rather than the historical 100vh sticky world. */
+.v2-visual-surface .v2-scene-world{
+  width:min(1440px,calc(100% - 80px));
+  height:610px;
+  margin:18px auto 0;
+  padding:0;
+  background:transparent;
+}
+.v2-visual-surface .v2-scene-sticky{
+  position:relative;
+  top:auto;
+  height:610px;
+  overflow:hidden;
+  grid-template-columns:minmax(0,64%) minmax(360px,36%);
+}
+.v2-visual-surface .v2-scene-number{left:38px;top:34px;font-size:12px;font-weight:900;letter-spacing:.14em}
+.v2-visual-surface .v2-scene-caption{left:38px;bottom:43px;max-width:620px}
+.v2-scene-kicker{display:flex;align-items:center;gap:10px;color:#F2B84B;font-size:12px;font-weight:900;margin-bottom:12px}
+.v2-scene-kicker::before{content:"";width:8px;height:8px;border-radius:50%;background:#F2B84B}
+.v2-visual-surface .v2-scene-caption h2{font-size:52px;line-height:1.02;margin:0 0 12px}
+.v2-visual-surface .v2-scene-caption p{font-size:16px;line-height:1.6;max-width:510px}
+.v2-visual-surface .v2-scene-panel{padding:48px 46px 42px}
+.v2-visual-surface .v2-scene-panel-top .v2-eyebrow{margin-bottom:22px}
+.v2-visual-surface .v2-scene-service{font-size:43px;line-height:1.04;margin:0 0 13px}
+.v2-visual-surface .v2-scene-copy{font-size:18px;line-height:1.65;max-width:440px}
+.v2-visual-surface .v2-scene-facts{margin-top:27px}
+.v2-visual-surface .v2-scene-fact{grid-template-columns:105px 1fr;gap:10px;padding:13px 0;font-size:15px}
+.v2-visual-surface .v2-scene-actions{margin-top:auto}
+.v2-visual-surface .v2-scene-tabs{right:calc(36% + 16px);top:50%;transform:translateY(-50%);gap:8px;margin:0}
+.v2-visual-surface .v2-scene-tab{width:52px;height:52px}
+.v2-visual-surface .v2-scene-rail{left:18px;top:90px;bottom:28px}
+.v2-visual-surface .v2-scene-rail-label{display:none}
+
+.v2-008-home-summary{
+  width:min(1440px,calc(100% - 80px));
+  margin:18px auto 84px;
+  display:grid;
+  grid-template-columns:1.15fr .85fr;
+  gap:18px;
+  align-items:start;
+}
+.v2-008-home-benefit,.v2-008-home-news{background:#FFFDF8;border:1px solid var(--v2-line)}
+.v2-008-home-benefit{
+  min-height:0;
+  padding:24px 28px;
+  border-top:4px solid #E95C3E;
+  display:grid;
+  grid-template-columns:1fr auto;
+  align-items:center;
+  gap:22px;
+}
+.v2-008-home-benefit small{display:block;color:#B9422B;font-size:13px;font-weight:900;letter-spacing:.1em;margin-bottom:8px}
+.v2-008-home-benefit h2{font-size:28px;line-height:1.2;margin:0 0 7px;letter-spacing:-.04em}
+.v2-008-home-benefit p{margin:0;color:var(--v2-muted);font-size:15px;line-height:1.55}
+.v2-008-home-benefit>button{width:48px;height:48px;border:1px solid var(--v2-ink);background:none;font-size:22px}
+.v2-008-home-news{padding:24px 26px}
+.v2-008-home-news-head{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--v2-ink);padding-bottom:14px;gap:16px}
+.v2-008-home-news-head h2{font-size:24px;margin:0}
+.v2-008-home-news-head button{border:0;background:none;font-size:14px;font-weight:900;white-space:nowrap}
+.v2-008-home-news-row{display:grid;grid-template-columns:82px minmax(0,1fr) 20px;gap:10px;align-items:center;min-height:60px;border-bottom:1px solid var(--v2-line);font-size:15px}
+.v2-008-home-news-row:last-child{border-bottom:0}
+.v2-008-home-news-row small{color:#B9422B;font-weight:900;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.v2-008-home-news-row b{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.v2-008-home-news-empty{min-height:60px;margin:0;display:flex;align-items:center;color:var(--v2-muted);font-size:14px}
+
+@media(max-width:760px){
+  .v2-008-home-intro{
+    width:100%;padding:22px 18px 18px;display:block;border-bottom:1px solid var(--v2-ink);
+  }
+  .v2-008-home-hello small{font-size:11px;margin-bottom:7px}
+  .v2-008-home-hello h1{font-size:34px;line-height:1.08;word-break:keep-all}
+  .v2-008-home-hello p{font-size:14px;line-height:1.55}
+  .v2-008-home-search{
+    width:100%;height:52px;margin-top:17px;grid-template-columns:42px minmax(0,1fr) 54px;
+  }
+  .v2-008-home-search input{height:49px;font-size:14px}
+  .v2-008-home-search button{height:44px;margin-right:4px}
+
+  .v2-visual-surface .v2-scene-world{
+    width:100%;height:auto;margin:14px 0 0;padding:0 18px;background:transparent;
+  }
+  .v2-visual-surface .v2-scene-sticky{position:relative;top:auto;height:auto;display:block;overflow:visible}
+  .v2-visual-surface .v2-scene-visual{height:300px;min-height:300px}
+  .v2-visual-surface .v2-scene-number{left:18px;top:18px}
+  .v2-visual-surface .v2-scene-caption{left:18px;right:18px;bottom:18px;max-width:none}
+  .v2-visual-surface .v2-scene-caption h2{font-size:31px;line-height:1.06}
+  .v2-visual-surface .v2-scene-caption p{font-size:13px;line-height:1.5}
+  .v2-visual-surface .v2-scene-panel{min-height:0;padding:25px 20px 22px}
+  .v2-visual-surface .v2-scene-panel-top .v2-eyebrow{margin-bottom:16px}
+  .v2-visual-surface .v2-scene-service{font-size:31px}
+  .v2-visual-surface .v2-scene-copy{font-size:16px}
+  .v2-visual-surface .v2-scene-facts{margin-top:20px}
+  .v2-visual-surface .v2-scene-fact{grid-template-columns:86px minmax(0,1fr);gap:10px}
+  .v2-visual-surface .v2-scene-actions{margin-top:22px}
+  .v2-visual-surface .v2-scene-tabs{
+    position:static;right:auto;top:auto;transform:none;width:100%;margin:8px 0 0;display:grid;
+    grid-template-columns:repeat(4,minmax(0,1fr));gap:0;border:0;
+  }
+  .v2-visual-surface .v2-scene-tab{
+    width:auto;min-width:0;height:54px;padding:0;border:1px solid rgba(255,255,255,.55);border-right:0;
+  }
+  .v2-visual-surface .v2-scene-tab:last-child{border-right:1px solid rgba(255,255,255,.55)}
+  .v2-visual-surface .v2-scene-rail,.v2-visual-surface .v2-scene-rail-label{display:none}
+
+  .v2-008-home-summary{width:100%;margin:14px 0 0;padding:0 18px 24px;display:block}
+  .v2-008-home-benefit,.v2-008-home-news{width:100%;min-width:0}
+  .v2-008-home-news{margin-top:14px}
+  .v2-008-home-benefit{padding:22px 20px}
+  .v2-008-home-benefit h2{font-size:24px;word-break:keep-all}
+  .v2-008-home-benefit p{font-size:14px;word-break:keep-all}
+  .v2-008-home-news{padding:20px}
+  .v2-008-home-news-head h2{font-size:22px}
+  .v2-008-home-news-row{grid-template-columns:66px minmax(0,1fr) 16px;font-size:14px}
+}
+
+@media(max-width:380px){
+  .v2-008-home-hello h1{font-size:32px}
+  .v2-008-home-benefit{grid-template-columns:1fr auto;gap:12px}
+}
+
+@media(prefers-reduced-motion:reduce){
+  .v2-008-home-intro *,
+  .v2-scene-world *,
+  .v2-008-home-summary *{animation:none!important;transition:none!important}
+}
