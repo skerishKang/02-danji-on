@@ -1,0 +1,80 @@
+/* 2026-09-04 frontend-check-1 common shell parity.
+   The current 008 app-content authority uses four primary destinations:
+   홈 / 이웃가게 / 우리단지 / 내정보. Benefits stays a product surface but
+   is intentionally not part of the primary shell navigation. */
+.v2-byline{
+  font-size:11px;
+  line-height:1.2;
+  letter-spacing:.12em;
+  color:#665f55;
+  font-weight:850;
+  white-space:nowrap;
+}
+.v2-nav-link.is-active::after{transform:scaleX(1)}
+
+@media(max-width:800px){
+  .v2-visual-surface{
+    --v2-header-h:60px;
+    padding-bottom:calc(68px + env(safe-area-inset-bottom));
+  }
+  .v2-topbar{height:60px}
+  .v2-topbar-inner{padding:0 18px;gap:12px}
+  .v2-wordmark{font-size:22px;white-space:nowrap}
+  .v2-byline,.v2-complex{display:none}
+  .v2-main{padding-top:60px}
+  .v2-mobile-nav{
+    left:0;
+    right:0;
+    bottom:0;
+    width:100%;
+    height:calc(68px + env(safe-area-inset-bottom));
+    padding:0 0 env(safe-area-inset-bottom);
+    grid-template-columns:repeat(4,minmax(0,1fr));
+    background:rgba(255,253,248,.98);
+    border:0;
+    border-top:1px solid #d8d0c3;
+    box-shadow:none;
+  }
+  .v2-mobile-nav button{
+    appearance:none;
+    -webkit-appearance:none;
+    box-sizing:border-box;
+    width:auto;
+    min-width:0;
+    height:67px;
+    min-height:67px;
+    margin:0;
+    padding:0;
+    border:0;
+    border-radius:0;
+    background:transparent;
+    display:grid;
+    grid-template-rows:22px 14px;
+    align-content:center;
+    justify-items:center;
+    row-gap:3px;
+    color:#706d67;
+    font-size:12px;
+    font-weight:800;
+    line-height:14px;
+    letter-spacing:-.01em;
+    text-align:center;
+  }
+  .v2-mobile-nav button.is-active{color:#ee6045}
+  .v2-mobile-nav button.is-active::before{display:none}
+  .v2-mobile-nav .v2-icon{
+    display:block;
+    width:22px;
+    height:22px;
+    margin:0;
+    padding:0;
+  }
+  .v2-mobile-nav span{
+    display:block;
+    height:14px;
+    margin:0;
+    padding:0;
+    line-height:14px;
+    white-space:nowrap;
+  }
+}
