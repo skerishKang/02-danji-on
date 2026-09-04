@@ -12,7 +12,8 @@ const [
   verificationRpc,
   verificationMigration,
   verifiedSignup,
-  socialOnboarding
+  socialOnboarding,
+  jwksAlgCrvMigration
 ] = await Promise.all([
   readFile(new URL('src/auth-better-v1.ts', root), 'utf8'),
   readFile(new URL('src/auth-better-schema.ts', root), 'utf8'),
@@ -23,7 +24,8 @@ const [
   readFile(new URL('src/padiem-contact-verification-v1.ts', root), 'utf8'),
   readFile(new URL('migrations/038_signup_contact_verification.sql', root), 'utf8'),
   readFile(new URL('src/verified-signup-v1.ts', root), 'utf8'),
-  readFile(new URL('src/social-onboarding-v1.ts', root), 'utf8')
+  readFile(new URL('src/social-onboarding-v1.ts', root), 'utf8'),
+  readFile(new URL('migrations/039_danjion_better_auth_jwks_alg_crv.sql', root), 'utf8')
 ]);
 
 for (const provider of ['google', 'kakao', 'naver']) {
@@ -99,6 +101,12 @@ assert.match(migration, /issuer text not null/i);
 assert.match(migration, /unique index[\s\S]*issuer, account_id/i);
 assert.match(migration, /username text unique/i);
 assert.match(migration, /Never use this schema as resident verification authority/i);
+
+// Better Auth 1.7.x jwt plugin requires alg/crv on the jwks model; without them
+// /api/auth/jwks answers 500 and every remote JWKS verifier breaks.
+assert.match(schema, /jwks[\s\S]*alg:\s*text\('alg'\)[\s\S]*crv:\s*text\('crv'\)/);
+assert.match(jwksAlgCrvMigration, /alter table danjion_auth\.jwks add column if not exists alg text/i);
+assert.match(jwksAlgCrvMigration, /alter table danjion_auth\.jwks add column if not exists crv text/i);
 
 const wrangler = JSON.parse(wranglerSource);
 const production = wrangler.env?.production;
