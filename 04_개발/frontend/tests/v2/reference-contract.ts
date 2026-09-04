@@ -1,12 +1,11 @@
 export const V2_REFERENCE = {
   source: {
-    driveFileId: '1aFaUaB1HIpb5iVaDvi_fJUYWs5i29MYB',
-    sha256: 'AE736CFD66D53D72D94DAC7EAC2FDBCB6864C6C05680E61E748DA6576B7F22CC',
-    title: '01_CURRENT_GATE1_RENDER.html',
-    // Historical motion recording remains a motion donor only. The current visual
-    // source of truth is the sibling Gate1 render pinned above. Product-flow copy
-    // may evolve when required to preserve a stronger ownership/data contract,
-    // but section order, composition, imagery, and interaction hierarchy remain locked.
+    driveFileId: '1j0f5-UyK012HKuny4xsbZchbYXJ3oVsX',
+    sha256: '267F6BAC8EF83A4AAC85D7D3C69A68A3901F652F2B59003C735575245C487110',
+    title: '04_데일리홈.html',
+    // The 2026-09-04 integrated frontend audit is the current home authority.
+    // Historical Gate1 sources remain useful provenance/motion donors only and
+    // must not override the current 04 app-content composition.
     recordingDriveFileId: '13kpM0HeS_WG9lXbuWk9uVvbBConKJ6ai',
     recordingDurationSeconds: 115.472834,
     recordingViewport: { width: 1920, height: 1080 }
@@ -18,8 +17,8 @@ export const V2_REFERENCE = {
     mobile320: { width: 320, height: 720 }
   },
   copy: {
-    heroHeading: '우리 아파트에, 단지온이 켜졌습니다.',
-    heroSearchPlaceholder: '무슨 일이 필요하세요?',
+    heroHeading: '필요한 일, 우리 단지에서 먼저 찾습니다.',
+    heroSearchPlaceholder: '반찬 · 과외 · 청소 · 세무',
     discoveryHeading: '가까운 사람의 일을 먼저 보여줍니다.',
     benefitHeading: '혜택이 실제 행동이 됩니다.',
     registrationHeading: '내 일은 등록하고, 좋은 이웃가게는 추천합니다.',
@@ -54,17 +53,17 @@ export const V2_REFERENCE = {
 export const V2_SELECTORS = {
   root: '[data-ui-variant="v2"]',
   topbar: ['[data-v2-topbar]', '.topbar'],
-  hero: ['[data-v2-section="hero"]', '.hero'],
-  heroImage: ['[data-v2-hero-image]', '.hero-photo img.bg', '.hero-photo img'],
-  cinematic: ['[data-v2-section="cinematic"]', '#liveScenes', '.scene-world'],
-  cinematicStage: ['[data-v2-cinematic-stage]', '#sceneStage', '.scene-sticky'],
-  cinematicPanel: ['[data-v2-cinematic-panel]', '#scenePanel', '.scene-panel'],
+  hero: ['[data-v2-section="hero"]', '.home-intro'],
+  heroImage: ['[data-v2-section="cinematic"] .v2-scene-image', '.stage .scene-image'],
+  cinematic: ['[data-v2-section="cinematic"]', '.stage-wrap'],
+  cinematicStage: ['[data-v2-cinematic-stage]', '.stage'],
+  cinematicPanel: ['[data-v2-cinematic-panel]', '.panel'],
   sceneTabs: ['[data-v2-scene-tab]', '.scene-tab'],
   discovery: ['[data-v2-section="discovery"]', '#shops', '.shops'],
   benefits: ['[data-v2-section="benefits"]', '#benefits', '.benefits'],
   registration: ['[data-v2-section="registration"]', '#register', '.role-shift'],
   promo: ['[data-v2-section="promo"]', '#promo', '.promo'],
   ending: ['[data-v2-section="ending"]', '#ending', '.ending'],
-  mobileNav: ['[data-v2-mobile-nav]', '.mobile-nav'],
+  mobileNav: ['[data-v2-mobile-nav]', '.mobile-bottom'],
   topProgress: ['[data-v2-top-progress]', '#topProgress', '.top-progress']
 } as const;
