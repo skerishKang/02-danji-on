@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { V2CommunityView } from './V2CommunityView';
+import { V2ComplexHub } from './V2ComplexHub';
 import { V2Icon, type V2IconName } from './V2Icon';
 
 // `benefits` and `news` remain compatibility keys for existing V2 integration
@@ -87,7 +87,7 @@ export function V2Topbar({
         ))}
       </nav>
       {communityOpen && (
-        <V2CommunityView
+        <V2ComplexHub
           verified={residentVerified}
           onVerified={() => setResidentVerified(true)}
           onClose={closeCommunity}

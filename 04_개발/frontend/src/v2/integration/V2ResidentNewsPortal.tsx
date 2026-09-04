@@ -55,13 +55,18 @@ export default function V2ResidentNewsPortal() {
 
   useEffect(() => {
     const openFromNotification = (event: Event) => {
-      const postId = (event as CustomEvent<{ postId?: unknown }>).detail?.postId;
-      if (typeof postId !== 'string' || !UUID_RE.test(postId)) return;
-      setOpen(true);
-      setView('feed');
-      setSelected(null);
-      setStatus('');
-      void openDetail(postId.toLowerCase());
+      const detail = (event as CustomEvent<{ postId?: unknown; view?: unknown }>).detail;
+      const postId = detail?.postId;
+      if (typeof postId === 'string' && UUID_RE.test(postId)) {
+        setOpen(true);
+        setView('feed');
+        setSelected(null);
+        setStatus('');
+        void openDetail(postId.toLowerCase());
+        return;
+      }
+      if (detail?.view === 'feed') openFeed();
+      if (detail?.view === 'submit') openSubmit();
     };
     window.addEventListener('danjion:v2-open-resident-news', openFromNotification);
     return () => window.removeEventListener('danjion:v2-open-resident-news', openFromNotification);

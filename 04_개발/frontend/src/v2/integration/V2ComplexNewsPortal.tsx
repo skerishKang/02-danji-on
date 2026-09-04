@@ -30,6 +30,16 @@ export default function V2ComplexNewsPortal() {
     return () => observer.disconnect();
   }, []);
 
+  useEffect(() => {
+    const openFromHub = (event: Event) => {
+      const channel = (event as CustomEvent<{ channel?: unknown }>).detail?.channel;
+      if (channel !== 'official' && channel !== 'apartment') return;
+      void openList();
+    };
+    window.addEventListener('danjion:v2-open-complex-news', openFromHub);
+    return () => window.removeEventListener('danjion:v2-open-complex-news', openFromHub);
+  }, []);
+
   async function openList() {
     setOpen(true);
     setSelected(null);
