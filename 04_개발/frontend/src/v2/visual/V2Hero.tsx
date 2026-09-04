@@ -1,6 +1,15 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
+import { dataAdapter } from '../../api/adapter';
 import type { ComplexPost } from '../../types';
 import { V2Icon } from './V2Icon';
+
+function scrollToSection(id: string) {
+  document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function openCurrentCommunity() {
+  document.querySelector<HTMLButtonElement>('[data-v2-nav-key="community"]')?.click();
+}
 
 export function V2Hero({
   complexName = '방림명지로드힐',
@@ -39,15 +48,23 @@ export function V2Hero({
   );
 }
 
-export function V2DailyHomeSummary({
-  posts,
-  onBrowse,
-  onOpenCommunity
-}: {
-  posts: ComplexPost[];
-  onBrowse?: () => void;
-  onOpenCommunity?: () => void;
-}) {
+export function V2DailyHomeSummary() {
+  const [posts, setPosts] = useState<ComplexPost[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void dataAdapter.listPosts()
+      .then((rows) => {
+        if (!cancelled) {
+          setPosts([...rows].sort((a, b) => b.publishedAt.localeCompare(a.publishedAt)).slice(0, 3));
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setPosts([]);
+      });
+    return () => { cancelled = true; };
+  }, []);
+
   return (
     <section data-v2-section="home-summary" className="v2-008-home-summary" aria-label="주민혜택과 우리단지 새 소식">
       <article className="v2-008-home-benefit">
@@ -56,16 +73,16 @@ export function V2DailyHomeSummary({
           <h2>가게마다 다른 주민혜택을<br />이웃가게에서 확인하세요.</h2>
           <p>여러 이웃가게를 둘러본 뒤 각 가게의 혜택 탭에서 자세히 확인할 수 있습니다.</p>
         </div>
-        <button type="button" aria-label="이웃가게 전체 보기" onClick={onBrowse}>→</button>
+        <button type="button" aria-label="이웃가게 전체 보기" onClick={() => scrollToSection('v2-discovery')}>→</button>
       </article>
 
       <article className="v2-008-home-news">
         <div className="v2-008-home-news-head">
           <h2>우리단지 새 소식</h2>
-          <button type="button" onClick={onOpenCommunity}>전체보기 →</button>
+          <button type="button" onClick={openCurrentCommunity}>전체보기 →</button>
         </div>
         <div className="v2-008-home-news-list">
-          {posts.slice(0, 3).map((post) => (
+          {posts.map((post) => (
             <div className="v2-008-home-news-row" key={post.id}>
               <small>{post.sourceName || post.category}</small>
               <b>{post.title}</b>
