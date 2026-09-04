@@ -167,7 +167,7 @@ export function V2CommunityView({
   onClose: () => void;
   onVerified?: () => void;
 }) {
-  const [tab, setTab] = useState<Tab>('전체');
+  const [tab, setTab] = useState<Tab>('가입인사');
   const [posts, setPosts] = useState<Post[]>(COMMUNITY_API_MODE ? [] : BASE_POSTS);
   const [selected, setSelected] = useState<Post | null>(null);
   const [writeKind, setWriteKind] = useState<PersistedWriteKind | null>(null);
@@ -214,6 +214,7 @@ export function V2CommunityView({
 
   const visiblePosts = useMemo(() => posts.filter((post) => tab === '전체' || post.type === tab), [posts, tab]);
   const selectedComments = selected ? comments[selected.id] ?? [] : [];
+  const selectedWriteKind: ConversationKind = tab === '전체' ? '가입인사' : tab;
 
   function startWriting(kind: ConversationKind) {
     setTab(kind);
@@ -490,7 +491,7 @@ export function V2CommunityView({
             <h2 id="v2-community-title">이웃대화</h2>
             <p>카테고리를 고르면 해당 글만 보고, 글쓰기는 바로 그 카테고리로 시작합니다.</p>
           </div>
-          <button type="button" className="v2-community-write-main" onClick={() => startWriting('가입인사')}>가입인사 글쓰기 <b>＋</b></button>
+          <button type="button" className="v2-community-write-main" onClick={() => startWriting(selectedWriteKind)}>{selectedWriteKind} 글쓰기 <b>＋</b></button>
           <button type="button" className="v2-community-close v2-community-page-close" onClick={onClose} aria-label="이웃대화 닫기">×</button>
         </header>
 
@@ -534,7 +535,7 @@ export function V2CommunityView({
           type="button"
           className="v2-community-mobile-write"
           aria-label="현재 카테고리 글쓰기"
-          onClick={() => startWriting(tab === '전체' ? '가입인사' : tab)}
+          onClick={() => startWriting(selectedWriteKind)}
         >＋</button>
       </section>
 

@@ -28,6 +28,13 @@ assert.match(view, />이웃대화</);
 for (const label of ['가입인사', '단지이야기', '궁금해요', '같이해요']) {
   assert.match(view, new RegExp(label));
 }
+assert.match(view, /const \[tab, setTab\] = useState<Tab>\('가입인사'\)/,
+  '12 authority must start on 가입인사 rather than an invented all-feed default');
+assert.match(view, /const selectedWriteKind: ConversationKind = tab === '전체' \? '가입인사' : tab/);
+assert.match(view, /onClick=\{\(\) => startWriting\(selectedWriteKind\)\}>\{selectedWriteKind\} 글쓰기/,
+  'desktop write CTA must follow the selected 12 category');
+assert.match(view, /aria-label="현재 카테고리 글쓰기"[\s\S]*startWriting\(selectedWriteKind\)/,
+  'mobile write CTA must follow the same selected category');
 assert.match(view, /지금 올라온 이야기/);
 assert.match(view, /전체 보기/);
 assert.doesNotMatch(view, /dataAdapter\.listPosts\(\)/);
