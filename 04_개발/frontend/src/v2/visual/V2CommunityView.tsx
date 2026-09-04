@@ -9,6 +9,7 @@ import {
   type CommunityReply
 } from '../../community-api';
 import './v2-community.css';
+import './v2-community-008.css';
 
 type ConversationKind = '가입인사' | '단지이야기' | '궁금해요' | '같이해요';
 type PersistedWriteKind = Exclude<ConversationKind, '가입인사'>;

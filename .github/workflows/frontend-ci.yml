@@ -24,7 +24,7 @@ jobs:
           cache: npm
           cache-dependency-path: 04_개발/frontend/package.json
       - name: Install dependencies
-        run: npm install --include=dev --ignore-scripts
+        run: npm install --ignore-scripts
       - name: Typecheck
         run: npm run typecheck
       - name: Auth JWT API bridge contract

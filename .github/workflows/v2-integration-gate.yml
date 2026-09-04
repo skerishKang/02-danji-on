@@ -31,7 +31,7 @@ jobs:
 
       - name: Install frontend dependencies
         working-directory: 04_개발/frontend
-        run: npm install --include=dev --ignore-scripts
+        run: npm install --ignore-scripts
 
       - name: Install Playwright Chromium
         working-directory: 04_개발/frontend

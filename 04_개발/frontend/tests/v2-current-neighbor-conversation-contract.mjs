@@ -107,9 +107,10 @@ assert.match(view, /사진 첨부는 현재 Community create 계약에 없어/);
 assert.match(view, /질문 유형·사진·게시글별 1:1 수신 설정은 저장하지 않습니다/);
 assert.match(view, /같이해요 유형과 구조화 필드는 저장하지 않습니다/);
 
-// Keep the dedicated visual boundary and responsive styles in place.
-assert.match(view, /\.\/v2-community\.css/);
-assert.match(css, /@import '\.\/v2-community-008\.css'/);
+// Keep base safety/modal CSS first and current 008 authority CSS second so
+// equal-specificity visual rules cannot be overwritten by the legacy base.
+assert.match(view, /import '\.\/v2-community\.css';\s*import '\.\/v2-community-008\.css';/);
+assert.doesNotMatch(css, /@import '\.\/v2-community-008\.css'/);
 assert.match(authorityCss, /\.v2-community-write-type-tabs/);
 assert.match(authorityCss, /@media \(max-width:560px\)/);
 
