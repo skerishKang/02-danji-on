@@ -159,7 +159,7 @@ test.describe('Community C6 API-mode browser gate', () => {
     await openCommunity(page);
 
     await expect(page.getByRole('heading', { name: '우리단지', exact: true })).toBeVisible();
-    await expect(page.getByText('API 공식 공지', { exact: true })).toBeVisible();
+    await expect(page.locator('.v2-community-layer').getByText('API 공식 공지', { exact: true })).toBeVisible();
     await expect(page.getByText('API 주민 질문', { exact: true })).toBeVisible();
     await expect(page.locator('.v2-verified-pill')).toContainText('입주민');
 
