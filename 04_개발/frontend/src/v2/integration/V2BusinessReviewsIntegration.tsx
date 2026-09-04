@@ -54,7 +54,8 @@ export default function V2BusinessReviewsIntegration() {
 
   useEffect(() => {
     const sync = () => {
-      const next = document.querySelector<HTMLElement>('.v2-detail-dialog');
+      const dialog = document.querySelector<HTMLElement>('.v2-detail-dialog');
+      const next = dialog?.querySelector<HTMLElement>('[data-v2-business-reviews-slot]') ?? dialog;
       setDetailTarget((current) => current === next ? current : next);
     };
     sync();
