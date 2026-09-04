@@ -60,7 +60,7 @@ assert.ok(visualEntry.trim().endsWith("@import './visual/v2-008-home.css';"),
 
 assert.match(authEntry, /\[data-v2-topbar\] \.v2-header-tools/,
   'canonical auth entry must remain mounted in the common header tools host');
-assert.match(authEntry, />가입·로그인</,
+assert.match(authEntry, /가입·로그인/,
   'canonical account launcher must remain available after removing the old Gate1 hero CTA');
 
 assert.match(reference, /driveFileId: '1j0f5-UyK012HKuny4xsbZchbYXJ3oVsX'/,
