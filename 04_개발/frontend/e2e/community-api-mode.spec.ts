@@ -168,7 +168,8 @@ test.describe('Community C6 API-mode browser gate', () => {
 
     const residentProbe = seen.find((item) => item.method === 'GET' && item.path === COMMUNITY_POSTS);
     expect(residentProbe?.auth).toBe('dev-resident-001');
-    expect(seen.find((item) => item.method === 'GET' && item.path === OFFICIAL_POSTS)).toBeUndefined();
+    const officialRead = seen.find((item) => item.method === 'GET' && item.path === OFFICIAL_POSTS);
+    expect(officialRead?.auth).toBe('');
 
     await community.getByText('API 주민 질문', { exact: true }).click();
     await expect(page.getByText('기존 댓글입니다.', { exact: true })).toBeVisible();
