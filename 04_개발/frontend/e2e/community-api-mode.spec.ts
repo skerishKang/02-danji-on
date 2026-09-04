@@ -16,6 +16,9 @@ function json(route: Route, data: unknown, status = 200) {
 async function openCommunity(page: Page) {
   await page.goto('/');
   await page.locator('[data-v2-topbar] nav[aria-label="주요 메뉴"]').getByRole('button', { name: '우리단지', exact: true }).click();
+  const hub = page.locator('[data-v2-complex-hub]');
+  await expect(hub).toBeVisible();
+  await hub.getByRole('button', { name: '이웃대화 들어가기', exact: true }).click();
 }
 
 test.describe('Community C6 API-mode browser gate', () => {
