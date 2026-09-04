@@ -20,6 +20,45 @@ test.describe('DanjiOn current Product Shell C1', () => {
     await expect(nav.getByRole('button', { name: '단지소식', exact: true })).toHaveCount(0);
   });
 
+  test('이웃가게 follows current 01 discovery into current 02 detail without replacing product authority', async ({ page }) => {
+    await page.goto('/');
+    const nav = visiblePrimaryNav(page);
+    await nav.getByRole('button', { name: '이웃가게', exact: true }).click();
+
+    const discovery = page.locator('[data-v2-section="discovery"]');
+    await expect(discovery.getByRole('heading', { name: /가까이 사는.*이웃의 일을 발견합니다/ })).toBeVisible();
+    await expect(discovery.getByPlaceholder('무슨 일이 필요하세요?')).toBeVisible();
+    await expect(discovery.locator('.v2-008-shop-card-featured')).toBeVisible();
+    await expect(discovery.locator('.v2-008-side-list .v2-integrated-shop-card')).toHaveCount(2);
+    await expect(discovery.getByRole('heading', { name: '이웃가게 전체', exact: true })).toBeVisible();
+
+    const firstCard = discovery.locator('.v2-integrated-shop-card').first();
+    const shopName = (await firstCard.locator('h3').textContent())?.trim();
+    expect(shopName).toBeTruthy();
+    await firstCard.getByRole('button', { name: '상세보기', exact: true }).click();
+
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByRole('heading', { name: shopName! })).toBeVisible();
+    const tabs = dialog.getByRole('navigation', { name: '가게 상세 메뉴' });
+    for (const label of ['정보', '품목·서비스', '소식', '혜택', '후기']) {
+      await expect(tabs.getByRole('button', { name: label, exact: true })).toBeVisible();
+    }
+    await expect(dialog.locator('[data-v2-detail-share-slot]')).toBeVisible();
+    await expect(dialog.getByRole('button', { name: '공유 링크 복사', exact: true })).toBeVisible();
+
+    await tabs.getByRole('button', { name: '후기', exact: true }).click();
+    await expect(dialog.locator('[data-v2-business-reviews-slot]')).toBeVisible();
+
+    const mobileActions = dialog.locator('.v2-008-detail-mobile-actions');
+    if ((page.viewportSize()?.width ?? 1440) <= 800) {
+      await expect(mobileActions).toBeVisible();
+      await expect(mobileActions.getByRole('button', { name: '문의 방법 보기', exact: true })).toBeVisible();
+    } else {
+      await expect(mobileActions).toBeHidden();
+    }
+  });
+
   test('우리단지 preserves current resident conversation taxonomy in demo resident mode', async ({ page }) => {
     await page.goto('/');
     const nav = visiblePrimaryNav(page);
