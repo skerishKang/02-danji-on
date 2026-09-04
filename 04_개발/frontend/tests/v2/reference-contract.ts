@@ -19,7 +19,7 @@ export const V2_REFERENCE = {
   copy: {
     heroHeading: '필요한 일, 우리 단지에서 먼저 찾습니다.',
     heroSearchPlaceholder: '반찬 · 과외 · 청소 · 세무',
-    discoveryHeading: '가까운 사람의 일을 먼저 보여줍니다.',
+    discoveryHeading: '가까이 사는 이웃의 일을 발견합니다.',
     benefitHeading: '혜택이 실제 행동이 됩니다.',
     registrationHeading: '내 일은 등록하고, 좋은 이웃가게는 추천합니다.',
     promoHeading: '입력한 생활정보가 홍보물로 정돈됩니다.',

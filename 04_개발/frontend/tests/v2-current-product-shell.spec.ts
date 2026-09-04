@@ -44,8 +44,16 @@ test.describe('DanjiOn current Product Shell C1', () => {
     for (const label of ['정보', '품목·서비스', '소식', '혜택', '후기']) {
       await expect(tabs.getByRole('button', { name: label, exact: true })).toBeVisible();
     }
-    await expect(dialog.locator('[data-v2-detail-share-slot]')).toBeVisible();
-    await expect(dialog.getByRole('button', { name: '공유 링크 복사', exact: true })).toBeVisible();
+
+    const shareSlot = dialog.locator('[data-v2-detail-share-slot]');
+    const shareButton = dialog.getByRole('button', { name: '공유 링크 복사', exact: true });
+    if ((page.viewportSize()?.width ?? 1440) <= 800) {
+      await expect(shareSlot).toBeHidden();
+      await expect(shareButton).toBeHidden();
+    } else {
+      await expect(shareSlot).toBeVisible();
+      await expect(shareButton).toBeVisible();
+    }
 
     await tabs.getByRole('button', { name: '후기', exact: true }).click();
     await expect(dialog.locator('[data-v2-business-reviews-slot]')).toBeVisible();
@@ -53,6 +61,7 @@ test.describe('DanjiOn current Product Shell C1', () => {
     const mobileActions = dialog.locator('.v2-008-detail-mobile-actions');
     if ((page.viewportSize()?.width ?? 1440) <= 800) {
       await expect(mobileActions).toBeVisible();
+      await expect(mobileActions.getByRole('button', { name: /저장/ })).toBeVisible();
       await expect(mobileActions.getByRole('button', { name: '문의 방법 보기', exact: true })).toBeVisible();
     } else {
       await expect(mobileActions).toBeHidden();

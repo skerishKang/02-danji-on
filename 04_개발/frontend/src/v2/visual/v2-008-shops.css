@@ -12,7 +12,7 @@
 .v2-008-shop-search>button,.v2-008-shop-search>span{min-width:92px;border:0;background:#101317;color:#fff;font-weight:850;display:grid;place-items:center;padding:0 18px}
 .v2-008-filter-wrap .v2-filter-zone{border:0;padding:0 0 18px;background:transparent}
 .v2-008-filter-wrap .v2-filter-row{gap:8px;overflow:auto;scrollbar-width:none;padding:2px 0 7px}.v2-008-filter-wrap .v2-filter-row::-webkit-scrollbar{display:none}
-.v2-008-filter-wrap .v2-filter-label{min-width:74px;color:#746d63;font-size:12px;letter-spacing:.02em}
+.v2-008-filter-wrap .v2-filter-label{min-width:74px;color:#6a635a;font-size:12px;letter-spacing:.02em}
 .v2-008-filter-wrap .v2-filter-btn{white-space:nowrap;border-radius:0;min-height:42px;background:#fff;border-color:#c8c1b6;padding:0 16px}
 .v2-008-filter-wrap .v2-filter-btn[aria-pressed="true"]{background:#101317;color:#fff;border-color:#101317}
 .v2-008-result-summary{display:flex;align-items:baseline;gap:7px;justify-content:flex-end;margin:0 0 14px;color:#6a635a;font-size:13px}.v2-008-result-summary strong{font-size:18px;color:#101317}
@@ -40,7 +40,7 @@
 .v2-008-save{border:1px solid #c9c1b5;background:transparent;min-height:38px;padding:0 11px;font-weight:850}.v2-008-save[aria-pressed="true"]{background:#101317;color:#fff;border-color:#101317}
 .v2-008-shop-copy h3{font-size:28px;line-height:1.1;letter-spacing:-.035em;margin:10px 0}.v2-008-shop-copy>p{color:#625d56;line-height:1.6}
 .v2-008-shop-meta{display:grid;gap:7px;padding:12px 0;border-top:1px solid #ddd5ca}.v2-008-shop-meta span{font-size:12px;color:#655f57}
-.v2-008-catalog-head{display:flex;align-items:end;justify-content:space-between;border-bottom:1px solid #101317;margin:66px 0 18px;padding-bottom:13px}.v2-008-catalog-head h3{font-size:30px;letter-spacing:-.04em;margin:0}.v2-008-catalog-head span{font-size:12px;color:#756d63}
+.v2-008-catalog-head{display:flex;align-items:end;justify-content:space-between;border-bottom:1px solid #101317;margin:66px 0 18px;padding-bottom:13px}.v2-008-catalog-head h3{font-size:30px;letter-spacing:-.04em;margin:0}.v2-008-catalog-head span{font-size:12px;color:#6a635a}
 .v2-008-catalog{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}.v2-008-shop-card-catalog .v2-008-shop-media{aspect-ratio:16/10}.v2-008-catalog-note{grid-column:1/-1;padding:28px;border:1px dashed #bcb4a8;color:#6b645b;text-align:center}
 
 .v2-008-detail-backdrop{padding:24px;background:rgba(9,11,14,.74);overflow:auto;align-items:flex-start}

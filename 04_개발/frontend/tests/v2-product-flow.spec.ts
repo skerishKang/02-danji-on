@@ -21,9 +21,13 @@ test('search, relation/category filtering and detail preserve the reference disc
   await expect(dialog).toBeVisible();
   await expect(dialog.getByRole('heading', { name: '온케어 홈서비스' })).toBeVisible();
   await expect(dialog).toContainText('현재 단지 주민 가족 운영');
-  await expect(dialog).toContainText('에어컨 1대 7만원부터');
-  await expect(dialog).toContainText('방림명지로드힐 출장비 면제');
   await expect(dialog.getByRole('button', { name: '문의 방법 보기' })).toBeVisible();
+
+  const tabs = dialog.getByRole('navigation', { name: '가게 상세 메뉴' });
+  await tabs.getByRole('button', { name: '품목·서비스', exact: true }).click();
+  await expect(dialog).toContainText('에어컨 1대 7만원부터');
+  await tabs.getByRole('button', { name: '혜택', exact: true }).click();
+  await expect(dialog).toContainText('방림명지로드힐 출장비 면제');
   await dialog.getByRole('button', { name: '닫기' }).click();
 
   const category = page.getByRole('button', { name: '집을 돌보는 일', exact: true });
