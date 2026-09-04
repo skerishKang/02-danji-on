@@ -23,9 +23,10 @@ test('desktop/tablet/mobile layouts preserve the Gate1 launch/search sequence an
   const mobileNav = page.locator(V2_SELECTORS.mobileNav.join(',')).first();
   if (width <= 800) {
     await expect(mobileNav).toBeVisible();
-    await expect(mobileNav.getByRole('button', { name: '홈' })).toBeVisible();
-    await expect(mobileNav.getByRole('button', { name: '혜택', exact: true })).toBeVisible();
-    await expect(mobileNav.getByRole('button', { name: '우리단지', exact: true })).toBeVisible();
+    for (const label of ['홈', '이웃가게', '우리단지', '내정보']) {
+      await expect(mobileNav.getByRole('button', { name: label, exact: true })).toBeVisible();
+    }
+    await expect(mobileNav.getByRole('button', { name: '혜택', exact: true })).toHaveCount(0);
   } else {
     await expect(mobileNav).toBeHidden();
   }

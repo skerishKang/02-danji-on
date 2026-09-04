@@ -1,22 +1,23 @@
 import { expect, test, type Page } from '@playwright/test';
 
-const currentNav = ['이웃가게', '혜택', '우리단지', '내정보'];
+const currentNav = ['홈', '이웃가게', '우리단지', '내정보'];
 const currentCommunityTabs = ['전체', '공식소식', '주민이야기', '질문', '같이해요', '생활제보', '우리 단지의 변화', '함께하는 곳'];
 
 function visiblePrimaryNav(page: Page) {
   const width = page.viewportSize()?.width ?? 1440;
-  return width <= 700
+  return width <= 800
     ? page.locator('[data-v2-mobile-nav]')
     : page.locator('[data-v2-topbar] nav[aria-label="주요 메뉴"]');
 }
 
 test.describe('DanjiOn current Product Shell C1', () => {
-  test('visible nav exposes current 5-view semantics instead of legacy 단지소식', async ({ page }) => {
+  test('visible nav follows the 20260904 four-destination shell', async ({ page }) => {
     await page.goto('/');
     const nav = visiblePrimaryNav(page);
     for (const label of currentNav) await expect(nav.getByRole('button', { name: label, exact: true })).toBeVisible();
-    await expect(nav.getByRole('button', { name: '단지소식', exact: true })).toHaveCount(0);
+    await expect(nav.getByRole('button', { name: '혜택', exact: true })).toHaveCount(0);
     await expect(nav.getByRole('button', { name: '주민혜택', exact: true })).toHaveCount(0);
+    await expect(nav.getByRole('button', { name: '단지소식', exact: true })).toHaveCount(0);
   });
 
   test('우리단지 preserves current resident conversation taxonomy in demo resident mode', async ({ page }) => {
