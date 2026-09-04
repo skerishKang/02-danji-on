@@ -65,7 +65,7 @@ export function V2Topbar({
           </button>
           <nav className="v2-desktop-nav" aria-label="주요 메뉴">
             {NAV.map((item) => (
-              <button className={active === item.key ? 'v2-nav-link is-active' : 'v2-nav-link'} type="button" key={item.key} onClick={() => navigate(item.key)}>
+              <button data-v2-nav-key={item.key} className={active === item.key ? 'v2-nav-link is-active' : 'v2-nav-link'} type="button" key={item.key} onClick={() => navigate(item.key)}>
                 {item.label}
               </button>
             ))}
@@ -80,7 +80,7 @@ export function V2Topbar({
       </header>
       <nav data-v2-mobile-nav className="v2-mobile-nav" aria-label="모바일 주요 메뉴">
         {NAV.map((item) => (
-          <button type="button" key={item.key} className={active === item.key ? 'is-active' : ''} onClick={() => navigate(item.key)}>
+          <button data-v2-nav-key={item.key} type="button" key={item.key} className={active === item.key ? 'is-active' : ''} onClick={() => navigate(item.key)}>
             <V2Icon name={item.icon} />
             <span>{item.label}</span>
           </button>

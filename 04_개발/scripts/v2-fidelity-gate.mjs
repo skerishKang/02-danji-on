@@ -11,10 +11,10 @@ const releaseMode = args.has('--release') || process.env.DANJION_V2_GATE_MODE ==
 const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 const npx = process.platform === 'win32' ? 'npx.cmd' : 'npx';
 
-// CURRENT VISUAL AUTHORITY — sibling Gate1 final, approved by product owner 2026-08-26.
+// CURRENT VISUAL AUTHORITY — 008 integrated frontend / 04 daily home, 2026-09-04.
 const fixedSource = {
-  fileId: '1aFaUaB1HIpb5iVaDvi_fJUYWs5i29MYB',
-  sha256: 'AE736CFD66D53D72D94DAC7EAC2FDBCB6864C6C05680E61E748DA6576B7F22CC'
+  fileId: '1j0f5-UyK012HKuny4xsbZchbYXJ3oVsX',
+  sha256: '267F6BAC8EF83A4AAC85D7D3C69A68A3901F652F2B59003C735575245C487110'
 };
 
 const requirements = {

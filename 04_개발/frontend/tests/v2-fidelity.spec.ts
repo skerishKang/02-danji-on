@@ -6,7 +6,7 @@ test.beforeEach(async ({ page }) => {
   await openV2(page);
 });
 
-test('V2 preserves the Gate1 launch composition inside the current 20260904 app shell', async ({ page }, testInfo) => {
+test('V2 preserves the current 20260904 daily-home composition inside the common app shell', async ({ page }) => {
   const topbar = await firstVisible(page, V2_SELECTORS.topbar, 'current editorial topbar');
   const topbarPosition = await topbar.evaluate((element) => getComputedStyle(element).position);
   expect(topbarPosition).toBe('fixed');
@@ -17,12 +17,17 @@ test('V2 preserves the Gate1 launch composition inside the current 20260904 app 
   const byline = topbar.getByText('DANJION by PADIEM', { exact: true });
   if ((page.viewportSize()?.width ?? 1440) <= 800) await expect(byline).toBeHidden();
   else await expect(byline).toBeVisible();
-  await expect(page.getByText('주민이 직접 가입')).toBeVisible();
-  await expect(page.getByText('주민명부 제공 없음')).toBeVisible();
-  await expect(page.getByText('동·호 비공개')).toBeVisible();
 
-  const hero = await firstVisible(page, V2_SELECTORS.hero, 'current Gate1 hero');
-  const heroImage = await firstVisible(page, V2_SELECTORS.heroImage, 'real-photo hero image');
+  await expect(page.getByText('WELCOME HOME · 방림명지로드힐', { exact: true })).toBeVisible();
+  await expect(page.getByText('이웃이 실제로 일하는 장면', { exact: true })).toBeVisible();
+  await expect(page.getByPlaceholder(V2_REFERENCE.copy.heroSearchPlaceholder)).toBeVisible();
+  await expect(page.getByRole('button', { name: '검색', exact: true })).toBeVisible();
+
+  await expect(page.getByText('우리 아파트에,', { exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /가입하고 시작하기/ })).toHaveCount(0);
+  await expect(page.locator('.v2-gate1-side-photo')).toHaveCount(0);
+
+  const heroImage = await firstVisible(page, V2_SELECTORS.heroImage, 'current daily-home cinematic image');
   const imageState = await heroImage.evaluate((element) => {
     const image = element as HTMLImageElement;
     return { naturalWidth: image.naturalWidth, naturalHeight: image.naturalHeight, src: image.currentSrc || image.src };
@@ -31,39 +36,11 @@ test('V2 preserves the Gate1 launch composition inside the current 20260904 app 
   expect(imageState.naturalHeight).toBeGreaterThan(200);
   expect(imageState.src).toBeTruthy();
 
-  const search = page.getByPlaceholder(new RegExp(V2_REFERENCE.copy.heroSearchPlaceholder));
-  await expect(search).toBeVisible();
-
-  // Gate1 deliberately stages search as a separate editorial band after the
-  // launch composition. Do not regress to the historical "search must be fully
-  // inside the first viewport" contract, especially on tablet/mobile.
-  const heroGrid = page.locator('.v2-gate1-hero-grid').first();
-  const searchBand = page.locator('.v2-gate1-search-band').first();
-  const [heroGridBottom, searchBandTop] = await Promise.all([
-    heroGrid.evaluate((element) => element.getBoundingClientRect().bottom + window.scrollY),
-    searchBand.evaluate((element) => element.getBoundingClientRect().top + window.scrollY)
-  ]);
-  expect(searchBandTop).toBeGreaterThanOrEqual(heroGridBottom - 2);
-
-  const viewport = page.viewportSize();
-  if (testInfo.project.name === 'desktop-1440' || testInfo.project.name === 'tablet-1024') {
-    const heroBox = await hero.boundingBox();
-    const imageBox = await heroImage.boundingBox();
-    expect(heroBox).not.toBeNull();
-    expect(imageBox).not.toBeNull();
-    expect(imageBox!.width).toBeGreaterThan(heroBox!.width * 0.28);
-    await expect(page.locator('.v2-gate1-side-photo')).toHaveCount(2);
-  } else {
-    const heroBox = await hero.boundingBox();
-    expect(heroBox).not.toBeNull();
-    expect(heroBox!.height).toBeGreaterThan((viewport?.height ?? 720) * 0.78);
-    const heroBg = await hero.evaluate((element) => getComputedStyle(element).backgroundColor);
-    expect(heroBg).not.toBe('rgba(0, 0, 0, 0)');
-    await expect(page.locator('.v2-gate1-side-photo')).toHaveCount(2);
-  }
+  await expect(page.getByRole('heading', { name: '가게마다 다른 주민혜택을 이웃가게에서 확인하세요.' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '우리단지 새 소식' })).toBeVisible();
 });
 
-test('V2 cinematic system preserves four scene buttons, keyboard selection and category color change without scroll trapping', async ({ page }, testInfo) => {
+test('V2 cinematic system preserves four scene buttons, keyboard selection and finite current-home geometry', async ({ page }, testInfo) => {
   const cinematic = await firstVisible(page, V2_SELECTORS.cinematic, 'cinematic scene system');
   await cinematic.scrollIntoViewIfNeeded();
 
@@ -91,14 +68,19 @@ test('V2 cinematic system preserves four scene buttons, keyboard selection and c
 
   const stage = await firstVisible(page, V2_SELECTORS.cinematicStage, 'cinematic stage');
   const stagePosition = await stage.evaluate((element) => getComputedStyle(element).position);
+  expect(stagePosition).not.toBe('sticky');
+
+  const worldBox = await cinematic.boundingBox();
+  expect(worldBox).not.toBeNull();
   if (testInfo.project.name === 'desktop-1440' || testInfo.project.name === 'tablet-1024') {
-    expect(stagePosition).toBe('sticky');
-    const worldBox = await cinematic.boundingBox();
-    const viewportHeight = page.viewportSize()?.height ?? 1000;
-    expect(worldBox).not.toBeNull();
-    expect(worldBox!.height).toBeLessThanOrEqual(viewportHeight * 1.05);
+    expect(worldBox!.height).toBeGreaterThanOrEqual(590);
+    expect(worldBox!.height).toBeLessThanOrEqual(630);
   } else {
-    expect(stagePosition).not.toBe('sticky');
+    const visual = page.locator('[data-v2-section="cinematic"] .v2-scene-visual');
+    const visualBox = await visual.boundingBox();
+    expect(visualBox).not.toBeNull();
+    expect(visualBox!.height).toBeGreaterThanOrEqual(295);
+    expect(visualBox!.height).toBeLessThanOrEqual(305);
   }
 });
 

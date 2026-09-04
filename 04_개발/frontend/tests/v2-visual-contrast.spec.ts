@@ -30,13 +30,10 @@ test.beforeEach(async ({ page }) => {
   await openV2(page);
 });
 
-test('hero primary CTA and search submit keep readable foreground contrast', async ({ page }) => {
+test('current daily-home search submit keeps readable foreground contrast', async ({ page }) => {
   const hero = page.locator('[data-v2-section="hero"]').first();
-  const primary = hero.getByRole('button', { name: /가입하고 시작하기/ }).first();
-  const searchSubmit = hero.getByRole('button', { name: '찾기', exact: true }).first();
+  const searchSubmit = hero.getByRole('button', { name: '검색', exact: true }).first();
 
-  await expect(primary).toBeVisible();
   await expect(searchSubmit).toBeVisible();
-  await expectReadableContrast(primary);
   await expectReadableContrast(searchSubmit);
 });

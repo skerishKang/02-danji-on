@@ -14,8 +14,8 @@ test.beforeEach(async ({ page }) => {
   await openV2(page);
 });
 
-test('desktop/tablet/mobile layouts preserve the Gate1 launch/search sequence and no horizontal overflow', async ({ page }, testInfo) => {
-  const search = page.getByPlaceholder(new RegExp(V2_REFERENCE.copy.heroSearchPlaceholder));
+test('desktop/tablet/mobile layouts preserve the current daily-home intro and no horizontal overflow', async ({ page }, testInfo) => {
+  const search = page.getByPlaceholder(V2_REFERENCE.copy.heroSearchPlaceholder);
   await expect(search).toBeVisible();
   await expectNoHorizontalOverflow(page);
 
@@ -31,22 +31,26 @@ test('desktop/tablet/mobile layouts preserve the Gate1 launch/search sequence an
     await expect(mobileNav).toBeHidden();
   }
 
-  const heroGrid = page.locator('.v2-gate1-hero-grid').first();
-  const searchBand = page.locator('.v2-gate1-search-band').first();
-  const [heroGridBottom, searchBandTop] = await Promise.all([
-    heroGrid.evaluate((element) => element.getBoundingClientRect().bottom + window.scrollY),
-    searchBand.evaluate((element) => element.getBoundingClientRect().top + window.scrollY)
-  ]);
-  expect(searchBandTop).toBeGreaterThanOrEqual(heroGridBottom - 2);
+  const hero = await firstVisible(page, V2_SELECTORS.hero, 'current daily-home intro');
+  const heroBox = await hero.boundingBox();
+  expect(heroBox).not.toBeNull();
+  expect(heroBox!.height).toBeLessThan((page.viewportSize()?.height ?? 1000) * 0.6);
 
   const stage = await firstVisible(page, V2_SELECTORS.cinematicStage, 'cinematic stage');
   const position = await stage.evaluate((element) => getComputedStyle(element).position);
-  if (testInfo.project.name === 'desktop-1440' || testInfo.project.name === 'tablet-1024') expect(position).toBe('sticky');
-  else expect(position).not.toBe('sticky');
+  expect(position).not.toBe('sticky');
+
+  if (testInfo.project.name === 'mobile-390' || testInfo.project.name === 'mobile-320') {
+    const visual = page.locator('[data-v2-section="cinematic"] .v2-scene-visual');
+    const visualBox = await visual.boundingBox();
+    expect(visualBox).not.toBeNull();
+    expect(visualBox!.height).toBeGreaterThanOrEqual(295);
+    expect(visualBox!.height).toBeLessThanOrEqual(305);
+  }
 });
 
 test('keyboard navigation exposes visible focus and scene tabs support arrow keys', async ({ page }) => {
-  const search = page.getByPlaceholder(new RegExp(V2_REFERENCE.copy.heroSearchPlaceholder));
+  const search = page.getByPlaceholder(V2_REFERENCE.copy.heroSearchPlaceholder);
   await page.locator('body').click({ position: { x: 2, y: 2 } });
   await tabUntilFocused(page, search, 14);
   await expect(search).toBeFocused();
