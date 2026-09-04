@@ -72,7 +72,7 @@ jobs:
         env:
           DANJION_FRONTEND_PREVIEW_URL: https://track-e-preview.invalid
         run: |
-          npm install --ignore-scripts
+          npm install --include=dev --ignore-scripts
           npx playwright test --config=playwright.live.config.ts --list
       - name: Build fail-closed live frontend artifact profile
         working-directory: 04_개발/frontend
@@ -149,7 +149,7 @@ jobs:
         with:
           node-version: '24'
       - name: Install frontend dependencies
-        run: npm install --ignore-scripts
+        run: npm install --include=dev --ignore-scripts
       - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium
       - name: Run live release viewport checks
