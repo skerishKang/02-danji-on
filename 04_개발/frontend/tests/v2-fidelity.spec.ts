@@ -6,14 +6,17 @@ test.beforeEach(async ({ page }) => {
   await openV2(page);
 });
 
-test('V2 uses the current sibling Gate1 launch composition on desktop and mobile', async ({ page }, testInfo) => {
+test('V2 preserves the Gate1 launch composition inside the current 20260904 app shell', async ({ page }, testInfo) => {
   const topbar = await firstVisible(page, V2_SELECTORS.topbar, 'current editorial topbar');
   const topbarPosition = await topbar.evaluate((element) => getComputedStyle(element).position);
   expect(topbarPosition).toBe('fixed');
 
   const heading = page.getByRole('heading', { name: V2_REFERENCE.copy.heroHeading });
   await expect(heading).toBeVisible();
-  await expect(page.getByText('DANJION').first()).toBeVisible();
+  await expect(topbar.getByText('단지온', { exact: true })).toBeVisible();
+  const byline = topbar.getByText('DANJION by PADIEM', { exact: true });
+  if ((page.viewportSize()?.width ?? 1440) <= 800) await expect(byline).toBeHidden();
+  else await expect(byline).toBeVisible();
   await expect(page.getByText('주민이 직접 가입')).toBeVisible();
   await expect(page.getByText('주민명부 제공 없음')).toBeVisible();
   await expect(page.getByText('동·호 비공개')).toBeVisible();
