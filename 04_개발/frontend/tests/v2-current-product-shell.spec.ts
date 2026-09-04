@@ -68,11 +68,26 @@ test.describe('DanjiOn current Product Shell C1', () => {
     }
   });
 
-  test('우리단지 preserves current resident conversation taxonomy in demo resident mode', async ({ page }) => {
+  test('우리단지 opens current 05 hub before preserving resident conversation taxonomy', async ({ page }) => {
     await page.goto('/');
     const nav = visiblePrimaryNav(page);
     await nav.getByRole('button', { name: '우리단지', exact: true }).click();
-    await expect(page.getByRole('heading', { name: '우리단지', exact: true })).toBeVisible();
+
+    const hub = page.locator('[data-v2-complex-hub]');
+    await expect(hub).toBeVisible();
+    await expect(hub.getByRole('heading', { name: '우리단지', exact: true })).toBeVisible();
+    for (const [channel, title, action] of [
+      ['official', '단지온공지', '단지온공지 보기'],
+      ['apartment', '아파트소식', '아파트소식 보기'],
+      ['resident', '주민소식', '소식 보기 · 제보하기'],
+      ['dialogue', '이웃대화', '이웃대화 들어가기']
+    ] as const) {
+      const card = hub.locator(`[data-v2-complex-channel="${channel}"]`);
+      await expect(card.getByRole('heading', { name: title, exact: true })).toBeVisible();
+      await expect(card.getByRole('button', { name: action, exact: true })).toBeVisible();
+    }
+
+    await hub.getByRole('button', { name: '이웃대화 들어가기', exact: true }).click();
     const tabs = page.getByRole('navigation', { name: '우리단지 글 종류' });
     for (const label of currentCommunityTabs) await expect(tabs.getByRole('button', { name: label, exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: /궁금한 것 물어보기/ })).toBeVisible();
@@ -80,5 +95,24 @@ test.describe('DanjiOn current Product Shell C1', () => {
     await expect(page.getByRole('button', { name: /편하게 이야기 나누기/ })).toBeVisible();
     await expect(page.getByRole('button', { name: /생활 불편 알리기/ })).toBeVisible();
     await expect(page.getByText(/닉네임만 공개됩니다/)).toBeVisible();
+  });
+
+  test('current 05 hub delegates public and resident news to existing portal authorities', async ({ page }) => {
+    await page.goto('/');
+    const nav = visiblePrimaryNav(page);
+    await nav.getByRole('button', { name: '우리단지', exact: true }).click();
+    const hub = page.locator('[data-v2-complex-hub]');
+
+    await hub.getByRole('button', { name: '소식 보기 · 제보하기', exact: true }).click();
+    const residentDialog = page.locator('[data-v2-resident-news-dialog]');
+    await expect(residentDialog).toBeVisible();
+    await expect(residentDialog.getByRole('heading', { name: '주민소식', exact: true })).toBeVisible();
+    await residentDialog.getByRole('button', { name: '닫기', exact: true }).click();
+    await expect(hub).toBeVisible();
+
+    await hub.getByRole('button', { name: '단지온공지 보기', exact: true }).click();
+    const publicDialog = page.locator('[data-v2-complex-news-dialog]');
+    await expect(publicDialog).toBeVisible();
+    await expect(publicDialog.getByRole('heading', { name: '단지 공식소식', exact: true })).toBeVisible();
   });
 });
