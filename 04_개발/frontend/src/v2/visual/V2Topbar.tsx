@@ -2,14 +2,16 @@ import { useEffect, useState } from 'react';
 import { V2CommunityView } from './V2CommunityView';
 import { V2Icon, type V2IconName } from './V2Icon';
 
-// `news` remains as a non-visible compatibility key for the earlier V2 integration
-// while the current Product Shell exposes the canonical `community` view.
+// `benefits` and `news` remain compatibility keys for existing V2 integration
+// callbacks. The current 2026-09-04 app shell exposes only four primary
+// destinations: home, shops, community and me.
 export type V2VisualNavKey = 'home' | 'shops' | 'benefits' | 'community' | 'news' | 'me';
 
-const NAV: Array<{ key: Exclude<V2VisualNavKey, 'news'>; label: string; icon: V2IconName }> = [
+type PrimaryNavKey = 'home' | 'shops' | 'community' | 'me';
+
+const NAV: Array<{ key: PrimaryNavKey; label: string; icon: V2IconName }> = [
   { key: 'home', label: '홈', icon: 'home' },
   { key: 'shops', label: '이웃가게', icon: 'store' },
-  { key: 'benefits', label: '혜택', icon: 'benefit' },
   { key: 'community', label: '우리단지', icon: 'news' },
   { key: 'me', label: '내정보', icon: 'me' }
 ];
@@ -57,12 +59,12 @@ export function V2Topbar({
       <header data-v2-topbar className="v2-topbar v2-gate1-topbar">
         <div className="v2-topbar-inner">
           <button className="v2-brand" type="button" onClick={() => navigate('home')} aria-label="단지온 홈">
-            <span className="v2-wordmark">DANJION</span>
-            <span className="v2-byline">by PADIEM</span>
+            <span className="v2-wordmark">단지온</span>
+            <span className="v2-byline">DANJION by PADIEM</span>
             <span className="v2-complex">{complexName}</span>
           </button>
           <nav className="v2-desktop-nav" aria-label="주요 메뉴">
-            {NAV.slice(1).map((item) => (
+            {NAV.map((item) => (
               <button className={active === item.key ? 'v2-nav-link is-active' : 'v2-nav-link'} type="button" key={item.key} onClick={() => navigate(item.key)}>
                 {item.label}
               </button>
