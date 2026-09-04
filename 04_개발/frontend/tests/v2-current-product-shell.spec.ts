@@ -140,7 +140,7 @@ test.describe('DanjiOn current Product Shell C1', () => {
     const detail = resident.locator('[data-v2-resident-news-detail]');
     await expect(detail).toBeVisible();
     await expect(detail.locator('h1')).toHaveText('우리 단지 산책길 정비 소식');
-    await expect(detail.getByText('운영진 확인 후 게시', { exact: true })).toBeVisible();
+    await expect(detail.locator('.v2-resident-news-article-meta').getByText('운영진 확인 후 게시', { exact: true })).toBeVisible();
     await expect(detail.getByText('주민 제보를 운영 확인한 뒤 게시한 주민소식 예시입니다.', { exact: true })).toBeVisible();
     await expect(detail.locator('img')).toHaveCount(0);
 
