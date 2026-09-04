@@ -1,93 +1,70 @@
 import { expect, test } from '@playwright/test';
 
-test.describe('Sibling Gate1 React completion', () => {
-  test('launch → onboarding → family flow is real React UI without claiming resident verification', async ({ page }) => {
+test.describe('Current 04 React completion', () => {
+  test('daily home → account entry is real React UI without claiming resident verification', async ({ page }) => {
     await page.goto('/');
 
-    await expect(page.getByRole('heading', { name: /우리 아파트에/ })).toBeVisible();
-    await expect(page.getByRole('heading', { name: '오늘, 우리 단지에서 볼 것' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: '필요한 일, 우리 단지에서 먼저 찾습니다.' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: '우리단지 새 소식' })).toBeVisible();
 
-    await page.getByRole('button', { name: /가입하고 시작하기/ }).click();
-    const onboarding = page.locator('[data-v2-onboarding]');
-    await expect(onboarding).toBeVisible();
-    await expect(onboarding).toHaveAttribute('data-phase', 'join');
-    await expect(onboarding).toHaveAttribute('data-step', '1');
-    await expect(onboarding.getByRole('heading', { name: '어떻게 시작할까요?' })).toBeVisible();
+    const launcher = page.getByRole('button', { name: '가입·로그인', exact: true });
+    await expect(launcher).toBeVisible();
+    await launcher.click();
 
-    await expect(onboarding.getByRole('button', { name: /카카오로 계속하기/ })).toBeVisible();
-    await expect(onboarding.getByRole('button', { name: /네이버로 계속하기/ })).toBeVisible();
-    await expect(onboarding.getByRole('button', { name: /Google로 계속하기/ })).toBeVisible();
-    await expect(onboarding.getByRole('button', { name: /휴대폰 번호로 시작하기/ })).toHaveAttribute('aria-pressed', 'true');
-    await expect(onboarding.getByRole('button', { name: /이메일로 시작하기/ })).toBeVisible();
-    await expect(onboarding.getByText(/SMS 인증 없음/)).toBeVisible();
-    await expect(onboarding.getByText(/이메일은 계정 복구의 기준/)).toBeVisible();
+    const auth = page.locator('[data-v2-auth-entry]');
+    await expect(auth).toBeVisible();
+    await expect(auth.getByRole('heading', { name: '단지온 계정을 만들어요.' })).toBeVisible();
+    await expect(auth.getByText(/연락처 소유 확인일 뿐 법적 본인확인이나 입주민 인증이 아닙니다/)).toBeVisible();
+    await expect(auth.getByRole('button', { name: 'Kakao로 가입', exact: true })).toBeVisible();
+    await expect(auth.getByRole('button', { name: 'Naver로 가입', exact: true })).toBeVisible();
+    await expect(auth.getByRole('button', { name: 'Google로 가입', exact: true })).toBeVisible();
 
-    await onboarding.getByRole('button', { name: /카카오로 계속하기/ }).click();
-    await expect(onboarding.getByRole('button', { name: /카카오로 계속하기/ })).toHaveAttribute('aria-pressed', 'true');
-
-    await onboarding.getByRole('button', { name: '다음', exact: true }).click();
-    await expect(onboarding).toHaveAttribute('data-step', '2');
-    const optionalConsents = onboarding.locator('input[type="checkbox"]');
-    await expect(optionalConsents).toHaveCount(2);
-    await expect(optionalConsents.nth(0)).not.toBeChecked();
-    await expect(optionalConsents.nth(1)).not.toBeChecked();
-
-    await onboarding.getByRole('button', { name: '필수항목 동의하고 다음' }).click();
-    await expect(onboarding).toHaveAttribute('data-step', '3');
-    const unitInput = onboarding.locator('input[inputmode="numeric"]');
-    await unitInput.fill('1702');
-    await onboarding.getByRole('button', { name: '동·호 입력 완료' }).click();
-
-    await expect(onboarding).toHaveAttribute('data-step', '4');
-    await expect(onboarding.getByText('입주민 확인 전', { exact: true })).toBeVisible();
-    await expect(onboarding.getByText(/계정 로그인과 주민 확인은 분리합니다/)).toBeVisible();
-
-    await onboarding.getByRole('button', { name: '가족초대로 이동' }).click();
-    await expect(onboarding).toHaveAttribute('data-phase', 'family');
-    await expect(onboarding).toHaveAttribute('data-step', '1');
-    await expect(onboarding.getByText(/우리집 가족도/)).toBeVisible();
-
-    await onboarding.getByRole('button', { name: '나중에 하기' }).click();
-    await expect(onboarding).toHaveCount(0);
+    await auth.getByRole('button', { name: '가입·로그인 화면 닫기', exact: true }).click();
+    await expect(auth).toHaveCount(0);
   });
 
-  test('direct account choices expose recovery email and phone-password login without SMS claims', async ({ page }) => {
+  test('direct account choices expose verified-signup fields and email/phone login without resident-auth claims', async ({ page }) => {
     await page.goto('/');
-    await page.getByRole('button', { name: /가입하고 시작하기/ }).click();
-    const onboarding = page.locator('[data-v2-onboarding]');
+    await page.getByRole('button', { name: '가입·로그인', exact: true }).click();
+    const auth = page.locator('[data-v2-auth-entry]');
 
-    await expect(onboarding.getByRole('button', { name: '처음 가입' })).toHaveClass(/is-active/);
-    await expect(onboarding.locator('[data-account-form="phone"]')).toBeVisible();
-    await expect(onboarding.getByText('이메일 · 필수 복구수단')).toBeVisible();
-    await expect(onboarding.getByPlaceholder('010-1234-5678')).toBeVisible();
-    await expect(onboarding.getByText(/SMS 인증을 사용하지 않으며/)).toBeVisible();
+    await expect(auth.getByRole('button', { name: '처음 가입', exact: true })).toHaveClass(/is-active/);
+    await expect(auth.getByPlaceholder('단지온에서 사용할 이름')).toBeVisible();
+    await expect(auth.getByPlaceholder('name@example.com')).toBeVisible();
+    await expect(auth.getByPlaceholder('010-1234-5678')).toBeVisible();
+    await expect(auth.getByPlaceholder('000000')).toBeVisible();
+    await expect(auth.getByPlaceholder('8자 이상')).toBeVisible();
+    await expect(auth.getByRole('button', { name: '인증번호 받기', exact: true })).toBeDisabled();
 
-    await onboarding.getByRole('button', { name: /이메일로 시작하기/ }).click();
-    await expect(onboarding.locator('[data-account-form="email"]')).toBeVisible();
-    await expect(onboarding.getByText('휴대폰 번호 · 선택')).toBeVisible();
-    await expect(onboarding.getByText(/다음 로그인부터 휴대폰 번호 \+ 비밀번호/)).toBeVisible();
+    await auth.getByRole('button', { name: '이미 회원', exact: true }).click();
+    await expect(auth.getByRole('heading', { name: '다시 만나서 반가워요.' })).toBeVisible();
+    await expect(auth.getByRole('button', { name: '이메일', exact: true })).toHaveClass(/is-active/);
+    await expect(auth.getByPlaceholder('name@example.com')).toBeVisible();
+    await expect(auth.getByPlaceholder('8자 이상')).toBeVisible();
 
-    await onboarding.getByRole('button', { name: '이미 회원' }).click();
-    await expect(onboarding.getByPlaceholder('name@example.com')).toBeVisible();
-    await expect(onboarding.getByPlaceholder('8자 이상')).toBeVisible();
+    await auth.getByRole('button', { name: '휴대폰 번호', exact: true }).click();
+    await expect(auth.getByPlaceholder('010-1234-5678')).toBeVisible();
+    await expect(auth.getByText(/계정 로그인과 입주민 권한은 분리되어 있습니다/)).toBeVisible();
   });
 
-  test('project story is a React surface, not a separate HTML runtime', async ({ page }) => {
+  test('current daily-home benefit and news summary remains an integrated React surface', async ({ page }) => {
     await page.goto('/');
-    const home = page.locator('#v2-resident-home');
-    await home.getByRole('button', { name: '단지온 도입과 운영' }).click();
-    await expect(page.getByRole('heading', { name: /같은 단지에 사는 이웃을/ })).toBeVisible();
-    await expect(page.getByText('PADIEM', { exact: true }).first()).toBeVisible();
-    await page.getByRole('button', { name: '닫기', exact: true }).click();
-    await expect(page.getByRole('heading', { name: /같은 단지에 사는 이웃을/ })).toHaveCount(0);
+    const summary = page.locator('[data-v2-section="home-summary"]');
+
+    await expect(summary).toBeVisible();
+    await expect(summary.getByRole('heading', { name: '가게마다 다른 주민혜택을 이웃가게에서 확인하세요.' })).toBeVisible();
+    await expect(summary.getByRole('heading', { name: '우리단지 새 소식' })).toBeVisible();
+    await expect(summary.getByRole('button', { name: '이웃가게 전체 보기', exact: true })).toBeVisible();
+    await expect(summary.getByRole('button', { name: /전체보기/ })).toBeVisible();
+
+    await summary.getByRole('button', { name: '이웃가게 전체 보기', exact: true }).click();
+    await expect(page.locator('#v2-discovery')).toBeVisible();
   });
 
-  test('resident home quick actions remain frontend-only navigation', async ({ page }) => {
+  test('home news action reuses the current community navigation hook', async ({ page }) => {
     await page.goto('/');
-    const home = page.locator('#v2-resident-home');
-    await expect(home.getByRole('heading', { name: '오늘, 우리 단지에서 볼 것' })).toBeVisible();
-    await expect(home.getByText('10%', { exact: true })).toBeVisible();
-    await expect(home.getByRole('button', { name: /내 일 알리기/ })).toBeVisible();
-    await expect(home.getByRole('button', { name: /단지온 도입과 운영/ })).toBeVisible();
+    const summary = page.locator('[data-v2-section="home-summary"]');
+    await summary.getByRole('button', { name: /전체보기/ }).click();
+    await expect(page.locator('[data-v2-nav-key="community"].is-active').first()).toBeAttached();
   });
 });
