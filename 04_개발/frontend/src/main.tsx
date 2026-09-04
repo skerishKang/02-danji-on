@@ -23,6 +23,7 @@ import V2NotificationsPortal from './v2/integration/V2NotificationsPortal';
 import V2ResidentNewsPortal from './v2/integration/V2ResidentNewsPortal';
 import V2ResidentProfileIntegration from './v2/integration/V2ResidentProfileIntegration';
 import V2SettingsPortal from './v2/integration/V2SettingsPortal';
+import './v2/integration/v2-resident-news-overlay.css';
 
 const uiVariant = getDanjiOnUiVariant();
 
