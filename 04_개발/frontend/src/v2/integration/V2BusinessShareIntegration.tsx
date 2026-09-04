@@ -19,6 +19,17 @@ function sameTargets(left: ShareTarget[], right: ShareTarget[]): boolean {
   ));
 }
 
+function sameTarget(left: ShareTarget | null, right: ShareTarget | null): boolean {
+  return left?.element === right?.element && left?.businessId === right?.businessId;
+}
+
+function findDetailTarget(): ShareTarget | null {
+  const dialog = document.querySelector<HTMLElement>('.v2-detail-dialog[data-shop-id]');
+  const element = dialog?.querySelector<HTMLElement>('[data-v2-detail-share-slot]') ?? null;
+  const businessId = dialog?.dataset.shopId?.trim() || '';
+  return element && businessId ? { element, businessId } : null;
+}
+
 function findCardByBusinessId(businessId: string): HTMLElement | null {
   return Array.from(document.querySelectorAll<HTMLElement>('.v2-integrated-shop-card[data-shop-id]'))
     .find((element) => element.dataset.shopId === businessId) ?? null;
@@ -95,12 +106,15 @@ function ShareAction({ businessId, onStatus }: { businessId: string; onStatus: (
 
 export default function V2BusinessShareIntegration() {
   const [targets, setTargets] = useState<ShareTarget[]>([]);
+  const [detailTarget, setDetailTarget] = useState<ShareTarget | null>(null);
   const [status, setStatus] = useState('');
 
   useEffect(() => {
     const sync = () => {
       const next = collectTargets();
+      const nextDetail = findDetailTarget();
       setTargets((current) => sameTargets(current, next) ? current : next);
+      setDetailTarget((current) => sameTarget(current, nextDetail) ? current : nextDetail);
     };
     sync();
     const observer = new MutationObserver(sync);
@@ -142,9 +156,16 @@ export default function V2BusinessShareIntegration() {
     );
   }), [targets]);
 
+  const detailPortal = useMemo(() => detailTarget ? createPortal(
+    <ShareAction businessId={detailTarget.businessId} onStatus={setStatus} />,
+    detailTarget.element,
+    `detail-share-${detailTarget.businessId}`
+  ) : null, [detailTarget]);
+
   return (
     <>
       {portals}
+      {detailPortal}
       {status && <div className="v2-integration-toast" role="status" data-v2-share-status>{status}</div>}
     </>
   );
