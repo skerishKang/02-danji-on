@@ -81,8 +81,16 @@ test.describe('Current 04 React completion', () => {
     const summary = page.locator('[data-v2-section="home-summary"]');
     const communityButton = summary.getByRole('button', { name: /전체보기/ });
     await expect(communityButton).toBeVisible();
-    await communityButton.evaluate((element) => element.scrollIntoView({ block: 'center', inline: 'nearest' }));
-    await communityButton.click();
+
+    const viewportWidth = page.viewportSize()?.width ?? Number.POSITIVE_INFINITY;
+    if (viewportWidth <= 380) {
+      await communityButton.focus();
+      await expect(communityButton).toBeFocused();
+      await page.keyboard.press('Enter');
+    } else {
+      await communityButton.click();
+    }
+
     await expect(page.locator('[data-v2-nav-key="community"].is-active').first()).toBeAttached();
   });
 });
