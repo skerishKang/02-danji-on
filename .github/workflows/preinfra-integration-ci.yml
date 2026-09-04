@@ -45,7 +45,7 @@ jobs:
           cache: npm
           cache-dependency-path: 04_개발/frontend/package.json
       - name: Install frontend dependencies
-        run: npm install --ignore-scripts
+        run: npm install --include=dev --ignore-scripts
       - name: Frontend typecheck
         run: npm run typecheck
       - name: Frontend production build
@@ -84,7 +84,7 @@ jobs:
           cache: npm
           cache-dependency-path: 04_개발/frontend/package.json
       - name: Install frontend dependencies
-        run: npm install --ignore-scripts
+        run: npm install --include=dev --ignore-scripts
       - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium
       - name: Run Community API-mode browser gate
