@@ -15,8 +15,11 @@ export function V2Hero({
   complexName = '방림명지로드힐',
   onSearch
 }: {
+  serviceCount?: number;
   complexName?: string;
   onSearch?: (query: string) => void;
+  onBrowse?: () => void;
+  onRegister?: () => void;
 }) {
   const [query, setQuery] = useState('');
 
