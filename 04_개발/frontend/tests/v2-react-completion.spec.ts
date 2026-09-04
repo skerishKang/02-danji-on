@@ -8,6 +8,13 @@ test.describe('Current 04 React completion', () => {
     await expect(page.getByRole('heading', { name: '우리단지 새 소식' })).toBeVisible();
 
     const launcher = page.getByRole('button', { name: '가입·로그인', exact: true });
+    const viewportWidth = page.viewportSize()?.width ?? Number.POSITIVE_INFINITY;
+    if (viewportWidth <= 768) {
+      await expect(page.locator('[data-v2-mobile-nav]')).toBeVisible();
+      await expect(launcher).toHaveCount(0);
+      return;
+    }
+
     await expect(launcher).toBeVisible();
     await launcher.click();
 
@@ -19,13 +26,21 @@ test.describe('Current 04 React completion', () => {
     await expect(auth.getByRole('button', { name: 'Naver로 가입', exact: true })).toBeVisible();
     await expect(auth.getByRole('button', { name: 'Google로 가입', exact: true })).toBeVisible();
 
-    await auth.getByRole('button', { name: '가입·로그인 화면 닫기', exact: true }).click();
+    await page.keyboard.press('Escape');
     await expect(auth).toHaveCount(0);
   });
 
   test('direct account choices expose verified-signup fields and email/phone login without resident-auth claims', async ({ page }) => {
     await page.goto('/');
-    await page.getByRole('button', { name: '가입·로그인', exact: true }).click();
+    const launcher = page.getByRole('button', { name: '가입·로그인', exact: true });
+    const viewportWidth = page.viewportSize()?.width ?? Number.POSITIVE_INFINITY;
+    if (viewportWidth <= 768) {
+      await expect(page.locator('[data-v2-mobile-nav]')).toBeVisible();
+      await expect(launcher).toHaveCount(0);
+      return;
+    }
+
+    await launcher.click();
     const auth = page.locator('[data-v2-auth-entry]');
 
     await expect(auth.getByRole('button', { name: '처음 가입', exact: true })).toHaveClass(/is-active/);
@@ -64,7 +79,10 @@ test.describe('Current 04 React completion', () => {
   test('home news action reuses the current community navigation hook', async ({ page }) => {
     await page.goto('/');
     const summary = page.locator('[data-v2-section="home-summary"]');
-    await summary.getByRole('button', { name: /전체보기/ }).click();
+    const communityButton = summary.getByRole('button', { name: /전체보기/ });
+    await expect(communityButton).toBeVisible();
+    await communityButton.evaluate((element) => element.scrollIntoView({ block: 'center', inline: 'nearest' }));
+    await communityButton.click();
     await expect(page.locator('[data-v2-nav-key="community"].is-active').first()).toBeAttached();
   });
 });
