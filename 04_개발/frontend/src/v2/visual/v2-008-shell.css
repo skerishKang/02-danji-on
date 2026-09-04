@@ -12,6 +12,13 @@
 }
 .v2-nav-link.is-active::after{transform:scaleX(1)}
 
+/* The latest 008 desktop shell keeps the small brand byline above the mobile
+   breakpoint. Earlier Gate1 tablet CSS hid it to make room for the old five-item
+   navigation; the four-item current shell no longer needs that compromise. */
+@media(min-width:801px) and (max-width:1050px){
+  .v2-gate1-topbar .v2-byline{display:inline}
+}
+
 @media(max-width:800px){
   .v2-visual-surface{
     --v2-header-h:60px;
