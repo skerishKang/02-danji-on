@@ -9,7 +9,7 @@ test.beforeEach(async ({ page }) => {
 test('search, relation/category filtering and detail preserve the reference discovery contract', async ({ page }) => {
   const search = page.getByPlaceholder(new RegExp(V2_REFERENCE.copy.heroSearchPlaceholder));
   await search.fill('에어컨');
-  await page.getByRole('button', { name: /^(찾기|검색하기)$/ }).first().click();
+  await page.getByRole('button', { name: '검색', exact: true }).first().click();
 
   const serviceName = page.getByText('온케어 홈서비스', { exact: true }).first();
   await expect(serviceName).toBeVisible();
