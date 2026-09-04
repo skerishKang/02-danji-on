@@ -14,20 +14,17 @@ import type {
 } from '../../types';
 import {
   V2CinematicScenes,
-  V2FilterBar,
   V2Hero,
-  V2Icon,
   V2Topbar,
   V2VisualImage,
-  V2_CATEGORY_LABELS,
   V2_REFERENCE_IMAGES,
-  V2_RELATION_LABELS,
   V2_SAMPLE_SHOPS,
   type V2CategoryKey,
   type V2RelationKey,
   type V2ShopVisual,
   type V2VisualNavKey
 } from '../visual';
+import { V2CurrentShopDetail, V2CurrentShopDiscovery } from '../visual/V2CurrentShopSurfaces';
 import '../v2-visual.css';
 import {
   approvedBusinessToV2Visual,
@@ -563,49 +560,21 @@ export default function V2IntegratedApp() {
           }}
         />
 
-        <section id="v2-discovery" data-v2-section="discovery" className="v2-integration-section v2-discovery-section">
-          <div className="v2-section-inner">
-            <div className="v2-section-heading">
-              <div>
-                <div className="v2-kicker">SCENE 03 · 가까운 일부터 발견</div>
-                <h2 className="v2-section-title">가까운 사람의 일을 먼저 보여줍니다.</h2>
-              </div>
-              <p>V2의 시각 기준은 이미지 리프레시 원본을 따르고, 공개 가게와 주민 행동은 현재 단지온 API 계약을 사용합니다.</p>
-            </div>
-
-            {publicLoadError && <div className="v2-data-notice" role="alert">가게 정보를 불러오지 못했습니다. {publicLoadError}</div>}
-            {V2_API_DATA_MODE && privateDataUnavailable && <div className="v2-data-notice" role="status">공개 가게는 실제 API 데이터를 사용합니다. 저장·혜택·문의·등록은 브라우저 로그인 연결 후 활성화됩니다.</div>}
-
-            <div className="v2-discovery-search" role="search">
-              <V2Icon name="search" />
-              <label className="v2-sr-only" htmlFor="v2-discovery-search">이웃가게 검색</label>
-              <input id="v2-discovery-search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="가게 이름이나 필요한 일로 다시 검색" />
-              {query && <button type="button" onClick={() => setQuery('')}>검색어 지우기</button>}
-            </div>
-
-            <V2FilterBar category={category} relation={relation} onCategoryChange={setCategory} onRelationChange={setRelation} />
-
-            <div className="v2-integrated-result-summary"><strong>{visibleShops.length}</strong><span>개의 이웃 일이 보입니다.</span></div>
-            <div className="v2-integrated-shop-grid">
-              {visibleShops.map((shop) => (
-                <article key={shop.id} className="v2-integrated-shop-card" data-shop-id={shop.id}>
-                  <button type="button" className="v2-integrated-shop-image" onClick={() => openShop(shop)} aria-label={`${shop.name} 이미지와 상세 보기`}>
-                    <V2VisualImage src={shop.image.src} fallbackSrc={LOCAL_IMAGE_FALLBACK} alt={shop.image.alt} fallbackLabel={shop.name} />
-                    <span>{V2_RELATION_LABELS[shop.relation]}</span>
-                  </button>
-                  <div className="v2-integrated-shop-copy">
-                    <div><small>{V2_CATEGORY_LABELS[shop.category]}</small><button type="button" aria-pressed={savedIds.includes(shop.id)} aria-label={`${shop.name} 저장`} onClick={() => void toggleSave(shop)}>{savedIds.includes(shop.id) ? '♥' : '♡'}</button></div>
-                    <h3>{shop.name}</h3>
-                    <p>{shop.desc}</p>
-                    <dl><div><dt>이용</dt><dd>{shop.price}</dd></div><div><dt>주민혜택</dt><dd>{shop.benefit}</dd></div></dl>
-                    <button type="button" className="v2-btn v2-btn-small" onClick={() => openShop(shop)}>상세보기</button>
-                  </div>
-                </article>
-              ))}
-              {!visibleShops.length && <div className="v2-integrated-empty">조건에 맞는 이웃의 일이 없습니다.</div>}
-            </div>
-          </div>
-        </section>
+        <V2CurrentShopDiscovery
+          shops={visibleShops}
+          query={query}
+          category={category}
+          relation={relation}
+          savedIds={savedIds}
+          publicLoadError={publicLoadError}
+          privateDataUnavailable={privateDataUnavailable}
+          apiDataMode={V2_API_DATA_MODE}
+          onQueryChange={setQuery}
+          onCategoryChange={setCategory}
+          onRelationChange={setRelation}
+          onOpen={openShop}
+          onToggleSave={(shop) => void toggleSave(shop)}
+        />
 
         <section id="v2-benefits" data-v2-section="benefits" className="v2-integration-section v2-integrated-benefits">
           <div className="v2-section-inner v2-benefit-layout">
@@ -670,22 +639,16 @@ export default function V2IntegratedApp() {
       </main>
 
       {detailOpen && selectedShop && (
-        <div className="v2-dialog-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setDetailOpen(false); }}>
-          <section className="v2-dialog v2-detail-dialog" role="dialog" aria-modal="true" aria-labelledby="v2-detail-dialog-title">
-            <button ref={detailCloseRef} type="button" className="v2-dialog-close" onClick={() => setDetailOpen(false)}>닫기</button>
-            <div className="v2-detail-dialog-grid">
-              <V2VisualImage src={selectedShop.image.src} fallbackSrc={LOCAL_IMAGE_FALLBACK} alt={selectedShop.image.alt} fallbackLabel={selectedShop.name} />
-              <div>
-                <span className="v2-relation-pill">{V2_RELATION_LABELS[selectedShop.relation]}</span>
-                <h2 id="v2-detail-dialog-title">{selectedShop.name}</h2>
-                <p>{selectedShop.desc}</p>
-                <dl><div><dt>하는 일</dt><dd>{selectedShop.services}</dd></div><div><dt>가격</dt><dd>{selectedShop.price}</dd></div><div><dt>이용 지역</dt><dd>{selectedShop.area}</dd></div><div><dt>주민혜택</dt><dd>{selectedShop.benefit}</dd></div><div><dt>이용 가능</dt><dd>{selectedShop.availability}</dd></div></dl>
-                <button type="button" className="v2-btn v2-btn-primary" disabled={busy} onClick={() => void revealContacts()}>문의 방법 보기</button>
-                {contacts.length > 0 && <div className="v2-contact-list">{contacts.map((contact, index) => <p key={`${contact.type}-${index}`}>{contactLabel(contact)}</p>)}</div>}
-              </div>
-            </div>
-          </section>
-        </div>
+        <V2CurrentShopDetail
+          shop={selectedShop}
+          saved={savedIds.includes(selectedShop.id)}
+          contacts={contacts.map(contactLabel)}
+          busy={busy}
+          closeRef={detailCloseRef}
+          onClose={() => setDetailOpen(false)}
+          onToggleSave={(shop) => void toggleSave(shop)}
+          onRevealContacts={() => void revealContacts()}
+        />
       )}
 
       {profileOpen && (
