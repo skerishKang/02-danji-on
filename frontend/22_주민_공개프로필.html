@@ -204,26 +204,39 @@ if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt
   if(back){back.textContent='← 설정';back.setAttribute('aria-label','설정으로 돌아가기');}
 })();
 </script>
-<style id="profile-level-panel-mobile-fix-20260906">
+<style id="profile-visual-fix-20260906b">
+/* 데스크톱: 이웃 온기 패널 = 코랄(원본 디자인). consistency.css의 크림 오버라이드를 같은 명시도로 이김 */
+[data-danjion-page="22"] .level-panel{background:var(--coral)!important;background-color:var(--coral)!important;color:#fff!important;border:0!important}
+[data-danjion-page="22"] .level-panel .level-kicker{color:rgba(255,255,255,.94)!important}
+[data-danjion-page="22"] .level-panel h2{color:#fff!important}
+[data-danjion-page="22"] .level-panel p,[data-danjion-page="22"] .level-panel .level-next{color:rgba(255,255,255,.88)!important}
+[data-danjion-page="22"] .level-panel .stat b{color:#fff!important}
+[data-danjion-page="22"] .level-panel .stat span{color:rgba(255,255,255,.82)!important}
+[data-danjion-page="22"] .level-panel .level-track i{background:rgba(255,255,255,.32)!important}
+[data-danjion-page="22"] .level-panel .level-track i.on{background:#fff!important}
+[data-danjion-page="22"] .level-panel .stats{border-top-color:rgba(255,255,255,.45)!important}
+/* 데스크톱: 메시지 버튼을 곤색 영역 오른쪽 끝으로 정렬 */
+@media(min-width:901px){[data-danjion-page="22"] .profile-actions{margin-left:auto!important;padding-right:42px!important}}
+/* 정보 카드 = 곤색 안내 밴드 (피드와 구분) */
+[data-danjion-page="22"] .side-card{background:var(--navy)!important;color:#fff!important;border:0!important}
+[data-danjion-page="22"] .side-card small{color:var(--amber)!important}
+[data-danjion-page="22"] .side-card h3{color:#fff!important}
+[data-danjion-page="22"] .side-card .visibility-list li{border-bottom-color:rgba(255,255,255,.18)!important}
+[data-danjion-page="22"] .side-card .visibility-list li b{color:#fff!important}
+[data-danjion-page="22"] .side-card .visibility-list li span{color:rgba(255,255,255,.82)!important}
+[data-danjion-page="22"] .side{grid-template-columns:1fr!important}
+/* 모바일: 패널·정보카드 공통 조정 */
 @media(max-width:760px){
   [data-danjion-page="22"] .profile-hero{display:block!important}
-  [data-danjion-page="22"] .level-panel{background:#fffdf8!important;color:#101317!important;border:1px solid #d8d0c3!important;min-height:0!important;padding:22px 20px!important;width:100%!important;max-width:100%!important;margin:0!important}
-  [data-danjion-page="22"] .level-panel .level-kicker{color:#c8503a!important}
-  [data-danjion-page="22"] .level-panel h2{color:#101317!important}
-  [data-danjion-page="22"] .level-panel p,[data-danjion-page="22"] .level-panel .level-next{color:#56534e!important}
-  [data-danjion-page="22"] .level-panel .stat b{color:#101317!important}
-  [data-danjion-page="22"] .level-panel .stat span{color:#6b665e!important}
-  [data-danjion-page="22"] .level-panel .level-track i{background:#e4dccd!important}
-  [data-danjion-page="22"] .level-panel .level-track i.on{background:var(--coral)!important}
-  [data-danjion-page="22"] .level-panel .stats{border-top-color:#d8d0c3!important}
-}
-</style>
-<style id="profile-actions-single-20260906">
-[data-danjion-page="22"] .side{grid-template-columns:1fr!important}
-@media(max-width:760px){
+  [data-danjion-page="22"] .level-panel{background:var(--coral)!important;background-color:var(--coral)!important;color:#fff!important;border:0!important;min-height:0!important;padding:24px 20px!important;width:100%!important;max-width:100%!important;overflow:hidden}
+  [data-danjion-page="22"] .level-panel .level-kicker,[data-danjion-page="22"] .level-panel h2,[data-danjion-page="22"] .level-panel p,[data-danjion-page="22"] .level-panel .level-next,[data-danjion-page="22"] .level-panel .stat b,[data-danjion-page="22"] .level-panel .stat span{color:#fff!important}
+  [data-danjion-page="22"] .level-panel .level-track i{background:rgba(255,255,255,.32)!important}
+  [data-danjion-page="22"] .level-panel .level-track i.on{background:#fff!important}
+  [data-danjion-page="22"] .level-panel .stats{border-top-color:rgba(255,255,255,.45)!important}
   [data-danjion-page="22"] .profile-actions{width:100%!important}
-  [data-danjion-page="22"] .profile-actions .message-button{flex:1!important;width:100%!important;align-items:center!important;justify-content:center!important;display:flex!important}
+  [data-danjion-page="22"] .profile-actions .message-button{flex:1!important;width:100%!important;display:flex!important;align-items:center!important;justify-content:center!important}
 }
 </style>
+
 </body>
 </html>
