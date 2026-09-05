@@ -53,7 +53,7 @@ R0 드리프트 행렬이 찾아낸 **코드 수준 개발 공백은 모두 해�
 | #59 | OPEN / HOLD | 개인정보 처리주체·주민인증·관리자 접근권한 확정 게이트 |
 | #245 | OPEN | Post-V2 안정화 리팩터링 웨이브 (다음 개발 후보) |
 | — | OPEN (CTO 판정 대기) | sibling-latest 델타: ①변경 11건 반영 방향 ②비화면 추가 반영 여부 ③실기능화와 백엔드 연동 충돌 검토 |
-| — | OPEN | 동생 협업 시작 — collaborator 권한 부여 완료, 가이드 `04_개발/docs/tracks/SIBLING_WORKSPACE_GUIDE_20260905.md` |
+| — | ACTIVE | 동생 협업 — collaborator 권한 완료. **동생 전용 브랜치 `sibling/dev`**에서 직접 작업, 브랜치가 작업물. main 병합은 소유자 결정. 가이드 `04_개발/docs/tracks/SIBLING_WORKSPACE_GUIDE_20260905.md` |
 
 ### 2026-09-05 정리 완료 (로컬 실행)
 - #267 CLOSED — `bf7b029`로 구현·병합 완료
