@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { V2CommunityView } from './V2CommunityView';
+import type { ComplexNewsChannel } from '../../types';
 import './v2-008-complex-hub.css';
 
 export const V2_COMPLEX_HUB_AUTHORITY = {
@@ -11,6 +12,7 @@ type ComplexHubChannel = 'official' | 'apartment' | 'resident' | 'dialogue';
 
 const CHANNELS: Array<{
   key: ComplexHubChannel;
+  channel?: ComplexNewsChannel;
   no: string;
   kicker: string;
   title: string;
@@ -19,6 +21,7 @@ const CHANNELS: Array<{
 }> = [
   {
     key: 'official',
+    channel: 'danjion_notice',
     no: '01',
     kicker: '운영 안내',
     title: '단지온공지',
@@ -27,6 +30,7 @@ const CHANNELS: Array<{
   },
   {
     key: 'apartment',
+    channel: 'apartment_news',
     no: '02',
     kicker: '단지 소식',
     title: '아파트소식',
@@ -83,7 +87,8 @@ export function V2ComplexHub({
       return;
     }
 
-    window.dispatchEvent(new CustomEvent('danjion:v2-open-complex-news', { detail: { channel } }));
+    const entry = CHANNELS.find((item) => item.key === channel);
+    window.dispatchEvent(new CustomEvent('danjion:v2-open-complex-news', { detail: { channel: entry?.channel ?? 'danjion_notice' } }));
   }
 
   return (

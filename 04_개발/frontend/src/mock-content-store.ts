@@ -29,6 +29,7 @@ export function createStoredMockPost(input: { sourceName: string; category: stri
     id: `mock-post-${crypto.randomUUID()}`,
     sourceName: input.sourceName,
     category: input.category,
+    channel: 'apartment_news',
     title: input.title,
     body: input.body,
     publishedAt: new Date().toISOString()

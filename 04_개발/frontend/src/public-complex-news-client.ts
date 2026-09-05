@@ -1,5 +1,5 @@
 import { mockPosts } from './data/mock';
-import type { ComplexPost } from './types';
+import type { ComplexNewsChannel, ComplexPost } from './types';
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
 const COMPLEX_SLUG = import.meta.env.VITE_COMPLEX_SLUG || 'bangnim-myeongji-roadhill';
@@ -18,6 +18,7 @@ function mapPost(raw: unknown): ComplexPost {
     id: String(value.id ?? ''),
     sourceName: String(value.source_name ?? value.sourceName ?? ''),
     category: String(value.category ?? ''),
+    channel: String(value.channel ?? 'apartment_news') as ComplexNewsChannel,
     title: String(value.title ?? ''),
     body: String(value.body ?? ''),
     publishedAt: String(value.published_at ?? value.publishedAt ?? '')
@@ -48,9 +49,13 @@ function basePath(): string {
 }
 
 export const publicComplexNewsClient = {
-  async listPosts(): Promise<ComplexPost[]> {
-    if (!API_MODE) return structuredClone(mockPosts);
-    const rows = await publicRequest<unknown[]>(basePath());
+  async listPosts(filter?: { channel?: ComplexNewsChannel }): Promise<ComplexPost[]> {
+    if (!API_MODE) {
+      const rows = structuredClone(mockPosts);
+      return filter?.channel ? rows.filter((post) => post.channel === filter.channel) : rows;
+    }
+    const query = filter?.channel ? `?channel=${encodeURIComponent(filter.channel)}` : '';
+    const rows = await publicRequest<unknown[]>(`${basePath()}${query}`);
     return Array.isArray(rows) ? rows.map(mapPost) : [];
   },
 

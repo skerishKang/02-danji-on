@@ -28,9 +28,9 @@ export const mockBusinesses: Business[] = rawBusinesses.map((business) => ({
 }));
 
 export const mockPosts: ComplexPost[] = [
-  { id:'post-1', sourceName:'입주자대표회의', category:'입대의 활동', title:'8월 입주자대표회의 활동 안내', body:'8월 입주자대표회의 활동 일정을 안내드립니다. 주민 생활에 필요한 주요 점검과 공용공간 관리사항을 확인하고 있습니다.', publishedAt:'2026-08-04T09:00:00+09:00' },
-  { id:'post-2', sourceName:'관리사무소', category:'관리사무소 안내', title:'재활용 배출시간 안내', body:'재활용품은 화요일과 금요일 오후 6시부터 9시까지 배출해 주세요. 올바른 분리배출에 협조 부탁드립니다.', publishedAt:'2026-08-03T09:00:00+09:00' },
-  { id:'post-3', sourceName:'단지온 운영자', category:'주민 사업자 소식', title:'주민 사업자 무료 등록 안내', body:'방림명지로드힐 주민이 운영하는 가게와 서비스를 단지온에 무료로 등록할 수 있습니다.', publishedAt:'2026-08-02T09:00:00+09:00' },
-  { id:'post-4', sourceName:'관리사무소', category:'중요 안내', title:'8월 6일 101동 승강기 점검', body:'8월 6일 오전 10시부터 낮 12시까지 101동 승강기 정기점검을 실시합니다.', publishedAt:'2026-08-01T09:00:00+09:00' },
-  { id:'post-5', sourceName:'단지온 운영자', category:'단지 행사', title:'주민 소규모 장터 참여 안내', body:'주민이 만든 수제품과 농산물, 생활서비스를 소개하는 소규모 장터 참여 신청을 받습니다.', publishedAt:'2026-07-30T09:00:00+09:00' }
+  { id:'post-1', sourceName:'입주자대표회의', category:'입대의 활동', channel:'apartment_news', title:'8월 입주자대표회의 활동 안내', body:'8월 입주자대표회의 활동 일정을 안내드립니다. 주민 생활에 필요한 주요 점검과 공용공간 관리사항을 확인하고 있습니다.', publishedAt:'2026-08-04T09:00:00+09:00' },
+  { id:'post-2', sourceName:'관리사무소', category:'관리사무소 안내', channel:'management_office', title:'재활용 배출시간 안내', body:'재활용품은 화요일과 금요일 오후 6시부터 9시까지 배출해 주세요. 올바른 분리배출에 협조 부탁드립니다.', publishedAt:'2026-08-03T09:00:00+09:00' },
+  { id:'post-3', sourceName:'단지온 운영자', category:'주민 사업자 소식', channel:'danjion_notice', title:'주민 사업자 무료 등록 안내', body:'방림명지로드힐 주민이 운영하는 가게와 서비스를 단지온에 무료로 등록할 수 있습니다.', publishedAt:'2026-08-02T09:00:00+09:00' },
+  { id:'post-4', sourceName:'관리사무소', category:'중요 안내', channel:'management_office', title:'8월 6일 101동 승강기 점검', body:'8월 6일 오전 10시부터 낮 12시까지 101동 승강기 정기점검을 실시합니다.', publishedAt:'2026-08-01T09:00:00+09:00' },
+  { id:'post-5', sourceName:'단지온 운영자', category:'단지 행사', channel:'danjion_notice', title:'주민 소규모 장터 참여 안내', body:'주민이 만든 수제품과 농산물, 생활서비스를 소개하는 소규모 장터 참여 신청을 받습니다.', publishedAt:'2026-07-30T09:00:00+09:00' }
 ];

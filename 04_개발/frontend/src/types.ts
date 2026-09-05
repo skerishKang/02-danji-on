@@ -54,10 +54,13 @@ export interface BusinessContact {
   value: string;
 }
 
+export type ComplexNewsChannel = 'danjion_notice' | 'apartment_news' | 'management_office' | 'chair_greeting';
+
 export interface ComplexPost {
   id: string;
   sourceName: string;
   category: string;
+  channel: ComplexNewsChannel;
   title: string;
   body: string;
   publishedAt: string;
