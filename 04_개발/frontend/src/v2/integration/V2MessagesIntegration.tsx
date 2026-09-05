@@ -5,8 +5,20 @@ import {
   type ResidentConversation,
   type ResidentMessage
 } from '../../resident-messages-client';
+import {
+  residentSafetyClient,
+  type ResidentReportReason
+} from '../../resident-safety-client';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const REPORT_OPTIONS: Array<{ value: ResidentReportReason; label: string }> = [
+  { value: 'abuse', label: '욕설·괴롭힘' },
+  { value: 'threat', label: '위협' },
+  { value: 'privacy', label: '개인정보 침해' },
+  { value: 'defamation_risk', label: '명예훼손 우려' },
+  { value: 'spam', label: '스팸' },
+  { value: 'other', label: '기타' }
+];
 
 function canonicalConversationId(value: unknown): string | null {
   const text = typeof value === 'string' ? value.trim().toLowerCase() : '';
@@ -38,10 +50,20 @@ export default function V2MessagesIntegration() {
   const [loadingInbox, setLoadingInbox] = useState(false);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState('');
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportReason, setReportReason] = useState<ResidentReportReason>('abuse');
+  const [reportDetail, setReportDetail] = useState('');
 
   const unreadTotal = useMemo(
     () => conversations.reduce((sum, item) => sum + Math.max(0, item.unreadCount), 0),
     [conversations]
+  );
+
+  const reportableMessage = useMemo(
+    () => selected
+      ? [...messages].reverse().find((message) => message.senderUserId === selected.participant.userId && message.body != null) ?? null
+      : null,
+    [selected, messages]
   );
 
   const loadInbox = useCallback(async () => {
@@ -120,6 +142,7 @@ export default function V2MessagesIntegration() {
       if (selected?.participant.userId === userId) {
         setSelected(null);
         setMessages([]);
+        setReportOpen(false);
         setConversationQuery(null);
       }
       void loadInbox();
@@ -160,11 +183,35 @@ export default function V2MessagesIntegration() {
     }
   }
 
+  async function reportConversation(event: FormEvent) {
+    event.preventDefault();
+    if (!selected || busy || !reportableMessage) return;
+    if (reportDetail.trim().length > 1000) {
+      setStatus('신고 설명은 최대 1000자로 입력해 주세요.');
+      return;
+    }
+    setBusy(true);
+    setStatus('신고를 접수하는 중입니다.');
+    try {
+      const result = await residentSafetyClient.reportMessage(reportableMessage.id, reportReason, reportDetail);
+      setStatus(result === 'already_reported' ? '이미 검토 중인 신고가 있습니다.' : '신고가 접수되었습니다.');
+      setReportOpen(false);
+      setReportDetail('');
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : '신고를 접수하지 못했습니다.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   function closeConversation() {
     setSelected(null);
     setMessages([]);
     setDraft('');
     setStatus('');
+    setReportOpen(false);
+    setReportReason('abuse');
+    setReportDetail('');
     setConversationQuery(null);
   }
 
@@ -208,7 +255,12 @@ export default function V2MessagesIntegration() {
         <button type="button" className="v2-dialog-close" onClick={closeConversation}>닫기</button>
         <span className="v2-eyebrow">RESIDENT MESSAGE</span>
         <h2 id="v2-conversation-title">{selected.participant.nickname}님과의 대화</h2>
-        <button type="button" className="v2-btn v2-btn-small" onClick={() => openResidentProfile(selected.participant.userId)}>주민 프로필 보기</button>
+        <div className="v2-dialog-actions">
+          <button type="button" className="v2-btn v2-btn-small" onClick={() => openResidentProfile(selected.participant.userId)}>주민 프로필 보기</button>
+          <button type="button" className="v2-btn v2-btn-small" data-v2-message-report disabled={!reportableMessage} onClick={() => { setReportDetail(''); setReportOpen((open) => !open); }}>
+            대화 신고하기
+          </button>
+        </div>
         <div data-v2-message-thread aria-live="polite">
           {messages.length === 0 && <p>아직 메시지가 없습니다.</p>}
           {messages.map((message) => {
@@ -232,6 +284,28 @@ export default function V2MessagesIntegration() {
             <button type="submit" className="v2-btn v2-btn-primary" disabled={busy || !draft.trim()}>보내기</button>
           </div>
         </form>
+        {reportOpen && (
+          <form onSubmit={(event) => void reportConversation(event)} data-v2-message-report-form>
+            <h3>대화 신고하기</h3>
+            <p>운영팀이 확인할 수 있도록 가장 가까운 이유를 선택해주세요.</p>
+            <label>
+              신고 사유
+              <select value={reportReason} disabled={busy} onChange={(event) => setReportReason(event.target.value as ResidentReportReason)}>
+                {REPORT_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+            </label>
+            <label>
+              신고 내용
+              <textarea value={reportDetail} maxLength={1000} rows={3} disabled={busy} onChange={(event) => setReportDetail(event.target.value)} />
+            </label>
+            <div className="v2-dialog-actions">
+              <button type="button" className="v2-btn v2-btn-small" disabled={busy} onClick={() => setReportOpen(false)}>취소</button>
+              <button type="submit" className="v2-btn v2-btn-small" disabled={busy || !reportableMessage}>신고 접수</button>
+            </div>
+          </form>
+        )}
         {status && <p role="status" data-v2-conversation-status>{status}</p>}
       </section>
     </div>,
