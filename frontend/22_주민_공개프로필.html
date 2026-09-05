@@ -31,15 +31,15 @@
 .profile-name{font-size:34px!important}.profile-meta{margin-top:6px!important}
 .profile-actions{margin:0!important;padding:0!important;align-self:center!important;display:flex!important;gap:8px!important}
 .profile-actions .primary{height:48px!important;padding:0 18px!important;white-space:nowrap!important}
-.profile-actions .activity-button{display:none!important}
+
 .identity-block::after{width:290px!important;height:290px!important;right:-120px!important;bottom:-190px!important}
 .level-panel{min-height:255px!important;padding:26px 28px!important;background:var(--coral)!important;color:#fff!important}
 .level-panel h2{font-size:30px!important;margin:9px 0 6px!important;color:#fff!important}.level-kicker{color:#fff!important}.level-track{margin-top:15px!important}.level-next{margin-top:8px!important;color:rgba(255,255,255,.9)!important}
 .stats{margin-top:18px!important}.stat{padding-top:12px!important}.stat b{font-size:27px!important;color:#fff!important}.stat span{color:rgba(255,255,255,.82)!important}
 .content-grid{margin-top:12px!important}.tab{height:56px!important}.activity-item{min-height:94px!important;padding:15px 22px!important;gap:16px!important}.item-copy h3{margin-bottom:5px!important}
 .side-card{padding:20px!important}
-@media(max-width:900px){.profile-top{grid-template-columns:72px 1fr!important}.profile-actions{grid-column:1/-1!important;margin-top:10px!important}.profile-actions .activity-button{display:inline-flex!important}.level-panel{min-height:215px!important}}
-@media(max-width:760px){.profile-top{display:grid!important;grid-template-columns:64px 1fr!important}.profile-actions{grid-column:1/-1!important}.profile-actions .activity-button{display:inline-flex!important}.profile-hero{min-height:0!important}.level-panel{min-height:220px!important}.activity-item{min-height:0!important}}
+@media(max-width:900px){.profile-top{grid-template-columns:72px 1fr!important}.profile-actions{grid-column:1/-1!important;margin-top:10px!important}.level-panel{min-height:215px!important}}
+@media(max-width:760px){.profile-top{display:grid!important;grid-template-columns:64px 1fr!important}.profile-actions{grid-column:1/-1!important}.profile-hero{min-height:0!important}.level-panel{min-height:220px!important}.activity-item{min-height:0!important}}
 </style><style id="integrated-compact-fix">main{padding-top:22px!important}.route{min-height:52px!important}.route-inner{min-height:52px!important}.profile-hero,.warmth-hero,.conversation-head{margin-top:0!important}</style><style id="front-audit-bottom-nav-standard-20260904">
 /* Frontend audit 1: all app content screens share one exact bottom navigation geometry. */
 @media (max-width:760px){
@@ -75,7 +75,7 @@
 <div class="route"><div class="route-inner"><button class="back" data-demo="이전 화면 연결은 최종 통합 단계에서 적용합니다." type="button"><span>←</span><span>이웃 프로필</span></button><div class="more-wrap"><button aria-expanded="false" aria-label="더보기" class="more" type="button">···</button><div class="more-menu"><button data-action="report" type="button">이 주민 신고하기</button><button data-action="block" type="button">이 주민 차단하기</button></div></div></div></div>
 <main>
 <section class="profile-hero">
-<article class="identity-block"><div class="profile-top"><span class="avatar">산</span><div><span class="resident-label">방림명지로드힐 주민</span><h1 class="profile-name">산책메이트님</h1><p class="profile-meta">2026년 8월 가입 · 우리집 등록</p></div><div class="profile-actions"><button class="primary message-button" onclick="location.href='21_메시지_대화상세.html'" type="button">1:1 메시지 보내기</button><button class="secondary activity-button" onclick="document.querySelector('.activity').scrollIntoView({behavior:'smooth',block:'start'})" type="button">활동 보기</button></div></div></article>
+<article class="identity-block"><div class="profile-top"><span class="avatar">산</span><div><span class="resident-label">방림명지로드힐 주민</span><h1 class="profile-name">산책메이트님</h1><p class="profile-meta">2026년 8월 가입 · 우리집 등록</p></div><div class="profile-actions"><button class="primary message-button" onclick="location.href='21_메시지_대화상세.html'" type="button">1:1 메시지 보내기</button></div></div></article>
 <article class="level-panel"><span class="level-kicker">이웃 온기</span><h2>참여하는 이웃</h2><div aria-label="이웃 온기 5단계 중 3단계" class="level-track"><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i></div><span class="level-next">다음 단계 · 도움 주는 이웃</span><div class="stats"><div class="stat"><b>6</b><span>게시글</span></div><div class="stat"><b>18</b><span>댓글</span></div><div class="stat"><b>3</b><span>후기</span></div></div></article>
 </section>
 <section class="content-grid">
@@ -95,7 +95,7 @@
     const toast=document.querySelector('.toast');let toastTimer;function showToast(text){toast.textContent=text;toast.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>toast.classList.remove('show'),2200)}
     document.querySelectorAll('[data-demo]').forEach(button=>button.addEventListener('click',()=>showToast(button.dataset.demo)));
     const more=document.querySelector('.more'),menu=document.querySelector('.more-menu');more.addEventListener('click',()=>{const open=menu.classList.toggle('open');more.setAttribute('aria-expanded',String(open))});document.addEventListener('click',event=>{if(!event.target.closest('.more-wrap')){menu.classList.remove('open');more.setAttribute('aria-expanded','false')}});
-    document.querySelectorAll('.tab').forEach(tab=>tab.addEventListener('click',()=>{document.querySelectorAll('.tab').forEach(item=>item.classList.remove('active'));document.querySelectorAll('.activity-panel').forEach(item=>item.classList.remove('active'));tab.classList.add('active');document.querySelector('[data-panel="'+tab.dataset.tab+'"]').classList.add('active')}));document.querySelector('.activity-button').addEventListener('click',()=>document.querySelector('.activity').scrollIntoView({behavior:'smooth',block:'start'}));
+    document.querySelectorAll('.tab').forEach(tab=>tab.addEventListener('click',()=>{document.querySelectorAll('.tab').forEach(item=>item.classList.remove('active'));document.querySelectorAll('.activity-panel').forEach(item=>item.classList.remove('active'));tab.classList.add('active');document.querySelector('[data-panel="'+tab.dataset.tab+'"]').classList.add('active')}));
     const messageLayer=document.querySelector('#messageLayer'),actionLayer=document.querySelector('#actionLayer');function openLayer(layer){layer.classList.add('open')}function closeLayers(){document.querySelectorAll('.overlay').forEach(layer=>layer.classList.remove('open'))}document.querySelectorAll('[data-close]').forEach(button=>button.addEventListener('click',closeLayers));document.querySelectorAll('.overlay').forEach(layer=>layer.addEventListener('click',event=>{if(event.target===layer)closeLayers()}));
     let blocked=false;const messageButtons=document.querySelectorAll('.message-button'),blockButton=document.querySelector('[data-action="block"]');function applyBlocked(){messageButtons.forEach(button=>{button.disabled=blocked;button.textContent=blocked?'차단한 주민입니다':button.classList.contains('side-link')?'메시지 보내기 →':'1:1 메시지 보내기'});blockButton.textContent=blocked?'이 주민 차단 해제하기':'이 주민 차단하기'}messageButtons.forEach(button=>button.addEventListener('click',()=>{if(blocked)return showToast('차단을 해제해야 메시지를 보낼 수 있습니다.');openLayer(messageLayer)}));
     document.querySelector('[data-send]').addEventListener('click',()=>{const field=messageLayer.querySelector('textarea');if(!field.value.trim())return showToast('메시지 내용을 입력해 주세요.');field.value='';closeLayers();showToast('메시지를 보냈습니다.')});
@@ -216,6 +216,12 @@ if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt
   [data-danjion-page="22"] .level-panel .level-track i{background:#e4dccd!important}
   [data-danjion-page="22"] .level-panel .level-track i.on{background:var(--coral)!important}
   [data-danjion-page="22"] .level-panel .stats{border-top-color:#d8d0c3!important}
+}
+</style>
+<style id="profile-actions-single-20260906">
+@media(max-width:760px){
+  [data-danjion-page="22"] .profile-actions{width:100%!important}
+  [data-danjion-page="22"] .profile-actions .message-button{flex:1!important;width:100%!important;align-items:center!important;justify-content:center!important;display:flex!important}
 }
 </style>
 </body>
