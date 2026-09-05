@@ -1025,7 +1025,7 @@
 <div class="shop-compare-facts"><div class="shop-compare-fact"><b>서비스</b><span id="shopCompareService"></span></div><div class="shop-compare-fact"><b>이용 방법</b><span id="shopCompareWay"></span></div><div class="shop-compare-fact"><b>위치</b><span id="shopCompareLocation"></span></div><div class="shop-compare-fact"><b>연락·문의</b><span id="shopCompareContact"></span></div></div>
 <div class="shop-review-preview"><div class="shop-review-preview-head"><b>이웃 후기 <span id="shopCompareReviewCount"></span></b><button type="button" id="shopReviewOpen">후기 보기</button></div><div class="shop-review-snippet" id="shopCompareReviewSnippet"></div></div>
 <div class="shop-compare-benefit"><small>방림명지로드힐 주민 혜택</small><strong id="shopCompareBenefit"></strong><div class="shop-compare-benefit-detail" id="shopCompareBenefitDetail">가게마다 적용 방식이 다릅니다. 예약 또는 방문 시 주민임을 확인한 뒤 정확한 혜택을 안내받을 수 있습니다.</div></div>
-<div class="shop-compare-actions"><button id="shopReviewOpen2" type="button">후기 남기기</button><button id="shopCompareSave" type="button">♡ 저장</button><button class="accent" id="shopCompareBenefitBtn" type="button">혜택 보기</button><button id="shopCompareInquiry" type="button">가게에 문의하기</button></div>
+<div class="shop-compare-actions"><button id="shopReviewOpen2" type="button">후기쓰기</button><button id="shopCompareSave" type="button">♡ 저장</button><button class="accent" id="shopCompareBenefitBtn" type="button">혜택 보기</button><button id="shopCompareInquiry" type="button">가게문의</button></div>
 </div></div></section></div>
 <div class="shop-inquiry-modal" id="shopInquiryModal" aria-hidden="true">
   <section class="shop-inquiry-shell" role="dialog" aria-modal="true" aria-labelledby="shopInquiryTitle">
@@ -1039,7 +1039,7 @@
         <input id="shopInquirySubject" maxlength="60" required placeholder="예: 토요일 오후 예약 가능한가요?">
         <label for="shopInquiryText">문의 내용</label>
         <textarea id="shopInquiryText" maxlength="1000" required placeholder="가게에 전달할 내용을 적어주세요."></textarea>
-        <div class="shop-form-actions"><button type="button" id="shopInquiryCancel">취소</button><button class="primary" type="submit">문의 보내기</button></div>
+        <div class="shop-form-actions"><button class="primary" type="submit">문의 보내기</button></div>
         <p class="shop-inquiry-note">보내신 문의는 가게 운영자의 메시지함으로 전달되며, 일반 개인 메시지와 구분되는 가게 문의로 표시됩니다.</p>
       </form>
     </div>
@@ -1066,13 +1066,44 @@
       <p>직접 이용한 경험을 다른 주민과 나눠주세요.</p>
       <label for="shopReviewInput">후기</label>
       <textarea id="shopReviewInput" maxlength="700" placeholder="이용한 서비스와 좋았던 점, 참고할 점을 적어주세요."></textarea>
-      <div class="review-write-actions"><button type="button" id="shopReviewWriteCancel" aria-label="취소">×</button><button type="button" class="primary" id="shopReviewSubmit">후기 등록</button></div>
+      <div class="review-write-actions"><button type="button" class="primary" id="shopReviewSubmit">후기 등록</button></div>
     </div>
   </section>
 </div>
 </div>
   </section>
 </div>
+
+<style id="frontend3-owner-shop-fix-20260906">
+.toast{z-index:2200!important}
+.b-card-rank,.b-text-shop .n{display:none!important}
+.b-text-shop{grid-template-columns:minmax(0,1.1fr) minmax(0,1fr) auto!important}
+.shop-compare-actions button{font-size:14px!important;letter-spacing:-.02em!important;padding:0 8px!important}
+.review-write-actions{display:block!important;margin-top:16px!important}
+.review-write-actions button:first-child,.review-write-actions .primary{width:100%!important;min-width:0!important;height:50px!important;padding:0 18px!important;font-size:15px!important;line-height:1.2!important;display:block!important;background:var(--ink)!important;color:#fff!important;border:1px solid var(--ink)!important}
+@media(max-width:760px){
+  .b-text-shop{grid-template-columns:minmax(0,1fr) auto!important}
+  .shop-compare-actions{grid-template-columns:repeat(4,minmax(0,1fr))!important}
+  .shop-compare-actions button{font-size:13px!important;padding:0 4px!important}
+}
+</style>
+<style id="frontend3-v2-owner-list-inquiry-fix-20260906">
+/* v2 only: inquiry has one clear submit action; compact list has no phantom rank column. */
+.shop-inquiry-body .shop-form-actions{display:block!important}
+.shop-inquiry-body .shop-form-actions .primary{width:100%!important;min-width:0!important;height:50px!important;padding:0 18px!important;font-size:15px!important}
+@media(max-width:760px){
+  .b-text-shop{
+    grid-template-columns:minmax(0,1fr) 58px!important;
+    column-gap:12px!important;
+    min-height:82px!important;
+    padding:14px 0!important;
+    align-items:center!important;
+  }
+  .b-text-main{grid-column:1!important;grid-row:1!important;min-width:0!important;width:100%!important}
+  .b-text-name-line{align-items:flex-start!important;justify-content:center!important}
+  .b-text-shop .row-save{grid-column:2!important;grid-row:1!important;justify-self:end!important}
+}
+</style>
 <div aria-live="polite" class="toast" role="status"></div>
 <script id="frontend2-b-shop-runtime-20260905">
 (function(){
@@ -1100,7 +1131,6 @@
      <div class="b-card-media"><img src="${esc(s.image)}" alt="${esc(s.name)} 작업 장면"></div>
      <div class="b-card-body">
        <div class="b-card-titleline">
-         <span class="b-card-rank">${String(i+1).padStart(2,'0')}</span>
          <div class="b-card-name">${esc(s.name)}</div>
          <span class="b-card-relation ${rel}">${esc(s.relation==='이웃 단지 주민 가게'?'이웃가게':s.relation)}</span>
        </div>
@@ -1113,7 +1143,6 @@
  function textRow(s,i){
    const rel=relationClass(s.relation);
    return `<div class="b-text-shop" data-shop-key="${esc(s.key)}">
-     <span class="n">${String(i+5).padStart(2,'0')}</span>
      <div class="b-text-main"><div class="b-text-name-line">
        <b class="b-text-shop-name">${esc(s.name)}</b>
        <span class="b-card-relation ${rel}">${esc(s.relation==='이웃 단지 주민 가게'?'이웃가게':s.relation)}</span>
@@ -1140,10 +1169,10 @@
  function closeReview(){review.classList.remove('open');review.setAttribute('aria-hidden','true');if(!coupon.classList.contains('open')&&!modal.classList.contains('open'))document.body.style.overflow=''}
  function openReviewWrite(key){const sh=byKey[key];if(!sh)return;document.getElementById('shopReviewWriteTitle').textContent=sh.name+' 후기를 남겨주세요.';document.getElementById('shopReviewInput').value='';document.getElementById('shopReviewWriteModal').classList.add('open');document.getElementById('shopReviewWriteModal').setAttribute('aria-hidden','false');document.body.style.overflow='hidden'}
  function closeReviewWrite(){const el=document.getElementById('shopReviewWriteModal');el.classList.remove('open');el.setAttribute('aria-hidden','true');if(!modal.classList.contains('open')&&!review.classList.contains('open')&&!coupon.classList.contains('open'))document.body.style.overflow=''}
- function submitReview(){const v=document.getElementById('shopReviewInput').value.trim();if(!v){flash('후기 내용을 입력해 주세요.');return}const sh=byKey[active];if(!sh)return;sh.reviews=[...(sh.reviews||[]),['나도 이용한 이웃','방금',v]];closeReviewWrite();renderReviewPreview(sh);openReview();flash('후기를 등록했습니다.')}
+ function submitReview(){const v=document.getElementById('shopReviewInput').value.trim();if(!v){flash('후기 내용을 입력해 주세요.');return}const sh=byKey[active];if(!sh)return;sh.reviews=[...(sh.reviews||[]),['나도 이용한 이웃','방금',v]];closeReviewWrite();renderReviewPreview(sh);flash('후기가 등록되었습니다.')}
  function openShopInquiry(key){const sh=byKey[key];if(!sh)return;document.getElementById('shopInquiryTitle').textContent=sh.name+'에 문의하세요.';document.getElementById('shopInquirySubject').value='';document.getElementById('shopInquiryText').value='';document.getElementById('shopInquiryModal').classList.add('open');document.getElementById('shopInquiryModal').setAttribute('aria-hidden','false');document.body.style.overflow='hidden'}
  function closeShopInquiry(){const el=document.getElementById('shopInquiryModal');el.classList.remove('open');el.setAttribute('aria-hidden','true');if(!modal.classList.contains('open')&&!review.classList.contains('open')&&!coupon.classList.contains('open'))document.body.style.overflow=''}
- function sendShopInquiry(ev){ev.preventDefault();const sh=byKey[active];if(!sh)return;const subject=document.getElementById('shopInquirySubject').value.trim();const text=document.getElementById('shopInquiryText').value.trim();if(!subject||!text){flash('문의 제목과 내용을 입력해 주세요.');return}let arr=[];try{arr=JSON.parse(localStorage.getItem('danjion:demo:shop-inquiries')||'[]')}catch(_){}arr.unshift({type:'shop_inquiry',shopKey:active,shopName:sh.name,recipientType:'shop_owner',recipientDisplay:sh.name,subject,text,at:new Date().toISOString()});localStorage.setItem('danjion:demo:shop-inquiries',JSON.stringify(arr.slice(0,50)));closeShopInquiry();flash(sh.name+'에 문의를 보냈습니다.')}
+ function sendShopInquiry(ev){ev.preventDefault();const sh=byKey[active];if(!sh)return;const subject=document.getElementById('shopInquirySubject').value.trim();const text=document.getElementById('shopInquiryText').value.trim();if(!subject||!text){flash('문의 제목과 내용을 입력해 주세요.');return}let arr=[];try{arr=JSON.parse(localStorage.getItem('danjion:demo:shop-inquiries')||'[]')}catch(_){}arr.unshift({type:'shop_inquiry',shopKey:active,shopName:sh.name,recipientType:'shop_owner',recipientDisplay:sh.name,subject,text,at:new Date().toISOString()});localStorage.setItem('danjion:demo:shop-inquiries',JSON.stringify(arr.slice(0,50)));closeShopInquiry();flash('문의가 접수되었습니다.')}
  function openShop(key){active=byKey[key]?key:'florist';const s=byKey[active];[['shopCompareRelation',s.relation==='이웃 단지 주민 가게'?'이웃가게':s.relation],['shopCompareTitle',s.name],['shopCompareDesc',s.desc],['shopCompareService',s.service],['shopCompareWay',s.way],['shopCompareLocation',s.location||'단지 인근 생활권'],['shopCompareContact',s.contact||'1:1 문의로 확인'],['shopCompareBenefit',s.benefit]].forEach(([id,v])=>document.getElementById(id).textContent=v);renderReviewPreview(s);const img=document.getElementById('shopCompareImage');img.src=s.image;img.alt=s.name+' 대표 이미지';img.style.objectPosition='50% 50%';const gallery=document.getElementById('shopCompareGallery'),positions=['50% 50%','30% 55%','75% 45%'];gallery.innerHTML=positions.map((pos,i)=>`<button type="button" class="${i===0?'active':''}" data-pos="${pos}" aria-label="사진 ${i+1}"><img src="${s.image}" alt=""></button>`).join('');gallery.querySelectorAll('button').forEach(b=>b.onclick=()=>{gallery.querySelectorAll('button').forEach(x=>x.classList.remove('active'));b.classList.add('active');img.style.objectPosition=b.dataset.pos});syncModalSave();modal.classList.add('open');modal.setAttribute('aria-hidden','false');document.body.style.overflow='hidden'}
  function closeShop(){modal.classList.remove('open');modal.setAttribute('aria-hidden','true');if(!coupon.classList.contains('open')&&!review.classList.contains('open'))document.body.style.overflow=''}
  function openCoupon(key){const s=byKey[key];if(!s)return;active=key;document.getElementById('shopCouponShop').textContent=s.name+' · '+s.relation;document.getElementById('shopCouponTitle').textContent=s.benefit;document.getElementById('shopCouponValue').textContent=s.value;document.getElementById('shopCouponCode').textContent=s.code;document.getElementById('shopCouponNote').textContent='예약·문의 또는 방문 시 방림명지로드힐 주민임을 확인한 뒤 적용합니다. 실제 제공 조건은 가게 안내를 우선합니다.';syncCouponStore();coupon.classList.add('open');coupon.setAttribute('aria-hidden','false');document.body.style.overflow='hidden'}
@@ -1171,10 +1200,9 @@
  document.getElementById('shopReviewOpen').onclick=openReview;document.getElementById('shopReviewOpen2').onclick=()=>openReviewWrite(active);document.getElementById('shopReviewClose').onclick=closeReview;review.addEventListener('click',e=>{if(e.target===review)closeReview()});
  document.getElementById('shopReviewWriteOpen').onclick=()=>openReviewWrite(active);
  document.getElementById('shopReviewWriteClose').onclick=closeReviewWrite;
- document.getElementById('shopReviewWriteCancel').onclick=closeReviewWrite;
  document.getElementById('shopReviewSubmit').onclick=submitReview;
  document.getElementById('shopInquiryClose').onclick=closeShopInquiry;
- document.getElementById('shopInquiryCancel').onclick=closeShopInquiry;
+ const shopInquiryCancel=document.getElementById('shopInquiryCancel');if(shopInquiryCancel)shopInquiryCancel.onclick=closeShopInquiry;
  document.getElementById('shopInquiryModal').addEventListener('click',e=>{if(e.target.id==='shopInquiryModal')closeShopInquiry()});
  document.getElementById('shopInquiryForm').addEventListener('submit',sendShopInquiry);
  document.getElementById('shopCouponClose').onclick=closeCoupon;coupon.addEventListener('click',e=>{if(e.target===coupon)closeCoupon()});

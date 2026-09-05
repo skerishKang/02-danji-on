@@ -197,6 +197,7 @@ function routeFrom(v){v=(v||'').split('#')[0]; if(!v)return null;
 function backFallback(){
   const from=new URLSearchParams(location.search).get('from');
   if(from==='settings'){location.href=FILES.settings+'?restore=1';return;}
+  if(SCREEN==='household'){location.href=FILES.my;return;}
   const parentMap={
     shops:FILES.home,shopDetail:FILES.shops,complex:FILES.home,
     noticeList:FILES.complex,noticeDetail:FILES.noticeList,apartment:FILES.complex,chair:FILES.complex,

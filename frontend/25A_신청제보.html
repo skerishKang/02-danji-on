@@ -69,7 +69,7 @@ body{min-height:100vh;overflow-x:hidden}.request-underlay{position:fixed;inset:0
 </style><style id="frontcheck-close-task-v1">
 .close-task{display:grid!important;place-items:center!important;width:44px!important;height:44px!important;padding:0!important;font-size:28px!important;line-height:1!important;font-weight:500!important;text-align:center!important}
 </style><link data-final-header-sync="20260904" href="assets/consistency.css" rel="stylesheet"/></head>
-<body data-danjion-page="25"><iframe aria-hidden="true" class="request-underlay" src="01_이웃가게_발견.html" tabindex="-1" title="이웃가게 배경"></iframe><div aria-hidden="true" class="request-scrim"></div><div class="request-sheet"><header class="head"><button aria-label="단지온 시작 화면" class="brand" onclick="location.href=(sessionStorage.getItem('danjion:shopVariant')==='v2'?'index2.html':'index.html')" type="button"><span>단지온</span><small>DANJION by PADIEM</small></button><button aria-label="신청·제보 닫기" class="back close-task" onclick="location.href=(sessionStorage.getItem('danjion:shopVariant')==='v2'?'01_이웃가게_발견_v2.html':'01_이웃가게_발견.html')" type="button">×</button></header><main class="wrap">
+<body data-danjion-page="25"><iframe aria-hidden="true" class="request-underlay" src="01_이웃가게_발견.html" tabindex="-1" title="이웃가게 배경"></iframe><div aria-hidden="true" class="request-scrim"></div><div class="request-sheet"><header class="head"><button aria-label="단지온 시작 화면" class="brand" onclick="location.href=(sessionStorage.getItem('danjion:shopVariant')==='v3'?'index3.html':(sessionStorage.getItem('danjion:shopVariant')==='v2'?'index2.html':'index.html'))" type="button"><span>단지온</span><small>DANJION by PADIEM</small></button><button aria-label="신청·제보 닫기" class="back close-task" onclick="location.href=(sessionStorage.getItem('danjion:shopVariant')==='v3'?'01_이웃가게_발견_v3.html':(sessionStorage.getItem('danjion:shopVariant')==='v2'?'01_이웃가게_발견_v2.html':'01_이웃가게_발견.html'))" type="button">×</button></header><main class="wrap">
 <div class="eyebrow">NEIGHBOR SHOP REQUEST</div>
 <h1 class="title" id="pageTitle">내 가게 등록 신청</h1>
 <p class="lead" id="pageLead">가게 운영자가 단지온 등록을 신청하는 화면입니다. 아래 항목을 채우고 확인서류와 사진을 함께 첨부합니다.</p>
@@ -200,18 +200,22 @@ toggleEtc(ownerRelation,ownerEtcWrap,ownerEtc);toggleEtc(reportRelation,reportEt
 (function(){
   const params=new URLSearchParams(location.search);
   const returnV2=params.get('return')==='v2';
+  const returnV3=params.get('return')==='v3';
   if(returnV2){try{sessionStorage.setItem('danjion:shopVariant','v2')}catch(e){}}
-  let isV2=false; try{isV2=sessionStorage.getItem('danjion:shopVariant')==='v2'}catch(e){}
+  if(returnV3){try{sessionStorage.setItem('danjion:shopVariant','v3')}catch(e){}}
+  let isV2=false; try{isV2=['v2','v3'].includes(sessionStorage.getItem('danjion:shopVariant'))}catch(e){}
+  const isV3=(()=>{try{return sessionStorage.getItem('danjion:shopVariant')==='v3'}catch(e){return false}})();
   const underlay=document.querySelector('.request-underlay');
-  if(underlay) underlay.src=isV2?'01_이웃가게_발견_v2.html':'01_이웃가게_발견.html';
+  if(underlay) underlay.src=isV2?(isV3?'01_이웃가게_발견_v3.html':'01_이웃가게_발견_v2.html'):'01_이웃가게_발견.html';
 })();
 </script>
 <script id="danjion-direct-router-v5">
 (function(){
 const SCREEN="apply";
 const FILES={"landing": "index.html", "home": "04_데일리홈.html", "shops": "01_이웃가게_발견.html", "shopDetail": "02_이웃가게_상세.html", "complex": "05_우리단지_첫화면.html", "noticeList": "06_단지온공지_목록.html", "noticeDetail": "07_단지온공지_상세.html", "apartment": "08_아파트소식_목록.html", "chair": "09_회장인사_상세.html", "residentList": "10_주민소식_목록.html", "residentDetail": "11_주민소식_상세.html", "community": "12_이웃대화_첫화면.html", "communityDetail": "13_이웃대화_글상세_댓글.html", "writeHello": "14_가입인사_글쓰기.html", "writeStory": "15_단지이야기_글쓰기.html", "writeQuestion": "16_궁금해요_글쓰기.html", "writeTogether": "17_같이해요_글쓰기.html", "my": "19_내정보_메인.html", "messages": "20_메시지함_목록.html", "messageDetail": "21_메시지_대화상세.html", "profile": "22_주민_공개프로필.html", "warmth": "23_이웃온기.html", "settings": "24_설정.html", "inquiry": "25_1대1문의.html", "apply": "25A_신청제보.html", "household": "26_우리집연결.html", "notifications": "27_알림함.html", "activity": "28_나의활동.html"};
-let B=false;try{B=sessionStorage.getItem('danjion:shopVariant')==='v2'}catch(e){}
-if(B){FILES.landing='index2.html';FILES.shops='01_이웃가게_발견_v2.html';FILES.shopDetail='01_이웃가게_발견_v2.html';}
+let B=false;try{B=['v2','v3'].includes(sessionStorage.getItem('danjion:shopVariant'))}catch(e){}
+const __v3=(()=>{try{return sessionStorage.getItem('danjion:shopVariant')==='v3'}catch(e){return false}})();
+if(B){const __sf=__v3?'01_이웃가게_발견_v3.html':'01_이웃가게_발견_v2.html';FILES.landing=__v3?'index3.html':'index2.html';FILES.shops=__sf;FILES.shopDetail=__sf;}
 const norm=s=>(s||'').replace(/\s+/g,' ').trim();
 function go(f){
   if(!f)return;
