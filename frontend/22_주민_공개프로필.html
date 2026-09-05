@@ -84,7 +84,7 @@
 <div class="activity-panel" data-panel="comments"><div class="activity-item"><div class="item-type">단지이야기<span>오늘</span></div><div class="item-copy"><h3>“관리사무소 앞 분리수거 안내판이 새로 바뀌었어요.”</h3><p>사진 덕분에 바로 확인했습니다. 알려주셔서 고맙습니다.</p></div><div class="item-metric"><b>답글 2</b>공감 4</div></div><div class="activity-item"><div class="item-type">궁금해요<span>어제</span></div><div class="item-copy"><h3>“근처에 자전거 바람 넣을 수 있는 곳이 있을까요?”</h3><p>후문 쪽 수리점 앞 공기주입기를 이용할 수 있다고 들었어요.</p></div><div class="item-metric"><b>답글 1</b>공감 3</div></div></div>
 <div class="activity-panel" data-panel="reviews"><div class="activity-item"><div class="item-type">함께한 후기<span>8월 28일</span></div><div class="item-copy"><h3>아이와 함께 걸어서 더 즐거웠어요.</h3><p>짧은 거리로 천천히 걸어 부담 없이 참여할 수 있었습니다.</p></div><div class="item-metric"><b>공감 8</b>공개 후기</div></div><div class="activity-item"><div class="item-type">이웃의 일 후기<span>8월 24일</span></div><div class="item-copy"><h3>수선 상담을 친절하게 안내받았습니다.</h3><p>가격과 가능한 작업을 먼저 설명해줘서 편했습니다.</p></div><div class="item-metric"><b>공감 5</b>공개 후기</div></div></div>
 </article>
-<aside class="side"><section class="side-card dark"><small>NEIGHBOR PROFILE</small><h3>이웃의 공개 활동</h3></section><section class="side-card"><small>PUBLIC INFORMATION</small><h3>주민에게 보이는 정보</h3><ul class="visibility-list"><li><b>프로필</b><span>닉네임·이웃 온기</span></li><li><b>활동</b><span>게시글·댓글·후기</span></li></ul></section></aside>
+<aside class="side"><section class="side-card"><small>PUBLIC INFORMATION</small><h3>주민에게 보이는 정보</h3><ul class="visibility-list"><li><b>프로필</b><span>닉네임·이웃 온기</span></li><li><b>활동</b><span>게시글·댓글·후기</span></li></ul></section></aside>
 </section>
 </main>
 <nav aria-label="모바일 주요 메뉴" class="mobile-bottom"><button aria-label="홈" data-route="04_데일리홈.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><path d="m3 10 9-7 9 7v10h-6v-6H9v6H3z"></path></svg><span>홈</span></button><button aria-label="이웃가게" data-route="01_이웃가게_발견.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><path d="M4 7h16l-1 13H5L4 7Z"></path><path d="M8 7V5a4 4 0 0 1 8 0v2"></path></svg><span>이웃가게</span></button><button aria-label="우리단지" data-route="05_우리단지_첫화면.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><path d="M4 21V9l8-6 8 6v12"></path><path d="M8 13h8M8 17h8"></path></svg><span>우리단지</span></button><button aria-label="내정보" class="active" data-route="19_내정보_메인.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><circle cx="12" cy="8" r="4"></circle><path d="M4 21a8 8 0 0 1 16 0"></path></svg><span>내정보</span></button></nav>
@@ -219,6 +219,7 @@ if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt
 }
 </style>
 <style id="profile-actions-single-20260906">
+[data-danjion-page="22"] .side{grid-template-columns:1fr!important}
 @media(max-width:760px){
   [data-danjion-page="22"] .profile-actions{width:100%!important}
   [data-danjion-page="22"] .profile-actions .message-button{flex:1!important;width:100%!important;align-items:center!important;justify-content:center!important;display:flex!important}
