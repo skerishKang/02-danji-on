@@ -305,7 +305,7 @@ document.addEventListener('click',function(ev){
  if(inMain && ['홈','이웃가게','우리단지','내정보'].includes(text)){ev.preventDefault();ev.stopImmediatePropagation();main(text);return;}
  if(cls.contains('back')||cls.contains('route-back')||((/^←|^‹|^< /.test(text))&&!cls.contains('modal-back'))){ev.preventDefault();ev.stopImmediatePropagation();backFallback();return;}
  // home: current scene -> selected shop detail
- if(SCREEN==='home' && el.id==='detailBtn'){ev.preventDefault();ev.stopImmediatePropagation();const k=el.dataset.shopKey||'food';if(B){try{sessionStorage.setItem('danjion:shopVariant','v2')}catch(e){};go('01_이웃가게_발견_v2.html?shop='+encodeURIComponent(k)+'&from=home');return;}go(FILES.shopDetail+'?shop='+encodeURIComponent(k)+'&from=home');return;}
+ if(SCREEN==='home' && el.id==='detailBtn'){ev.preventDefault();ev.stopImmediatePropagation();const k=el.dataset.shopKey||'food';if(B){const __cur=(()=>{try{return sessionStorage.getItem('danjion:shopVariant')}catch(e){return 'v2'}})();const __bf=__cur==='v3'?'01_이웃가게_발견_v3.html':'01_이웃가게_발견_v2.html';try{sessionStorage.setItem('danjion:shopVariant',__cur==='v3'?'v3':'v2')}catch(e){};go(__bf+'?shop='+encodeURIComponent(k)+'&from=home');return;}go(FILES.shopDetail+'?shop='+encodeURIComponent(k)+'&from=home');return;}
  // shops cards -> specific shop detail
  if(SCREEN==='shops' && cls.contains('shop-link')){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.shopDetail+'?shop='+encodeURIComponent(el.dataset.shopKey||'florist'));return;}
  if(SCREEN==='shops' && text==='이웃가게 제보'){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.apply+'?mode=report');return;}
