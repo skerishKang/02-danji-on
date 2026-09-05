@@ -37,6 +37,8 @@ git checkout main && git log --oneline -1   # abbd6e7 이상이 보여야 정상
 
 ## 3. 작업 워크플로
 
+**main은 보호 대상이다.** 소유자·CTO 승인 없이 누구도 main에 직접 커밋하거나 푸시하지 않는다. (import 머지 `abbd6e7`은 예외적으로 이미 반영된 것)
+
 1. `main`에서 작업 브랜치 생성: `git checkout -b feat/<내용>`
 2. 변경 후 **Draft PR** 생성 (base `main`)
 3. PR에 변경 파일 목록·검증 결과·커밋 해시를 기록
