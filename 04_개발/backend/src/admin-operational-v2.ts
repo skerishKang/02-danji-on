@@ -1,4 +1,5 @@
 import { neon, type NeonQueryFunction } from '@neondatabase/serverless';
+import { deriveChannel } from './complex-news-channel';
 import type { CoreEnv } from './core-v1';
 import { requireOperationalAuthority, type OperationalAuthority } from './operational-authz-v2';
 import { validateBusinessImageReference } from './storage-v1';
@@ -260,17 +261,20 @@ async function createPost(
 
   const publishedAt = String(payload.publishedAt ?? '').trim() || null;
   const attachment = String(payload.attachmentObjectKey ?? '').trim() || null;
+  const channel = deriveChannel(sourceName, payload.channel);
+  if (!channel) return fail('INVALID_CHANNEL', 'Invalid channel', 400, requestId);
   const rows = await sql`
     insert into complex_posts (
       complex_id, author_user_id, source_name, category, title, body,
-      attachment_object_key, status, published_at
+      attachment_object_key, status, published_at, channel
     ) values (
       ${operator.complexId}::uuid,
       ${operator.id}::uuid,
       ${sourceName}, ${category}, ${title}, ${body}, ${attachment}, ${status},
-      case when ${status} = 'published' then coalesce(${publishedAt}::timestamptz, now()) else null end
+      case when ${status} = 'published' then coalesce(${publishedAt}::timestamptz, now()) else null end,
+      ${channel}
     )
-    returning id, source_name, category, title, body, status, published_at, created_at
+    returning id, source_name, category, title, body, status, published_at, created_at, channel
   `;
   return ok(rows[0], requestId, 201);
 }
@@ -308,13 +312,16 @@ async function patchPost(
   if (!sourceName || !category || !title || !body || !['draft','published','archived'].includes(status)) {
     return fail('VALIDATION_ERROR', 'Invalid post update', 400, requestId);
   }
+  const channel = deriveChannel(sourceName, payload.channel);
+  if (!channel) return fail('INVALID_CHANNEL', 'Invalid channel', 400, requestId);
   const updated = await sql`
     update complex_posts
     set source_name = ${sourceName}, category = ${category}, title = ${title}, body = ${body},
         attachment_object_key = ${attachment}, status = ${status},
+        channel = ${channel},
         published_at = case when ${status} = 'published' then coalesce(published_at, now()) else published_at end
     where id = ${postId}::uuid
-    returning id, source_name, category, title, body, status, published_at, updated_at
+    returning id, source_name, category, title, body, status, published_at, updated_at, channel
   `;
   return ok(updated[0], requestId);
 }

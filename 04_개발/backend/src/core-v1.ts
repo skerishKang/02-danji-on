@@ -67,7 +67,7 @@ function relationFilter(value: string | null): string | null {
   return ['resident', 'resident_family', 'neighbor', 'local'].includes(value) ? value : '__invalid__';
 }
 
-const NEWS_CHANNELS = ['danjion_notice', 'apartment_news', 'management_office', 'chair_greeting'];
+export const NEWS_CHANNELS = ['danjion_notice', 'apartment_news', 'management_office', 'chair_greeting'];
 
 function channelFilter(value: string | null): string | null {
   if (!value || value === 'all') return null;
