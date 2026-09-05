@@ -2,9 +2,10 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
 const root = new URL('../', import.meta.url);
-const [integration, client, main] = await Promise.all([
+const [integration, client, safetyClient, main] = await Promise.all([
   readFile(new URL('src/v2/integration/V2MessagesIntegration.tsx', root), 'utf8'),
   readFile(new URL('src/resident-messages-client.ts', root), 'utf8'),
+  readFile(new URL('src/resident-safety-client.ts', root), 'utf8'),
   readFile(new URL('src/main.tsx', root), 'utf8')
 ]);
 
@@ -62,14 +63,34 @@ assert.match(client, /\/api\/v1\/conversations\/\$\{encodeURIComponent\(conversa
 assert.match(client, /authenticatedFetch/,
   '21 messages must stay on authenticated authority');
 
+for (const label of ['욕설·괴롭힘', '위협', '개인정보 침해', '명예훼손 우려', '스팸', '기타']) {
+  assert.ok(integration.includes(label), `21 report reason parity must keep 22-aligned label: ${label}`);
+}
+assert.match(integration, /대화 신고하기/,
+  '21 conversation detail must expose the 대화 신고하기 entry point');
+assert.match(integration, /data-v2-message-report-form/,
+  '21 report form must keep its stable hook');
+assert.match(integration, /residentSafetyClient\.reportMessage\(reportableMessage\.id, reportReason, reportDetail\)/,
+  '21 report must write through the canonical safety authority');
+assert.match(integration, /senderUserId === selected\.participant\.userId && message\.body != null/,
+  '21 report must only target live (non-deleted) peer messages');
+assert.match(integration, /'이미 검토 중인 신고가 있습니다\.'/,
+  '21 report must surface already-reported feedback');
+assert.match(safetyClient, /reportMessage\(messageId: string, reason: ResidentReportReason, detail\?: string\)/,
+  '21 safety client must expose reportMessage with canonical signature');
+assert.match(safetyClient, /targetType: 'message', targetId: messageId/,
+  '21 report must target messages through the canonical safety route');
+assert.match(safetyClient, /mockReports\.add\(key\)/,
+  '21 report must keep the canonical mock dedupe authority');
+
 assert.match(integration, /document\.querySelector<HTMLElement>\('\.v2-profile-dialog'\)/,
   '21 conversation surface must mount into the canonical profile dialog');
 assert.match(integration, /new MutationObserver\(sync\)/,
   '21 conversation surface must stay reactive to dialog presence');
 
-assert.doesNotMatch(integration + client, /localStorage|sessionStorage|indexedDB/i,
+assert.doesNotMatch(integration + client + safetyClient, /localStorage|sessionStorage|indexedDB/i,
   '21 parity must not create browser persistence authority');
-assert.doesNotMatch(integration, /이웃온기|주민혜택 쿠폰/,
+assert.doesNotMatch(integration + safetyClient, /이웃온기|주민혜택 쿠폰/,
   '21 parity surface must not add excluded 23/03 screens');
 
 assert.match(main, /import V2MessagesIntegration from '\.\/v2\/integration\/V2MessagesIntegration';/,

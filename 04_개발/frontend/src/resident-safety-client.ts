@@ -55,5 +55,19 @@ export const residentSafetyClient = {
       body: JSON.stringify({ targetType: 'resident', targetId: userId, reason, detail: detail?.trim() || undefined })
     });
     return String(data.status ?? 'submitted');
+  },
+
+  async reportMessage(messageId: string, reason: ResidentReportReason, detail?: string): Promise<'submitted' | 'already_reported' | string> {
+    if (!API_MODE) {
+      const key = `message:${messageId}`;
+      if (mockReports.has(key)) return 'already_reported';
+      mockReports.add(key);
+      return 'submitted';
+    }
+    const data = await request<Record<string, unknown>>(`/api/v1/me/reports?${query()}`, {
+      method: 'POST',
+      body: JSON.stringify({ targetType: 'message', targetId: messageId, reason, detail: detail?.trim() || undefined })
+    });
+    return String(data.status ?? 'submitted');
   }
 };
