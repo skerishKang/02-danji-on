@@ -22,7 +22,7 @@ async function openCommunity(page: Page) {
 }
 
 test.describe('Community C6 API-mode browser gate', () => {
-  test('403 resident probe keeps Community locked and carries dev resident identity', async ({ page }) => {
+  test('403 resident probe keeps Neighbor Conversation locked and carries dev resident identity', async ({ page }) => {
     let residentProbeHeader = '';
 
     await page.route('**/api/v1/**', async (route) => {
@@ -42,13 +42,12 @@ test.describe('Community C6 API-mode browser gate', () => {
 
     await openCommunity(page);
 
-    await expect(page.getByRole('heading', { name: '우리단지는 입주민 확인 후 이용합니다.' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: '이웃대화는 입주민 확인 후 이용합니다.' })).toBeVisible();
     await expect(page.getByText(/소셜 로그인이나 과거 관리권한만으로 주민 글과 댓글 권한을 부여하지 않습니다/)).toBeVisible();
     expect(residentProbeHeader).toBe('dev-resident-001');
-    await expect(page.locator('.v2-verified-pill')).toHaveCount(0);
   });
 
-  test('200 resident probe renders official + resident feeds and sends resident mutations to Community API', async ({ page }) => {
+  test('200 resident probe renders resident-only feed and sends resident mutations to Community API', async ({ page }) => {
     const seen: Array<{ method: string; path: string; auth: string; body: unknown }> = [];
     let liked = false;
     const comments = [
@@ -154,45 +153,47 @@ test.describe('Community C6 API-mode browser gate', () => {
         }, 201);
       }
 
-      // The Product Shell also loads public businesses/benefits and private wallet data.
-      // Those are unrelated to this Community gate and may safely return an empty envelope.
       return json(route, []);
     });
 
     await openCommunity(page);
 
-    await expect(page.getByRole('heading', { name: '우리단지', exact: true })).toBeVisible();
-    await expect(page.locator('.v2-community-layer').getByText('API 공식 공지', { exact: true })).toBeVisible();
-    await expect(page.getByText('API 주민 질문', { exact: true })).toBeVisible();
-    await expect(page.locator('.v2-verified-pill')).toContainText('입주민');
+    const community = page.locator('.v2-community-layer');
+    await expect(community.getByRole('heading', { name: '이웃대화', exact: true })).toBeVisible();
+    await expect(community.getByText('API 공식 공지', { exact: true })).toHaveCount(0);
+
+    const questionTopic = community.locator('.v2-community-topic').filter({ hasText: '궁금해요' });
+    await questionTopic.click();
+    await expect(community.getByText('API 주민 질문', { exact: true })).toBeVisible();
 
     const residentProbe = seen.find((item) => item.method === 'GET' && item.path === COMMUNITY_POSTS);
     expect(residentProbe?.auth).toBe('dev-resident-001');
     const officialRead = seen.find((item) => item.method === 'GET' && item.path === OFFICIAL_POSTS);
     expect(officialRead?.auth).toBe('');
 
-    await page.getByText('API 주민 질문', { exact: true }).click();
+    await community.getByText('API 주민 질문', { exact: true }).click();
     await expect(page.getByText('기존 댓글입니다.', { exact: true })).toBeVisible();
 
-    await page.getByRole('button', { name: /공감하기/ }).click();
-    await expect(page.getByRole('button', { name: /공감 취소/ })).toBeVisible();
-    await page.getByRole('button', { name: /공감 취소/ }).click();
-    await expect(page.getByRole('button', { name: /공감하기/ })).toBeVisible();
+    await page.getByRole('button', { name: /^♡ 공감/ }).click();
+    await expect(page.getByRole('button', { name: /^♥ 공감 취소/ })).toBeVisible();
+    await page.getByRole('button', { name: /^♥ 공감 취소/ }).click();
+    await expect(page.getByRole('button', { name: /^♡ 공감/ })).toBeVisible();
 
-    await page.getByRole('button', { name: '댓글 남기기' }).click();
+    await page.getByRole('button', { name: /^댓글/ }).click();
     await page.getByRole('textbox', { name: '댓글' }).fill('API 모드 댓글입니다.');
-    await page.getByRole('button', { name: '댓글 게시' }).click();
+    await page.getByRole('button', { name: '댓글 등록', exact: true }).click();
     await expect(page.getByText('API 모드 댓글입니다.', { exact: true })).toBeVisible();
 
-    await page.getByRole('button', { name: '신고하기' }).click();
+    await page.getByRole('button', { name: '신고하기', exact: true }).click();
     await expect(page.getByText(/신고가 접수되었습니다/)).toBeVisible();
 
-    await page.getByRole('button', { name: '게시물 닫기' }).click();
-    await page.getByRole('button', { name: /궁금한 것 물어보기/ }).click();
-    await page.getByRole('textbox', { name: '제목' }).fill('새 API 질문');
-    await page.getByRole('textbox', { name: '내용' }).fill('브라우저에서 Community API로 등록합니다.');
-    await page.getByRole('button', { name: '글 등록' }).click();
-    await expect(page.getByText('새 API 질문', { exact: true })).toBeVisible();
+    await page.getByRole('button', { name: '게시물 닫기', exact: true }).click();
+    await expect(community.getByRole('button', { name: /궁금해요 글쓰기/ })).toBeVisible();
+    await community.getByRole('button', { name: /궁금해요 글쓰기/ }).click();
+    await page.getByRole('textbox', { name: '질문 제목' }).fill('새 API 질문');
+    await page.getByRole('textbox', { name: '궁금한 내용' }).fill('브라우저에서 Community API로 등록합니다.');
+    await page.getByRole('button', { name: '질문 게시하기', exact: true }).click();
+    await expect(community.getByText('새 API 질문', { exact: true })).toBeVisible();
 
     const requiredMutations = [
       ['POST', `${COMMUNITY_POSTS}/${RESIDENT_ID}/reactions`],

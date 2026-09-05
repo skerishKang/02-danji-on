@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
-import { dataAdapter } from '../../api/adapter';
 import {
   COMMUNITY_API_MODE,
   CommunityApiError,
@@ -9,19 +8,18 @@ import {
   type CommunityPostKind,
   type CommunityReply
 } from '../../community-api';
-import type { ComplexPost } from '../../types';
 import './v2-community.css';
+import './v2-community-008.css';
 
-type CommunityKind = '공식소식' | '주민이야기' | '질문' | '같이해요' | '생활제보' | '우리 단지의 변화' | '함께하는 곳';
-type WriteKind = Extract<CommunityKind, '주민이야기' | '질문' | '같이해요' | '생활제보'>;
-type Tab = '전체' | CommunityKind;
+type ConversationKind = '가입인사' | '단지이야기' | '궁금해요' | '같이해요';
+type PersistedWriteKind = Exclude<ConversationKind, '가입인사'>;
+type Tab = '전체' | ConversationKind;
 type AccessState = 'checking' | 'allowed' | 'denied' | 'error';
 
 type Post = {
   id: string;
-  source: 'official' | 'resident';
-  type: CommunityKind;
-  official?: boolean;
+  source: 'resident';
+  type: ConversationKind;
   title: string;
   body: string;
   time: string;
@@ -35,56 +33,49 @@ type Post = {
 type Comment = { id: string; nick: string; text: string; pending?: boolean };
 type Reply = Comment & { parentCommentId: string };
 
-const TABS: Tab[] = ['전체', '공식소식', '주민이야기', '질문', '같이해요', '생활제보', '우리 단지의 변화', '함께하는 곳'];
-const WRITE_KIND_TO_API: Record<WriteKind, CommunityPostKind> = {
-  주민이야기: 'resident_story',
-  질문: 'question',
-  같이해요: 'together',
-  생활제보: 'life_report'
+const TOPICS: Array<{ kind: ConversationKind; no: string; description: string }> = [
+  { kind: '가입인사', no: '01', description: '새 이웃과 반갑게 인사해요.' },
+  { kind: '단지이야기', no: '02', description: '정보와 일상을 나눠요.' },
+  { kind: '궁금해요', no: '03', description: '생활 속 궁금한 것을 물어요.' },
+  { kind: '같이해요', no: '04', description: '산책·취미·공동구매를 함께해요.' }
+];
+
+const WRITE_KIND_TO_API: Record<PersistedWriteKind, CommunityPostKind> = {
+  단지이야기: 'resident_story',
+  궁금해요: 'question',
+  같이해요: 'together'
 };
-const API_KIND_TO_UI: Record<CommunityPostKind, WriteKind> = {
-  resident_story: '주민이야기',
-  question: '질문',
-  together: '같이해요',
-  life_report: '생활제보'
+
+const API_KIND_TO_UI: Partial<Record<CommunityPostKind, PersistedWriteKind>> = {
+  resident_story: '단지이야기',
+  question: '궁금해요',
+  together: '같이해요'
 };
 
 const BASE_POSTS: Post[] = [
   {
-    id: 'official-1', source: 'official', type: '공식소식', official: true,
-    title: '주민 생활편의 서비스 단지온을 준비하고 있습니다',
-    body: '현재는 제안과 의견수렴 단계입니다. 실제 운영 준비가 확정되면 진행상황을 순서대로 알려드립니다.',
-    time: '진행 중', likes: 12, comments: 1
+    id: 'hello-demo', source: 'resident', type: '가입인사',
+    title: '안녕하세요. 오늘 단지온에 처음 가입했어요.',
+    body: '이웃분들과 인사하고 단지 소식과 생활정보를 편하게 나누고 싶습니다.',
+    time: '오늘', likes: 12, comments: 2, nick: '초록문'
   },
   {
-    id: 'question-1', source: 'resident', type: '질문',
+    id: 'story-demo', source: 'resident', type: '단지이야기',
+    title: '오늘 분리수거장이 깨끗하게 정리되어 있네요.',
+    body: '아침에 내려갔는데 종류별로 가지런히 정리되어 있어서 편하게 이용했습니다.',
+    time: '오늘', likes: 8, comments: 1, nick: '길고양이'
+  },
+  {
+    id: 'question-demo', source: 'resident', type: '궁금해요',
     title: '에어컨 청소 잘하는 이웃 계실까요?',
-    body: '이번 주말 가능한 분을 찾고 있어요. 가까운 이웃의 일이나 이용 경험을 알려주세요.',
+    body: '이번 주말 가능한 분을 찾고 있어요. 이용 경험을 알려주세요.',
     time: '오늘', likes: 4, comments: 2, nick: '방림이웃'
   },
   {
-    id: 'together-1', source: 'resident', type: '같이해요',
+    id: 'together-demo', source: 'resident', type: '같이해요',
     title: '주말 아침 산책 같이하실 분 계세요?',
     body: '무리하지 않고 한 시간 정도 동네를 걷고 싶습니다.',
-    time: '오늘', likes: 5, comments: 1, nick: '로드힐이웃'
-  },
-  {
-    id: 'report-1', source: 'resident', type: '생활제보',
-    title: '102동 공동현관 조명이 어두워요',
-    body: '저녁 시간에 확인이 필요해 보입니다. 특정 세대를 지목하지 않고 현장 상태만 공유합니다.',
-    time: '어제', likes: 6, comments: 2, nick: '단지이웃'
-  },
-  {
-    id: 'change-1', source: 'official', type: '우리 단지의 변화', official: true,
-    title: '주민편의 제안과 준비사항을 순서대로 공유합니다',
-    body: '의결·운영 상태를 실제 사실관계와 구분해 안내합니다.',
-    time: '안내', likes: 9, comments: 0
-  },
-  {
-    id: 'partner-1', source: 'official', type: '함께하는 곳', official: true,
-    title: '우리 단지와 연결된 생활 파트너는 관계를 구분해 안내합니다',
-    body: '주민 운영, 주민 가족 운영, 주변 제휴, 단지 협력업체를 같은 의미로 표시하지 않습니다.',
-    time: '안내', likes: 7, comments: 0
+    time: '어제', likes: 5, comments: 1, nick: '로드힐이웃'
   }
 ];
 
@@ -94,7 +85,7 @@ function screenCommunityText(title: string, body: string) {
   const phone = /(?:01[016789])[-.\s]?\d{3,4}[-.\s]?\d{4}/;
   const rrn = /\b\d{6}[-\s]?\d{7}\b/;
   const unit = /\b(?:10[12])동\s*\d{3,4}호\b/;
-  const accusation = /(횡령|비리|뇌물|금품수수|사기꾼|범죄자|도둑)/i;
+  const accusation = /(횡령|비리|뇌물수수|금품수수|사기꾼|범죄자|도둑)/i;
   const insult = /(미친|병신|개새|씨발|년아|놈아)/i;
 
   if (phone.test(text) || rrn.test(text) || unit.test(text)) return { action: 'block' as const, reason: '전화번호·특정 세대·주민등록번호 등 주민 개인정보는 공개 글에 적을 수 없습니다.' };
@@ -110,33 +101,13 @@ function displayTime(value: string | null | undefined, fallback = '방금') {
   return date.toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric' });
 }
 
-function officialKind(post: ComplexPost): CommunityKind {
-  const text = `${post.category} ${post.sourceName}`.toLowerCase();
-  if (/변화|진행|의결|운영|progress|govern/.test(text)) return '우리 단지의 변화';
-  if (/협력|제휴|파트너|partner|business/.test(text)) return '함께하는 곳';
-  return '공식소식';
-}
-
-function mapOfficialPost(post: ComplexPost): Post {
-  return {
-    id: `official-${post.id}`,
-    source: 'official',
-    type: officialKind(post),
-    official: true,
-    title: post.title,
-    body: post.body,
-    time: displayTime(post.publishedAt, '공식 안내'),
-    likes: 0,
-    comments: 0,
-    nick: post.sourceName || '단지온 공식'
-  };
-}
-
-function mapResidentPost(post: CommunityPost): Post {
+function mapResidentPost(post: CommunityPost): Post | null {
+  const type = API_KIND_TO_UI[post.kind];
+  if (!type) return null;
   return {
     id: post.id,
     source: 'resident',
-    type: API_KIND_TO_UI[post.kind],
+    type,
     title: post.title,
     body: post.body,
     time: displayTime(post.publishedAt || post.createdAt),
@@ -146,6 +117,10 @@ function mapResidentPost(post: CommunityPost): Post {
     pending: post.status !== 'published',
     viewerLiked: post.viewerLiked
   };
+}
+
+function isPost(value: Post | null): value is Post {
+  return value !== null;
 }
 
 function mapResidentComment(comment: CommunityComment): Comment {
@@ -171,6 +146,18 @@ function accessError(error: unknown) {
   return error instanceof CommunityApiError && (error.status === 401 || error.status === 403);
 }
 
+function writerHeading(kind: PersistedWriteKind) {
+  if (kind === '단지이야기') return '단지에서 나누고 싶은 이야기를 바로 적어보세요.';
+  if (kind === '궁금해요') return '궁금한 종류를 고르고 바로 물어보세요.';
+  return '함께할 일을 고르고 필요한 정보만 적어보세요.';
+}
+
+function writerLead(kind: PersistedWriteKind) {
+  if (kind === '단지이야기') return '종류는 이미 선택했습니다. 바로 작성하면 됩니다.';
+  if (kind === '궁금해요') return '궁금해요 안에서 필요한 유형만 탭으로 바꿉니다. 다른 글쓰기 화면을 다시 고를 필요는 없습니다.';
+  return '네 가지 전용 폼의 유형을 보여주되, 현재 서버에 없는 구조화 필드는 게시 데이터로 저장하지 않습니다.';
+}
+
 export function V2CommunityView({
   verified,
   onClose,
@@ -180,10 +167,10 @@ export function V2CommunityView({
   onClose: () => void;
   onVerified?: () => void;
 }) {
-  const [tab, setTab] = useState<Tab>('전체');
+  const [tab, setTab] = useState<Tab>('가입인사');
   const [posts, setPosts] = useState<Post[]>(COMMUNITY_API_MODE ? [] : BASE_POSTS);
   const [selected, setSelected] = useState<Post | null>(null);
-  const [writeKind, setWriteKind] = useState<WriteKind | null>(null);
+  const [writeKind, setWriteKind] = useState<PersistedWriteKind | null>(null);
   const [comments, setComments] = useState<Record<string, Comment[]>>({});
   const [replies, setReplies] = useState<Record<string, Reply[]>>({});
   const [commenting, setCommenting] = useState(false);
@@ -207,18 +194,17 @@ export function V2CommunityView({
       setAccess('checking');
       setNotice('');
       try {
-        // The resident feed is the authoritative Household-v2 verification probe.
-        // Official complex_posts stay on the existing public content boundary.
+        // Screen 12 is resident-only. Official/public complex_posts remain on the
+        // resident-news boundary and are intentionally not merged into this feed.
         const residentRows = await communityApi.listPosts();
-        const officialRows = await dataAdapter.listPosts().catch(() => []);
         if (cancelled) return;
-        setPosts([...officialRows.map(mapOfficialPost), ...residentRows.map(mapResidentPost)]);
+        setPosts(residentRows.map(mapResidentPost).filter(isPost));
         setAccess('allowed');
         onVerified?.();
       } catch (error) {
         if (cancelled) return;
         setAccess(accessError(error) ? 'denied' : 'error');
-        if (!accessError(error)) setNotice(error instanceof Error ? error.message : '우리단지 정보를 불러오지 못했습니다.');
+        if (!accessError(error)) setNotice(error instanceof Error ? error.message : '이웃대화를 불러오지 못했습니다.');
       }
     }
 
@@ -228,13 +214,23 @@ export function V2CommunityView({
 
   const visiblePosts = useMemo(() => posts.filter((post) => tab === '전체' || post.type === tab), [posts, tab]);
   const selectedComments = selected ? comments[selected.id] ?? [] : [];
+  const selectedWriteKind: ConversationKind = tab === '전체' ? '가입인사' : tab;
+
+  function startWriting(kind: ConversationKind) {
+    setTab(kind);
+    if (kind === '가입인사') {
+      setNotice('가입인사 전용 글쓰기는 서버 카테고리 계약이 추가된 뒤 열립니다. 다른 글 종류로 대신 저장하지 않습니다.');
+      return;
+    }
+    setWriteKind(kind);
+  }
 
   async function openPost(post: Post) {
     setSelected(post);
     setCommenting(false);
     setReplyingTo(null);
     setReplies({});
-    if (!COMMUNITY_API_MODE || post.source !== 'resident') return;
+    if (!COMMUNITY_API_MODE) return;
     setBusy(true);
     try {
       const rows = await communityApi.listComments(post.id);
@@ -247,7 +243,7 @@ export function V2CommunityView({
   }
 
   async function loadReplies(parentCommentId: string) {
-    if (!selected || selected.source !== 'resident' || replies[parentCommentId] !== undefined) return;
+    if (!selected || replies[parentCommentId] !== undefined) return;
     if (!COMMUNITY_API_MODE) {
       setReplies((current) => ({ ...current, [parentCommentId]: [] }));
       return;
@@ -289,6 +285,7 @@ export function V2CommunityView({
       try {
         const created = await communityApi.createPost({ kind: WRITE_KIND_TO_API[writeKind], title, body });
         const post = mapResidentPost(created);
+        if (!post) throw new Error('지원하지 않는 이웃대화 글 종류가 반환되었습니다.');
         setPosts((current) => [post, ...current]);
         setWriteKind(null);
         setTab(writeKind);
@@ -317,7 +314,7 @@ export function V2CommunityView({
 
   async function submitComment(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!selected || selected.source !== 'resident') return;
+    if (!selected) return;
     const form = new FormData(event.currentTarget);
     const text = String(form.get('comment') ?? '').trim();
     if (!text) return;
@@ -355,7 +352,7 @@ export function V2CommunityView({
 
   async function submitReply(event: FormEvent<HTMLFormElement>, parentCommentId: string) {
     event.preventDefault();
-    if (!selected || selected.source !== 'resident') return;
+    if (!selected) return;
     const form = new FormData(event.currentTarget);
     const text = String(form.get('reply') ?? '').trim();
     if (!text) return;
@@ -398,7 +395,6 @@ export function V2CommunityView({
   }
 
   async function toggleLike(post: Post) {
-    if (post.source !== 'resident') return;
     const nextLiked = !post.viewerLiked;
     if (COMMUNITY_API_MODE) {
       setBusy(true);
@@ -420,7 +416,6 @@ export function V2CommunityView({
   }
 
   async function reportPost(post: Post) {
-    if (post.source !== 'resident') return;
     if (reported.has(post.id)) {
       setNotice('이미 신고한 게시물입니다.');
       return;
@@ -446,7 +441,7 @@ export function V2CommunityView({
     return (
       <div className="v2-community-layer" role="dialog" aria-modal="true" aria-labelledby="v2-community-title">
         <div className="v2-community-locked">
-          <button type="button" className="v2-community-close" onClick={onClose} aria-label="우리단지 닫기">×</button>
+          <button type="button" className="v2-community-close" onClick={onClose} aria-label="이웃대화 닫기">×</button>
           <div className="v2-community-eyebrow">RESIDENT CHECK</div>
           <h2 id="v2-community-title">입주민 이용 권한을 확인하고 있습니다.</h2>
           <p>로그인 계정과 Household-v2 입주민 자격을 서버에서 확인합니다.</p>
@@ -459,9 +454,9 @@ export function V2CommunityView({
     return (
       <div className="v2-community-layer" role="dialog" aria-modal="true" aria-labelledby="v2-community-title">
         <div className="v2-community-locked">
-          <button type="button" className="v2-community-close" onClick={onClose} aria-label="우리단지 닫기">×</button>
+          <button type="button" className="v2-community-close" onClick={onClose} aria-label="이웃대화 닫기">×</button>
           <div className="v2-community-eyebrow">RESIDENT ONLY</div>
-          <h2 id="v2-community-title">우리단지는 입주민 확인 후 이용합니다.</h2>
+          <h2 id="v2-community-title">이웃대화는 입주민 확인 후 이용합니다.</h2>
           <p>서비스 로그인과 실제 입주민 확인은 서로 다른 단계입니다. 소셜 로그인이나 과거 관리권한만으로 주민 글과 댓글 권한을 부여하지 않습니다.</p>
           <button type="button" className="v2-community-primary" onClick={onClose}>돌아가기</button>
         </div>
@@ -473,9 +468,9 @@ export function V2CommunityView({
     return (
       <div className="v2-community-layer" role="dialog" aria-modal="true" aria-labelledby="v2-community-title">
         <div className="v2-community-locked">
-          <button type="button" className="v2-community-close" onClick={onClose} aria-label="우리단지 닫기">×</button>
+          <button type="button" className="v2-community-close" onClick={onClose} aria-label="이웃대화 닫기">×</button>
           <div className="v2-community-eyebrow">COMMUNITY UNAVAILABLE</div>
-          <h2 id="v2-community-title">우리단지 연결을 확인하지 못했습니다.</h2>
+          <h2 id="v2-community-title">이웃대화 연결을 확인하지 못했습니다.</h2>
           <p>{notice || '잠시 후 다시 시도해 주세요.'}</p>
           <button type="button" className="v2-community-primary" onClick={() => setReloadKey((value) => value + 1)}>다시 시도</button>
         </div>
@@ -486,53 +481,130 @@ export function V2CommunityView({
   return (
     <div className="v2-community-layer" role="dialog" aria-modal="true" aria-labelledby="v2-community-title">
       <section className="v2-community-shell">
-        <header className="v2-community-header">
-          <div><div className="v2-community-eyebrow">NEIGHBOR TALK</div><h2 id="v2-community-title">우리단지</h2><p>공식소식은 분명하게, 주민 이야기는 편안하게 나눕니다.</p></div>
-          <button type="button" className="v2-community-close" onClick={onClose} aria-label="우리단지 닫기">×</button>
+        <div className="v2-community-route">
+          <button type="button" onClick={onClose}>← 우리단지</button><span>/ 이웃대화</span>
+        </div>
+
+        <header className="v2-community-intro">
+          <div>
+            <div className="v2-community-eyebrow">우리 단지 주민이 직접 쓰고 대화하는 공간</div>
+            <h2 id="v2-community-title">이웃대화</h2>
+            <p>카테고리를 고르면 해당 글만 보고, 글쓰기는 바로 그 카테고리로 시작합니다.</p>
+          </div>
+          <button type="button" className="v2-community-write-main" onClick={() => startWriting(selectedWriteKind)}>{selectedWriteKind} 글쓰기 <b>＋</b></button>
+          <button type="button" className="v2-community-close v2-community-page-close" onClick={onClose} aria-label="이웃대화 닫기">×</button>
         </header>
 
-        <nav className="v2-community-tabs" aria-label="우리단지 글 종류">
-          {TABS.map((item) => <button key={item} type="button" className={item === tab ? 'is-active' : ''} onClick={() => setTab(item)}>{item}</button>)}
-        </nav>
+        <section className="v2-community-topics" aria-label="이웃대화 유형">
+          {TOPICS.map((topic) => (
+            <button
+              key={topic.kind}
+              type="button"
+              className={`v2-community-topic ${tab === topic.kind ? 'is-active' : ''}`}
+              onClick={() => setTab(topic.kind)}
+            >
+              <span>{topic.no}</span><b>{topic.kind}</b><small>{topic.description}</small>
+            </button>
+          ))}
+        </section>
 
         {notice && <div className="v2-community-notice" role="status">{notice}<button type="button" onClick={() => setNotice('')} aria-label="안내 닫기">×</button></div>}
 
-        <div className="v2-community-layout">
+        <section className="v2-community-board">
+          <header className="v2-community-board-head">
+            <h3>지금 올라온 이야기</h3>
+            <button type="button" className={tab === '전체' ? 'is-active' : ''} onClick={() => setTab('전체')}>전체 보기</button>
+          </header>
           <div className="v2-community-posts" aria-busy={busy || undefined}>
             {visiblePosts.map((post) => (
-              <button type="button" key={post.id} className={`v2-community-post ${post.official ? 'is-official' : ''}`} onClick={() => void openPost(post)}>
-                <span className="v2-community-post-type">{post.official ? '● ' : ''}{post.type}{post.pending ? ' · 확인 중' : ''}</span>
-                <span><strong>{post.title}</strong><small>{post.body}</small></span>
+              <button type="button" key={post.id} className="v2-community-post" onClick={() => void openPost(post)}>
+                <span className="v2-community-post-author"><b>{post.nick || '입주민 확인 주민'}</b><small>{post.pending ? '운영확인 중' : '입주민'}</small></span>
+                <span className="v2-community-post-copy">
+                  <span className="v2-community-post-type">{post.type}</span>
+                  <strong>{post.title}</strong>
+                  <small>{post.body}</small>
+                </span>
                 <span className="v2-community-post-stat">{post.time} · 공감 {post.likes} · 댓글 {post.comments}</span>
               </button>
             ))}
-            {!visiblePosts.length && <div className="v2-community-safety"><strong>아직 게시물이 없습니다.</strong><p>입주민이 안전하게 대화를 시작할 수 있습니다.</p></div>}
+            {!visiblePosts.length && <div className="v2-community-empty"><strong>아직 게시물이 없습니다.</strong><p>이 카테고리에서 이웃과 첫 대화를 시작할 수 있습니다.</p></div>}
           </div>
+        </section>
 
-          <aside className="v2-community-write-panel">
-            <div className="v2-community-eyebrow">NEIGHBOR TALK</div>
-            <h3>무엇을 나누고 싶으세요?</h3>
-            <p>글 종류를 고르면 단지온이 필요한 항목을 하나씩 안내합니다.</p>
-            <div className="v2-community-write-kinds">
-              <button type="button" onClick={() => setWriteKind('질문')}>? 궁금한 것 물어보기</button>
-              <button type="button" onClick={() => setWriteKind('같이해요')}>+ 같이할 이웃 찾기</button>
-              <button type="button" onClick={() => setWriteKind('주민이야기')}>○ 편하게 이야기 나누기</button>
-              <button type="button" onClick={() => setWriteKind('생활제보')}>! 생활 불편 알리기</button>
-            </div>
-            <div className="v2-community-safety"><strong>서로를 지키는 주민 대화</strong><p>닉네임만 공개됩니다. 동·호, 연락처, 가입수단은 공개하지 않습니다. 최종 게시·권한 판정은 서버 정책을 따릅니다.</p></div>
-          </aside>
-        </div>
+        <button
+          type="button"
+          className="v2-community-mobile-write"
+          aria-label="현재 카테고리 글쓰기"
+          onClick={() => startWriting(selectedWriteKind)}
+        >＋</button>
       </section>
 
       {writeKind && (
         <div className="v2-community-modal-backdrop" role="presentation">
-          <form className="v2-community-modal" onSubmit={(event) => void submitPost(event)}>
+          <form className="v2-community-modal v2-community-writer" onSubmit={(event) => void submitPost(event)}>
             <button type="button" className="v2-community-close" onClick={() => setWriteKind(null)} aria-label="글쓰기 닫기">×</button>
-            <div className="v2-community-eyebrow">{writeKind}</div>
-            <h3>{writeKind === '질문' ? '궁금한 것을 물어보세요.' : writeKind === '같이해요' ? '같이할 이웃을 찾아보세요.' : writeKind === '생활제보' ? '직접 본 생활 불편을 알려주세요.' : '편하게 주민 이야기를 나눠보세요.'}</h3>
-            <label>제목<input name="title" maxLength={160} required placeholder="무엇을 나누고 싶은지 짧게 적어 주세요." /></label>
-            <label>내용<textarea name="body" maxLength={10000} required rows={7} placeholder="사람을 특정하거나 개인정보를 적지 않고 상황과 경험 중심으로 이야기해 주세요." /></label>
-            <button type="submit" className="v2-community-primary" disabled={busy}>{busy ? '등록 중…' : '글 등록'}</button>
+            <div className="v2-community-writer-bar"><span>←</span><strong>{writeKind} 글쓰기</strong><span>게시</span></div>
+            <span className="v2-community-writer-category">{writeKind}</span>
+            <h3>{writerHeading(writeKind)}</h3>
+            <p className="v2-community-writer-lead">{writerLead(writeKind)}</p>
+
+            {writeKind === '궁금해요' && (
+              <>
+                <div className="v2-community-write-type-tabs" aria-label="궁금해요 질문 유형">
+                  {['생활·살림', '단지시설', '이웃추천', '기타'].map((item, index) => <button key={item} type="button" disabled className={index === 0 ? 'is-active' : ''}>{item}</button>)}
+                </div>
+                <p className="v2-community-write-type-help">현재 서버 글 계약에는 질문 유형 저장 필드가 없어 유형은 표시만 하며 게시 데이터에는 포함하지 않습니다.</p>
+              </>
+            )}
+
+            {writeKind === '같이해요' && (
+              <>
+                <div className="v2-community-write-type-tabs" aria-label="같이해요 유형">
+                  {['산책·운동', '취미활동', '육아 같이해요', '공동구매'].map((item, index) => <button key={item} type="button" disabled className={index === 0 ? 'is-active' : ''}>{item}</button>)}
+                </div>
+                <p className="v2-community-write-type-help">전용 폼의 구조화 항목은 현재 서버 계약에 없어 유형과 안내만 표시하고 별도 필드를 저장하지 않습니다.</p>
+              </>
+            )}
+
+            <div className="v2-community-writer-editor">
+              <label>{writeKind === '궁금해요' ? '질문 제목' : '제목'}
+                <input
+                  name="title"
+                  maxLength={writeKind === '같이해요' ? 40 : writeKind === '궁금해요' ? 60 : 80}
+                  required
+                  placeholder={writeKind === '단지이야기' ? '오늘 단지에서 있었던 일을 알려주세요' : writeKind === '궁금해요' ? '무엇이 궁금한가요?' : '무엇을 같이하고 싶은지 적어주세요.'}
+                />
+              </label>
+              <label>{writeKind === '궁금해요' ? '궁금한 내용' : writeKind === '같이해요' ? '자세한 내용' : '내용'}
+                <textarea
+                  name="body"
+                  maxLength={writeKind === '같이해요' ? 1000 : writeKind === '궁금해요' ? 1500 : 2000}
+                  required
+                  rows={8}
+                  placeholder={writeKind === '단지이야기' ? '사진이나 상황 설명이 필요하면 내용에 함께 적어주세요.' : writeKind === '궁금해요' ? '알고 싶은 내용과 이미 확인한 점이 있다면 함께 적어주세요.' : '누가, 언제, 어디에서, 어떻게 함께하면 되는지 적어주세요.'}
+                />
+              </label>
+            </div>
+
+            {writeKind !== '같이해요' && (
+              <div className="v2-community-write-tools" aria-label="사진 첨부 상태">
+                <button type="button" disabled>사진 추가</button><span>0 / 3</span>
+              </div>
+            )}
+
+            {writeKind === '궁금해요' && (
+              <section className="v2-community-answer-box" aria-label="답변받는 방법">
+                <div><span><b>댓글로 답변받기</b><small>이웃의 답변이 글 아래에 공개됩니다.</small></span><strong>기본 사용</strong></div>
+                <div><span><b>1:1 메시지도 받기</b><small>게시글별 수신 설정은 현재 서버 계약에 없어 이 화면에서 변경하지 않습니다.</small></span><button type="button" role="switch" aria-checked="false" disabled aria-label="1대1 메시지도 받기"></button></div>
+              </section>
+            )}
+
+            {writeKind === '같이해요' && <p className="v2-community-writer-safety">공개 글에는 개인 연락처를 적지 마세요. 필요한 연락은 단지온 메시지를 이용합니다.</p>}
+
+            <div className="v2-community-policy-note">
+              {writeKind === '단지이야기' ? '사진 첨부는 현재 Community create 계약에 없어 이번 화면에서는 비활성입니다. 제목과 내용만 서버에 저장합니다.' : writeKind === '궁금해요' ? '질문 유형·사진·게시글별 1:1 수신 설정은 저장하지 않습니다. 제목과 내용은 기존 question 계약으로 게시합니다.' : '같이해요 유형과 구조화 필드는 저장하지 않습니다. 제목과 내용은 기존 together 계약으로 게시합니다.'}
+            </div>
+            <button type="submit" className="v2-community-primary" disabled={busy}>{busy ? '등록 중…' : writeKind === '단지이야기' ? '단지이야기 게시하기' : writeKind === '궁금해요' ? '질문 게시하기' : '같이해요 게시하기'}</button>
           </form>
         </div>
       )}
@@ -541,56 +613,62 @@ export function V2CommunityView({
         <div className="v2-community-modal-backdrop" role="presentation">
           <article className="v2-community-modal v2-community-detail">
             <button type="button" className="v2-community-close" onClick={() => { setSelected(null); setCommenting(false); setReplyingTo(null); setReplies({}); }} aria-label="게시물 닫기">×</button>
-            <div className="v2-community-detail-meta"><span>{selected.official ? '공식소식' : selected.type}</span><span>{selected.time}</span><span>{selected.official ? selected.nick || '공식 발행' : selected.nick ?? '입주민 확인 주민'}</span></div>
+            <div className="v2-community-detail-route">← 이웃대화 <span>/ 글 상세</span></div>
+            <div className="v2-community-detail-meta"><span>{selected.type}</span><span>{selected.nick ?? '입주민 확인 주민'}</span><span>{selected.time}</span></div>
             <h3>{selected.title}</h3>
             <p>{selected.body}</p>
-            {!!selectedComments.length && (
-              <div className="v2-community-comments">
-                {selectedComments.map((comment) => {
-                  const childReplies = replies[comment.id];
-                  return (
-                    <div key={comment.id} data-v2-community-comment>
-                      <small>{comment.nick} · {comment.pending ? '운영확인 중' : '게시됨'}</small>
-                      <p>{comment.text}</p>
-                      {!comment.pending && (
-                        <div className="v2-community-detail-actions">
-                          {childReplies === undefined && <button type="button" disabled={busy} onClick={() => void loadReplies(comment.id)}>답글 보기</button>}
-                          <button type="button" disabled={busy} onClick={() => void beginReply(comment.id)}>답글 남기기</button>
-                        </div>
-                      )}
-                      {childReplies !== undefined && (
-                        <div data-v2-community-replies>
-                          {childReplies.map((reply) => (
-                            <div key={reply.id} data-v2-community-reply>
-                              <small>{reply.nick} · 답글 · {reply.pending ? '운영확인 중' : '게시됨'}</small>
-                              <p>{reply.text}</p>
-                            </div>
-                          ))}
-                          {!childReplies.length && <small>아직 답글이 없습니다.</small>}
-                        </div>
-                      )}
-                      {replyingTo === comment.id && (
-                        <form className="v2-community-comment-form" data-v2-community-reply-form onSubmit={(event) => void submitReply(event, comment.id)}>
-                          <label>답글<textarea name="reply" maxLength={300} required placeholder="댓글 내용에 답하면서 개인정보나 공격적 표현은 적지 말아 주세요." /></label>
-                          <button type="submit" className="v2-community-primary" disabled={busy}>답글 게시</button>
-                          <button type="button" disabled={busy} onClick={() => setReplyingTo(null)}>취소</button>
-                        </form>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
+
+            <div className="v2-community-detail-actions v2-community-article-actions">
+              <button type="button" disabled={busy || selected.pending} aria-pressed={selected.viewerLiked || false} onClick={() => void toggleLike(selected)}>{selected.viewerLiked ? '♥ 공감 취소' : '♡ 공감'} <span>{selected.likes}</span></button>
+              <button type="button" disabled={busy || selected.pending} onClick={() => setCommenting(true)}>댓글 <span>{selected.comments}</span></button>
+              <button type="button" disabled={busy} onClick={() => void reportPost(selected)}>신고하기</button>
+            </div>
+
+            <section className="v2-community-comments" aria-label="댓글">
+              <h4>댓글 <span>{selected.comments}</span></h4>
+              {selectedComments.map((comment) => {
+                const childReplies = replies[comment.id];
+                return (
+                  <div key={comment.id} data-v2-community-comment>
+                    <small>{comment.nick} · {comment.pending ? '운영확인 중' : '게시됨'}</small>
+                    <p>{comment.text}</p>
+                    {!comment.pending && (
+                      <div className="v2-community-detail-actions">
+                        {childReplies === undefined && <button type="button" disabled={busy} onClick={() => void loadReplies(comment.id)}>답글 보기</button>}
+                        <button type="button" disabled={busy} onClick={() => void beginReply(comment.id)}>답글 남기기</button>
+                      </div>
+                    )}
+                    {childReplies !== undefined && (
+                      <div data-v2-community-replies>
+                        {childReplies.map((reply) => (
+                          <div key={reply.id} data-v2-community-reply>
+                            <small>{reply.nick} · 답글 · {reply.pending ? '운영확인 중' : '게시됨'}</small>
+                            <p>{reply.text}</p>
+                          </div>
+                        ))}
+                        {!childReplies.length && <small>아직 답글이 없습니다.</small>}
+                      </div>
+                    )}
+                    {replyingTo === comment.id && (
+                      <form className="v2-community-comment-form" data-v2-community-reply-form onSubmit={(event) => void submitReply(event, comment.id)}>
+                        <label>답글<textarea name="reply" maxLength={300} required placeholder="댓글 내용에 답하면서 개인정보나 공격적 표현은 적지 말아 주세요." /></label>
+                        <button type="submit" className="v2-community-primary" disabled={busy}>답글 게시</button>
+                        <button type="button" disabled={busy} onClick={() => setReplyingTo(null)}>취소</button>
+                      </form>
+                    )}
+                  </div>
+                );
+              })}
+              {!selectedComments.length && <div className="v2-community-empty"><p>아직 댓글이 없습니다.</p></div>}
+            </section>
+
+            {commenting && (
+              <form className="v2-community-comment-form v2-community-composer" onSubmit={(event) => void submitComment(event)}>
+                <b>댓글 쓰기</b>
+                <label>댓글<textarea name="comment" maxLength={300} required placeholder="따뜻한 인사나 도움이 되는 답변을 남겨보세요." /></label>
+                <div className="v2-community-composer-foot"><small>서로 존중하는 말로 이야기해 주세요.</small><button type="submit" className="v2-community-primary" disabled={busy}>댓글 등록</button></div>
+              </form>
             )}
-            {selected.source === 'resident' ? (
-              <>
-                <div className="v2-community-detail-actions">
-                  <button type="button" disabled={busy} onClick={() => void reportPost(selected)}>신고하기</button>
-                  <button type="button" disabled={busy || selected.pending} aria-pressed={selected.viewerLiked || false} onClick={() => void toggleLike(selected)}>{selected.viewerLiked ? '공감 취소' : '공감하기'} · {selected.likes}</button>
-                  <button type="button" className="v2-community-primary" disabled={busy || selected.pending} onClick={() => setCommenting(true)}>댓글 남기기</button>
-                </div>
-                {commenting && <form className="v2-community-comment-form" onSubmit={(event) => void submitComment(event)}><label>댓글<textarea name="comment" maxLength={300} required placeholder="사람을 공격하지 않고 내용에 대해 이야기해 주세요." /></label><button type="submit" className="v2-community-primary" disabled={busy}>댓글 게시</button></form>}
-              </>
-            ) : <div className="v2-community-safety"><strong>공식소식</strong><p>공식 단지 콘텐츠는 기존 public 게시물 경계에서 읽기 전용으로 표시합니다.</p></div>}
           </article>
         </div>
       )}
