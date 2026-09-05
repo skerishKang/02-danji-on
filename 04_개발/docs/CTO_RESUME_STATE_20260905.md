@@ -15,6 +15,7 @@ RULE: 이 문서가 가리키는 커밋이 유일한 진실의 원천이다. 로
 | 기준 커밋 | `4eef813` — Merge PR #269 (게이트 러너 Windows spawn 수정) |
 | 직전 기준 | `bf7b029` (Track I) ← `307ee83` (F/G/H 병합) ← `a4021f0` (#257 채널 계약) |
 | 문서 통합 | #268 (`fedd364`)로 CTO 산출물 10종 main 병합 완료 |
+| 로컬 작업폴더 | `G:\Ddrive\BatangD\task\workdiary\02-danji-on` |
 
 새로始める 어디서든 이 한 줄이면 복원된다:
 

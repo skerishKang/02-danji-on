@@ -1,0 +1,2351 @@
+{
+  "generatedAt": "2026-09-05T10:21:10.638Z",
+  "handoff": "G:\\Ddrive\\BatangD\\task\\workdiary\\02-danji-on\\008_프론트엔드점검1기_통합수정본_20260904",
+  "htmlFileCount": 32,
+  "anchors": {
+    "00_APP_390_통합검토.html": {
+      "file": "00_APP_390_통합검토.html",
+      "title": "단지온 · APP 통합검토 · 프론트엔드 점검1기 008",
+      "headings": [
+        "단지온 · APP 통합검토 008"
+      ],
+      "buttons": [
+        "처음",
+        "← 이전",
+        "다음 →",
+        "다시보기",
+        "상태 초기화"
+      ],
+      "links": [],
+      "labels": [],
+      "placeholders": [],
+      "dataHooks": [],
+      "stableClasses": [
+        "danjion-review-scroll",
+        "danjion-review-app-scroll-style"
+      ],
+      "states": {
+        "empty": false,
+        "loading": false,
+        "error": false,
+        "successToast": false
+      }
+    },
+    "01_이웃가게_발견.html": {
+      "file": "01_이웃가게_발견.html",
+      "title": "단지온 · 이웃가게 발견 · 1단계 검토안",
+      "headings": [
+        "가까이 사는 이웃의 일을 발견합니다.",
+        "이웃가게 전체",
+        "로드힐 꽃작업실",
+        "바른 자동차정비",
+        "한결 수학",
+        "이웃 행사사진"
+      ],
+      "buttons": [
+        "단지온 DANJION by PADIEM",
+        "홈",
+        "이웃가게",
+        "우리단지",
+        "내정보",
+        "검색",
+        "전체",
+        "식품·반찬",
+        "카페·간식",
+        "자동차",
+        "생활서비스",
+        "교육",
+        "전문서비스",
+        "가게 보기 →",
+        "이웃가게 제보",
+        "내 가게 등록 신청"
+      ],
+      "links": [],
+      "labels": [
+        "<svg aria-hidden=\"true\" viewbox=\"0 0 24 24\"><circle cx=\"11\" cy=\"11\" r=\"7\"></circle><path d=\"m16.4 16.4 4.1 4.1\"></path></svg>\n<input aria-label=\"이웃가게 검색\" id=\"searchInput\" placeholder=\"무슨 일이 필요하세요?\" type=\"search\"/>"
+      ],
+      "placeholders": [
+        "무슨 일이 필요하세요?"
+      ],
+      "dataHooks": [
+        "data-danjion-page",
+        "data-route",
+        "data-filter",
+        "data-category",
+        "data-shop-key",
+        "data-toast",
+        "data-auth",
+        "data-preview",
+        "data-greeting",
+        "data-email",
+        "data-social",
+        "data-reset",
+        "data-resend",
+        "data-term",
+        "data-term-close",
+        "data-address-next",
+        "data-terms-next",
+        "data-finish",
+        "data-required-all",
+        "data-chair-close",
+        "data-chair-detail",
+        "data-guest-enter",
+        "data-top"
+      ],
+      "stableClasses": [
+        "danjion-page",
+        "danjion-direct-router-v5",
+        "danjion-integrated",
+        "danjion-review-route-sync",
+        "danjion-route"
+      ],
+      "states": {
+        "empty": false,
+        "loading": false,
+        "error": false,
+        "successToast": true
+      }
+    },
+    "02_이웃가게_상세.html": {
+      "file": "02_이웃가게_상세.html",
+      "title": "단지온 · 이웃가게 상세 · STEP 02",
+      "headings": [
+        "로드힐 꽃작업실",
+        "방문 전 확인하세요",
+        "가까운 위치를 지도에서 확인하세요.",
+        "준비할 수 있는 꽃",
+        "주민 혜택",
+        "이웃의 가게 후기",
+        "가게 공유하기"
+      ],
+      "buttons": [
+        "단지온 DANJION by PADIEM",
+        "홈",
+        "이웃가게",
+        "우리단지",
+        "내정보",
+        "정보",
+        "품목·서비스",
+        "소식",
+        "혜택",
+        "후기",
+        "LOCATION 가까운 위치를 지도에서 확인하세요. 광주 남구 방림동 정확한 주소와 이동 경로 보기 →",
+        "후기쓰기",
+        "1:1 문의하기",
+        "주소 복사",
+        "공유하기"
+      ],
+      "links": [],
+      "labels": [
+        "공유 주소"
+      ],
+      "placeholders": [],
+      "dataHooks": [
+        "data-final-header-sync",
+        "data-danjion-page",
+        "data-route",
+        "data-tab",
+        "data-toast",
+        "data-share-close",
+        "data-auth",
+        "data-preview",
+        "data-greeting",
+        "data-email",
+        "data-social",
+        "data-reset",
+        "data-resend",
+        "data-term",
+        "data-term-close",
+        "data-address-next",
+        "data-terms-next",
+        "data-finish",
+        "data-required-all",
+        "data-chair-close",
+        "data-chair-detail",
+        "data-guest-enter",
+        "data-top",
+        "data-back"
+      ],
+      "stableClasses": [
+        "danjion-page",
+        "danjion-shop-dynamic",
+        "danjion-integrated",
+        "danjion-direct-router-v5",
+        "danjion-review-route-sync",
+        "danjion-route"
+      ],
+      "states": {
+        "empty": false,
+        "loading": false,
+        "error": false,
+        "successToast": true
+      }
+    },
+    "03_주민혜택_쿠폰.html": {
+      "file": "03_주민혜택_쿠폰.html",
+      "title": "단지온 · 주민혜택 · STEP 03",
+      "headings": [
+        "우리 이웃을 이용하면 주민에게 혜택이 돌아옵니다.",
+        "로드힐 꽃작업실",
+        "바른 자동차정비",
+        "오늘의 반찬",
+        "오늘의 반찬 주민 혜택 쿠폰"
+      ],
+      "buttons": [
+        "단지온 DANJION by PADIEM",
+        "홈",
+        "이웃가게",
+        "우리단지",
+        "내정보",
+        "전체 혜택",
+        "예약 혜택",
+        "현장 혜택",
+        "쿠폰",
+        "혜택 확인",
+        "가게 보기",
+        "혜택 확인 →",
+        "쿠폰 받기 →",
+        "확인"
+      ],
+      "links": [],
+      "labels": [],
+      "placeholders": [],
+      "dataHooks": [
+        "data-danjion-page",
+        "data-toast",
+        "data-filter",
+        "data-kind",
+        "data-route"
+      ],
+      "stableClasses": [
+        "danjion-page",
+        "danjion-review-route-sync",
+        "danjion-route",
+        "danjion-03-route-fix"
+      ],
+      "states": {
+        "empty": false,
+        "loading": false,
+        "error": false,
+        "successToast": true
+      }
+    },
+    "04_데일리홈.html": {
+      "file": "04_데일리홈.html",
+      "title": "단지온 · 홈 · WEB CINEMATIC",
+      "headings": [
+        "필요한 일, 우리 단지에서 먼저 찾습니다.",
+        "반찬을 만드는 이웃",
+        "오늘의 반찬",
+        "가게마다 다른 주민혜택을 이웃가게에서 확인하세요.",
+        "우리단지 새 소식"
+      ],
+      "buttons": [
+        "단지온 DANJION by PADIEM",
+        "홈",
+        "이웃가게",
+        "우리단지",
+        "내정보",
+        "이 이웃의 일 보기",
+        "♡ 저장",
+        "전체보기 →",
+        "단지온 주민 사업자 등록 안내 →",
+        "아파트 8월 입주민 간담회 안내 →",
+        "주민 우리 단지 새 이웃가게 소개 →"
+      ],
+      "links": [],
+      "labels": [],
+      "placeholders": [
+        "반찬 · 과외 · 청소 · 세무"
+      ],
+      "dataHooks": [
+        "data-danjion-page",
+        "data-final-header-sync",
+        "data-route",
+        "data-demo",
+        "data-shop-key",
+        "data-key",
+        "data-auth",
+        "data-preview",
+        "data-greeting",
+        "data-email",
+        "data-social",
+        "data-reset",
+        "data-resend",
+        "data-term",
+        "data-term-close",
+        "data-address-next",
+        "data-terms-next",
+        "data-finish",
+        "data-required-all",
+        "data-chair-close",
+        "data-chair-detail",
+        "data-guest-enter",
+        "data-top"
+      ],
+      "stableClasses": [
+        "danjion-page",
+        "danjion-direct-router-v5",
+        "danjion-integrated",
+        "danjion-review-route-sync",
+        "danjion-route"
+      ],
+      "states": {
+        "empty": false,
+        "loading": false,
+        "error": false,
+        "successToast": true
+      }
+    },
+    "05_우리단지_첫화면.html": {
+      "file": "05_우리단지_첫화면.html",
+      "title": "단지온 · 우리단지 · STEP 05",
+      "headings": [
+        "우리단지",
+        "단지온공지",
+        "아파트소식",
+        "주민소식",
+        "이웃대화"
+      ],
+      "buttons": [
+        "단지온 DANJION by PADIEM",
+        "홈",
+        "이웃가게",
+        "우리단지",
+        "내정보",
+        "단지온공지 보기 →",
+        "아파트소식 보기 →",
+        "소식 보기 · 제보하기 →",
+        "이웃대화 들어가기 →"
+      ],
+      "links": [],
+      "labels": [],
+      "placeholders": [],
+      "dataHooks": [
+        "data-no",
+        "data-final-header-sync",
+        "data-danjion-page",
+        "data-route",
+        "data-auth",
+        "data-preview",
+        "data-greeting",
+        "data-email",
+        "data-social",
+        "data-reset",
+        "data-resend",
+        "data-term",
+        "data-term-close",
+        "data-address-next",
+        "data-terms-next",
+        "data-finish",
+        "data-required-all",
+        "data-chair-close",
+        "data-chair-detail",
+        "data-guest-enter",
+        "data-top"
+      ],
+      "stableClasses": [
+        "danjion-page",
+        "danjion-direct-router-v5",
+        "danjion-integrated",
+        "danjion-review-route-sync",
+        "danjion-route"
+      ],
+      "states": {
+        "empty": false,
+        "loading": false,
+        "error": false,
+        "successToast": true
+      }
+    },
+    "06_단지온공지_목록.html": {
+      "file": "06_단지온공지_목록.html",
+      "title": "단지온 · 단지온공지 · STEP 06",
+      "headings": [
+        "단지온공지",
+        "단지온을 처음 이용하는 주민 여러분께 안내드립니다.",
+        "전체 공지"
+      ],
+      "buttons": [
+        "단지온 DANJION by PADIEM",
+        "홈",
+        "이웃가게",
+        "우리단지",
+        "내정보",
+        "전체",
+        "필수안내",
+        "이용방법",
+        "운영기준",
+        "새 기능",
+        "검색",
+        "중요 공지 읽기 →",
+        "이용방법 단지온 홈과 네 가지 메뉴 이용 안내 2026.08.31",
+        "이용방법 주민 사업자와 이웃가게 등록 안내 2026.08.29",
+        "운영기준 동·호수와 개인정보 공개 기준 안내 2026.08.27",
+        "운영기준 이웃대화 글쓰기와 게시물 운영기준 2026.08.26",
+        "새 기능 주민 간 1:1 메시지 이용 안내 2026.08.24"
+      ],
+      "links": [
+        "우리단지"
+      ],
+      "labels": [],
+      "placeholders": [
+        "공지 검색"
+      ],
+      "dataHooks": [
+        "data-danjion-page",
+        "data-toast",
+        "data-filter",
+        "data-kind",
+        "data-route",
+        "data-auth",
+        "data-preview",
+        "data-greeting",
+        "data-email",
+        "data-social",
+        "data-reset",
+        "data-resend",
+        "data-term",
+        "data-term-close",
+        "data-address-next",
+        "data-terms-next",
+        "data-finish",
+        "data-required-all",
+        "data-chair-close",
+        "data-chair-detail",
+        "data-guest-enter",
+        "data-top"
+      ],
+      "stableClasses": [
+        "danjion-page",
+        "danjion-direct-router-v5",
+        "danjion-integrated",
+        "danjion-review-route-sync",
+        "danjion-route"
+      ],
+      "states": {
+        "empty": false,
+        "loading": false,
+        "error": false,
+        "successToast": true
+      }
+    },
+    "07_단지온공지_상세.html": {
+      "file": "07_단지온공지_상세.html",
+      "title": "단지온 · 중요 공지 상세 · STEP 07",
+      "headings": [
+        "단지온을 처음 이용하는 주민 여러분께 안내드립니다.",
+        "홈",
+        "이웃가게",
+        "우리단지",
+        "내정보",
+        "동·호수는 이웃에게 공개하지 않습니다.",
+        "편하게 쓰되, 서로를 지키는 기준이 있습니다."
+      ],
+      "buttons": [
+        "단지온 DANJION by PADIEM",
+        "홈",
+        "이웃가게",
+        "우리단지",
+        "내정보"
+      ],
+      "links": [
+        "단지온공지",
+        "네 가지 메뉴",
+        "개인정보 보호",
+        "글쓰기 운영",
+        "공지 목록 →",
+        "공지 목록으로 돌아가기 →"
+      ],
+      "labels": [],
+      "placeholders": [],
+      "dataHooks": [
+        "data-danjion-page",
+        "data-route"
+      ],
+      "stableClasses": [
+        "danjion-page",
+        "danjion-notice-origin-restore"
+      ],
+      "states": {
+        "empty": false,
+        "loading": false,
+        "error": false,
+        "successToast": true
+      }
+    },
+    "08_아파트소식_목록.html": {
+      "file": "08_아파트소식_목록.html",
+      "title": "단지온 · 아파트소식 · STEP 08",
+      "headings": [
+        "아파트소식",
+        "1년 넘게 늦어진 주민생활 개선, 이제 시작합니다.",
+        "최근 소식"
+      ],
+      "buttons": [
+        "단지온 DANJION by PADIEM",
+        "홈",
+        "이웃가게",
+        "우리단지",
+        "내정보",
+        "전체",
+        "회장 인사",
+        "단지 변화",
+        "회의 후 진행",
+        "생활소식",
+        "현장기록",
+        "회의 후 진행 주민 안내문자·방송·게시판 홍보 협조 논의 2026.08.28",
+        "생활소식 단지 내 주민 사업자 소개자료 접수 준비 2026.08.25",
+        "현장기록 우리 단지에서 달라진 일을 사진으로 기록합니다 2026.08.22",
+        "← 아파트소식"
+      ],
+      "links": [
+        "회장말씀 전체 보기 →"
+      ],
+      "labels": [],
+      "placeholders": [],
+      "dataHooks": [
+        "data-danjion-page",
+        "data-filter",
+        "data-kind",
+        "data-story",
+        "data-close-story",
+        "data-route",
+        "data-auth",
+        "data-preview",
+        "data-greeting",
+        "data-email",
+        "data-social",
+        "data-reset",
+        "data-resend",
+        "data-term",
+        "data-term-close",
+        "data-address-next",
+        "data-terms-next",
+        "data-finish",
+        "data-required-all",
+        "data-chair-close",
+        "data-chair-detail",
+        "data-guest-enter",
+        "data-top"
+      ],
+      "stableClasses": [
+        "danjion-page",
+        "danjion-direct-router-v5",
+        "danjion-integrated",
+        "danjion-review-route-sync",
+        "danjion-route"
+      ],
+      "states": {
+        "empty": false,
+        "loading": false,
+        "error": false,
+        "successToast": true
+      }
+    },
+    "09_회장인사_상세.html": {
+      "file": "09_회장인사_상세.html",
+      "title": "단지온 · 회장 인사 · STEP 09",
+      "headings": [
+        "1년 넘게 늦어진 주민생활 개선, 이제 시작합니다.",
+        "왜 1년 넘게 늦어졌는지 먼저 말씀드립니다.",
+        "그래서 이제 단지온을 시작합니다.",
+        "비용은 아파트와 주민에게 넘기지 않겠습니다.",
+        "주민의 생활에서 실제로 도움이 되는 플랫폼으로 만들겠습니다."
+      ],
+      "buttons": [
+        "홈",
+        "이웃가게",
+        "우리단지",
+        "내정보"
+      ],
+      "links": [
+        "단지온 DANJION by PADIEM",
+        "홈",
+        "이웃가게",
+        "우리단지",
+        "내정보",
+        "아파트소식",
+        "아파트소식으로 돌아가기 ←"
+      ],
+      "labels": [],
+      "placeholders": [],
+      "dataHooks": [
+        "data-danjion-page",
+        "data-route",
+        "data-auth",
+        "data-preview",
+        "data-greeting",
+        "data-email",
+        "data-social",
+        "data-reset",
+        "data-resend",
+        "data-term",
+        "data-term-close",
+        "data-address-next",
+        "data-terms-next",
+        "data-finish",
+        "data-required-all",
+        "data-chair-close",
+        "data-chair-detail",
+        "data-guest-enter",
+        "data-top"
+      ],
+      "stableClasses": [
+        "danjion-page",
+        "danjion-direct-router-v5",
+        "danjion-integrated",
+        "danjion-review-route-sync",
+        "danjion-route"
+      ],
+      "states": {
+        "empty": false,
+        "loading": false,
+        "error": false,
+        "successToast": true
+      }
+    },
+    "10_주민소식_목록.html": {
+      "file": "10_주민소식_목록.html",
+      "title": "단지온 · 주민소식 · STEP 10",
+      "headings": [
+        "주민소식",
+        "우리 단지의 좋은 소식을 보내주세요.",
+        "제보부터 게시까지",
+        "최근 주민소식",
+        "주민 재능나눔 모임을 소개합니다",
+        "주민이 함께 준비한 추석맞이 나눔 소식",
+        "아이들과 함께한 화단 가꾸기 기록",
+        "우리 단지 새 이웃가게를 소개합니다",
+        "알리고 싶은 내용을 보내주세요."
+      ],
+      "buttons": [
+        "홈",
+        "이웃가게",
+        "우리단지",
+        "내정보",
+        "소식 제보하기 →",
+        "전체",
+        "생활 나눔",
+        "모임·행사",
+        "좋은 소식",
+        "정보 나눔",
+        "← 주민소식",
+        "＋ 사진이나 안내문 첨부하기",
+        "제보 내용 확인하기"
+      ],
+      "links": [
+        "단지온 DANJION by PADIEM",
+        "우리단지",
+        "주민 재능나눔 모임을 소개합니다",
+        "소식 읽기",
+        "주민이 함께 준비한 추석맞이 나눔 소식",
+        "아이들과 함께한 화단 가꾸기 기록",
+        "우리 단지 새 이웃가게를 소개합니다"
+      ],
+      "labels": [
+        "소식 종류",
+        "제목",
+        "알리고 싶은 내용",
+        "사진·자료",
+        "연락받을 이메일"
+      ],
+      "placeholders": [
+        "무슨 소식인지 한 줄로 적어주세요",
+        "언제, 어디서, 누구에게 필요한 소식인지 적어주세요.",
+        "확인이 필요할 때 연락드릴 이메일"
+      ],
+      "dataHooks": [
+        "data-danjion-page",
+        "data-toast",
+        "data-open-drawer",
+        "data-route",
+        "data-close-drawer",
+        "data-submit",
+        "data-auth",
+        "data-preview",
+        "data-greeting",
+        "data-email",
+        "data-social",
+        "data-reset",
+        "data-resend",
+        "data-term",
+        "data-term-close",
+        "data-address-next",
+        "data-terms-next",
+        "data-finish",
+        "data-required-all",
+        "data-chair-close",
+        "data-chair-detail",
+        "data-guest-enter",
+        "data-top"
+      ],
+      "stableClasses": [
+        "danjion-page",
+        "danjion-direct-router-v5",
+        "danjion-integrated",
+        "danjion-review-route-sync",
+        "danjion-route"
+      ],
+      "states": {
+        "empty": false,
+        "loading": false,
+        "error": false,
+        "successToast": true
+      }
+    },
+    "11_주민소식_상세.html": {
+      "file": "11_주민소식_상세.html",
+      "title": "단지온 · 주민소식 상세 · STEP 11",
+      "headings": [
+        "주민 재능나눔 모임을 소개합니다.",
+        "이웃의 경험을 나눕니다.",
+        "처음 참여해도 괜찮습니다."
+      ],
+      "buttons": [
+        "홈",
+        "이웃가게",
+        "우리단지",
+        "내정보",
+        "다음 소식 아이들과 함께한 화단 가꾸기 기록 →"
+      ],
+      "links": [
+        "단지온 DANJION by PADIEM",
+        "주민소식",
+        "목록으로 주민소식 전체 보기"
+      ],
+      "labels": [],
+      "placeholders": [],
+      "dataHooks": [
+        "data-danjion-page",
+        "data-toast",
+        "data-route",
+        "data-auth",
+        "data-preview",
+        "data-greeting",
+        "data-email",
+        "data-social",
+        "data-reset",
+        "data-resend",
+        "data-term",
+        "data-term-close",
+        "data-address-next",
+        "data-terms-next",
+        "data-finish",
+        "data-required-all",
+        "data-chair-close",
+        "data-chair-detail",
+        "data-guest-enter",
+        "data-top"
+      ],
+      "stableClasses": [
+        "danjion-page",
+        "danjion-direct-router-v5",
+        "danjion-integrated",
+        "danjion-review-route-sync",
+        "danjion-route"
+      ],
+      "states": {
+        "empty": false,
+        "loading": false,
+        "error": false,
+        "successToast": true
+      }
+    },
+    "12_이웃대화_첫화면.html": {
+      "file": "12_이웃대화_첫화면.html",
+      "title": "단지온 · 이웃대화",
+      "headings": [
+        "이웃대화",
+        "지금 올라온 이야기"
+      ],
+      "buttons": [
+        "가입인사 글쓰기 ＋",
+        "01 가입인사 새 이웃과 반갑게 인사해요.",
+        "02 단지이야기 정보와 일상을 나눠요.",
+        "03 궁금해요 생활 속 궁금한 것을 물어요.",
+        "04 같이해요 산책·취미·공동구매를 함께해요.",
+        "전체 보기",
+        "홈",
+        "이웃가게",
+        "우리단지",
+        "내정보"
+      ],
+      "links": [
+        "단지온 DANJION by PADIEM",
+        "홈",
+        "이웃가게",
+        "우리단지",
+        "내정보",
+        "← 우리단지"
+      ],
+      "labels": [],
+      "placeholders": [],
+      "dataHooks": [
+        "data-final-header-sync",
+        "data-danjion-page",
+        "data-type",
+        "data-route"
+      ],
+      "stableClasses": [
+        "danjion-page"
+      ],
+      "states": {
+        "empty": false,
+        "loading": false,
+        "error": false,
+        "successToast": true
+      }
+    },
+    "13_이웃대화_글상세_댓글.html": {
+      "file": "13_이웃대화_글상세_댓글.html",
+      "title": "단지온 · 이웃대화 글 상세",
+      "headings": [
+        "댓글"
+      ],
+      "buttons": [
+        "♡ 공감",
+        "댓글",
+        "댓글 등록",
+        "홈",
+        "이웃가게",
+        "우리단지",
+        "내정보",
+        "♡ 공감 0",
+        "답글",
+        "등록"
+      ],
+      "links": [
+        "단지온 DANJION by PADIEM",
+        "홈",
+        "이웃가게",
+        "우리단지",
+        "내정보",
+        "← 이웃대화"
+      ],
+      "labels": [],
+      "placeholders": [
+        "따뜻한 인사나 도움이 되는 답변을 남겨보세요.",
+        "${c.name}님에게 답글"
+      ],
+      "dataHooks": [
+        "data-final-header-sync",
+        "data-danjion-page",
+        "data-route",
+        "data-clike",
+        "data-reply",
+        "data-rform"
+      ],
+      "stableClasses": [
+        "danjion-page"
+      ],
+      "states": {
+        "empty": false,
+        "loading": false,
+        "error": false,
+        "successToast": true
+      }
+    },
+    "14_가입인사_글쓰기.html": {
+      "file": "14_가입인사_글쓰기.html",
+      "title": "단지온 · 가입인사 글쓰기",
+      "headings": [
+        "새로 온 이웃에게 간단히 인사해보세요."
+      ],
+      "buttons": [
+        "게시",
+        "사진 추가",
+        "홈",
+        "이웃가게",
+        "우리단지",
+        "내정보",
+        "가입인사 게시하기"
+      ],
+      "links": [],
+      "labels": [
+        "제목",
+        "내용"
+      ],
+      "placeholders": [
+        "안녕하세요, 새로 이사 왔습니다",
+        "어떤 이웃인지, 반가운 인사나 간단한 소개를 적어주세요."
+      ],
+      "dataHooks": [
+        "data-danjion-page",
+        "data-publish",
+        "data-route"
+      ],
+      "stableClasses": [
+        "danjion-page",
+        "danjion-route"
+      ],
+      "states": {
+        "empty": false,
+        "loading": false,
+        "error": false,
+        "successToast": true
+      }
+    },
+    "15_단지이야기_글쓰기.html": {
+      "file": "15_단지이야기_글쓰기.html",
+      "title": "단지온 · 단지이야기 글쓰기",
+      "headings": [
+        "단지에서 나누고 싶은 이야기를 바로 적어보세요."
+      ],
+      "buttons": [
+        "게시",
+        "사진 추가",
+        "홈",
+        "이웃가게",
+        "우리단지",
+        "내정보",
+        "단지이야기 게시하기"
+      ],
+      "links": [],
+      "labels": [
+        "제목",
+        "내용"
+      ],
+      "placeholders": [
+        "오늘 단지에서 있었던 일을 알려주세요",
+        "사진이나 상황 설명이 필요하면 내용에 함께 적어주세요."
+      ],
+      "dataHooks": [
+        "data-danjion-page",
+        "data-publish",
+        "data-route"
+      ],
+      "stableClasses": [
+        "danjion-page",
+        "danjion-route"
+      ],
+      "states": {
+        "empty": false,
+        "loading": false,
+        "error": false,
+        "successToast": true
+      }
+    },
+    "16_궁금해요_글쓰기.html": {
+      "file": "16_궁금해요_글쓰기.html",
+      "title": "단지온 · 궁금해요 글쓰기",
+      "headings": [
+        "궁금한 종류를 고르고 바로 물어보세요."
+      ],
+      "buttons": [
+        "게시",
+        "생활·살림",
+        "단지시설",
+        "이웃추천",
+        "기타",
+        "사진 추가",
+        "홈",
+        "이웃가게",
+        "우리단지",
+        "내정보",
+        "질문 게시하기"
+      ],
+      "links": [],
+      "labels": [
+        "질문 제목 <small><span id=\"titleCount\">0</span>/60</small>",
+        "궁금한 내용 <small><span id=\"bodyCount\">0</span>/1500</small>"
+      ],
+      "placeholders": [
+        "무엇이 궁금한가요?",
+        "알고 싶은 내용과 이미 확인한 점이 있다면 함께 적어주세요."
+      ],
+      "dataHooks": [
+        "data-danjion-page",
+        "data-publish",
+        "data-type",
+        "data-route"
+      ],
+      "stableClasses": [
+        "danjion-page",
+        "danjion-route"
+      ],
+      "states": {
+        "empty": false,
+        "loading": false,
+        "error": false,
+        "successToast": true
+      }
+    },
+    "17_같이해요_글쓰기.html": {
+      "file": "17_같이해요_글쓰기.html",
+      "title": "단지온 · 같이해요 글쓰기",
+      "headings": [
+        "함께할 일을 고르고 필요한 정보만 적어보세요."
+      ],
+      "buttons": [
+        "게시",
+        "산책·운동",
+        "취미활동",
+        "육아 같이해요",
+        "공동구매",
+        "홈",
+        "이웃가게",
+        "우리단지",
+        "내정보",
+        "같이해요 게시하기"
+      ],
+      "links": [],
+      "labels": [
+        "제목 <small>40자 이내</small>",
+        "자세한 내용 <small><span id=\"bodyCount\">0</span>/1000</small>",
+        "${label}<small>필수</small>"
+      ],
+      "placeholders": [
+        "무엇을 같이하고 싶은지 적어주세요.",
+        "누가, 언제, 어디에서, 어떻게 함께하면 되는지 적어주세요."
+      ],
+      "dataHooks": [
+        "data-danjion-page",
+        "data-publish",
+        "data-kind",
+        "data-route"
+      ],
+      "stableClasses": [
+        "danjion-page",
+        "danjion-route"
+      ],
+      "states": {
+        "empty": false,
+        "loading": false,
+        "error": false,
+        "successToast": true
+      }
+    },
+    "18_공통앱셸.html": {
+      "file": "18_공통앱셸.html",
+      "title": "단지온 공통 앱셸",
+      "headings": [],
+      "buttons": [],
+      "links": [],
+      "labels": [],
+      "placeholders": [],
+      "dataHooks": [],
+      "stableClasses": [],
+      "states": {
+        "empty": false,
+        "loading": false,
+        "error": false,
+        "successToast": false
+      }
+    },
+    "19_내정보_메인.html": {
+      "file": "19_내정보_메인.html",
+      "title": "단지온 · 내정보 · STEP 19",
+      "headings": [
+        "내정보",
+        "연블리님",
+        "새 메시지가 있어요. 2",
+        "우리집 연결",
+        "나의 활동",
+        "이용 설정"
+      ],
+      "buttons": [
+        "단지온 DANJION by PADIEM",
+        "홈",
+        "이웃가게",
+        "우리단지",
+        "내정보",
+        "메시지함 보기 →",
+        "연결 상태 보기 →",
+        "글 내가 쓴 글 가입인사·단지이야기·궁금해요·같이해요 6 →",
+        "댓 내 댓글과 답글 내가 남긴 댓글과 이웃의 답글 18 →",
+        "♡ 공감한 글 다시 보고 싶은 이웃의 이야기 12 →",
+        "저 저장한 이웃가게 관심 있게 본 가게와 서비스 4 →",
+        "혜 받은 혜택 사용 전 쿠폰과 이용한 주민혜택 1 →",
+        "1:1 문의 →",
+        "신고·차단 관리 →",
+        "이용 안내 →"
+      ],
+      "links": [
+        "⚙ 설정 열기 →"
+      ],
+      "labels": [],
+      "placeholders": [],
+      "dataHooks": [
+        "data-danjion-page",
+        "data-demo",
+        "data-help-target",
+        "data-route",
+        "data-size",
+        "data-auth",
+        "data-preview",
+        "data-greeting",
+        "data-email",
+        "data-social",
+        "data-reset",
+        "data-resend",
+        "data-term",
+        "data-term-close",
+        "data-address-next",
+        "data-terms-next",
+        "data-finish",
+        "data-required-all",
+        "data-chair-close",
+        "data-chair-detail",
+        "data-guest-enter",
+        "data-top"
+      ],
+      "stableClasses": [
+        "danjion-page",
+        "danjion-direct-router-v5",
+        "danjion-integrated",
+        "danjion-review-route-sync",
+        "danjion-route"
+      ],
+      "states": {
+        "empty": false,
+        "loading": false,
+        "error": false,
+        "successToast": true
+      }
+    },
+    "20_메시지함_목록.html": {
+      "file": "20_메시지함_목록.html",
+      "title": "단지온 · 1:1 메시지함 · STEP 20",
+      "headings": [
+        "메시지함",
+        "안 읽은 메시지 2개"
+      ],
+      "buttons": [
+        "단지온 DANJION by PADIEM",
+        "홈",
+        "이웃가게",
+        "우리단지",
+        "내정보",
+        "전체 6",
+        "안 읽음 2",
+        "받은 메시지",
+        "보낸 메시지",
+        "산 산책메이트 인사하는 이웃 수요일 저녁 산책, 저도 함께할게요. 출발 장소는 중앙 현관 앞이 편할 것 같아요. 18분 전 1",
+        "살 살림손 도움 주는 이웃 세탁기 청소 업체 정보 보내드려요. 지난달에 이용했던 곳은 전후 사진을 보내줬어요. 1시간 전 1",
+        "초 초록문 새 이웃 가입인사에 댓글 남겨주셔서 감사해요. 단지에서 마주치면 반갑게 인사드릴게요. 어제 →",
+        "꽃 로드힐 꽃작업실 내가 보냄 이번 주 토요일 꽃다발 예약 문의드려요. 예산과 원하는 색감을 함께 적어 보냈습니다. 8월 30일 답장 대기",
+        "한 한울타리 참여하는 이웃 분리수거장 정리 사진 관련해서 알려드려요. 사진에 개인정보는 보이지 않는 것 같아요. 8월 29일 →",
+        "차 바른 자동차정비 내가 보냄 토요일 운영시간을 문의했습니다. 방문 전 예약이 필요한지도 함께 물어봤어요. 8월 27일 →",
+        "안 읽은 메시지 보기 →",
+        "새 메시지"
+      ],
+      "links": [],
+      "labels": [],
+      "placeholders": [
+        "닉네임·내용 검색"
+      ],
+      "dataHooks": [
+        "data-danjion-page",
+        "data-demo",
+        "data-filter",
+        "data-kind",
+        "data-search",
+        "data-filter-shortcut",
+        "data-route",
+        "data-auth",
+        "data-preview",
+        "data-greeting",
+        "data-email",
+        "data-social",
+        "data-reset",
+        "data-resend",
+        "data-term",
+        "data-term-close",
+        "data-address-next",
+        "data-terms-next",
+        "data-finish",
+        "data-required-all",
+        "data-chair-close",
+        "data-chair-detail",
+        "data-guest-enter",
+        "data-top"
+      ],
+      "stableClasses": [
+        "danjion-page",
+        "danjion-direct-router-v5",
+        "danjion-integrated",
+        "danjion-review-route-sync",
+        "danjion-route"
+      ],
+      "states": {
+        "empty": false,
+        "loading": false,
+        "error": false,
+        "successToast": true
+      }
+    },
+    "21_메시지_대화상세.html": {
+      "file": "21_메시지_대화상세.html",
+      "title": "단지온 · 1:1 메시지 상세 · STEP 21",
+      "headings": [
+        "산책메이트",
+        "답장 쓰기",
+        "대화 신고하기"
+      ],
+      "buttons": [
+        "단지온 DANJION by PADIEM",
+        "홈",
+        "이웃가게",
+        "우리단지",
+        "내정보",
+        "대화 신고하기",
+        "이 주민 차단하기",
+        "답장 보내기",
+        "공개 프로필 보기 →",
+        "차단·신고 →",
+        "답장하기",
+        "욕설·협박·괴롭힘",
+        "개인정보 요구",
+        "광고·반복 메시지",
+        "기타 운영기준 위반",
+        "취소",
+        "운영팀에 신고"
+      ],
+      "links": [],
+      "labels": [],
+      "placeholders": [
+        "답장 내용을 입력하세요."
+      ],
+      "dataHooks": [
+        "data-danjion-page",
+        "data-demo",
+        "data-more",
+        "data-action",
+        "data-scroll-reply",
+        "data-route",
+        "data-close",
+        "data-action-title",
+        "data-action-copy",
+        "data-reasons",
+        "data-confirm",
+        "data-block-control",
+        "data-auth",
+        "data-preview",
+        "data-greeting",
+        "data-email",
+        "data-social",
+        "data-reset",
+        "data-resend",
+        "data-term",
+        "data-term-close",
+        "data-address-next",
+        "data-terms-next",
+        "data-finish",
+        "data-required-all",
+        "data-chair-close",
+        "data-chair-detail",
+        "data-guest-enter",
+        "data-top"
+      ],
+      "stableClasses": [
+        "danjion-page",
+        "danjion-direct-router-v5",
+        "danjion-integrated",
+        "danjion-review-route-sync",
+        "danjion-route"
+      ],
+      "states": {
+        "empty": false,
+        "loading": false,
+        "error": false,
+        "successToast": true
+      }
+    },
+    "22_주민_공개프로필.html": {
+      "file": "22_주민_공개프로필.html",
+      "title": "단지온 · 주민 공개 프로필 · STEP 22",
+      "headings": [
+        "산책메이트님",
+        "참여하는 이웃",
+        "안녕하세요. 새로 이사 온 산책메이트입니다.",
+        "저녁 산책할 때 화단 쪽 조명이 참 예쁘네요.",
+        "이번 주 토요일 아침에 천변을 함께 걸어요.",
+        "분리수거장 새 안내표가 보기 편해졌어요.",
+        "후문 쪽 자전거 공기주입기 이용해 보신 분 계신가요?",
+        "이번 주 저녁 산책은 8시에 가볍게 걸어요.",
+        "“관리사무소 앞 분리수거 안내판이 새로 바뀌었어요.”",
+        "“근처에 자전거 바람 넣을 수 있는 곳이 있을까요?”",
+        "아이와 함께 걸어서 더 즐거웠어요.",
+        "수선 상담을 친절하게 안내받았습니다.",
+        "이웃의 공개 활동",
+        "주민에게 보이는 정보",
+        "산책메이트님에게 메시지",
+        "이 주민 신고하기"
+      ],
+      "buttons": [
+        "단지온 DANJION by PADIEM",
+        "홈",
+        "이웃가게",
+        "우리단지",
+        "내정보",
+        "← 이웃 프로필",
+        "이 주민 신고하기",
+        "이 주민 차단하기",
+        "1:1 메시지 보내기",
+        "활동 보기",
+        "게시글 6",
+        "댓글 18",
+        "후기 3",
+        "취소",
+        "메시지 보내기",
+        "욕설·비방",
+        "광고·도배",
+        "개인정보 노출",
+        "기타 운영기준 위반",
+        "신고 접수"
+      ],
+      "links": [],
+      "labels": [],
+      "placeholders": [
+        "전할 내용을 입력해 주세요."
+      ],
+      "dataHooks": [
+        "data-danjion-page",
+        "data-demo",
+        "data-action",
+        "data-tab",
+        "data-panel",
+        "data-route",
+        "data-close",
+        "data-send",
+        "data-auth",
+        "data-preview",
+        "data-greeting",
+        "data-email",
+        "data-social",
+        "data-reset",
+        "data-resend",
+        "data-term",
+        "data-term-close",
+        "data-address-next",
+        "data-terms-next",
+        "data-finish",
+        "data-required-all",
+        "data-chair-close",
+        "data-chair-detail",
+        "data-guest-enter",
+        "data-top",
+        "data-back"
+      ],
+      "stableClasses": [
+        "danjion-page",
+        "danjion-direct-router-v5",
+        "danjion-integrated",
+        "danjion-review-route-sync",
+        "danjion-route",
+        "danjion-simple-back"
+      ],
+      "states": {
+        "empty": false,
+        "loading": false,
+        "error": false,
+        "successToast": true
+      }
+    },
+    "23_이웃온기.html": {
+      "file": "23_이웃온기.html",
+      "title": "단지온 · 이웃 온기 · STEP 23",
+      "headings": [
+        "좋은 이웃의 활동이 따뜻하게 쌓입니다.",
+        "참여하는 이웃",
+        "참여하는 이웃",
+        "이웃 온기는 경쟁이 아닙니다."
+      ],
+      "buttons": [
+        "단지온 DANJION by PADIEM",
+        "홈",
+        "이웃가게",
+        "우리단지",
+        "내정보",
+        "← 내정보",
+        "시작 새 이웃 단지온을 시작했어요 →",
+        "인사 인사하는 이웃 첫 인사와 반응을 나눠요 →",
+        "참여 참여하는 이웃 꾸준히 이야기에 참여해요 →",
+        "도움 도움 주는 이웃 유용한 정보와 답을 나눠요 →",
+        "함께 함께 만드는 이웃 건강한 단지문화를 만들어요 →"
+      ],
+      "links": [],
+      "labels": [],
+      "placeholders": [],
+      "dataHooks": [
+        "data-danjion-page",
+        "data-demo",
+        "data-level",
+        "data-route",
+        "data-auth",
+        "data-preview",
+        "data-greeting",
+        "data-email",
+        "data-social",
+        "data-reset",
+        "data-resend",
+        "data-term",
+        "data-term-close",
+        "data-address-next",
+        "data-terms-next",
+        "data-finish",
+        "data-required-all",
+        "data-chair-close",
+        "data-chair-detail",
+        "data-guest-enter",
+        "data-top"
+      ],
+      "stableClasses": [
+        "danjion-page",
+        "danjion-direct-router-v5",
+        "danjion-integrated",
+        "danjion-review-route-sync",
+        "danjion-route"
+      ],
+      "states": {
+        "empty": false,
+        "loading": false,
+        "error": false,
+        "successToast": true
+      }
+    },
+    "24_설정.html": {
+      "file": "24_설정.html",
+      "title": "단지온 · 설정 · STEP 24",
+      "headings": [
+        "설정",
+        "우리 단지의 소식을 편안하게 읽어보세요.",
+        "글자 크기",
+        "알림 설정",
+        "개인정보·계정",
+        "불편한 일은 조용히 해결할 수 있어요.",
+        "단지온 서비스 이용약관",
+        "제1조 목적",
+        "제2조 정의",
+        "제3조 약관의 게시와 변경",
+        "제4조 회원가입·계정·주민 확인",
+        "제5조 제공 서비스",
+        "제6조 이웃가게 정보와 거래",
+        "제7조 게시물과 커뮤니티 이용",
+        "제8조 게시물의 권리",
+        "제9조 서비스 변경·중단",
+        "제10조 이용 제한과 계약 종료",
+        "제11조 책임의 범위",
+        "제12조 통지와 문의",
+        "제13조 준거법과 분쟁 해결",
+        "단지온 개인정보 처리방침",
+        "1. 개인정보 처리 목적",
+        "2. 처리하는 개인정보 항목",
+        "3. 개인정보 처리 및 보유 기간",
+        "4. 개인정보 수집 방법",
+        "5. 제3자 제공",
+        "6. 개인정보 처리업무의 위탁 및 국외 이전",
+        "7. 개인정보 파기",
+        "8. 이용자의 권리와 행사 방법",
+        "9. 안전성 확보조치",
+        "10. 자동 수집 정보와 쿠키",
+        "11. 위치정보",
+        "12. 개인정보 보호 문의",
+        "13. 권익침해 구제",
+        "14. 처리방침의 변경",
+        "회원 탈퇴"
+      ],
+      "buttons": [
+        "단지온 DANJION by PADIEM",
+        "홈",
+        "이웃가게",
+        "우리단지",
+        "내정보",
+        "← 내정보",
+        "작게 정보를 한 화면에 많이 봅니다.",
+        "보통 기본 글자 크기입니다.",
+        "크게 본문과 버튼을 더 크게 봅니다.",
+        "단지온에 1:1 문의하기 →",
+        "차단 해제",
+        "이용약관 서비스 이용 기준 →",
+        "개인정보 안내 처리방침 확인 →",
+        "로그아웃 이 기기에서 나가기 →",
+        "회원 탈퇴 계정과 개인정보 삭제 요청 →",
+        "취소",
+        "탈퇴 요청"
+      ],
+      "links": [],
+      "labels": [],
+      "placeholders": [],
+      "dataHooks": [
+        "data-font-size",
+        "data-danjion-page",
+        "data-demo",
+        "data-size",
+        "data-settings-target",
+        "data-legal",
+        "data-delete-account",
+        "data-route",
+        "data-doc",
+        "data-delete-close",
+        "data-delete-confirm",
+        "data-auth",
+        "data-preview",
+        "data-greeting",
+        "data-email",
+        "data-social",
+        "data-reset",
+        "data-resend",
+        "data-term",
+        "data-term-close",
+        "data-address-next",
+        "data-terms-next",
+        "data-finish",
+        "data-required-all",
+        "data-chair-close",
+        "data-chair-detail",
+        "data-guest-enter",
+        "data-top"
+      ],
+      "stableClasses": [
+        "danjion-page",
+        "danjion-font-size",
+        "danjion-direct-router-v5",
+        "danjion-integrated",
+        "danjion-review-route-sync",
+        "danjion-route"
+      ],
+      "states": {
+        "empty": false,
+        "loading": false,
+        "error": true,
+        "successToast": true
+      }
+    },
+    "25A_신청제보.html": {
+      "file": "25A_신청제보.html",
+      "title": "단지온 · 이웃가게 신청/제보",
+      "headings": [
+        "내 가게 등록 신청",
+        "가게와 신청자",
+        "등록할 내용",
+        "제보할 내용",
+        "확인서류",
+        "가게 사진"
+      ],
+      "buttons": [
+        "단지온 DANJION by PADIEM",
+        "내 가게 등록 신청",
+        "이웃가게 제보",
+        "등록 신청하기",
+        "홈",
+        "이웃가게",
+        "우리단지",
+        "내정보"
+      ],
+      "links": [],
+      "labels": [
+        "가게·서비스 이름 <span class=\"req\">필수</span>",
+        "신청자와 가게의 관계 <span class=\"req\">필수</span>",
+        "기타 관계 <span class=\"req\">필수</span>",
+        "제보할 가게·서비스 이름 <span class=\"req\">필수</span>",
+        "제보자와 가게의 관계 <span class=\"req\">필수</span>",
+        "업종·가게 종류 <span class=\"req\">필수</span>",
+        "운영시간 <span class=\"req\">필수</span>",
+        "대표 상품·서비스 / 가격·상담방법 <span class=\"req\">필수</span>",
+        "위치·방문·배달·출장 <span class=\"req\">필수</span>",
+        "주민 혜택",
+        "예약·문의 방법 <span class=\"req\">필수</span>",
+        "추가 소개",
+        "어떤 가게인지 / 주요 상품·서비스 <span class=\"req\">필수</span>",
+        "알고 있는 가격·상담방법",
+        "알고 있는 운영시간",
+        "위치·연락 가능한 방법 <span class=\"req\">필수</span>",
+        "관계·추천 이유 <span class=\"req\">필수</span>",
+        "<b>운영 확인서류 <span class=\"req\">1개 이상 필수</span></b><p>사업자등록증, 영업신고증·허가증, 업종 관련 자격증 등 실제 운영을 확인할 수 있는 서류</p><input accept=\".pdf,.jpg,.jpeg,.png,.webp,.hwp,.hwpx,application/pdf,image/*\" id=\"ownerProof\" name=\"ownerProof\" required=\"\" type=\"file\"/><span class=\"file-status\" id=\"ownerProofStatus\">선택된 파일 없음</span>",
+        "<b>기타 증빙자료</b><p>메뉴판, 가격표, 자격증 추가본, 소개자료 등 필요한 경우만 첨부</p><input accept=\".pdf,.jpg,.jpeg,.png,.webp,.hwp,.hwpx,application/pdf,image/*\" id=\"ownerOtherDocs\" multiple=\"\" name=\"ownerOtherDocs\" type=\"file\"/><span class=\"file-status\" id=\"ownerOtherStatus\">선택된 파일 없음</span>",
+        "<b>가게·작업 사진 <span class=\"req\">최대 3장</span></b><p>대문/대표 이미지로 쓸 외관 또는 대표 사진, 상품·메뉴·작업 장면 등을 올려주세요.</p><input accept=\"image/*\" id=\"photos\" multiple=\"\" name=\"photos\" type=\"file\"/><span class=\"file-status\" id=\"photoStatus\">0 / 3장</span>",
+        "<b>추가 참고자료</b><p>가격표·메뉴판·소개 이미지 등 사진 외에 꼭 필요한 자료가 있을 때만 첨부</p><input accept=\".pdf,.jpg,.jpeg,.png,.webp,.hwp,.hwpx,application/pdf,image/*\" id=\"extraDocs\" multiple=\"\" name=\"extraDocs\" type=\"file\"/><span class=\"file-status\" id=\"extraDocsStatus\">선택된 파일 없음</span>"
+      ],
+      "placeholders": [
+        "예: 로드힐 꽃작업실",
+        "예: 운영자의 가족이며 등록을 도와주고 있습니다.",
+        "예: 바른 자동차정비",
+        "가게와 어떤 관계인지 직접 적어주세요.",
+        "예: 꽃집 · 예약제 꽃다발",
+        "예: 월~금 10:00~18:00 / 토 예약",
+        "예: 계절 꽃다발 3만원대부터 · 예산과 용도를 먼저 상담합니다.",
+        "예: 광주 남구 방림동 · 예약 후 방문 / 인근 배달 가능",
+        "예: 단지 주민 예약 시 포장 혜택",
+        "예: 단지온 1:1 문의 후 예약",
+        "메뉴·가격·이용 시 주의사항 등 더 알릴 내용을 적어주세요.",
+        "예: 주민 가족이 운영하는 자동차정비 가게이며 차량 점검과 소모품 교체를 합니다.",
+        "모르면 비워두셔도 됩니다.",
+        "예: 광주 남구 ○○로 인근 / 간판 전화번호 062-000-0000",
+        "예: 우리 단지 주민의 가족 가게라 소개합니다. 가게주인에게 단지온에서 연락할 수 있다고 전달했습니다."
+      ],
+      "dataHooks": [
+        "data-final-header-sync",
+        "data-danjion-page",
+        "data-route",
+        "data-auth",
+        "data-preview",
+        "data-greeting",
+        "data-email",
+        "data-social",
+        "data-reset",
+        "data-resend",
+        "data-term",
+        "data-term-close",
+        "data-address-next",
+        "data-terms-next",
+        "data-finish",
+        "data-required-all",
+        "data-chair-close",
+        "data-chair-detail",
+        "data-guest-enter",
+        "data-top"
+      ],
+      "stableClasses": [
+        "danjion-page",
+        "danjion-direct-router-v5",
+        "danjion-integrated",
+        "danjion-review-route-sync",
+        "danjion-route"
+      ],
+      "states": {
+        "empty": false,
+        "loading": false,
+        "error": false,
+        "successToast": true
+      }
+    },
+    "25_1대1문의.html": {
+      "file": "25_1대1문의.html",
+      "title": "단지온 · 1:1 문의 · STEP 25",
+      "headings": [
+        "1:1 문의",
+        "문의할 내용을 적어주세요.",
+        "내 문의"
+      ],
+      "buttons": [
+        "단지온 DANJION by PADIEM",
+        "홈",
+        "이웃가게",
+        "우리단지",
+        "내정보",
+        "← 설정",
+        "계정·로그인",
+        "우리집 연결",
+        "게시글·댓글",
+        "이웃가게·혜택",
+        "신고·안전",
+        "기타",
+        "＋ 사진 추가",
+        "문의 접수하기",
+        "답변 대기 2026.08.31 가족초대 링크가 열리지 않아요 우리집 연결 · 접수 완료",
+        "답변 완료 2026.08.24 이웃가게 정보를 수정하고 싶어요 이웃가게·혜택 · 답변 확인"
+      ],
+      "links": [],
+      "labels": [
+        "<b>제목</b>",
+        "<b>문의 내용</b>"
+      ],
+      "placeholders": [
+        "문의 제목",
+        "문의 내용을 적어주세요."
+      ],
+      "dataHooks": [
+        "data-danjion-page",
+        "data-demo",
+        "data-route",
+        "data-auth",
+        "data-preview",
+        "data-greeting",
+        "data-email",
+        "data-social",
+        "data-reset",
+        "data-resend",
+        "data-term",
+        "data-term-close",
+        "data-address-next",
+        "data-terms-next",
+        "data-finish",
+        "data-required-all",
+        "data-chair-close",
+        "data-chair-detail",
+        "data-guest-enter",
+        "data-top",
+        "data-back"
+      ],
+      "stableClasses": [
+        "danjion-page",
+        "danjion-direct-router-v5",
+        "danjion-integrated",
+        "danjion-review-route-sync",
+        "danjion-route",
+        "danjion-simple-back"
+      ],
+      "states": {
+        "empty": false,
+        "loading": false,
+        "error": false,
+        "successToast": true
+      }
+    },
+    "26_우리집연결.html": {
+      "file": "26_우리집연결.html",
+      "title": "단지온 · 우리집 연결 · STEP 26",
+      "headings": [
+        "우리집 연결",
+        "102동 1802호",
+        "현재 우리집 상태",
+        "연결된 계정",
+        "가족 초대"
+      ],
+      "buttons": [
+        "단지온 DANJION by PADIEM",
+        "홈",
+        "이웃가게",
+        "우리단지",
+        "내정보",
+        "← 내정보",
+        "새 링크 만들기",
+        "링크 복사",
+        "카카오톡으로 보내기",
+        "문자로 보내기",
+        "다른 방법으로 공유"
+      ],
+      "links": [],
+      "labels": [],
+      "placeholders": [],
+      "dataHooks": [
+        "data-final-header-sync",
+        "data-danjion-page",
+        "data-demo",
+        "data-route",
+        "data-auth",
+        "data-preview",
+        "data-greeting",
+        "data-email",
+        "data-social",
+        "data-reset",
+        "data-resend",
+        "data-term",
+        "data-term-close",
+        "data-address-next",
+        "data-terms-next",
+        "data-finish",
+        "data-required-all",
+        "data-chair-close",
+        "data-chair-detail",
+        "data-guest-enter",
+        "data-top",
+        "data-back"
+      ],
+      "stableClasses": [
+        "danjion-page",
+        "danjion-direct-router-v5",
+        "danjion-integrated",
+        "danjion-review-route-sync",
+        "danjion-route",
+        "danjion-simple-back"
+      ],
+      "states": {
+        "empty": false,
+        "loading": false,
+        "error": false,
+        "successToast": true
+      }
+    },
+    "27_알림함.html": {
+      "file": "27_알림함.html",
+      "title": "단지온 · 알림함 · STEP 27",
+      "headings": [
+        "알림",
+        "새 알림"
+      ],
+      "buttons": [
+        "단지온 DANJION by PADIEM",
+        "홈",
+        "이웃가게",
+        "우리단지",
+        "내정보",
+        "← 이전",
+        "모두 읽음",
+        "전체",
+        "공지·소식",
+        "댓글·공감",
+        "메시지",
+        "문의·우리집",
+        "알림 설정 →",
+        "공지 단지온공지 단지온 이용방법을 먼저 확인해 주세요. 네 가지 메뉴와 주민 정보 보호 기준을 안내합니다. 10분 전 →",
+        "댓글 가입인사 산책친구님이 환영 댓글을 남겼어요. 반갑습니다. 저도 저녁에 단지 산책을 자주 해요. 28분 전 →",
+        "1:1 새 메시지 길고양이친구님에게 메시지가 왔어요. 말씀해 주신 장소를 오늘 저녁에 확인해 볼게요. 1시간 전 →",
+        "문의 1:1 문의 답변 가족초대 링크 문의에 답변이 등록됐어요. 새 초대링크를 만들어 다시 보내주세요. 2시간 전 →",
+        "공감 단지이야기 이웃 3명이 내 글에 공감했어요. 지하주차장 출입구 조명 이야기 3시간 전 →",
+        "집 우리집 연결 김OO님이 우리집에 연결됐어요. 현재 같은 세대에 2명이 연결되어 있습니다. 8.28 →",
+        "소식 아파트소식 회장 인사 · 단지온을 시작하며 김경애 제5기 입주자대표회의 회장 8.24 →",
+        "받을 알림 설정하기 →"
+      ],
+      "links": [],
+      "labels": [],
+      "placeholders": [],
+      "dataHooks": [
+        "data-danjion-page",
+        "data-demo",
+        "data-filter",
+        "data-kind",
+        "data-summary",
+        "data-route",
+        "data-auth",
+        "data-preview",
+        "data-greeting",
+        "data-email",
+        "data-social",
+        "data-reset",
+        "data-resend",
+        "data-term",
+        "data-term-close",
+        "data-address-next",
+        "data-terms-next",
+        "data-finish",
+        "data-required-all",
+        "data-chair-close",
+        "data-chair-detail",
+        "data-guest-enter",
+        "data-top"
+      ],
+      "stableClasses": [
+        "danjion-page",
+        "danjion-direct-router-v5",
+        "danjion-integrated",
+        "danjion-review-route-sync",
+        "danjion-route"
+      ],
+      "states": {
+        "empty": false,
+        "loading": false,
+        "error": false,
+        "successToast": true
+      }
+    },
+    "28_나의활동.html": {
+      "file": "28_나의활동.html",
+      "title": "단지온 · 나의 활동 · STEP 28",
+      "headings": [
+        "나의 활동",
+        "우리 단지에 글쓰기"
+      ],
+      "buttons": [
+        "단지온 DANJION by PADIEM",
+        "홈",
+        "이웃가게",
+        "우리단지",
+        "내정보",
+        "← 내정보",
+        "내가 쓴 글 6",
+        "댓글·답글 18",
+        "공감한 글 12",
+        "가게 후기 3",
+        "전체",
+        "가입인사",
+        "단지이야기",
+        "궁금해요",
+        "같이해요",
+        "글쓰기 →",
+        "내 공개프로필 보기 →",
+        "'+(key==='posts'||key==='reviews'?'수정':'원문')+'",
+        "보기"
+      ],
+      "links": [],
+      "labels": [],
+      "placeholders": [
+        "내 활동 검색"
+      ],
+      "dataHooks": [
+        "data-danjion-page",
+        "data-demo",
+        "data-tab",
+        "data-route",
+        "data-type",
+        "data-action",
+        "data-auth",
+        "data-preview",
+        "data-greeting",
+        "data-email",
+        "data-social",
+        "data-reset",
+        "data-resend",
+        "data-term",
+        "data-term-close",
+        "data-address-next",
+        "data-terms-next",
+        "data-finish",
+        "data-required-all",
+        "data-chair-close",
+        "data-chair-detail",
+        "data-guest-enter",
+        "data-top"
+      ],
+      "stableClasses": [
+        "danjion-page",
+        "danjion-direct-router-v5",
+        "danjion-integrated",
+        "danjion-review-route-sync",
+        "danjion-route"
+      ],
+      "states": {
+        "empty": false,
+        "loading": false,
+        "error": false,
+        "successToast": true
+      }
+    },
+    "app.html": {
+      "file": "app.html",
+      "title": "단지온 · 앱",
+      "headings": [],
+      "buttons": [],
+      "links": [],
+      "labels": [],
+      "placeholders": [],
+      "dataHooks": [],
+      "stableClasses": [],
+      "states": {
+        "empty": false,
+        "loading": false,
+        "error": false,
+        "successToast": false
+      }
+    },
+    "index.html": {
+      "file": "index.html",
+      "title": "단지온 · 웹 통합검토 · 프론트엔드 점검1기 008",
+      "headings": [
+        "우리 아파트에, 단지온이 켜졌습니다.",
+        "“같은 단지에 사는 이웃을 더 가깝게 연결하고 싶었습니다.”",
+        "주민 여러분, 단지온을 시작합니다.",
+        "단지온을 시작해볼까요?",
+        "“같은 단지에 사는 이웃을 더 가깝게 연결하고 싶었습니다.”",
+        "주민 여러분, 반갑습니다.",
+        "단지 등록이 끝났어요"
+      ],
+      "buttons": [
+        "단지온 DANJION by PADIEM",
+        "로그인",
+        "가입하기",
+        "가입하고 시작하기 →",
+        "먼저 둘러보기",
+        "↓ 회장말씀 보기",
+        "단지온 시작하기 →",
+        "K 카카오로 ${action} →",
+        "N 네이버로 ${action} →",
+        "G Google로 ${action} →",
+        "@ 이메일로 ${action} →",
+        "비밀번호 재설정",
+        "인증번호 받기",
+        "다시 받기",
+        "인증 완료",
+        "약관 확인",
+        "내용 보기",
+        "필수 2개 동의 후 다음",
+        "주민 확인하고 다음",
+        "선택하고 다음",
+        "가입 완료",
+        "단지온 시작하기",
+        "닫기"
+      ],
+      "links": [],
+      "labels": [
+        "이메일<input class=\"control\" name=\"email\" type=\"email\" placeholder=\"name@example.com\" required>",
+        "인증번호<input class=\"control code-input\" name=\"code\" inputmode=\"numeric\" maxlength=\"6\" placeholder=\"000000\" required>",
+        "비밀번호<input class=\"control\" name=\"password\" type=\"password\" minlength=\"8\" placeholder=\"8자 이상\" required>",
+        "<input type=\"checkbox\" data-required-all><span>필수항목 2개 모두 동의</span>",
+        "<input type=\"checkbox\" data-required-term><span>단지온 이용약관<br><small>필수</small></span><button type=\"button\" data-term=\"service\">내용 보기</button>",
+        "<input type=\"checkbox\" data-required-term><span>개인정보 수집·이용<br><small>필수</small></span><button type=\"button\" data-term=\"privacy\">내용 보기</button>",
+        "<input type=\"checkbox\"><span>서비스 알림 수신<br><small>선택</small></span><button type=\"button\" data-term=\"serviceNotice\">내용 보기</button>",
+        "<input type=\"checkbox\"><span>혜택·이벤트 알림<br><small>선택</small></span><button type=\"button\" data-term=\"benefitNotice\">내용 보기</button>",
+        "주민코드<input class=\"control code-input\" name=\"residentCode\" autocomplete=\"one-time-code\" maxlength=\"8\" placeholder=\"주민코드\" required>",
+        "닉네임<input class=\"control\" name=\"nickname\" maxlength=\"12\" value=\"로드힐봄\" required>",
+        "가입 이메일<input class=\"control\" name=\"email\" type=\"email\" placeholder=\"name@example.com\" required>",
+        "비밀번호<input class=\"control\" name=\"password\" type=\"password\" placeholder=\"비밀번호\" required>",
+        "가입 이메일<input class=\"control\" type=\"email\" placeholder=\"name@example.com\" required>"
+      ],
+      "placeholders": [
+        "8자 이상",
+        "주민코드",
+        "비밀번호"
+      ],
+      "dataHooks": [
+        "data-top",
+        "data-auth",
+        "data-preview",
+        "data-greeting",
+        "data-guest-enter",
+        "data-chair-close",
+        "data-social",
+        "data-email",
+        "data-reset",
+        "data-form",
+        "data-resend",
+        "data-required-all",
+        "data-required-term",
+        "data-term",
+        "data-terms-status",
+        "data-term-detail",
+        "data-terms-next",
+        "data-address-next",
+        "data-finish",
+        "data-chair-detail",
+        "data-term-close",
+        "data-route"
+      ],
+      "stableClasses": [
+        "danjion-hero-ready-fallback-v6",
+        "danjion-direct-router-v5",
+        "danjion-integrated"
+      ],
+      "states": {
+        "empty": false,
+        "loading": false,
+        "error": false,
+        "successToast": true
+      }
+    }
+  },
+  "contracts": {
+    "v2-current-shell-contract.mjs": {
+      "mappedFiles": [
+        "04_데일리홈.html",
+        "18_공통앱셸.html",
+        "app.html",
+        "index.html"
+      ],
+      "total": 1,
+      "missing": [
+        "<span className=\"v2-wordmark\">단지온<\\"
+      ],
+      "relocated": [],
+      "ok": 0
+    },
+    "v2-current-home-contract.mjs": {
+      "mappedFiles": [
+        "04_데일리홈.html"
+      ],
+      "total": 10,
+      "missing": [
+        "가입·로그인"
+      ],
+      "relocated": [
+        "우리 아파트에,",
+        "가입하고 시작하기"
+      ],
+      "ok": 7
+    },
+    "v2-current-shops-contract.mjs": {
+      "mappedFiles": [
+        "01_이웃가게_발견.html",
+        "02_이웃가게_상세.html"
+      ],
+      "total": 13,
+      "missing": [
+        "review integration must mount inside the active 02 후기 tab",
+        "가까이 사는<br \\",
+        ">상세보기<\\",
+        "정확한 연락처는 기존 주민·세션 권한 확인 후 안내합니다\\."
+      ],
+      "relocated": [],
+      "ok": 9
+    },
+    "v2-current-complex-hub-contract.mjs": {
+      "mappedFiles": [
+        "05_우리단지_첫화면.html",
+        "06_단지온공지_목록.html",
+        "07_단지온공지_상세.html",
+        "08_아파트소식_목록.html",
+        "09_회장인사_상세.html"
+      ],
+      "total": 15,
+      "missing": [
+        "이웃대화 must reuse the canonical Community view",
+        "우리단지 primary navigation must enter the current 05 hub",
+        "title: '05_우리단지_첫화면\\.html'"
+      ],
+      "relocated": [],
+      "ok": 12
+    },
+    "v2-current-resident-news-contract.mjs": {
+      "mappedFiles": [
+        "10_주민소식_목록.html",
+        "11_주민소식_상세.html"
+      ],
+      "total": 13,
+      "missing": [
+        "내 제보 must preserve canonical signed-in resident status authority",
+        "분류값은 현재 API에 없으므로 임의로 추정하지 않습니다\\."
+      ],
+      "relocated": [],
+      "ok": 11
+    },
+    "v2-current-neighbor-conversation-contract.mjs": {
+      "mappedFiles": [
+        "12_이웃대화_첫화면.html",
+        "13_이웃대화_글상세_댓글.html",
+        "14_가입인사_글쓰기.html",
+        "15_단지이야기_글쓰기.html",
+        "16_궁금해요_글쓰기.html",
+        "17_같이해요_글쓰기.html"
+      ],
+      "total": 63,
+      "missing": [
+        "12 authority must start on 가입인사 rather than an invented all-feed default",
+        "공식소식",
+        "함께하는 곳",
+        "const \\[tab, setTab\\] = useState<Tab>\\('가입인사'\\)",
+        "const selectedWriteKind: ConversationKind = tab === '전체' \\? '가입인사' : tab",
+        "onClick=\\{\\(\\) => startWriting\\(selectedWriteKind\\)\\}>\\{selectedWriteKind\\} 글쓰기",
+        "aria-label=\"현재 카테고리 글쓰기\"[\\s\\S]*startWriting\\(selectedWriteKind\\)",
+        "'공식소식'",
+        "'우리 단지의 변화'",
+        "'함께하는 곳'",
+        "가입인사 전용 글쓰기는 서버 카테고리 계약이 추가된 뒤 열립니다",
+        "다른 글 종류로 대신 저장하지 않습니다",
+        "가입인사:\\s*'resident_story'",
+        "단지이야기:\\s*'resident_story'",
+        "궁금해요:\\s*'question'",
+        "같이해요:\\s*'together'",
+        "사진 첨부는 현재 Community create 계약에 없어",
+        "질문 유형·사진·게시글별 1:1 수신 설정은 저장하지 않습니다",
+        "같이해요 유형과 구조화 필드는 저장하지 않습니다"
+      ],
+      "relocated": [
+        "우리 단지의 변화"
+      ],
+      "ok": 43
+    },
+    "v2-current-settings-contract.mjs": {
+      "mappedFiles": [
+        "24_설정.html"
+      ],
+      "total": 16,
+      "missing": [
+        "24 설정",
+        "약관 동의 기록",
+        "PASS V2 20260904 current 24 설정 parity contract",
+        "글자크기는 현재 이 기기의 접근성 설정을 따릅니다\\.",
+        "이 화면에서 임의의 정책 버전을 만들지 않습니다\\.",
+        "외부 로그인 제공자 계정 자체는 삭제하지 않습니다\\.",
+        "이웃온기|주민혜택 쿠폰"
+      ],
+      "relocated": [
+        "서비스 알림",
+        "혜택·이벤트 알림"
+      ],
+      "ok": 7
+    },
+    "v2-current-notifications-contract.mjs": {
+      "mappedFiles": [
+        "27_알림함.html"
+      ],
+      "total": 11,
+      "missing": [
+        "27 알림함",
+        "메시지함 열기",
+        "주민소식 열기",
+        "새 알림이 없습니다.",
+        "PASS V2 20260904 current 27 알림함 parity contract",
+        "\\{feed\\.unreadCount\\}개 안 읽음",
+        "이웃온기|주민혜택 쿠폰"
+      ],
+      "relocated": [],
+      "ok": 4
+    },
+    "v2-current-inquiries-contract.mjs": {
+      "mappedFiles": [
+        "25_1대1문의.html"
+      ],
+      "total": 19,
+      "missing": [
+        "25 1:1문의",
+        "아직 접수한 문의가 없습니다.",
+        "접수됨",
+        "처리 중",
+        "PASS V2 20260904 current 25 1:1문의 parity contract",
+        "사진 첨부는 운영 기준 확정 후 지원됩니다\\.",
+        "아직 등록된 답변이 없습니다\\.",
+        "답변 확인 후 종료",
+        "이웃온기|주민혜택 쿠폰"
+      ],
+      "relocated": [
+        "새로고침",
+        "내용 보기",
+        "종료"
+      ],
+      "ok": 7
+    },
+    "v2-current-activity-contract.mjs": {
+      "mappedFiles": [
+        "28_나의활동.html"
+      ],
+      "total": 18,
+      "missing": [
+        "28 나의활동",
+        "삭제됨",
+        "기록됨",
+        "숨김 또는 삭제된 활동",
+        "아직 기록된 활동이 없습니다.",
+        "활동 더 보기",
+        "불러오는 중…",
+        "PASS V2 20260904 current 28 나의활동 parity contract",
+        "이웃온기|주민혜택 쿠폰"
+      ],
+      "relocated": [
+        "게시글",
+        "숨김"
+      ],
+      "ok": 7
+    },
+    "v2-current-household-contract.mjs": {
+      "mappedFiles": [
+        "26_우리집연결.html"
+      ],
+      "total": 20,
+      "missing": [
+        "26 우리집연결",
+        "동호수",
+        "세대·가족",
+        "세대 구성원",
+        "주 세대원",
+        "세대원",
+        "주민 확인됨",
+        "확인 대기",
+        "가족 초대 만들기",
+        "초대 회수",
+        "세대원 해제",
+        "세대 연결 해제",
+        "가족 초대 토큰 수락",
+        "초대 수락",
+        "PASS V2 20260904 current 26 우리집연결 parity contract",
+        "한 번만 표시되는 가족 초대 토큰",
+        "브라우저 저장 안 함",
+        "이웃온기|주민혜택 쿠폰"
+      ],
+      "relocated": [],
+      "ok": 2
+    },
+    "v2-current-registration-contract.mjs": {
+      "mappedFiles": [
+        "25A_신청제보.html"
+      ],
+      "total": 27,
+      "missing": [
+        "25A 신청제보",
+        "사진과 혜택",
+        "공개 경계 확인",
+        "내가 직접 운영",
+        "이웃 단지 주민 운영",
+        "우리 동네 가게",
+        "PASS V2 20260904 current 25A 신청제보 parity contract",
+        "stepTitles = \\['주민 관계', '하는 일', '사진과 혜택', '공개 경계 확인'\\]",
+        "대표 이미지 선택",
+        "운영 확인 · 공개하지 않음",
+        "동·호수\\",
+        "현재 단지 주민 직접 운영 · 내 가게 등록",
+        "등록 검토 요청",
+        "이웃가게 추천 접수",
+        "공유 링크 복사",
+        "입주민 후기",
+        "이웃온기|주민혜택 쿠폰"
+      ],
+      "relocated": [
+        "주민 관계",
+        "하는 일",
+        "후기 등록"
+      ],
+      "ok": 7
+    },
+    "v2-current-summary-contract.mjs": {
+      "mappedFiles": [
+        "19_내정보_메인.html"
+      ],
+      "total": 19,
+      "missing": [
+        "19 내정보 메인",
+        "내 단지온 요약",
+        "내 게시글",
+        "내 댓글·답글",
+        "읽지 않은 메시지",
+        "세대 인증",
+        "세대 구성원",
+        "세대 대표",
+        "확인 중",
+        "PASS V2 20260904 current 19 내정보 메인 parity contract",
+        "이웃온기|주민혜택 쿠폰"
+      ],
+      "relocated": [
+        "저장한 가게",
+        "인증 완료"
+      ],
+      "ok": 6
+    },
+    "v2-current-messages-contract.mjs": {
+      "mappedFiles": [
+        "20_메시지함_목록.html"
+      ],
+      "total": 13,
+      "missing": [
+        "20 메시지함 목록",
+        "PASS V2 20260904 current 20 메시지함 목록 parity contract",
+        "\\{unreadTotal\\}개 안 읽음",
+        "아직 대화가 없습니다\\.",
+        "이웃온기|주민혜택 쿠폰"
+      ],
+      "relocated": [
+        "프로필 보기",
+        "새로고침"
+      ],
+      "ok": 6
+    },
+    "v2-current-conversation-contract.mjs": {
+      "mappedFiles": [
+        "21_메시지_대화상세.html"
+      ],
+      "total": 24,
+      "missing": [
+        "21 메시지 대화상세",
+        "삭제된 메시지입니다\\.",
+        "메시지는 1~2000자로 입력해 주세요\\.",
+        "욕설·괴롭힘",
+        "위협",
+        "명예훼손 우려",
+        "21 conversation detail must expose the 대화 신고하기 entry point",
+        "이미 검토 중인 신고가 있습니다\\.",
+        "PASS V2 20260904 current 21 메시지 대화상세 parity contract",
+        "message\\.body \\?\\? '삭제된 메시지입니다\\.'",
+        "'메시지는 1~2000자로 입력해 주세요\\.'",
+        "주민 프로필 보기",
+        "'이미 검토 중인 신고가 있습니다\\.'",
+        "이웃온기|주민혜택 쿠폰"
+      ],
+      "relocated": [
+        "메시지를 보냈습니다\\.",
+        "개인정보 침해",
+        "스팸",
+        "'메시지를 보냈습니다\\.'"
+      ],
+      "ok": 6
+    },
+    "v2-current-profile-contract.mjs": {
+      "mappedFiles": [
+        "22_주민_공개프로필.html"
+      ],
+      "total": 15,
+      "missing": [
+        "22 주민 공개프로필",
+        "명예훼손 우려",
+        "욕설·괴롭힘",
+        "위협",
+        "공개 소개",
+        "PASS V2 20260904 current 22 주민 공개프로필 parity contract",
+        "이웃온기|주민혜택 쿠폰"
+      ],
+      "relocated": [
+        "개인정보 침해",
+        "스팸"
+      ],
+      "ok": 6
+    }
+  }
+}
