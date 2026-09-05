@@ -12,14 +12,15 @@ RULE: 이 문서가 가리키는 커밋이 유일한 진실의 원천이다. 로
 | --- | --- |
 | 저장소 | `https://github.com/skerishKang/02-danji-on` |
 | 기준 브랜치 | `main` |
-| 기준 커밋 | `bf7b029` — merge: Track I message report (#267) |
-| 직전 기준 | `307ee83` (F/G/H 병합) ← `a4021f0` (#257 채널 계약) |
+| 기준 커밋 | `4eef813` — Merge PR #269 (게이트 러너 Windows spawn 수정) |
+| 직전 기준 | `bf7b029` (Track I) ← `307ee83` (F/G/H 병합) ← `a4021f0` (#257 채널 계약) |
+| 문서 통합 | #268 (`fedd364`)로 CTO 산출물 10종 main 병합 완료 |
 
 새로始める 어디서든 이 한 줄이면 복원된다:
 
 ```bash
 git clone https://github.com/skerishKang/02-danji-on.git
-cd 02-danji-on && git log --oneline -1   # bf7b029 가 보여야 정상
+cd 02-danji-on && git log --oneline -1   # 4eef813 이상(본 문서 병합 커밋 포함)이 보여야 정상
 ```
 
 ---
@@ -46,9 +47,13 @@ R0 드리프트 행렬이 찾아낸 **코드 수준 개발 공백은 모두 해�
 | #253 | OPEN / HOLD | 03 주민혜택 표면 — benefit-mode 정책 발명 금지 |
 | #139 | OPEN / HOLD | 백엔드 핸드오프 저우선순위 제품 정책 결정 |
 | #59 | OPEN / HOLD | 개인정보 처리주체·주민인증·관리자 접근권한 확정 게이트 |
-| #246 | OPEN | 20260904 통합 디자인 핸드오프 대조 — R0/F/G/H로 실질 완료, 문서 병합 후 닫기 |
 | #245 | OPEN | Post-V2 안정화 리팩터링 웨이브 (다음 개발 후보) |
-| #262 | OPEN | R0 문서 PR — 본 통합 PR로 대체(superseded) |
+
+### 2026-09-05 정리 완료 (로컬 실행)
+- #267 CLOSED — `bf7b029`로 구현·병합 완료
+- #246 CLOSED — R0 + F/G/H/I로 실질 완료
+- #262 CLOSED(superseded) — #268이 CTO 산출물 10종 main 병합
+- #269 MERGED — 게이트 러너 Windows npm spawn 수정 (`shell:true`)
 
 ### 개발 착수 금지 (HOLD — 소유자 결정 없이는 구현·추론 금지)
 - **23 이웃온기**: 웜스 점수 공식 / 이벤트 가중치 / 페널티
@@ -65,6 +70,9 @@ node 04_개발/scripts/cto-gate-runner.mjs --ref origin/main --quick
 # 회귀 분리(베이스와 대상 비교)
 node 04_개발/scripts/cto-gate-runner.mjs --ref <대상브랜치> --base origin/main
 ```
+
+주의: `4eef813`(#269) 이전 러너는 Windows에서 npm spawn 실패(ENOENT)로 전 단계 FAIL을 낸다.
+`npm install` 단계부터 한 줄도 실행 없이 FAIL하면 최신 main으로 업데이트할 것.
 
 수동 게이트:
 
