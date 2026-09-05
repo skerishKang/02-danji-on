@@ -1,0 +1,1458 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta
+    name="viewport"
+    content="width=device-width,initial-scale=1"
+  >
+  <title>단지온 PHASE 3 통합 테스트</title>
+
+  <style>
+    body{
+      font-family:sans-serif;
+      max-width:1000px;
+      margin:30px auto;
+      padding:0 20px;
+    }
+
+    section{
+      border:1px solid #ccc;
+      padding:18px;
+      margin:18px 0;
+    }
+
+    input{
+      padding:8px;
+      margin:4px;
+      min-width:260px;
+    }
+
+    button{
+      padding:10px 14px;
+      margin:5px;
+    }
+
+    pre{
+      background:#f5f5f5;
+      padding:13px;
+      white-space:pre-wrap;
+      overflow-wrap:anywhere;
+    }
+
+    .note{
+      background:#fff8d8;
+      padding:12px;
+    }
+  </style>
+</head>
+
+<body>
+
+<h1>단지온 PHASE 3 통합 테스트</h1>
+
+<p class="note">
+  비밀번호와 JWT는 화면에 출력하지 않습니다.
+  신청 ID와 테스트용 가게명만 브라우저 sessionStorage에 임시 저장합니다.
+</p>
+
+
+<section>
+  <h2>로그인</h2>
+
+  <input
+    id="email"
+    type="email"
+    placeholder="이메일"
+  >
+
+  <input
+    id="password"
+    type="password"
+    placeholder="비밀번호"
+  >
+
+  <button id="login">
+    로그인
+  </button>
+
+  <button id="logout">
+    로그아웃
+  </button>
+
+  <pre id="loginResult"></pre>
+</section>
+
+
+<section>
+  <h2>1. user 7 — 신청자</h2>
+
+  <p>
+    user 7 로그인 후 한 번 누릅니다.
+    내 가게 신청 1건 + 승인용 제보 1건 + 거절용 제보 1건을 만듭니다.
+  </p>
+
+  <button id="applicantCreate">
+    신청/제보 3건 통합 생성
+  </button>
+
+  <pre id="applicantCreateResult"></pre>
+</section>
+
+
+<section>
+  <h2>2. user 1 — 관리자 1차 심사</h2>
+
+  <p>
+    user 7 로그아웃 → user 1 로그인 후 누릅니다.
+  </p>
+
+  <button id="adminReview">
+    수정요청 + 제보승인 + 제보거절
+  </button>
+
+  <pre id="adminReviewResult"></pre>
+</section>
+
+
+<section>
+  <h2>3. user 7 — 수정·재제출</h2>
+
+  <p>
+    user 1 로그아웃 → user 7 로그인 후 누릅니다.
+  </p>
+
+  <button id="applicantResubmit">
+    수정요청 확인 + 수정 + 재제출
+  </button>
+
+  <pre id="applicantResubmitResult"></pre>
+</section>
+
+
+<section>
+  <h2>4. user 1 — 최종 보안검증</h2>
+
+  <p>
+    user 7 로그아웃 → user 1 로그인 후 누릅니다.
+    증빙 없는 점주 신청이 승인되지 않는지 확인합니다.
+  </p>
+
+  <button id="adminFinal">
+    증빙 없는 점주 승인 차단 확인
+  </button>
+
+  <pre id="adminFinalResult"></pre>
+</section>
+
+
+<script type="module">
+
+import {
+  createAuthClient
+} from "@neondatabase/auth";
+
+
+const AUTH_URL =
+  "https://ep-old-boat-azi7guqq.neonauth.c-3.ap-southeast-1.aws.neon.tech/neondb/auth";
+
+const auth =
+  createAuthClient(AUTH_URL);
+
+let jwt = null;
+
+
+function show(
+  selector,
+  value
+) {
+  document
+    .querySelector(selector)
+    .textContent =
+      JSON.stringify(
+        value,
+        null,
+        2
+      );
+}
+
+
+async function getJwt() {
+  if (jwt) {
+    return jwt;
+  }
+
+  const sessionResult =
+    await auth.getSession();
+
+  const session =
+    sessionResult?.data ??
+    sessionResult;
+
+  jwt =
+    session?.session?.token ??
+    null;
+
+  if (
+    !jwt ||
+    jwt.split(".").length !== 3
+  ) {
+    throw new Error(
+      "먼저 로그인하세요."
+    );
+  }
+
+  return jwt;
+}
+
+
+async function api(
+  path,
+  options = {}
+) {
+  const token =
+    await getJwt();
+
+  const response =
+    await fetch(
+      path,
+      {
+        ...options,
+
+        headers: {
+          Authorization:
+            `Bearer ${token}`,
+
+          ...(options.body
+            ? {
+                "Content-Type":
+                  "application/json"
+              }
+            : {}),
+
+          ...(options.headers ?? {})
+        }
+      }
+    );
+
+  let data;
+
+  try {
+    data =
+      await response.json();
+  } catch {
+    data = {
+      ok:false,
+      error:"NON_JSON_RESPONSE"
+    };
+  }
+
+  return {
+    http_status:
+      response.status,
+
+    ...data
+  };
+}
+
+
+function assertSuccess(
+  result,
+  label
+) {
+  if (
+    result.http_status < 200 ||
+    result.http_status >= 300 ||
+    result.ok !== true
+  ) {
+    throw new Error(
+      `${label} 실패: ` +
+      JSON.stringify(result)
+    );
+  }
+
+  return result;
+}
+
+
+async function requireUserId(
+  expected
+) {
+  const me =
+    assertSuccess(
+      await api("/api/me"),
+      "내정보 확인"
+    );
+
+  const actual =
+    String(
+      me.data?.user?.id
+    );
+
+  if (
+    actual !==
+    String(expected)
+  ) {
+    throw new Error(
+      `현재 user ${actual} 입니다. user ${expected} 계정으로 로그인하세요.`
+    );
+  }
+
+  return me;
+}
+
+
+// ==========================================================
+// LOGIN
+// ==========================================================
+
+document
+  .querySelector("#login")
+  .addEventListener(
+    "click",
+    async () => {
+
+      try {
+
+        const result =
+          await auth.signIn.email({
+            email:
+              document
+                .querySelector("#email")
+                .value
+                .trim(),
+
+            password:
+              document
+                .querySelector("#password")
+                .value
+          });
+
+        if (result?.error) {
+          throw result.error;
+        }
+
+        jwt = null;
+
+        const me =
+          await api("/api/me");
+
+        show(
+          "#loginResult",
+          {
+            ok:
+              me.ok,
+
+            http_status:
+              me.http_status,
+
+            user: {
+              id:
+                me.data?.user?.id,
+
+              display_name:
+                me.data?.user
+                  ?.display_name
+            }
+          }
+        );
+
+      } catch (error) {
+
+        show(
+          "#loginResult",
+          {
+            ok:false,
+            error:
+              error?.message ??
+              String(error)
+          }
+        );
+      }
+    }
+  );
+
+
+document
+  .querySelector("#logout")
+  .addEventListener(
+    "click",
+    async () => {
+
+      await auth.signOut();
+
+      jwt = null;
+
+      show(
+        "#loginResult",
+        {
+          logout_ok:true
+        }
+      );
+    }
+  );
+
+
+// ==========================================================
+// STEP 1
+// USER 7
+// ==========================================================
+
+document
+  .querySelector("#applicantCreate")
+  .addEventListener(
+    "click",
+    async () => {
+
+      const report = {
+        steps:[]
+      };
+
+      try {
+
+        await requireUserId(7);
+
+        const suffix =
+          String(Date.now())
+            .slice(-7);
+
+        const ownerName =
+          `PH3 점주신청 ${suffix}`;
+
+        const approveReportName =
+          `PH3 승인제보 ${suffix}`;
+
+        const rejectReportName =
+          `PH3 거절제보 ${suffix}`;
+
+
+        sessionStorage.setItem(
+          "ph3_owner_name",
+          ownerName
+        );
+
+        sessionStorage.setItem(
+          "ph3_approve_report_name",
+          approveReportName
+        );
+
+        sessionStorage.setItem(
+          "ph3_reject_report_name",
+          rejectReportName
+        );
+
+
+        // ----------------------------------------------
+        // OWNER APPLICATION
+        // ----------------------------------------------
+
+        const owner =
+          assertSuccess(
+            await api(
+              "/api/shop-applications",
+              {
+                method:"POST",
+
+                body:
+                  JSON.stringify({
+                    shop_name:
+                      ownerName,
+
+                    relation_code:
+                      "self",
+
+                    category_text:
+                      "카페·간식",
+
+                    hours_text:
+                      "월~금 09:00~18:00",
+
+                    service_price_text:
+                      "커피와 간식을 판매합니다.",
+
+                    location_use_text:
+                      "광주 남구 방림동",
+
+                    benefit_text:
+                      "단지 주민 10% 할인",
+
+                    contact_text:
+                      "단지온 1:1 문의",
+
+                    extra_intro:
+                      "PHASE 3 통합검증용 점주 신청"
+                  })
+              }
+            ),
+            "내 가게 신청"
+          );
+
+        const ownerId =
+          String(owner.data.id);
+
+        sessionStorage.setItem(
+          "ph3_owner_id",
+          ownerId
+        );
+
+        report.steps.push({
+          step:
+            "owner_application_create",
+
+          pass:true,
+
+          application_id:
+            ownerId,
+
+          status:
+            owner.data.status
+        });
+
+
+        // ----------------------------------------------
+        // REPORT TO APPROVE
+        // ----------------------------------------------
+
+        const approveReport =
+          assertSuccess(
+            await api(
+              "/api/shop-reports",
+              {
+                method:"POST",
+
+                body:
+                  JSON.stringify({
+                    shop_name:
+                      approveReportName,
+
+                    relation_code:
+                      "nearby",
+
+                    report_what:
+                      "가까운 이웃가게이며 생활 서비스를 제공합니다.",
+
+                    report_price:
+                      "상담",
+
+                    report_hours:
+                      "평일 운영",
+
+                    report_location:
+                      "광주 남구 방림동 인근",
+
+                    report_reason:
+                      "주민들이 이용할 수 있는 가까운 가게라 제보합니다."
+                  })
+              }
+            ),
+            "승인용 이웃가게 제보"
+          );
+
+        const approveReportId =
+          String(
+            approveReport.data.id
+          );
+
+        sessionStorage.setItem(
+          "ph3_approve_report_id",
+          approveReportId
+        );
+
+        report.steps.push({
+          step:
+            "report_for_approval_create",
+
+          pass:true,
+
+          application_id:
+            approveReportId
+        });
+
+
+        // ----------------------------------------------
+        // REPORT TO REJECT
+        // ----------------------------------------------
+
+        const rejectReport =
+          assertSuccess(
+            await api(
+              "/api/shop-reports",
+              {
+                method:"POST",
+
+                body:
+                  JSON.stringify({
+                    shop_name:
+                      rejectReportName,
+
+                    relation_code:
+                      "nearby",
+
+                    report_what:
+                      "거절 흐름 확인용 테스트 제보입니다.",
+
+                    report_location:
+                      "광주 남구",
+
+                    report_reason:
+                      "PHASE 3 거절상태 검증"
+                  })
+              }
+            ),
+            "거절용 이웃가게 제보"
+          );
+
+        const rejectReportId =
+          String(
+            rejectReport.data.id
+          );
+
+        sessionStorage.setItem(
+          "ph3_reject_report_id",
+          rejectReportId
+        );
+
+        report.steps.push({
+          step:
+            "report_for_rejection_create",
+
+          pass:true,
+
+          application_id:
+            rejectReportId
+        });
+
+
+        // ----------------------------------------------
+        // MY LIST
+        // ----------------------------------------------
+
+        const myList =
+          assertSuccess(
+            await api(
+              "/api/me/shop-applications"
+            ),
+            "내 신청목록"
+          );
+
+        const ids =
+          new Set(
+            myList.data
+              ?.applications
+              ?.map(
+                item =>
+                  String(item.id)
+              ) ?? []
+          );
+
+        for (
+          const id of [
+            ownerId,
+            approveReportId,
+            rejectReportId
+          ]
+        ) {
+          if (!ids.has(id)) {
+            throw new Error(
+              `내 신청목록에 ${id}가 없습니다.`
+            );
+          }
+        }
+
+        report.steps.push({
+          step:
+            "my_application_list",
+
+          pass:true
+        });
+
+
+        // ----------------------------------------------
+        // PRE-PUBLISH VISIBILITY CHECK
+        // ----------------------------------------------
+
+        for (
+          const name of [
+            ownerName,
+            approveReportName,
+            rejectReportName
+          ]
+        ) {
+
+          const search =
+            assertSuccess(
+              await api(
+                `/api/businesses?q=${encodeURIComponent(name)}`
+              ),
+              "승인 전 공개검색"
+            );
+
+          if (
+            search.data
+              ?.businesses
+              ?.some(
+                item =>
+                  item.name === name
+              )
+          ) {
+            throw new Error(
+              `${name} 이 승인 전에 공개됐습니다.`
+            );
+          }
+        }
+
+        report.steps.push({
+          step:
+            "unapproved_not_public",
+
+          pass:true
+        });
+
+
+        // ----------------------------------------------
+        // SELF REVIEW MUST FAIL
+        // user 7 is operator too, but cannot review own request
+        // ----------------------------------------------
+
+        const selfReview =
+          await api(
+            `/api/admin/shop-applications/${ownerId}/needs-more-info`,
+            {
+              method:"POST",
+
+              body:
+                JSON.stringify({
+                  message:
+                    "본인심사 금지 테스트"
+                })
+            }
+          );
+
+        if (
+          selfReview.http_status !== 403 ||
+          selfReview.error !==
+            "SELF_REVIEW_FORBIDDEN"
+        ) {
+          throw new Error(
+            "본인 신청 자기심사가 차단되지 않았습니다: " +
+            JSON.stringify(
+              selfReview
+            )
+          );
+        }
+
+        report.steps.push({
+          step:
+            "self_review_forbidden",
+
+          pass:true,
+
+          http_status:
+            selfReview.http_status
+        });
+
+
+        report.result =
+          "PHASE3_APPLICANT_CREATE_PASS";
+
+        show(
+          "#applicantCreateResult",
+          report
+        );
+
+      } catch (error) {
+
+        report.result =
+          "PHASE3_APPLICANT_CREATE_FAIL";
+
+        report.error =
+          error?.message ??
+          String(error);
+
+        show(
+          "#applicantCreateResult",
+          report
+        );
+      }
+    }
+  );
+
+
+// ==========================================================
+// STEP 2
+// USER 1 ADMIN
+// ==========================================================
+
+document
+  .querySelector("#adminReview")
+  .addEventListener(
+    "click",
+    async () => {
+
+      const report = {
+        steps:[]
+      };
+
+      try {
+
+        await requireUserId(1);
+
+        const ownerId =
+          sessionStorage.getItem(
+            "ph3_owner_id"
+          );
+
+        const approveReportId =
+          sessionStorage.getItem(
+            "ph3_approve_report_id"
+          );
+
+        const rejectReportId =
+          sessionStorage.getItem(
+            "ph3_reject_report_id"
+          );
+
+        const approveReportName =
+          sessionStorage.getItem(
+            "ph3_approve_report_name"
+          );
+
+        if (
+          !ownerId ||
+          !approveReportId ||
+          !rejectReportId
+        ) {
+          throw new Error(
+            "먼저 user 7 생성 테스트를 실행하세요."
+          );
+        }
+
+
+        // ----------------------------------------------
+        // ADMIN LIST
+        // ----------------------------------------------
+
+        const adminList =
+          assertSuccess(
+            await api(
+              "/api/admin/shop-applications?status=submitted"
+            ),
+            "관리자 신청목록"
+          );
+
+        const ids =
+          new Set(
+            adminList.data
+              ?.applications
+              ?.map(
+                item =>
+                  String(item.id)
+              ) ?? []
+          );
+
+        for (
+          const id of [
+            ownerId,
+            approveReportId,
+            rejectReportId
+          ]
+        ) {
+          if (!ids.has(id)) {
+            throw new Error(
+              `관리자 제출목록에 ${id}가 없습니다.`
+            );
+          }
+        }
+
+        report.steps.push({
+          step:
+            "admin_submitted_list",
+
+          pass:true
+        });
+
+
+        // ----------------------------------------------
+        // OWNER -> NEEDS MORE INFO
+        // ----------------------------------------------
+
+        const needsMoreInfo =
+          assertSuccess(
+            await api(
+              `/api/admin/shop-applications/${ownerId}/needs-more-info`,
+              {
+                method:"POST",
+
+                body:
+                  JSON.stringify({
+                    message:
+                      "추가 소개를 조금 더 구체적으로 적어주세요.",
+
+                    note_private:
+                      "PHASE 3 수정요청 통합검증"
+                  })
+              }
+            ),
+            "수정요청"
+          );
+
+        if (
+          needsMoreInfo.data
+            ?.status !==
+            "needs_more_info"
+        ) {
+          throw new Error(
+            "수정요청 상태가 맞지 않습니다."
+          );
+        }
+
+        report.steps.push({
+          step:
+            "owner_needs_more_info",
+
+          pass:true
+        });
+
+
+        // ----------------------------------------------
+        // REPORT APPROVE -> BUSINESS PUBLISHED
+        // ----------------------------------------------
+
+        const approved =
+          assertSuccess(
+            await api(
+              `/api/admin/shop-applications/${approveReportId}/approve`,
+              {
+                method:"POST",
+
+                body:
+                  JSON.stringify({
+                    note_private:
+                      "PHASE 3 제보 승인 통합검증"
+                  })
+              }
+            ),
+            "제보 승인"
+          );
+
+        if (
+          approved.data
+            ?.application_status !==
+            "published"
+        ) {
+          throw new Error(
+            "승인 제보가 published 상태가 아닙니다."
+          );
+        }
+
+        sessionStorage.setItem(
+          "ph3_published_business_id",
+          String(
+            approved.data.business_id
+          )
+        );
+
+        sessionStorage.setItem(
+          "ph3_published_slug",
+          String(
+            approved.data.public_slug
+          )
+        );
+
+        report.steps.push({
+          step:
+            "report_approved_and_published",
+
+          pass:true,
+
+          business_id:
+            approved.data.business_id,
+
+          public_slug:
+            approved.data.public_slug
+        });
+
+
+        // ----------------------------------------------
+        // REPORT REJECT
+        // ----------------------------------------------
+
+        const rejected =
+          assertSuccess(
+            await api(
+              `/api/admin/shop-applications/${rejectReportId}/reject`,
+              {
+                method:"POST",
+
+                body:
+                  JSON.stringify({
+                    message:
+                      "테스트용 거절 처리입니다.",
+
+                    note_private:
+                      "PHASE 3 거절 검증"
+                  })
+              }
+            ),
+            "제보 거절"
+          );
+
+        if (
+          rejected.data
+            ?.status !==
+            "rejected"
+        ) {
+          throw new Error(
+            "거절상태가 맞지 않습니다."
+          );
+        }
+
+        report.steps.push({
+          step:
+            "report_rejected",
+
+          pass:true
+        });
+
+
+        // ----------------------------------------------
+        // PUBLISHED BUSINESS NOW PUBLIC
+        // ----------------------------------------------
+
+        const search =
+          assertSuccess(
+            await api(
+              `/api/businesses?q=${encodeURIComponent(approveReportName)}`
+            ),
+            "승인 가게 공개검색"
+          );
+
+        const publishedBusiness =
+          search.data
+            ?.businesses
+            ?.find(
+              item =>
+                item.name ===
+                approveReportName
+            );
+
+        if (!publishedBusiness) {
+          throw new Error(
+            "승인된 제보 가게가 공개목록에 없습니다."
+          );
+        }
+
+        report.steps.push({
+          step:
+            "published_business_visible",
+
+          pass:true,
+
+          business_id:
+            publishedBusiness.id,
+
+          public_slug:
+            publishedBusiness.public_slug
+        });
+
+
+        report.result =
+          "PHASE3_ADMIN_REVIEW_PASS";
+
+        show(
+          "#adminReviewResult",
+          report
+        );
+
+      } catch (error) {
+
+        report.result =
+          "PHASE3_ADMIN_REVIEW_FAIL";
+
+        report.error =
+          error?.message ??
+          String(error);
+
+        show(
+          "#adminReviewResult",
+          report
+        );
+      }
+    }
+  );
+
+
+// ==========================================================
+// STEP 3
+// USER 7 EDIT + RESUBMIT
+// ==========================================================
+
+document
+  .querySelector("#applicantResubmit")
+  .addEventListener(
+    "click",
+    async () => {
+
+      const report = {
+        steps:[]
+      };
+
+      try {
+
+        await requireUserId(7);
+
+        const ownerId =
+          sessionStorage.getItem(
+            "ph3_owner_id"
+          );
+
+        const approveReportId =
+          sessionStorage.getItem(
+            "ph3_approve_report_id"
+          );
+
+        const rejectReportId =
+          sessionStorage.getItem(
+            "ph3_reject_report_id"
+          );
+
+        if (!ownerId) {
+          throw new Error(
+            "신청 ID가 없습니다."
+          );
+        }
+
+
+        // ----------------------------------------------
+        // CHECK STATUS + VISIBLE REVIEW MESSAGE
+        // ----------------------------------------------
+
+        const myList =
+          assertSuccess(
+            await api(
+              "/api/me/shop-applications"
+            ),
+            "내 신청목록"
+          );
+
+        const owner =
+          myList.data
+            ?.applications
+            ?.find(
+              item =>
+                String(item.id) ===
+                ownerId
+            );
+
+        if (
+          !owner ||
+          owner.status !==
+            "needs_more_info"
+        ) {
+          throw new Error(
+            "점주 신청이 수정요청 상태가 아닙니다."
+          );
+        }
+
+        if (
+          !owner
+            .reviewer_note_to_applicant
+        ) {
+          throw new Error(
+            "신청자에게 수정요청 안내가 보이지 않습니다."
+          );
+        }
+
+        const approvedReport =
+          myList.data
+            ?.applications
+            ?.find(
+              item =>
+                String(item.id) ===
+                approveReportId
+            );
+
+        const rejectedReport =
+          myList.data
+            ?.applications
+            ?.find(
+              item =>
+                String(item.id) ===
+                rejectReportId
+            );
+
+        if (
+          approvedReport?.status !==
+          "published"
+        ) {
+          throw new Error(
+            "승인된 제보 상태가 published가 아닙니다."
+          );
+        }
+
+        if (
+          rejectedReport?.status !==
+          "rejected"
+        ) {
+          throw new Error(
+            "거절 제보 상태가 rejected가 아닙니다."
+          );
+        }
+
+        report.steps.push({
+          step:
+            "review_results_visible_to_applicant",
+
+          pass:true,
+
+          owner_status:
+            owner.status,
+
+          approved_report_status:
+            approvedReport.status,
+
+          rejected_report_status:
+            rejectedReport.status
+        });
+
+
+        // ----------------------------------------------
+        // PATCH
+        // ----------------------------------------------
+
+        const updated =
+          assertSuccess(
+            await api(
+              `/api/me/shop-applications/${ownerId}`,
+              {
+                method:"PATCH",
+
+                body:
+                  JSON.stringify({
+                    extra_intro:
+                      "수정요청을 반영하여 가게 운영 방식과 주민 이용방법을 더 자세히 적었습니다."
+                  })
+              }
+            ),
+            "점주 신청 수정"
+          );
+
+        report.steps.push({
+          step:
+            "owner_application_updated",
+
+          pass:true,
+
+          status:
+            updated.data.status
+        });
+
+
+        // ----------------------------------------------
+        // RESUBMIT
+        // ----------------------------------------------
+
+        const submitted =
+          assertSuccess(
+            await api(
+              `/api/me/shop-applications/${ownerId}/submit`,
+              {
+                method:"POST"
+              }
+            ),
+            "점주 신청 재제출"
+          );
+
+        if (
+          submitted.data
+            ?.status !==
+            "submitted"
+        ) {
+          throw new Error(
+            "재제출 상태가 submitted가 아닙니다."
+          );
+        }
+
+        report.steps.push({
+          step:
+            "owner_application_resubmitted",
+
+          pass:true
+        });
+
+
+        report.result =
+          "PHASE3_APPLICANT_RESUBMIT_PASS";
+
+        show(
+          "#applicantResubmitResult",
+          report
+        );
+
+      } catch (error) {
+
+        report.result =
+          "PHASE3_APPLICANT_RESUBMIT_FAIL";
+
+        report.error =
+          error?.message ??
+          String(error);
+
+        show(
+          "#applicantResubmitResult",
+          report
+        );
+      }
+    }
+  );
+
+
+// ==========================================================
+// STEP 4
+// USER 1 FINAL SECURITY CHECK
+// ==========================================================
+
+document
+  .querySelector("#adminFinal")
+  .addEventListener(
+    "click",
+    async () => {
+
+      const report = {
+        steps:[]
+      };
+
+      try {
+
+        await requireUserId(1);
+
+        const ownerId =
+          sessionStorage.getItem(
+            "ph3_owner_id"
+          );
+
+        const ownerName =
+          sessionStorage.getItem(
+            "ph3_owner_name"
+          );
+
+        if (
+          !ownerId ||
+          !ownerName
+        ) {
+          throw new Error(
+            "점주 신청 정보가 없습니다."
+          );
+        }
+
+
+        // ----------------------------------------------
+        // OWNER APPROVAL MUST FAIL WITHOUT PRIVATE PROOF
+        // ----------------------------------------------
+
+        const approve =
+          await api(
+            `/api/admin/shop-applications/${ownerId}/approve`,
+            {
+              method:"POST",
+
+              body:
+                JSON.stringify({
+                  note_private:
+                    "증빙파일 없는 승인 차단 검증"
+                })
+            }
+          );
+
+        if (
+          approve.http_status !== 409 ||
+          approve.error !==
+            "OWNER_PROOF_REQUIRED"
+        ) {
+          throw new Error(
+            "증빙 없는 점주 신청이 정확히 차단되지 않았습니다: " +
+            JSON.stringify(approve)
+          );
+        }
+
+        report.steps.push({
+          step:
+            "owner_without_proof_blocked",
+
+          pass:true,
+
+          http_status:
+            approve.http_status,
+
+          error:
+            approve.error
+        });
+
+
+        // ----------------------------------------------
+        // STILL NOT PUBLIC
+        // ----------------------------------------------
+
+        const search =
+          assertSuccess(
+            await api(
+              `/api/businesses?q=${encodeURIComponent(ownerName)}`
+            ),
+            "미승인 점주가게 공개검색"
+          );
+
+        const leaked =
+          search.data
+            ?.businesses
+            ?.some(
+              item =>
+                item.name ===
+                ownerName
+            );
+
+        if (leaked) {
+          throw new Error(
+            "증빙 없는 미승인 점주 가게가 공개됐습니다."
+          );
+        }
+
+        report.steps.push({
+          step:
+            "blocked_owner_business_not_public",
+
+          pass:true
+        });
+
+
+        report.result =
+          "PHASE3_CORE_FLOW_PASS";
+
+        report.next =
+          "PUBLIC_PRIVATE_STORAGE_REQUIRED";
+
+        show(
+          "#adminFinalResult",
+          report
+        );
+
+      } catch (error) {
+
+        report.result =
+          "PHASE3_CORE_FLOW_FAIL";
+
+        report.error =
+          error?.message ??
+          String(error);
+
+        show(
+          "#adminFinalResult",
+          report
+        );
+      }
+    }
+  );
+
+</script>
+
+</body>
+</html>

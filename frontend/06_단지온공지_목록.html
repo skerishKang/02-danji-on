@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+
+<html lang="ko">
+<head>
+<meta charset="utf-8"/><meta content="width=device-width,initial-scale=1" name="viewport"/>
+<title>단지온 · 단지온공지 · STEP 06</title>
+<style>
+    @import url("assets/consistency.css");
+    :root{--paper:#f6f2e9;--paper2:#fffdf8;--ink:#101317;--navy:#101d30;--coral:#ee6045;--amber:#f2b84b;--green:#255e49;--muted:#6d6a64;--line:#d8d0c3;--soft:#ece5d8;--header:76px}
+    *{box-sizing:border-box}html{background:var(--paper);color:var(--ink);font-family:Pretendard,"Pretendard Variable","Noto Sans KR",Arial,sans-serif}body{margin:0;min-width:320px;background:var(--paper)}button,input{font:inherit;color:inherit}button{cursor:pointer}
+    .site-header{height:var(--header);border-bottom:1px solid var(--line);background:rgba(246,242,233,.96);display:flex;align-items:center;position:sticky;top:0;z-index:40;backdrop-filter:blur(12px)}.header-inner{width:min(1280px,calc(100% - 64px));margin:auto;display:flex;align-items:center;justify-content:space-between}.brand{display:flex;align-items:baseline;gap:10px;border:0;background:none;padding:0;font-weight:900;font-size:25px;letter-spacing:-.05em}.brand small{font-size:11px;letter-spacing:.11em;color:#5f5c56;font-weight:850}.desktop-nav{display:flex;align-items:center;gap:42px;height:var(--header)}.desktop-nav button{height:100%;border:0;background:none;padding:0 2px;font-size:16px;font-weight:780;position:relative}.desktop-nav button.active::after{content:"";height:3px;position:absolute;left:0;right:0;bottom:0;background:var(--coral)}.identity{font-size:14px;font-weight:780;color:#58554f}.mobile-head{display:none}
+    main{width:min(1280px,calc(100% - 64px));margin:auto;padding:0 0 100px}.route{height:58px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--line)}.route a,.route button{display:flex;align-items:center;gap:9px;border:0;background:none;padding:0;font-size:15px;font-weight:850;text-decoration:none}.route svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8}.route span{font-size:14px;color:var(--muted)}.route span::before{content:"/";margin-right:10px;color:#aaa49b}
+    .notice-head{display:grid;grid-template-columns:minmax(0,1fr) 420px;gap:70px;align-items:end;padding:42px 0 26px}.eyebrow{display:flex;align-items:center;gap:10px;font-size:13px;font-weight:850;color:var(--coral);margin-bottom:13px}.eyebrow::before{content:"";width:28px;height:2px;background:var(--coral)}h1{font-size:58px;line-height:1;letter-spacing:-.055em;margin:0}.head-copy{border-top:1px solid var(--ink);padding-top:17px;font-size:15px;line-height:1.65;color:var(--muted)}.head-copy b{display:block;font-size:17px;color:var(--ink);margin-bottom:5px}
+    .tools{display:flex;align-items:center;justify-content:space-between;border-top:1px solid var(--ink);padding:16px 0}.filters{display:flex;gap:7px;overflow:auto;scrollbar-width:none}.filters::-webkit-scrollbar{display:none}.filter{height:44px;padding:0 17px;border:1px solid var(--line);background:var(--paper2);font-size:14px;font-weight:800;white-space:nowrap}.filter.active{background:var(--ink);color:#fff;border-color:var(--ink)}.search{height:44px;width:300px;display:grid;grid-template-columns:1fr 46px;border:1px solid var(--line);background:var(--paper2)}.search input{border:0;background:none;outline:0;padding:0 13px;font-size:14px}.search button{border:0;background:var(--ink);color:#fff;font-size:0}.search button::after{content:"→";font-size:18px}
+    .notice-layout{display:grid;grid-template-columns:minmax(380px,.8fr) minmax(0,1.2fr);gap:14px}.pinned{min-height:470px;padding:32px;background:var(--navy);color:#fff;display:flex;flex-direction:column;position:relative;overflow:hidden}.pinned::after{content:"";position:absolute;width:260px;height:260px;border:1px solid rgba(255,255,255,.09);border-radius:50%;right:-90px;top:100px}.pin-label{display:flex;align-items:center;gap:10px;font-size:15px;font-weight:900;color:var(--amber);position:relative;z-index:2}.pin-label::before{content:"";width:9px;height:9px;border-radius:50%;background:var(--amber);box-shadow:0 0 0 5px rgba(242,184,75,.13)}.pinned h2{position:relative;z-index:2;font-size:36px;line-height:1.25;letter-spacing:-.045em;margin:38px 0 15px;word-break:keep-all}.pinned p{position:relative;z-index:2;font-size:16px;line-height:1.7;color:rgba(255,255,255,.76);margin:0}.pinned-date{position:relative;z-index:2;margin:auto 0 21px;font-size:14px;font-weight:780;color:rgba(255,255,255,.78)}.pinned-link{position:relative;z-index:2;width:100%;padding:16px 0 0;border:0;border-top:1px solid rgba(255,255,255,.35);background:none;color:#fff;display:flex;justify-content:space-between;font-size:16px;font-weight:850}.pinned-link span:last-child{font-size:22px}
+    .notice-list{background:var(--paper2);border:1px solid var(--line);padding:0 27px}.list-head{height:68px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--ink)}.list-head h2{font-size:23px;letter-spacing:-.035em;margin:0}.list-head span{font-size:13px;color:var(--muted)}.notice-row{width:100%;min-height:93px;display:grid;grid-template-columns:108px 1fr 84px 26px;gap:16px;align-items:center;border:0;border-bottom:1px solid var(--line);background:none;text-align:left}.notice-row:last-child{border-bottom:0}.notice-row .type{font-size:14px;font-weight:900;color:var(--coral)}.notice-row strong{font-size:18px;line-height:1.5;letter-spacing:-.02em}.notice-row time{font-size:13px;color:var(--muted);text-align:right}.notice-row .arrow{font-size:21px;text-align:right}.notice-row:hover strong{color:var(--coral)}
+    .mobile-bottom{display:none}.toast{position:fixed;left:50%;bottom:28px;z-index:100;transform:translate(-50%,20px);opacity:0;background:var(--ink);color:#fff;padding:13px 18px;font-size:13px;font-weight:800;pointer-events:none;transition:.23s}.toast.show{transform:translate(-50%,0);opacity:1}
+    @media(max-width:760px){:root{--header:60px}body{padding-bottom:72px;background:#fbf8f2}.header-inner{width:100%;padding:0 20px}.brand{font-size:21px}.brand small,.desktop-nav,.identity{display:none}.mobile-head{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:820;color:var(--muted)}main{width:100%;padding:0 20px 45px}.route{height:52px;margin:0 -20px;padding:0 20px;background:var(--paper2)}.route button{font-size:14px}.route span{font-size:13px}.notice-head{display:block;padding:26px 0 19px}.eyebrow{font-size:12px;margin-bottom:10px}.eyebrow::before{width:20px}h1{font-size:40px}.head-copy{margin-top:18px;padding-top:14px;font-size:15px}.head-copy b{font-size:17px}.tools{display:block;padding:14px 0}.filters{margin:0 -20px;padding:0 20px}.filter{height:42px;font-size:13px;padding:0 15px}.search{width:100%;height:48px;margin-top:11px}.notice-layout{display:block}.pinned{min-height:365px;margin:0 -20px;padding:25px 20px}.pin-label{font-size:14px}.pinned h2{font-size:29px;margin:30px 0 12px}.pinned p{font-size:15px}.pinned-date{margin-top:30px;font-size:13px}.pinned-link{font-size:15px}.notice-list{margin:12px -20px 0;padding:0 20px;border-left:0;border-right:0}.list-head{height:61px}.list-head h2{font-size:21px}.notice-row{grid-template-columns:84px 1fr 20px;gap:11px;min-height:92px}.notice-row time{display:none}.notice-row .type{font-size:13px}.notice-row strong{font-size:16px}.notice-row .arrow{font-size:20px}.mobile-bottom{position:fixed;display:grid;grid-template-columns:repeat(4,1fr);left:0;right:0;bottom:0;height:68px;background:rgba(255,253,248,.97);border-top:1px solid var(--line);z-index:50}.mobile-bottom button{border:0;background:none;display:grid;place-items:center;align-content:center;gap:3px;color:#706d67;font-size:10px;font-weight:780}.mobile-bottom button.active{color:var(--coral)}.mobile-bottom svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8}.toast{bottom:82px;white-space:nowrap;max-width:calc(100% - 34px)}}
+    @media(prefers-reduced-motion:reduce){*{transition:none!important}}
+  
+/* 2026-09-02 owner pass: WEB header/brand geometry normalized to 04 daily-home baseline. */
+@media (min-width:761px){
+  .site-header{
+    height:76px!important;
+    border-bottom:1px solid var(--line,#d8d0c3)!important;
+    background:rgba(246,242,233,.96)!important;
+    display:flex!important;
+    align-items:center!important;
+    position:sticky!important;
+    top:0!important;
+    z-index:40!important;
+    backdrop-filter:blur(12px)!important;
+  }
+  .site-header .header-inner{
+    width:min(1280px,calc(100% - 64px))!important;
+    margin:auto!important;
+    display:flex!important;
+    align-items:center!important;
+    justify-content:space-between!important;
+    padding:0!important;
+  }
+  .site-header .brand{
+    display:flex!important;
+    align-items:baseline!important;
+    gap:10px!important;
+    border:0!important;
+    background:none!important;
+    padding:0!important;
+    color:var(--ink,#101317)!important;
+    text-decoration:none!important;
+    font-family:inherit!important;
+    font-size:25px!important;
+    font-weight:900!important;
+    letter-spacing:-.05em!important;
+    line-height:1!important;
+  }
+  .site-header .brand small{
+    font-family:inherit!important;
+    font-size:11px!important;
+    line-height:1.2!important;
+    letter-spacing:.11em!important;
+    color:#5f5c56!important;
+    font-weight:850!important;
+  }
+  .site-header .desktop-nav{
+    display:flex!important;
+    align-items:center!important;
+    gap:42px!important;
+    height:76px!important;
+  }
+  .site-header .identity{
+    font-family:inherit!important;
+    font-size:14px!important;
+    line-height:1.2!important;
+    font-weight:780!important;
+    color:#58554f!important;
+    white-space:nowrap!important;
+  }
+}
+</style>
+<style id="front-audit-bottom-nav-standard-20260904">
+/* Frontend audit 1: all app content screens share one exact bottom navigation geometry. */
+@media (max-width:760px){
+  body{padding-bottom:68px!important}
+  .mobile-bottom{
+    position:fixed!important;display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;
+    left:0!important;right:0!important;bottom:0!important;width:100%!important;height:68px!important;
+    margin:0!important;padding:0!important;background:rgba(255,253,248,.98)!important;
+    border:0!important;border-top:1px solid #d8d0c3!important;box-shadow:none!important;z-index:90!important;
+  }
+  .mobile-bottom>button,.mobile-bottom>a{
+    appearance:none!important;-webkit-appearance:none!important;box-sizing:border-box!important;
+    width:auto!important;min-width:0!important;height:67px!important;margin:0!important;padding:0!important;
+    border:0!important;border-radius:0!important;background:transparent!important;text-decoration:none!important;
+    display:grid!important;grid-template-rows:22px 14px!important;align-content:center!important;justify-items:center!important;
+    place-items:initial!important;row-gap:3px!important;column-gap:0!important;
+    color:#706d67!important;font-family:inherit!important;font-size:12px!important;font-weight:800!important;
+    line-height:14px!important;letter-spacing:-.01em!important;text-align:center!important;
+  }
+  .mobile-bottom>button.active,.mobile-bottom>a.active{color:#ee6045!important}
+  .mobile-bottom svg{
+    display:block!important;width:22px!important;height:22px!important;margin:0!important;padding:0!important;
+    stroke:currentColor!important;fill:none!important;stroke-width:1.8!important;stroke-linecap:round!important;stroke-linejoin:round!important;
+    overflow:visible!important;
+  }
+  .mobile-bottom span{display:block!important;height:14px!important;margin:0!important;padding:0!important;line-height:14px!important;white-space:nowrap!important}
+  .toast{bottom:82px!important}
+}
+@media (min-width:761px){.mobile-bottom{display:none!important}}
+</style>
+<style id="ownerpass-notice-compact-20260904">
+
+.pinned{min-height:360px!important}
+.pinned h2{margin:28px 0 14px!important}
+.pinned-date{margin:28px 0 18px!important}
+.notice-row{grid-template-columns:108px minmax(0,1fr) 84px!important;gap:16px!important}
+@media(max-width:760px){
+ .pinned{min-height:300px!important;padding-top:25px!important;padding-bottom:24px!important}
+ .pinned h2{margin:22px 0 12px!important}
+ .pinned-date{margin:22px 0 15px!important}
+ .notice-row{grid-template-columns:78px minmax(0,1fr)!important;gap:12px!important;min-height:84px!important}
+ .notice-row time{display:none!important}
+ .notice-row strong{font-size:16px!important;line-height:1.42!important;word-break:keep-all!important;overflow-wrap:normal!important}
+}
+
+</style>
+
+<style id="frontcheck-notice-search-final">
+.notice-empty{margin:0;padding:34px 24px;text-align:center;color:var(--muted);font-size:14px;border-top:1px solid var(--line)}
+</style>
+</head>
+<body data-danjion-page="6">
+<header class="site-header"><div class="header-inner"><button class="brand" type="button">단지온 <small>DANJION by PADIEM</small></button><nav class="desktop-nav"><button data-toast="홈으로 이동합니다." type="button">홈</button><button data-toast="이웃가게로 이동합니다." type="button">이웃가게</button><button class="active" data-toast="우리단지 첫 화면으로 이동합니다." type="button">우리단지</button><button data-toast="내정보로 이동합니다." type="button">내정보</button></nav><div class="identity">방림명지로드힐</div><div class="mobile-head">방림명지로드힐 <span>⌄</span></div></div></header>
+<main>
+<div class="route"><a class="route-back" href="05_우리단지_첫화면.html"><svg viewbox="0 0 24 24"><path d="M19 12H5M10 7l-5 5 5 5"></path></svg>우리단지</a><span>단지온공지</span></div>
+<section class="notice-head"><div><div class="eyebrow">서비스 최상위 운영 공지</div><h1>단지온공지</h1></div><div class="head-copy"><b>꼭 필요한 내용만 가장 먼저 전합니다.</b>서비스 이용방법, 운영기준, 중요한 변경사항을 확인하세요.</div></section>
+<section class="tools"><nav aria-label="공지 분류" class="filters"><button class="filter active" data-filter="all">전체</button><button class="filter" data-filter="essential">필수안내</button><button class="filter" data-filter="guide">이용방법</button><button class="filter" data-filter="policy">운영기준</button><button class="filter" data-filter="update">새 기능</button></nav><form class="search" id="searchForm"><input aria-label="공지 검색" placeholder="공지 검색" type="search"/><button type="submit">검색</button></form></section>
+<section class="notice-layout">
+<article class="pinned" data-kind="essential"><span class="pin-label">중요 공지 · 처음 읽어주세요</span><h2>단지온을 처음 이용하는<br/>주민 여러분께 안내드립니다.</h2><p>단지온의 네 가지 메뉴와 주민 정보 보호, 글쓰기 운영방식을 한 번에 확인할 수 있습니다.</p><div class="pinned-date">2026.08.31 업데이트</div><button class="pinned-link" data-toast="중요 공지 상세로 이동합니다." type="button"><span>중요 공지 읽기</span><span>→</span></button></article>
+<div class="notice-list"><div class="list-head"><h2>전체 공지</h2><span>최신순</span></div><button class="notice-row" data-kind="guide" data-toast="단지온 이용 안내 상세로 이동합니다." type="button"><span class="type">이용방법</span><strong>단지온 홈과 네 가지 메뉴 이용 안내</strong><time>2026.08.31</time></button><button class="notice-row" data-kind="guide" data-toast="주민 사업자 등록 안내 상세로 이동합니다." type="button"><span class="type">이용방법</span><strong>주민 사업자와 이웃가게 등록 안내</strong><time>2026.08.29</time></button><button class="notice-row" data-kind="policy" data-toast="개인정보 공개 기준 상세로 이동합니다." type="button"><span class="type">운영기준</span><strong>동·호수와 개인정보 공개 기준 안내</strong><time>2026.08.27</time></button><button class="notice-row" data-kind="policy" data-toast="글쓰기 운영기준 상세로 이동합니다." type="button"><span class="type">운영기준</span><strong>이웃대화 글쓰기와 게시물 운영기준</strong><time>2026.08.26</time></button><button class="notice-row" data-kind="update" data-toast="메시지 기능 안내 상세로 이동합니다." type="button"><span class="type">새 기능</span><strong>주민 간 1:1 메시지 이용 안내</strong><time>2026.08.24</time></button><p class="notice-empty" id="noticeEmpty" hidden>검색 결과가 없습니다.</p></div>
+</section>
+</main>
+<nav aria-label="모바일 주요 메뉴" class="mobile-bottom"><button aria-label="홈" data-route="04_데일리홈.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><path d="m3 10 9-7 9 7v10h-6v-6H9v6H3z"></path></svg><span>홈</span></button><button aria-label="이웃가게" data-route="01_이웃가게_발견.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><path d="M4 7h16l-1 13H5L4 7Z"></path><path d="M8 7V5a4 4 0 0 1 8 0v2"></path></svg><span>이웃가게</span></button><button aria-label="우리단지" class="active" data-route="05_우리단지_첫화면.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><path d="M4 21V9l8-6 8 6v12"></path><path d="M8 13h8M8 17h8"></path></svg><span>우리단지</span></button><button aria-label="내정보" data-route="19_내정보_메인.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><circle cx="12" cy="8" r="4"></circle><path d="M4 21a8 8 0 0 1 16 0"></path></svg><span>내정보</span></button></nav><div class="toast" role="status"></div>
+<script>
+    const toast=document.querySelector('.toast');let timer;document.querySelectorAll('[data-toast]').forEach(button=>button.addEventListener('click',()=>{toast.textContent=button.dataset.toast;toast.classList.add('show');clearTimeout(timer);timer=setTimeout(()=>toast.classList.remove('show'),1600)}));
+    const filters=[...document.querySelectorAll('.filter')],notices=[...document.querySelectorAll('[data-kind]')],searchInput=document.querySelector('#searchForm input'),empty=document.querySelector('#noticeEmpty');
+    let activeFilter='all',noticeQuery='';
+    function applyNoticeFilter(){
+      let shown=0;
+      notices.forEach(item=>{
+        const kindOk=activeFilter==='all'||item.dataset.kind===activeFilter;
+        const textOk=!noticeQuery||item.textContent.replace(/\s+/g,' ').toLowerCase().includes(noticeQuery.toLowerCase());
+        item.hidden=!(kindOk&&textOk);
+        if(!item.hidden)shown++;
+      });
+      if(empty)empty.hidden=shown!==0;
+      const head=document.querySelector('.list-head h2');
+      if(head)head.textContent=noticeQuery?`“${noticeQuery}” 검색 결과`:'전체 공지';
+    }
+    filters.forEach(button=>button.addEventListener('click',()=>{filters.forEach(x=>x.classList.toggle('active',x===button));activeFilter=button.dataset.filter;applyNoticeFilter()}));
+    document.querySelector('#searchForm').addEventListener('submit',event=>{event.preventDefault();noticeQuery=searchInput.value.trim();applyNoticeFilter();if(!noticeQuery){toast.textContent='전체 공지를 보여드립니다.';toast.classList.add('show');clearTimeout(timer);timer=setTimeout(()=>toast.classList.remove('show'),1300)}});
+    searchInput.addEventListener('search',()=>{noticeQuery=searchInput.value.trim();applyNoticeFilter()});
+  </script>
+<script id="danjion-direct-router-v5">
+(function(){
+const SCREEN="noticeList";
+const FILES={"landing": "index.html", "home": "04_데일리홈.html", "shops": "01_이웃가게_발견.html", "shopDetail": "02_이웃가게_상세.html", "complex": "05_우리단지_첫화면.html", "noticeList": "06_단지온공지_목록.html", "noticeDetail": "07_단지온공지_상세.html", "apartment": "08_아파트소식_목록.html", "chair": "09_회장인사_상세.html", "residentList": "10_주민소식_목록.html", "residentDetail": "11_주민소식_상세.html", "community": "12_이웃대화_첫화면.html", "communityDetail": "13_이웃대화_글상세_댓글.html", "writeHello": "14_가입인사_글쓰기.html", "writeStory": "15_단지이야기_글쓰기.html", "writeQuestion": "16_궁금해요_글쓰기.html", "writeTogether": "17_같이해요_글쓰기.html", "my": "19_내정보_메인.html", "messages": "20_메시지함_목록.html", "messageDetail": "21_메시지_대화상세.html", "profile": "22_주민_공개프로필.html", "warmth": "23_이웃온기.html", "settings": "24_설정.html", "inquiry": "25_1대1문의.html", "apply": "25A_신청제보.html", "household": "26_우리집연결.html", "notifications": "27_알림함.html", "activity": "28_나의활동.html"};
+const norm=s=>(s||'').replace(/\s+/g,' ').trim();
+function go(f){
+  if(!f)return;
+  location.href=f;
+}
+function main(label){go({'홈':FILES.home,'이웃가게':FILES.shops,'우리단지':FILES.complex,'내정보':FILES.my}[label]);}
+function routeFrom(v){v=(v||'').split('#')[0]; if(!v)return null;
+  const q=v.includes('?')?'?'+v.split('?').slice(1).join('?'):''; const p=v.split('?')[0];
+  const arr=[["29_", "index.html"], ["04_", "04_데일리홈.html"], ["01_", "01_이웃가게_발견.html"], ["02_", "02_이웃가게_상세.html"], ["05_", "05_우리단지_첫화면.html"], ["06_", "06_단지온공지_목록.html"], ["07_", "07_단지온공지_상세.html"], ["08_", "08_아파트소식_목록.html"], ["09_", "09_회장인사_상세.html"], ["10_", "10_주민소식_목록.html"], ["11_", "11_주민소식_상세.html"], ["12_", "12_이웃대화_첫화면.html"], ["13_", "13_이웃대화_글상세_댓글.html"], ["14_", "14_가입인사_글쓰기.html"], ["15_", "15_단지이야기_글쓰기.html"], ["16_", "16_궁금해요_글쓰기.html"], ["17_", "17_같이해요_글쓰기.html"], ["19_", "19_내정보_메인.html"], ["20_", "20_메시지함_목록.html"], ["21_", "21_메시지_대화상세.html"], ["22_", "22_주민_공개프로필.html"], ["23_", "23_이웃온기.html"], ["24_", "24_설정.html"], ["25_", "25_1대1문의.html"], ["26_", "26_우리집연결.html"], ["27_", "27_알림함.html"], ["28_", "28_나의활동.html"]];
+  for(const [t,f] of arr) if(p.includes(t)) return f+q;
+  if(p==='index.html') return 'index.html'; return null;
+}
+function backFallback(){
+  const p=new URLSearchParams(location.search);
+  if(SCREEN==='noticeList' && p.get('from')==='my-help'){
+    location.href=FILES.my+'?restore=help';return;
+  }
+  const parentMap={
+    shops:FILES.home,shopDetail:FILES.shops,complex:FILES.home,
+    noticeList:FILES.complex,noticeDetail:FILES.noticeList,apartment:FILES.complex,chair:FILES.complex,
+    residentList:FILES.complex,residentDetail:FILES.residentList,community:FILES.complex,communityDetail:FILES.community,
+    writeHello:FILES.community,writeStory:FILES.community,writeQuestion:FILES.community,writeTogether:FILES.community,
+    my:FILES.home,messages:FILES.my,messageDetail:FILES.messages,profile:FILES.my,warmth:FILES.my,
+    settings:FILES.my,inquiry:FILES.settings,apply:FILES.shops,household:FILES.my,notifications:FILES.my,activity:FILES.my
+  };
+  location.href=parentMap[SCREEN]||FILES.home;
+}
+
+document.addEventListener('click',function(ev){
+ const el=ev.target.closest('a,button,[data-route]'); if(!el)return;
+ const text=norm(el.textContent), cls=el.classList||{contains:()=>false};
+ // landing internal modal/greeting controls stay native
+ if(SCREEN==='landing'){
+   if(el.matches('[data-auth],[data-preview],[data-greeting],[data-email],[data-social],[data-reset],[data-resend],[data-term],[data-term-close],[data-address-next],[data-terms-next],[data-finish],[data-required-all]')) return;
+   if(el.matches('[data-chair-close]')){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.home);return;}
+   if(el.matches('[data-chair-detail]')){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.chair);return;}
+   if(el.matches('[data-guest-enter]')){ev.preventDefault();ev.stopImmediatePropagation();sessionStorage.setItem('danjionGuest','1');go(FILES.home);return;}
+   if(el.matches('[data-top]')) return;
+ }
+ if(cls.contains('brand')){ev.preventDefault();ev.stopImmediatePropagation();go('index.html');return;}
+ const inMain=!!el.closest('.nav,.desktop-nav,.mobile-bottom,.topbar nav,.main-nav');
+ if(inMain && ['홈','이웃가게','우리단지','내정보'].includes(text)){ev.preventDefault();ev.stopImmediatePropagation();main(text);return;}
+ if(cls.contains('back')||cls.contains('route-back')||((/^←|^‹|^< /.test(text))&&!cls.contains('modal-back'))){ev.preventDefault();ev.stopImmediatePropagation();backFallback();return;}
+ // home: current scene -> selected shop detail
+ if(SCREEN==='home' && el.id==='detailBtn'){ev.preventDefault();ev.stopImmediatePropagation();const k=el.dataset.shopKey||'food';go(FILES.shopDetail+'?shop='+encodeURIComponent(k));return;}
+ // shops cards -> specific shop detail
+ if(SCREEN==='shops' && cls.contains('shop-link')){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.shopDetail+'?shop='+encodeURIComponent(el.dataset.shopKey||'florist'));return;}
+ if(SCREEN==='shops' && text==='이웃가게 제보'){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.apply+'?mode=report');return;}
+ if(SCREEN==='shops' && (text==='내 가게 등록 신청'||text==='내 가게 등록 문의')){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.apply+'?mode=apply');return;}
+ if(SCREEN==='complex' && cls.contains('channel-link')){ev.preventDefault();ev.stopImmediatePropagation();const i=[...document.querySelectorAll('.channel-link')].indexOf(el);go([FILES.noticeList,FILES.apartment,FILES.residentList,FILES.community][i]||FILES.complex);return;}
+ if(SCREEN==='noticeList' && (cls.contains('pinned-link')||cls.contains('notice-row'))){
+   ev.preventDefault();ev.stopImmediatePropagation();
+   const from=new URLSearchParams(location.search).get('from');
+   go(FILES.noticeDetail+(from==='my-help'?'?from=my-help':''));return;
+ }
+ if(SCREEN==='apartment' && cls.contains('feature-link')){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.chair);return;}
+ if(SCREEN==='residentList' && cls.contains('story-link')){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.residentDetail);return;}
+ if(SCREEN==='community' && cls.contains('write-type')){ev.preventDefault();ev.stopImmediatePropagation();const i=[...document.querySelectorAll('.write-type')].indexOf(el);go([FILES.writeHello,FILES.writeStory,FILES.writeQuestion,FILES.writeTogether][i]||FILES.community);return;}
+ if(SCREEN==='community' && el.tagName==='A' && text.includes('안녕하세요')){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.communityDetail);return;}
+ if(SCREEN==='my' && cls.contains('card-link')){ev.preventDefault();ev.stopImmediatePropagation();const i=[...document.querySelectorAll('.card-link')].indexOf(el);go(i===0?FILES.messages:FILES.household);return;}
+ if(SCREEN==='my' && cls.contains('menu-row')){ev.preventDefault();ev.stopImmediatePropagation();const i=[...document.querySelectorAll('.menu-row')].indexOf(el);go(FILES.activity+'?tab='+Math.min(i,3));return;}
+ if(SCREEN==='my' && (text.includes('설정 열기')||text.includes('이용 설정'))){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.settings);return;}
+ if(SCREEN==='messages' && cls.contains('mail-row')){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.messageDetail);return;}
+ if(SCREEN==='messageDetail' && (text.includes('공개 프로필')||text.includes('산책메이트'))){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.profile);return;}
+ if(SCREEN==='profile' && cls.contains('message-button')){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.messageDetail);return;}
+ if(SCREEN==='settings' && (cls.contains('support-button')||text.includes('1:1 문의'))){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.inquiry);return;}
+ if(SCREEN==='activity' && cls.contains('side-link')){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.profile);return;}
+ // known data-route or anchors
+ const dr=el.dataset&&el.dataset.route; if(dr){const f=routeFrom(dr);if(f){ev.preventDefault();ev.stopImmediatePropagation();go(f);return;}}
+ if(el.tagName==='A'){const f=routeFrom(el.getAttribute('href'));if(f){ev.preventDefault();ev.stopImmediatePropagation();go(f);return;}}
+},true);
+
+if(SCREEN==='noticeList' && new URLSearchParams(location.search).get('from')==='my-help'){
+ const b=document.querySelector('.route-back');if(b){b.setAttribute('href',FILES.my+'?restore=help');const t=[...b.childNodes].find(n=>n.nodeType===3);if(t)t.nodeValue='내정보';else b.append('내정보');}
+}
+
+// screen-specific initial state
+if(SCREEN==='shopDetail'){ const p=new URLSearchParams(location.search),k=p.get('shop'); if(k) setTimeout(()=>window.postMessage({type:'danjion-integrated:setShop',shopKey:k},'*'),0); }
+if(SCREEN==='apply'){ const p=new URLSearchParams(location.search),mode=p.get('mode'); if(mode) setTimeout(()=>window.postMessage({type:'danjion-integrated:setMode',mode},'*'),0); }
+if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt(p.get('tab')||'0',10); if(Number.isInteger(i)) setTimeout(()=>window.postMessage({type:'danjion-integrated:activityTab',index:i},'*'),0); }
+})();
+</script>
+<script id="danjion-review-route-sync">
+(function(){
+  try{
+    if(new URLSearchParams(location.search).get('review')==='1'){
+      sessionStorage.removeItem('danjionRouteStack');
+    }
+  }catch(e){}
+  function reportRoute(){
+    try{
+      const file=decodeURIComponent((location.pathname.split('/').pop()||'index.html').split('?')[0]);
+      if(window.parent!==window) window.parent.postMessage({type:'danjion-route',file:file,href:location.href},'*');
+    }catch(e){}
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',reportRoute,{once:true});else reportRoute();
+  window.addEventListener('pageshow',reportRoute);
+  window.addEventListener('hashchange',reportRoute);
+})();
+</script>
+</body>
+</html>

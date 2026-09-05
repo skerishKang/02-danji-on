@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+
+<html lang="ko">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width,initial-scale=1" name="viewport"/>
+<title>단지온 · 주민소식 · STEP 10</title>
+<style>
+    @import url("assets/consistency.css");
+    :root{--paper:#f6f2e9;--paper2:#fffdf8;--ink:#101317;--navy:#101d30;--coral:#ee6045;--amber:#f2b84b;--green:#255e49;--muted:#6d6a64;--line:#d8d0c3;--header:76px}
+    *{box-sizing:border-box}html{background:var(--paper);color:var(--ink);font-family:Pretendard,"Pretendard Variable","Noto Sans KR",Arial,sans-serif}body{margin:0;min-width:320px;background:var(--paper)}button,input,textarea,select{font:inherit;color:inherit}button{cursor:pointer}a{color:inherit;text-decoration:none}
+    .site-header{height:var(--header);border-bottom:1px solid var(--line);background:rgba(246,242,233,.96);display:flex;align-items:center;position:sticky;top:0;z-index:40;backdrop-filter:blur(12px)}.header-inner{width:min(1280px,calc(100% - 64px));margin:auto;display:flex;align-items:center;justify-content:space-between}.brand{display:flex;align-items:baseline;gap:10px;border:0;background:none;padding:0;font-weight:900;font-size:25px;letter-spacing:-.05em}.brand small{font-size:11px;letter-spacing:.11em;color:#5f5c56;font-weight:850}.desktop-nav{display:flex;align-items:center;gap:42px;height:var(--header)}.desktop-nav button{height:100%;border:0;background:none;padding:0 2px;font-size:16px;font-weight:780;position:relative}.desktop-nav button.active::after{content:"";height:3px;position:absolute;left:0;right:0;bottom:0;background:var(--coral)}.identity{font-size:14px;font-weight:780;color:#58554f}.mobile-head{display:none}
+    main{width:min(1280px,calc(100% - 64px));margin:auto;padding:35px 0 100px}.route{display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--ink);padding-bottom:17px;font-size:16px;font-weight:820}.route button{border:0;background:none;padding:0;font-size:22px}.route span{color:var(--muted);font-weight:650}.intro{display:flex;align-items:flex-end;justify-content:space-between;gap:60px;padding:34px 0 28px}.eyebrow{display:flex;align-items:center;gap:10px;font-size:14px;font-weight:850;color:var(--green);margin-bottom:13px}.eyebrow::before{content:"";width:28px;height:2px;background:var(--green)}h1{font-size:64px;line-height:1;letter-spacing:-.055em;margin:0}.intro-copy{max-width:470px;font-size:18px;line-height:1.65;color:#4e4b46}.intro-copy b{display:block;color:var(--ink);font-size:22px;margin-bottom:4px}
+    .feature{display:grid;grid-template-columns:.92fr 1.08fr;min-height:400px;border:1px solid var(--ink);background:var(--paper2)}.submit-call{position:relative;overflow:hidden;background:var(--navy);color:#fff;padding:42px;display:flex;flex-direction:column}.submit-call::before,.submit-call::after{content:"";position:absolute;border:1px solid rgba(242,184,75,.36);border-radius:50%}.submit-call::before{width:330px;height:330px;right:-130px;top:-120px}.submit-call::after{width:220px;height:220px;right:-90px;top:-48px}.submit-call .index{font-size:13px;letter-spacing:.1em;font-weight:900;color:var(--amber)}.submit-call h2{font-size:41px;line-height:1.15;letter-spacing:-.05em;margin:30px 0 14px;word-break:keep-all}.submit-call p{font-size:17px;line-height:1.65;color:rgba(255,255,255,.75);margin:0;max-width:470px;word-break:keep-all}.submit-button{margin-top:auto;width:max-content;border:0;background:var(--coral);color:#fff;font-weight:900;font-size:17px;padding:17px 24px;display:flex;gap:26px;align-items:center}.submit-button span{font-size:23px}
+    .process{padding:40px 42px;display:flex;flex-direction:column}.process-label{font-size:13px;font-weight:900;color:var(--coral);letter-spacing:.04em}.process h3{font-size:29px;letter-spacing:-.04em;margin:9px 0 23px}.steps{border-top:1px solid var(--ink)}.step{display:grid;grid-template-columns:54px 1fr;gap:14px;align-items:center;min-height:78px;border-bottom:1px solid var(--line)}.step strong{font-size:25px;color:var(--coral)}.step b{display:block;font-size:18px;margin-bottom:4px}.step span{font-size:14px;color:var(--muted)}.process-note{margin-top:auto;font-size:14px;line-height:1.55;color:var(--green);font-weight:750}
+    .feed-head{display:flex;align-items:flex-end;justify-content:space-between;border-bottom:1px solid var(--ink);padding:44px 0 17px}.feed-head h2{font-size:31px;letter-spacing:-.04em;margin:0}.feed-head p{font-size:15px;color:var(--muted);margin:0}.filters{display:flex;gap:8px;padding:17px 0}.filter{border:1px solid var(--line);background:var(--paper2);padding:12px 17px;font-size:14px;font-weight:820}.filter.active{background:var(--ink);border-color:var(--ink);color:#fff}
+    .stories{display:grid;grid-template-columns:1.1fr .9fr;gap:14px}.story{border:1px solid var(--line);background:var(--paper2);min-height:224px;padding:28px;display:flex;flex-direction:column;position:relative;overflow:hidden}.story:first-child{grid-row:span 2;min-height:462px;background:var(--coral);border-color:var(--coral);color:#fff;padding:34px}.story-meta{display:flex;align-items:center;justify-content:space-between;gap:15px;font-size:13px;font-weight:800}.story-meta .tag{color:var(--coral)}.story:first-child .tag{color:#fff}.story-meta time{color:var(--muted);font-weight:650}.story:first-child time{color:rgba(255,255,255,.72)}.story h3{font-size:27px;line-height:1.35;letter-spacing:-.04em;margin:20px 0 10px;word-break:keep-all}.story:first-child h3{font-size:42px;line-height:1.2;margin-top:auto;max-width:470px}.story p{font-size:16px;line-height:1.6;color:var(--muted);margin:0;word-break:keep-all}.story:first-child p{color:rgba(255,255,255,.82);max-width:470px}.story-link{position:relative;z-index:3;display:flex;align-items:center;justify-content:space-between;border:0;border-top:1px solid var(--line);background:none;padding:17px 0 0;margin-top:auto;font-size:15px;font-weight:900}.story:first-child .story-link{border-color:rgba(255,255,255,.45);color:#fff;margin-top:28px}.story-link span:last-child{font-size:22px}.story-mark{pointer-events:none;position:absolute;right:-36px;bottom:-46px;width:170px;height:170px;border:1px solid rgba(255,255,255,.32);border-radius:50%}.story-mark::after{content:"";position:absolute;inset:30px;border:1px solid rgba(255,255,255,.32);border-radius:50%}
+    .drawer-wrap{position:fixed;inset:0;z-index:90;visibility:hidden}.drawer-wrap.open{visibility:visible}.scrim{position:absolute;inset:0;border:0;background:rgba(8,13,21,.58);opacity:0;transition:.22s}.drawer-wrap.open .scrim{opacity:1}.drawer{position:absolute;right:0;top:0;bottom:0;width:min(560px,100%);background:var(--paper2);transform:translateX(100%);transition:.3s ease;display:flex;flex-direction:column;box-shadow:-20px 0 50px rgba(0,0,0,.18)}.drawer-wrap.open .drawer{transform:translateX(0)}.drawer-head{height:76px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 32px}.drawer-head b{font-size:22px}.drawer-close{width:42px;height:42px;border:1px solid var(--line);background:none;font-size:24px}.drawer-body{padding:28px 32px;overflow:auto}.form-intro{background:var(--navy);color:#fff;padding:23px;margin-bottom:26px}.form-intro span{font-size:13px;color:var(--amber);font-weight:850}.form-intro h2{font-size:28px;letter-spacing:-.04em;margin:8px 0 9px}.form-intro p{font-size:15px;line-height:1.55;color:rgba(255,255,255,.74);margin:0}.field{margin-bottom:22px}.field label{display:block;font-size:16px;font-weight:850;margin-bottom:9px}.field small{display:block;font-size:13px;color:var(--muted);margin-top:8px;line-height:1.45}.field input,.field textarea,.field select{width:100%;border:1px solid var(--line);background:#fff;padding:15px 16px;font-size:16px;border-radius:0;outline:none}.field textarea{height:132px;resize:none;line-height:1.55}.field input:focus,.field textarea:focus,.field select:focus{border-color:var(--coral);box-shadow:0 0 0 2px rgba(238,96,69,.12)}.upload{width:100%;border:1px dashed #9e968a;background:var(--paper);padding:20px;text-align:center;font-size:15px;font-weight:800}.upload-files{display:grid;gap:6px;margin-top:9px}.upload-file{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 11px;background:#fff;border:1px solid var(--line);font-size:13px}.upload-file b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.upload-file span{color:var(--muted);white-space:nowrap}.drawer-foot{margin-top:auto;border-top:1px solid var(--line);padding:18px 32px;background:var(--paper2)}.preview-submit{width:100%;border:0;background:var(--ink);color:#fff;padding:17px;font-size:17px;font-weight:900}.prototype-note{font-size:12px;color:var(--muted);text-align:center;margin:9px 0 0}
+    .resident-proof{display:grid;grid-template-columns:46px 1fr;gap:13px;align-items:center;border:1px solid #b8cbbf;background:#eef5f0;padding:15px 16px;margin:-10px 0 26px}.proof-icon{width:46px;height:46px;border-radius:50%;background:var(--green);color:#fff;display:grid;place-items:center;font-size:21px;font-weight:900}.resident-proof small{display:block;color:var(--green);font-size:13px;font-weight:900;margin-bottom:3px}.resident-proof b{display:block;font-size:16px;line-height:1.4}.resident-proof p{grid-column:1/3;margin:0;padding-top:12px;border-top:1px solid #cbd9cf;color:#536359;font-size:13px;line-height:1.5}.mobile-bottom{display:none}.toast{position:fixed;left:50%;bottom:28px;z-index:120;transform:translate(-50%,20px);opacity:0;background:var(--ink);color:#fff;padding:13px 18px;font-size:14px;font-weight:800;pointer-events:none;transition:.23s}.toast.show{transform:translate(-50%,0);opacity:1}
+    @media(max-width:760px){:root{--header:60px}body{padding-bottom:72px;background:#fbf8f2}.header-inner{width:100%;padding:0 20px}.brand{font-size:21px}.brand small,.desktop-nav,.identity{display:none}.mobile-head{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:820;color:var(--muted)}main{width:100%;padding:20px 20px 48px}.route{font-size:15px;padding-bottom:14px}.intro{display:block;padding:24px 0 20px}.eyebrow{font-size:12px;margin-bottom:9px}.eyebrow::before{width:20px}h1{font-size:43px}.intro-copy{font-size:16px;line-height:1.58;margin-top:15px}.intro-copy b{font-size:19px}.feature{display:block;margin:0 -20px;border-left:0;border-right:0}.submit-call{min-height:330px;padding:27px 20px}.submit-call h2{font-size:34px;margin:27px 0 12px}.submit-call p{font-size:16px}.submit-button{font-size:16px;padding:16px 20px}.process{padding:27px 20px}.process h3{font-size:25px}.step{grid-template-columns:45px 1fr;min-height:76px}.step strong{font-size:22px}.step b{font-size:17px}.step span{font-size:14px}.process-note{margin-top:22px}.feed-head{display:block;padding:34px 0 14px}.feed-head h2{font-size:27px}.feed-head p{font-size:14px;margin-top:6px}.filters{overflow:auto;margin-right:-20px;padding:14px 20px 14px 0;scrollbar-width:none}.filter{white-space:nowrap;font-size:14px;padding:11px 15px}.stories{display:block}.story,.story:first-child{min-height:235px;margin:0 -20px 10px;padding:23px 20px;border-left:0;border-right:0}.story:first-child{min-height:330px}.story h3,.story:first-child h3{font-size:27px;line-height:1.28;margin:30px 0 10px}.story p{font-size:15px}.story-link{font-size:15px}.drawer-head{height:60px;padding:0 20px}.drawer-head b{font-size:20px}.drawer-body{padding:20px}.form-intro{margin:0 -20px 24px;padding:22px 20px}.form-intro h2{font-size:25px}.field label{font-size:16px}.drawer-foot{padding:14px 20px 12px}.mobile-bottom{position:fixed;display:grid;grid-template-columns:repeat(4,1fr);left:0;right:0;bottom:0;height:68px;background:rgba(255,253,248,.97);border-top:1px solid var(--line);z-index:50}.mobile-bottom button{border:0;background:none;display:grid;place-items:center;align-content:center;gap:3px;color:#706d67;font-size:10px;font-weight:780}.mobile-bottom button.active{color:var(--coral)}.mobile-bottom svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8}.toast{bottom:82px;white-space:nowrap;max-width:calc(100% - 34px)}}
+    @media(prefers-reduced-motion:reduce){*{transition:none!important}}
+  
+/* 2026-09-02 owner pass: WEB header/brand geometry normalized to 04 daily-home baseline. */
+@media (min-width:761px){
+  .site-header{
+    height:76px!important;
+    border-bottom:1px solid var(--line,#d8d0c3)!important;
+    background:rgba(246,242,233,.96)!important;
+    display:flex!important;
+    align-items:center!important;
+    position:sticky!important;
+    top:0!important;
+    z-index:40!important;
+    backdrop-filter:blur(12px)!important;
+  }
+  .site-header .header-inner{
+    width:min(1280px,calc(100% - 64px))!important;
+    margin:auto!important;
+    display:flex!important;
+    align-items:center!important;
+    justify-content:space-between!important;
+    padding:0!important;
+  }
+  .site-header .brand{
+    display:flex!important;
+    align-items:baseline!important;
+    gap:10px!important;
+    border:0!important;
+    background:none!important;
+    padding:0!important;
+    color:var(--ink,#101317)!important;
+    text-decoration:none!important;
+    font-family:inherit!important;
+    font-size:25px!important;
+    font-weight:900!important;
+    letter-spacing:-.05em!important;
+    line-height:1!important;
+  }
+  .site-header .brand small{
+    font-family:inherit!important;
+    font-size:11px!important;
+    line-height:1.2!important;
+    letter-spacing:.11em!important;
+    color:#5f5c56!important;
+    font-weight:850!important;
+  }
+  .site-header .desktop-nav{
+    display:flex!important;
+    align-items:center!important;
+    gap:42px!important;
+    height:76px!important;
+  }
+  .site-header .identity{
+    font-family:inherit!important;
+    font-size:14px!important;
+    line-height:1.2!important;
+    font-weight:780!important;
+    color:#58554f!important;
+    white-space:nowrap!important;
+  }
+}
+</style>
+<style id="owner-pass-20260902">[data-danjion-page="10"] .story:first-child{position:relative;overflow:hidden}</style><style id="front-audit-bottom-nav-standard-20260904">
+/* Frontend audit 1: all app content screens share one exact bottom navigation geometry. */
+@media (max-width:760px){
+  body{padding-bottom:68px!important}
+  .mobile-bottom{
+    position:fixed!important;display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;
+    left:0!important;right:0!important;bottom:0!important;width:100%!important;height:68px!important;
+    margin:0!important;padding:0!important;background:rgba(255,253,248,.98)!important;
+    border:0!important;border-top:1px solid #d8d0c3!important;box-shadow:none!important;z-index:90!important;
+  }
+  .mobile-bottom>button,.mobile-bottom>a{
+    appearance:none!important;-webkit-appearance:none!important;box-sizing:border-box!important;
+    width:auto!important;min-width:0!important;height:67px!important;margin:0!important;padding:0!important;
+    border:0!important;border-radius:0!important;background:transparent!important;text-decoration:none!important;
+    display:grid!important;grid-template-rows:22px 14px!important;align-content:center!important;justify-items:center!important;
+    place-items:initial!important;row-gap:3px!important;column-gap:0!important;
+    color:#706d67!important;font-family:inherit!important;font-size:12px!important;font-weight:800!important;
+    line-height:14px!important;letter-spacing:-.01em!important;text-align:center!important;
+  }
+  .mobile-bottom>button.active,.mobile-bottom>a.active{color:#ee6045!important}
+  .mobile-bottom svg{
+    display:block!important;width:22px!important;height:22px!important;margin:0!important;padding:0!important;
+    stroke:currentColor!important;fill:none!important;stroke-width:1.8!important;stroke-linecap:round!important;stroke-linejoin:round!important;
+    overflow:visible!important;
+  }
+  .mobile-bottom span{display:block!important;height:14px!important;margin:0!important;padding:0!important;line-height:14px!important;white-space:nowrap!important}
+  .toast{bottom:82px!important}
+}
+@media (min-width:761px){.mobile-bottom{display:none!important}}
+</style>
+<style id="ownerpass-resident-feed-drawer-20260904">
+
+.stories{display:grid!important;grid-template-columns:minmax(0,1.08fr) minmax(0,.92fr)!important;gap:0!important;border:1px solid var(--line)!important;background:var(--paper2)!important}
+.story{min-height:0!important;margin:0!important;border:0!important;border-bottom:1px solid var(--line)!important;padding:24px 28px!important}
+.story.featured{grid-row:1 / span 3!important;min-height:360px!important;background:var(--coral)!important;color:#fff!important;border-right:1px solid var(--line)!important;padding:30px!important}
+.story.featured .tag{color:#fff!important}.story.featured time{color:rgba(255,255,255,.72)!important}.story.featured p{color:rgba(255,255,255,.82)!important}
+.story.featured h3{font-size:36px!important;line-height:1.18!important;margin:auto 0 12px!important}
+.story.compact{min-height:120px!important}
+.story.compact h3{font-size:22px!important;line-height:1.34!important;margin:12px 0 6px!important}
+.story.compact p{font-size:14px!important;line-height:1.5!important}
+.story-link{display:inline-flex!important;width:auto!important;border:0!important;padding:8px 0 0!important;margin-top:12px!important;font-size:14px!important}
+.story.featured .story-link{border-top:1px solid rgba(255,255,255,.42)!important;width:100%!important;padding-top:15px!important;margin-top:22px!important}
+.drawer-back{border:0;background:transparent;font:inherit;font-weight:850;font-size:15px;padding:0;min-height:44px}
+.drawer-head{gap:12px}.drawer-head b{margin-right:auto}
+@media(max-width:760px){
+ .stories{display:block!important;margin:0 -20px!important;border-left:0!important;border-right:0!important}
+ .story,.story.featured,.story.compact{min-height:0!important;margin:0!important;padding:21px 20px!important;border-right:0!important;border-left:0!important}
+ .story.featured{padding:24px 20px!important}
+ .story.featured h3{font-size:29px!important;margin:22px 0 10px!important}
+ .story.compact h3{font-size:20px!important}
+ .story p{font-size:14px!important}
+ .drawer-wrap{z-index:80!important;pointer-events:none!important}
+ .drawer-wrap.open{pointer-events:auto!important}
+ .drawer-wrap .scrim{display:none!important}
+ .drawer{position:fixed!important;left:0!important;right:0!important;top:60px!important;bottom:68px!important;width:100%!important;max-width:none!important;z-index:80!important;box-shadow:none!important}
+ .drawer-head{position:sticky!important;top:0!important;z-index:3!important;height:58px!important;padding:0 16px!important;background:var(--paper2)!important}
+ .drawer-head b{font-size:16px!important}
+ .drawer-body{padding:20px!important}
+ .drawer-foot{position:sticky!important;bottom:0!important;z-index:3!important;padding:12px 20px!important;background:var(--paper2)!important}
+ .prototype-note{display:none!important}
+}
+
+</style>
+
+<style id="ownerpass-resident-board-final-20260904">
+
+/* Final owner decision: resident news is a scalable board, not a fixed 3-card composition. */
+body[data-danjion-page="10"] .stories{
+  display:block!important;border:1px solid var(--line)!important;background:var(--paper2)!important;
+}
+body[data-danjion-page="10"] .story,
+body[data-danjion-page="10"] .story:first-child,
+body[data-danjion-page="10"] .story.featured,
+body[data-danjion-page="10"] .story.compact{
+  min-height:118px!important;margin:0!important;padding:20px 22px!important;background:var(--paper2)!important;color:var(--ink)!important;
+  border:0!important;border-bottom:1px solid var(--line)!important;
+  display:grid!important;grid-template-columns:150px minmax(0,1fr) 86px!important;grid-template-rows:auto auto!important;
+  grid-template-areas:"meta title link" "meta copy link"!important;gap:5px 22px!important;align-items:center!important;
+}
+body[data-danjion-page="10"] .story:last-child{border-bottom:0!important}
+body[data-danjion-page="10"] .story-meta{grid-area:meta!important;display:flex!important;flex-direction:column!important;align-items:flex-start!important;gap:7px!important}
+body[data-danjion-page="10"] .story .tag,body[data-danjion-page="10"] .story:first-child .tag{color:var(--coral)!important}
+body[data-danjion-page="10"] .story time,body[data-danjion-page="10"] .story:first-child time{color:var(--muted)!important}
+body[data-danjion-page="10"] .story h3,body[data-danjion-page="10"] .story:first-child h3,body[data-danjion-page="10"] .story.featured h3{
+  grid-area:title!important;font-size:21px!important;line-height:1.35!important;margin:0!important;max-width:none!important;
+}
+body[data-danjion-page="10"] .story p,body[data-danjion-page="10"] .story:first-child p{
+  grid-area:copy!important;font-size:14px!important;line-height:1.5!important;margin:0!important;color:var(--muted)!important;max-width:none!important;
+}
+body[data-danjion-page="10"] .story-link,body[data-danjion-page="10"] .story:first-child .story-link{
+  grid-area:link!important;align-self:center!important;justify-self:end!important;width:auto!important;margin:0!important;padding:0!important;border:0!important;
+  color:var(--ink)!important;font-size:14px!important;font-weight:900!important;
+}
+@media(max-width:760px){
+ body[data-danjion-page="10"] .stories{margin:0 -20px!important;border-left:0!important;border-right:0!important}
+ body[data-danjion-page="10"] .story,body[data-danjion-page="10"] .story:first-child,body[data-danjion-page="10"] .story.featured,body[data-danjion-page="10"] .story.compact{
+   display:block!important;min-height:0!important;padding:20px!important;
+ }
+ body[data-danjion-page="10"] .story-meta{display:flex!important;flex-direction:row!important;justify-content:space-between!important;align-items:center!important}
+ body[data-danjion-page="10"] .story h3,body[data-danjion-page="10"] .story:first-child h3{font-size:20px!important;margin:14px 0 7px!important}
+ body[data-danjion-page="10"] .story-link,body[data-danjion-page="10"] .story:first-child .story-link{display:inline-block!important;margin-top:13px!important}
+}
+
+</style>
+<style id="frontcheck-story-title-link-v1">
+.story-title-link{color:inherit!important;text-decoration:none!important}
+.story-title-link:hover,.story-title-link:focus-visible{text-decoration:underline!important;text-underline-offset:4px}
+</style></head>
+<body data-danjion-page="10">
+<header class="site-header"><div class="header-inner"><a class="brand" href="05_우리단지_첫화면.html">단지온 <small>DANJION by PADIEM</small></a><nav class="desktop-nav"><button data-toast="홈 화면은 이전 단계에서 확인할 수 있어요." type="button">홈</button><button data-toast="이웃가게 화면은 이전 단계에서 확인할 수 있어요." type="button">이웃가게</button><button class="active" type="button">우리단지</button><button data-toast="내정보는 다음 단계에서 연결합니다." type="button">내정보</button></nav><div class="identity">방림명지로드힐</div><div class="mobile-head">방림명지로드힐 <span>⌄</span></div></div></header>
+<main>
+<div class="route"><button aria-label="뒤로가기" onclick="location.href='05_우리단지_첫화면.html'" type="button">←</button><a href="05_우리단지_첫화면.html">우리단지</a><span>/ 주민소식</span></div>
+<section class="intro"><div><div class="eyebrow">주민이 전하는 우리 단지 이야기</div><h1>주민소식</h1></div><div class="intro-copy">주민이 직접 전한 소식입니다.</div></section>
+<section aria-label="주민소식 제보" class="feature"><div class="submit-call"><span class="index">RESIDENT STORY</span><h2>우리 단지의<br/>좋은 소식을<br/>보내주세요.</h2><p>사진과 내용을 보내주시면 운영진 확인 후 게시합니다.</p><button class="submit-button" data-open-drawer="" type="button">소식 제보하기 <span>→</span></button></div><div class="process"><span class="process-label">게시 과정</span><h3>제보부터 게시까지</h3><div class="steps"><div class="step"><strong>01</strong><div><b>사진·내용 접수</b></div></div><div class="step"><strong>02</strong><div><b>운영진 확인</b></div></div><div class="step"><strong>03</strong><div><b>주민소식 게시</b></div></div></div></div></section>
+<section class="feed-head"><div><h2>최근 주민소식</h2><p>운영진이 확인하고 정리한 우리 단지 주민의 이야기입니다.</p></div><p>최신순</p></section>
+<div aria-label="주민소식 분류" class="filters"><button class="filter active" type="button">전체</button><button class="filter" type="button">생활 나눔</button><button class="filter" type="button">모임·행사</button><button class="filter" type="button">좋은 소식</button><button class="filter" type="button">정보 나눔</button></div>
+<section aria-label="주민소식 목록" class="stories">
+<article class="story featured"><div class="story-meta"><span class="tag">모임·행사 · 확인 후 게시</span><time>2026.08.28</time></div><h3><a class="story-title-link" href="11_주민소식_상세.html">주민 재능나눔 모임을 소개합니다</a></h3><p>같은 단지 주민이 준비한 소규모 재능나눔 모임 소식입니다.</p><a class="story-link" href="11_주민소식_상세.html">소식 읽기</a></article>
+<article class="story compact"><div class="story-meta"><span class="tag">생활 나눔</span><time>2026.08.31</time></div><h3><a class="story-title-link" href="11_주민소식_상세.html">주민이 함께 준비한 추석맞이 나눔 소식</a></h3><p>이웃과 나누고 싶은 마음을 모아 준비한 작은 나눔 이야기입니다.</p><a class="story-link" href="11_주민소식_상세.html">소식 읽기</a></article>
+<article class="story compact"><div class="story-meta"><span class="tag">좋은 소식</span><time>2026.08.24</time></div><h3><a class="story-title-link" href="11_주민소식_상세.html">아이들과 함께한 화단 가꾸기 기록</a></h3><p>단지 안 작은 화단을 함께 돌본 주민들의 하루를 전합니다.</p><a class="story-link" href="11_주민소식_상세.html">소식 읽기</a></article>
+<article class="story compact"><div class="story-meta"><span class="tag">정보 나눔</span><time>2026.08.21</time></div><h3><a class="story-title-link" href="11_주민소식_상세.html">우리 단지 새 이웃가게를 소개합니다</a></h3><p>주민이 직접 운영하는 새로운 이웃가게 소식을 전합니다.</p><a class="story-link" href="11_주민소식_상세.html">소식 읽기</a></article>
+</section>
+</main>
+<nav aria-label="모바일 주요 메뉴" class="mobile-bottom"><button aria-label="홈" data-route="04_데일리홈.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><path d="m3 10 9-7 9 7v10h-6v-6H9v6H3z"></path></svg><span>홈</span></button><button aria-label="이웃가게" data-route="01_이웃가게_발견.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><path d="M4 7h16l-1 13H5L4 7Z"></path><path d="M8 7V5a4 4 0 0 1 8 0v2"></path></svg><span>이웃가게</span></button><button aria-label="우리단지" class="active" data-route="05_우리단지_첫화면.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><path d="M4 21V9l8-6 8 6v12"></path><path d="M8 13h8M8 17h8"></path></svg><span>우리단지</span></button><button aria-label="내정보" data-route="19_내정보_메인.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><circle cx="12" cy="8" r="4"></circle><path d="M4 21a8 8 0 0 1 16 0"></path></svg><span>내정보</span></button></nav>
+<div aria-hidden="true" class="drawer-wrap"><button aria-label="닫기" class="scrim" data-close-drawer="" type="button"></button><aside aria-label="주민소식 제보" class="drawer"><div class="drawer-head"><button aria-label="주민소식 목록으로 돌아가기" class="drawer-back modal-back" data-close-drawer="" type="button">← 주민소식</button><b>소식 제보</b><button aria-label="닫기" class="drawer-close" data-close-drawer="" type="button">×</button></div><div class="drawer-body"><div class="form-intro"><span>운영진 확인 후 게시</span><h2>알리고 싶은 내용을 보내주세요.</h2><p>아래 항목을 채우면 운영진이 확인하기 쉬워요. 게시가 필요한 경우 내용을 정리해 주민소식에 소개합니다.</p></div><section aria-label="제보자 주민 확인" class="resident-proof"><span class="proof-icon">✓</span><div><small>제보자 주민 확인 완료</small><b>방림명지로드힐 주민 확인 완료</b></div><p>가입 계정의 우리집 정보로 주민 여부를 확인합니다. 동·호는 운영 확인에만 사용하며 게시글에는 공개하지 않습니다.</p></section><div class="field"><label for="kind">소식 종류</label><select id="kind"><option>생활 나눔</option><option>모임·행사</option><option>좋은 소식</option><option>정보 나눔</option></select></div><div class="field"><label for="title">제목</label><input id="title" placeholder="무슨 소식인지 한 줄로 적어주세요"/></div><div class="field"><label for="content">알리고 싶은 내용</label><textarea id="content" placeholder="언제, 어디서, 누구에게 필요한 소식인지 적어주세요."></textarea><small>전화번호 등 공개되면 안 되는 개인정보는 적지 마세요.</small></div><div class="field"><label>사진·자료</label><input id="residentFiles" type="file" accept="image/*,.pdf,.hwp,.hwpx,.doc,.docx,.ppt,.pptx" multiple hidden/><button class="upload" data-file-trigger type="button">＋ 사진이나 안내문 첨부하기</button><div class="upload-files" id="residentFileList" aria-live="polite"></div><small>사진·PDF·한글·워드·프레젠테이션 파일을 최대 3개까지 선택할 수 있습니다.</small></div><div class="field"><label for="email">연락받을 이메일</label><input id="email" placeholder="확인이 필요할 때 연락드릴 이메일" type="email"/></div></div><div class="drawer-foot"><button class="preview-submit" data-submit="" type="button">제보 내용 확인하기</button><p class="prototype-note">디자인 검토용 화면으로 실제 접수·메일 전송은 되지 않습니다.</p></div></aside></div><div class="toast" role="status"></div>
+<script>const toast=document.querySelector('.toast');let timer;function showToast(text){toast.textContent=text;toast.classList.add('show');clearTimeout(timer);timer=setTimeout(()=>toast.classList.remove('show'),1800)}document.querySelectorAll('[data-toast]').forEach(el=>el.addEventListener('click',()=>showToast(el.dataset.toast)));const wrap=document.querySelector('.drawer-wrap');function setDrawer(open){wrap.classList.toggle('open',open);wrap.setAttribute('aria-hidden',String(!open));document.body.style.overflow=open?'hidden':''}document.querySelector('[data-open-drawer]').addEventListener('click',()=>setDrawer(true));document.querySelectorAll('[data-close-drawer]').forEach(el=>el.addEventListener('click',()=>setDrawer(false)));document.addEventListener('keydown',e=>{if(e.key==='Escape')setDrawer(false)});document.querySelector('[data-submit]').addEventListener('click',()=>showToast('시제품에서는 입력 내용만 확인하며 실제 전송은 하지 않습니다.'));document.querySelectorAll('.filter').forEach(button=>button.addEventListener('click',()=>{document.querySelectorAll('.filter').forEach(item=>item.classList.remove('active'));button.classList.add('active');showToast(button.textContent+' 소식을 골랐습니다.')}));</script>
+
+<script id="resident-file-picker-20260904">
+(function(){
+  const input=document.getElementById('residentFiles');
+  const trigger=document.querySelector('[data-file-trigger]');
+  const list=document.getElementById('residentFileList');
+  if(!input||!trigger||!list)return;
+  const safe=s=>String(s).replace(/[<>&"]/g,'');
+  const fmt=n=>n<1024?n+' B':n<1024*1024?(n/1024).toFixed(1)+' KB':(n/1024/1024).toFixed(1)+' MB';
+  trigger.addEventListener('click',()=>input.click());
+  input.addEventListener('change',()=>{
+    const files=[...input.files].slice(0,3);
+    if(input.files.length>3) showToast('첨부는 최대 3개까지 선택할 수 있습니다.');
+    list.innerHTML=files.map(f=>'<div class="upload-file"><b>'+safe(f.name)+'</b><span>'+fmt(f.size)+'</span></div>').join('');
+    trigger.textContent=files.length?('＋ 파일 다시 선택하기 ('+files.length+'/3)'):'＋ 사진이나 안내문 첨부하기';
+  });
+})();
+</script>
+<script id="danjion-direct-router-v5">
+(function(){
+const SCREEN="residentList";
+const FILES={"landing": "index.html", "home": "04_데일리홈.html", "shops": "01_이웃가게_발견.html", "shopDetail": "02_이웃가게_상세.html", "complex": "05_우리단지_첫화면.html", "noticeList": "06_단지온공지_목록.html", "noticeDetail": "07_단지온공지_상세.html", "apartment": "08_아파트소식_목록.html", "chair": "09_회장인사_상세.html", "residentList": "10_주민소식_목록.html", "residentDetail": "11_주민소식_상세.html", "community": "12_이웃대화_첫화면.html", "communityDetail": "13_이웃대화_글상세_댓글.html", "writeHello": "14_가입인사_글쓰기.html", "writeStory": "15_단지이야기_글쓰기.html", "writeQuestion": "16_궁금해요_글쓰기.html", "writeTogether": "17_같이해요_글쓰기.html", "my": "19_내정보_메인.html", "messages": "20_메시지함_목록.html", "messageDetail": "21_메시지_대화상세.html", "profile": "22_주민_공개프로필.html", "warmth": "23_이웃온기.html", "settings": "24_설정.html", "inquiry": "25_1대1문의.html", "apply": "25A_신청제보.html", "household": "26_우리집연결.html", "notifications": "27_알림함.html", "activity": "28_나의활동.html"};
+const norm=s=>(s||'').replace(/\s+/g,' ').trim();
+function go(f){
+  if(!f)return;
+  location.href=f;
+}
+function main(label){go({'홈':FILES.home,'이웃가게':FILES.shops,'우리단지':FILES.complex,'내정보':FILES.my}[label]);}
+function routeFrom(v){v=(v||'').split('#')[0]; if(!v)return null;
+  const q=v.includes('?')?'?'+v.split('?').slice(1).join('?'):''; const p=v.split('?')[0];
+  const arr=[["29_", "index.html"], ["04_", "04_데일리홈.html"], ["01_", "01_이웃가게_발견.html"], ["02_", "02_이웃가게_상세.html"], ["05_", "05_우리단지_첫화면.html"], ["06_", "06_단지온공지_목록.html"], ["07_", "07_단지온공지_상세.html"], ["08_", "08_아파트소식_목록.html"], ["09_", "09_회장인사_상세.html"], ["10_", "10_주민소식_목록.html"], ["11_", "11_주민소식_상세.html"], ["12_", "12_이웃대화_첫화면.html"], ["13_", "13_이웃대화_글상세_댓글.html"], ["14_", "14_가입인사_글쓰기.html"], ["15_", "15_단지이야기_글쓰기.html"], ["16_", "16_궁금해요_글쓰기.html"], ["17_", "17_같이해요_글쓰기.html"], ["19_", "19_내정보_메인.html"], ["20_", "20_메시지함_목록.html"], ["21_", "21_메시지_대화상세.html"], ["22_", "22_주민_공개프로필.html"], ["23_", "23_이웃온기.html"], ["24_", "24_설정.html"], ["25_", "25_1대1문의.html"], ["26_", "26_우리집연결.html"], ["27_", "27_알림함.html"], ["28_", "28_나의활동.html"]];
+  for(const [t,f] of arr) if(p.includes(t)) return f+q;
+  if(p==='index.html') return 'index.html'; return null;
+}
+function backFallback(){
+  const parentMap={
+    shops:FILES.home,shopDetail:FILES.shops,complex:FILES.home,
+    noticeList:FILES.complex,noticeDetail:FILES.noticeList,apartment:FILES.complex,chair:FILES.complex,
+    residentList:FILES.complex,residentDetail:FILES.residentList,community:FILES.complex,communityDetail:FILES.community,
+    writeHello:FILES.community,writeStory:FILES.community,writeQuestion:FILES.community,writeTogether:FILES.community,
+    my:FILES.home,messages:FILES.my,messageDetail:FILES.messages,profile:FILES.my,warmth:FILES.my,
+    settings:FILES.my,inquiry:FILES.settings,apply:FILES.shops,household:FILES.my,notifications:FILES.my,activity:FILES.my
+  };
+  location.href=parentMap[SCREEN]||FILES.home;
+}
+
+document.addEventListener('click',function(ev){
+ const el=ev.target.closest('a,button,[data-route]'); if(!el)return;
+ const text=norm(el.textContent), cls=el.classList||{contains:()=>false};
+ // landing internal modal/greeting controls stay native
+ if(SCREEN==='landing'){
+   if(el.matches('[data-auth],[data-preview],[data-greeting],[data-email],[data-social],[data-reset],[data-resend],[data-term],[data-term-close],[data-address-next],[data-terms-next],[data-finish],[data-required-all]')) return;
+   if(el.matches('[data-chair-close]')){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.home);return;}
+   if(el.matches('[data-chair-detail]')){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.chair);return;}
+   if(el.matches('[data-guest-enter]')){ev.preventDefault();ev.stopImmediatePropagation();sessionStorage.setItem('danjionGuest','1');go(FILES.home);return;}
+   if(el.matches('[data-top]')) return;
+ }
+ if(cls.contains('brand')){ev.preventDefault();ev.stopImmediatePropagation();go('index.html');return;}
+ const inMain=!!el.closest('.nav,.desktop-nav,.mobile-bottom,.topbar nav,.main-nav');
+ if(inMain && ['홈','이웃가게','우리단지','내정보'].includes(text)){ev.preventDefault();ev.stopImmediatePropagation();main(text);return;}
+ if(cls.contains('back')||cls.contains('route-back')||((/^←|^‹|^< /.test(text))&&!cls.contains('modal-back'))){ev.preventDefault();ev.stopImmediatePropagation();backFallback();return;}
+ // home: current scene -> selected shop detail
+ if(SCREEN==='home' && el.id==='detailBtn'){ev.preventDefault();ev.stopImmediatePropagation();const k=el.dataset.shopKey||'food';go(FILES.shopDetail+'?shop='+encodeURIComponent(k));return;}
+ // shops cards -> specific shop detail
+ if(SCREEN==='shops' && cls.contains('shop-link')){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.shopDetail+'?shop='+encodeURIComponent(el.dataset.shopKey||'florist'));return;}
+ if(SCREEN==='shops' && text==='이웃가게 제보'){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.apply+'?mode=report');return;}
+ if(SCREEN==='shops' && (text==='내 가게 등록 신청'||text==='내 가게 등록 문의')){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.apply+'?mode=apply');return;}
+ if(SCREEN==='complex' && cls.contains('channel-link')){ev.preventDefault();ev.stopImmediatePropagation();const i=[...document.querySelectorAll('.channel-link')].indexOf(el);go([FILES.noticeList,FILES.apartment,FILES.residentList,FILES.community][i]||FILES.complex);return;}
+ if(SCREEN==='noticeList' && (cls.contains('pinned-link')||cls.contains('notice-row'))){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.noticeDetail);return;}
+ if(SCREEN==='apartment' && cls.contains('feature-link')){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.chair);return;}
+ if(SCREEN==='residentList' && cls.contains('story-link')){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.residentDetail);return;}
+ if(SCREEN==='community' && cls.contains('write-type')){ev.preventDefault();ev.stopImmediatePropagation();const i=[...document.querySelectorAll('.write-type')].indexOf(el);go([FILES.writeHello,FILES.writeStory,FILES.writeQuestion,FILES.writeTogether][i]||FILES.community);return;}
+ if(SCREEN==='community' && el.tagName==='A' && text.includes('안녕하세요')){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.communityDetail);return;}
+ if(SCREEN==='my' && cls.contains('card-link')){ev.preventDefault();ev.stopImmediatePropagation();const i=[...document.querySelectorAll('.card-link')].indexOf(el);go(i===0?FILES.messages:FILES.household);return;}
+ if(SCREEN==='my' && cls.contains('menu-row')){ev.preventDefault();ev.stopImmediatePropagation();const i=[...document.querySelectorAll('.menu-row')].indexOf(el);go(FILES.activity+'?tab='+Math.min(i,3));return;}
+ if(SCREEN==='my' && (text.includes('설정 열기')||text.includes('이용 설정'))){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.settings);return;}
+ if(SCREEN==='messages' && cls.contains('mail-row')){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.messageDetail);return;}
+ if(SCREEN==='messageDetail' && (text.includes('공개 프로필')||text.includes('산책메이트'))){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.profile);return;}
+ if(SCREEN==='profile' && cls.contains('message-button')){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.messageDetail);return;}
+ if(SCREEN==='settings' && (cls.contains('support-button')||text.includes('1:1 문의'))){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.inquiry);return;}
+ if(SCREEN==='activity' && cls.contains('side-link')){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.profile);return;}
+ // known data-route or anchors
+ const dr=el.dataset&&el.dataset.route; if(dr){const f=routeFrom(dr);if(f){ev.preventDefault();ev.stopImmediatePropagation();go(f);return;}}
+ if(el.tagName==='A'){const f=routeFrom(el.getAttribute('href'));if(f){ev.preventDefault();ev.stopImmediatePropagation();go(f);return;}}
+},true);
+
+// screen-specific initial state
+if(SCREEN==='shopDetail'){ const p=new URLSearchParams(location.search),k=p.get('shop'); if(k) setTimeout(()=>window.postMessage({type:'danjion-integrated:setShop',shopKey:k},'*'),0); }
+if(SCREEN==='apply'){ const p=new URLSearchParams(location.search),mode=p.get('mode'); if(mode) setTimeout(()=>window.postMessage({type:'danjion-integrated:setMode',mode},'*'),0); }
+if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt(p.get('tab')||'0',10); if(Number.isInteger(i)) setTimeout(()=>window.postMessage({type:'danjion-integrated:activityTab',index:i},'*'),0); }
+})();
+</script>
+<script id="danjion-review-route-sync">
+(function(){
+  try{
+    if(new URLSearchParams(location.search).get('review')==='1'){
+      sessionStorage.removeItem('danjionRouteStack');
+    }
+  }catch(e){}
+  function reportRoute(){
+    try{
+      const file=decodeURIComponent((location.pathname.split('/').pop()||'index.html').split('?')[0]);
+      if(window.parent!==window) window.parent.postMessage({type:'danjion-route',file:file,href:location.href},'*');
+    }catch(e){}
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',reportRoute,{once:true});else reportRoute();
+  window.addEventListener('pageshow',reportRoute);
+  window.addEventListener('hashchange',reportRoute);
+})();
+</script>
+</body></html>

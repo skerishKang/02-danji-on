@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+
+<html lang="ko">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1" name="viewport"/>
+<title>단지온 · 이웃가게 발견 · 1단계 검토안</title>
+<style>
+    @import url("assets/consistency.css");
+    :root{
+      --paper:#f6f2e9;
+      --paper-2:#fffdf8;
+      --ink:#101317;
+      --navy:#101d30;
+      --coral:#ee6045;
+      --amber:#f2b84b;
+      --muted:#6d6a64;
+      --line:#d8d0c3;
+      --soft:#ece5d8;
+      --green:#255e49;
+      --header:76px;
+    }
+    *{box-sizing:border-box}
+    html{background:var(--paper);color:var(--ink);font-family:Pretendard,"Pretendard Variable","Noto Sans KR",Arial,sans-serif}
+    body{margin:0;min-width:320px;background:var(--paper)}
+    button,input{font:inherit}
+    button{color:inherit}
+    img{display:block;width:100%;height:100%;object-fit:cover}
+    .site-header{height:var(--header);border-bottom:1px solid var(--line);background:rgba(246,242,233,.96);display:flex;align-items:center;position:sticky;top:0;z-index:30}
+    .header-inner{width:min(1280px,calc(100% - 64px));margin:auto;display:flex;align-items:center;justify-content:space-between}
+    .brand{display:flex;align-items:baseline;gap:10px;border:0;background:none;padding:0;font-weight:900;font-size:25px;letter-spacing:-.05em}
+    .brand small{font-size:9px;letter-spacing:.12em;color:#5f5c56;font-weight:800}
+    .desktop-nav{display:flex;align-items:center;gap:42px;height:var(--header)}
+    .desktop-nav button{height:100%;border:0;background:none;padding:0 2px;font-size:15px;font-weight:750;position:relative}
+    .desktop-nav button.active::after{content:"";height:3px;position:absolute;left:0;right:0;bottom:0;background:var(--coral)}
+    .identity{font-size:13px;font-weight:750;color:#58554f}
+    main{width:min(1280px,calc(100% - 64px));margin:auto;padding:58px 0 90px}
+    .intro{display:grid;grid-template-columns:minmax(0,1fr) 430px;gap:64px;align-items:end;margin-bottom:30px}
+    .eyebrow{display:flex;align-items:center;gap:10px;font-size:12px;font-weight:850;letter-spacing:.07em;color:var(--coral);margin-bottom:15px}
+    .eyebrow::before{content:"";width:28px;height:2px;background:var(--coral)}
+    h1{font-size:clamp(46px,4.3vw,66px);line-height:1.03;letter-spacing:-.055em;margin:0;font-weight:900}
+    .intro-copy{color:var(--muted);font-size:16px;line-height:1.7;margin:18px 0 0}
+    .intro-note{border-top:1px solid var(--ink);padding-top:18px;display:grid;grid-template-columns:1fr 1fr;gap:20px}
+    .intro-note b{display:block;font-size:15px;margin-bottom:6px}
+    .intro-note span{font-size:13px;line-height:1.55;color:var(--muted)}
+    .search-form{display:grid;grid-template-columns:1fr 112px;border:1px solid #aaa195;background:var(--paper-2);margin:32px 0 20px;box-shadow:0 8px 24px rgba(16,19,23,.04)}
+    .search-form label{display:flex;align-items:center;gap:13px;padding:0 20px}
+    .search-form svg{width:22px;height:22px;stroke:var(--ink);fill:none;stroke-width:1.8}
+    .search-form input{width:100%;height:62px;border:0;outline:0;background:transparent;font-size:16px;color:var(--ink)}
+    .search-form button{border:0;background:var(--ink);color:white;font-weight:850;font-size:15px}
+    .filters{display:flex;align-items:center;gap:8px;overflow:auto;padding:2px 0 25px;scrollbar-width:none}
+    .filters::-webkit-scrollbar{display:none}
+    .filter{white-space:nowrap;border:1px solid var(--line);background:var(--paper-2);height:42px;padding:0 17px;font-size:14px;font-weight:740;cursor:pointer}
+    .filter.active{background:var(--ink);border-color:var(--ink);color:#fff}
+    .discovery{display:grid;grid-template-columns:minmax(0,1.58fr) minmax(360px,.82fr);gap:18px;border-top:1px solid var(--ink);padding-top:18px}
+    .featured{position:relative;min-height:510px;overflow:hidden;background:var(--navy);color:white;cursor:pointer}
+    .featured img{position:absolute;inset:0;transition:transform .7s cubic-bezier(.2,.7,.2,1)}
+    .featured:hover img{transform:scale(1.018)}
+    .featured::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(6,13,23,.03) 20%,rgba(6,13,23,.2) 55%,rgba(6,13,23,.92) 100%)}
+    .featured-info{position:absolute;z-index:2;right:0;top:0;bottom:0;width:43%;padding:42px 38px;display:flex;flex-direction:column;justify-content:flex-end}
+    .relation{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:850;color:#fff;margin-bottom:auto}
+    .relation::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--amber);box-shadow:0 0 0 5px rgba(242,184,75,.13)}
+    .featured h2{font-size:42px;line-height:1.08;letter-spacing:-.05em;margin:0 0 12px}
+    .featured p{font-size:16px;line-height:1.65;color:rgba(255,255,255,.76);margin:0 0 25px}
+    .facts{border-top:1px solid rgba(255,255,255,.24);padding-top:17px;display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:28px}
+    .fact small{display:block;color:rgba(255,255,255,.55);font-size:11px;margin-bottom:5px}
+    .fact b{font-size:13px}
+    .featured-link{display:flex;align-items:center;justify-content:space-between;border-top:1px solid rgba(255,255,255,.35);padding-top:17px;font-weight:850;font-size:14px}
+    .featured-link svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8}
+    .side-list{background:var(--paper-2);border:1px solid var(--line);padding:0 24px}
+    .side-head{height:76px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--ink)}
+    .side-head h2{font-size:20px;margin:0;letter-spacing:-.035em}
+    .side-head button{border:0;background:none;font-size:13px;font-weight:800;color:var(--muted)}
+    .shop-row{display:grid;grid-template-columns:116px 1fr 20px;gap:18px;align-items:center;min-height:140px;border-bottom:1px solid var(--line);cursor:pointer}
+    .shop-row:last-child{border-bottom:0}
+    .thumb{height:92px;overflow:hidden;background:#ddd}
+    .shop-row:hover .thumb img{transform:scale(1.035)}
+    .thumb img{transition:transform .45s ease}
+    .row-copy small{display:block;color:var(--coral);font-size:11px;font-weight:850;margin-bottom:7px}
+    .row-copy b{display:block;font-size:19px;letter-spacing:-.035em;margin-bottom:6px}
+    .row-copy span{font-size:13px;color:var(--muted);line-height:1.5}
+    .row-arrow{font-size:22px}
+    .trust-strip{display:grid;grid-template-columns:minmax(0,1fr) auto;margin-top:18px;border:1px solid var(--line);min-height:118px}
+    .trust-message{background:var(--coral);color:white;padding:24px 30px;display:flex;align-items:center;justify-content:center;gap:20px;text-align:left}
+    .trust-message strong{font-size:21px;letter-spacing:-.04em}
+    .trust-message span{font-size:13px;color:rgba(255,255,255,.78)}
+    .trust-actions{min-width:430px;background:var(--paper-2);display:flex;align-items:center;justify-content:center;gap:10px;padding:20px 24px}
+    .trust-actions button{height:46px;padding:0 18px;border:1px solid var(--ink);background:transparent;font-weight:800}
+    .trust-actions button.primary{background:var(--ink);color:white}
+    .mobile-bottom{display:none}
+    .catalog-head{height:62px;display:flex;align-items:center;justify-content:space-between;border-top:1px solid var(--ink);border-bottom:1px solid var(--line)}
+    .catalog-head h2{font-size:22px;letter-spacing:-.035em;margin:0}
+    .catalog-head span{font-size:13px;color:var(--muted);font-weight:750}
+    .shop-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:14px}
+    .shop-card{min-height:245px;display:grid;grid-template-columns:44% 56%;background:var(--paper-2);border:1px solid var(--line);overflow:hidden}
+    .shop-photo{min-height:245px;overflow:hidden;background:#ddd}
+    .shop-photo img{transition:transform .55s ease}
+    .shop-card:hover .shop-photo img{transform:scale(1.025)}
+    .shop-copy{padding:25px 24px 21px;display:flex;flex-direction:column}
+    .shop-copy small{font-size:12px;font-weight:850;color:var(--coral);margin-bottom:11px}
+    .shop-copy h2{font-size:25px;line-height:1.18;letter-spacing:-.04em;margin:0 0 9px}
+    .shop-copy p{font-size:14px;line-height:1.6;color:var(--muted);margin:0}
+    .shop-meta{display:flex;gap:6px;margin-top:13px;flex-wrap:wrap}
+    .shop-meta span{padding:6px 8px;background:var(--paper);font-size:11px;font-weight:780;color:#504d47}
+    .shop-link{width:100%;margin-top:auto;padding:14px 0 0;border:0;border-top:1px solid var(--line);background:none;display:flex;justify-content:space-between;align-items:center;font-size:14px;font-weight:850;text-align:left}
+    .shop-link span:last-child{font-size:20px}
+    .shop-link:hover{color:var(--coral)}
+    .toast{position:fixed;left:50%;bottom:28px;z-index:100;transform:translate(-50%,20px);opacity:0;background:var(--ink);color:#fff;padding:13px 18px;font-size:13px;font-weight:800;pointer-events:none;transition:.23s}
+    .toast.show{transform:translate(-50%,0);opacity:1}
+
+    @media(max-width:760px){
+      :root{--header:60px}
+      body{padding-bottom:72px;background:#fbf8f2}
+      .header-inner{width:100%;padding:0 20px}
+      .brand{font-size:21px}.brand small{display:none}
+      .desktop-nav{display:none}.identity{font-size:12px}
+      main{width:100%;padding:30px 20px 48px}
+      .intro{display:block;margin-bottom:20px}
+      .intro-note{display:none}
+      .eyebrow{font-size:10px;margin-bottom:11px}.eyebrow::before{width:20px}
+      h1{font-size:37px;line-height:1.08;max-width:330px}
+      .intro-copy{font-size:14px;margin-top:12px;line-height:1.55}
+      .search-form{grid-template-columns:1fr 56px;margin:22px 0 17px}
+      .search-form label{padding:0 14px;gap:9px}.search-form svg{width:19px;height:19px}
+      .search-form input{height:54px;font-size:14px}.search-form button{font-size:0;position:relative}
+      .search-form button::after{content:"→";font-size:20px}
+      .filters{margin:0 -20px;padding:0 20px 18px;gap:7px}
+      .filter{height:39px;padding:0 14px;font-size:13px;border-radius:0}
+      .discovery{display:block;border-top:0;padding-top:0}
+      .featured{min-height:380px;margin:0 -20px}
+      .featured::after{background:linear-gradient(0deg,rgba(6,13,23,.93),rgba(6,13,23,.05) 70%)}
+      .featured img{height:100%;object-position:37% center}
+      .featured-info{left:0;right:0;top:auto;bottom:0;width:auto;height:57%;padding:24px 20px 21px;justify-content:flex-end}
+      .relation{margin-bottom:15px;font-size:11px}.relation::before{width:7px;height:7px}
+      .featured h2{font-size:31px;margin-bottom:8px}.featured p{font-size:14px;margin-bottom:16px}
+      .facts{margin-bottom:16px;padding-top:13px}.fact b{font-size:12px}.fact small{font-size:10px}
+      .featured-link{padding-top:13px;font-size:13px}
+      .side-list{margin:16px -20px 0;border-left:0;border-right:0;padding:0 20px}
+      .side-head{height:62px}.side-head h2{font-size:19px}
+      .shop-row{grid-template-columns:92px 1fr 18px;gap:13px;min-height:121px}
+      .thumb{height:82px}.row-copy small{font-size:10px;margin-bottom:5px}.row-copy b{font-size:17px;margin-bottom:4px}.row-copy span{font-size:12px}
+      .trust-strip{display:block;margin:16px -20px 0;border-left:0;border-right:0}
+      .trust-message{padding:20px;display:block}.trust-message strong{display:block;font-size:19px;margin-bottom:5px}.trust-message span{font-size:12px}
+      .trust-actions{justify-content:stretch;padding:14px 20px}.trust-actions button{flex:1;padding:0 10px;font-size:13px}
+      .mobile-bottom{position:fixed;display:grid;grid-template-columns:repeat(4,1fr);left:0;right:0;bottom:0;height:68px;background:rgba(255,253,248,.97);border-top:1px solid var(--line);z-index:40;padding-bottom:env(safe-area-inset-bottom)}
+      .mobile-bottom button{border:0;background:none;display:grid;place-items:center;align-content:center;gap:3px;color:#706d67;font-size:10px;font-weight:750}
+      .mobile-bottom button.active{color:var(--coral)}
+      .mobile-bottom svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8}
+      .catalog-head{height:58px}.catalog-head h2{font-size:20px}.catalog-head span{font-size:12px}
+      .shop-grid{display:block;margin:12px 0 0}
+      .shop-card{grid-template-columns:125px 1fr;min-height:205px;border-left:0;border-right:0;margin-bottom:10px}
+      .shop-photo{min-height:205px}.shop-copy{padding:19px 17px 16px}.shop-copy small{font-size:11px;margin-bottom:8px}.shop-copy h2{font-size:21px}.shop-copy p{font-size:13px}.shop-meta{margin-top:9px}.shop-meta span{font-size:10px}.shop-link{font-size:14px;padding-top:11px}
+      .toast{bottom:82px;max-width:calc(100% - 36px);white-space:nowrap}
+    }
+    /* 31번 보존형 통일 작업: 배치·사진·색상은 변경하지 않고 가독성만 정규화 */
+    .brand small{font-size:11px}.eyebrow{font-size:14px}.relation{font-size:13px}.fact small,.row-copy small,.shop-copy small,.shop-meta span{font-size:13px}.identity{font-size:14px}
+    @media(max-width:760px){.identity{font-size:13px}.eyebrow{font-size:14px}.relation{font-size:13px}.fact b{font-size:14px}.fact small{font-size:13px}.row-copy small{font-size:13px}.row-copy span{font-size:14px}.trust-message span{font-size:14px}.trust-actions button{font-size:14px}.mobile-bottom button{font-size:12px}.catalog-head span{font-size:14px}.shop-copy small{font-size:13px}.shop-copy p{font-size:15px;line-height:1.55}.shop-meta span{font-size:13px}}
+    @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}}
+  </style>
+<style>
+
+.intro-note{grid-template-columns:repeat(3,1fr)!important}
+.trust-message strong{font-size:clamp(24px,2.2vw,34px);line-height:1.15}
+.trust-actions{align-items:center}.trust-actions button{min-width:180px}
+@media(max-width:760px){.intro-note{grid-template-columns:1fr!important}.trust-message strong{font-size:26px}.trust-actions{grid-template-columns:1fr 1fr!important}.trust-actions button{min-width:0!important;padding-left:8px!important;padding-right:8px!important}}
+
+
+.intro-note>div{padding-left:14px;border-left:4px solid var(--coral)}
+.intro-note>div:nth-child(2){border-left-color:var(--amber)}
+.intro-note>div:nth-child(3){border-left-color:var(--green)}
+.intro-note>div:nth-child(1) b{color:var(--coral)}
+.intro-note>div:nth-child(2) b{color:#a66b00}
+.intro-note>div:nth-child(3) b{color:var(--green)}
+.trust-message{padding:20px 28px}
+.trust-message strong{font-size:clamp(20px,1.7vw,27px)!important;line-height:1.2}
+.trust-message span{display:block;margin-top:7px;font-size:13px;line-height:1.55;color:rgba(255,255,255,.88)}
+
+
+.brand-word{font-size:28px;font-weight:900;letter-spacing:-.065em;white-space:nowrap}
+.brand{gap:12px!important}
+.identity{color:#5c574f!important;font-weight:850!important}
+</style>
+<style id="front-audit-bottom-nav-standard-20260904">
+/* Frontend audit 1: all app content screens share one exact bottom navigation geometry. */
+@media (max-width:760px){
+  body{padding-bottom:68px!important}
+  .mobile-bottom{
+    position:fixed!important;display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;
+    left:0!important;right:0!important;bottom:0!important;width:100%!important;height:68px!important;
+    margin:0!important;padding:0!important;background:rgba(255,253,248,.98)!important;
+    border:0!important;border-top:1px solid #d8d0c3!important;box-shadow:none!important;z-index:90!important;
+  }
+  .mobile-bottom>button,.mobile-bottom>a{
+    appearance:none!important;-webkit-appearance:none!important;box-sizing:border-box!important;
+    width:auto!important;min-width:0!important;height:67px!important;margin:0!important;padding:0!important;
+    border:0!important;border-radius:0!important;background:transparent!important;text-decoration:none!important;
+    display:grid!important;grid-template-rows:22px 14px!important;align-content:center!important;justify-items:center!important;
+    place-items:initial!important;row-gap:3px!important;column-gap:0!important;
+    color:#706d67!important;font-family:inherit!important;font-size:12px!important;font-weight:800!important;
+    line-height:14px!important;letter-spacing:-.01em!important;text-align:center!important;
+  }
+  .mobile-bottom>button.active,.mobile-bottom>a.active{color:#ee6045!important}
+  .mobile-bottom svg{
+    display:block!important;width:22px!important;height:22px!important;margin:0!important;padding:0!important;
+    stroke:currentColor!important;fill:none!important;stroke-width:1.8!important;stroke-linecap:round!important;stroke-linejoin:round!important;
+    overflow:visible!important;
+  }
+  .mobile-bottom span{display:block!important;height:14px!important;margin:0!important;padding:0!important;line-height:14px!important;white-space:nowrap!important}
+  .toast{bottom:82px!important}
+}
+@media (min-width:761px){.mobile-bottom{display:none!important}}
+</style><style id="frontcheck-shop-pagination-v4">
+.catalog-pager{display:flex;align-items:center;justify-content:center;gap:6px;margin:26px 0 10px}
+.catalog-pager[hidden]{display:none!important}
+.catalog-pager button{min-width:42px;height:42px;padding:0 12px;border:1px solid var(--line);background:var(--paper2);font-weight:850}
+.catalog-pager button.active{background:var(--ink);border-color:var(--ink);color:#fff}
+.catalog-pager button:disabled{opacity:.35;cursor:default}
+.catalog-pager .pager-gap{width:24px;text-align:center;color:var(--muted);font-weight:800}
+@media(max-width:760px){.catalog-pager{margin:20px 0 8px}.catalog-pager button{min-width:40px;height:40px;padding:0 10px}}
+</style></head>
+<body data-danjion-page="1">
+<header class="site-header">
+<div class="header-inner">
+<button aria-label="단지온 시작 화면" class="brand" data-route="index.html" type="button"><span class="brand-word">단지온</span><small>DANJION by PADIEM</small></button>
+<nav aria-label="주요 메뉴" class="desktop-nav">
+<button data-route="04_데일리홈.html" type="button">홈</button><button aria-current="page" class="active" type="button">이웃가게</button><button data-route="05_우리단지_첫화면.html" type="button">우리단지</button><button data-route="19_내정보_메인.html" type="button">내정보</button>
+</nav>
+<div class="identity">방림명지로드힐</div>
+</div>
+</header>
+<main>
+<section class="intro">
+<div>
+<div class="eyebrow">우리 단지에서 발견하는 생활서비스</div>
+<h1>가까이 사는<br/>이웃의 일을 발견합니다.</h1>
+<p class="intro-copy">우리 주민이 운영하는 가게와 가까운 생활서비스를<br class="desktop-only"/> 필요한 순간에 쉽고 정확하게 찾아보세요.</p>
+</div>
+<div aria-label="서비스 기준" class="intro-note"><div><b>우리 주민 가게</b><span>방림명지로드힐 주민이 직접 운영합니다.</span></div><div><b>주민 가족 가게</b><span>우리 단지 주민의 가족이 운영합니다.</span></div><div><b>이웃가게</b><span>단지 가까이에서 이용할 수 있는 생활 가게입니다.</span></div></div>
+</section>
+<form class="search-form" id="searchForm">
+<label>
+<svg aria-hidden="true" viewbox="0 0 24 24"><circle cx="11" cy="11" r="7"></circle><path d="m16.4 16.4 4.1 4.1"></path></svg>
+<input aria-label="이웃가게 검색" id="searchInput" placeholder="무슨 일이 필요하세요?" type="search"/>
+</label>
+<button type="submit">검색</button>
+</form>
+<nav aria-label="업종 필터" class="filters">
+<button class="filter active" data-filter="all">전체</button>
+<button class="filter" data-filter="food">식품·반찬</button>
+<button class="filter" data-filter="cafe">카페·간식</button>
+<button class="filter" data-filter="car">자동차</button>
+<button class="filter" data-filter="home">생활서비스</button>
+<button class="filter" data-filter="learn">교육</button>
+<button class="filter" data-filter="pro">전문서비스</button>
+</nav>
+<div class="catalog-head"><h2>이웃가게 전체</h2><span>최근 업데이트순</span></div>
+<section aria-label="이웃가게 전체 목록" class="shop-grid">
+<article class="shop-card" data-category="cafe food"><div class="shop-photo"><img alt="꽃을 다듬고 꽃다발을 만드는 작업 장면" src="assets/home-florist.png"/></div><div class="shop-copy"><small>우리 주민 가게</small><h2>로드힐 꽃작업실</h2><p>계절 꽃다발과 작은 선물을 예약 상담으로 준비합니다.</p><div class="shop-meta"><span>예약 상담</span><span>주민 혜택</span></div><button class="shop-link" data-route="02_이웃가게_상세.html" data-shop-key="florist" type="button"><span>가게 보기</span><span>→</span></button></div></article>
+<article class="shop-card" data-category="car"><div class="shop-photo"><img alt="차량을 점검하는 작업 장면" src="assets/scene-car.webp"/></div><div class="shop-copy"><small>주민 가족 가게</small><h2>바른 자동차정비</h2><p>차량 점검과 소모품 교체를 예약 상담으로 안내합니다.</p><div class="shop-meta"><span>자동차</span><span>현장 혜택</span></div><button class="shop-link" data-route="02_이웃가게_상세.html" data-shop-key="car" type="button"><span>가게 보기</span><span>→</span></button></div></article>
+<article class="shop-card" data-category="learn"><div class="shop-photo"><img alt="수업을 준비하는 교육 장면" src="assets/scene-learning.webp"/></div><div class="shop-copy"><small>우리 주민 가게</small><h2>한결 수학</h2><p>초·중·고 수학 수업과 학습상담을 진행합니다.</p><div class="shop-meta"><span>교육</span><span>예약 상담</span></div><button class="shop-link" data-route="02_이웃가게_상세.html" data-shop-key="learning" type="button"><span>가게 보기</span><span>→</span></button></div></article>
+<article class="shop-card" data-category="pro"><div class="shop-photo"><img alt="촬영 결과를 확인하는 작업 장면" src="assets/scene-photo.webp"/></div><div class="shop-copy"><small>이웃가게</small><h2>이웃 행사사진</h2><p>가족행사와 소규모 촬영을 예약제로 진행합니다.</p><div class="shop-meta"><span>전문서비스</span><span>예약제</span></div><button class="shop-link" data-route="02_이웃가게_상세.html" data-shop-key="photo" type="button"><span>가게 보기</span><span>→</span></button></div></article>
+</section>
+<nav aria-label="이웃가게 목록 페이지" class="catalog-pager" id="catalogPager" hidden></nav>
+<section class="trust-strip">
+<div class="trust-message"><div><strong>가까운 이웃의 가게를 먼저 만나보세요.</strong><span>우리 주민의 가게와 생활서비스를 한 곳에서 소개합니다.</span></div></div>
+<div class="trust-actions"><button data-route="25A_신청제보.html?mode=report" type="button">이웃가게 제보</button><button class="primary" data-route="25A_신청제보.html?mode=apply" type="button">내 가게 등록 신청</button></div>
+</section>
+</main>
+<nav aria-label="모바일 주요 메뉴" class="mobile-bottom"><button aria-label="홈" data-route="04_데일리홈.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><path d="m3 10 9-7 9 7v10h-6v-6H9v6H3z"></path></svg><span>홈</span></button><button aria-label="이웃가게" class="active" data-route="01_이웃가게_발견.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><path d="M4 7h16l-1 13H5L4 7Z"></path><path d="M8 7V5a4 4 0 0 1 8 0v2"></path></svg><span>이웃가게</span></button><button aria-label="우리단지" data-route="05_우리단지_첫화면.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><path d="M4 21V9l8-6 8 6v12"></path><path d="M8 13h8M8 17h8"></path></svg><span>우리단지</span></button><button aria-label="내정보" data-route="19_내정보_메인.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><circle cx="12" cy="8" r="4"></circle><path d="M4 21a8 8 0 0 1 16 0"></path></svg><span>내정보</span></button></nav>
+<div aria-live="polite" class="toast" role="status"></div>
+<script>
+    const filters=[...document.querySelectorAll('.filter')];
+    const items=[...document.querySelectorAll('.shop-card[data-category]')];
+    const pager=document.querySelector('#catalogPager');
+    const catalogTitle=document.querySelector('.catalog-head h2');
+    const catalogMeta=document.querySelector('.catalog-head span');
+    const PAGE_SIZE=8;
+    let currentFilter='all',currentPage=1,currentQuery='';
+    function matches(item){
+      const category=currentFilter==='all'||item.dataset.category.split(' ').includes(currentFilter);
+      const query=!currentQuery||item.textContent.replace(/\s+/g,' ').toLowerCase().includes(currentQuery.toLowerCase());
+      return category&&query;
+    }
+    function pageButtons(totalPages){
+      if(totalPages<=1){pager.hidden=true;pager.innerHTML='';return}
+      pager.hidden=false;pager.innerHTML='';
+      const add=(label,page,opts={})=>{const b=document.createElement('button');b.type='button';b.textContent=label;b.disabled=!!opts.disabled;b.classList.toggle('active',page===currentPage&&!opts.nav);if(!b.disabled)b.addEventListener('click',()=>{currentPage=page;renderCatalog(true)});pager.appendChild(b)};
+      add('‹',Math.max(1,currentPage-1),{disabled:currentPage===1,nav:true});
+      const pages=[];for(let i=1;i<=totalPages;i++){if(i===1||i===totalPages||Math.abs(i-currentPage)<=1)pages.push(i)}
+      let prev=0;for(const n of pages){if(prev&&n-prev>1){const gap=document.createElement('span');gap.className='pager-gap';gap.textContent='…';pager.appendChild(gap)}add(String(n),n);prev=n}
+      add('›',Math.min(totalPages,currentPage+1),{disabled:currentPage===totalPages,nav:true});
+    }
+    function renderCatalog(scroll=false){
+      const matched=items.filter(matches);
+      const totalPages=Math.max(1,Math.ceil(matched.length/PAGE_SIZE));
+      currentPage=Math.min(currentPage,totalPages);
+      const start=(currentPage-1)*PAGE_SIZE,end=start+PAGE_SIZE;
+      items.forEach(item=>item.hidden=true);matched.slice(start,end).forEach(item=>item.hidden=false);
+      catalogTitle.textContent=currentQuery?`“${currentQuery}” 검색 결과`:'이웃가게 전체';
+      catalogMeta.textContent=`총 ${matched.length}곳 · 최근 업데이트순`;
+      pageButtons(totalPages);
+      if(scroll)document.querySelector('.catalog-head')?.scrollIntoView({behavior:'smooth',block:'start'});
+    }
+    filters.forEach(button=>button.addEventListener('click',()=>{
+      filters.forEach(x=>x.classList.remove('active'));button.classList.add('active');
+      currentFilter=button.dataset.filter;currentPage=1;renderCatalog();
+    }));
+    document.querySelector('#searchForm').addEventListener('submit',event=>{
+      event.preventDefault();currentQuery=document.querySelector('#searchInput').value.trim();currentPage=1;renderCatalog();
+    });
+    const params=new URLSearchParams(location.search);
+    const initialCategory=params.get('category');
+    const initialQuery=(params.get('q')||'').trim();
+    if(initialCategory){const selected=filters.find(button=>button.dataset.filter===initialCategory);if(selected){currentFilter=initialCategory;filters.forEach(x=>x.classList.toggle('active',x===selected))}}
+    if(initialQuery){currentQuery=initialQuery;document.querySelector('#searchInput').value=initialQuery}
+    renderCatalog();
+    document.querySelectorAll('[data-route]').forEach(button=>button.addEventListener('click',()=>{location.href=button.dataset.route}));
+    const toast=document.querySelector('.toast');let toastTimer;
+    document.querySelectorAll('[data-toast]').forEach(button=>button.addEventListener('click',()=>{toast.textContent=button.dataset.toast;toast.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>toast.classList.remove('show'),1600)}));
+  </script>
+<script id="danjion-direct-router-v5">
+(function(){
+const SCREEN="shops";
+const FILES={"landing": "index.html", "home": "04_데일리홈.html", "shops": "01_이웃가게_발견.html", "shopDetail": "02_이웃가게_상세.html", "complex": "05_우리단지_첫화면.html", "noticeList": "06_단지온공지_목록.html", "noticeDetail": "07_단지온공지_상세.html", "apartment": "08_아파트소식_목록.html", "chair": "09_회장인사_상세.html", "residentList": "10_주민소식_목록.html", "residentDetail": "11_주민소식_상세.html", "community": "12_이웃대화_첫화면.html", "communityDetail": "13_이웃대화_글상세_댓글.html", "writeHello": "14_가입인사_글쓰기.html", "writeStory": "15_단지이야기_글쓰기.html", "writeQuestion": "16_궁금해요_글쓰기.html", "writeTogether": "17_같이해요_글쓰기.html", "my": "19_내정보_메인.html", "messages": "20_메시지함_목록.html", "messageDetail": "21_메시지_대화상세.html", "profile": "22_주민_공개프로필.html", "warmth": "23_이웃온기.html", "settings": "24_설정.html", "inquiry": "25_1대1문의.html", "apply": "25A_신청제보.html", "household": "26_우리집연결.html", "notifications": "27_알림함.html", "activity": "28_나의활동.html"};
+const norm=s=>(s||'').replace(/\s+/g,' ').trim();
+function go(f){
+  if(!f)return;
+  location.href=f;
+}
+function main(label){go({'홈':FILES.home,'이웃가게':FILES.shops,'우리단지':FILES.complex,'내정보':FILES.my}[label]);}
+function routeFrom(v){v=(v||'').split('#')[0]; if(!v)return null;
+  const q=v.includes('?')?'?'+v.split('?').slice(1).join('?'):''; const p=v.split('?')[0];
+  const arr=[["29_", "index.html"], ["04_", "04_데일리홈.html"], ["01_", "01_이웃가게_발견.html"], ["02_", "02_이웃가게_상세.html"], ["05_", "05_우리단지_첫화면.html"], ["06_", "06_단지온공지_목록.html"], ["07_", "07_단지온공지_상세.html"], ["08_", "08_아파트소식_목록.html"], ["09_", "09_회장인사_상세.html"], ["10_", "10_주민소식_목록.html"], ["11_", "11_주민소식_상세.html"], ["12_", "12_이웃대화_첫화면.html"], ["13_", "13_이웃대화_글상세_댓글.html"], ["14_", "14_가입인사_글쓰기.html"], ["15_", "15_단지이야기_글쓰기.html"], ["16_", "16_궁금해요_글쓰기.html"], ["17_", "17_같이해요_글쓰기.html"], ["19_", "19_내정보_메인.html"], ["20_", "20_메시지함_목록.html"], ["21_", "21_메시지_대화상세.html"], ["22_", "22_주민_공개프로필.html"], ["23_", "23_이웃온기.html"], ["24_", "24_설정.html"], ["25_", "25_1대1문의.html"], ["26_", "26_우리집연결.html"], ["27_", "27_알림함.html"], ["28_", "28_나의활동.html"]];
+  for(const [t,f] of arr) if(p.includes(t)) return f+q;
+  if(p==='index.html') return 'index.html'; return null;
+}
+function backFallback(){
+  const parentMap={
+    shops:FILES.home,shopDetail:FILES.shops,complex:FILES.home,
+    noticeList:FILES.complex,noticeDetail:FILES.noticeList,apartment:FILES.complex,chair:FILES.complex,
+    residentList:FILES.complex,residentDetail:FILES.residentList,community:FILES.complex,communityDetail:FILES.community,
+    writeHello:FILES.community,writeStory:FILES.community,writeQuestion:FILES.community,writeTogether:FILES.community,
+    my:FILES.home,messages:FILES.my,messageDetail:FILES.messages,profile:FILES.my,warmth:FILES.my,
+    settings:FILES.my,inquiry:FILES.settings,apply:FILES.shops,household:FILES.my,notifications:FILES.my,activity:FILES.my
+  };
+  location.href=parentMap[SCREEN]||FILES.home;
+}
+
+document.addEventListener('click',function(ev){
+ const el=ev.target.closest('a,button,[data-route]'); if(!el)return;
+ const text=norm(el.textContent), cls=el.classList||{contains:()=>false};
+ // landing internal modal/greeting controls stay native
+ if(SCREEN==='landing'){
+   if(el.matches('[data-auth],[data-preview],[data-greeting],[data-email],[data-social],[data-reset],[data-resend],[data-term],[data-term-close],[data-address-next],[data-terms-next],[data-finish],[data-required-all]')) return;
+   if(el.matches('[data-chair-close]')){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.home);return;}
+   if(el.matches('[data-chair-detail]')){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.chair);return;}
+   if(el.matches('[data-guest-enter]')){ev.preventDefault();ev.stopImmediatePropagation();sessionStorage.setItem('danjionGuest','1');go(FILES.home);return;}
+   if(el.matches('[data-top]')) return;
+ }
+ if(cls.contains('brand')){ev.preventDefault();ev.stopImmediatePropagation();go('index.html');return;}
+ const inMain=!!el.closest('.nav,.desktop-nav,.mobile-bottom,.topbar nav,.main-nav');
+ if(inMain && ['홈','이웃가게','우리단지','내정보'].includes(text)){ev.preventDefault();ev.stopImmediatePropagation();main(text);return;}
+ if(cls.contains('back')||cls.contains('route-back')||((/^←|^‹|^< /.test(text))&&!cls.contains('modal-back'))){ev.preventDefault();ev.stopImmediatePropagation();backFallback();return;}
+ // home: current scene -> selected shop detail
+ if(SCREEN==='home' && el.id==='detailBtn'){ev.preventDefault();ev.stopImmediatePropagation();const k=el.dataset.shopKey||'food';go(FILES.shopDetail+'?shop='+encodeURIComponent(k));return;}
+ // shops cards -> specific shop detail
+ if(SCREEN==='shops' && cls.contains('shop-link')){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.shopDetail+'?shop='+encodeURIComponent(el.dataset.shopKey||'florist')+'&from=shops');return;}
+ if(SCREEN==='shops' && text==='이웃가게 제보'){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.apply+'?mode=report');return;}
+ if(SCREEN==='shops' && (text==='내 가게 등록 신청'||text==='내 가게 등록 문의')){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.apply+'?mode=apply');return;}
+ if(SCREEN==='complex' && cls.contains('channel-link')){ev.preventDefault();ev.stopImmediatePropagation();const i=[...document.querySelectorAll('.channel-link')].indexOf(el);go([FILES.noticeList,FILES.apartment,FILES.residentList,FILES.community][i]||FILES.complex);return;}
+ if(SCREEN==='noticeList' && (cls.contains('pinned-link')||cls.contains('notice-row'))){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.noticeDetail);return;}
+ if(SCREEN==='apartment' && cls.contains('feature-link')){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.chair);return;}
+ if(SCREEN==='residentList' && cls.contains('story-link')){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.residentDetail);return;}
+ if(SCREEN==='community' && cls.contains('write-type')){ev.preventDefault();ev.stopImmediatePropagation();const i=[...document.querySelectorAll('.write-type')].indexOf(el);go([FILES.writeHello,FILES.writeStory,FILES.writeQuestion,FILES.writeTogether][i]||FILES.community);return;}
+ if(SCREEN==='community' && el.tagName==='A' && text.includes('안녕하세요')){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.communityDetail);return;}
+ if(SCREEN==='my' && cls.contains('card-link')){ev.preventDefault();ev.stopImmediatePropagation();const i=[...document.querySelectorAll('.card-link')].indexOf(el);go(i===0?FILES.messages:FILES.household);return;}
+ if(SCREEN==='my' && cls.contains('menu-row')){ev.preventDefault();ev.stopImmediatePropagation();const i=[...document.querySelectorAll('.menu-row')].indexOf(el);go(FILES.activity+'?tab='+Math.min(i,3));return;}
+ if(SCREEN==='my' && (text.includes('설정 열기')||text.includes('이용 설정'))){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.settings);return;}
+ if(SCREEN==='messages' && cls.contains('mail-row')){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.messageDetail);return;}
+ if(SCREEN==='messageDetail' && (text.includes('공개 프로필')||text.includes('산책메이트'))){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.profile);return;}
+ if(SCREEN==='profile' && cls.contains('message-button')){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.messageDetail);return;}
+ if(SCREEN==='settings' && (cls.contains('support-button')||text.includes('1:1 문의'))){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.inquiry);return;}
+ if(SCREEN==='activity' && cls.contains('side-link')){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.profile);return;}
+ // known data-route or anchors
+ const dr=el.dataset&&el.dataset.route; if(dr){const f=routeFrom(dr);if(f){ev.preventDefault();ev.stopImmediatePropagation();go(f);return;}}
+ if(el.tagName==='A'){const f=routeFrom(el.getAttribute('href'));if(f){ev.preventDefault();ev.stopImmediatePropagation();go(f);return;}}
+},true);
+
+// screen-specific initial state
+if(SCREEN==='shopDetail'){ const p=new URLSearchParams(location.search),k=p.get('shop'); if(k) setTimeout(()=>window.postMessage({type:'danjion-integrated:setShop',shopKey:k},'*'),0); }
+if(SCREEN==='apply'){ const p=new URLSearchParams(location.search),mode=p.get('mode'); if(mode) setTimeout(()=>window.postMessage({type:'danjion-integrated:setMode',mode},'*'),0); }
+if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt(p.get('tab')||'0',10); if(Number.isInteger(i)) setTimeout(()=>window.postMessage({type:'danjion-integrated:activityTab',index:i},'*'),0); }
+})();
+</script>
+<script id="danjion-review-route-sync">
+(function(){
+  try{
+    if(new URLSearchParams(location.search).get('review')==='1'){
+      sessionStorage.removeItem('danjionRouteStack');
+    }
+  }catch(e){}
+  function reportRoute(){
+    try{
+      const file=decodeURIComponent((location.pathname.split('/').pop()||'index.html').split('?')[0]);
+      if(window.parent!==window) window.parent.postMessage({type:'danjion-route',file:file,href:location.href},'*');
+    }catch(e){}
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',reportRoute,{once:true});else reportRoute();
+  window.addEventListener('pageshow',reportRoute);
+  window.addEventListener('hashchange',reportRoute);
+})();
+</script>
+</body>
+</html>

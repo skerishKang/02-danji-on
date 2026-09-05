@@ -1,0 +1,25 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "danjion-api-dev",
+  "main": "src/index.js",
+  "compatibility_date": "2026-09-02",
+
+  "observability": {
+    "enabled": true
+  },
+
+  "vars": {
+    "NEON_AUTH_URL": "https://ep-old-boat-azi7guqq.neonauth.c-3.ap-southeast-1.aws.neon.tech/neondb/auth"
+  },
+
+  "r2_buckets": [
+    {
+      "binding": "PUBLIC_FILES",
+      "bucket_name": "danjion-public-dev"
+    },
+    {
+      "binding": "PRIVATE_FILES",
+      "bucket_name": "danjion-private-dev"
+    }
+  ]
+}

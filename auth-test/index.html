@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>단지온 Auth Test</title>
+</head>
+
+<body>
+  <h1>단지온 테스트 계정 만들기</h1>
+
+  <p>
+    관리자 승인 테스트용 두 번째 계정을 만듭니다.
+    실제로 메일을 받을 수 있는 다른 이메일을 사용하세요.
+  </p>
+
+  <div>
+    <label>
+      이름
+      <input
+        id="signupName"
+        type="text"
+        value="단지온 테스트 관리자"
+      />
+    </label>
+  </div>
+
+  <div>
+    <label>
+      이메일
+      <input
+        id="signupEmail"
+        type="email"
+        autocomplete="email"
+      />
+    </label>
+  </div>
+
+  <div>
+    <label>
+      비밀번호
+      <input
+        id="signupPassword"
+        type="password"
+        autocomplete="new-password"
+      />
+    </label>
+  </div>
+
+  <button id="signupButton">
+    새 계정 가입
+  </button>
+
+  <pre id="signupResult"></pre>
+
+  <h2>이메일 인증</h2>
+
+  <div>
+    <label>
+      인증 이메일
+      <input
+        id="verifyEmail"
+        type="email"
+      />
+    </label>
+  </div>
+
+  <div>
+    <label>
+      인증코드
+      <input
+        id="otpCode"
+        type="text"
+        inputmode="numeric"
+        autocomplete="one-time-code"
+      />
+    </label>
+  </div>
+
+  <button id="resendOtpButton">
+    인증코드 다시 보내기
+  </button>
+
+  <button id="verifyButton">
+    인증코드 확인
+  </button>
+
+  <pre id="verifyResult"></pre>
+
+  <hr />
+
+  <h1>단지온 로그인 테스트</h1>
+
+  <div>
+    <label>
+      이메일
+      <input
+        id="email"
+        type="email"
+        autocomplete="email"
+      />
+    </label>
+  </div>
+
+  <div>
+    <label>
+      비밀번호
+      <input
+        id="password"
+        type="password"
+        autocomplete="current-password"
+      />
+    </label>
+  </div>
+
+  <button id="loginButton">
+    로그인
+  </button>
+
+  <button id="logoutButton">
+    로그아웃
+  </button>
+
+  <pre id="result"></pre>
+
+  <hr />
+
+  <h2>주민인증 테스트</h2>
+
+  <div>
+    <label>
+      동
+      <input
+        id="building"
+        value="101동"
+      />
+    </label>
+  </div>
+
+  <div>
+    <label>
+      호
+      <input
+        id="unit"
+        value="1203"
+      />
+    </label>
+  </div>
+
+  <button id="verificationButton" disabled>
+    주민인증 신청
+  </button>
+
+  <pre id="verificationResult"></pre>
+
+  <hr />
+
+  <h2>관리자 승인 권한 테스트</h2>
+
+  <div>
+    <label>
+      주민인증 신청 ID
+      <input
+        id="verificationId"
+        value="1"
+      />
+    </label>
+  </div>
+
+  <button id="approveButton" disabled>
+    관리자 승인 시도
+  </button>
+
+  <pre id="approveResult"></pre>
+
+  <script type="module" src="/src.js"></script>
+</body>
+</html>
