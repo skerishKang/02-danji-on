@@ -73,7 +73,7 @@ export default function V2ActivityPanel() {
           <div><b>{item.status === 'deleted' ? '삭제됨' : item.status === 'hidden' ? '숨김' : '기록됨'}</b></div>
         </article>
       ))}
-      {!loading && !error && !items.length && <p>아직 기록된 활동이 없습니다.</p>}
+      {!loading && !error && !items.length && <p>아직 남긴 활동이 없습니다.</p>}
       {error && <div className="v2-data-notice" role="status">활동만 불러오지 못했습니다. {error}</div>}
       {loading && !items.length && <p role="status">나의 활동을 불러오는 중입니다.</p>}
       {nextCursor && <button type="button" className="v2-btn v2-btn-small" disabled={loading} onClick={() => void loadMore()}>{loading ? '불러오는 중…' : '활동 더 보기'}</button>}

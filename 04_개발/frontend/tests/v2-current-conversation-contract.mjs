@@ -12,11 +12,23 @@ const [integration, client, safetyClient, main] = await Promise.all([
 const CURRENT_008_CONVERSATION_AUTHORITY = {
   title: '21_메시지_대화상세.html',
   screen: '21 메시지 대화상세',
-  anchors: ['답장 쓰기', '답장 보내기', '대화 신고하기', '공개 프로필 보기']
+  anchors: ['답장 쓰기', '답장 보내기', '대화 신고하기', '공개 프로필 보기'],
+  // 2026-09-05 TRACK K: success toast and report reasons are shared vocabulary,
+  // pinned to the 22-aligned six-constant reason set below.
+  relocated: [
+    { anchor: '메시지를 보냈습니다.', authority: '21_메시지_대화상세.html', impl: 'V2MessagesIntegration.tsx' },
+    { anchor: '개인정보 침해', authority: '22_주민_공개프로필.html', impl: 'V2MessagesIntegration.tsx (6종 상수)' },
+    { anchor: '스팸', authority: '22_주민_공개프로필.html', impl: 'V2MessagesIntegration.tsx (6종 상수)' }
+  ]
 };
 
 for (const anchor of CURRENT_008_CONVERSATION_AUTHORITY.anchors) {
   assert.ok(anchor.length > 0, `21 design requirement anchor must be named: ${anchor}`);
+}
+
+for (const reloc of CURRENT_008_CONVERSATION_AUTHORITY.relocated) {
+  assert.ok(reloc.anchor.length > 0 && reloc.authority.length > 0 && reloc.impl.length > 0,
+    `21 relocated anchor must name its new authority/impl: ${reloc.anchor}`);
 }
 
 assert.match(integration, /data-v2-conversation-dialog/,

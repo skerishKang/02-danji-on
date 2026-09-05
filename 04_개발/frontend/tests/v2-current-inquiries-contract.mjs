@@ -11,11 +11,22 @@ const [portal, client, main] = await Promise.all([
 const CURRENT_008_INQUIRIES_AUTHORITY = {
   title: '25_1대1문의.html',
   screen: '25 1:1문의',
-  anchors: ['내문의']
+  anchors: ['내문의'],
+  // 2026-09-05 TRACK K: interaction labels are shared across screens.
+  relocated: [
+    { anchor: '새로고침', authority: '21_메시지_대화상세.html', impl: 'V2InquiriesPortal.tsx' },
+    { anchor: '내용 보기', authority: 'index.html', impl: 'V2InquiriesPortal.tsx' },
+    { anchor: '종료', authority: '24_설정.html', impl: 'V2InquiriesPortal.tsx' }
+  ]
 };
 
 for (const anchor of CURRENT_008_INQUIRIES_AUTHORITY.anchors) {
   assert.ok(anchor.length > 0, `25 design requirement anchor must be named: ${anchor}`);
+}
+
+for (const reloc of CURRENT_008_INQUIRIES_AUTHORITY.relocated) {
+  assert.ok(reloc.anchor.length > 0 && reloc.authority.length > 0 && reloc.impl.length > 0,
+    `25 relocated anchor must name its new authority/impl: ${reloc.anchor}`);
 }
 
 assert.match(portal, /residentInquiriesClient\.list\(\)/,
@@ -31,7 +42,7 @@ assert.match(portal, /createPortal\([\s\S]*document\.body/,
 for (const text of ['문의 유형', '제목', '내용', '문의 접수', '새로고침', '내용 보기', '아직 접수한 문의가 없습니다.']) {
   assert.ok(portal.includes(text), `25 inquiry form/list parity must remain: ${text}`);
 }
-for (const label of ['접수됨', '처리 중', '답변 완료', '종료']) {
+for (const label of ['접수 완료', '답변 대기', '답변 완료', '종료']) {
   assert.ok(portal.includes(label), `25 status labels must remain: ${label}`);
 }
 assert.match(portal, /사진 첨부는 운영 기준 확정 후 지원됩니다\./,

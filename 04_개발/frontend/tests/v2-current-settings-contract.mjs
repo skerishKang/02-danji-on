@@ -13,11 +13,21 @@ const [panel, settingsPortal, closure, settingsClient, main] = await Promise.all
 const CURRENT_008_SETTINGS_AUTHORITY = {
   title: '24_설정.html',
   screen: '24 설정',
-  anchors: ['글자크기', '알림설정', '개인정보·계정', '약관', '탈퇴']
+  anchors: ['글자크기', '알림설정', '개인정보·계정', '약관', '탈퇴'],
+  // 2026-09-05 TRACK K: opt-in labels moved to the onboarding consent surface.
+  relocated: [
+    { anchor: '서비스 알림', authority: 'index.html', impl: 'V2SettingsPanel.tsx / V2Gate1LiveOnboarding.tsx' },
+    { anchor: '혜택·이벤트 알림', authority: 'index.html', impl: 'V2SettingsPanel.tsx / V2Gate1LiveOnboarding.tsx' }
+  ]
 };
 
 for (const anchor of CURRENT_008_SETTINGS_AUTHORITY.anchors) {
   assert.ok(anchor.length > 0, `24 design requirement anchor must be named: ${anchor}`);
+}
+
+for (const reloc of CURRENT_008_SETTINGS_AUTHORITY.relocated) {
+  assert.ok(reloc.anchor.length > 0 && reloc.authority.length > 0 && reloc.impl.length > 0,
+    `24 relocated anchor must name its new authority/impl: ${reloc.anchor}`);
 }
 
 assert.match(panel, /글자크기는 현재 이 기기의 접근성 설정을 따릅니다\./,
