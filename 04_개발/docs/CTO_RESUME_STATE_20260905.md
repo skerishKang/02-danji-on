@@ -53,7 +53,7 @@ R0 드리프트 행렬이 찾아낸 **코드 수준 개발 공백은 모두 해�
 | #59 | OPEN / HOLD | 개인정보 처리주체·주민인증·관리자 접근권한 확정 게이트 |
 | #245 | OPEN | Post-V2 안정화 리팩터링 웨이브 (다음 개발 후보) |
 | — | OPEN (CTO 판정 대기) | sibling-latest 델타: ①변경 11건 반영 방향 ②비화면 추가 반영 여부 ③실기능화와 백엔드 연동 충돌 검토 |
-| — | ACTIVE | 동생 협업 — collaborator 권한 완료. **동생 전용 브랜치 `sibling/dev`**에서 직접 작업, 브랜치가 작업물. main 병합은 소유자 결정. 가이드 `04_개발/docs/tracks/SIBLING_WORKSPACE_GUIDE_20260905.md` |
+| — | ACTIVE | 동생 협업 — collaborator 권한 완료. **동생 전용 브랜치 `muphobia2/dev`**에서 직접 작업, 브랜치가 작업물. main 병합은 소유자 결정. 가이드 `04_개발/docs/tracks/SIBLING_WORKSPACE_GUIDE_20260905.md`, CTO 프롬프트 `04_개발/docs/tracks/CTO_PROMPT_SIBLING_WORK_ORDER_20260905.md` |
 
 ### 2026-09-05 정리 완료 (로컬 실행)
 - #267 CLOSED — `bf7b029`로 구현·병합 완료
@@ -107,6 +107,7 @@ npm run typecheck && npm run test:v2-complex-news-contract && npm run build
 | `04_개발/docs/tracks/TRACK_I_MESSAGE_REPORT_WORK_ORDER.md` | 대화 신고 (완료) |
 | `04_개발/docs/tracks/TRACK_SIBLING_LATEST_DELTA_REPORT_20260905.md` | sibling 델타 조사 보고서 (판정 대기) |
 | `04_개발/docs/tracks/SIBLING_WORKSPACE_GUIDE_20260905.md` | 동생 워크스페이스 가이드 (작업 기준) |
+| `04_개발/docs/tracks/CTO_PROMPT_SIBLING_WORK_ORDER_20260905.md` | CTO 프롬프트 — 챗GPT에 붙여넣으면 동생 작업지시 가능 |
 | `04_개발/docs/tracks/LOCAL_IMPLEMENTER_PROMPT.md` | 로컬 구현 모델 지시 템플릿 |
 | `04_개발/docs/CTO_VERDICT_TRACKS_GH_20260905.md` | G/H 판정 기록 |
 | `00_공통기준문서/03_의사결정기록_2026-09-05.md` | 보류 결정 기록 (#263) |
