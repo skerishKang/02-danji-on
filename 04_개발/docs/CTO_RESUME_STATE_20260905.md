@@ -12,15 +12,15 @@ RULE: 이 문서가 가리키는 커밋이 유일한 진실의 원천이다. 로
 | --- | --- |
 | 저장소 | `https://github.com/skerishKang/02-danji-on` |
 | 기준 브랜치 | `main` |
-| 기준 커밋 | `4eef813` — Merge PR #269 (게이트 러너 Windows spawn 수정) |
-| 직전 기준 | `bf7b029` (Track I) ← `307ee83` (F/G/H 병합) ← `a4021f0` (#257 채널 계약) |
+| 기준 커밋 | `c84e543` — TRACK K 머지 (앵커 정렬 + 공용 자산 배치, #272) |
+| 직전 기준 | `4eef813` (#269 게이트 러너) ← `bf7b029` (Track I) ← `307ee83` (F/G/H 병합) |
 | 문서 통합 | #268 (`fedd364`)로 CTO 산출물 10종 main 병합 완료 |
 
 새로始める 어디서든 이 한 줄이면 복원된다:
 
 ```bash
 git clone https://github.com/skerishKang/02-danji-on.git
-cd 02-danji-on && git log --oneline -1   # 4eef813 이상(본 문서 병합 커밋 포함)이 보여야 정상
+cd 02-danji-on && git log --oneline -1   # c84e543 이상(본 문서 병합 커밋 포함)이 보여야 정상
 ```
 
 ---
@@ -33,9 +33,12 @@ cd 02-danji-on && git log --oneline -1   # 4eef813 이상(본 문서 병합 커�
 | G | R1 패리티 계약 6화면 (24/25/25A/26/27/28) | GREEN | `417016b` (PR #265) |
 | H | R2 패리티 계약 4화면 (19/20/21/22) | GREEN | `307ee83` (PR #266) |
 | I | 21 대화상세 "대화 신고하기" 구현 (#267) | GREEN | `bf7b029` |
+| K | 008 RELOCATED 앵커 정렬 + 공용 자산 배치 (#272) | GREEN | `6993bad` (PR #272), 머지 `c84e543` |
+| — | sibling-latest 델타 조사 (read-only) | SUBMITTED (판정 대기) | `feat/sibling-latest-delta-report` (Draft PR) |
 
 결과: `v2-current-*` 패리티 계약 **16종** 전부 그린, 백엔드 채널 쓰기 계약 그린, 빌드 그린.
 R0 드리프트 행렬이 찾아낸 **코드 수준 개발 공백은 모두 해소**됐다.
+동생 저장소(`muphobia2/danjion`) 격리 대조 완료 — HTML 32 중 **11건 변경**, 에셋 10종 전부 일치, 비화면 추가(auth-test/backend/JPG 4/README/txt). 보고서: `04_개발/docs/tracks/TRACK_SIBLING_LATEST_DELTA_REPORT_20260905.md`.
 
 ---
 
@@ -48,6 +51,7 @@ R0 드리프트 행렬이 찾아낸 **코드 수준 개발 공백은 모두 해�
 | #139 | OPEN / HOLD | 백엔드 핸드오프 저우선순위 제품 정책 결정 |
 | #59 | OPEN / HOLD | 개인정보 처리주체·주민인증·관리자 접근권한 확정 게이트 |
 | #245 | OPEN | Post-V2 안정화 리팩터링 웨이브 (다음 개발 후보) |
+| — | OPEN (CTO 판정 대기) | sibling-latest 델타: ①변경 11건 반영 방향 ②비화면 추가(auth-test/backend/JPG/README/txt) 반영 여부 ③실기능화(shopVariant 분기·검색·첨부·계정시트·초대링크)와 백엔드 연동 충돌 검토 |
 
 ### 2026-09-05 정리 완료 (로컬 실행)
 - #267 CLOSED — `bf7b029`로 구현·병합 완료
@@ -99,6 +103,7 @@ npm run typecheck && npm run test:v2-complex-news-contract && npm run build
 | `04_개발/docs/tracks/TRACK_G_R1_PARITY_SLICE_WORK_ORDER.md` | R1 패리티 (완료) |
 | `04_개발/docs/tracks/TRACK_H_R2_PARITY_SLICE_WORK_ORDER.md` | R2 패리티 (완료) |
 | `04_개발/docs/tracks/TRACK_I_MESSAGE_REPORT_WORK_ORDER.md` | 대화 신고 (완료) |
+| `04_개발/docs/tracks/TRACK_SIBLING_LATEST_DELTA_REPORT_20260905.md` | sibling 델타 조사 보고서 (판정 대기) |
 | `04_개발/docs/tracks/LOCAL_IMPLEMENTER_PROMPT.md` | 로컬 구현 모델 지시 템플릿 |
 | `04_개발/docs/CTO_VERDICT_TRACKS_GH_20260905.md` | G/H 판정 기록 |
 | `00_공통기준문서/03_의사결정기록_2026-09-05.md` | 보류 결정 기록 (#263) |
