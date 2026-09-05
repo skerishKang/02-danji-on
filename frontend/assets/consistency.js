@@ -1,11 +1,50 @@
 (()=>{
   const decoded=decodeURIComponent(location.pathname);
   const FILES={1:'01_이웃가게_발견.html',2:'02_이웃가게_상세.html',3:'03_주민혜택_쿠폰.html',4:'04_데일리홈.html',5:'05_우리단지_첫화면.html',6:'06_단지온공지_목록.html',7:'07_단지온공지_상세.html',8:'08_아파트소식_목록.html',9:'09_회장인사_상세.html',10:'10_주민소식_목록.html',11:'11_주민소식_상세.html',12:'12_이웃대화_첫화면.html',13:'13_이웃대화_글상세_댓글.html',14:'14_가입인사_글쓰기.html',15:'15_단지이야기_글쓰기.html',16:'16_궁금해요_글쓰기.html',17:'17_같이해요_글쓰기.html',18:'18_공통앱셸.html',19:'19_내정보_메인.html',20:'20_메시지함_목록.html',21:'21_메시지_대화상세.html',22:'22_주민_공개프로필.html',23:'23_이웃온기.html',24:'24_설정.html',25:'25_1대1문의.html',26:'26_우리집연결.html',27:'27_알림함.html',28:'28_나의활동.html',29:'index.html'};
-  const route=number=>FILES[number]||'';
+  const __variant=()=>{try{return sessionStorage.getItem('danjion:shopVariant')}catch(e){return null}};
+  const isShopVariantB=()=>['v2','v3'].includes(__variant());
+  const shopV2File=__variant()==='v3'?'01_이웃가게_발견_v3.html':'01_이웃가게_발견_v2.html';
+  const shopLanding=__variant()==='v3'?'index3.html':'index2.html';
+  const route=number=>{
+    if(isShopVariantB()){
+      if(number===1||number===2)return shopV2File;
+      if(number===3)return '03_주민혜택_쿠폰_v2.html';
+      if(number===29)return shopLanding;
+    }
+    return FILES[number]||'';
+  };
   const TOP={'홈':4,'이웃가게':1,'우리단지':5,'내정보':19};
   const FALLBACK={1:4,2:1,3:4,4:29,5:4,6:5,7:6,8:5,9:8,10:5,11:10,12:5,13:12,14:12,15:12,16:12,17:12,19:4,20:19,21:20,22:19,23:19,24:19,25:19,26:19,27:19,28:19,29:4};
   const pageNumber=()=>{const file=(decoded.split('/').pop()||'').split('?')[0];if(file==='index.html'||file==='')return 29;const m=file.match(/^(\d{2})(?:A)?_/);return m?Number(m[1]):0};
   const clean=value=>(value||'').replace(/\s+/g,' ').trim();
+  document.addEventListener('click',event=>{
+    if(!isShopVariantB())return;
+    const el=event.target.closest('button,a,[role="button"],[data-route]');
+    if(!el)return;
+    const text=clean(el.textContent);
+    const raw=decodeURIComponent(el.getAttribute('data-route')||el.getAttribute('href')||'');
+    const number=pageNumber();
+    let target='';
+    if(el.classList.contains('brand')){
+      target=shopLanding;
+    }else if(text==='이웃가게'||/01_이웃가게_발견\.html/.test(raw)){
+      target=shopV2File;
+    }else if(/03_주민혜택_쿠폰\.html/.test(raw)||/주민혜택 전체보기|주민혜택 보기|전체 혜택 보기/.test(text)){
+      target='03_주민혜택_쿠폰_v2.html';
+    }else if(number===4 && (el.id==='detailBtn'||/이 이웃의 일 보기/.test(text))){
+      const key=el.dataset.shopKey||'food';
+      target=shopV2File+'?shop='+encodeURIComponent(key);
+    }else if(number===19 && el.classList.contains('menu-row')){
+      const rows=[...document.querySelectorAll('.menu-row')],i=rows.indexOf(el);
+      if(i===3)target='28_나의활동.html?view=saved';
+      if(i===4)target='28_나의활동.html?view=benefits';
+    }
+    if(target){
+      event.preventDefault();event.stopImmediatePropagation();
+      location.href=target;
+    }
+  },true);
+
   const setRoute=(node,target)=>{if(!node||!target)return;node.dataset.route=target;node.removeAttribute('data-demo');node.removeAttribute('data-toast');node.removeAttribute('onclick');if(node.tagName==='A')node.href=target};
   const controls=()=>[...document.querySelectorAll('button,a,[role="button"]')];
   const withText=(pattern,target,scope=document)=>[...scope.querySelectorAll('button,a,[role="button"]')].forEach(node=>{if(pattern.test(clean(node.textContent)))setRoute(node,target)});
@@ -36,7 +75,7 @@
     if(number===12){removeAll('.intro>p,.safety,.rail');document.querySelectorAll('.topic p').forEach(node=>node.remove());document.querySelectorAll('.post h3 a,.comment-more,.post-actions button').forEach(node=>{if(/댓글|모두 보기|안녕하세요|산책|분리|궁금|같이/.test(clean(node.textContent)))setRoute(node,route(13))});document.querySelectorAll('.write-type').forEach(node=>{const text=clean(node.textContent);setRoute(node,/가입인사/.test(text)?route(14):/단지이야기/.test(text)?route(15):/궁금/.test(text)?route(16):route(17))})}
     if(number===13){removeAll('.rail');withText(/메시지 보내기|1:1 메시지/,route(21));withText(/프로필/,route(22))}
     if(number>=14&&number<=17)writerPrefix(number);
-    if(number===19){removeAll('.settings,.support-strip');withText(/메시지함|메시지 보기/,route(20));withText(/우리집|가족/,route(26));withText(/내가 쓴 글|내 댓글|공감한 글|나의 활동/,route(28));withText(/설정/,route(24));withText(/1:1 문의/,route(25));withText(/알림함|새 알림/,route(27));withText(/이웃 온기|단지레벨/,route(23))}
+    if(number===19){removeAll('.settings,.support-strip');withText(/메시지함|메시지 보기/,route(20));withText(/우리집|가족/,route(26));withText(/저장한 이웃가게/,'28_나의활동.html?view=saved');withText(/받은 혜택/,'28_나의활동.html?view=benefits');withText(/내가 쓴 글|내 댓글|공감한 글|나의 활동/,route(28));withText(/설정/,route(24));withText(/1:1 문의/,route(25));withText(/알림함|새 알림/,route(27));withText(/이웃 온기|단지레벨/,route(23))}
     if(number===20){removeAll('.mail-side,.mail-preview,.rail-card');document.querySelectorAll('.mail-row,.message-row,.ticket').forEach(node=>setRoute(node,route(21)))}
     if(number===21){removeAll('.rail,.mobile-reply,[aria-label="공유"]');document.querySelectorAll('.person,.sender').forEach(node=>setRoute(node,route(22)));withText(/메시지함/,route(20))}
     if(number===22){removeAll('.activity-button,.side,.visibility-list');withText(/1:1 메시지 보내기|메시지/,route(21))}
