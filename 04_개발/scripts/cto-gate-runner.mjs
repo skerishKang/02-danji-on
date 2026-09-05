@@ -57,14 +57,13 @@ function run(cmd, args, cwd, label) {
   }
 }
 
-function gateWorktree() {
+function gateWorktree(ref) {
   const dir = WORKTREE || mkdtempSync(join(tmpdir(), 'cto-gate-'));
-  // detached checkout of REF
-  console.log(`\n=== worktree: ${dir} @ ${REF} ===`);
+  console.log(`\n=== worktree: ${dir} @ ${ref} ===`);
   try {
-    execFileSync('git', ['worktree', 'add', '--force', '--detach', dir, REF], { cwd: REPO, stdio: 'inherit' });
+    execFileSync('git', ['worktree', 'add', '--force', '--detach', dir, ref], { cwd: REPO, stdio: 'inherit' });
   } catch (e) {
-    console.error(`worktree add failed for ${REF}: ${e.message}`);
+    console.error(`worktree add failed for ${ref}: ${e.message}`);
     process.exit(2);
   }
   return dir;
@@ -107,7 +106,7 @@ function runFrontend(dir) {
 }
 
 function runRef(ref, label) {
-  const dir = gateWorktree();
+  const dir = gateWorktree(ref);
   let ok = true;
   ok = runBackend(dir) && ok;
   ok = runFrontend(dir) && ok;
