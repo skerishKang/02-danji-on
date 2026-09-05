@@ -54,8 +54,11 @@ export default function V2ComplexNewsPortal() {
   useEffect(() => {
     const openFromHub = (event: Event) => {
       const channel = (event as CustomEvent<{ channel?: unknown }>).detail?.channel;
-      if (channel !== 'official' && channel !== 'apartment') return;
-      void openList(HUB_CHANNEL_TO_ENUM[channel as 'official' | 'apartment']);
+      if (channel !== 'official' && channel !== 'apartment' && channel !== 'danjion_notice' && channel !== 'apartment_news' && channel !== 'management_office' && channel !== 'chair_greeting') return;
+      const enumChannel = channel === 'official' || channel === 'apartment'
+        ? HUB_CHANNEL_TO_ENUM[channel as 'official' | 'apartment']
+        : channel as ComplexNewsChannel;
+      void openList(enumChannel);
     };
     window.addEventListener('danjion:v2-open-complex-news', openFromHub);
     return () => window.removeEventListener('danjion:v2-open-complex-news', openFromHub);
