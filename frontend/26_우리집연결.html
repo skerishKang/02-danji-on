@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+
+<html lang="ko"><head><meta charset="utf-8"/><meta content="width=device-width,initial-scale=1" name="viewport"/><title>단지온 · 우리집 연결 · STEP 26</title><style>
+:root{--paper:#f6f2e9;--paper2:#fffdf8;--ink:#101317;--navy:#101d30;--coral:#ee6045;--amber:#f2b84b;--green:#255e49;--muted:#68645e;--line:#d8d0c3;--soft:#ece5d8;--header:76px}*{box-sizing:border-box}html{font-family:Pretendard,"Pretendard Variable","Noto Sans KR",Arial,sans-serif;background:var(--paper);color:var(--ink)}body{margin:0;min-width:320px;background:var(--paper)}button{font:inherit;color:inherit;cursor:pointer}button:focus-visible{outline:3px solid var(--amber);outline-offset:2px}.site-header{height:var(--header);border-bottom:1px solid var(--line);background:rgba(246,242,233,.96);position:sticky;top:0;z-index:40;backdrop-filter:blur(12px)}.header-inner{width:min(1280px,calc(100% - 64px));height:100%;margin:auto;display:flex;align-items:center;justify-content:space-between}.brand{border:0;background:none;padding:0;display:flex;align-items:baseline;gap:10px;font-size:25px;font-weight:900;letter-spacing:-.05em}.brand small{font-size:11px;letter-spacing:.11em;color:#5f5c56}.desktop-nav{height:100%;display:flex;align-items:center;gap:42px}.desktop-nav button{height:100%;border:0;background:none;padding:0 2px;font-size:16px;font-weight:800;position:relative}.desktop-nav .active::after{content:"";position:absolute;left:0;right:0;bottom:0;height:3px;background:var(--coral)}.identity{font-size:14px;font-weight:800;color:#58554f}.mobile-title{display:none;font-size:14px;font-weight:850}.route{height:62px;border-bottom:1px solid var(--ink)}.route-inner{width:min(1280px,calc(100% - 64px));height:100%;margin:auto;display:flex;align-items:center;justify-content:space-between}.back{border:0;background:none;padding:0;font-size:16px;font-weight:900}.route-note{font-size:14px;color:var(--muted)}main{width:min(1280px,calc(100% - 64px));margin:auto;padding:42px 0 110px}.page-head{display:flex;align-items:end;justify-content:space-between;gap:35px;padding-bottom:25px;border-bottom:1px solid var(--ink)}.eyebrow{font-size:14px;font-weight:900;color:var(--coral);letter-spacing:.03em;margin-bottom:12px}h1{font-size:58px;line-height:1;letter-spacing:-.055em;margin:0}.page-copy{text-align:right;font-size:16px;line-height:1.6;color:var(--muted)}.page-copy b{display:block;color:var(--ink);font-size:19px;margin-bottom:5px}
+.house-hero{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(380px,.9fr);margin-top:18px;border:1px solid var(--line);background:var(--paper2)}.house-card{min-height:370px;background:var(--navy);color:#fff;padding:36px;display:flex;flex-direction:column;position:relative;overflow:hidden}.house-card::after{content:"";position:absolute;width:330px;height:330px;border:1px solid rgba(242,184,75,.2);border-radius:50%;right:-105px;bottom:-105px}.house-card small{font-size:14px;font-weight:900;color:var(--amber)}.house-card h2{font-size:48px;line-height:1.08;letter-spacing:-.05em;margin:20px 0 13px}.house-card p{font-size:16px;line-height:1.65;color:rgba(255,255,255,.76);margin:0}.private-badge{display:flex;align-items:center;gap:9px;margin-top:auto;font-size:15px;font-weight:850;position:relative;z-index:1}.private-badge i{width:10px;height:10px;border-radius:50%;background:#64c195}.house-summary{padding:33px;display:flex;flex-direction:column}.house-summary small{font-size:14px;font-weight:900;color:var(--coral)}.house-summary h2{font-size:29px;letter-spacing:-.04em;margin:12px 0 22px}.summary-list{border-top:1px solid var(--ink)}.summary-row{min-height:67px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:20px}.summary-row span{font-size:15px;color:var(--muted)}.summary-row b{font-size:17px}.capacity{margin-top:auto;padding-top:22px}.capacity-top{display:flex;align-items:center;justify-content:space-between;font-size:14px;margin-bottom:9px}.capacity-top b{font-size:16px}.capacity-track{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.capacity-track i{height:9px;background:var(--soft)}.capacity-track i.on{background:var(--coral)}.capacity-note{font-size:14px;line-height:1.55;color:var(--muted);margin-top:10px}
+.content-grid{display:grid;grid-template-columns:minmax(0,1.03fr) minmax(0,.97fr);gap:16px;margin-top:16px}.panel{border:1px solid var(--line);background:var(--paper2)}.panel-head{min-height:92px;border-bottom:1px solid var(--ink);padding:22px 27px;display:flex;align-items:end;justify-content:space-between;gap:20px}.panel-head small{display:block;font-size:14px;font-weight:900;color:var(--coral);margin-bottom:6px}.panel-head h2{font-size:27px;letter-spacing:-.04em;margin:0}.panel-head>span{font-size:14px;color:var(--muted);text-align:right}.members{padding:0 27px}.member{min-height:91px;border-bottom:1px solid var(--line);display:grid;grid-template-columns:52px 1fr auto;gap:15px;align-items:center}.member:last-child{border-bottom:0}.avatar{width:52px;height:52px;border-radius:50%;display:grid;place-items:center;background:var(--navy);color:#fff;font-size:18px;font-weight:900}.avatar.me{background:var(--coral)}.member b{display:block;font-size:17px;margin-bottom:5px}.member span{font-size:14px;color:var(--muted)}.member-status{font-size:14px;font-weight:900;color:var(--green)}.member-menu{border:0;background:none;font-size:21px;padding:9px}.privacy-note{margin:0 27px 25px;border-left:4px solid var(--amber);background:var(--soft);padding:16px}.privacy-note b{display:block;font-size:15px;margin-bottom:5px}.privacy-note p{font-size:14px;line-height:1.55;color:var(--muted);margin:0}
+.invite{padding:27px}.invite-lead{font-size:16px;line-height:1.65;margin:0 0 22px}.invite-lead b{color:var(--coral)}.invite-state{border:1px solid var(--line);background:#fff;padding:20px}.invite-state small{display:block;font-size:14px;color:var(--muted);margin-bottom:10px}.invite-code{display:flex;align-items:center;justify-content:space-between;gap:15px}.invite-code b{font-size:21px;letter-spacing:.04em}.invite-code span{font-size:14px;color:var(--muted)}.invite-actions{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:12px}.invite-actions button{height:51px;border:1px solid var(--ink);background:#fff;font-size:15px;font-weight:900}.invite-actions .primary{background:var(--coral);border-color:var(--coral);color:#fff}.share-list{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px}.share{min-height:58px;border:1px solid var(--line);background:var(--soft);font-size:14px;font-weight:850}.review-info{margin-top:19px;border-top:1px solid var(--ink);padding-top:18px}.review-info b{font-size:16px}.review-info p{font-size:14px;line-height:1.6;color:var(--muted);margin:7px 0 0}
+.flow{display:grid;grid-template-columns:1.1fr repeat(3,1fr);margin-top:16px;border:1px solid var(--line);background:var(--paper2)}.flow-title{padding:24px 27px;background:var(--navy);color:#fff}.flow-title b{display:block;font-size:21px;margin-bottom:6px}.flow-title span{font-size:14px;color:rgba(255,255,255,.7)}.flow-step{padding:21px;border-right:1px solid var(--line)}.flow-step:last-child{border-right:0}.flow-step small{font-size:13px;color:var(--coral);font-weight:900}.flow-step b{display:block;font-size:16px;margin:8px 0 5px}.flow-step span{font-size:14px;line-height:1.5;color:var(--muted)}.mobile-bottom{display:none}.toast{position:fixed;left:50%;bottom:28px;z-index:100;transform:translate(-50%,20px);opacity:0;background:var(--ink);color:#fff;padding:14px 19px;font-size:15px;font-weight:850;pointer-events:none;transition:.22s}.toast.show{transform:translate(-50%,0);opacity:1}
+@media(max-width:900px){.house-hero,.content-grid{grid-template-columns:1fr}.flow{grid-template-columns:1fr 1fr}.flow-title{grid-column:1/-1}.flow-step:nth-child(3){border-right:0}}
+@media(max-width:760px){:root{--header:60px}body{padding-bottom:72px;background:#fbf8f2}.header-inner,.route-inner{width:100%;padding:0 20px}.brand{font-size:21px}.brand small,.desktop-nav,.identity{display:none}.mobile-title{display:block}.route{height:54px}.route-note{display:none}.back{font-size:15px}main{width:100%;padding:27px 0 48px}.page-head{display:block;padding:0 20px 18px;border-bottom:0}.eyebrow{font-size:13px}h1{font-size:42px}.page-copy{display:none}.house-hero{display:block;margin-top:0;border-left:0;border-right:0}.house-card{min-height:315px;padding:28px 20px}.house-card h2{font-size:42px}.house-card p{font-size:15px}.house-summary{padding:25px 20px}.house-summary h2{font-size:26px}.content-grid{display:block;margin-top:10px}.panel{border-left:0;border-right:0;margin-bottom:10px}.panel-head{padding:20px;min-height:86px}.panel-head h2{font-size:25px}.panel-head>span{display:none}.members{padding:0 20px}.member{grid-template-columns:50px 1fr auto}.privacy-note{margin:0 20px 20px}.invite{padding:22px 20px}.invite-code{display:block}.invite-code span{display:block;margin-top:5px}.share-list{grid-template-columns:1fr}.flow{display:block;margin-top:10px;border-left:0;border-right:0}.flow-title{padding:22px 20px}.flow-step{border-right:0;border-bottom:1px solid var(--line);padding:20px}.mobile-bottom{position:fixed;display:grid;grid-template-columns:repeat(4,1fr);left:0;right:0;bottom:0;height:68px;background:rgba(255,253,248,.97);border-top:1px solid var(--line);z-index:50}.mobile-bottom button{border:0;background:none;display:grid;place-items:center;align-content:center;gap:3px;color:#706d67;font-size:12px;font-weight:800}.mobile-bottom button.active{color:var(--coral)}.mobile-bottom svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8}.toast{bottom:82px;max-width:calc(100% - 34px);white-space:normal;text-align:center}}@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+
+/* 설계팀장12기 00-4 OWNER DELTA */
+
+.owner-cap-note{font-size:13px;line-height:1.6;color:var(--muted);margin:11px 0 0}.owner-family-guide{display:grid;grid-template-columns:1.25fr repeat(3,1fr);margin-top:16px;border:1px solid var(--line);background:var(--paper2)}.owner-family-guide>div{padding:22px;border-right:1px solid var(--line)}.owner-family-guide>div:last-child{border-right:0}.guide-title{background:var(--navy);color:#fff}.guide-title strong{font-size:20px;display:block;margin-bottom:7px}.guide-title span{font-size:13px;color:rgba(255,255,255,.72)}.owner-family-guide small{display:block;color:var(--coral);font-weight:900;margin-bottom:8px}.owner-family-guide b{display:block;font-size:16px;margin-bottom:7px}.owner-family-guide span{font-size:13px;line-height:1.55;color:var(--muted)}@media(max-width:820px){.house-hero{grid-template-columns:1fr!important}.house-card{min-height:260px!important}.owner-family-guide{grid-template-columns:1fr}.owner-family-guide>div{border-right:0;border-bottom:1px solid var(--line)}.owner-family-guide>div:last-child{border-bottom:0}}
+
+</style><style>
+.house-hero{grid-template-columns:minmax(260px,.78fr) minmax(420px,1.22fr)!important}
+.house-card{min-height:230px!important;background:var(--paper2)!important;color:var(--ink)!important;padding:30px!important;border-top:4px solid var(--navy)}
+.house-card small{color:var(--coral)!important}.house-card h2{font-size:44px!important}.house-card p{color:var(--muted)!important}
+.house-summary{padding:28px 30px!important}
+@media(max-width:760px){.house-card{min-height:0!important;border-top:4px solid var(--navy);padding:25px 20px!important}.house-card h2{font-size:38px!important}}
+</style><style>
+/* 00-3 Owner review markers: only active with ?review=1 */
+body.owner-review .owner-delta{
+  position:relative !important;
+  outline:3px solid #ff5d45 !important;
+  outline-offset:-3px !important;
+}
+body.owner-review .owner-delta::after{
+  content:"✓ 00-3 수정";
+  position:absolute;
+  z-index:9999;
+  right:8px;
+  top:8px;
+  padding:4px 7px;
+  background:#ff5d45;
+  color:#fff;
+  font:900 11px/1.2 Arial,sans-serif;
+  letter-spacing:.02em;
+  border-radius:2px;
+  box-shadow:0 1px 4px rgba(0,0,0,.18);
+}
+body.owner-review .owner-delta-note{
+  display:block;
+}
+.owner-delta-note{display:none}
+</style><style id="owner-household-20260902">
+/* OWNER 2026-09-02: 우리집 연결의 큰 공백 축소 + MVP 연결정책(2명 자동, 3명째부터 확인) */
+main{padding-top:24px!important}.page-head{padding-bottom:18px!important}.house-hero{grid-template-columns:minmax(250px,.72fr) minmax(430px,1.28fr)!important;margin-top:12px!important}.house-card{min-height:185px!important;padding:25px 28px!important}.house-card h2{font-size:39px!important;margin:12px 0 8px!important}.house-summary{padding:22px 27px!important}.house-summary h2{font-size:26px!important;margin:8px 0 13px!important}.summary-row{min-height:49px!important}.capacity{padding-top:14px!important}.capacity-note,.owner-cap-note{margin-top:7px!important}.capacity-track i.review{background:rgba(242,184,75,.58)!important}.content-grid{margin-top:12px!important}.panel-head{min-height:75px!important;padding:17px 22px!important}.members{padding:0 22px!important}.member{min-height:72px!important}.invite{padding:21px 22px!important}.invite-state{margin-top:13px!important}.share-list{margin-top:10px!important}.owner-family-guide{margin-top:12px!important}.owner-family-guide>div{padding:17px 18px!important}.guide-title strong{font-size:18px!important}.why-review{margin-top:12px;border:1px solid var(--line);background:var(--paper2);display:grid;grid-template-columns:330px 1fr;align-items:center}.why-review>div{background:var(--navy);color:#fff;padding:18px 22px;height:100%}.why-review small{display:block;color:var(--amber);font-weight:900;font-size:12px;margin-bottom:6px}.why-review strong{font-size:18px}.why-review p{margin:0;padding:18px 22px;color:var(--muted);font-size:14px;line-height:1.65}
+@media(max-width:820px){.house-hero{grid-template-columns:1fr!important}.why-review{grid-template-columns:1fr}.house-card{min-height:155px!important}}
+</style><style id="integrated-household-fix">.guide-title,.guide-title *,.why-review>div,.why-review>div *{color:#fff!important}.guide-title span{color:rgba(255,255,255,.76)!important}.why-review small{color:var(--amber)!important}.owner-family-guide{margin-top:10px!important}.why-review{margin-top:10px!important}.flow-title,.flow-title *{color:#fff!important}</style><style id="integrated-v3-household">
+/* 설12 통합 v3: 가족연결 하단 안내의 세로낭비 제거 + 좌측 곤색축 정렬 */
+.owner-family-guide{grid-template-columns:300px repeat(3,minmax(0,1fr))!important;align-items:stretch!important;margin-top:10px!important}
+.owner-family-guide>div{min-height:112px!important;padding:15px 18px!important;display:flex!important;flex-direction:column!important;justify-content:center!important}
+.owner-family-guide .guide-title{padding:16px 22px!important;justify-content:center!important}
+.owner-family-guide .guide-title strong{font-size:20px!important;line-height:1.25!important;margin:0 0 7px!important}
+.owner-family-guide .guide-title span{font-size:14px!important;line-height:1.5!important}
+.owner-family-guide>div:not(.guide-title) small{margin-bottom:7px!important}
+.owner-family-guide>div:not(.guide-title) b{font-size:18px!important;margin-bottom:7px!important}
+.owner-family-guide>div:not(.guide-title) span{line-height:1.5!important}
+.why-review{grid-template-columns:300px minmax(0,1fr)!important;min-height:88px!important;margin-top:10px!important;align-items:stretch!important}
+.why-review>div{padding:15px 22px!important;display:flex!important;flex-direction:column!important;justify-content:center!important}
+.why-review p{padding:15px 22px!important;display:flex!important;align-items:center!important;line-height:1.6!important}
+@media(max-width:900px){.owner-family-guide{grid-template-columns:1fr 1fr!important}.owner-family-guide .guide-title{grid-column:1/-1}.why-review{grid-template-columns:1fr!important}}
+@media(max-width:620px){.owner-family-guide{grid-template-columns:1fr!important}.owner-family-guide .guide-title{grid-column:auto}}
+</style><style id="front-audit-bottom-nav-standard-20260904">
+/* Frontend audit 1: all app content screens share one exact bottom navigation geometry. */
+@media (max-width:760px){
+  body{padding-bottom:68px!important}
+  .mobile-bottom{
+    position:fixed!important;display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;
+    left:0!important;right:0!important;bottom:0!important;width:100%!important;height:68px!important;
+    margin:0!important;padding:0!important;background:rgba(255,253,248,.98)!important;
+    border:0!important;border-top:1px solid #d8d0c3!important;box-shadow:none!important;z-index:90!important;
+  }
+  .mobile-bottom>button,.mobile-bottom>a{
+    appearance:none!important;-webkit-appearance:none!important;box-sizing:border-box!important;
+    width:auto!important;min-width:0!important;height:67px!important;margin:0!important;padding:0!important;
+    border:0!important;border-radius:0!important;background:transparent!important;text-decoration:none!important;
+    display:grid!important;grid-template-rows:22px 14px!important;align-content:center!important;justify-items:center!important;
+    place-items:initial!important;row-gap:3px!important;column-gap:0!important;
+    color:#706d67!important;font-family:inherit!important;font-size:12px!important;font-weight:800!important;
+    line-height:14px!important;letter-spacing:-.01em!important;text-align:center!important;
+  }
+  .mobile-bottom>button.active,.mobile-bottom>a.active{color:#ee6045!important}
+  .mobile-bottom svg{
+    display:block!important;width:22px!important;height:22px!important;margin:0!important;padding:0!important;
+    stroke:currentColor!important;fill:none!important;stroke-width:1.8!important;stroke-linecap:round!important;stroke-linejoin:round!important;
+    overflow:visible!important;
+  }
+  .mobile-bottom span{display:block!important;height:14px!important;margin:0!important;padding:0!important;line-height:14px!important;white-space:nowrap!important}
+  .toast{bottom:82px!important}
+}
+@media (min-width:761px){.mobile-bottom{display:none!important}}
+</style><style id="frontcheck-bottom-nav-optical-v4">
+/* Frontend audit 1 v4: optical-center every app bottom nav; hide browser scrollbar inside app viewport. */
+@media (max-width:760px){
+  html,body{scrollbar-width:none!important;-ms-overflow-style:none!important}
+  html::-webkit-scrollbar,body::-webkit-scrollbar{width:0!important;height:0!important;display:none!important}
+  html body .mobile-bottom{
+    position:fixed!important;left:0!important;right:0!important;bottom:0!important;
+    width:100%!important;height:68px!important;margin:0!important;padding:0!important;
+    display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;
+    background:rgba(255,253,248,.985)!important;border:0!important;border-top:1px solid #d8d0c3!important;
+    box-shadow:none!important;z-index:990!important;box-sizing:border-box!important;
+  }
+  html body .mobile-bottom>button,html body .mobile-bottom>a{
+    appearance:none!important;-webkit-appearance:none!important;
+    width:100%!important;min-width:0!important;height:67px!important;margin:0!important;padding:0!important;
+    border:0!important;border-radius:0!important;background:transparent!important;text-decoration:none!important;
+    display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;
+    gap:4px!important;color:#706d67!important;font-family:inherit!important;font-size:12px!important;font-weight:800!important;
+    line-height:14px!important;letter-spacing:-.01em!important;text-align:center!important;box-sizing:border-box!important;
+  }
+  html body .mobile-bottom>button.active,html body .mobile-bottom>a.active{color:#ee6045!important}
+  html body .mobile-bottom svg{
+    display:block!important;flex:0 0 22px!important;width:22px!important;height:22px!important;
+    margin:0 auto!important;padding:0!important;transform:none!important;
+    stroke:currentColor!important;fill:none!important;stroke-width:1.8!important;stroke-linecap:round!important;stroke-linejoin:round!important;
+    overflow:visible!important;box-sizing:content-box!important;
+  }
+  html body .mobile-bottom span{
+    display:block!important;flex:0 0 14px!important;width:100%!important;height:14px!important;margin:0!important;padding:0!important;
+    line-height:14px!important;text-align:center!important;white-space:nowrap!important;transform:none!important;
+  }
+}
+</style><link data-final-header-sync="20260904" href="assets/consistency.css" rel="stylesheet"/></head><body data-danjion-page="26">
+<header class="site-header"><div class="header-inner"><button class="brand" data-demo="단지온 홈으로 이동합니다.">단지온 <small>DANJION by PADIEM</small></button><nav class="desktop-nav"><button data-demo="홈으로 이동합니다.">홈</button><button data-demo="이웃가게로 이동합니다.">이웃가게</button><button data-demo="우리단지로 이동합니다.">우리단지</button><button class="active">내정보</button></nav><span class="identity">방림명지로드힐</span><span class="mobile-title">우리집 연결</span></div></header><div class="route"><div class="route-inner"><button class="back" data-demo="내정보로 돌아갑니다.">← 내정보</button><span class="route-note">가족과 우리집 연결</span></div></div>
+<main><section class="page-head"><div><div class="eyebrow">MY HOUSEHOLD</div><h1>우리집 연결</h1></div></section>
+<section class="house-hero owner-delta"><article class="house-card owner-delta"><small>BANGNIM ROADHILL · MY HOME</small><h2>102동<br/>1802호</h2><p>방림명지로드힐<br/>우리집 연결 완료</p></article><article class="house-summary owner-delta"><small>HOUSEHOLD STATUS</small><h2>현재 우리집 상태</h2><div class="summary-list"><div class="summary-row"><span>연결된 계정</span><b>2명</b></div><div class="summary-row"><span>자동 연결 기준</span><b>2명</b></div><div class="summary-row"><span>추가 가족 연결</span><b>운영팀 확인</b></div></div><div class="capacity"><div class="capacity-top"><b>기본 자동 연결</b><span>2명 완료</span></div><div aria-label="기본 2명 자동 연결, 3명째부터 운영팀 확인 후 추가" class="capacity-track"><i class="on"></i><i class="on"></i><i class="review"></i><i class="review"></i></div><p class="owner-cap-note">같은 동·호의 기본 2명까지 자동으로 연결됩니다. <b>3명째부터 운영팀 확인 후 추가할 수 있습니다.</b></p></div></article></section>
+<section class="content-grid"><article class="panel"><header class="panel-head"><div><small>CONNECTED MEMBERS</small><h2>연결된 계정</h2></div></header><div class="members"><div class="member"><span class="avatar me">연</span><span><b>연블리 · 나</b><span>2026.08.24 연결</span></span><span class="member-status">이용 중</span></div><div class="member"><span class="avatar">김</span><span><b>김OO</b><span>2026.08.28 연결</span></span><button aria-label="구성원 관리" class="member-menu" data-demo="구성원을 관리합니다.">•••</button></div></div></article>
+<article class="panel"><header class="panel-head"><div><small>FAMILY INVITE</small><h2>가족 초대</h2></div></header><div class="invite"><p class="invite-lead">관리사무소 문자로 받은 단지 가입코드와 동·호를 확인한 뒤, 가족 초대링크로 우리집에 연결합니다.</p><div class="invite-state"><small>사용 가능한 초대링크 · 7일 후 만료</small><div class="invite-code"><b>DANJION · 8K4P</b><span>2026.09.07까지</span></div></div><div class="invite-actions"><button class="primary" data-invite-action="new" type="button">새 링크 만들기</button><button data-invite-action="copy" type="button">링크 복사</button></div><div class="share-list"><button class="share" data-share="kakao" type="button">카카오톡으로 보내기</button><button class="share" data-share="sms" type="button">문자로 보내기</button><button class="share" data-share="native" type="button">다른 방법으로 공유</button></div></div></article></section>
+<section class="owner-family-guide"><div class="guide-title"><strong>가족 연결은 간단해요.</strong><span>초대받은 가족도 자신의 계정으로 이용합니다.</span></div><div><small>STEP 1</small><b>링크 공유</b><span>동·호가 보이지 않는 7일 초대링크를 보냅니다.</span></div><div><small>STEP 2</small><b>본인 계정으로 가입</b><span>이메일·카카오·네이버·Google 중 편한 방법을 씁니다.</span></div><div><small>STEP 3</small><b>우리집 연결 완료</b><span>기본 2명까지 자동 연결되고, 3명째부터 운영팀 확인 후 추가합니다.</span></div></section><section class="why-review"><div><small>WHY REVIEW</small><strong>왜 3번째 계정부터 확인하나요?</strong></div><p>잘못 입력한 동·호나 한 세대에 과도한 계정이 연결되는 것을 막기 위한 확인 절차입니다. 가족관계증명서처럼 상세한 가족관계 자료를 기본으로 수집하지 않습니다.</p></section></main>
+<nav aria-label="모바일 주요 메뉴" class="mobile-bottom"><button aria-label="홈" data-route="04_데일리홈.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><path d="m3 10 9-7 9 7v10h-6v-6H9v6H3z"></path></svg><span>홈</span></button><button aria-label="이웃가게" data-route="01_이웃가게_발견.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><path d="M4 7h16l-1 13H5L4 7Z"></path><path d="M8 7V5a4 4 0 0 1 8 0v2"></path></svg><span>이웃가게</span></button><button aria-label="우리단지" data-route="05_우리단지_첫화면.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><path d="M4 21V9l8-6 8 6v12"></path><path d="M8 13h8M8 17h8"></path></svg><span>우리단지</span></button><button aria-label="내정보" class="active" data-route="19_내정보_메인.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><circle cx="12" cy="8" r="4"></circle><path d="M4 21a8 8 0 0 1 16 0"></path></svg><span>내정보</span></button></nav><div class="toast" role="status"></div><script>const toast=document.querySelector('.toast');let timer;function showToast(text){toast.textContent=text;toast.classList.add('show');clearTimeout(timer);timer=setTimeout(()=>toast.classList.remove('show'),2200)}document.querySelectorAll('[data-demo]').forEach(button=>button.addEventListener('click',()=>showToast(button.dataset.demo)));</script>
+<script>
+(()=>{try{
+  if(new URLSearchParams(location.search).get('review')==='1'){
+    document.body.classList.add('owner-review');
+  }
+}catch(e){}})();
+</script>
+
+<script id="household-share-actions-20260904">
+(function(){
+  let code='8K4P';
+  const codeEl=document.querySelector('.invite-code b');
+  const expiryEl=document.querySelector('.invite-code span');
+  const shareUrl=()=> 'https://danjion.app/invite/'+encodeURIComponent(code);
+  const shareText=()=> '방림명지로드힐 우리집 연결 초대입니다. '+shareUrl();
+  async function copyInvite(){
+    try{await navigator.clipboard.writeText(shareUrl());showToast('초대링크를 복사했습니다.');}
+    catch(e){showToast('링크 복사를 지원하지 않는 환경입니다.');}
+  }
+  document.querySelector('[data-invite-action="new"]')?.addEventListener('click',()=>{
+    code=Math.random().toString(36).slice(2,6).toUpperCase();
+    if(codeEl)codeEl.textContent='DANJION · '+code;
+    const d=new Date();d.setDate(d.getDate()+7);
+    if(expiryEl)expiryEl.textContent=d.toLocaleDateString('ko-KR',{year:'numeric',month:'2-digit',day:'2-digit'}).replace(/\. /g,'.').replace(/\.$/,'')+'까지';
+    showToast('새 초대링크를 만들었습니다.');
+  });
+  document.querySelector('[data-invite-action="copy"]')?.addEventListener('click',copyInvite);
+  document.querySelector('[data-share="sms"]')?.addEventListener('click',()=>{
+    location.href='sms:?body='+encodeURIComponent(shareText());
+  });
+  document.querySelector('[data-share="native"]')?.addEventListener('click',async()=>{
+    if(navigator.share){
+      try{await navigator.share({title:'단지온 우리집 연결',text:'방림명지로드힐 우리집 연결 초대입니다.',url:shareUrl()});return;}
+      catch(e){if(e&&e.name==='AbortError')return;}
+    }
+    await copyInvite(); showToast('공유창을 지원하지 않아 링크를 복사했습니다.');
+  });
+  document.querySelector('[data-share="kakao"]')?.addEventListener('click',async()=>{
+    if(navigator.share){
+      try{await navigator.share({title:'단지온 우리집 연결',text:'공유창에서 카카오톡을 선택해 주세요.',url:shareUrl()});return;}
+      catch(e){if(e&&e.name==='AbortError')return;}
+    }
+    await copyInvite(); showToast('카카오톡 직접 공유는 실제 서비스에서 Kakao SDK를 연결합니다.');
+  });
+})();
+</script>
+<script id="danjion-direct-router-v5">
+(function(){
+const SCREEN="household";
+const FILES={"landing": "index.html", "home": "04_데일리홈.html", "shops": "01_이웃가게_발견.html", "shopDetail": "02_이웃가게_상세.html", "complex": "05_우리단지_첫화면.html", "noticeList": "06_단지온공지_목록.html", "noticeDetail": "07_단지온공지_상세.html", "apartment": "08_아파트소식_목록.html", "chair": "09_회장인사_상세.html", "residentList": "10_주민소식_목록.html", "residentDetail": "11_주민소식_상세.html", "community": "12_이웃대화_첫화면.html", "communityDetail": "13_이웃대화_글상세_댓글.html", "writeHello": "14_가입인사_글쓰기.html", "writeStory": "15_단지이야기_글쓰기.html", "writeQuestion": "16_궁금해요_글쓰기.html", "writeTogether": "17_같이해요_글쓰기.html", "my": "19_내정보_메인.html", "messages": "20_메시지함_목록.html", "messageDetail": "21_메시지_대화상세.html", "profile": "22_주민_공개프로필.html", "warmth": "23_이웃온기.html", "settings": "24_설정.html", "inquiry": "25_1대1문의.html", "apply": "25A_신청제보.html", "household": "26_우리집연결.html", "notifications": "27_알림함.html", "activity": "28_나의활동.html"};
+const norm=s=>(s||'').replace(/\s+/g,' ').trim();
+function go(f){
+  if(!f)return;
+  location.href=f;
+}
+function main(label){go({'홈':FILES.home,'이웃가게':FILES.shops,'우리단지':FILES.complex,'내정보':FILES.my}[label]);}
+function routeFrom(v){v=(v||'').split('#')[0]; if(!v)return null;
+  const q=v.includes('?')?'?'+v.split('?').slice(1).join('?'):''; const p=v.split('?')[0];
+  const arr=[["29_", "index.html"], ["04_", "04_데일리홈.html"], ["01_", "01_이웃가게_발견.html"], ["02_", "02_이웃가게_상세.html"], ["05_", "05_우리단지_첫화면.html"], ["06_", "06_단지온공지_목록.html"], ["07_", "07_단지온공지_상세.html"], ["08_", "08_아파트소식_목록.html"], ["09_", "09_회장인사_상세.html"], ["10_", "10_주민소식_목록.html"], ["11_", "11_주민소식_상세.html"], ["12_", "12_이웃대화_첫화면.html"], ["13_", "13_이웃대화_글상세_댓글.html"], ["14_", "14_가입인사_글쓰기.html"], ["15_", "15_단지이야기_글쓰기.html"], ["16_", "16_궁금해요_글쓰기.html"], ["17_", "17_같이해요_글쓰기.html"], ["19_", "19_내정보_메인.html"], ["20_", "20_메시지함_목록.html"], ["21_", "21_메시지_대화상세.html"], ["22_", "22_주민_공개프로필.html"], ["23_", "23_이웃온기.html"], ["24_", "24_설정.html"], ["25_", "25_1대1문의.html"], ["26_", "26_우리집연결.html"], ["27_", "27_알림함.html"], ["28_", "28_나의활동.html"]];
+  for(const [t,f] of arr) if(p.includes(t)) return f+q;
+  if(p==='index.html') return 'index.html'; return null;
+}
+function backFallback(){
+  const from=new URLSearchParams(location.search).get('from');
+  if(from==='settings'){location.href=FILES.settings+'?restore=1';return;}
+  const parentMap={
+    shops:FILES.home,shopDetail:FILES.shops,complex:FILES.home,
+    noticeList:FILES.complex,noticeDetail:FILES.noticeList,apartment:FILES.complex,chair:FILES.complex,
+    residentList:FILES.complex,residentDetail:FILES.residentList,community:FILES.complex,communityDetail:FILES.community,
+    writeHello:FILES.community,writeStory:FILES.community,writeQuestion:FILES.community,writeTogether:FILES.community,
+    my:FILES.home,messages:FILES.my,messageDetail:FILES.messages,profile:FILES.my,warmth:FILES.my,
+    settings:FILES.my,inquiry:FILES.settings,apply:FILES.shops,household:FILES.my,notifications:FILES.my,activity:FILES.my
+  };
+  location.href=parentMap[SCREEN]||FILES.home;
+}
+
+document.addEventListener('click',function(ev){
+ const el=ev.target.closest('a,button,[data-route]'); if(!el)return;
+ const text=norm(el.textContent), cls=el.classList||{contains:()=>false};
+ // landing internal modal/greeting controls stay native
+ if(SCREEN==='landing'){
+   if(el.matches('[data-auth],[data-preview],[data-greeting],[data-email],[data-social],[data-reset],[data-resend],[data-term],[data-term-close],[data-address-next],[data-terms-next],[data-finish],[data-required-all]')) return;
+   if(el.matches('[data-chair-close]')){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.home);return;}
+   if(el.matches('[data-chair-detail]')){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.chair);return;}
+   if(el.matches('[data-guest-enter]')){ev.preventDefault();ev.stopImmediatePropagation();sessionStorage.setItem('danjionGuest','1');go(FILES.home);return;}
+   if(el.matches('[data-top]')) return;
+ }
+ if(cls.contains('brand')){ev.preventDefault();ev.stopImmediatePropagation();go('index.html');return;}
+ const inMain=!!el.closest('.nav,.desktop-nav,.mobile-bottom,.topbar nav,.main-nav');
+ if(inMain && ['홈','이웃가게','우리단지','내정보'].includes(text)){ev.preventDefault();ev.stopImmediatePropagation();main(text);return;}
+ if(cls.contains('back')||cls.contains('route-back')||((/^←|^‹|^< /.test(text))&&!cls.contains('modal-back'))){ev.preventDefault();ev.stopImmediatePropagation();backFallback();return;}
+ // home: current scene -> selected shop detail
+ if(SCREEN==='home' && el.id==='detailBtn'){ev.preventDefault();ev.stopImmediatePropagation();const k=el.dataset.shopKey||'food';go(FILES.shopDetail+'?shop='+encodeURIComponent(k));return;}
+ // shops cards -> specific shop detail
+ if(SCREEN==='shops' && cls.contains('shop-link')){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.shopDetail+'?shop='+encodeURIComponent(el.dataset.shopKey||'florist'));return;}
+ if(SCREEN==='shops' && text==='이웃가게 제보'){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.apply+'?mode=report');return;}
+ if(SCREEN==='shops' && (text==='내 가게 등록 신청'||text==='내 가게 등록 문의')){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.apply+'?mode=apply');return;}
+ if(SCREEN==='complex' && cls.contains('channel-link')){ev.preventDefault();ev.stopImmediatePropagation();const i=[...document.querySelectorAll('.channel-link')].indexOf(el);go([FILES.noticeList,FILES.apartment,FILES.residentList,FILES.community][i]||FILES.complex);return;}
+ if(SCREEN==='noticeList' && (cls.contains('pinned-link')||cls.contains('notice-row'))){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.noticeDetail);return;}
+ if(SCREEN==='apartment' && cls.contains('feature-link')){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.chair);return;}
+ if(SCREEN==='residentList' && cls.contains('story-link')){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.residentDetail);return;}
+ if(SCREEN==='community' && cls.contains('write-type')){ev.preventDefault();ev.stopImmediatePropagation();const i=[...document.querySelectorAll('.write-type')].indexOf(el);go([FILES.writeHello,FILES.writeStory,FILES.writeQuestion,FILES.writeTogether][i]||FILES.community);return;}
+ if(SCREEN==='community' && el.tagName==='A' && text.includes('안녕하세요')){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.communityDetail);return;}
+ if(SCREEN==='my' && cls.contains('card-link')){ev.preventDefault();ev.stopImmediatePropagation();const i=[...document.querySelectorAll('.card-link')].indexOf(el);go(i===0?FILES.messages:FILES.household);return;}
+ if(SCREEN==='my' && cls.contains('menu-row')){ev.preventDefault();ev.stopImmediatePropagation();const i=[...document.querySelectorAll('.menu-row')].indexOf(el);go(FILES.activity+'?tab='+Math.min(i,3));return;}
+ if(SCREEN==='my' && (text.includes('설정 열기')||text.includes('이용 설정'))){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.settings);return;}
+ if(SCREEN==='messages' && cls.contains('mail-row')){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.messageDetail);return;}
+ if(SCREEN==='messageDetail' && (text.includes('공개 프로필')||text.includes('산책메이트'))){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.profile);return;}
+ if(SCREEN==='profile' && cls.contains('message-button')){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.messageDetail);return;}
+ if(SCREEN==='settings' && (cls.contains('support-button')||text.includes('1:1 문의'))){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.inquiry);return;}
+ if(SCREEN==='activity' && cls.contains('side-link')){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.profile);return;}
+ // known data-route or anchors
+ const dr=el.dataset&&el.dataset.route; if(dr){const f=routeFrom(dr);if(f){ev.preventDefault();ev.stopImmediatePropagation();go(f);return;}}
+ if(el.tagName==='A'){const f=routeFrom(el.getAttribute('href'));if(f){ev.preventDefault();ev.stopImmediatePropagation();go(f);return;}}
+},true);
+
+// screen-specific initial state
+if(SCREEN==='shopDetail'){ const p=new URLSearchParams(location.search),k=p.get('shop'); if(k) setTimeout(()=>window.postMessage({type:'danjion-integrated:setShop',shopKey:k},'*'),0); }
+if(SCREEN==='apply'){ const p=new URLSearchParams(location.search),mode=p.get('mode'); if(mode) setTimeout(()=>window.postMessage({type:'danjion-integrated:setMode',mode},'*'),0); }
+if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt(p.get('tab')||'0',10); if(Number.isInteger(i)) setTimeout(()=>window.postMessage({type:'danjion-integrated:activityTab',index:i},'*'),0); }
+})();
+</script>
+<script id="danjion-review-route-sync">
+(function(){
+  try{
+    if(new URLSearchParams(location.search).get('review')==='1'){
+      sessionStorage.removeItem('danjionRouteStack');
+    }
+  }catch(e){}
+  function reportRoute(){
+    try{
+      const file=decodeURIComponent((location.pathname.split('/').pop()||'index.html').split('?')[0]);
+      if(window.parent!==window) window.parent.postMessage({type:'danjion-route',file:file,href:location.href},'*');
+    }catch(e){}
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',reportRoute,{once:true});else reportRoute();
+  window.addEventListener('pageshow',reportRoute);
+  window.addEventListener('hashchange',reportRoute);
+})();
+</script>
+<script id="settings-return-context-20260904">
+(function(){
+  if(new URLSearchParams(location.search).get('from')!=='settings')return;
+  const back=document.querySelector('.back,.route-back,[data-back],.danjion-simple-back button');
+  if(back){back.textContent='← 설정';back.setAttribute('aria-label','설정으로 돌아가기');}
+})();
+</script>
+</body></html>

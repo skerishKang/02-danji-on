@@ -1,6 +1,13 @@
 # Drive sync temp files
 .tmp.driveupload/
 
+# Sibling workspace (muphobia2/danjion import) build/backup artifacts
+backend/.wrangler/
+backend/src_before_refactor_*/
+backend/99_backup_*/
+auth-test/.vite/
+**/desktop.ini
+
 # Environment / secrets
 .env
 .env.*

@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+
+<html lang="ko">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width,initial-scale=1" name="viewport"/>
+<title>단지온 · 홈 · WEB CINEMATIC</title>
+<style>
+:root{
+  --canvas:#F7F2E8;--paper:#FFFDF8;--ink:#171717;--muted:#625E57;--line:#CFC8BC;
+  --verified:#277A53;--accent:#E95C3E;--accent-text:#B9422B;--scene:#E95C3E;--scene-ink:#111;--dark:#4B1E16;
+  --header:76px;--max:1440px;--ease:cubic-bezier(.20,.72,.18,1);
+  font-family:"Pretendard Variable","Pretendard","Noto Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+}
+*{box-sizing:border-box}html{background:var(--canvas);color:var(--ink)}body{margin:0;min-width:320px;background:var(--canvas);overflow-x:hidden}button,input{font:inherit;color:inherit}button{cursor:pointer}img{display:block;width:100%;height:100%;object-fit:cover}.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}
+.topbar{height:var(--header);position:sticky;top:0;z-index:50;display:flex;align-items:center;background:rgba(247,242,232,.93);border-bottom:1px solid rgba(23,23,23,.14);backdrop-filter:blur(16px)}
+.topbar-inner{width:min(var(--max),calc(100% - 80px));margin:auto;display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:34px}.brand{display:flex;align-items:baseline;gap:12px;border:0;background:none;padding:0}.wordmark{font-size:28px;font-weight:900;letter-spacing:-.065em}.brand small{font-size:11px;font-weight:850;letter-spacing:.12em;color:#665f55}.nav{display:flex;justify-content:center;gap:40px;height:var(--header)}.nav button{height:100%;border:0;background:none;padding:0 2px;font-weight:800;position:relative}.nav button.active::after{content:"";position:absolute;left:0;right:0;bottom:0;height:3px;background:var(--accent)}.identity{font-size:13px;font-weight:850;color:#5c574f}
+.home-intro{width:min(var(--max),calc(100% - 80px));margin:0 auto;padding:31px 0 24px;display:grid;grid-template-columns:1fr 520px;align-items:end;gap:46px;border-bottom:1px solid var(--ink)}.hello small{display:block;color:var(--accent-text);font-size:14px;font-weight:900;letter-spacing:.055em;margin-bottom:9px}.hello h1{margin:0;font-size:42px;line-height:1.08;letter-spacing:-.055em;font-weight:880}.hello p{margin:10px 0 0;color:var(--muted);font-size:15px;line-height:1.55}.search{height:58px;display:grid;grid-template-columns:46px 1fr 66px;background:rgba(255,255,255,.65);border-top:2px solid var(--ink);border-bottom:1px solid var(--line);align-items:center}.search svg{width:20px;height:20px;margin:auto;fill:none;stroke:currentColor;stroke-width:1.8}.search input{height:55px;border:0;background:transparent;outline:none;font-size:15px}.search button{height:46px;margin-right:6px;border:0;background:var(--ink);color:white;font-size:21px}
+.stage-wrap{width:min(var(--max),calc(100% - 80px));margin:18px auto 0;position:relative}.stage{height:610px;display:grid;grid-template-columns:minmax(0,64%) minmax(360px,36%);overflow:hidden;background:var(--dark);color:#fff}.visual{position:relative;overflow:hidden}.scene-image,.ghost{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transition:opacity .38s ease,transform .78s var(--ease),filter .38s ease,clip-path .78s var(--ease)}.scene-image{transform:scale(1.01)}.ghost{opacity:0;transform:scale(1.05);clip-path:inset(7%)}.visual.switching .scene-image{opacity:.42;filter:blur(4px);transform:scale(1.025)}.visual.switching .ghost{opacity:1;transform:scale(1);clip-path:inset(0)}.visual::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(0,0,0,.18),transparent 45%),linear-gradient(0deg,rgba(0,0,0,.68),transparent 48%);pointer-events:none}.scene-no{position:absolute;z-index:4;left:38px;top:34px;font-size:12px;font-weight:900;letter-spacing:.14em}.caption{position:absolute;z-index:4;left:38px;bottom:43px;max-width:620px}.caption .kicker{display:flex;align-items:center;gap:10px;color:#F2B84B;font-size:12px;font-weight:900;margin-bottom:12px}.caption .kicker::before{content:"";width:8px;height:8px;border-radius:50%;background:#F2B84B}.caption h2{font-size:52px;line-height:1.02;letter-spacing:-.06em;margin:0 0 12px}.caption p{font-size:16px;line-height:1.6;color:rgba(255,255,255,.83);margin:0;max-width:510px}.panel{position:relative;background:var(--scene);color:var(--scene-ink);padding:48px 46px 42px;display:flex;flex-direction:column;transition:background .42s ease,color .42s ease}.panel small{font-size:13px;font-weight:900;letter-spacing:.12em;opacity:.72}.panel h3{font-size:43px;line-height:1.04;letter-spacing:-.055em;margin:22px 0 13px}.panel .copy{font-size:18px;line-height:1.65;margin:0;max-width:440px}.facts{border-top:1px solid currentColor;margin-top:27px}.fact{display:grid;grid-template-columns:105px 1fr;gap:10px;padding:13px 0;border-bottom:1px solid color-mix(in srgb,currentColor 28%,transparent);font-size:15px}.fact b{font-weight:900}.fact span{font-weight:700}.actions{margin-top:auto;display:flex;gap:9px}.actions button{height:52px;padding:0 17px;border:1px solid currentColor;background:transparent;font-weight:900}.actions .primary{background:#171717;color:#fff;border-color:#171717}.panel.light .primary{background:#171717;color:#fff}.panel.dark .primary{background:#fff;color:#171717;border-color:#fff}
+.scene-tabs{position:absolute;z-index:9;right:calc(36% + 16px);top:50%;transform:translateY(-50%);display:grid;gap:8px}.scene-tab{width:52px;height:52px;border:1px solid rgba(255,255,255,.55);background:rgba(8,12,18,.27);color:#fff;font-weight:900;backdrop-filter:blur(9px)}.scene-tab.active{background:#fff;color:#111;border-color:#fff}.scene-tab span{font-size:10px;display:block;opacity:.58;margin-top:2px}.rail{position:absolute;z-index:8;left:18px;top:90px;bottom:28px;width:2px;background:rgba(255,255,255,.22)}.rail-fill{display:block;width:100%;height:25%;background:#fff;transition:height .35s ease}
+.after-stage{width:min(var(--max),calc(100% - 80px));margin:18px auto 84px;display:grid;grid-template-columns:1.15fr .85fr;gap:18px;align-items:start}.benefit,.news{background:var(--paper);border:1px solid var(--line)}.benefit{padding:24px 28px;border-top:4px solid var(--accent);display:grid;grid-template-columns:1fr auto;align-items:center;gap:22px;align-self:start;min-height:0}.benefit small{display:block;color:var(--accent-text);font-size:13px;font-weight:900;letter-spacing:.1em;margin-bottom:8px}.benefit h3{font-size:28px;line-height:1.2;margin:0 0 7px;letter-spacing:-.04em}.benefit p{margin:0;color:var(--muted);font-size:15px;line-height:1.55}.go{width:48px;height:48px;border:1px solid var(--ink);background:none;font-size:22px}.news{padding:24px 26px}.news-head{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--ink);padding-bottom:14px}.news-head h3{font-size:24px;margin:0}.news-head button{border:0;background:none;font-size:14px;font-weight:900}.news-row{display:grid;grid-template-columns:82px 1fr 20px;gap:10px;align-items:center;min-height:60px;border-bottom:1px solid var(--line);font-size:15px}.news-row:last-child{border-bottom:0}.news-row small{color:var(--accent-text);font-weight:900;font-size:15px}
+.toast{position:fixed;left:50%;bottom:28px;z-index:100;transform:translate(-50%,18px);opacity:0;background:#111;color:#fff;padding:12px 17px;font-size:13px;font-weight:800;transition:.2s}.toast.show{opacity:1;transform:translate(-50%,0)}
+@media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+<style id="app-home-mobile-parity-20260904">
+@media(max-width:760px){body{min-width:320px!important}.topbar-inner,.home-intro,.stage-wrap,.after-stage{max-width:100%!important}.home-intro{grid-template-columns:1fr!important}.stage{grid-template-columns:1fr!important}.scene-tabs{max-width:100%!important}.caption{max-width:calc(100% - 40px)!important}}
+</style>
+<style id="frontcheck1-home-mobile-fix">
+@media(max-width:760px){
+ body[data-danjion-page="4"] .after-stage{display:block!important;grid-template-columns:1fr!important}
+ body[data-danjion-page="4"] .benefit,body[data-danjion-page="4"] .news{width:100%!important;min-width:0!important}
+ body[data-danjion-page="4"] .benefit h3,body[data-danjion-page="4"] .benefit p,
+ body[data-danjion-page="4"] .news h3,body[data-danjion-page="4"] .news-row b{word-break:keep-all!important;overflow-wrap:normal!important}
+}
+</style>
+<style id="frontcheck1-home-mobile-rebuild-v2">
+@media(max-width:760px){
+ body[data-danjion-page="4"]{padding-bottom:72px!important;overflow-x:hidden!important}
+ body[data-danjion-page="4"] .topbar{height:60px!important}
+ body[data-danjion-page="4"] .topbar-inner{width:100%!important;height:60px!important;padding:0 18px!important;display:flex!important;align-items:center!important;justify-content:space-between!important;gap:12px!important}
+ body[data-danjion-page="4"] .brand{min-width:0!important;gap:0!important}
+ body[data-danjion-page="4"] .wordmark{font-size:22px!important;white-space:nowrap!important}
+ body[data-danjion-page="4"] .brand small,body[data-danjion-page="4"] .nav{display:none!important}
+ body[data-danjion-page="4"] .identity{display:block!important;max-width:180px!important;font-size:12px!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
+ body[data-danjion-page="4"] .home-intro{width:100%!important;padding:22px 18px 18px!important;display:block!important;border-bottom:1px solid var(--ink)!important}
+ body[data-danjion-page="4"] .hello small{font-size:11px!important;margin-bottom:7px!important}
+ body[data-danjion-page="4"] .hello h1{font-size:34px!important;line-height:1.08!important;word-break:keep-all!important}
+ body[data-danjion-page="4"] .hello p{font-size:14px!important;line-height:1.55!important}
+ body[data-danjion-page="4"] .search{width:100%!important;height:52px!important;margin-top:17px!important;grid-template-columns:54px minmax(0,1fr) 54px!important;border-left:1px solid var(--line)!important;border-right:1px solid var(--line)!important}
+ body[data-danjion-page="4"] .search svg{width:20px!important;height:20px!important;margin:auto!important}
+ body[data-danjion-page="4"] .search button{width:54px!important;height:50px!important;margin:0!important;padding:0!important}
+ body[data-danjion-page="4"] .stage-wrap{width:100%!important;margin:14px 0 0!important;padding:0 18px!important}
+ body[data-danjion-page="4"] .stage{height:auto!important;display:block!important;overflow:visible!important}
+ body[data-danjion-page="4"] .visual{height:300px!important;min-height:300px!important}
+ body[data-danjion-page="4"] .caption{left:18px!important;right:18px!important;bottom:18px!important;max-width:none!important}
+ body[data-danjion-page="4"] .caption h2{font-size:31px!important;line-height:1.06!important}
+ body[data-danjion-page="4"] .caption p{font-size:13px!important;line-height:1.5!important}
+ body[data-danjion-page="4"] .panel{min-height:0!important;padding:25px 20px 22px!important}
+ body[data-danjion-page="4"] .panel h3{font-size:31px!important}
+ body[data-danjion-page="4"] .facts{margin-top:20px!important}
+ body[data-danjion-page="4"] .fact{grid-template-columns:86px minmax(0,1fr)!important;gap:10px!important}
+ body[data-danjion-page="4"] .actions{margin-top:22px!important}
+ body[data-danjion-page="4"] .scene-tabs{position:static!important;transform:none!important;width:100%!important;margin:8px 0 0!important;display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:0!important}
+ body[data-danjion-page="4"] .scene-tab{min-width:0!important;height:54px!important;padding:0!important;border-right:0!important}
+ body[data-danjion-page="4"] .scene-tab:last-child{border-right:1px solid var(--line)!important}
+ body[data-danjion-page="4"] .after-stage{width:100%!important;margin:14px 0 0!important;padding:0 18px 24px!important}
+ body[data-danjion-page="4"] .mobile-bottom{position:fixed;display:grid!important;grid-template-columns:repeat(4,1fr);left:0;right:0;bottom:0;height:68px;background:rgba(255,253,248,.98);border-top:1px solid rgba(23,23,23,.18);z-index:70}
+ body[data-danjion-page="4"] .mobile-bottom button{border:0;background:none;display:grid;place-items:center;align-content:center;gap:3px;color:#706d67;font-size:10px;font-weight:780}
+ body[data-danjion-page="4"] .mobile-bottom button.active{color:var(--accent-text)}
+ body[data-danjion-page="4"] .mobile-bottom svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8}
+}
+@media(min-width:761px){body[data-danjion-page="4"] .mobile-bottom{display:none!important}}
+</style>
+<style id="front-audit-bottom-nav-standard-20260904">
+/* Frontend audit 1: all app content screens share one exact bottom navigation geometry. */
+@media (max-width:760px){
+  body{padding-bottom:68px!important}
+  .mobile-bottom{
+    position:fixed!important;display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;
+    left:0!important;right:0!important;bottom:0!important;width:100%!important;height:68px!important;
+    margin:0!important;padding:0!important;background:rgba(255,253,248,.98)!important;
+    border:0!important;border-top:1px solid #d8d0c3!important;box-shadow:none!important;z-index:90!important;
+  }
+  .mobile-bottom>button,.mobile-bottom>a{
+    appearance:none!important;-webkit-appearance:none!important;box-sizing:border-box!important;
+    width:auto!important;min-width:0!important;height:67px!important;margin:0!important;padding:0!important;
+    border:0!important;border-radius:0!important;background:transparent!important;text-decoration:none!important;
+    display:grid!important;grid-template-rows:22px 14px!important;align-content:center!important;justify-items:center!important;
+    place-items:initial!important;row-gap:3px!important;column-gap:0!important;
+    color:#706d67!important;font-family:inherit!important;font-size:12px!important;font-weight:800!important;
+    line-height:14px!important;letter-spacing:-.01em!important;text-align:center!important;
+  }
+  .mobile-bottom>button.active,.mobile-bottom>a.active{color:#ee6045!important}
+  .mobile-bottom svg{
+    display:block!important;width:22px!important;height:22px!important;margin:0!important;padding:0!important;
+    stroke:currentColor!important;fill:none!important;stroke-width:1.8!important;stroke-linecap:round!important;stroke-linejoin:round!important;
+    overflow:visible!important;
+  }
+  .mobile-bottom span{display:block!important;height:14px!important;margin:0!important;padding:0!important;line-height:14px!important;white-space:nowrap!important}
+  .toast{bottom:82px!important}
+}
+@media (min-width:761px){.mobile-bottom{display:none!important}}
+</style>
+<style id="ownerpass-home-compact-20260904">
+
+.news-row{width:100%;border-left:0;border-right:0;border-top:0;background:transparent;text-align:left;font:inherit;cursor:pointer}
+.news-row:hover b{color:var(--accent-text)}
+@media(max-width:760px){
+ body[data-danjion-page="4"] .actions{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:8px!important;width:100%!important}
+ body[data-danjion-page="4"] .actions button{width:100%!important}
+ body[data-danjion-page="4"] .scene-tabs{width:100%!important;grid-template-columns:repeat(4,minmax(0,1fr))!important}
+ body[data-danjion-page="4"] .scene-tab{width:100%!important;min-width:0!important}
+}
+
+</style>
+<style id="frontcheck-bottom-nav-optical-v4">
+/* Frontend audit 1 v4: optical-center every app bottom nav; hide browser scrollbar inside app viewport. */
+@media (max-width:760px){
+  html,body{scrollbar-width:none!important;-ms-overflow-style:none!important}
+  html::-webkit-scrollbar,body::-webkit-scrollbar{width:0!important;height:0!important;display:none!important}
+  html body .mobile-bottom{
+    position:fixed!important;left:0!important;right:0!important;bottom:0!important;
+    width:100%!important;height:68px!important;margin:0!important;padding:0!important;
+    display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;
+    background:rgba(255,253,248,.985)!important;border:0!important;border-top:1px solid #d8d0c3!important;
+    box-shadow:none!important;z-index:990!important;box-sizing:border-box!important;
+  }
+  html body .mobile-bottom>button,html body .mobile-bottom>a{
+    appearance:none!important;-webkit-appearance:none!important;
+    width:100%!important;min-width:0!important;height:67px!important;margin:0!important;padding:0!important;
+    border:0!important;border-radius:0!important;background:transparent!important;text-decoration:none!important;
+    display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;
+    gap:4px!important;color:#706d67!important;font-family:inherit!important;font-size:12px!important;font-weight:800!important;
+    line-height:14px!important;letter-spacing:-.01em!important;text-align:center!important;box-sizing:border-box!important;
+  }
+  html body .mobile-bottom>button.active,html body .mobile-bottom>a.active{color:#ee6045!important}
+  html body .mobile-bottom svg{
+    display:block!important;flex:0 0 22px!important;width:22px!important;height:22px!important;
+    margin:0 auto!important;padding:0!important;transform:none!important;
+    stroke:currentColor!important;fill:none!important;stroke-width:1.8!important;stroke-linecap:round!important;stroke-linejoin:round!important;
+    overflow:visible!important;box-sizing:content-box!important;
+  }
+  html body .mobile-bottom span{
+    display:block!important;flex:0 0 14px!important;width:100%!important;height:14px!important;margin:0!important;padding:0!important;
+    line-height:14px!important;text-align:center!important;white-space:nowrap!important;transform:none!important;
+  }
+}
+</style>
+<style id="owner-home-scene-state-20260904">
+.scene-tab.active{background:var(--scene)!important;color:var(--scene-ink)!important;border-color:var(--scene)!important}
+.scene-tab.active span{opacity:.8!important}
+</style>
+<link data-final-header-sync="20260904" href="assets/consistency.css" rel="stylesheet"/>
+<style id="frontcheck-save-feedback-20260905">
+#saveBtn{position:relative;overflow:visible;transition:transform .18s ease,background .18s ease,color .18s ease}
+#saveBtn.is-saved{background:rgba(255,255,255,.18)!important}
+#saveBtn.save-bump{transform:scale(1.06)}
+.save-heart-pop{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:24px;pointer-events:none;z-index:30;animation:danjionHeartPop .72s ease forwards}
+@keyframes danjionHeartPop{0%{opacity:0;transform:translate(-50%,-25%) scale(.5)}35%{opacity:1;transform:translate(-50%,-90%) scale(1.25)}100%{opacity:0;transform:translate(-50%,-155%) scale(.9)}}
+</style>
+
+<style id="frontcheck1-home-search-grid-lock-20260905">
+@media(max-width:760px){
+ body[data-danjion-page="4"] .home-intro{overflow:hidden!important}
+ body[data-danjion-page="4"] .search{
+   width:100%!important;max-width:100%!important;min-width:0!important;
+   grid-template-columns:52px minmax(0,1fr) 52px!important;
+   overflow:hidden!important;box-sizing:border-box!important;
+ }
+ body[data-danjion-page="4"] .search input{
+   width:100%!important;min-width:0!important;max-width:100%!important;
+   padding:0 8px!important;box-sizing:border-box!important;
+ }
+ body[data-danjion-page="4"] .search button{
+   width:52px!important;min-width:52px!important;max-width:52px!important;
+ }
+}
+</style>
+
+<style id="frontcheck1-home-app-search-balance-20260905b">
+@media(max-width:760px){
+ body[data-danjion-page="4"] .search{
+   width:calc(100% - 8px)!important;
+   margin:17px auto 0!important;
+   height:52px!important;
+   grid-template-columns:50px minmax(0,1fr) 50px!important;
+   border:1px solid var(--line)!important;
+   border-top:2px solid var(--ink)!important;
+   background:rgba(255,255,255,.76)!important;
+   overflow:hidden!important;
+ }
+ body[data-danjion-page="4"] .search svg{width:19px!important;height:19px!important;margin:auto!important}
+ body[data-danjion-page="4"] .search input{height:50px!important;padding:0 8px!important;min-width:0!important}
+ body[data-danjion-page="4"] .search button{width:50px!important;min-width:50px!important;height:50px!important;margin:0!important;padding:0!important}
+}
+</style>
+
+<style id="frontcheck1-home-app-search-final-center-20260905">
+@media(max-width:760px){
+  body[data-danjion-page="4"] .home-intro{
+    width:100%!important;
+    max-width:100%!important;
+    margin:0!important;
+    padding:22px 18px 18px!important;
+    box-sizing:border-box!important;
+  }
+  body[data-danjion-page="4"] .search{
+    width:auto!important;
+    max-width:none!important;
+    min-width:0!important;
+    margin:17px 0 0!important;
+    justify-self:stretch!important;
+    align-self:stretch!important;
+    position:relative!important;
+    left:auto!important;
+    right:auto!important;
+    transform:none!important;
+    grid-template-columns:50px minmax(0,1fr) 50px!important;
+    box-sizing:border-box!important;
+  }
+  body[data-danjion-page="4"] .search input{
+    width:100%!important;
+    min-width:0!important;
+    padding:0 10px!important;
+    box-sizing:border-box!important;
+  }
+  body[data-danjion-page="4"] .search button{
+    width:50px!important;
+    min-width:50px!important;
+    max-width:50px!important;
+    margin:0!important;
+    padding:0!important;
+  }
+}
+</style>
+</head>
+<body data-danjion-page="4">
+<header class="topbar"><div class="topbar-inner"><button class="brand" data-route="index.html" type="button"><span class="wordmark">단지온</span><small>DANJION by PADIEM</small></button><nav class="nav"><button class="active" data-route="04_데일리홈.html" type="button">홈</button><button data-route="01_이웃가게_발견.html" type="button">이웃가게</button><button data-route="05_우리단지_첫화면.html" type="button">우리단지</button><button data-demo="내정보는 웹 1차 정리에서 연결합니다." type="button">내정보</button></nav><div class="identity">방림명지로드힐</div></div></header>
+<section class="home-intro"><div class="hello"><small>WELCOME HOME · 방림명지로드힐</small><h1>필요한 일, 우리 단지에서 먼저 찾습니다.</h1><p>우리 단지에서 필요한 가게와 생활서비스를 한눈에 찾아보세요.</p></div><form class="search" id="searchForm"><svg viewbox="0 0 24 24"><circle cx="10.5" cy="10.5" r="5.8"></circle><path d="m15 15 5 5"></path></svg><input aria-label="이웃가게 검색" id="searchInput" placeholder="반찬 · 과외 · 청소 · 세무"/><button aria-label="검색" type="submit">→</button></form></section>
+<section aria-label="시네마틱 이웃가게 소개" class="stage-wrap"><div class="stage"><div class="visual" id="visual"><img alt="오늘의 반찬 작업 장면" class="scene-image" id="sceneImage" src="assets/scene-food.webp"/><img alt="" aria-hidden="true" class="ghost" id="ghost" src="assets/scene-food.webp"/><div class="scene-no"><span id="sceneNumber">01</span> / 04 · 오늘의 대표 이웃</div><div class="caption"><div class="kicker">단지온이 소개하는 이웃의 일</div><h2 id="captionTitle">반찬을 만드는 이웃</h2><p id="captionText">손질하고, 볶고, 담는 과정이 먼저 보이면 광고문구보다 이웃의 일이 더 빨리 이해됩니다.</p></div><div aria-hidden="true" class="rail"><span class="rail-fill" id="railFill"></span></div></div><aside class="panel light" id="panel"><div><small id="sceneLabel">SCENE 01 · RESIDENT WORK</small><h3 id="shopName">오늘의 반찬</h3><p class="copy" id="shopCopy">매일 먹는 반찬을 직접 만들고 예약 주문으로 준비하는 이웃입니다.</p><div class="facts"><div class="fact"><b>주민 관계</b><span id="relation">현재 단지 주민 직접 운영</span></div><div class="fact"><b>이용 방법</b><span id="price">메뉴별 가격 · 예약 주문</span></div><div class="fact"><b>주민 혜택</b><span id="benefit">방림명지로드힐 주민 10%</span></div><div class="fact"><b>상태</b><span id="status">입주민 관계 확인 · 시연용 예시</span></div></div></div><div class="actions"><button class="primary" data-shop-key="food" id="detailBtn" type="button">이 이웃의 일 보기</button><button id="saveBtn" type="button">♡ 저장</button></div></aside></div><div aria-label="이웃가게 장면 선택" class="scene-tabs" role="tablist"><button class="scene-tab active" data-key="food" type="button">01<span>FOOD</span></button><button class="scene-tab" data-key="learning" type="button">02<span>LEARN</span></button><button class="scene-tab" data-key="home" type="button">03<span>HOME</span></button><button class="scene-tab" data-key="professional" type="button">04<span>PRO</span></button></div></section>
+<section class="after-stage"><article class="benefit"><div><small>RESIDENT BENEFIT</small><h3>가게마다 다른 주민혜택을<br/>이웃가게에서 확인하세요.</h3><p>여러 이웃가게를 둘러본 뒤 각 가게의 혜택 탭에서 자세히 확인할 수 있습니다.</p></div><button aria-label="이웃가게 전체 보기" class="go" data-route="01_이웃가게_발견.html?from=benefit" type="button">→</button></article><article class="news"><div class="news-head"><h3>우리단지 새 소식</h3><button data-route="05_우리단지_첫화면.html" type="button">전체보기 →</button></div><button class="news-row" data-route="06_단지온공지_목록.html" type="button"><small>단지온공지</small><b>주민 사업자 등록 안내</b><span>→</span></button><button class="news-row" data-route="08_아파트소식_목록.html" type="button"><small>아파트소식</small><b>8월 입주민 간담회 안내</b><span>→</span></button><button class="news-row" data-route="10_주민소식_목록.html" type="button"><small>주민소식</small><b>우리 단지 새 이웃가게 소개</b><span>→</span></button></article></section>
+<nav aria-label="모바일 주요 메뉴" class="mobile-bottom"><button aria-label="홈" class="active" data-route="04_데일리홈.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><path d="m3 10 9-7 9 7v10h-6v-6H9v6H3z"></path></svg><span>홈</span></button><button aria-label="이웃가게" data-route="01_이웃가게_발견.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><path d="M4 7h16l-1 13H5L4 7Z"></path><path d="M8 7V5a4 4 0 0 1 8 0v2"></path></svg><span>이웃가게</span></button><button aria-label="우리단지" data-route="05_우리단지_첫화면.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><path d="M4 21V9l8-6 8 6v12"></path><path d="M8 13h8M8 17h8"></path></svg><span>우리단지</span></button><button aria-label="내정보" data-route="19_내정보_메인.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><circle cx="12" cy="8" r="4"></circle><path d="M4 21a8 8 0 0 1 16 0"></path></svg><span>내정보</span></button></nav><div class="toast" id="toast" role="status"></div>
+<script>
+(()=>{
+const scenes={
+ food:{i:1,name:'오늘의 반찬',caption:'반찬을 만드는 이웃',captionText:'손질하고, 볶고, 담는 과정이 먼저 보이면 광고문구보다 이웃의 일이 더 빨리 이해됩니다.',copy:'매일 먹는 반찬을 직접 만들고 예약 주문으로 준비하는 이웃입니다.',relation:'현재 단지 주민 직접 운영',price:'메뉴별 가격 · 예약 주문',benefit:'방림명지로드힐 주민 10%',status:'입주민 관계 확인 · 시연용 예시',image:'assets/scene-food.webp',color:'#E95C3E',labelColor:'#B9422B',ink:'#111',dark:'#4B1E16',detail:'02_이웃가게_상세.html'},
+ learning:{i:2,name:'한결수학',caption:'수학을 가르치는 이웃',captionText:'칠판과 노트, 설명하는 손이 이어지면 “과외”가 실제 수업 장면으로 바뀝니다.',copy:'중·고등학생에게 문제를 푸는 이유부터 설명하는 수학 과외입니다.',relation:'현재 단지 주민 직접 운영',price:'중학생 월 32만원 · 고등학생 상담',benefit:'방림명지로드힐 학생 첫 수업 무료',status:'등록 시연용 예시',image:'https://images.unsplash.com/photo-1758685733926-00cba008215b?auto=format&fit=crop&w=1800&q=82',color:'#4057E8',labelColor:'#3048C9',ink:'#fff',dark:'#18265E',detail:'02_이웃가게_상세.html'},
+ home:{i:3,name:'온케어 홈서비스',caption:'집과 생활을 고치는 이웃',captionText:'작업도구와 손을 가까이 보여주고, 정보는 뒤늦게 따라오게 해 서비스의 실제감을 남깁니다.',copy:'보이지 않는 곳까지 분해하고 씻고 점검하는 생활관리 서비스입니다.',relation:'현재 단지 주민 가족 운영',price:'에어컨 1대 7만원부터',benefit:'방림명지로드힐 출장비 면제',status:'주민 가족 관계 확인 · 시연용 예시',image:'https://images.unsplash.com/photo-1768839725085-829e6ac7ac26?auto=format&fit=crop&w=1800&q=82',color:'#BDE53E',labelColor:'#4F6900',ink:'#111',dark:'#384217',detail:'02_이웃가게_상세.html'},
+ professional:{i:4,name:'바른 세무상담',caption:'사업과 문서를 돕는 이웃',captionText:'화려한 아이콘보다 손과 서류를 먼저 보여주고, 선택 후 상담 기준을 읽게 합니다.',copy:'사업자와 개인이 준비한 문서를 함께 보며 세금과 사업 절차를 설명합니다.',relation:'현재 단지 주민 직접 운영',price:'첫 상담 30분 기준',benefit:'방림명지로드힐 첫 상담 무료',status:'입주민 관계 확인 · 시연용 예시',image:'https://images.unsplash.com/photo-1772588627373-729b0f47e5bb?auto=format&fit=crop&w=1800&q=82',color:'#6840A5',labelColor:'#563183',ink:'#fff',dark:'#2E173D',detail:'02_이웃가게_상세.html'}
+};
+let key='food',timer;const isB=(()=>{try{return sessionStorage.getItem('danjion:shopVariant')==='v2'}catch(e){return false}})();const q=s=>document.querySelector(s),qa=s=>[...document.querySelectorAll(s)];
+function toast(t){const el=q('#toast');el.textContent=t;el.classList.add('show');clearTimeout(toast.t);toast.t=setTimeout(()=>el.classList.remove('show'),1500)}
+function setScene(next,manual=true){const d=scenes[next];if(!d||next===key&&manual===false)return;key=next;document.documentElement.style.setProperty('--scene',d.color);document.documentElement.style.setProperty('--scene-ink',d.ink);document.documentElement.style.setProperty('--dark',d.dark);document.documentElement.style.setProperty('--accent',d.color);document.documentElement.style.setProperty('--accent-text',d.labelColor||d.color);const visual=q('#visual'),img=q('#sceneImage'),ghost=q('#ghost');ghost.src=d.image;visual.classList.add('switching');setTimeout(()=>{img.src=d.image;img.alt=d.caption+' 작업 장면';visual.classList.remove('switching')},260);q('#sceneNumber').textContent=String(d.i).padStart(2,'0');q('#sceneLabel').textContent='SCENE '+String(d.i).padStart(2,'0')+' · RESIDENT WORK';q('#captionTitle').textContent=d.caption;q('#captionText').textContent=d.captionText;q('#shopName').textContent=d.name;q('#shopCopy').textContent=d.copy;q('#relation').textContent=d.relation;q('#price').textContent=d.price;q('#benefit').textContent=d.benefit;q('#status').textContent=d.status;q('#railFill').style.height=(d.i*25)+'%';q('#panel').classList.toggle('dark',d.ink==='#fff');q('#panel').classList.toggle('light',d.ink!=='#fff');qa('.scene-tab').forEach(b=>{const active=b.dataset.key===next;b.classList.toggle('active',active);b.setAttribute('aria-selected',String(active));if(active){b.style.background=d.color;b.style.color=d.ink;b.style.borderColor=d.color}else{b.style.background='';b.style.color='';b.style.borderColor=''}});q('#detailBtn').dataset.route=(isB?'01_이웃가게_발견_v2.html?shop=':'02_이웃가게_상세.html?shop=')+encodeURIComponent(next)+'&from=home';q('#detailBtn').dataset.shopKey=next;syncSaveButton();if(manual)restart();}
+function restart(){clearInterval(timer);timer=setInterval(()=>{const keys=Object.keys(scenes),i=keys.indexOf(key);setScene(keys[(i+1)%keys.length],false)},6500)}
+qa('.scene-tab').forEach(b=>b.addEventListener('click',()=>setScene(b.dataset.key)));qa('[data-route]').forEach(b=>b.addEventListener('click',()=>location.href=b.dataset.route));qa('[data-demo]').forEach(b=>b.addEventListener('click',()=>toast(b.dataset.demo)));q('#detailBtn').addEventListener('click',()=>location.href=q('#detailBtn').dataset.route);function getSaved(){try{return JSON.parse(localStorage.getItem('danjion:savedShops')||'[]')}catch(e){return []}}
+function setSaved(list){try{localStorage.setItem('danjion:savedShops',JSON.stringify([...new Set(list)]))}catch(e){}}
+function syncSaveButton(){const saved=getSaved().includes(key),b=q('#saveBtn');b.classList.toggle('is-saved',saved);b.textContent=saved?'♥ 저장됨':'♡ 저장'}
+function popHeart(){const b=q('#saveBtn'),h=document.createElement('span');h.className='save-heart-pop';h.textContent='♥';b.appendChild(h);b.classList.add('save-bump');setTimeout(()=>b.classList.remove('save-bump'),180);setTimeout(()=>h.remove(),760)}
+q('#saveBtn').addEventListener('click',()=>{const list=getSaved(),i=list.indexOf(key);if(i>=0){list.splice(i,1);setSaved(list);syncSaveButton();toast(scenes[key].name+' 저장을 취소했어요.')}else{list.push(key);setSaved(list);syncSaveButton();popHeart();toast(scenes[key].name+'을(를) 저장했어요. 내정보에서 다시 볼 수 있어요.')}});q('#searchForm').addEventListener('submit',e=>{e.preventDefault();const v=q('#searchInput').value.trim();if(!v){toast('찾고 싶은 일을 입력해 주세요.');return}location.href=(isB?'01_이웃가게_발견_v2.html?q=':'01_이웃가게_발견.html?q=')+encodeURIComponent(v)});syncSaveButton();restart();
+})();
+</script>
+<script id="danjion-direct-router-v5">
+(function(){
+const SCREEN="home";
+const B=(()=>{try{return sessionStorage.getItem("danjion:shopVariant")==="v2"}catch(e){return false}})();
+const FILES={"landing": "index.html", "home": "04_데일리홈.html", "shops": "01_이웃가게_발견.html", "shopDetail": "02_이웃가게_상세.html", "complex": "05_우리단지_첫화면.html", "noticeList": "06_단지온공지_목록.html", "noticeDetail": "07_단지온공지_상세.html", "apartment": "08_아파트소식_목록.html", "chair": "09_회장인사_상세.html", "residentList": "10_주민소식_목록.html", "residentDetail": "11_주민소식_상세.html", "community": "12_이웃대화_첫화면.html", "communityDetail": "13_이웃대화_글상세_댓글.html", "writeHello": "14_가입인사_글쓰기.html", "writeStory": "15_단지이야기_글쓰기.html", "writeQuestion": "16_궁금해요_글쓰기.html", "writeTogether": "17_같이해요_글쓰기.html", "my": "19_내정보_메인.html", "messages": "20_메시지함_목록.html", "messageDetail": "21_메시지_대화상세.html", "profile": "22_주민_공개프로필.html", "warmth": "23_이웃온기.html", "settings": "24_설정.html", "inquiry": "25_1대1문의.html", "apply": "25A_신청제보.html", "household": "26_우리집연결.html", "notifications": "27_알림함.html", "activity": "28_나의활동.html"};
+if(B){FILES.landing='index2.html';FILES.shops='01_이웃가게_발견_v2.html';FILES.shopDetail='01_이웃가게_발견_v2.html';FILES.benefits='03_주민혜택_쿠폰_v2.html'}
+const norm=s=>(s||'').replace(/\s+/g,' ').trim();
+function go(f){
+  if(!f)return;
+  location.href=f;
+}
+function main(label){go({'홈':FILES.home,'이웃가게':FILES.shops,'우리단지':FILES.complex,'내정보':FILES.my}[label]);}
+function routeFrom(v){v=(v||'').split('#')[0]; if(!v)return null;
+  const q=v.includes('?')?'?'+v.split('?').slice(1).join('?'):''; const p=v.split('?')[0];
+  const arr=[["29_", "index.html"], ["04_", "04_데일리홈.html"], ["01_", "01_이웃가게_발견.html"], ["02_", "02_이웃가게_상세.html"], ["05_", "05_우리단지_첫화면.html"], ["06_", "06_단지온공지_목록.html"], ["07_", "07_단지온공지_상세.html"], ["08_", "08_아파트소식_목록.html"], ["09_", "09_회장인사_상세.html"], ["10_", "10_주민소식_목록.html"], ["11_", "11_주민소식_상세.html"], ["12_", "12_이웃대화_첫화면.html"], ["13_", "13_이웃대화_글상세_댓글.html"], ["14_", "14_가입인사_글쓰기.html"], ["15_", "15_단지이야기_글쓰기.html"], ["16_", "16_궁금해요_글쓰기.html"], ["17_", "17_같이해요_글쓰기.html"], ["19_", "19_내정보_메인.html"], ["20_", "20_메시지함_목록.html"], ["21_", "21_메시지_대화상세.html"], ["22_", "22_주민_공개프로필.html"], ["23_", "23_이웃온기.html"], ["24_", "24_설정.html"], ["25_", "25_1대1문의.html"], ["26_", "26_우리집연결.html"], ["27_", "27_알림함.html"], ["28_", "28_나의활동.html"]];
+  for(const [t,f] of arr) if(p.includes(t)){if(B&&f==='01_이웃가게_발견.html')return FILES.shops+q;if(B&&f==='02_이웃가게_상세.html')return FILES.shopDetail+q;return f+q;}
+  if(p==='index.html') return B?'index2.html':'index.html'; return null;
+}
+function backFallback(){
+  const parentMap={
+    shops:FILES.home,shopDetail:FILES.shops,complex:FILES.home,
+    noticeList:FILES.complex,noticeDetail:FILES.noticeList,apartment:FILES.complex,chair:FILES.complex,
+    residentList:FILES.complex,residentDetail:FILES.residentList,community:FILES.complex,communityDetail:FILES.community,
+    writeHello:FILES.community,writeStory:FILES.community,writeQuestion:FILES.community,writeTogether:FILES.community,
+    my:FILES.home,messages:FILES.my,messageDetail:FILES.messages,profile:FILES.my,warmth:FILES.my,
+    settings:FILES.my,inquiry:FILES.settings,apply:FILES.shops,household:FILES.my,notifications:FILES.my,activity:FILES.my
+  };
+  location.href=parentMap[SCREEN]||FILES.home;
+}
+
+document.addEventListener('click',function(ev){
+ const el=ev.target.closest('a,button,[data-route]'); if(!el)return;
+ const text=norm(el.textContent), cls=el.classList||{contains:()=>false};
+ // landing internal modal/greeting controls stay native
+ if(SCREEN==='landing'){
+   if(el.matches('[data-auth],[data-preview],[data-greeting],[data-email],[data-social],[data-reset],[data-resend],[data-term],[data-term-close],[data-address-next],[data-terms-next],[data-finish],[data-required-all]')) return;
+   if(el.matches('[data-chair-close]')){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.home);return;}
+   if(el.matches('[data-chair-detail]')){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.chair);return;}
+   if(el.matches('[data-guest-enter]')){ev.preventDefault();ev.stopImmediatePropagation();sessionStorage.setItem('danjionGuest','1');go(FILES.home);return;}
+   if(el.matches('[data-top]')) return;
+ }
+ if(cls.contains('brand')){ev.preventDefault();ev.stopImmediatePropagation();go(B?'index2.html':'index.html');return;}
+ const inMain=!!el.closest('.nav,.desktop-nav,.mobile-bottom,.topbar nav,.main-nav');
+ if(inMain && ['홈','이웃가게','우리단지','내정보'].includes(text)){ev.preventDefault();ev.stopImmediatePropagation();main(text);return;}
+ if(cls.contains('back')||cls.contains('route-back')||((/^←|^‹|^< /.test(text))&&!cls.contains('modal-back'))){ev.preventDefault();ev.stopImmediatePropagation();backFallback();return;}
+ // home: current scene -> selected shop detail
+ if(SCREEN==='home' && el.id==='detailBtn'){ev.preventDefault();ev.stopImmediatePropagation();const k=el.dataset.shopKey||'food';go(FILES.shopDetail+'?shop='+encodeURIComponent(k)+'&from=home');return;}
+ // shops cards -> specific shop detail
+ if(SCREEN==='shops' && cls.contains('shop-link')){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.shopDetail+'?shop='+encodeURIComponent(el.dataset.shopKey||'florist'));return;}
+ if(SCREEN==='shops' && text==='이웃가게 제보'){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.apply+'?mode=report');return;}
+ if(SCREEN==='shops' && (text==='내 가게 등록 신청'||text==='내 가게 등록 문의')){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.apply+'?mode=apply');return;}
+ if(SCREEN==='complex' && cls.contains('channel-link')){ev.preventDefault();ev.stopImmediatePropagation();const i=[...document.querySelectorAll('.channel-link')].indexOf(el);go([FILES.noticeList,FILES.apartment,FILES.residentList,FILES.community][i]||FILES.complex);return;}
+ if(SCREEN==='noticeList' && (cls.contains('pinned-link')||cls.contains('notice-row'))){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.noticeDetail);return;}
+ if(SCREEN==='apartment' && cls.contains('feature-link')){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.chair);return;}
+ if(SCREEN==='residentList' && cls.contains('story-link')){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.residentDetail);return;}
+ if(SCREEN==='community' && cls.contains('write-type')){ev.preventDefault();ev.stopImmediatePropagation();const i=[...document.querySelectorAll('.write-type')].indexOf(el);go([FILES.writeHello,FILES.writeStory,FILES.writeQuestion,FILES.writeTogether][i]||FILES.community);return;}
+ if(SCREEN==='community' && el.tagName==='A' && text.includes('안녕하세요')){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.communityDetail);return;}
+ if(SCREEN==='my' && cls.contains('card-link')){ev.preventDefault();ev.stopImmediatePropagation();const i=[...document.querySelectorAll('.card-link')].indexOf(el);go(i===0?FILES.messages:FILES.household);return;}
+ if(SCREEN==='my' && cls.contains('menu-row')){ev.preventDefault();ev.stopImmediatePropagation();const i=[...document.querySelectorAll('.menu-row')].indexOf(el);go(FILES.activity+'?tab='+Math.min(i,3));return;}
+ if(SCREEN==='my' && (text.includes('설정 열기')||text.includes('이용 설정'))){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.settings);return;}
+ if(SCREEN==='messages' && cls.contains('mail-row')){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.messageDetail);return;}
+ if(SCREEN==='messageDetail' && (text.includes('공개 프로필')||text.includes('산책메이트'))){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.profile);return;}
+ if(SCREEN==='profile' && cls.contains('message-button')){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.messageDetail);return;}
+ if(SCREEN==='settings' && (cls.contains('support-button')||text.includes('1:1 문의'))){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.inquiry);return;}
+ if(SCREEN==='activity' && cls.contains('side-link')){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.profile);return;}
+ // known data-route or anchors
+ const dr=el.dataset&&el.dataset.route; if(dr){const f=routeFrom(dr);if(f){ev.preventDefault();ev.stopImmediatePropagation();go(f);return;}}
+ if(el.tagName==='A'){const f=routeFrom(el.getAttribute('href'));if(f){ev.preventDefault();ev.stopImmediatePropagation();go(f);return;}}
+},true);
+
+// screen-specific initial state
+if(SCREEN==='shopDetail'){ const p=new URLSearchParams(location.search),k=p.get('shop'); if(k) setTimeout(()=>window.postMessage({type:'danjion-integrated:setShop',shopKey:k},'*'),0); }
+if(SCREEN==='apply'){ const p=new URLSearchParams(location.search),mode=p.get('mode'); if(mode) setTimeout(()=>window.postMessage({type:'danjion-integrated:setMode',mode},'*'),0); }
+if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt(p.get('tab')||'0',10); if(Number.isInteger(i)) setTimeout(()=>window.postMessage({type:'danjion-integrated:activityTab',index:i},'*'),0); }
+})();
+</script>
+<script id="danjion-review-route-sync">
+(function(){
+  try{
+    if(new URLSearchParams(location.search).get('review')==='1'){
+      sessionStorage.removeItem('danjionRouteStack');
+    }
+  }catch(e){}
+  function reportRoute(){
+    try{
+      const file=decodeURIComponent((location.pathname.split('/').pop()||'index.html').split('?')[0]);
+      if(window.parent!==window) window.parent.postMessage({type:'danjion-route',file:file,href:location.href},'*');
+    }catch(e){}
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',reportRoute,{once:true});else reportRoute();
+  window.addEventListener('pageshow',reportRoute);
+  window.addEventListener('hashchange',reportRoute);
+})();
+</script>
+</body>
+</html>

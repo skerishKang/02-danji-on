@@ -1,0 +1,916 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  />
+  <title>단지온 PHASE 2 통합 테스트</title>
+
+  <style>
+    body {
+      font-family: sans-serif;
+      max-width: 950px;
+      margin: 30px auto;
+      padding: 0 20px;
+    }
+
+    section {
+      border: 1px solid #ccc;
+      padding: 18px;
+      margin: 18px 0;
+    }
+
+    input {
+      padding: 7px;
+      margin: 4px;
+      min-width: 260px;
+    }
+
+    button {
+      padding: 9px 14px;
+      margin: 5px;
+    }
+
+    pre {
+      background: #f5f5f5;
+      padding: 12px;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+
+    .important {
+      background: #fff9dd;
+      padding: 12px;
+    }
+  </style>
+</head>
+
+<body>
+
+  <h1>단지온 PHASE 2 통합 테스트</h1>
+
+  <p class="important">
+    JWT나 비밀번호는 결과창에 표시하지 않습니다.
+    테스트용 가게 ID/후기 ID만 브라우저에 임시 보관합니다.
+  </p>
+
+
+  <section>
+    <h2>1. 로그인</h2>
+
+    <input
+      id="email"
+      type="email"
+      placeholder="이메일"
+    />
+
+    <input
+      id="password"
+      type="password"
+      placeholder="비밀번호"
+    />
+
+    <button id="login">
+      로그인
+    </button>
+
+    <button id="logout">
+      로그아웃
+    </button>
+
+    <pre id="loginResult"></pre>
+  </section>
+
+
+  <section>
+    <h2>2. 주민 기능 일괄 테스트</h2>
+
+    <p>
+      먼저 <strong>user 1</strong> 계정으로 로그인한 뒤
+      이 버튼을 한 번만 누릅니다.
+    </p>
+
+    <button id="residentBundle">
+      주민 PHASE 2 전체 테스트
+    </button>
+
+    <pre id="residentResult"></pre>
+  </section>
+
+
+  <section>
+    <h2>3. 점주 답글 일괄 테스트</h2>
+
+    <p>
+      위 테스트가 PASS한 뒤 로그아웃하고,
+      가게 주인인 <strong>user 7</strong>로 로그인해서
+      이 버튼을 누릅니다.
+    </p>
+
+    <button id="ownerBundle">
+      점주 답글 + slug 상세 테스트
+    </button>
+
+    <pre id="ownerResult"></pre>
+  </section>
+
+
+  <script type="module">
+
+    import {
+      createAuthClient
+    } from "@neondatabase/auth";
+
+    const AUTH_URL =
+      "https://ep-old-boat-azi7guqq.neonauth.c-3.ap-southeast-1.aws.neon.tech/neondb/auth";
+
+    const auth =
+      createAuthClient(AUTH_URL);
+
+    let jwt = null;
+
+
+    async function getJwt() {
+      if (jwt) {
+        return jwt;
+      }
+
+      const sessionResult =
+        await auth.getSession();
+
+      const session =
+        sessionResult?.data ??
+        sessionResult;
+
+      jwt =
+        session?.session?.token ??
+        null;
+
+      if (
+        !jwt ||
+        jwt.split(".").length !== 3
+      ) {
+        throw new Error(
+          "먼저 로그인하세요."
+        );
+      }
+
+      return jwt;
+    }
+
+
+    async function api(
+      path,
+      options = {}
+    ) {
+      const token =
+        await getJwt();
+
+      const response =
+        await fetch(
+          path,
+          {
+            ...options,
+
+            headers: {
+              Authorization:
+                `Bearer ${token}`,
+
+              ...(options.body
+                ? {
+                    "Content-Type":
+                      "application/json"
+                  }
+                : {}),
+
+              ...(options.headers ?? {})
+            }
+          }
+        );
+
+      let data;
+
+      try {
+        data =
+          await response.json();
+      } catch {
+        data = {
+          ok: false,
+          error: "NON_JSON_RESPONSE"
+        };
+      }
+
+      return {
+        http_status:
+          response.status,
+
+        ...data
+      };
+    }
+
+
+    function show(
+      selector,
+      value
+    ) {
+      document
+        .querySelector(selector)
+        .textContent =
+          JSON.stringify(
+            value,
+            null,
+            2
+          );
+    }
+
+
+    function assertOk(
+      result,
+      label
+    ) {
+      if (
+        result.http_status < 200 ||
+        result.http_status >= 300 ||
+        result.ok !== true
+      ) {
+        throw new Error(
+          `${label} 실패: ` +
+          JSON.stringify(result)
+        );
+      }
+
+      return result;
+    }
+
+
+    document
+      .querySelector("#login")
+      .addEventListener(
+        "click",
+        async () => {
+          try {
+
+            const result =
+              await auth.signIn.email({
+                email:
+                  document
+                    .querySelector("#email")
+                    .value
+                    .trim(),
+
+                password:
+                  document
+                    .querySelector("#password")
+                    .value
+              });
+
+            if (result?.error) {
+              throw result.error;
+            }
+
+            jwt = null;
+
+            const me =
+              await api("/api/me");
+
+            show(
+              "#loginResult",
+              me
+            );
+
+          } catch (error) {
+
+            show(
+              "#loginResult",
+              {
+                ok: false,
+                error:
+                  error?.message ??
+                  String(error)
+              }
+            );
+          }
+        }
+      );
+
+
+    document
+      .querySelector("#logout")
+      .addEventListener(
+        "click",
+        async () => {
+
+          await auth.signOut();
+
+          jwt = null;
+
+          show(
+            "#loginResult",
+            {
+              logout_ok: true
+            }
+          );
+        }
+      );
+
+
+    // =====================================================
+    // USER 1
+    // 주민 기능 전체 테스트
+    // =====================================================
+
+    document
+      .querySelector("#residentBundle")
+      .addEventListener(
+        "click",
+        async () => {
+
+          const report = {
+            steps: []
+          };
+
+          try {
+
+            // ---------------------------------------------
+            // 1. HOME
+            // ---------------------------------------------
+
+            const home =
+              assertOk(
+                await api(
+                  "/api/home"
+                ),
+                "홈"
+              );
+
+            report.steps.push({
+              step:
+                "home_featured",
+              pass: true,
+              featured_count:
+                home.data
+                  ?.featured_shops
+                  ?.length ?? 0
+            });
+
+
+            // ---------------------------------------------
+            // 2. SEARCH
+            // ---------------------------------------------
+
+            const search =
+              assertOk(
+                await api(
+                  "/api/businesses?q=카페"
+                ),
+                "가게 검색"
+              );
+
+            if (
+              !search.data
+                ?.businesses
+                ?.length
+            ) {
+              throw new Error(
+                "카페 검색 결과가 없습니다."
+              );
+            }
+
+            const business =
+              search.data.businesses[0];
+
+            const businessId =
+              String(business.id);
+
+            const publicSlug =
+              business.public_slug;
+
+            sessionStorage.setItem(
+              "danjion_test_business_id",
+              businessId
+            );
+
+            sessionStorage.setItem(
+              "danjion_test_public_slug",
+              publicSlug
+            );
+
+            report.steps.push({
+              step:
+                "search",
+              pass: true,
+              business_id:
+                businessId,
+              public_slug:
+                publicSlug,
+              name:
+                business.name
+            });
+
+
+            // ---------------------------------------------
+            // 3. FILTER
+            // ---------------------------------------------
+
+            const filter =
+              assertOk(
+                await api(
+                  "/api/businesses?filter=cafe"
+                ),
+                "카페 필터"
+              );
+
+            const filterFound =
+              filter.data
+                ?.businesses
+                ?.some(
+                  (item) =>
+                    String(item.id) ===
+                    businessId
+                );
+
+            if (!filterFound) {
+              throw new Error(
+                "cafe 필터에서 대상 가게를 찾지 못했습니다."
+              );
+            }
+
+            report.steps.push({
+              step:
+                "filter_cafe",
+              pass: true
+            });
+
+
+            // ---------------------------------------------
+            // 4. DETAIL
+            // ---------------------------------------------
+
+            const detail =
+              assertOk(
+                await api(
+                  `/api/businesses/${businessId}`
+                ),
+                "가게 상세"
+              );
+
+            report.steps.push({
+              step:
+                "business_detail",
+              pass: true,
+              saved:
+                detail.data
+                  ?.business
+                  ?.saved,
+              benefit_count:
+                detail.data
+                  ?.business
+                  ?.benefits
+                  ?.length ?? 0
+            });
+
+
+            // ---------------------------------------------
+            // 5. SAVE
+            // ---------------------------------------------
+
+            const save =
+              assertOk(
+                await api(
+                  `/api/businesses/${businessId}/save`,
+                  {
+                    method:
+                      "POST"
+                  }
+                ),
+                "가게 저장"
+              );
+
+            if (
+              save.data?.saved !== true
+            ) {
+              throw new Error(
+                "저장 상태가 true가 아닙니다."
+              );
+            }
+
+
+            const savedList =
+              assertOk(
+                await api(
+                  "/api/me/saved-businesses"
+                ),
+                "저장 가게 목록"
+              );
+
+            const savedFound =
+              savedList.data
+                ?.businesses
+                ?.some(
+                  (item) =>
+                    String(item.id) ===
+                    businessId
+                );
+
+            if (!savedFound) {
+              throw new Error(
+                "내 저장가게 목록에서 대상 가게가 없습니다."
+              );
+            }
+
+
+            // 저장 취소도 확인
+            const unsave =
+              assertOk(
+                await api(
+                  `/api/businesses/${businessId}/save`,
+                  {
+                    method:
+                      "DELETE"
+                  }
+                ),
+                "저장 취소"
+              );
+
+            if (
+              unsave.data?.saved !== false
+            ) {
+              throw new Error(
+                "저장 취소 결과가 false가 아닙니다."
+              );
+            }
+
+
+            // 최종 상태는 다시 저장
+            await api(
+              `/api/businesses/${businessId}/save`,
+              {
+                method:
+                  "POST"
+              }
+            );
+
+            report.steps.push({
+              step:
+                "save_unsave",
+              pass: true,
+              final_saved:
+                true
+            });
+
+
+            // ---------------------------------------------
+            // 6. REVIEW A
+            // 점주 답글용
+            // ---------------------------------------------
+
+            const reviewA =
+              assertOk(
+                await api(
+                  `/api/businesses/${businessId}/reviews`,
+                  {
+                    method:
+                      "POST",
+
+                    body:
+                      JSON.stringify({
+                        body:
+                          "단지온 주민 후기 통합 테스트입니다."
+                      })
+                  }
+                ),
+                "후기 A 작성"
+              );
+
+            const replyReviewId =
+              String(
+                reviewA.data.id
+              );
+
+            sessionStorage.setItem(
+              "danjion_test_reply_review_id",
+              replyReviewId
+            );
+
+            report.steps.push({
+              step:
+                "review_create_for_reply",
+              pass: true,
+              review_id:
+                replyReviewId
+            });
+
+
+            // ---------------------------------------------
+            // 7. REVIEW B
+            // 수정 + 삭제 검증용
+            // ---------------------------------------------
+
+            const reviewB =
+              assertOk(
+                await api(
+                  `/api/businesses/${businessId}/reviews`,
+                  {
+                    method:
+                      "POST",
+
+                    body:
+                      JSON.stringify({
+                        body:
+                          "수정 삭제 검증용 후기입니다."
+                      })
+                  }
+                ),
+                "후기 B 작성"
+              );
+
+            const mutationReviewId =
+              String(
+                reviewB.data.id
+              );
+
+
+            const patched =
+              assertOk(
+                await api(
+                  `/api/reviews/${mutationReviewId}`,
+                  {
+                    method:
+                      "PATCH",
+
+                    body:
+                      JSON.stringify({
+                        body:
+                          "수정된 후기입니다."
+                      })
+                  }
+                ),
+                "내 후기 수정"
+              );
+
+
+            const deleted =
+              assertOk(
+                await api(
+                  `/api/reviews/${mutationReviewId}`,
+                  {
+                    method:
+                      "DELETE"
+                  }
+                ),
+                "내 후기 삭제"
+              );
+
+
+            if (
+              deleted.data
+                ?.deleted !== true
+            ) {
+              throw new Error(
+                "후기 삭제 상태가 true가 아닙니다."
+              );
+            }
+
+            report.steps.push({
+              step:
+                "review_edit_delete",
+              pass: true,
+              review_id:
+                mutationReviewId,
+              patched_body:
+                patched.data?.body
+            });
+
+
+            // ---------------------------------------------
+            // 8. ACTIVE REVIEWS
+            // ---------------------------------------------
+
+            const reviews =
+              assertOk(
+                await api(
+                  `/api/businesses/${businessId}/reviews`
+                ),
+                "후기 목록"
+              );
+
+            const replyTargetExists =
+              reviews.data
+                ?.reviews
+                ?.some(
+                  (item) =>
+                    String(item.id) ===
+                    replyReviewId
+                );
+
+            if (!replyTargetExists) {
+              throw new Error(
+                "점주답글 대상 후기가 목록에 없습니다."
+              );
+            }
+
+            report.steps.push({
+              step:
+                "reviews_list",
+              pass: true,
+              active_count:
+                reviews.data?.count
+            });
+
+
+            report.result =
+              "RESIDENT_PHASE2_PASS";
+
+            show(
+              "#residentResult",
+              report
+            );
+
+          } catch (error) {
+
+            report.result =
+              "RESIDENT_PHASE2_FAIL";
+
+            report.error =
+              error?.message ??
+              String(error);
+
+            show(
+              "#residentResult",
+              report
+            );
+          }
+        }
+      );
+
+
+    // =====================================================
+    // USER 7
+    // 가게 주인 답글 + slug 검증
+    // =====================================================
+
+    document
+      .querySelector("#ownerBundle")
+      .addEventListener(
+        "click",
+        async () => {
+
+          const report = {
+            steps: []
+          };
+
+          try {
+
+            const businessId =
+              sessionStorage.getItem(
+                "danjion_test_business_id"
+              );
+
+            const publicSlug =
+              sessionStorage.getItem(
+                "danjion_test_public_slug"
+              );
+
+            const reviewId =
+              sessionStorage.getItem(
+                "danjion_test_reply_review_id"
+              );
+
+            if (
+              !businessId ||
+              !publicSlug ||
+              !reviewId
+            ) {
+              throw new Error(
+                "먼저 user 1 주민 통합 테스트를 실행하세요."
+              );
+            }
+
+
+            // ---------------------------------------------
+            // 1. OWNER REPLY
+            // ---------------------------------------------
+
+            const reply =
+              assertOk(
+                await api(
+                  `/api/reviews/${reviewId}/reply`,
+                  {
+                    method:
+                      "POST",
+
+                    body:
+                      JSON.stringify({
+                        body:
+                          "이용해주셔서 감사합니다. 주민분들께 더 좋은 서비스를 준비하겠습니다."
+                      })
+                  }
+                ),
+                "점주 답글"
+              );
+
+            report.steps.push({
+              step:
+                "owner_reply",
+              pass: true,
+              reply_id:
+                reply.data?.id,
+              review_id:
+                reply.data?.review_id
+            });
+
+
+            // ---------------------------------------------
+            // 2. SLUG DETAIL
+            // ---------------------------------------------
+
+            const slugDetail =
+              assertOk(
+                await api(
+                  `/api/businesses/by-slug/${encodeURIComponent(publicSlug)}`
+                ),
+                "공유 slug 상세"
+              );
+
+            const business =
+              slugDetail.data
+                ?.business;
+
+            if (
+              String(business?.id) !==
+              businessId
+            ) {
+              throw new Error(
+                "slug가 다른 가게를 가리킵니다."
+              );
+            }
+
+
+            const review =
+              business
+                ?.reviews
+                ?.find(
+                  (item) =>
+                    String(item.id) ===
+                    reviewId
+                );
+
+            if (
+              !review ||
+              !review.reply
+            ) {
+              throw new Error(
+                "상세 화면에서 점주 답글을 확인하지 못했습니다."
+              );
+            }
+
+            report.steps.push({
+              step:
+                "permanent_slug",
+              pass: true,
+              public_slug:
+                publicSlug,
+              business_id:
+                businessId
+            });
+
+            report.steps.push({
+              step:
+                "detail_contains_owner_reply",
+              pass: true,
+              review_id:
+                reviewId
+            });
+
+
+            report.result =
+              "OWNER_PHASE2_PASS";
+
+            show(
+              "#ownerResult",
+              report
+            );
+
+          } catch (error) {
+
+            report.result =
+              "OWNER_PHASE2_FAIL";
+
+            report.error =
+              error?.message ??
+              String(error);
+
+            show(
+              "#ownerResult",
+              report
+            );
+          }
+        }
+      );
+
+  </script>
+
+</body>
+</html>

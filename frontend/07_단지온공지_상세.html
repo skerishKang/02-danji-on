@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+
+<html lang="ko">
+<head>
+<meta charset="utf-8"/><meta content="width=device-width,initial-scale=1" name="viewport"/>
+<title>단지온 · 중요 공지 상세 · STEP 07</title>
+<style>
+    @import url("assets/consistency.css");
+    :root{--paper:#f6f2e9;--paper2:#fffdf8;--ink:#101317;--navy:#101d30;--coral:#ee6045;--amber:#f2b84b;--green:#255e49;--muted:#6d6a64;--line:#d8d0c3;--soft:#ece5d8;--header:76px}
+    *{box-sizing:border-box}html{background:var(--paper);color:var(--ink);font-family:Pretendard,"Pretendard Variable","Noto Sans KR",Arial,sans-serif;scroll-behavior:smooth;scroll-padding-top:105px}body{margin:0;min-width:320px;background:var(--paper)}button,a{font:inherit;color:inherit}button,a{cursor:pointer}a{text-decoration:none}
+    .site-header{height:var(--header);border-bottom:1px solid var(--line);background:rgba(246,242,233,.96);display:flex;align-items:center;position:sticky;top:0;z-index:40;backdrop-filter:blur(12px)}.header-inner{width:min(1280px,calc(100% - 64px));margin:auto;display:flex;align-items:center;justify-content:space-between}.brand{display:flex;align-items:baseline;gap:10px;border:0;background:none;padding:0;font-weight:900;font-size:25px;letter-spacing:-.05em}.brand small{font-size:11px;letter-spacing:.11em;color:#5f5c56;font-weight:850}.desktop-nav{display:flex;align-items:center;gap:42px;height:var(--header)}.desktop-nav button{height:100%;border:0;background:none;padding:0 2px;font-size:16px;font-weight:780;position:relative}.desktop-nav button.active::after{content:"";height:3px;position:absolute;left:0;right:0;bottom:0;background:var(--coral)}.identity{font-size:14px;font-weight:780;color:#58554f}.mobile-head{display:none}
+    main{width:min(1280px,calc(100% - 64px));margin:auto;padding:0 0 110px}.route{height:58px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--line)}.route a{display:flex;align-items:center;gap:9px;font-size:15px;font-weight:850}.route svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8}.route span{font-size:14px;color:var(--muted)}.route span::before{content:"/";margin-right:10px;color:#aaa49b}
+    .article-head{display:grid;grid-template-columns:180px minmax(0,1fr);gap:54px;padding:52px 0 46px;border-bottom:1px solid var(--ink)}.head-label{padding-top:5px}.head-label span{display:inline-flex;align-items:center;gap:10px;color:var(--coral);font-size:14px;font-weight:900}.head-label span::before{content:"";width:28px;height:2px;background:var(--coral)}.head-label b{display:block;font-size:70px;line-height:1;margin-top:26px;color:var(--soft);letter-spacing:-.06em}.article-head h1{max-width:900px;font-size:54px;line-height:1.2;letter-spacing:-.055em;margin:0;word-break:keep-all}.lead{max-width:760px;font-size:19px;line-height:1.75;color:var(--muted);margin:24px 0 29px}.meta{display:flex;align-items:center;gap:13px;font-size:14px;font-weight:780}.meta span+span::before{content:"";display:inline-block;width:1px;height:13px;background:var(--line);margin-right:13px;vertical-align:-2px}
+    .article-body{display:grid;grid-template-columns:180px minmax(0,1fr);gap:54px;padding-top:56px}.article-index{position:sticky;top:108px;align-self:start;border-top:1px solid var(--ink)}.article-index a{display:block;padding:16px 10px 16px 2px;border-bottom:1px solid var(--line);font-size:15px;font-weight:820;color:var(--muted);transition:color .18s,transform .18s}.article-index a:hover,.article-index a:focus-visible,.article-index a[aria-current="true"]{color:var(--coral);transform:translateX(4px)}.content{max-width:900px}.opening{font-size:21px;line-height:1.9;margin:0 0 47px;letter-spacing:-.02em}.opening strong{font-weight:900}.menu-guide,.notice-box,.writing{scroll-margin-top:105px}
+    .menu-guide{border-top:1px solid var(--ink)}.guide-row{display:grid;grid-template-columns:88px 180px 1fr;gap:28px;align-items:start;padding:28px 0;border-bottom:1px solid var(--line)}.guide-row .num{font-size:13px;font-weight:900;color:var(--coral)}.guide-row h2{font-size:24px;line-height:1.35;letter-spacing:-.035em;margin:0}.guide-row p{font-size:17px;line-height:1.75;color:var(--muted);margin:0;word-break:keep-all}
+    .notice-box{margin-top:48px;padding:36px;background:var(--navy);color:#fff;display:grid;grid-template-columns:190px 1fr;gap:42px;position:relative;overflow:hidden}.notice-box::after{content:"";position:absolute;width:250px;height:250px;border:1px solid rgba(255,255,255,.09);border-radius:50%;right:-88px;bottom:-120px}.notice-box .kicker{color:var(--amber);font-size:14px;font-weight:900;position:relative;z-index:2}.notice-box h2{font-size:31px;line-height:1.35;letter-spacing:-.04em;margin:0 0 15px;position:relative;z-index:2}.notice-box p{font-size:17px;line-height:1.75;color:rgba(255,255,255,.74);margin:0;position:relative;z-index:2}
+    .writing{margin-top:50px;padding-top:38px;border-top:1px solid var(--ink)}.writing .kicker{font-size:14px;font-weight:900;color:var(--coral)}.writing h2{font-size:32px;line-height:1.35;letter-spacing:-.04em;margin:12px 0 17px}.writing p{font-size:18px;line-height:1.82;color:var(--muted);margin:0}.writing ul{list-style:none;margin:27px 0 0;padding:0;border-top:1px solid var(--line)}.writing li{display:grid;grid-template-columns:24px 1fr;gap:13px;padding:16px 0;border-bottom:1px solid var(--line);font-size:17px;line-height:1.55}.writing li::before{content:"✓";font-weight:900;color:var(--green)}
+    .article-foot{margin-top:58px;padding-top:22px;border-top:1px solid var(--ink);display:flex;align-items:center;justify-content:space-between}.article-foot p{font-size:14px;color:var(--muted);margin:0}.back-list{min-width:180px;height:52px;background:var(--ink);color:#fff;display:flex;align-items:center;justify-content:center;gap:13px;font-size:15px;font-weight:850}.back-list span{font-size:20px}.mobile-bottom,.mobile-sticky{display:none}
+    @media(max-width:760px){:root{--header:60px}body{padding-bottom:132px;background:#fbf8f2}.header-inner{width:100%;padding:0 20px}.brand{font-size:21px}.brand small,.desktop-nav,.identity{display:none}.mobile-head{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:820;color:var(--muted)}main{width:100%;padding:0 20px 40px}.route{height:52px;margin:0 -20px;padding:0 20px;background:var(--paper2)}.route a{font-size:14px}.route span{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.article-head{display:block;padding:30px 0 31px}.head-label{display:flex;align-items:center;justify-content:space-between;padding:0}.head-label span{font-size:13px}.head-label span::before{width:20px}.head-label b{font-size:30px;margin:0;color:#d9d2c6}.article-head h1{font-size:37px;line-height:1.24;margin-top:25px}.lead{font-size:17px;line-height:1.7;margin:19px 0 23px}.meta{font-size:13px}.article-body{display:block;padding-top:31px}.article-index{display:none}.opening{font-size:18px;line-height:1.85;margin-bottom:36px}.guide-row{grid-template-columns:45px 1fr;gap:6px 13px;padding:23px 0}.guide-row .num{grid-row:1/3;font-size:12px;padding-top:5px}.guide-row h2{font-size:21px}.guide-row p{font-size:16px;line-height:1.72}.notice-box{margin:35px -20px 0;padding:29px 20px;display:block}.notice-box .kicker{font-size:13px}.notice-box h2{font-size:27px;margin:19px 0 13px}.notice-box p{font-size:16px}.writing{margin-top:39px;padding-top:30px}.writing .kicker{font-size:13px}.writing h2{font-size:27px}.writing p{font-size:17px}.writing li{font-size:16px}.article-foot{display:none}.mobile-sticky{display:block;position:fixed;left:0;right:0;bottom:68px;z-index:48;padding:10px 20px;background:rgba(255,253,248,.96);border-top:1px solid var(--line)}.mobile-sticky .back-list{width:100%;height:50px}.mobile-bottom{position:fixed;display:grid;grid-template-columns:repeat(4,1fr);left:0;right:0;bottom:0;height:68px;background:rgba(255,253,248,.98);border-top:1px solid var(--line);z-index:50}.mobile-bottom button{border:0;background:none;display:grid;place-items:center;align-content:center;gap:3px;color:#706d67;font-size:10px;font-weight:780}.mobile-bottom button.active{color:var(--coral)}.mobile-bottom svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8}}
+    @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}}
+  
+/* 2026-09-02 owner pass: WEB header/brand geometry normalized to 04 daily-home baseline. */
+@media (min-width:761px){
+  .site-header{
+    height:76px!important;
+    border-bottom:1px solid var(--line,#d8d0c3)!important;
+    background:rgba(246,242,233,.96)!important;
+    display:flex!important;
+    align-items:center!important;
+    position:sticky!important;
+    top:0!important;
+    z-index:40!important;
+    backdrop-filter:blur(12px)!important;
+  }
+  .site-header .header-inner{
+    width:min(1280px,calc(100% - 64px))!important;
+    margin:auto!important;
+    display:flex!important;
+    align-items:center!important;
+    justify-content:space-between!important;
+    padding:0!important;
+  }
+  .site-header .brand{
+    display:flex!important;
+    align-items:baseline!important;
+    gap:10px!important;
+    border:0!important;
+    background:none!important;
+    padding:0!important;
+    color:var(--ink,#101317)!important;
+    text-decoration:none!important;
+    font-family:inherit!important;
+    font-size:25px!important;
+    font-weight:900!important;
+    letter-spacing:-.05em!important;
+    line-height:1!important;
+  }
+  .site-header .brand small{
+    font-family:inherit!important;
+    font-size:11px!important;
+    line-height:1.2!important;
+    letter-spacing:.11em!important;
+    color:#5f5c56!important;
+    font-weight:850!important;
+  }
+  .site-header .desktop-nav{
+    display:flex!important;
+    align-items:center!important;
+    gap:42px!important;
+    height:76px!important;
+  }
+  .site-header .identity{
+    font-family:inherit!important;
+    font-size:14px!important;
+    line-height:1.2!important;
+    font-weight:780!important;
+    color:#58554f!important;
+    white-space:nowrap!important;
+  }
+}
+</style>
+<style id="front-audit-bottom-nav-standard-20260904">
+/* Frontend audit 1: all app content screens share one exact bottom navigation geometry. */
+@media (max-width:760px){
+  body{padding-bottom:68px!important}
+  .mobile-bottom{
+    position:fixed!important;display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;
+    left:0!important;right:0!important;bottom:0!important;width:100%!important;height:68px!important;
+    margin:0!important;padding:0!important;background:rgba(255,253,248,.98)!important;
+    border:0!important;border-top:1px solid #d8d0c3!important;box-shadow:none!important;z-index:90!important;
+  }
+  .mobile-bottom>button,.mobile-bottom>a{
+    appearance:none!important;-webkit-appearance:none!important;box-sizing:border-box!important;
+    width:auto!important;min-width:0!important;height:67px!important;margin:0!important;padding:0!important;
+    border:0!important;border-radius:0!important;background:transparent!important;text-decoration:none!important;
+    display:grid!important;grid-template-rows:22px 14px!important;align-content:center!important;justify-items:center!important;
+    place-items:initial!important;row-gap:3px!important;column-gap:0!important;
+    color:#706d67!important;font-family:inherit!important;font-size:12px!important;font-weight:800!important;
+    line-height:14px!important;letter-spacing:-.01em!important;text-align:center!important;
+  }
+  .mobile-bottom>button.active,.mobile-bottom>a.active{color:#ee6045!important}
+  .mobile-bottom svg{
+    display:block!important;width:22px!important;height:22px!important;margin:0!important;padding:0!important;
+    stroke:currentColor!important;fill:none!important;stroke-width:1.8!important;stroke-linecap:round!important;stroke-linejoin:round!important;
+    overflow:visible!important;
+  }
+  .mobile-bottom span{display:block!important;height:14px!important;margin:0!important;padding:0!important;line-height:14px!important;white-space:nowrap!important}
+  .toast{bottom:82px!important}
+}
+@media (min-width:761px){.mobile-bottom{display:none!important}}
+</style></head>
+<body data-danjion-page="7"><script src="assets/consistency.js"></script>
+<header class="site-header"><div class="header-inner"><button class="brand" type="button">단지온 <small>DANJION by PADIEM</small></button><nav class="desktop-nav"><button type="button">홈</button><button type="button">이웃가게</button><button class="active" type="button">우리단지</button><button type="button">내정보</button></nav><div class="identity">방림명지로드힐</div><div class="mobile-head">방림명지로드힐 <span>⌄</span></div></div></header>
+<main>
+<div class="route"><a class="route-back" href="06_단지온공지_목록.html"><svg viewbox="0 0 24 24"><path d="M19 12H5M10 7l-5 5 5 5"></path></svg>단지온공지</a><span>중요 공지</span></div>
+<article>
+<header class="article-head"><div class="head-label"><span>처음 읽는 안내</span><b>01</b></div><div><h1>단지온을 처음 이용하는<br/>주민 여러분께 안내드립니다.</h1><p class="lead">단지온의 네 가지 메뉴와 주민 정보 보호, 글쓰기 운영방식을 한 번에 알려드립니다.</p><div class="meta"><span>단지온 운영팀</span><span>2026.08.31 업데이트</span></div></div></header>
+<div class="article-body">
+<nav aria-label="공지 내용" class="article-index"><a aria-current="true" href="#menus">네 가지 메뉴</a><a href="#privacy">개인정보 보호</a><a href="#writing">글쓰기 운영</a></nav>
+<div class="content"><p class="opening">단지온은 <strong>방림명지로드힐 주민의 생활을 더 편리하게 연결하는 플랫폼</strong>입니다. 복잡한 기능을 찾아다니지 않아도 아래 네 가지 메뉴에서 필요한 일을 바로 시작할 수 있습니다.</p>
+<section class="menu-guide" id="menus">
+<div class="guide-row"><span class="num">01</span><h2>홈</h2><p>오늘 확인할 이웃의 일, 주민혜택과 우리단지 새 소식을 간단히 모아봅니다.</p></div>
+<div class="guide-row"><span class="num">02</span><h2>이웃가게</h2><p>우리 주민이 운영하는 가게와 가까운 이웃가게의 위치·운영시간·품목을 확인합니다.</p></div>
+<div class="guide-row"><span class="num">03</span><h2>우리단지</h2><p>단지온공지, 아파트소식, 주민소식과 주민이 직접 이야기하는 이웃대화를 구분해 봅니다.</p></div>
+<div class="guide-row"><span class="num">04</span><h2>내정보</h2><p>내 프로필과 작성글, 1:1 메시지, 알림과 글자 크기 같은 이용 설정을 관리합니다.</p></div>
+</section>
+<section class="notice-box" id="privacy"><div class="kicker">개인정보 보호</div><div><h2>동·호수는 이웃에게 공개하지 않습니다.</h2><p>동·호 정보는 우리집 연결과 입주민 확인을 위한 용도로만 사용합니다. 공개 프로필에는 닉네임과 단지 이름만 표시됩니다.</p></div></section>
+<section class="writing" id="writing"><span class="kicker">이웃대화 글쓰기</span><h2>편하게 쓰되, 서로를 지키는 기준이 있습니다.</h2><p>이웃대화에서는 가입인사, 궁금한 점, 단지이야기와 같이할 일을 나눌 수 있습니다.</p><ul><li>개인정보·욕설·협박·반복 괴롭힘 등 운영기준 위반 글은 숨김 또는 삭제될 수 있습니다.</li><li>단지온공지와 아파트소식은 읽기 전용이며, 이웃대화에서 주민끼리 댓글을 나눕니다.</li><li>운영진에게만 전할 내용은 내정보의 1:1 문의를 이용합니다.</li></ul></section>
+<footer class="article-foot"><p>내용이 변경되면 이 공지의 업데이트 날짜를 함께 바꿉니다.</p><a class="back-list" href="06_단지온공지_목록.html">공지 목록 <span>→</span></a></footer>
+</div>
+</div>
+</article>
+</main>
+<div class="mobile-sticky"><a class="back-list" href="06_단지온공지_목록.html">공지 목록으로 돌아가기 <span>→</span></a></div>
+<nav aria-label="모바일 주요 메뉴" class="mobile-bottom"><button aria-label="홈" data-route="04_데일리홈.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><path d="m3 10 9-7 9 7v10h-6v-6H9v6H3z"></path></svg><span>홈</span></button><button aria-label="이웃가게" data-route="01_이웃가게_발견.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><path d="M4 7h16l-1 13H5L4 7Z"></path><path d="M8 7V5a4 4 0 0 1 8 0v2"></path></svg><span>이웃가게</span></button><button aria-label="우리단지" class="active" data-route="05_우리단지_첫화면.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><path d="M4 21V9l8-6 8 6v12"></path><path d="M8 13h8M8 17h8"></path></svg><span>우리단지</span></button><button aria-label="내정보" data-route="19_내정보_메인.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><circle cx="12" cy="8" r="4"></circle><path d="M4 21a8 8 0 0 1 16 0"></path></svg><span>내정보</span></button></nav>
+<script>
+    const sectionLinks=[...document.querySelectorAll('.article-index a')];
+    const reduceMotion=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    sectionLinks.forEach(link=>link.addEventListener('click',event=>{
+      event.preventDefault();
+      const target=document.querySelector(link.getAttribute('href'));
+      if(!target)return;
+      sectionLinks.forEach(item=>item.removeAttribute('aria-current'));
+      link.setAttribute('aria-current','true');
+      target.scrollIntoView({behavior:reduceMotion?'auto':'smooth',block:'start'});
+      history.replaceState(null,'',link.getAttribute('href'));
+    }));
+  </script>
+
+<script id="danjion-notice-origin-restore">
+(function(){
+  const p=new URLSearchParams(location.search);
+  if(p.get('from')!=='my-help')return;
+  document.querySelectorAll('a.route-back,a.back-list').forEach(a=>{
+    a.href='06_단지온공지_목록.html?from=my-help';
+  });
+})();
+</script>
+</body>
+</html>

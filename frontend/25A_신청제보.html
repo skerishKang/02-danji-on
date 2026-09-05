@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+
+<html lang="ko">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width,initial-scale=1" name="viewport"/>
+<title>단지온 · 이웃가게 신청/제보</title>
+<style>
+:root{--paper:#f6f2e9;--paper2:#fffdf8;--ink:#101317;--navy:#101d30;--coral:#ee6045;--amber:#f2b84b;--muted:#68645e;--line:#d8d0c3;--green:#255e49}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:Pretendard,"Noto Sans KR",Arial,sans-serif}
+button,input,textarea,select{font:inherit;color:inherit}
+.head{height:74px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 max(24px,calc((100% - 1180px)/2));position:sticky;top:0;background:rgba(246,242,233,.97);z-index:5}
+.brand{display:flex;align-items:baseline;gap:10px;font-size:25px;font-weight:950;border:0;background:none;padding:0;cursor:pointer;color:inherit}.brand small{font-size:10px;letter-spacing:.1em;color:#625e58}
+.back{border:0;background:none;font-weight:900}
+.wrap{width:min(980px,calc(100% - 40px));margin:auto;padding:42px 0 110px}
+.eyebrow{color:var(--coral);font-weight:900;font-size:12px}.title{font-size:clamp(38px,6vw,64px);letter-spacing:-.055em;margin:7px 0 12px}.lead{font-size:17px;color:var(--muted);line-height:1.65}
+.tabs{display:grid;grid-template-columns:1fr 1fr;margin:28px 0 18px;border:1px solid var(--ink)}.tabs button{min-height:58px;border:0;background:var(--paper2);font-size:16px;font-weight:900}.tabs button+button{border-left:1px solid var(--ink)}.tabs button.active{background:var(--navy);color:#fff}
+.form{border:1px solid var(--line);background:var(--paper2)}.section{padding:27px;border-bottom:1px solid var(--line)}.section:last-child{border-bottom:0}.section h2{font-size:22px;margin:0 0 17px}.section h3{font-size:16px;margin:0 0 8px}
+.field{margin-top:17px}.field:first-of-type{margin-top:0}.field label{display:flex;justify-content:space-between;gap:18px;font-weight:850;margin-bottom:8px}.req{color:var(--coral);font-size:12px;white-space:nowrap}
+.field input,.field textarea,.field select{width:100%;border:1px solid var(--line);background:#fff;padding:14px 15px;font-size:16px}.field textarea{min-height:108px;resize:none;line-height:1.55;overflow:hidden}.field input,.field textarea,.field select{scroll-margin-top:96px}
+.hint{font-size:13px;line-height:1.65;color:var(--muted);margin:7px 0 0}.fixed-guide{border:1px solid var(--line);background:#f2ede3;padding:16px 18px;margin:0 0 18px}.fixed-guide b{display:block;margin-bottom:7px}.fixed-guide ul{margin:0;padding-left:20px;color:#4d4943;font-size:14px;line-height:1.7}
+.field-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}.field-grid .field{margin-top:0}.wide{grid-column:1/-1}
+.upload-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.upload{border:1px dashed #9f978b;padding:18px;min-height:124px;background:#fff}.upload b{display:block;margin-bottom:7px}.upload p{margin:0 0 12px;font-size:13px;line-height:1.55;color:var(--muted)}.upload input[type=file]{width:100%;font-size:13px}.file-status{display:block;margin-top:8px;font-size:12px;color:var(--green);font-weight:800}
+.notice{background:#f1e9dc;padding:18px 20px;font-size:14px;line-height:1.75}.notice strong{color:var(--navy)}
+.actions{display:flex;justify-content:center;padding:27px}.submit{min-width:240px;min-height:58px;border:0;background:var(--coral);color:#fff;font-size:17px;font-weight:950}.toast{position:fixed;left:50%;bottom:30px;transform:translate(-50%,20px);opacity:0;background:var(--ink);color:#fff;padding:13px 18px;font-size:13px;font-weight:800;transition:.22s;pointer-events:none}.toast.show{opacity:1;transform:translate(-50%,0)}
+.mode-report .owner-only{display:none}.mode-owner .report-only{display:none}.other-field[hidden]{display:none}
+@media(max-width:680px){.wrap{width:min(100% - 28px,980px);padding-top:26px}.upload-grid,.field-grid{grid-template-columns:1fr}.wide{grid-column:auto}.section{padding:22px 18px}.actions{padding:22px 18px}.submit{width:100%}.title{font-size:43px}.lead{font-size:16px}.brand small{display:none}}
+</style>
+<style id="owner-popup-experiment-20260902">
+/* OWNER 2026-09-02 POPUP EXPERIMENT: 주민소식처럼 이웃가게 화면 위에 우측 신청 시트를 띄웁니다. */
+body{min-height:100vh;overflow-x:hidden}.request-underlay{position:fixed;inset:0;width:100%;height:100vh;border:0;z-index:0;background:var(--paper)}.request-scrim{position:fixed;inset:0;background:rgba(16,29,48,.36);z-index:1}.request-sheet{position:relative;z-index:2;width:min(820px,74vw);min-height:100vh;margin-left:auto;background:var(--paper);box-shadow:-24px 0 65px rgba(16,29,48,.25)}
+.request-sheet .head{padding:0 28px!important}.request-sheet .wrap{width:auto!important;margin:0!important;padding:28px 30px 70px!important}.title{font-weight:950!important;font-size:clamp(38px,4vw,52px)!important}.lead{margin-bottom:0}.tabs{margin:20px 0 14px!important}.section{padding:23px!important}.section h2{font-weight:950!important}.section.owner-only>h2,.section.report-only>h2{color:var(--coral)!important;font-size:24px!important}.fixed-guide{position:relative;background:#fffaf0!important;border:1px solid var(--line)!important;border-left:4px solid var(--amber)!important;padding:40px 17px 15px!important}.guide-badge{position:absolute;left:17px;top:13px;color:var(--coral);font-size:12px;font-weight:950;letter-spacing:.04em}.notice{border-left:4px solid var(--navy);background:#f4efe6!important}.notice strong{font-size:16px!important}.actions{padding:22px!important}.submit{font-weight:950!important}
+@media(max-width:960px){.request-sheet{width:82vw}.field-grid{grid-template-columns:1fr!important}.wide{grid-column:auto!important}}
+@media(max-width:680px){.request-underlay,.request-scrim{display:none}.request-sheet{width:100%;box-shadow:none}.request-sheet .wrap{padding:24px 18px 62px!important}}
+</style><style id="front-audit-bottom-nav-standard-20260904">
+@media (max-width:760px){body{padding-bottom:68px!important}.mobile-bottom{position:fixed!important;display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;left:0!important;right:0!important;bottom:0!important;width:100%!important;height:68px!important;margin:0!important;padding:0!important;background:rgba(255,253,248,.98)!important;border:0!important;border-top:1px solid #d8d0c3!important;box-shadow:none!important;z-index:90!important}.mobile-bottom>button,.mobile-bottom>a{appearance:none!important;-webkit-appearance:none!important;box-sizing:border-box!important;width:auto!important;min-width:0!important;height:67px!important;margin:0!important;padding:0!important;border:0!important;border-radius:0!important;background:transparent!important;text-decoration:none!important;display:grid!important;grid-template-rows:22px 14px!important;align-content:center!important;justify-items:center!important;place-items:initial!important;row-gap:3px!important;column-gap:0!important;color:#706d67!important;font-family:inherit!important;font-size:12px!important;font-weight:800!important;line-height:14px!important;letter-spacing:-.01em!important;text-align:center!important}.mobile-bottom>button.active,.mobile-bottom>a.active{color:#ee6045!important}.mobile-bottom svg{display:block!important;width:22px!important;height:22px!important;margin:0!important;padding:0!important;stroke:currentColor!important;fill:none!important;stroke-width:1.8!important;stroke-linecap:round!important;stroke-linejoin:round!important;overflow:visible!important}.mobile-bottom span{display:block!important;height:14px!important;margin:0!important;padding:0!important;line-height:14px!important;white-space:nowrap!important}.toast{bottom:82px!important}}@media (min-width:761px){.mobile-bottom{display:none!important}}</style><style id="frontcheck-bottom-nav-optical-v4">
+/* Frontend audit 1 v4: optical-center every app bottom nav; hide browser scrollbar inside app viewport. */
+@media (max-width:760px){
+  html,body{scrollbar-width:none!important;-ms-overflow-style:none!important}
+  html::-webkit-scrollbar,body::-webkit-scrollbar{width:0!important;height:0!important;display:none!important}
+  html body .mobile-bottom{
+    position:fixed!important;left:0!important;right:0!important;bottom:0!important;
+    width:100%!important;height:68px!important;margin:0!important;padding:0!important;
+    display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;
+    background:rgba(255,253,248,.985)!important;border:0!important;border-top:1px solid #d8d0c3!important;
+    box-shadow:none!important;z-index:990!important;box-sizing:border-box!important;
+  }
+  html body .mobile-bottom>button,html body .mobile-bottom>a{
+    appearance:none!important;-webkit-appearance:none!important;
+    width:100%!important;min-width:0!important;height:67px!important;margin:0!important;padding:0!important;
+    border:0!important;border-radius:0!important;background:transparent!important;text-decoration:none!important;
+    display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;
+    gap:4px!important;color:#706d67!important;font-family:inherit!important;font-size:12px!important;font-weight:800!important;
+    line-height:14px!important;letter-spacing:-.01em!important;text-align:center!important;box-sizing:border-box!important;
+  }
+  html body .mobile-bottom>button.active,html body .mobile-bottom>a.active{color:#ee6045!important}
+  html body .mobile-bottom svg{
+    display:block!important;flex:0 0 22px!important;width:22px!important;height:22px!important;
+    margin:0 auto!important;padding:0!important;transform:none!important;
+    stroke:currentColor!important;fill:none!important;stroke-width:1.8!important;stroke-linecap:round!important;stroke-linejoin:round!important;
+    overflow:visible!important;box-sizing:content-box!important;
+  }
+  html body .mobile-bottom span{
+    display:block!important;flex:0 0 14px!important;width:100%!important;height:14px!important;margin:0!important;padding:0!important;
+    line-height:14px!important;text-align:center!important;white-space:nowrap!important;transform:none!important;
+  }
+}
+</style><style id="frontcheck-close-task-v1">
+.close-task{display:grid!important;place-items:center!important;width:44px!important;height:44px!important;padding:0!important;font-size:28px!important;line-height:1!important;font-weight:500!important;text-align:center!important}
+</style><link data-final-header-sync="20260904" href="assets/consistency.css" rel="stylesheet"/></head>
+<body data-danjion-page="25"><iframe aria-hidden="true" class="request-underlay" src="01_이웃가게_발견.html" tabindex="-1" title="이웃가게 배경"></iframe><div aria-hidden="true" class="request-scrim"></div><div class="request-sheet"><header class="head"><button aria-label="단지온 시작 화면" class="brand" onclick="location.href=(sessionStorage.getItem('danjion:shopVariant')==='v2'?'index2.html':'index.html')" type="button"><span>단지온</span><small>DANJION by PADIEM</small></button><button aria-label="신청·제보 닫기" class="back close-task" onclick="location.href=(sessionStorage.getItem('danjion:shopVariant')==='v2'?'01_이웃가게_발견_v2.html':'01_이웃가게_발견.html')" type="button">×</button></header><main class="wrap">
+<div class="eyebrow">NEIGHBOR SHOP REQUEST</div>
+<h1 class="title" id="pageTitle">내 가게 등록 신청</h1>
+<p class="lead" id="pageLead">가게 운영자가 단지온 등록을 신청하는 화면입니다. 아래 항목을 채우고 확인서류와 사진을 함께 첨부합니다.</p>
+<div class="tabs">
+<button class="active" id="ownerTab" type="button">내 가게 등록 신청</button>
+<button id="reportTab" type="button">이웃가게 제보</button>
+</div>
+<form class="form mode-owner" id="requestForm">
+<section class="section">
+<h2>가게와 신청자</h2>
+<div class="owner-only">
+<div class="field"><label>가게·서비스 이름 <span class="req">필수</span></label><input name="ownerShopName" placeholder="예: 로드힐 꽃작업실" required=""/></div>
+<div class="field"><label>신청자와 가게의 관계 <span class="req">필수</span></label>
+<select id="ownerRelation" name="ownerRelation" required="">
+<option value="self">사업자·운영자 본인</option><option value="co">공동 운영자</option><option value="family">주민 가족 운영</option><option value="etc">기타</option>
+</select>
+</div>
+<div class="field other-field" hidden="" id="ownerEtcWrap"><label>기타 관계 <span class="req">필수</span></label><input id="ownerEtc" name="ownerRelationEtc" placeholder="예: 운영자의 가족이며 등록을 도와주고 있습니다."/></div>
+</div>
+<div class="report-only">
+<div class="field"><label>제보할 가게·서비스 이름 <span class="req">필수</span></label><input name="reportShopName" placeholder="예: 바른 자동차정비" required=""/></div>
+<div class="field"><label>제보자와 가게의 관계 <span class="req">필수</span></label>
+<select id="reportRelation" name="reportRelation" required="">
+<option value="family">우리 가족이 운영</option><option value="neighbor">같은 단지 이웃이 운영</option><option value="nearby">자주 이용하는 가까운 이웃가게</option><option value="etc">기타</option>
+</select>
+</div>
+<div class="field other-field" hidden="" id="reportEtcWrap"><label>기타 관계 <span class="req">필수</span></label><input id="reportEtc" name="reportRelationEtc" placeholder="가게와 어떤 관계인지 직접 적어주세요."/></div>
+<p class="hint">가게주인이 아직 단지온 회원이 아니어도 제보할 수 있습니다. 먼저 제보를 접수한 뒤, 가게 운영자는 확인서류를 ceo@padiem.net 으로 보내주시면 승인 후 단지온에 등록합니다.</p>
+</div>
+</section>
+<section class="section owner-only">
+<h2>등록할 내용</h2>
+<div class="fixed-guide"><span class="guide-badge">안내사항</span><b>아래 항목은 사라지지 않습니다. 각 칸에 바로 적어주세요.</b><ul><li>어떤 가게·서비스인지</li><li>대표 상품·서비스와 가격 또는 상담방법</li><li>운영시간</li><li>위치·방문 가능 지역·배달/출장 여부</li><li>주민에게 제공할 수 있는 혜택</li><li>예약·문의 방법</li><li>메뉴·가격 등 추가로 꼭 알릴 내용</li></ul></div>
+<div class="field-grid">
+<div class="field"><label>업종·가게 종류 <span class="req">필수</span></label><input name="category" placeholder="예: 꽃집 · 예약제 꽃다발" required=""/></div>
+<div class="field"><label>운영시간 <span class="req">필수</span></label><input name="hours" placeholder="예: 월~금 10:00~18:00 / 토 예약" required=""/></div>
+<div class="field wide"><label>대표 상품·서비스 / 가격·상담방법 <span class="req">필수</span></label><textarea name="servicePrice" placeholder="예: 계절 꽃다발 3만원대부터 · 예산과 용도를 먼저 상담합니다." required=""></textarea></div>
+<div class="field wide"><label>위치·방문·배달·출장 <span class="req">필수</span></label><textarea name="locationUse" placeholder="예: 광주 남구 방림동 · 예약 후 방문 / 인근 배달 가능" required=""></textarea></div>
+<div class="field"><label>주민 혜택</label><input name="benefit" placeholder="예: 단지 주민 예약 시 포장 혜택"/></div>
+<div class="field"><label>예약·문의 방법 <span class="req">필수</span></label><input name="contact" placeholder="예: 단지온 1:1 문의 후 예약" required=""/></div>
+<div class="field wide"><label>추가 소개</label><textarea name="extraIntro" placeholder="메뉴·가격·이용 시 주의사항 등 더 알릴 내용을 적어주세요."></textarea></div>
+</div>
+</section>
+<section class="section report-only">
+<h2>제보할 내용</h2>
+<div class="fixed-guide"><span class="guide-badge">안내사항</span><b>알고 있는 만큼 먼저 적어주세요. 확인서류는 별도 이메일로 받습니다.</b><ul><li>어떤 가게·서비스인지</li><li>주요 상품·서비스와 알고 있는 가격</li><li>운영시간</li><li>위치·연락 가능한 방법</li><li>주민·가족·이웃가게와의 관계 또는 추천 이유</li></ul></div>
+<div class="field-grid">
+<div class="field wide"><label>어떤 가게인지 / 주요 상품·서비스 <span class="req">필수</span></label><textarea name="reportWhat" placeholder="예: 주민 가족이 운영하는 자동차정비 가게이며 차량 점검과 소모품 교체를 합니다." required=""></textarea></div>
+<div class="field"><label>알고 있는 가격·상담방법</label><input name="reportPrice" placeholder="모르면 비워두셔도 됩니다."/></div>
+<div class="field"><label>알고 있는 운영시간</label><input name="reportHours" placeholder="모르면 비워두셔도 됩니다."/></div>
+<div class="field wide"><label>위치·연락 가능한 방법 <span class="req">필수</span></label><textarea name="reportLocation" placeholder="예: 광주 남구 ○○로 인근 / 간판 전화번호 062-000-0000" required=""></textarea></div>
+<div class="field wide"><label>관계·추천 이유 <span class="req">필수</span></label><textarea name="reportReason" placeholder="예: 우리 단지 주민의 가족 가게라 소개합니다. 가게주인에게 단지온에서 연락할 수 있다고 전달했습니다." required=""></textarea></div>
+</div>
+<div class="notice"><strong>승인 절차</strong><br/>1) 이 화면에서 가게 정보를 먼저 제보합니다.<br/>2) 가게 운영자가 사업자등록증·영업신고증·허가증·업종 관련 자격증 등 해당 업종의 확인서류를 <b>ceo@padiem.net</b> 으로 보냅니다.<br/>3) 확인이 끝나면 승인 후 단지온에 등록합니다.</div>
+</section>
+<section class="section owner-only">
+<h2>확인서류</h2>
+<div class="upload-grid">
+<label class="upload"><b>운영 확인서류 <span class="req">1개 이상 필수</span></b><p>사업자등록증, 영업신고증·허가증, 업종 관련 자격증 등 실제 운영을 확인할 수 있는 서류</p><input accept=".pdf,.jpg,.jpeg,.png,.webp,.hwp,.hwpx,application/pdf,image/*" id="ownerProof" name="ownerProof" required="" type="file"/><span class="file-status" id="ownerProofStatus">선택된 파일 없음</span></label>
+<label class="upload"><b>기타 증빙자료</b><p>메뉴판, 가격표, 자격증 추가본, 소개자료 등 필요한 경우만 첨부</p><input accept=".pdf,.jpg,.jpeg,.png,.webp,.hwp,.hwpx,application/pdf,image/*" id="ownerOtherDocs" multiple="" name="ownerOtherDocs" type="file"/><span class="file-status" id="ownerOtherStatus">선택된 파일 없음</span></label>
+</div>
+<p class="hint">확인서류는 주민에게 공개하지 않고 등록 확인에만 사용합니다.</p>
+</section>
+<section class="section">
+<h2>가게 사진</h2>
+<div class="upload-grid">
+<label class="upload"><b>가게·작업 사진 <span class="req">최대 3장</span></b><p>대문/대표 이미지로 쓸 외관 또는 대표 사진, 상품·메뉴·작업 장면 등을 올려주세요.</p><input accept="image/*" id="photos" multiple="" name="photos" type="file"/><span class="file-status" id="photoStatus">0 / 3장</span></label>
+<label class="upload owner-only"><b>추가 참고자료</b><p>가격표·메뉴판·소개 이미지 등 사진 외에 꼭 필요한 자료가 있을 때만 첨부</p><input accept=".pdf,.jpg,.jpeg,.png,.webp,.hwp,.hwpx,application/pdf,image/*" id="extraDocs" multiple="" name="extraDocs" type="file"/><span class="file-status" id="extraDocsStatus">선택된 파일 없음</span></label>
+<div class="upload report-only"><b>제보자는 확인서류가 없어도 됩니다.</b><p>사진이 있으면 최대 3장까지 첨부해 주세요. 사업자등록증·허가증·자격증 등 확인서류는 가게 운영자가 <b>ceo@padiem.net</b> 으로 별도 제출합니다.</p></div>
+</div>
+</section>
+<div class="actions"><button class="submit" id="submitBtn" type="submit">등록 신청하기</button></div>
+</form>
+</main></div>
+<div aria-live="polite" class="toast" id="toast" role="status"></div>
+<script>
+const f=document.querySelector('#requestForm'),title=document.querySelector('#pageTitle'),lead=document.querySelector('#pageLead'),submit=document.querySelector('#submitBtn'),owner=document.querySelector('#ownerTab'),report=document.querySelector('#reportTab'),toast=document.querySelector('#toast');
+function syncDisabled(mode){
+  document.querySelectorAll('.owner-only input,.owner-only textarea,.owner-only select').forEach(el=>el.disabled=mode!=='owner');
+  document.querySelectorAll('.report-only input,.report-only textarea,.report-only select').forEach(el=>el.disabled=mode!=='report');
+}
+function setMode(m){
+  const isReport=m==='report';
+  f.className='form '+(isReport?'mode-report':'mode-owner');
+  owner.classList.toggle('active',!isReport);report.classList.toggle('active',isReport);
+  title.textContent=isReport?'이웃가게 제보':'내 가게 등록 신청';
+  lead.innerHTML=isReport?'가족·이웃·가까운 가게를 단지온에 먼저 알려주세요. <b>제보자는 사업자서류가 없어도 됩니다.</b> 확인서류는 가게 운영자가 ceo@padiem.net 으로 별도 제출하고 승인 후 등록합니다.':'가게 운영자가 단지온 등록을 신청하는 화면입니다. 아래 항목을 채우고 <b>확인서류와 사진</b>을 함께 첨부합니다.';
+  submit.textContent=isReport?'이웃가게 제보하기':'등록 신청하기';
+  syncDisabled(isReport?'report':'owner');
+}
+function toggleEtc(select,wrap,input){
+  const on=select.value==='etc';wrap.hidden=!on;input.required=on;input.disabled=!on;
+}
+const ownerRelation=document.querySelector('#ownerRelation'),ownerEtcWrap=document.querySelector('#ownerEtcWrap'),ownerEtc=document.querySelector('#ownerEtc');
+const reportRelation=document.querySelector('#reportRelation'),reportEtcWrap=document.querySelector('#reportEtcWrap'),reportEtc=document.querySelector('#reportEtc');
+ownerRelation.addEventListener('change',()=>toggleEtc(ownerRelation,ownerEtcWrap,ownerEtc));
+reportRelation.addEventListener('change',()=>toggleEtc(reportRelation,reportEtcWrap,reportEtc));
+owner.onclick=()=>setMode('owner');report.onclick=()=>setMode('report');
+
+const photos=document.querySelector('#photos'),photoStatus=document.querySelector('#photoStatus');
+photos.addEventListener('change',()=>{
+  if(photos.files.length>3){alert('가게 사진은 최대 3장까지 첨부할 수 있습니다.');photos.value='';}
+  photoStatus.textContent=`${photos.files.length} / 3장`;
+});
+function bindFile(inputId,statusId,max=null){
+  const input=document.querySelector(inputId),status=document.querySelector(statusId);
+  input.addEventListener('change',()=>{
+    if(max && input.files.length>max){alert(`파일은 최대 ${max}개까지 첨부할 수 있습니다.`);input.value='';}
+    status.textContent=input.files.length?Array.from(input.files).map(f=>f.name).join(', '):'선택된 파일 없음';
+  });
+}
+bindFile('#ownerProof','#ownerProofStatus');bindFile('#ownerOtherDocs','#ownerOtherStatus',3);bindFile('#extraDocs','#extraDocsStatus',3);
+
+let timer;
+function showToast(msg){toast.textContent=msg;toast.classList.add('show');clearTimeout(timer);timer=setTimeout(()=>toast.classList.remove('show'),2300)}
+f.addEventListener('submit',e=>{
+  e.preventDefault();
+  if(!f.reportValidity()) return;
+  showToast(f.classList.contains('mode-report')?'제보 내용 확인 완료 · 실제 제출 연결 시 서류는 ceo@padiem.net 으로 받습니다.':'입력·파일 선택 확인 완료 · 서버 제출 연결 전 검토용 화면입니다.');
+});
+function autoSize(el){el.style.height='auto';el.style.height=Math.max(108,el.scrollHeight)+'px'}
+document.querySelectorAll('textarea').forEach(t=>{autoSize(t);t.addEventListener('input',()=>autoSize(t))});
+const initial=new URLSearchParams(location.search).get('mode')==='report'?'report':'owner';
+setMode(initial);
+toggleEtc(ownerRelation,ownerEtcWrap,ownerEtc);toggleEtc(reportRelation,reportEtcWrap,reportEtc);
+</script>
+<script id="danjion-apply-variant-bridge-20260905">
+(function(){
+  const params=new URLSearchParams(location.search);
+  const returnV2=params.get('return')==='v2';
+  if(returnV2){try{sessionStorage.setItem('danjion:shopVariant','v2')}catch(e){}}
+  let isV2=false; try{isV2=sessionStorage.getItem('danjion:shopVariant')==='v2'}catch(e){}
+  const underlay=document.querySelector('.request-underlay');
+  if(underlay) underlay.src=isV2?'01_이웃가게_발견_v2.html':'01_이웃가게_발견.html';
+})();
+</script>
+<script id="danjion-direct-router-v5">
+(function(){
+const SCREEN="apply";
+const FILES={"landing": "index.html", "home": "04_데일리홈.html", "shops": "01_이웃가게_발견.html", "shopDetail": "02_이웃가게_상세.html", "complex": "05_우리단지_첫화면.html", "noticeList": "06_단지온공지_목록.html", "noticeDetail": "07_단지온공지_상세.html", "apartment": "08_아파트소식_목록.html", "chair": "09_회장인사_상세.html", "residentList": "10_주민소식_목록.html", "residentDetail": "11_주민소식_상세.html", "community": "12_이웃대화_첫화면.html", "communityDetail": "13_이웃대화_글상세_댓글.html", "writeHello": "14_가입인사_글쓰기.html", "writeStory": "15_단지이야기_글쓰기.html", "writeQuestion": "16_궁금해요_글쓰기.html", "writeTogether": "17_같이해요_글쓰기.html", "my": "19_내정보_메인.html", "messages": "20_메시지함_목록.html", "messageDetail": "21_메시지_대화상세.html", "profile": "22_주민_공개프로필.html", "warmth": "23_이웃온기.html", "settings": "24_설정.html", "inquiry": "25_1대1문의.html", "apply": "25A_신청제보.html", "household": "26_우리집연결.html", "notifications": "27_알림함.html", "activity": "28_나의활동.html"};
+let B=false;try{B=sessionStorage.getItem('danjion:shopVariant')==='v2'}catch(e){}
+if(B){FILES.landing='index2.html';FILES.shops='01_이웃가게_발견_v2.html';FILES.shopDetail='01_이웃가게_발견_v2.html';}
+const norm=s=>(s||'').replace(/\s+/g,' ').trim();
+function go(f){
+  if(!f)return;
+  location.href=f;
+}
+function main(label){go({'홈':FILES.home,'이웃가게':FILES.shops,'우리단지':FILES.complex,'내정보':FILES.my}[label]);}
+function routeFrom(v){v=(v||'').split('#')[0]; if(!v)return null;
+  const q=v.includes('?')?'?'+v.split('?').slice(1).join('?'):''; const p=v.split('?')[0];
+  const arr=[["29_", FILES.landing], ["04_", FILES.home], ["01_", FILES.shops], ["02_", FILES.shopDetail], ["05_", "05_우리단지_첫화면.html"], ["06_", "06_단지온공지_목록.html"], ["07_", "07_단지온공지_상세.html"], ["08_", "08_아파트소식_목록.html"], ["09_", "09_회장인사_상세.html"], ["10_", "10_주민소식_목록.html"], ["11_", "11_주민소식_상세.html"], ["12_", "12_이웃대화_첫화면.html"], ["13_", "13_이웃대화_글상세_댓글.html"], ["14_", "14_가입인사_글쓰기.html"], ["15_", "15_단지이야기_글쓰기.html"], ["16_", "16_궁금해요_글쓰기.html"], ["17_", "17_같이해요_글쓰기.html"], ["19_", "19_내정보_메인.html"], ["20_", "20_메시지함_목록.html"], ["21_", "21_메시지_대화상세.html"], ["22_", "22_주민_공개프로필.html"], ["23_", "23_이웃온기.html"], ["24_", "24_설정.html"], ["25_", "25_1대1문의.html"], ["26_", "26_우리집연결.html"], ["27_", "27_알림함.html"], ["28_", "28_나의활동.html"]];
+  for(const [t,f] of arr) if(p.includes(t)) return f+q;
+  if(p==='index.html'||p==='index2.html') return FILES.landing; return null;
+}
+function backFallback(){
+  const parentMap={
+    shops:FILES.home,shopDetail:FILES.shops,complex:FILES.home,
+    noticeList:FILES.complex,noticeDetail:FILES.noticeList,apartment:FILES.complex,chair:FILES.complex,
+    residentList:FILES.complex,residentDetail:FILES.residentList,community:FILES.complex,communityDetail:FILES.community,
+    writeHello:FILES.community,writeStory:FILES.community,writeQuestion:FILES.community,writeTogether:FILES.community,
+    my:FILES.home,messages:FILES.my,messageDetail:FILES.messages,profile:FILES.my,warmth:FILES.my,
+    settings:FILES.my,inquiry:FILES.settings,apply:FILES.shops,household:FILES.my,notifications:FILES.my,activity:FILES.my
+  };
+  location.href=parentMap[SCREEN]||FILES.home;
+}
+
+document.addEventListener('click',function(ev){
+ const el=ev.target.closest('a,button,[data-route]'); if(!el)return;
+ const text=norm(el.textContent), cls=el.classList||{contains:()=>false};
+ // landing internal modal/greeting controls stay native
+ if(SCREEN==='landing'){
+   if(el.matches('[data-auth],[data-preview],[data-greeting],[data-email],[data-social],[data-reset],[data-resend],[data-term],[data-term-close],[data-address-next],[data-terms-next],[data-finish],[data-required-all]')) return;
+   if(el.matches('[data-chair-close]')){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.home);return;}
+   if(el.matches('[data-chair-detail]')){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.chair);return;}
+   if(el.matches('[data-guest-enter]')){ev.preventDefault();ev.stopImmediatePropagation();sessionStorage.setItem('danjionGuest','1');go(FILES.home);return;}
+   if(el.matches('[data-top]')) return;
+ }
+ if(cls.contains('brand')){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.landing);return;}
+ const inMain=!!el.closest('.nav,.desktop-nav,.mobile-bottom,.topbar nav,.main-nav');
+ if(inMain && ['홈','이웃가게','우리단지','내정보'].includes(text)){ev.preventDefault();ev.stopImmediatePropagation();main(text);return;}
+ if(cls.contains('back')||cls.contains('route-back')||((/^←|^‹|^< /.test(text))&&!cls.contains('modal-back'))){ev.preventDefault();ev.stopImmediatePropagation();backFallback();return;}
+ // home: current scene -> selected shop detail
+ if(SCREEN==='home' && el.id==='detailBtn'){ev.preventDefault();ev.stopImmediatePropagation();const k=el.dataset.shopKey||'food';go(FILES.shopDetail+'?shop='+encodeURIComponent(k));return;}
+ // shops cards -> specific shop detail
+ if(SCREEN==='shops' && cls.contains('shop-link')){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.shopDetail+'?shop='+encodeURIComponent(el.dataset.shopKey||'florist'));return;}
+ if(SCREEN==='shops' && text==='이웃가게 제보'){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.apply+'?mode=report'+(B?'&return=v2':''));return;}
+ if(SCREEN==='shops' && (text==='내 가게 등록 신청'||text==='내 가게 등록 문의')){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.apply+'?mode=apply'+(B?'&return=v2':''));return;}
+ if(SCREEN==='complex' && cls.contains('channel-link')){ev.preventDefault();ev.stopImmediatePropagation();const i=[...document.querySelectorAll('.channel-link')].indexOf(el);go([FILES.noticeList,FILES.apartment,FILES.residentList,FILES.community][i]||FILES.complex);return;}
+ if(SCREEN==='noticeList' && (cls.contains('pinned-link')||cls.contains('notice-row'))){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.noticeDetail);return;}
+ if(SCREEN==='apartment' && cls.contains('feature-link')){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.chair);return;}
+ if(SCREEN==='residentList' && cls.contains('story-link')){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.residentDetail);return;}
+ if(SCREEN==='community' && cls.contains('write-type')){ev.preventDefault();ev.stopImmediatePropagation();const i=[...document.querySelectorAll('.write-type')].indexOf(el);go([FILES.writeHello,FILES.writeStory,FILES.writeQuestion,FILES.writeTogether][i]||FILES.community);return;}
+ if(SCREEN==='community' && el.tagName==='A' && text.includes('안녕하세요')){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.communityDetail);return;}
+ if(SCREEN==='my' && cls.contains('card-link')){ev.preventDefault();ev.stopImmediatePropagation();const i=[...document.querySelectorAll('.card-link')].indexOf(el);go(i===0?FILES.messages:FILES.household);return;}
+ if(SCREEN==='my' && cls.contains('menu-row')){ev.preventDefault();ev.stopImmediatePropagation();const i=[...document.querySelectorAll('.menu-row')].indexOf(el);go(FILES.activity+'?tab='+Math.min(i,3));return;}
+ if(SCREEN==='my' && (text.includes('설정 열기')||text.includes('이용 설정'))){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.settings);return;}
+ if(SCREEN==='messages' && cls.contains('mail-row')){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.messageDetail);return;}
+ if(SCREEN==='messageDetail' && (text.includes('공개 프로필')||text.includes('산책메이트'))){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.profile);return;}
+ if(SCREEN==='profile' && cls.contains('message-button')){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.messageDetail);return;}
+ if(SCREEN==='settings' && (cls.contains('support-button')||text.includes('1:1 문의'))){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.inquiry);return;}
+ if(SCREEN==='activity' && cls.contains('side-link')){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.profile);return;}
+ // known data-route or anchors
+ const dr=el.dataset&&el.dataset.route; if(dr){const f=routeFrom(dr);if(f){ev.preventDefault();ev.stopImmediatePropagation();go(f);return;}}
+ if(el.tagName==='A'){const f=routeFrom(el.getAttribute('href'));if(f){ev.preventDefault();ev.stopImmediatePropagation();go(f);return;}}
+},true);
+
+// screen-specific initial state
+if(SCREEN==='shopDetail'){ const p=new URLSearchParams(location.search),k=p.get('shop'); if(k) setTimeout(()=>window.postMessage({type:'danjion-integrated:setShop',shopKey:k},'*'),0); }
+if(SCREEN==='apply'){ const p=new URLSearchParams(location.search),mode=p.get('mode'); if(mode) setTimeout(()=>window.postMessage({type:'danjion-integrated:setMode',mode},'*'),0); }
+if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt(p.get('tab')||'0',10); if(Number.isInteger(i)) setTimeout(()=>window.postMessage({type:'danjion-integrated:activityTab',index:i},'*'),0); }
+})();
+</script>
+<script id="danjion-review-route-sync">
+(function(){
+  try{
+    if(new URLSearchParams(location.search).get('review')==='1'){
+      sessionStorage.removeItem('danjionRouteStack');
+    }
+  }catch(e){}
+  function reportRoute(){
+    try{
+      const file=decodeURIComponent((location.pathname.split('/').pop()||'index.html').split('?')[0]);
+      if(window.parent!==window) window.parent.postMessage({type:'danjion-route',file:file,href:location.href},'*');
+    }catch(e){}
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',reportRoute,{once:true});else reportRoute();
+  window.addEventListener('pageshow',reportRoute);
+  window.addEventListener('hashchange',reportRoute);
+})();
+</script>
+<nav aria-label="모바일 주요 메뉴" class="mobile-bottom"><button aria-label="홈" data-route="04_데일리홈.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><path d="m3 10 9-7 9 7v10h-6v-6H9v6H3z"></path></svg><span>홈</span></button><button aria-label="이웃가게" class="active" data-route="01_이웃가게_발견.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><path d="M4 7h16l-1 13H5L4 7Z"></path><path d="M8 7V5a4 4 0 0 1 8 0v2"></path></svg><span>이웃가게</span></button><button aria-label="우리단지" data-route="05_우리단지_첫화면.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><path d="M4 21V9l8-6 8 6v12"></path><path d="M8 13h8M8 17h8"></path></svg><span>우리단지</span></button><button aria-label="내정보" data-route="19_내정보_메인.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><circle cx="12" cy="8" r="4"></circle><path d="M4 21a8 8 0 0 1 16 0"></path></svg><span>내정보</span></button></nav></body>
+</html>
