@@ -188,5 +188,31 @@ if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt
   window.addEventListener('hashchange',reportRoute);
 })();
 </script>
+<script id="back-scroll-restore-20260906b">
+(function(){
+  var KEY='danjion:back:08';
+  try{
+    window.addEventListener('click',function(ev){
+      var el=ev.target.closest('button,a,[data-route],[role="button"],.notice-row,.pinned-link,.story-link,.feature-link,.post-row,.mail-row,.community-row');
+      if(!el)return;
+      if(el.closest('.desktop-nav,.mobile-bottom,.brand,.public-header')){try{sessionStorage.removeItem(KEY)}catch(e){}return;}
+      try{sessionStorage.setItem(KEY,String(Math.round(window.scrollY||0)))}catch(e){}
+    },true);
+    var saved=sessionStorage.getItem(KEY);
+    if(saved!==null){
+      sessionStorage.removeItem(KEY);
+      try{if('scrollRestoration' in history)history.scrollRestoration='manual'}catch(e){}
+      var y=parseInt(saved,10)||0,applied=0,cancel=false;
+      var stop=function(){cancel=true};
+      window.addEventListener('wheel',stop,{passive:true,once:true});
+      window.addEventListener('touchstart',stop,{passive:true,once:true});
+      window.addEventListener('keydown',stop,{once:true});
+      var apply=function(){if(cancel||applied>=4)return;applied++;if(Math.abs(window.scrollY-y)>2)window.scrollTo(0,y)};
+      var whenReady=function(){requestAnimationFrame(function(){requestAnimationFrame(apply)});setTimeout(apply,160);setTimeout(apply,420);setTimeout(apply,750)};
+      if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',whenReady,{once:true});else whenReady();
+    }
+  }catch(e){}
+})();
+</script>
 </body>
 </html>

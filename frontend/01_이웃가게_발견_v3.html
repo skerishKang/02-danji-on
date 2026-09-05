@@ -1,0 +1,1288 @@
+<!DOCTYPE html>
+
+<html lang="ko">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1" name="viewport"/>
+<title>단지온 · 이웃가게 발견 · 비교안 B 팝업형</title>
+<style>
+    @import url("assets/consistency.css");
+    :root{
+      --paper:#f6f2e9;
+      --paper-2:#fffdf8;
+      --ink:#101317;
+      --navy:#101d30;
+      --coral:#ee6045;
+      --amber:#f2b84b;
+      --muted:#6d6a64;
+      --line:#d8d0c3;
+      --soft:#ece5d8;
+      --green:#255e49;
+      --header:76px;
+    }
+    *{box-sizing:border-box}
+    html{background:var(--paper);color:var(--ink);font-family:Pretendard,"Pretendard Variable","Noto Sans KR",Arial,sans-serif}
+    body{margin:0;min-width:320px;background:var(--paper)}
+    button,input{font:inherit}
+    button{color:inherit}
+    img{display:block;width:100%;height:100%;object-fit:cover}
+    .site-header{height:var(--header);border-bottom:1px solid var(--line);background:rgba(246,242,233,.96);display:flex;align-items:center;position:sticky;top:0;z-index:30}
+    .header-inner{width:min(1280px,calc(100% - 64px));margin:auto;display:flex;align-items:center;justify-content:space-between}
+    .brand{display:flex;align-items:baseline;gap:10px;border:0;background:none;padding:0;font-weight:900;font-size:25px;letter-spacing:-.05em}
+    .brand small{font-size:9px;letter-spacing:.12em;color:#5f5c56;font-weight:800}
+    .desktop-nav{display:flex;align-items:center;gap:42px;height:var(--header)}
+    .desktop-nav button{height:100%;border:0;background:none;padding:0 2px;font-size:15px;font-weight:750;position:relative}
+    .desktop-nav button.active::after{content:"";height:3px;position:absolute;left:0;right:0;bottom:0;background:var(--coral)}
+    .identity{font-size:13px;font-weight:750;color:#58554f}
+    main{width:min(1280px,calc(100% - 64px));margin:auto;padding:58px 0 90px}
+    .intro{display:grid;grid-template-columns:minmax(0,1fr) 430px;gap:64px;align-items:end;margin-bottom:30px}
+    .eyebrow{display:flex;align-items:center;gap:10px;font-size:12px;font-weight:850;letter-spacing:.07em;color:var(--coral);margin-bottom:15px}
+    .eyebrow::before{content:"";width:28px;height:2px;background:var(--coral)}
+    h1{font-size:clamp(46px,4.3vw,66px);line-height:1.03;letter-spacing:-.055em;margin:0;font-weight:900}
+    .intro-copy{color:var(--muted);font-size:16px;line-height:1.7;margin:18px 0 0}
+    .intro-note{border-top:1px solid var(--ink);padding-top:18px;display:grid;grid-template-columns:1fr 1fr;gap:20px}
+    .intro-note b{display:block;font-size:15px;margin-bottom:6px}
+    .intro-note span{font-size:13px;line-height:1.55;color:var(--muted)}
+    .search-form{display:grid;grid-template-columns:1fr 112px;border:1px solid #aaa195;background:var(--paper-2);margin:32px 0 20px;box-shadow:0 8px 24px rgba(16,19,23,.04)}
+    .search-form label{display:flex;align-items:center;gap:13px;padding:0 20px}
+    .search-form svg{width:22px;height:22px;stroke:var(--ink);fill:none;stroke-width:1.8}
+    .search-form input{width:100%;height:62px;border:0;outline:0;background:transparent;font-size:16px;color:var(--ink)}
+    .search-form button{border:0;background:var(--ink);color:white;font-weight:850;font-size:15px}
+    .filters{display:flex;align-items:center;gap:8px;overflow:auto;padding:2px 0 25px;scrollbar-width:none}
+    .filters::-webkit-scrollbar{display:none}
+    .filter{white-space:nowrap;border:1px solid var(--line);background:var(--paper-2);height:42px;padding:0 17px;font-size:14px;font-weight:740;cursor:pointer}
+    .filter.active{background:var(--ink);border-color:var(--ink);color:#fff}
+    .discovery{display:grid;grid-template-columns:minmax(0,1.58fr) minmax(360px,.82fr);gap:18px;border-top:1px solid var(--ink);padding-top:18px}
+    .featured{position:relative;min-height:510px;overflow:hidden;background:var(--navy);color:white;cursor:pointer}
+    .featured img{position:absolute;inset:0;transition:transform .7s cubic-bezier(.2,.7,.2,1)}
+    .featured:hover img{transform:scale(1.018)}
+    .featured::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(6,13,23,.03) 20%,rgba(6,13,23,.2) 55%,rgba(6,13,23,.92) 100%)}
+    .featured-info{position:absolute;z-index:2;right:0;top:0;bottom:0;width:43%;padding:42px 38px;display:flex;flex-direction:column;justify-content:flex-end}
+    .relation{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:850;color:#fff;margin-bottom:auto}
+    .relation::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--amber);box-shadow:0 0 0 5px rgba(242,184,75,.13)}
+    .featured h2{font-size:42px;line-height:1.08;letter-spacing:-.05em;margin:0 0 12px}
+    .featured p{font-size:16px;line-height:1.65;color:rgba(255,255,255,.76);margin:0 0 25px}
+    .facts{border-top:1px solid rgba(255,255,255,.24);padding-top:17px;display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:28px}
+    .fact small{display:block;color:rgba(255,255,255,.55);font-size:11px;margin-bottom:5px}
+    .fact b{font-size:13px}
+    .featured-link{display:flex;align-items:center;justify-content:space-between;border-top:1px solid rgba(255,255,255,.35);padding-top:17px;font-weight:850;font-size:14px}
+    .featured-link svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8}
+    .side-list{background:var(--paper-2);border:1px solid var(--line);padding:0 24px}
+    .side-head{height:76px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--ink)}
+    .side-head h2{font-size:20px;margin:0;letter-spacing:-.035em}
+    .side-head button{border:0;background:none;font-size:13px;font-weight:800;color:var(--muted)}
+    .shop-row{display:grid;grid-template-columns:116px 1fr 20px;gap:18px;align-items:center;min-height:140px;border-bottom:1px solid var(--line);cursor:pointer}
+    .shop-row:last-child{border-bottom:0}
+    .thumb{height:92px;overflow:hidden;background:#ddd}
+    .shop-row:hover .thumb img{transform:scale(1.035)}
+    .thumb img{transition:transform .45s ease}
+    .row-copy small{display:block;color:var(--coral);font-size:11px;font-weight:850;margin-bottom:7px}
+    .row-copy b{display:block;font-size:19px;letter-spacing:-.035em;margin-bottom:6px}
+    .row-copy span{font-size:13px;color:var(--muted);line-height:1.5}
+    .row-arrow{font-size:22px}
+    .trust-strip{display:grid;grid-template-columns:minmax(0,1fr) auto;margin-top:18px;border:1px solid var(--line);min-height:118px}
+    .trust-message{background:var(--coral);color:white;padding:24px 30px;display:flex;align-items:center;justify-content:center;gap:20px;text-align:left}
+    .trust-message strong{font-size:21px;letter-spacing:-.04em}
+    .trust-message span{font-size:13px;color:rgba(255,255,255,.78)}
+    .trust-actions{min-width:430px;background:var(--paper-2);display:flex;align-items:center;justify-content:center;gap:10px;padding:20px 24px}
+    .trust-actions button{height:46px;padding:0 18px;border:1px solid var(--ink);background:transparent;font-weight:800}
+    .trust-actions button.primary{background:var(--ink);color:white}
+    .mobile-bottom{display:none}
+    .catalog-head{height:62px;display:flex;align-items:center;justify-content:space-between;border-top:1px solid var(--ink);border-bottom:1px solid var(--line)}
+    .catalog-head h2{font-size:22px;letter-spacing:-.035em;margin:0}
+    .catalog-head span{font-size:13px;color:var(--muted);font-weight:750}
+    .shop-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:14px}
+    .shop-card{min-height:245px;display:grid;grid-template-columns:44% 56%;background:var(--paper-2);border:1px solid var(--line);overflow:hidden}
+    .shop-photo{min-height:245px;overflow:hidden;background:#ddd}
+    .shop-photo img{transition:transform .55s ease}
+    .shop-card:hover .shop-photo img{transform:scale(1.025)}
+    .shop-copy{padding:25px 24px 21px;display:flex;flex-direction:column}
+    .shop-copy small{font-size:12px;font-weight:850;color:var(--coral);margin-bottom:11px}
+    .shop-copy h2{font-size:25px;line-height:1.18;letter-spacing:-.04em;margin:0 0 9px}
+    .shop-copy p{font-size:14px;line-height:1.6;color:var(--muted);margin:0}
+    .shop-meta{display:flex;gap:6px;margin-top:13px;flex-wrap:wrap}
+    .shop-meta span{padding:6px 8px;background:var(--paper);font-size:11px;font-weight:780;color:#504d47}
+    .shop-link{width:100%;margin-top:auto;padding:14px 0 0;border:0;border-top:1px solid var(--line);background:none;display:flex;justify-content:space-between;align-items:center;font-size:14px;font-weight:850;text-align:left}
+    .shop-link span:last-child{font-size:20px}
+    .shop-link:hover{color:var(--coral)}
+    .toast{position:fixed;left:50%;bottom:28px;z-index:100;transform:translate(-50%,20px);opacity:0;background:var(--ink);color:#fff;padding:13px 18px;font-size:13px;font-weight:800;pointer-events:none;transition:.23s}
+    .toast.show{transform:translate(-50%,0);opacity:1}
+
+    @media(max-width:760px){
+      :root{--header:60px}
+      body{padding-bottom:72px;background:#fbf8f2}
+      .header-inner{width:100%;padding:0 20px}
+      .brand{font-size:21px}.brand small{display:none}
+      .desktop-nav{display:none}.identity{font-size:12px}
+      main{width:100%;padding:30px 20px 48px}
+      .intro{display:block;margin-bottom:20px}
+      .intro-note{display:none}
+      .eyebrow{font-size:10px;margin-bottom:11px}.eyebrow::before{width:20px}
+      h1{font-size:37px;line-height:1.08;max-width:330px}
+      .intro-copy{font-size:14px;margin-top:12px;line-height:1.55}
+      .search-form{grid-template-columns:1fr 56px;margin:22px 0 17px}
+      .search-form label{padding:0 14px;gap:9px}.search-form svg{width:19px;height:19px}
+      .search-form input{height:54px;font-size:14px}.search-form button{font-size:0;position:relative}
+      .search-form button::after{content:"→";font-size:20px}
+      .filters{margin:0 -20px;padding:0 20px 18px;gap:7px}
+      .filter{height:39px;padding:0 14px;font-size:13px;border-radius:0}
+      .discovery{display:block;border-top:0;padding-top:0}
+      .featured{min-height:380px;margin:0 -20px}
+      .featured::after{background:linear-gradient(0deg,rgba(6,13,23,.93),rgba(6,13,23,.05) 70%)}
+      .featured img{height:100%;object-position:37% center}
+      .featured-info{left:0;right:0;top:auto;bottom:0;width:auto;height:57%;padding:24px 20px 21px;justify-content:flex-end}
+      .relation{margin-bottom:15px;font-size:11px}.relation::before{width:7px;height:7px}
+      .featured h2{font-size:31px;margin-bottom:8px}.featured p{font-size:14px;margin-bottom:16px}
+      .facts{margin-bottom:16px;padding-top:13px}.fact b{font-size:12px}.fact small{font-size:10px}
+      .featured-link{padding-top:13px;font-size:13px}
+      .side-list{margin:16px -20px 0;border-left:0;border-right:0;padding:0 20px}
+      .side-head{height:62px}.side-head h2{font-size:19px}
+      .shop-row{grid-template-columns:92px 1fr 18px;gap:13px;min-height:121px}
+      .thumb{height:82px}.row-copy small{font-size:10px;margin-bottom:5px}.row-copy b{font-size:17px;margin-bottom:4px}.row-copy span{font-size:12px}
+      .trust-strip{display:block;margin:16px -20px 0;border-left:0;border-right:0}
+      .trust-message{padding:20px;display:block}.trust-message strong{display:block;font-size:19px;margin-bottom:5px}.trust-message span{font-size:12px}
+      .trust-actions{justify-content:stretch;padding:14px 20px}.trust-actions button{flex:1;padding:0 10px;font-size:13px}
+      .mobile-bottom{position:fixed;display:grid;grid-template-columns:repeat(4,1fr);left:0;right:0;bottom:0;height:68px;background:rgba(255,253,248,.97);border-top:1px solid var(--line);z-index:40;padding-bottom:env(safe-area-inset-bottom)}
+      .mobile-bottom button{border:0;background:none;display:grid;place-items:center;align-content:center;gap:3px;color:#706d67;font-size:10px;font-weight:750}
+      .mobile-bottom button.active{color:var(--coral)}
+      .mobile-bottom svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8}
+      .catalog-head{height:58px}.catalog-head h2{font-size:20px}.catalog-head span{font-size:12px}
+      .shop-grid{display:block;margin:12px 0 0}
+      .shop-card{grid-template-columns:125px 1fr;min-height:205px;border-left:0;border-right:0;margin-bottom:10px}
+      .shop-photo{min-height:205px}.shop-copy{padding:19px 17px 16px}.shop-copy small{font-size:11px;margin-bottom:8px}.shop-copy h2{font-size:21px}.shop-copy p{font-size:13px}.shop-meta{margin-top:9px}.shop-meta span{font-size:10px}.shop-link{font-size:14px;padding-top:11px}
+      .toast{bottom:82px;max-width:calc(100% - 36px);white-space:nowrap}
+    }
+    /* 31번 보존형 통일 작업: 배치·사진·색상은 변경하지 않고 가독성만 정규화 */
+    .brand small{font-size:11px}.eyebrow{font-size:14px}.relation{font-size:13px}.fact small,.row-copy small,.shop-copy small,.shop-meta span{font-size:13px}.identity{font-size:14px}
+    @media(max-width:760px){.identity{font-size:13px}.eyebrow{font-size:14px}.relation{font-size:13px}.fact b{font-size:14px}.fact small{font-size:13px}.row-copy small{font-size:13px}.row-copy span{font-size:14px}.trust-message span{font-size:14px}.trust-actions button{font-size:14px}.mobile-bottom button{font-size:12px}.catalog-head span{font-size:14px}.shop-copy small{font-size:13px}.shop-copy p{font-size:15px;line-height:1.55}.shop-meta span{font-size:13px}}
+    @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}}
+  </style>
+<style>
+
+.intro-note{grid-template-columns:repeat(3,1fr)!important}
+.trust-message strong{font-size:clamp(24px,2.2vw,34px);line-height:1.15}
+.trust-actions{align-items:center}.trust-actions button{min-width:180px}
+@media(max-width:760px){.intro-note{grid-template-columns:1fr!important}.trust-message strong{font-size:26px}.trust-actions{grid-template-columns:1fr 1fr!important}.trust-actions button{min-width:0!important;padding-left:8px!important;padding-right:8px!important}}
+
+
+.intro-note>div{padding-left:14px;border-left:4px solid var(--coral)}
+.intro-note>div:nth-child(2){border-left-color:var(--amber)}
+.intro-note>div:nth-child(3){border-left-color:var(--green)}
+.intro-note>div:nth-child(1) b{color:var(--coral)}
+.intro-note>div:nth-child(2) b{color:#a66b00}
+.intro-note>div:nth-child(3) b{color:var(--green)}
+.trust-message{padding:20px 28px}
+.trust-message strong{font-size:clamp(20px,1.7vw,27px)!important;line-height:1.2}
+.trust-message span{display:block;margin-top:7px;font-size:13px;line-height:1.55;color:rgba(255,255,255,.88)}
+
+
+.brand-word{font-size:28px;font-weight:900;letter-spacing:-.065em;white-space:nowrap}
+.brand{gap:12px!important}
+.identity{color:#5c574f!important;font-weight:850!important}
+</style>
+<style id="front-audit-bottom-nav-standard-20260904">
+/* Frontend audit 1: all app content screens share one exact bottom navigation geometry. */
+@media (max-width:760px){
+  body{padding-bottom:68px!important}
+  .mobile-bottom{
+    position:fixed!important;display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;
+    left:0!important;right:0!important;bottom:0!important;width:100%!important;height:68px!important;
+    margin:0!important;padding:0!important;background:rgba(255,253,248,.98)!important;
+    border:0!important;border-top:1px solid #d8d0c3!important;box-shadow:none!important;z-index:90!important;
+  }
+  .mobile-bottom>button,.mobile-bottom>a{
+    appearance:none!important;-webkit-appearance:none!important;box-sizing:border-box!important;
+    width:auto!important;min-width:0!important;height:67px!important;margin:0!important;padding:0!important;
+    border:0!important;border-radius:0!important;background:transparent!important;text-decoration:none!important;
+    display:grid!important;grid-template-rows:22px 14px!important;align-content:center!important;justify-items:center!important;
+    place-items:initial!important;row-gap:3px!important;column-gap:0!important;
+    color:#706d67!important;font-family:inherit!important;font-size:12px!important;font-weight:800!important;
+    line-height:14px!important;letter-spacing:-.01em!important;text-align:center!important;
+  }
+  .mobile-bottom>button.active,.mobile-bottom>a.active{color:#ee6045!important}
+  .mobile-bottom svg{
+    display:block!important;width:22px!important;height:22px!important;margin:0!important;padding:0!important;
+    stroke:currentColor!important;fill:none!important;stroke-width:1.8!important;stroke-linecap:round!important;stroke-linejoin:round!important;
+    overflow:visible!important;
+  }
+  .mobile-bottom span{display:block!important;height:14px!important;margin:0!important;padding:0!important;line-height:14px!important;white-space:nowrap!important}
+  .toast{bottom:82px!important}
+}
+@media (min-width:761px){.mobile-bottom{display:none!important}}
+</style><style id="frontcheck-shop-pagination-v4">
+.catalog-pager{display:flex;align-items:center;justify-content:center;gap:6px;margin:26px 0 10px}
+.catalog-pager[hidden]{display:none!important}
+.catalog-pager button{min-width:42px;height:42px;padding:0 12px;border:1px solid var(--line);background:var(--paper2);font-weight:850}
+.catalog-pager button.active{background:var(--ink);border-color:var(--ink);color:#fff}
+.catalog-pager button:disabled{opacity:.35;cursor:default}
+.catalog-pager .pager-gap{width:24px;text-align:center;color:var(--muted);font-weight:800}
+@media(max-width:760px){.catalog-pager{margin:20px 0 8px}.catalog-pager button{min-width:40px;height:40px;padding:0 10px}}
+</style>
+<style id="danjion-shop-popup-variant-b">
+.shop-compare-modal{position:fixed;inset:0;z-index:1500;display:none;place-items:center;padding:24px;background:rgba(7,12,20,.68);backdrop-filter:blur(8px)}
+.shop-compare-modal.open{display:grid}
+.shop-compare-shell{width:min(980px,calc(100vw - 36px));max-height:calc(100dvh - 36px);overflow:auto;background:#f8f4ec;border:1px solid #171717;box-shadow:0 30px 90px rgba(0,0,0,.32)}
+.shop-compare-head{position:sticky;top:0;z-index:3;height:68px;display:flex;align-items:center;justify-content:space-between;padding:0 20px;background:rgba(248,244,236,.97);border-bottom:1px solid var(--line);backdrop-filter:blur(8px)}
+.shop-compare-head strong{font-size:19px}.shop-compare-close{width:46px;height:46px;border:1px solid var(--ink);background:transparent;font-size:27px;line-height:1}
+.shop-compare-grid{display:grid;grid-template-columns:1.08fr .92fr;min-height:540px}.shop-compare-visual{min-width:0;background:#ded7cb}.shop-compare-gallery{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;padding:7px;background:#f8f4ec}.shop-compare-gallery button{height:78px;border:2px solid transparent;padding:0;background:#ddd;overflow:hidden}.shop-compare-gallery button.active{border-color:#171717}.shop-compare-gallery img{width:100%;height:100%;object-fit:cover}
+.shop-compare-image{background:#ddd;min-height:540px}.shop-compare-image img{width:100%;height:100%;object-fit:cover}
+.shop-compare-info{padding:32px 30px;display:flex;flex-direction:column}
+.shop-compare-kicker{font-size:12px;font-weight:900;color:var(--coral);letter-spacing:.03em}
+.shop-compare-info h2{font-size:42px;line-height:1.05;letter-spacing:-.055em;margin:11px 0 9px}
+.shop-compare-desc{font-size:16px;line-height:1.7;color:var(--muted);margin:0 0 22px}
+.shop-compare-facts{border-top:1px solid var(--ink)}
+.shop-compare-fact{display:grid;grid-template-columns:92px minmax(0,1fr);gap:12px;padding:12px 0;border-bottom:1px solid var(--line);font-size:14px}
+.shop-compare-fact b{font-weight:900}
+.shop-compare-benefit{margin-top:18px;padding:18px;background:#fff;border-left:4px solid var(--coral)}
+.shop-compare-benefit small{display:block;color:var(--coral);font-weight:900;margin-bottom:6px}
+.shop-compare-benefit strong{font-size:22px;line-height:1.3}
+.shop-compare-benefit-detail{display:none;margin-top:10px;padding-top:11px;border-top:1px dashed #bdb4a7;color:#5d5850;font-size:13px;line-height:1.6}
+.shop-compare-benefit-detail.open{display:block}
+.shop-compare-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:auto;padding-top:24px}
+.shop-compare-actions button{min-height:48px;border:1px solid var(--ink);background:#fff;padding:0 15px;font-weight:900}
+.shop-compare-actions .primary{background:var(--ink);color:#fff}.shop-compare-actions .accent{background:var(--coral);border-color:var(--coral);color:#fff}
+@media(max-width:760px){
+ .shop-compare-modal{align-items:end;padding:0}
+ .shop-compare-shell{width:100%;max-height:92dvh;border-left:0;border-right:0;border-bottom:0}
+ .shop-compare-head{height:60px;padding:0 16px}.shop-compare-grid{display:block;min-height:0}.shop-compare-gallery{padding:6px 16px 10px;gap:6px}.shop-compare-gallery button{height:58px}
+ .shop-compare-image{height:34dvh;min-height:240px}.shop-compare-info{padding:22px 20px 28px}
+ .shop-compare-info h2{font-size:31px}.shop-compare-desc{font-size:14px;margin-bottom:17px}
+ .shop-compare-fact{grid-template-columns:82px 1fr;font-size:13px}.shop-compare-benefit strong{font-size:19px}
+ .shop-compare-actions{display:grid;grid-template-columns:1fr 1fr}.shop-compare-actions button{width:100%;padding:0 8px}
+}
+</style>
+
+<style id="frontend2-b-donor-shop-layout-20260905">
+/* 11_HISTORY donor의 비대칭 카드 + 하단 목록 밀도를 현재 008 B안에만 적용 */
+.shop-grid.b-donor-grid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:18px;align-items:start;margin-top:18px}
+.b-shop-card{border-top:1px solid var(--ink);padding-top:10px;min-width:0;display:flex;flex-direction:column}
+.b-shop-card.featured{grid-column:span 7}.b-shop-card.medium{grid-column:span 5}
+.b-shop-card.row{grid-column:span 6;display:grid;grid-template-columns:190px minmax(0,1fr);gap:18px;border-bottom:1px solid var(--line);padding-bottom:18px}
+.b-shop-media{position:relative;overflow:hidden;background:#e7e0d4;aspect-ratio:16/10}
+.b-shop-card.featured .b-shop-media{aspect-ratio:16/9}.b-shop-card.medium .b-shop-media{aspect-ratio:4/3}.b-shop-card.row .b-shop-media{aspect-ratio:4/3}
+.b-shop-media img{width:100%;height:100%;object-fit:cover;transition:transform .34s ease}.b-shop-card:hover .b-shop-media img{transform:scale(1.018)}
+.b-shop-rank{position:absolute;left:10px;top:10px;background:#fff;color:#111;padding:6px 8px;font-size:12px;font-weight:950;box-shadow:0 1px 0 rgba(0,0,0,.1)}.b-shop-badge{position:absolute;right:10px;top:10px;background:#fff;color:#1f654d;padding:7px 10px;font-size:13px;font-weight:950;border:1px solid rgba(31,101,77,.28);box-shadow:0 2px 12px rgba(0,0,0,.08)}
+.b-shop-body{padding-top:15px;display:flex;flex-direction:column;flex:1}.b-shop-name{font-size:clamp(23px,2vw,31px);font-weight:950;letter-spacing:-.045em;line-height:1.12}.b-shop-card.row .b-shop-name{font-size:22px}
+.b-shop-relation{font-size:14px;color:#1f654d;font-weight:950;margin-top:5px;line-height:1.3}.b-shop-desc{margin:10px 0 0;color:#4d4943;line-height:1.58;font-size:15px}
+.b-shop-meta{display:flex;gap:12px;flex-wrap:wrap;margin-top:14px;font-size:14px;line-height:1.45;color:#3f3b36}.b-shop-meta span{border-left:2px solid var(--coral);padding-left:9px}
+.b-shop-actions{display:grid;grid-template-columns:minmax(150px,1fr) 92px;gap:9px;margin-top:auto;padding-top:17px}.b-shop-actions button{min-height:48px;padding:0 16px;border:1px solid var(--ink);background:#fff;font-size:14px;font-weight:950}.b-shop-actions .primary{background:var(--ink);color:#fff}.b-shop-card.row .b-shop-actions{grid-template-columns:minmax(130px,1fr) 78px}
+.b-text-list{grid-column:1/-1;border-top:1px solid var(--ink);margin-top:10px}.b-text-shop{display:grid;grid-template-columns:60px 1.1fr 1fr auto;gap:20px;padding:19px 0;border-bottom:1px solid var(--line);align-items:center}.b-text-shop .n{font-weight:950;font-size:14px}.b-text-shop b{font-size:20px;line-height:1.25}.b-text-shop>span{color:#5d5952;font-size:15px;line-height:1.45}.b-text-shop button{min-width:62px;min-height:48px;padding:0 15px;border:1px solid var(--ink);background:#fff;font-size:14px;font-weight:950}
+/* shop popup -> coupon popup */
+.b-coupon-modal{position:fixed;inset:0;z-index:1700;display:none;place-items:center;padding:24px;background:rgba(5,10,18,.56);backdrop-filter:blur(8px)}.b-coupon-modal.open{display:grid}
+.b-coupon-shell{width:min(520px,calc(100vw - 32px));background:#fffaf1;border:1px solid var(--ink);box-shadow:0 30px 90px rgba(0,0,0,.34)}
+.b-coupon-head{height:62px;padding:0 18px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line)}.b-coupon-head button{width:42px;height:42px;border:1px solid var(--ink);background:transparent;font-size:24px}
+.b-coupon-body{padding:27px}.b-coupon-body small{display:block;color:var(--coral);font-weight:900}.b-coupon-body h3{font-size:31px;line-height:1.15;letter-spacing:-.045em;margin:9px 0}.b-coupon-value{font-size:46px;font-weight:950;letter-spacing:-.05em;margin:22px 0}.b-coupon-code{display:flex;justify-content:space-between;gap:12px;border-top:1px dashed #8f887e;border-bottom:1px dashed #8f887e;padding:14px 0}.b-coupon-note{font-size:14px;line-height:1.65;color:var(--muted);margin:18px 0 0}.b-coupon-actions{display:grid;grid-template-columns:1fr;gap:8px;margin-top:22px}.b-coupon-actions button{min-height:50px;border:1px solid var(--ink);background:#fff;font-weight:900}.b-coupon-actions .primary{background:var(--ink);color:#fff}
+@media(max-width:760px){
+ .shop-grid.b-donor-grid{display:block;margin-top:12px}.b-shop-card{margin-bottom:14px}.b-shop-card.featured{margin:0 -20px 16px;border-top:0;padding-top:0;background:#101820;color:#fff}.b-shop-card.featured .b-shop-media{aspect-ratio:16/10}.b-shop-card.featured .b-shop-body{padding:18px 20px 20px}.b-shop-card.featured .b-shop-desc{color:rgba(255,255,255,.78)}.b-shop-card.featured .b-shop-relation{color:#b8e1ce}.b-shop-card.featured .b-shop-meta span{color:#fff}.b-shop-card.featured .b-shop-actions button{border-color:rgba(255,255,255,.55);color:#fff}.b-shop-card.featured .b-shop-actions .primary{background:#fff;color:#111;border-color:#fff}
+ .b-shop-card.medium,.b-shop-card.row{display:grid;grid-template-columns:118px minmax(0,1fr);gap:14px;border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:14px 0;margin:0}.b-shop-card.medium .b-shop-media,.b-shop-card.row .b-shop-media{aspect-ratio:1/1;min-height:118px}.b-shop-card.medium .b-shop-body,.b-shop-card.row .b-shop-body{padding:0;align-self:stretch}.b-shop-card.medium .b-shop-name,.b-shop-card.row .b-shop-name{font-size:20px}.b-shop-card.medium .b-shop-relation,.b-shop-card.row .b-shop-relation{font-size:13px}.b-shop-card.medium .b-shop-desc,.b-shop-card.row .b-shop-desc{font-size:14px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.b-shop-card.medium .b-shop-meta,.b-shop-card.row .b-shop-meta{font-size:13px;margin-top:8px}.b-shop-card.medium .b-shop-actions,.b-shop-card.row .b-shop-actions{grid-template-columns:minmax(0,1fr) 74px;padding-top:10px}.b-shop-card.medium .b-shop-actions button,.b-shop-card.row .b-shop-actions button{min-height:42px;padding:0 10px;font-size:13px}.b-shop-rank{font-size:10px}.b-shop-badge{font-size:10px;padding:5px 7px}
+ .b-text-list{margin-top:15px}.b-text-shop{grid-template-columns:34px minmax(0,1fr) auto;gap:10px;padding:16px 0}.b-text-shop>span{display:none}.b-text-shop b{font-size:18px}.b-text-shop .b-shop-relation{font-size:13px;margin-top:4px}.b-text-shop button{min-width:58px;min-height:44px;padding:0 11px;font-size:13px}
+ .b-coupon-modal{align-items:end;padding:0}.b-coupon-shell{width:100%;border-left:0;border-right:0;border-bottom:0;max-height:86dvh;overflow:auto}.b-coupon-body{padding:23px 20px 28px}.b-coupon-body h3{font-size:27px}.b-coupon-value{font-size:40px}.b-coupon-actions{grid-template-columns:1fr}
+}
+</style>
+
+<style id="frontend2-b-redesign-v7">
+/* B안 재설계: 정보는 아래, 사진은 사진대로. 후기만 별도 팝업. */
+.b-shop-card{position:relative!important;border:1px solid var(--line)!important;border-top:1px solid var(--ink)!important;background:var(--paper-2)!important;color:var(--ink)!important;overflow:hidden!important}
+.b-shop-card.featured{grid-column:span 7!important;display:grid!important;grid-template-columns:minmax(0,1.12fr) minmax(0,.88fr)!important;min-height:360px!important;padding:0!important;background:var(--navy)!important;color:#fff!important}
+.b-shop-card.featured .b-shop-media{aspect-ratio:4/3!important;height:100%!important;min-height:360px!important}
+.b-shop-card.featured .b-shop-body{padding:30px 28px 26px!important;justify-content:flex-start!important}
+.b-shop-card.medium{grid-column:span 5!important;display:flex!important;flex-direction:column!important;min-height:360px!important;padding:0!important}
+.b-shop-card.medium .b-shop-media{aspect-ratio:16/10!important;height:auto!important}
+.b-shop-card.medium .b-shop-body{padding:22px 22px 20px!important}
+.b-shop-card.row{grid-column:span 6!important;display:grid!important;grid-template-columns:180px minmax(0,1fr)!important;gap:18px!important;padding:18px!important;min-height:190px!important;border-top:1px solid var(--ink)!important}
+.b-shop-card.row .b-shop-media{aspect-ratio:1/1!important;min-height:154px!important;height:auto!important}
+.b-shop-rank,.b-shop-badge{position:static!important;background:none!important;box-shadow:none!important;border:0!important;padding:0!important}
+.b-shop-media .b-shop-rank,.b-shop-media .b-shop-badge{display:none!important}
+.b-shop-titleline{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin:0 0 6px}
+.b-shop-name{font-size:clamp(27px,2.3vw,36px)!important;line-height:1.08!important}
+.b-shop-card.row .b-shop-name{font-size:22px!important}
+.b-shop-rank-inline{font-size:12px!important;font-weight:950!important;color:#6e6a63!important;letter-spacing:.08em}
+.b-shop-relation{display:inline-block!important;width:max-content!important;margin-top:4px!important;padding:5px 9px!important;font-size:13px!important;font-weight:950!important;line-height:1.2!important;border-radius:0!important}
+.b-rel-owner{color:#fff!important;background:var(--coral)!important}.b-rel-family{color:#111!important;background:var(--amber)!important}.b-rel-neighbor{color:var(--green)!important;background:#e8f0eb!important;border:1px solid #a9c5b4!important}
+.b-shop-card.featured .b-shop-relation{margin:4px 0 14px!important}.b-shop-card.featured .b-shop-desc{color:rgba(255,255,255,.84)!important;font-size:16px!important}
+.b-shop-card.featured .b-shop-meta{color:rgba(255,255,255,.86)!important;margin-top:16px!important}
+.b-shop-card.featured .b-shop-meta span{border-color:rgba(255,255,255,.75)!important;color:rgba(255,255,255,.9)!important}
+.b-shop-card.medium .b-shop-desc,.b-shop-card.row .b-shop-desc{font-size:15px!important;line-height:1.58!important}
+.b-shop-meta{gap:10px 14px!important}
+.b-shop-actions{display:flex!important;align-items:center!important;gap:10px!important;margin-top:16px!important;padding-top:14px!important;border-top:1px solid var(--line)!important}
+.b-shop-card.featured .b-shop-actions{border-color:rgba(255,255,255,.28)!important}
+.b-shop-actions button{min-height:44px!important;border:0!important;background:transparent!important;padding:0!important;font-weight:900!important}
+.b-shop-actions .save-shop-v2{min-width:74px!important;color:var(--coral)!important}
+.b-shop-card.featured .save-shop-v2{color:#ff806b!important}
+.b-shop-actions .shop-link{display:none!important}
+.b-text-shop{grid-template-columns:56px minmax(270px,1fr) minmax(300px,1.2fr) auto!important;gap:18px!important;padding:20px 0!important;align-items:center!important}
+.b-text-shop .n{font-size:14px!important;color:#77736c!important}
+.b-text-shop b{font-size:20px!important}
+.b-text-shop .b-shop-relation{font-size:12px!important;margin-top:5px!important}
+.b-text-shop>span{font-size:14px!important;color:#514e48!important}
+.b-text-shop button.shop-link{display:none!important}
+.b-text-shop [data-save-key]{margin-left:10px;color:var(--coral)!important;font-weight:900}
+.b-shop-card.row .b-shop-actions{border-top:0!important;padding-top:0!important;margin-top:auto!important}
+.b-shop-card.row .b-shop-actions .save-shop-v2{display:block!important}
+.b-shop-card.row .b-shop-actions:before{content:"";display:none}
+
+.shop-review-preview{margin-top:18px;border-top:1px solid var(--line);padding-top:14px}
+.shop-review-preview-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:8px}
+.shop-review-preview-head b{font-size:15px}
+.shop-review-preview-head button{border:0;background:none;font-size:13px;color:var(--coral);font-weight:900;text-decoration:underline}
+.shop-review-snippet{font-size:13px;line-height:1.6;color:#5c5851}
+.shop-compare-actions{margin-top:20px!important;padding-top:18px!important;display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:8px!important}
+.shop-compare-actions button{min-height:48px!important;padding:0 10px!important}
+.shop-compare-actions #shopCompareSave{background:#fff!important;color:var(--coral)!important;border-color:var(--coral)!important}
+.shop-compare-actions #shopCompareSave.is-saved{background:var(--coral)!important;color:#fff!important}
+.shop-compare-actions .accent{background:var(--coral)!important}
+.shop-compare-visual{align-self:start!important;display:flex!important;flex-direction:column!important}
+.shop-compare-image{min-height:0!important;height:auto!important;aspect-ratio:4/3!important;background:#ddd!important}
+.shop-compare-grid{min-height:0!important;align-items:start!important}
+.shop-compare-info{padding:30px 28px 26px!important}
+.shop-compare-facts{margin-top:12px}
+.shop-compare-fact{grid-template-columns:84px minmax(0,1fr)!important;font-size:14px!important}
+.shop-compare-benefit{margin-top:16px!important}
+.review-modal{position:fixed;inset:0;z-index:1800;display:none;place-items:center;padding:24px;background:rgba(5,10,18,.58);backdrop-filter:blur(7px)}
+.review-modal.open{display:grid}
+.review-shell{width:min(680px,calc(100vw - 36px));max-height:calc(100dvh - 36px);overflow:auto;background:var(--paper-2);border:1px solid var(--ink);box-shadow:0 30px 90px rgba(0,0,0,.34)}
+.review-head{height:68px;display:flex;align-items:center;justify-content:space-between;padding:0 20px;border-bottom:1px solid var(--line)}
+.review-head strong{font-size:18px}.review-head button{width:44px;height:44px;border:1px solid var(--ink);background:#fff;font-size:24px}
+.review-body{padding:24px}
+.review-count{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:14px}.review-count h3{margin:0;font-size:25px}.review-count span{font-size:13px;color:var(--muted)}
+.review-list{border-top:1px solid var(--ink)}
+.review-item{padding:16px 0;border-bottom:1px solid var(--line)}.review-item-head{display:flex;justify-content:space-between;gap:10px}.review-item-head b{font-size:14px}.review-item-head time{font-size:12px;color:var(--coral);font-weight:900}
+.review-item p{margin:7px 0 0;font-size:14px;line-height:1.68;color:#4e4b45}
+.review-write{margin-top:22px;border-top:1px solid var(--ink);padding-top:20px}.review-write h4{margin:0 0 10px;font-size:18px}.review-write textarea{width:100%;min-height:120px;border:1px solid var(--line);background:#fff;padding:13px;font:inherit;resize:vertical}.review-write-actions{display:flex;justify-content:flex-end;margin-top:10px}.review-write-actions button{height:46px;padding:0 18px;border:1px solid var(--ink);background:var(--ink);color:#fff;font-weight:900}
+
+@media(max-width:900px){
+ .b-shop-card.featured{grid-template-columns:1fr!important;min-height:0!important}
+ .b-shop-card.featured .b-shop-media{min-height:0!important;aspect-ratio:16/10!important}
+ .b-shop-card.featured .b-shop-body{padding:20px!important}
+ .b-shop-card.medium{min-height:0!important}
+ .b-shop-card.medium .b-shop-media{aspect-ratio:16/10!important}
+ .b-shop-card.row{grid-template-columns:126px minmax(0,1fr)!important;padding:14px 0!important;min-height:0!important}
+ .b-shop-card.row .b-shop-media{min-height:126px!important}
+ .b-shop-name{font-size:24px!important}.b-shop-card.row .b-shop-name{font-size:20px!important}
+ .b-shop-relation{font-size:12px!important}
+ .b-shop-card.featured .b-shop-desc,.b-shop-card.medium .b-shop-desc,.b-shop-card.row .b-shop-desc{font-size:14px!important}
+ .b-shop-actions{margin-top:12px!important;padding-top:10px!important}
+ .b-text-shop{grid-template-columns:34px minmax(0,1fr) auto!important;gap:10px!important;padding:17px 0!important}
+ .b-text-shop>span{display:none!important}.b-text-shop b{font-size:18px!important}
+ .shop-compare-info{padding:22px 20px 24px!important}
+ .shop-compare-actions{grid-template-columns:1fr 1fr!important}
+ .review-modal{align-items:end;padding:0}.review-shell{width:100%;max-height:88dvh;border-left:0;border-right:0;border-bottom:0}
+ .review-body{padding:20px}.review-count h3{font-size:22px}
+}
+</style>
+
+<style id="frontend2-b-clean-layout-20260905">
+/* B안 2차 레이아웃 정리 — 사진/정보/저장/진입을 한 리듬으로 단순화 */
+.b-donor-grid{grid-template-columns:repeat(12,minmax(0,1fr));gap:18px;margin-top:18px}
+.b-shop-card{position:relative;border-top:1px solid var(--ink);padding-top:10px;cursor:pointer;min-width:0}
+.b-shop-card.b-featured{grid-column:span 7;background:var(--navy);color:#fff;padding-top:0;border-top:0}
+.b-shop-card.b-medium{grid-column:span 5;background:var(--paper-2)}
+.b-shop-card.b-row{grid-column:span 6;display:grid;grid-template-columns:180px minmax(0,1fr);gap:18px;padding:10px 0 16px;border-bottom:1px solid var(--line)}
+.b-card-media{position:relative;overflow:hidden;background:#ded7cb}
+.b-featured .b-card-media{aspect-ratio:16/9}
+.b-medium .b-card-media{aspect-ratio:4/3}
+.b-row .b-card-media{aspect-ratio:3/2}
+.b-card-media img{width:100%;height:100%;object-fit:cover;transition:transform .35s ease}
+.b-shop-card:hover .b-card-media img{transform:scale(1.015)}
+.b-card-body{padding:18px 22px 20px;display:flex;flex-direction:column;min-width:0}
+.b-featured .b-card-body{padding:20px 24px 22px}
+.b-card-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:7px}
+.b-card-rank{font-size:13px;font-weight:950;color:#6b665e;letter-spacing:.01em}
+.b-featured .b-card-rank{color:rgba(255,255,255,.68)}
+.b-card-name{font-size:clamp(24px,2vw,34px);font-weight:950;letter-spacing:-.045em;line-height:1.12}
+.b-medium .b-card-name{font-size:28px}
+.b-row .b-card-name{font-size:22px}
+.b-card-relation{font-size:13px;font-weight:950;line-height:1.2;padding:5px 8px;border-radius:999px}
+.b-relation-ours{color:#fff;background:var(--coral)}
+.b-relation-family{color:#392900;background:var(--amber)}
+.b-relation-nearby{color:#fff;background:var(--green)}
+.b-featured .b-card-relation{box-shadow:0 0 0 1px rgba(255,255,255,.22)}
+.b-card-desc{font-size:15px;line-height:1.58;color:#4d4943;margin:4px 0 0}
+.b-featured .b-card-desc{color:rgba(255,255,255,.84)}
+.b-card-meta{display:flex;gap:10px;flex-wrap:wrap;margin-top:13px;font-size:14px;line-height:1.45;color:#49453f}
+.b-featured .b-card-meta{color:rgba(255,255,255,.9)}
+.b-card-meta span{border-left:2px solid var(--coral);padding-left:8px}
+.b-card-actions{display:flex;justify-content:flex-start;gap:8px;margin-top:16px}
+.b-save{height:40px;padding:0 12px;border:1px solid var(--line);background:transparent;font-size:13px;font-weight:950}
+.b-save:hover{color:var(--coral);border-color:var(--coral)}
+.b-featured .b-save{border-color:rgba(255,255,255,.38);color:#fff;background:transparent}
+.b-featured .b-save:hover{border-color:#fff}
+.b-text-list{grid-column:1/-1;border-top:1px solid var(--ink);margin-top:0}
+.b-text-shop{display:grid;grid-template-columns:54px minmax(280px,1.05fr) minmax(280px,1fr) auto;gap:18px;padding:14px 0;border-bottom:1px solid var(--line);align-items:center;cursor:pointer}
+.b-text-shop .n{font-size:13px;font-weight:950;color:#6b665e}
+.b-text-main{min-width:0}
+.b-text-name-line{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.b-text-shop b{font-size:20px;line-height:1.2}
+.b-text-shop .b-shop-relation{font-size:13px;font-weight:950}
+.b-text-service{color:#5d5952;font-size:14px;line-height:1.45}
+.b-text-shop button{border:0;background:transparent;padding:7px 0;font-size:13px;font-weight:950;color:#55514a;cursor:pointer}
+.b-text-shop .row-save{color:var(--coral);white-space:nowrap}
+.b-text-shop:hover .b-text-shop-name{text-decoration:underline;text-underline-offset:4px}
+
+.shop-compare-grid{grid-template-columns:1.04fr .96fr;min-height:0}
+.shop-compare-visual{min-width:0;display:flex;flex-direction:column;background:#ded7cb}
+.shop-compare-image{height:520px;min-height:0;background:#ded7cb;overflow:hidden}
+.shop-compare-image img{display:block;width:100%;height:100%;object-fit:cover}
+.shop-compare-gallery{flex:0 0 auto}
+.shop-compare-info{min-height:0;padding:28px 30px}
+.shop-compare-actions{margin-top:22px}
+.shop-compare-kicker{display:inline-flex;align-self:flex-start;align-items:center;padding:6px 9px;border-radius:999px;background:var(--coral);color:#fff}
+@media(max-width:760px){
+  .b-donor-grid{display:block;margin-top:12px}
+  .b-shop-card.b-featured{margin:0 -20px 14px}
+  .b-featured .b-card-body{padding:17px 20px 19px}
+  .b-card-name{font-size:28px}.b-medium .b-card-name{font-size:23px}.b-row .b-card-name{font-size:19px}
+  .b-shop-card.b-medium,.b-shop-card.b-row{display:grid;grid-template-columns:112px minmax(0,1fr);gap:13px;border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:12px 0;margin:0}
+  .b-medium .b-card-media,.b-row .b-card-media{aspect-ratio:1/1}
+  .b-medium .b-card-body,.b-row .b-card-body{padding:0;align-self:stretch}
+  .b-card-head{gap:7px;margin-bottom:5px}
+  .b-card-rank{font-size:11px}.b-card-relation{font-size:11px;padding:4px 7px}
+  .b-card-desc{font-size:13px;line-height:1.48}
+  .b-card-meta{font-size:12px;margin-top:7px}
+  .b-card-actions{margin-top:auto;padding-top:8px}
+  .b-save{height:36px;font-size:12px;padding:0 10px}
+  .b-text-list{margin-top:12px}
+  .b-text-shop{grid-template-columns:34px minmax(0,1fr) auto;gap:9px;padding:13px 0}
+  .b-text-shop b{font-size:17px}.b-text-service{display:none}.b-text-shop button{font-size:12px}
+  .shop-compare-image{height:34dvh;min-height:245px}
+}
+</style>
+
+<style id="frontend2-b-final-clean-20260905">
+/* Final B visual cleanup: no image overlays, compact rows, clear relation hierarchy. */
+.b-shop-card{cursor:pointer;overflow:hidden}
+.b-shop-card.featured,.b-shop-card.medium{border:1px solid var(--line);border-top:1px solid var(--ink);background:var(--paper-2);color:var(--ink)}
+.b-shop-card.featured{background:var(--navy);color:#fff}
+.b-shop-card .b-card-media{position:relative;overflow:hidden;background:#ded7cb}
+.b-shop-card.featured .b-card-media{aspect-ratio:16/9}
+.b-shop-card.medium .b-card-media{aspect-ratio:16/10}
+.b-shop-card.row{display:grid;grid-template-columns:180px minmax(0,1fr);gap:18px;border-top:1px solid var(--line);padding:12px 0 15px;min-height:0}
+.b-shop-card.row .b-card-media{aspect-ratio:3/2}
+.b-card-media img{width:100%;height:100%;object-fit:cover}
+.b-card-body{padding:17px 22px 19px;display:flex;flex-direction:column;min-width:0}
+.b-shop-card.featured .b-card-body{background:var(--navy);padding:19px 24px 21px}
+.b-card-titleline{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.b-card-rank{font-size:12px;font-weight:950;color:#706b63}
+.b-featured .b-card-rank,.featured .b-card-rank{color:rgba(255,255,255,.62)}
+.b-card-name{font-size:clamp(23px,2vw,32px);font-weight:950;letter-spacing:-.045em;line-height:1.12}
+.medium .b-card-name{font-size:28px}
+.row .b-card-name{font-size:22px}
+.b-card-relation{display:inline-flex;align-items:center;border-radius:999px;padding:5px 9px;font-size:12px;font-weight:950;line-height:1.1}
+.b-rel-owner{background:var(--coral);color:#fff}
+.b-rel-family{background:var(--amber);color:#3b2b00}
+.b-rel-neighbor{background:var(--green);color:#fff}
+.b-card-desc{margin:9px 0 0;font-size:15px;line-height:1.55;color:#4c4842}
+.b-shop-card.featured .b-card-desc{color:rgba(255,255,255,.84)}
+.b-card-meta{display:flex;gap:11px;flex-wrap:wrap;margin-top:12px;font-size:13px;line-height:1.45;color:#4e4a44}
+.b-shop-card.featured .b-card-meta{color:rgba(255,255,255,.88)}
+.b-card-meta span{padding-left:8px;border-left:2px solid var(--coral)}
+.b-card-actions{display:flex;margin-top:13px}
+.b-save{height:38px;padding:0 12px;border:1px solid var(--line);background:transparent;color:var(--coral);font-weight:950;font-size:13px}
+.b-shop-card.featured .b-save{border-color:rgba(255,255,255,.4);color:#fff}
+.b-text-list{grid-column:1/-1;border-top:1px solid var(--ink);margin-top:2px}
+.b-text-shop{display:grid;grid-template-columns:54px minmax(300px,1.05fr) minmax(300px,1fr) auto;gap:18px;padding:13px 0;border-bottom:1px solid var(--line);align-items:center;min-height:0;cursor:pointer}
+.b-text-shop .n{font-size:12px;font-weight:950;color:#716c64}
+.b-text-main{min-width:0}
+.b-text-name-line{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.b-text-shop b{font-size:19px}
+.b-text-service{font-size:14px;color:#5b574f;line-height:1.4}
+.b-text-shop .row-save{border:0;background:transparent;color:var(--coral);font-size:13px;font-weight:950;padding:8px 0}
+.b-text-shop:hover b{text-decoration:underline;text-underline-offset:4px}
+
+/* keep popup compact and remove the former gray void under the hero image */
+.shop-compare-grid{min-height:0}
+.shop-compare-visual{display:flex;flex-direction:column;min-height:0;background:#ded7cb}
+.shop-compare-image{height:480px;min-height:0;overflow:hidden;background:#ded7cb}
+.shop-compare-gallery{flex:0 0 auto}
+.shop-compare-info{min-height:0;padding:27px 29px}
+.shop-review-preview{margin-top:16px}
+.shop-review-preview-head{display:flex;align-items:center;justify-content:space-between;border-top:1px solid var(--ink);padding-top:13px}
+.shop-review-preview-head button{border:0;background:none;color:var(--coral);font-weight:900}
+.shop-compare-actions{gap:8px;flex-wrap:nowrap}
+.shop-compare-actions button{flex:1;min-width:0;white-space:nowrap}
+
+/* The entire secondary shop card is the hit area; button is now only save. */
+.shop-link{width:auto!important}
+
+@media(max-width:760px){
+  .b-shop-card.row{display:grid;grid-template-columns:112px minmax(0,1fr);gap:12px;padding:11px 0}
+  .b-shop-card.row .b-card-media{aspect-ratio:1/1}
+  .b-card-body{padding:0}
+  .b-shop-card.featured .b-card-body{padding:16px 18px 18px}
+  .b-card-name{font-size:27px}.medium .b-card-name{font-size:21px}.row .b-card-name{font-size:18px}
+  .b-card-rank{font-size:10px}.b-card-relation{font-size:10px;padding:4px 7px}
+  .b-card-desc{font-size:13px;margin-top:7px}
+  .b-card-meta{font-size:11px;margin-top:7px}
+  .b-save{height:34px;font-size:12px}
+  .b-text-shop{grid-template-columns:31px minmax(0,1fr) auto;gap:8px;padding:12px 0}
+  .b-text-shop b{font-size:16px}
+  .b-text-shop .b-card-relation{font-size:10px}
+  .b-text-service{display:none}
+  .shop-compare-image{height:32dvh;min-height:235px}
+  .shop-compare-actions{grid-template-columns:repeat(3,minmax(0,1fr))!important;display:grid}
+  .shop-compare-actions button{padding:0 6px;font-size:12px}
+}
+</style>
+
+<style id="frontend2-b-final-layout-lock-20260905">
+/* B안 최종 레이아웃 락 — 기존 글로벌 .featured/.medium/.row 충돌 차단 */
+.b-shop-card.b-featured,
+.b-shop-card.b-medium,
+.b-shop-card.b-row{min-height:0!important;position:relative;box-sizing:border-box;}
+
+.b-shop-card.b-featured{
+  grid-column:span 7!important;
+  display:flex!important;
+  flex-direction:column!important;
+  overflow:hidden!important;
+  background:var(--navy)!important;
+  color:#fff!important;
+  border:0!important;
+  padding:0!important;
+}
+.b-shop-card.b-medium{
+  grid-column:span 5!important;
+  display:flex!important;
+  flex-direction:column!important;
+  overflow:hidden!important;
+  background:var(--paper-2)!important;
+  color:var(--ink)!important;
+  border:1px solid var(--line)!important;
+  padding:0!important;
+}
+.b-shop-card.b-row{
+  grid-column:span 6!important;
+  display:grid!important;
+  grid-template-columns:160px minmax(0,1fr)!important;
+  gap:16px!important;
+  overflow:hidden!important;
+  background:transparent!important;
+  border:0!important;
+  border-top:1px solid var(--line)!important;
+  padding:12px 0 14px!important;
+}
+
+.b-shop-card.b-featured::after,
+.b-shop-card.b-medium::after,
+.b-shop-card.b-row::after{display:none!important;content:none!important;}
+
+.b-shop-card.b-featured img,
+.b-shop-card.b-medium img,
+.b-shop-card.b-row img{
+  position:static!important;
+  inset:auto!important;
+  width:100%!important;
+  height:100%!important;
+}
+
+.b-featured .b-card-media{aspect-ratio:16/9!important;flex:none!important;}
+.b-medium .b-card-media{aspect-ratio:16/10!important;flex:none!important;}
+.b-row .b-card-media{aspect-ratio:4/3!important;align-self:start!important;}
+
+.b-featured .b-card-body{
+  padding:18px 22px 20px!important;
+  background:var(--navy)!important;
+  color:#fff!important;
+}
+.b-medium .b-card-body{padding:18px 20px 18px!important;}
+.b-row .b-card-body{padding:1px 0 0!important;}
+
+.b-featured .b-card-titleline,
+.b-medium .b-card-titleline,
+.b-row .b-card-titleline{
+  display:flex!important;
+  align-items:center!important;
+  flex-wrap:wrap!important;
+  gap:8px!important;
+}
+.b-card-rank{
+  background:none!important;
+  padding:0!important;
+  box-shadow:none!important;
+}
+.b-featured .b-card-rank{color:rgba(255,255,255,.72)!important;}
+.b-medium .b-card-rank,.b-row .b-card-rank{color:#726e67!important;}
+
+.b-card-name{font-size:30px!important;line-height:1.1!important;}
+.b-medium .b-card-name{font-size:26px!important;}
+.b-row .b-card-name{font-size:21px!important;}
+
+.b-card-relation{
+  border-radius:0!important;
+  padding:4px 8px!important;
+  font-size:13px!important;
+  line-height:1.1!important;
+  font-weight:900!important;
+}
+.b-rel-owner{background:var(--coral)!important;color:#fff!important;}
+.b-rel-family{background:var(--amber)!important;color:#3b2b00!important;}
+.b-rel-neighbor{background:var(--green)!important;color:#fff!important;}
+
+.b-featured .b-card-desc{
+  color:rgba(255,255,255,.86)!important;
+}
+.b-card-desc{font-size:15px!important;line-height:1.55!important;margin:9px 0 0!important;}
+.b-card-meta{font-size:13px!important;margin-top:12px!important;gap:11px!important;}
+.b-featured .b-card-meta{color:rgba(255,255,255,.9)!important;}
+.b-card-actions{margin-top:12px!important;display:flex!important;}
+.b-save{
+  height:36px!important;
+  padding:0 10px!important;
+  border:0!important;
+  background:transparent!important;
+  color:var(--coral)!important;
+  font-size:13px!important;
+  font-weight:950!important;
+}
+.b-featured .b-save{color:#fff!important;}
+
+.b-text-list{
+  grid-column:1/-1!important;
+  margin-top:0!important;
+  border-top:1px solid var(--ink)!important;
+}
+.b-text-shop{
+  display:grid!important;
+  grid-template-columns:48px minmax(300px,1fr) minmax(300px,1fr) auto!important;
+  gap:16px!important;
+  padding:11px 0!important;
+  min-height:0!important;
+  align-items:center!important;
+}
+.b-text-shop .n{color:#6d685f!important;font-size:12px!important;}
+.b-text-name-line{display:flex!important;align-items:center!important;gap:8px!important;flex-wrap:wrap!important;}
+.b-text-shop b{font-size:18px!important;}
+.b-text-service{font-size:13px!important;color:#5d5952!important;}
+.b-text-shop .b-card-relation{font-size:12px!important;}
+.b-text-shop .row-save{
+  padding:6px 0!important;
+  min-width:50px!important;
+  color:var(--coral)!important;
+  white-space:nowrap!important;
+}
+
+/* Popup: image and gallery use the same left column, no artificial gray void. */
+.shop-compare-grid{grid-template-columns:minmax(0,1.03fr) minmax(0,.97fr)!important;min-height:0!important;}
+.shop-compare-visual{background:#ded7cb!important;min-height:0!important;display:flex!important;flex-direction:column!important;}
+.shop-compare-image{height:430px!important;min-height:0!important;background:#ded7cb!important;overflow:hidden!important;}
+.shop-compare-image img{position:static!important;width:100%!important;height:100%!important;object-fit:cover!important;}
+.shop-compare-gallery{padding:7px!important;gap:6px!important;}
+.shop-compare-gallery button{height:64px!important;}
+.shop-compare-info{padding:24px 26px!important;overflow:auto!important;}
+.shop-review-preview{margin-top:14px!important;}
+.shop-review-preview-head{padding-top:12px!important;}
+.shop-compare-benefit{margin-top:16px!important;}
+.shop-compare-actions{display:grid!important;grid-template-columns:1fr 1fr 1fr 1fr!important;gap:7px!important;margin-top:18px!important;}
+.shop-compare-actions button{min-height:44px!important;padding:0 7px!important;font-size:13px!important;white-space:nowrap!important;}
+
+@media(max-width:760px){
+  .b-donor-grid{display:block!important;margin-top:12px!important;}
+  .b-shop-card.b-featured{display:block!important;margin:0 -20px 14px!important;}
+  .b-shop-card.b-medium,
+  .b-shop-card.b-row{
+    display:grid!important;
+    grid-template-columns:112px minmax(0,1fr)!important;
+    gap:12px!important;
+    border-top:1px solid var(--line)!important;
+    border-bottom:0!important;
+    padding:11px 0!important;
+    margin:0!important;
+  }
+  .b-featured .b-card-media{aspect-ratio:16/10!important;}
+  .b-medium .b-card-media,.b-row .b-card-media{aspect-ratio:1/1!important;min-height:112px!important;}
+  .b-featured .b-card-body{padding:16px 18px 18px!important;}
+  .b-medium .b-card-body,.b-row .b-card-body{padding:0!important;align-self:stretch!important;}
+  .b-card-name{font-size:27px!important;}
+  .b-medium .b-card-name{font-size:20px!important;}
+  .b-row .b-card-name{font-size:18px!important;}
+  .b-card-rank{font-size:10px!important;}
+  .b-card-relation{font-size:10px!important;padding:4px 6px!important;}
+  .b-card-desc{font-size:13px!important;line-height:1.48!important;margin-top:7px!important;}
+  .b-card-meta{font-size:11px!important;margin-top:7px!important;}
+  .b-card-actions{margin-top:8px!important;}
+  .b-save{height:32px!important;font-size:12px!important;padding:0 8px!important;}
+  .b-text-shop{
+    grid-template-columns:30px minmax(0,1fr) auto!important;
+    gap:8px!important;
+    padding:11px 0!important;
+  }
+  .b-text-shop b{font-size:16px!important;}
+  .b-text-service{display:none!important;}
+  .b-text-shop .b-card-relation{font-size:10px!important;}
+  .b-text-shop .row-save{font-size:11px!important;min-width:44px!important;}
+  .shop-compare-grid{display:block!important;}
+  .shop-compare-image{height:250px!important;}
+  .shop-compare-info{padding:20px!important;}
+  .shop-compare-actions{grid-template-columns:repeat(4,minmax(0,1fr))!important;}
+  .shop-compare-actions button{font-size:11px!important;}
+}
+</style>
+
+
+<style id="frontend2-b-row-nav-final-20260905">
+.b-text-shop{align-items:center!important;}
+.b-text-shop .n{align-self:center!important;line-height:1!important;}
+@media(max-width:760px){
+  .b-text-shop{grid-template-columns:34px minmax(0,1fr) auto!important;align-items:center!important;}
+  .b-text-shop .n{line-height:1!important;}
+  }
+</style>
+
+<style id="frontend2-app-row-fix-20260905">
+@media(max-width:760px){
+  .b-text-shop{
+    grid-template-columns:32px minmax(0,1fr) auto!important;
+    gap:9px!important;
+    min-height:78px!important;
+    padding:13px 0!important;
+    align-items:center!important;
+  }
+  .b-text-main{min-width:0!important;width:100%!important;}
+  .b-text-name-line{display:flex!important;align-items:center!important;gap:7px!important;flex-wrap:nowrap!important;min-width:0!important;}
+  .b-text-shop-name{font-size:17px!important;line-height:1.25!important;white-space:nowrap!important;display:block!important;flex:0 1 auto!important;min-width:0!important;}
+  .b-text-name-line .b-card-relation{font-size:10px!important;line-height:1.2!important;padding:4px 6px!important;white-space:nowrap!important;flex:0 0 auto!important;}
+  .b-text-shop .n{font-size:12px!important;line-height:1!important;white-space:nowrap!important;}
+  .b-text-shop .row-save{font-size:12px!important;min-width:48px!important;padding:7px 0!important;white-space:nowrap!important;text-align:center!important;}
+  /* Keep the compact mobile card readable without the desktop pseudo-arrow or giant gutters. */
+  .b-text-shop::before,.b-text-shop::after{content:none!important;display:none!important;}
+}
+</style>
+<style id="frontend2-review-inquiry-final-20260905">
+.review-view-actions{margin-top:22px;padding-top:18px;border-top:1px solid var(--ink);display:flex;justify-content:flex-end}
+.review-write-open{height:48px;padding:0 20px;border:1px solid var(--ink);background:var(--ink);color:#fff;font-weight:900}
+.review-write-modal{position:fixed;inset:0;z-index:1820;display:none;place-items:center;padding:24px;background:rgba(5,10,18,.58);backdrop-filter:blur(7px)}
+.review-write-modal.open{display:grid}.review-write-shell{width:min(520px,calc(100vw - 36px));max-height:calc(100dvh - 36px);overflow:auto;background:var(--paper-2);border:1px solid var(--ink);box-shadow:0 30px 90px rgba(0,0,0,.34)}
+.review-write-body{padding:24px}.review-write-body h3{margin:0 0 8px;font-size:28px;letter-spacing:-.04em}.review-write-body>p{margin:0 0 20px;color:var(--muted);line-height:1.65}.review-write-body label{display:block;margin:18px 0 8px;font-size:14px;font-weight:850}.review-write-body textarea{width:100%;min-height:180px;border:1px solid var(--line);background:#fff;padding:13px;font:inherit;resize:vertical;line-height:1.6}
+.review-write-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}.review-write-actions button{height:48px;padding:0 18px;border:1px solid var(--ink);background:#fff;font-weight:900}.review-write-actions .primary{background:var(--ink);color:#fff;min-width:130px}
+.shop-inquiry-modal{position:fixed;inset:0;z-index:1840;display:none;background:rgba(5,10,18,.58);backdrop-filter:blur(7px)}.shop-inquiry-modal.open{display:block}.shop-inquiry-shell{position:absolute;top:0;right:0;height:100%;width:min(480px,100%);background:var(--paper-2);border-left:1px solid var(--line);display:flex;flex-direction:column;box-shadow:-18px 0 50px rgba(8,12,18,.16)}.shop-inquiry-head{height:70px;flex:0 0 70px;padding:0 22px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line)}.shop-inquiry-head strong{font-size:20px}.shop-inquiry-head button{width:48px;height:48px;border:0;background:none;font-size:28px}.shop-inquiry-body{overflow:auto;padding:24px 26px 36px}.shop-inquiry-body h3{font-size:28px;margin:0 0 8px;letter-spacing:-.04em}.shop-inquiry-body>p{margin:0 0 24px;color:var(--muted);line-height:1.65}.shop-inquiry-body label{display:block;margin:18px 0 8px;font-size:14px;font-weight:850}.shop-inquiry-body input,.shop-inquiry-body textarea{width:100%;border:1px solid var(--line);background:#fff;padding:13px 14px;font:inherit;color:var(--ink)}.shop-inquiry-body textarea{min-height:150px;resize:vertical;line-height:1.6}.shop-inquiry-body .shop-form-actions{display:flex;gap:8px;margin-top:22px}.shop-inquiry-body .shop-form-actions button{height:50px;border:1px solid var(--ink);padding:0 18px;font-weight:900;background:#fff}.shop-inquiry-body .shop-form-actions .primary{flex:1;background:var(--ink);color:#fff}.shop-inquiry-note{font-size:12px!important;color:var(--muted)!important;margin-top:12px!important}
+@media(max-width:760px){.review-write-modal{align-items:end;padding:0}.review-write-shell{width:100%;max-height:88dvh;border-left:0;border-right:0;border-bottom:0}.review-write-body{padding:20px}.review-write-body h3{font-size:24px}.shop-inquiry-shell{top:auto;bottom:0;width:100%;height:min(690px,calc(100% - 60px));border-left:0;border-top:1px solid var(--line)}.shop-inquiry-head{height:58px;flex-basis:58px;padding:0 16px}.shop-inquiry-body{padding:20px 20px 30px}.shop-inquiry-body h3{font-size:24px}}
+</style>
+
+<style id="frontend2-review-inquiry-center-final-20260905">
+.shop-inquiry-modal{
+  position:fixed!important;
+  inset:0!important;
+  z-index:1840!important;
+  display:none!important;
+  place-items:center!important;
+  padding:24px!important;
+  background:rgba(5,10,18,.58)!important;
+  backdrop-filter:blur(7px)!important;
+}
+.shop-inquiry-modal.open{display:grid!important;}
+.shop-inquiry-shell{
+  position:relative!important;
+  inset:auto!important;
+  top:auto!important;
+  right:auto!important;
+  bottom:auto!important;
+  width:min(520px,calc(100vw - 48px))!important;
+  height:auto!important;
+  max-height:calc(100dvh - 48px)!important;
+  background:var(--paper-2)!important;
+  border:1px solid var(--ink)!important;
+  box-shadow:0 30px 90px rgba(0,0,0,.34)!important;
+}
+.shop-inquiry-head{
+  height:64px!important;
+  flex:0 0 64px!important;
+  padding:0 20px!important;
+}
+.shop-inquiry-body{
+  max-height:calc(100dvh - 112px)!important;
+  overflow:auto!important;
+  padding:24px 26px 30px!important;
+}
+.review-write-actions button:first-child{
+  width:48px!important;
+  min-width:48px!important;
+  padding:0!important;
+  font-size:26px!important;
+  line-height:1!important;
+  display:grid!important;
+  place-items:center!important;
+}
+@media(max-width:760px){
+  .shop-inquiry-modal{
+    place-items:center!important;
+    padding:16px!important;
+  }
+  .shop-inquiry-shell{
+    width:min(520px,calc(100vw - 32px))!important;
+    max-height:calc(100dvh - 32px)!important;
+  }
+  .shop-inquiry-body{
+    max-height:calc(100dvh - 96px)!important;
+    padding:20px!important;
+  }
+  .review-write-shell{
+    width:min(520px,calc(100vw - 32px))!important;
+    max-height:calc(100dvh - 32px)!important;
+    border:1px solid var(--ink)!important;
+    margin:auto!important;
+  }
+  .review-write-modal{
+    align-items:center!important;
+    padding:16px!important;
+  }
+  .review-write-body h3{font-size:24px!important;}
+  .review-write-body textarea{min-height:180px!important;}
+}
+</style>
+
+
+<style id="frontend2-mobile-relation-visibility-final-20260905">
+@media(max-width:760px){
+  .b-text-name-line .b-card-relation{
+    opacity:1!important;
+    visibility:visible!important;
+    display:inline-block!important;
+    color:#fff!important;
+    background:var(--coral)!important;
+    writing-mode:horizontal-tb!important;
+    white-space:nowrap!important;
+    word-break:keep-all!important;
+  }
+  .b-text-name-line .b-rel-family{
+    color:#3b2b00!important;
+    background:var(--amber)!important;
+  }
+  .b-text-name-line .b-rel-neighbor{
+    color:#fff!important;
+    background:var(--green)!important;
+  }
+}
+</style>
+
+
+<style id="frontend2-app-mobile-list-lock-20260905">
+@media (max-width:760px){
+  /* FINAL MOBILE LOCK: only the 05~08 text-list layout is changed. */
+  .b-text-shop{
+    display:grid!important;
+    grid-template-columns:28px minmax(0,1fr) 58px!important;
+    column-gap:10px!important;
+    row-gap:0!important;
+    min-height:82px!important;
+    padding:14px 0!important;
+    align-items:center!important;
+    box-sizing:border-box!important;
+  }
+  .b-text-shop .n{
+    grid-column:1!important;
+    grid-row:1!important;
+    align-self:start!important;
+    margin:0!important;
+    padding-top:2px!important;
+    font-size:12px!important;
+    line-height:1!important;
+    white-space:nowrap!important;
+  }
+  .b-text-main{
+    grid-column:2!important;
+    grid-row:1!important;
+    min-width:0!important;
+    width:auto!important;
+    overflow:visible!important;
+  }
+  .b-text-name-line{
+    display:flex!important;
+    flex-direction:column!important;
+    align-items:flex-start!important;
+    justify-content:center!important;
+    gap:5px!important;
+    width:100%!important;
+    min-width:0!important;
+    margin:0!important;
+  }
+  .b-text-shop-name{
+    display:block!important;
+    width:auto!important;
+    max-width:100%!important;
+    min-width:0!important;
+    margin:0!important;
+    font-size:17px!important;
+    line-height:1.25!important;
+    white-space:normal!important;
+    word-break:keep-all!important;
+    overflow-wrap:normal!important;
+  }
+  .b-text-name-line .b-card-relation,
+  .b-text-name-line .b-rel-owner,
+  .b-text-name-line .b-rel-family,
+  .b-text-name-line .b-rel-neighbor{
+    display:inline-block!important;
+    width:max-content!important;
+    max-width:100%!important;
+    min-width:0!important;
+    height:auto!important;
+    padding:4px 7px!important;
+    margin:0!important;
+    border-radius:0!important;
+    box-sizing:border-box!important;
+    writing-mode:horizontal-tb!important;
+    white-space:nowrap!important;
+    word-break:keep-all!important;
+    overflow-wrap:normal!important;
+    line-height:1.1!important;
+    font-size:10px!important;
+    font-weight:900!important;
+    opacity:1!important;
+    visibility:visible!important;
+  }
+  .b-text-name-line .b-rel-owner{
+    background:var(--coral)!important;
+    color:#fff!important;
+    border:0!important;
+  }
+  .b-text-name-line .b-rel-family{
+    background:var(--amber)!important;
+    color:#3b2b00!important;
+    border:0!important;
+  }
+  .b-text-name-line .b-rel-neighbor{
+    background:var(--green)!important;
+    color:#fff!important;
+    border:0!important;
+  }
+  .b-text-shop>span.b-text-service{
+    display:none!important;
+  }
+  .b-text-shop .row-save{
+    grid-column:3!important;
+    grid-row:1!important;
+    justify-self:end!important;
+    align-self:center!important;
+    width:58px!important;
+    min-width:58px!important;
+    max-width:58px!important;
+    margin:0!important;
+    padding:7px 0!important;
+    border:0!important;
+    background:transparent!important;
+    color:var(--coral)!important;
+    font-size:11px!important;
+    line-height:1!important;
+    font-weight:950!important;
+    white-space:nowrap!important;
+    text-align:right!important;
+  }
+}
+</style>
+
+</head>
+<body data-danjion-page="1"><script>try{sessionStorage.setItem("danjion:shopVariant","v3");localStorage.setItem("danjion:shopVariant","v3")}catch(e){}</script>
+<header class="site-header">
+<div class="header-inner">
+<button aria-label="단지온 시작 화면" class="brand" data-route="index3.html" type="button"><span class="brand-word">단지온</span><small>DANJION by PADIEM</small></button>
+<nav aria-label="주요 메뉴" class="desktop-nav">
+<button data-route="04_데일리홈.html" type="button">홈</button><button aria-current="page" class="active" type="button">이웃가게</button><button data-route="05_우리단지_첫화면.html" type="button">우리단지</button><button data-route="19_내정보_메인.html" type="button">내정보</button>
+</nav>
+<div class="identity">방림명지로드힐</div>
+</div>
+</header>
+<main>
+<section class="intro">
+<div>
+<div class="eyebrow">우리 단지에서 발견하는 생활서비스</div>
+<h1>가까이 사는<br/>이웃의 일을 발견합니다.</h1>
+<p class="intro-copy">우리 주민이 운영하는 가게와 가까운 생활서비스를<br class="desktop-only"/> 필요한 순간에 쉽고 정확하게 찾아보세요.</p>
+</div>
+<div aria-label="서비스 기준" class="intro-note"><div><b>우리 주민 가게</b><span>방림명지로드힐 주민이 직접 운영합니다.</span></div><div><b>주민 가족 가게</b><span>우리 단지 주민의 가족이 운영합니다.</span></div><div><b>이웃가게</b><span>단지 가까이에서 이용할 수 있는 생활 가게입니다.</span></div></div>
+</section>
+<form class="search-form" id="searchForm">
+<label>
+<svg aria-hidden="true" viewbox="0 0 24 24"><circle cx="11" cy="11" r="7"></circle><path d="m16.4 16.4 4.1 4.1"></path></svg>
+<input aria-label="이웃가게 검색" id="searchInput" placeholder="무슨 일이 필요하세요?" type="search"/>
+</label>
+<button type="submit">검색</button>
+</form>
+<nav aria-label="업종 필터" class="filters">
+<button class="filter active" data-filter="all">전체</button>
+<button class="filter" data-filter="food">식품·반찬</button>
+<button class="filter" data-filter="cafe">카페·간식</button>
+<button class="filter" data-filter="car">자동차</button>
+<button class="filter" data-filter="home">생활서비스</button>
+<button class="filter" data-filter="learn">교육</button>
+<button class="filter" data-filter="pro">전문서비스</button>
+</nav>
+<div class="catalog-head"><h2>이웃가게 전체</h2><span>최근 업데이트순</span></div>
+<section aria-label="이웃가게 전체 목록" class="shop-grid b-donor-grid" id="shopGridV2"></section>
+<section class="trust-strip">
+<div class="trust-message"><div><strong>가까운 이웃의 가게를 먼저 만나보세요.</strong><span>우리 주민의 가게와 생활서비스를 한 곳에서 소개합니다.</span></div></div>
+<div class="trust-actions"><button data-route="25A_신청제보.html?mode=report&return=v3" type="button">이웃가게 제보</button><button class="primary" data-route="25A_신청제보.html?mode=apply&return=v3" type="button">내 가게 등록 신청</button></div>
+</section>
+</main>
+<nav aria-label="모바일 주요 메뉴" class="mobile-bottom"><button aria-label="홈" data-route="04_데일리홈.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><path d="m3 10 9-7 9 7v10h-6v-6H9v6H3z"></path></svg><span>홈</span></button><button aria-label="이웃가게" class="active" data-route="01_이웃가게_발견_v3.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><path d="M4 7h16l-1 13H5L4 7Z"></path><path d="M8 7V5a4 4 0 0 1 8 0v2"></path></svg><span>이웃가게</span></button><button aria-label="우리단지" data-route="05_우리단지_첫화면.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><path d="M4 21V9l8-6 8 6v12"></path><path d="M8 13h8M8 17h8"></path></svg><span>우리단지</span></button><button aria-label="내정보" data-route="19_내정보_메인.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><circle cx="12" cy="8" r="4"></circle><path d="M4 21a8 8 0 0 1 16 0"></path></svg><span>내정보</span></button></nav>
+
+<div class="shop-compare-modal" id="shopCompareModal" aria-hidden="true">
+<section class="shop-compare-shell" role="dialog" aria-modal="true" aria-labelledby="shopCompareTitle">
+<header class="shop-compare-head"><strong>이웃가게</strong><button class="shop-compare-close" id="shopCompareClose" type="button" aria-label="닫기">×</button></header>
+<div class="shop-compare-grid">
+<div class="shop-compare-visual"><div class="shop-compare-image"><img id="shopCompareImage" src="assets/home-florist.png" alt=""></div><div class="shop-compare-gallery" id="shopCompareGallery" aria-label="가게 사진 보기"></div></div>
+<div class="shop-compare-info">
+<div class="shop-compare-kicker" id="shopCompareRelation"></div><h2 id="shopCompareTitle"></h2><p class="shop-compare-desc" id="shopCompareDesc"></p>
+<div class="shop-compare-facts"><div class="shop-compare-fact"><b>서비스</b><span id="shopCompareService"></span></div><div class="shop-compare-fact"><b>이용 방법</b><span id="shopCompareWay"></span></div><div class="shop-compare-fact"><b>위치</b><span id="shopCompareLocation"></span></div><div class="shop-compare-fact"><b>연락·문의</b><span id="shopCompareContact"></span></div></div>
+<div class="shop-review-preview"><div class="shop-review-preview-head"><b>이웃 후기 <span id="shopCompareReviewCount"></span></b><button type="button" id="shopReviewOpen">후기 보기</button></div><div class="shop-review-snippet" id="shopCompareReviewSnippet"></div></div>
+<div class="shop-compare-benefit"><small>방림명지로드힐 주민 혜택</small><strong id="shopCompareBenefit"></strong><div class="shop-compare-benefit-detail" id="shopCompareBenefitDetail">가게마다 적용 방식이 다릅니다. 예약 또는 방문 시 주민임을 확인한 뒤 정확한 혜택을 안내받을 수 있습니다.</div></div>
+<div class="shop-compare-actions"><button id="shopReviewOpen2" type="button">후기 쓰기</button><button id="shopCompareSave" type="button">♡ 저장</button><button class="accent" id="shopCompareBenefitBtn" type="button">혜택 보기</button><button id="shopCompareInquiry" type="button">가게 문의</button></div>
+</div></div></section></div>
+<div class="shop-inquiry-modal" id="shopInquiryModal" aria-hidden="true">
+  <section class="shop-inquiry-shell" role="dialog" aria-modal="true" aria-labelledby="shopInquiryTitle">
+    <header class="shop-inquiry-head"><strong>가게 문의하기</strong><button type="button" id="shopInquiryClose" aria-label="닫기">×</button></header>
+    <div class="shop-inquiry-body">
+      <span class="shop-form-kicker">SHOP MESSAGE</span>
+      <h3 id="shopInquiryTitle"></h3>
+      <p>예약, 가격, 이용 가능 시간처럼 궁금한 내용을 가게에 바로 보낼 수 있습니다.</p>
+      <form id="shopInquiryForm">
+        <label for="shopInquirySubject">문의 제목</label>
+        <input id="shopInquirySubject" maxlength="60" required placeholder="예: 토요일 오후 예약 가능한가요?">
+        <label for="shopInquiryText">문의 내용</label>
+        <textarea id="shopInquiryText" maxlength="1000" required placeholder="가게에 전달할 내용을 적어주세요."></textarea>
+        <div class="shop-form-actions one"><button class="primary" type="submit">문의 보내기</button></div>
+        <p class="shop-inquiry-note">보내신 문의는 가게 운영자의 메시지함으로 전달되며, 일반 개인 메시지와 구분되는 가게 문의로 표시됩니다.</p>
+      </form>
+    </div>
+  </section>
+</div>
+<div class="b-coupon-modal" id="shopCouponModal" aria-hidden="true"><section class="b-coupon-shell" role="dialog" aria-modal="true" aria-labelledby="shopCouponTitle"><header class="b-coupon-head"><strong>주민 혜택</strong><button type="button" id="shopCouponClose" aria-label="닫기">×</button></header><div class="b-coupon-body"><small id="shopCouponShop"></small><h3 id="shopCouponTitle"></h3><div class="b-coupon-value" id="shopCouponValue"></div><div class="b-coupon-code"><span>혜택번호</span><strong id="shopCouponCode"></strong></div><p class="b-coupon-note" id="shopCouponNote"></p><div class="b-coupon-actions single"><button class="primary" type="button" id="shopCouponStore">내 혜택에 보관</button></div></div></section></div>
+
+<div class="review-modal" id="shopReviewModal" aria-hidden="true">
+  <section class="review-shell" role="dialog" aria-modal="true" aria-labelledby="shopReviewTitle">
+    <header class="review-head"><strong>이웃 후기</strong><button type="button" id="shopReviewClose" aria-label="닫기">×</button></header>
+    <div class="review-body">
+      <div class="review-count"><h3 id="shopReviewTitle"></h3><span id="shopReviewCount"></span></div>
+      <div class="review-list" id="shopReviewList"></div>
+    </div>
+  </section>
+</div>
+<div class="review-write-modal" id="shopReviewWriteModal" aria-hidden="true">
+  <section class="review-write-shell" role="dialog" aria-modal="true" aria-labelledby="shopReviewWriteTitle">
+    <header class="review-head"><strong>후기쓰기</strong><button type="button" id="shopReviewWriteClose" aria-label="닫기">×</button></header>
+    <div class="review-write-body">
+      <span class="shop-form-kicker">RESIDENT REVIEW</span>
+      <h3 id="shopReviewWriteTitle"></h3>
+      <p>직접 이용한 경험을 다른 주민과 나눠주세요.</p>
+      <label for="shopReviewInput">후기</label>
+      <textarea id="shopReviewInput" maxlength="700" placeholder="이용한 서비스와 좋았던 점, 참고할 점을 적어주세요."></textarea>
+      <div class="review-write-actions"><button type="button" class="primary" id="shopReviewSubmit">후기 등록</button></div>
+    </div>
+  </section>
+</div>
+</div>
+  </section>
+</div>
+
+<style id="v3-owner-delta-20260906">
+.toast{z-index:2000!important}
+.shop-compare-actions button{font-size:15px!important;letter-spacing:-.02em}
+.b-text-shop{grid-template-columns:minmax(0,1.05fr) minmax(0,1fr) auto!important}
+.b-text-shop .b-text-main,.b-text-shop .b-text-service,.b-text-shop .row-save{grid-area:auto!important}
+.b-text-shop .n,.b-card-rank{display:none!important}
+@media(max-width:760px){
+.b-text-shop{grid-template-columns:minmax(0,1fr) auto!important}
+.b-text-shop .row-save{grid-column:2!important;grid-row:1!important;align-self:center!important;justify-self:end!important}
+}
+</style>
+<div aria-live="polite" class="toast" role="status"></div>
+<script id="frontend2-b-shop-runtime-20260905">
+(function(){
+ try{sessionStorage.setItem('danjion:shopVariant','v3')}catch(e){}
+ const SHOP_DATA=[
+  {key:'florist',category:'cafe food',name:'로드힐 꽃작업실',relation:'우리 주민 가게',image:'assets/home-florist.png',desc:'계절 꽃다발과 작은 선물을 예약 상담으로 준비합니다.',service:'꽃다발 · 작은 선물 · 예약 제작',way:'예약 상담 후 방문 수령',location:'광주 남구 방림동 일대',contact:'1:1 문의로 날짜·용도·예산 상담',reviews:[['연블리 · 방림명지로드힐 주민','2026.08.30','부모님 생신 꽃다발을 정성스럽게 준비해 주셨어요. 상담도 편안했습니다.'],['산책메이트 · 방림명지로드힐 주민','2026.08.26','원하는 분위기를 잘 들어주시고 예약 시간에 맞춰 준비해 주셨어요.'],['하루한잔 · 방림명지로드힐 주민','2026.08.18','선물할 사람에 맞춰 꽃 구성을 설명해 주셔서 고르기 편했습니다.']],benefit:'꽃다발 예약 상담 시 주민 전용 혜택',value:'예약혜택',code:'DANJION · F052'},
+  {key:'food',category:'food',name:'오늘의 반찬',relation:'우리 주민 가게',image:'assets/scene-food.webp',desc:'매일 먹는 반찬을 직접 만들고 예약 주문으로 준비하는 이웃입니다.',service:'반찬 · 김치 · 계절 메뉴',way:'메뉴별 가격 · 예약 주문',location:'방림명지로드힐 인근',contact:'예약 주문 시 문의',reviews:[['연블리 · 방림명지로드힐 주민','2026.08.28','반찬이 깔끔하고 예약해 두니 찾기 편했습니다.']],benefit:'방림명지로드힐 주민 10% 할인',value:'10%',code:'DANJION · F010'},
+  {key:'home',category:'home',name:'온케어 홈서비스',relation:'주민 가족 가게',image:'assets/scene-home-care.webp',desc:'에어컨과 세탁기 안쪽까지 분해하고 세척·점검하는 생활관리 서비스입니다.',service:'에어컨 청소 · 세탁기 청소 · 생활 점검',way:'평일·토요일 예약',location:'광주 남구 방문 서비스',contact:'1:1 문의 후 작업 범위·방문시간 협의',reviews:[['방림회관 · 방림명지로드힐 주민','2026.08.21','작업 전 범위를 설명해 주셔서 안심했고 정리도 깔끔했습니다.']],benefit:'방림명지로드힐 출장비 면제',value:'면제',code:'DANJION · H001'},
+  {key:'professional',category:'pro',name:'바른 세무상담',relation:'우리 주민 가게',image:'assets/scene-professional.webp',desc:'사업자와 개인이 준비한 문서를 함께 보며 세금·사업 절차를 설명하는 이웃입니다.',service:'세무 · 사업자등록 · 기초 문서상담',way:'평일 오후 · 예약',location:'비대면 또는 광주 남구 인근 상담',contact:'1:1 문의로 상담 예약',reviews:[['방림생활 · 방림명지로드힐 주민','2026.08.19','문서를 하나씩 보면서 설명해 주셔서 이해하기 쉬웠습니다.']],benefit:'방림명지로드힐 첫 상담 무료',value:'무료',code:'DANJION · P001'},
+  {key:'learning',category:'learn',name:'한결 수학',relation:'우리 주민 가게',image:'assets/scene-learning.webp',desc:'중·고등학생에게 문제를 푸는 이유부터 설명하는 수학 과외입니다.',service:'중·고등학생 수학 과외',way:'예약 상담 · 방문/비대면',location:'방림명지로드힐 인근',contact:'1:1 문의로 상담',reviews:[['연블리 · 방림명지로드힐 주민','2026.08.16','설명을 천천히 해 주셔서 아이가 부담 없이 시작했습니다.']],benefit:'방림명지로드힐 학생 첫 수업 무료',value:'무료',code:'DANJION · L001'},
+  {key:'car',category:'car home',name:'우리동네 자동차정비',relation:'이웃가게',image:'assets/scene-car.webp',desc:'기본 점검과 소모품 교체부터 하체 점검까지 직접 설명하는 정비 서비스입니다.',service:'차량 점검 · 오일 · 소모품 · 하체',way:'월–토 예약/방문',location:'광주 남구 생활권',contact:'1:1 문의 또는 전화 상담',reviews:[['방림회관 · 방림명지로드힐 주민','2026.08.20','필요한 점검부터 설명해 주셔서 선택하기 편했습니다.']],benefit:'주민 공임 할인',value:'공임할인',code:'DANJION · C014'},
+  {key:'beauty',category:'home',name:'정다운 헤어',relation:'주민 가족 가게',image:'assets/scene-beauty.webp',desc:'가족이 운영하는 생활 미용 서비스로 커트와 기본 관리를 제공합니다.',service:'커트 · 염색 · 기본 케어',way:'화–일 예약 우선',location:'방림동 인근',contact:'1:1 문의로 예약 상담',reviews:[['산책메이트 · 방림명지로드힐 주민','2026.08.23','요청한 스타일을 잘 반영해 주셨어요.']],benefit:'입주민 커트 할인',value:'할인',code:'DANJION · B018'},
+  {key:'photo',category:'pro',name:'사진하는 이웃',relation:'우리 주민 가게',image:'assets/scene-photo.webp',desc:'가족사진과 프로필을 자연스럽게 촬영하고 기본 보정을 제공합니다.',service:'가족사진 · 프로필 · 소규모 촬영',way:'주말·평일 저녁 예약',location:'광주 남구 촬영',contact:'1:1 문의로 촬영 상담',reviews:[['하루한잔 · 방림명지로드힐 주민','2026.08.17','가족사진 분위기를 편하게 잡아 주셔서 좋았습니다.']],benefit:'입주민 촬영비 할인',value:'촬영할인',code:'DANJION · PH01'}
+ ];
+ const byKey=Object.fromEntries(SHOP_DATA.map(s=>[s.key,s]));
+ const grid=document.getElementById('shopGridV2'),filters=[...document.querySelectorAll('.filter')],title=document.querySelector('.catalog-head h2'),meta=document.querySelector('.catalog-head span');
+ let currentFilter='all',query='';
+ const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+ function filtered(){return SHOP_DATA.filter(s=>(currentFilter==='all'||s.category.split(' ').includes(currentFilter))&&(!query||(s.name+' '+s.desc+' '+s.service+' '+s.benefit).toLowerCase().includes(query.toLowerCase())))}
+ function relationClass(rel){return rel==='우리 주민 가게'?'b-rel-owner':rel==='주민 가족 가게'?'b-rel-family':'b-rel-neighbor'}
+ function card(s,i){
+   const cls=i===0?'b-featured':i===1?'b-medium':'b-row';
+   const rel=relationClass(s.relation);
+   return `<article class="b-shop-card ${cls}" data-shop-key="${esc(s.key)}">
+     <div class="b-card-media"><img src="${esc(s.image)}" alt="${esc(s.name)} 작업 장면"></div>
+     <div class="b-card-body">
+       <div class="b-card-titleline">
+         <div class="b-card-name">${esc(s.name)}</div>
+         <span class="b-card-relation ${rel}">${esc(s.relation==='이웃 단지 주민 가게'?'이웃가게':s.relation)}</span>
+       </div>
+       <p class="b-card-desc">${esc(s.desc)}</p>
+       <div class="b-card-meta"><span>${esc(s.service)}</span><span>${esc(s.benefit)}</span></div>
+       <div class="b-card-actions"><button class="b-save save-shop-v2" data-save-key="${esc(s.key)}" type="button">♡ 저장</button></div>
+     </div>
+   </article>`;
+ }
+ function textRow(s,i){
+   const rel=relationClass(s.relation);
+   return `<div class="b-text-shop" data-shop-key="${esc(s.key)}">
+     <div class="b-text-main"><div class="b-text-name-line">
+       <b class="b-text-shop-name">${esc(s.name)}</b>
+       <span class="b-card-relation ${rel}">${esc(s.relation==='이웃 단지 주민 가게'?'이웃가게':s.relation)}</span>
+     </div></div>
+     <span class="b-text-service">${esc(s.service)} · ${esc(s.benefit)}</span>
+     <button class="row-save save-shop-v2" data-save-key="${esc(s.key)}" type="button">♡ 저장</button>
+   </div>`;
+ }
+ function savedKeys(){try{const a=JSON.parse(localStorage.getItem('danjion:savedShops')||'[]');return Array.isArray(a)?a:[]}catch(e){return[]}}
+ function setSaved(a){localStorage.setItem('danjion:savedShops',JSON.stringify(a))}
+ function savedBenefits(){try{const a=JSON.parse(localStorage.getItem('danjion:savedBenefits')||'[]');return Array.isArray(a)?a:[]}catch(e){return[]}}
+ function setBenefits(a){localStorage.setItem('danjion:savedBenefits',JSON.stringify(a))}
+ function syncSaveButtons(){const a=savedKeys();document.querySelectorAll('[data-save-key]').forEach(b=>b.textContent=a.includes(b.dataset.saveKey)?'♥ 저장됨':'♡ 저장')}
+ function draw(){const list=filtered();title.textContent=query?`“${query}” 검색 결과`:'이웃가게 전체';meta.textContent=`총 ${list.length}곳 · 사진과 목록으로 보기`;if(!list.length){grid.innerHTML='<div style="grid-column:1/-1;padding:42px 0;border-top:1px solid #111"><b style="font-size:22px">조건에 맞는 이웃가게가 없습니다.</b><p>검색어를 줄이거나 전체 필터로 다시 확인해 주세요.</p></div>';return}const visual=list.slice(0,4).map(card).join(''),rest=list.slice(4).map(textRow).join('');grid.innerHTML=visual+(rest?`<div class="b-text-list">${rest}</div>`:'');syncSaveButtons()}
+ filters.forEach(b=>b.addEventListener('click',()=>{filters.forEach(x=>x.classList.remove('active'));b.classList.add('active');currentFilter=b.dataset.filter;draw()}));
+ document.getElementById('searchForm').addEventListener('submit',e=>{e.preventDefault();query=document.getElementById('searchInput').value.trim();draw()});
+ const initial=new URLSearchParams(location.search);query=(initial.get('q')||'').trim();if(query)document.getElementById('searchInput').value=query;draw();
+ const modal=document.getElementById('shopCompareModal'),coupon=document.getElementById('shopCouponModal'),toast=document.querySelector('.toast');let active='florist',toastTimer;
+ function flash(msg){toast.textContent=msg;toast.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>toast.classList.remove('show'),1800)}
+ function syncModalSave(){document.getElementById('shopCompareSave').textContent=savedKeys().includes(active)?'♥ 저장됨':'♡ 저장'}
+ function reviewData(s){return Array.isArray(s.reviews)?s.reviews:[]}
+ function renderReviewPreview(s){const rs=reviewData(s),first=rs[0];document.getElementById('shopCompareReviewCount').textContent=rs.length+'개';document.getElementById('shopCompareReviewSnippet').textContent=first?first[0]+' · '+first[2]:'아직 등록된 후기가 없습니다.'}
+ function openReview(){const s=byKey[active];if(!s)return;const rs=reviewData(s);document.getElementById('shopReviewTitle').textContent=s.name;document.getElementById('shopReviewCount').textContent='후기 '+rs.length+'개';document.getElementById('shopReviewList').innerHTML=rs.length?rs.map(r=>`<article class="review-item"><div class="review-item-head"><b>${esc(r[0])}</b><time>${esc(r[1])}</time></div><p>${esc(r[2])}</p></article>`).join(''):'<p class="review-item">아직 등록된 후기가 없습니다.</p>';review.classList.add('open');review.setAttribute('aria-hidden','false');document.body.style.overflow='hidden'}
+ function closeReview(){review.classList.remove('open');review.setAttribute('aria-hidden','true');if(!coupon.classList.contains('open')&&!modal.classList.contains('open'))document.body.style.overflow=''}
+ function openReviewWrite(key){const sh=byKey[key];if(!sh)return;document.getElementById('shopReviewWriteTitle').textContent=sh.name+' 후기를 남겨주세요.';document.getElementById('shopReviewInput').value='';document.getElementById('shopReviewWriteModal').classList.add('open');document.getElementById('shopReviewWriteModal').setAttribute('aria-hidden','false');document.body.style.overflow='hidden'}
+ function closeReviewWrite(){const el=document.getElementById('shopReviewWriteModal');el.classList.remove('open');el.setAttribute('aria-hidden','true');if(!modal.classList.contains('open')&&!review.classList.contains('open')&&!coupon.classList.contains('open'))document.body.style.overflow=''}
+ function submitReview(){const v=document.getElementById('shopReviewInput').value.trim();if(!v){flash('후기 내용을 입력해 주세요.');return}const sh=byKey[active];if(!sh)return;sh.reviews=[...(sh.reviews||[]),['나도 이용한 이웃','방금',v]];closeReviewWrite();renderReviewPreview(sh);flash('후기가 등록됐습니다.')}
+ function openShopInquiry(key){const sh=byKey[key];if(!sh)return;document.getElementById('shopInquiryTitle').textContent=sh.name+'에 문의하세요.';document.getElementById('shopInquirySubject').value='';document.getElementById('shopInquiryText').value='';document.getElementById('shopInquiryModal').classList.add('open');document.getElementById('shopInquiryModal').setAttribute('aria-hidden','false');document.body.style.overflow='hidden'}
+ function closeShopInquiry(){const el=document.getElementById('shopInquiryModal');el.classList.remove('open');el.setAttribute('aria-hidden','true');if(!modal.classList.contains('open')&&!review.classList.contains('open')&&!coupon.classList.contains('open'))document.body.style.overflow=''}
+ function sendShopInquiry(ev){ev.preventDefault();const sh=byKey[active];if(!sh)return;const subject=document.getElementById('shopInquirySubject').value.trim();const text=document.getElementById('shopInquiryText').value.trim();if(!subject||!text){flash('문의 제목과 내용을 입력해 주세요.');return}let arr=[];try{arr=JSON.parse(localStorage.getItem('danjion:demo:shop-inquiries')||'[]')}catch(_){}arr.unshift({type:'shop_inquiry',shopKey:active,shopName:sh.name,recipientType:'shop_owner',recipientDisplay:sh.name,subject,text,at:new Date().toISOString()});localStorage.setItem('danjion:demo:shop-inquiries',JSON.stringify(arr.slice(0,50)));closeShopInquiry();flash('문의가 접수됐습니다.')}
+ function openShop(key){active=byKey[key]?key:'florist';const s=byKey[active];[['shopCompareRelation',s.relation==='이웃 단지 주민 가게'?'이웃가게':s.relation],['shopCompareTitle',s.name],['shopCompareDesc',s.desc],['shopCompareService',s.service],['shopCompareWay',s.way],['shopCompareLocation',s.location||'단지 인근 생활권'],['shopCompareContact',s.contact||'1:1 문의로 확인'],['shopCompareBenefit',s.benefit]].forEach(([id,v])=>document.getElementById(id).textContent=v);renderReviewPreview(s);const img=document.getElementById('shopCompareImage');img.src=s.image;img.alt=s.name+' 대표 이미지';img.style.objectPosition='50% 50%';const gallery=document.getElementById('shopCompareGallery'),positions=['50% 50%','30% 55%','75% 45%'];gallery.innerHTML=positions.map((pos,i)=>`<button type="button" class="${i===0?'active':''}" data-pos="${pos}" aria-label="사진 ${i+1}"><img src="${s.image}" alt=""></button>`).join('');gallery.querySelectorAll('button').forEach(b=>b.onclick=()=>{gallery.querySelectorAll('button').forEach(x=>x.classList.remove('active'));b.classList.add('active');img.style.objectPosition=b.dataset.pos});syncModalSave();modal.classList.add('open');modal.setAttribute('aria-hidden','false');document.body.style.overflow='hidden'}
+ function closeShop(){modal.classList.remove('open');modal.setAttribute('aria-hidden','true');if(!coupon.classList.contains('open')&&!review.classList.contains('open'))document.body.style.overflow=''}
+ function openCoupon(key){const s=byKey[key];if(!s)return;active=key;document.getElementById('shopCouponShop').textContent=s.name+' · '+s.relation;document.getElementById('shopCouponTitle').textContent=s.benefit;document.getElementById('shopCouponValue').textContent=s.value;document.getElementById('shopCouponCode').textContent=s.code;document.getElementById('shopCouponNote').textContent='예약·문의 또는 방문 시 방림명지로드힐 주민임을 확인한 뒤 적용합니다. 실제 제공 조건은 가게 안내를 우선합니다.';syncCouponStore();coupon.classList.add('open');coupon.setAttribute('aria-hidden','false');document.body.style.overflow='hidden'}
+ function syncCouponStore(){document.getElementById('shopCouponStore').textContent=savedBenefits().includes(active)?'✓ 내 혜택에 보관됨':'내 혜택에 보관'}
+ function closeCoupon(){coupon.classList.remove('open');coupon.setAttribute('aria-hidden','true');if(!modal.classList.contains('open')&&!review.classList.contains('open'))document.body.style.overflow=''}
+ window.openShopCompareV2=openShop;
+ const review=document.getElementById('shopReviewModal');
+ grid.addEventListener('click',e=>{
+   const save=e.target.closest('[data-save-key]');
+   if(save){
+     e.preventDefault();e.stopPropagation();
+     let a=savedKeys(),k=save.dataset.saveKey;
+     a=a.includes(k)?a.filter(x=>x!==k):[...a,k];
+     setSaved(a);syncSaveButtons();if(k===active)syncModalSave();
+     flash(a.includes(k)?'저장한 이웃가게에 담았습니다.':'저장을 취소했습니다.');
+     return;
+   }
+   const shop=e.target.closest('[data-shop-key]');
+   if(shop){e.preventDefault();e.stopPropagation();openShop(shop.dataset.shopKey);}
+ });
+ document.getElementById('shopCompareClose').onclick=closeShop.onclick=closeShop;modal.addEventListener('click',e=>{if(e.target===modal)closeShop()});
+ document.getElementById('shopCompareSave').onclick=()=>{let a=savedKeys();a=a.includes(active)?a.filter(x=>x!==active):[...a,active];setSaved(a);syncModalSave();syncSaveButtons();flash(a.includes(active)?'저장한 이웃가게에 담았습니다.':'저장을 취소했습니다.')};
+ document.getElementById('shopCompareBenefitBtn').onclick=()=>openCoupon(active);
+ document.getElementById('shopCompareInquiry').onclick=()=>openShopInquiry(active);
+ document.getElementById('shopReviewOpen').onclick=openReview;document.getElementById('shopReviewOpen2').onclick=()=>openReviewWrite(active);document.getElementById('shopReviewClose').onclick=closeReview;review.addEventListener('click',e=>{if(e.target===review)closeReview()});
+
+ document.getElementById('shopReviewWriteClose').onclick=closeReviewWrite;
+ 
+ document.getElementById('shopReviewSubmit').onclick=submitReview;
+ document.getElementById('shopInquiryClose').onclick=closeShopInquiry;
+ 
+ document.getElementById('shopInquiryModal').addEventListener('click',e=>{if(e.target.id==='shopInquiryModal')closeShopInquiry()});
+ document.getElementById('shopInquiryForm').addEventListener('submit',sendShopInquiry);
+ document.getElementById('shopCouponClose').onclick=closeCoupon;coupon.addEventListener('click',e=>{if(e.target===coupon)closeCoupon()});
+ document.getElementById('shopCouponStore').onclick=()=>{let a=savedBenefits();if(a.includes(active)){a=a.filter(x=>x!==active);setBenefits(a);flash('보관을 취소했습니다.')}else{a.push(active);setBenefits(a);flash('내정보의 받은 혜택에 보관했습니다.')}syncCouponStore()};
+ document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(document.getElementById('shopInquiryModal').classList.contains('open'))closeShopInquiry();else if(document.getElementById('shopReviewWriteModal').classList.contains('open'))closeReviewWrite();else if(coupon.classList.contains('open'))closeCoupon();else if(review.classList.contains('open'))closeReview();else if(modal.classList.contains('open'))closeShop()}});
+ const key=initial.get('shop');if(key&&byKey[key])setTimeout(()=>openShop(key),60);
+})();
+</script>
+<script id="danjion-direct-router-v5">
+(function(){
+const SCREEN="shops";
+const FILES={"landing": "index.html", "home": "04_데일리홈.html", "shops": "01_이웃가게_발견_v3.html", "shopDetail": "02_이웃가게_상세.html", "complex": "05_우리단지_첫화면.html", "noticeList": "06_단지온공지_목록.html", "noticeDetail": "07_단지온공지_상세.html", "apartment": "08_아파트소식_목록.html", "chair": "09_회장인사_상세.html", "residentList": "10_주민소식_목록.html", "residentDetail": "11_주민소식_상세.html", "community": "12_이웃대화_첫화면.html", "communityDetail": "13_이웃대화_글상세_댓글.html", "writeHello": "14_가입인사_글쓰기.html", "writeStory": "15_단지이야기_글쓰기.html", "writeQuestion": "16_궁금해요_글쓰기.html", "writeTogether": "17_같이해요_글쓰기.html", "my": "19_내정보_메인.html", "messages": "20_메시지함_목록.html", "messageDetail": "21_메시지_대화상세.html", "profile": "22_주민_공개프로필.html", "warmth": "23_이웃온기.html", "settings": "24_설정.html", "inquiry": "25_1대1문의.html", "apply": "25A_신청제보.html", "household": "26_우리집연결.html", "notifications": "27_알림함.html", "activity": "28_나의활동.html"};
+const norm=s=>(s||'').replace(/\s+/g,' ').trim();
+function go(f){
+  if(!f)return;
+  location.href=f;
+}
+function main(label){go({'홈':FILES.home,'이웃가게':FILES.shops,'우리단지':FILES.complex,'내정보':FILES.my}[label]);}
+function routeFrom(v){v=(v||'').split('#')[0]; if(!v)return null;
+  const q=v.includes('?')?'?'+v.split('?').slice(1).join('?'):''; const p=v.split('?')[0];
+  const arr=[["29_", "index.html"], ["04_", "04_데일리홈.html"], ["01_", "01_이웃가게_발견.html"], ["02_", "02_이웃가게_상세.html"], ["05_", "05_우리단지_첫화면.html"], ["06_", "06_단지온공지_목록.html"], ["07_", "07_단지온공지_상세.html"], ["08_", "08_아파트소식_목록.html"], ["09_", "09_회장인사_상세.html"], ["10_", "10_주민소식_목록.html"], ["11_", "11_주민소식_상세.html"], ["12_", "12_이웃대화_첫화면.html"], ["13_", "13_이웃대화_글상세_댓글.html"], ["14_", "14_가입인사_글쓰기.html"], ["15_", "15_단지이야기_글쓰기.html"], ["16_", "16_궁금해요_글쓰기.html"], ["17_", "17_같이해요_글쓰기.html"], ["19_", "19_내정보_메인.html"], ["20_", "20_메시지함_목록.html"], ["21_", "21_메시지_대화상세.html"], ["22_", "22_주민_공개프로필.html"], ["23_", "23_이웃온기.html"], ["24_", "24_설정.html"], ["25_", "25_1대1문의.html"], ["26_", "26_우리집연결.html"], ["27_", "27_알림함.html"], ["28_", "28_나의활동.html"]];
+  for(const [t,f] of arr) if(p.includes(t)) return f+q;
+  if(p==='index.html') return 'index.html'; return null;
+}
+function backFallback(){
+  const parentMap={
+    shops:FILES.home,shopDetail:FILES.shops,complex:FILES.home,
+    noticeList:FILES.complex,noticeDetail:FILES.noticeList,apartment:FILES.complex,chair:FILES.complex,
+    residentList:FILES.complex,residentDetail:FILES.residentList,community:FILES.complex,communityDetail:FILES.community,
+    writeHello:FILES.community,writeStory:FILES.community,writeQuestion:FILES.community,writeTogether:FILES.community,
+    my:FILES.home,messages:FILES.my,messageDetail:FILES.messages,profile:FILES.my,warmth:FILES.my,
+    settings:FILES.my,inquiry:FILES.settings,apply:FILES.shops,household:FILES.my,notifications:FILES.my,activity:FILES.my
+  };
+  location.href=parentMap[SCREEN]||FILES.home;
+}
+
+document.addEventListener('click',function(ev){
+ const el=ev.target.closest('a,button,[data-route]'); if(!el)return;
+ const text=norm(el.textContent), cls=el.classList||{contains:()=>false};
+ // landing internal modal/greeting controls stay native
+ if(SCREEN==='landing'){
+   if(el.matches('[data-auth],[data-preview],[data-greeting],[data-email],[data-social],[data-reset],[data-resend],[data-term],[data-term-close],[data-address-next],[data-terms-next],[data-finish],[data-required-all]')) return;
+   if(el.matches('[data-chair-close]')){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.home);return;}
+   if(el.matches('[data-chair-detail]')){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.chair);return;}
+   if(el.matches('[data-guest-enter]')){ev.preventDefault();ev.stopImmediatePropagation();sessionStorage.setItem('danjionGuest','1');go(FILES.home);return;}
+   if(el.matches('[data-top]')) return;
+ }
+ if(cls.contains('brand')){ev.preventDefault();ev.stopImmediatePropagation();go('index.html');return;}
+ const inMain=!!el.closest('.nav,.desktop-nav,.mobile-bottom,.topbar nav,.main-nav');
+ if(inMain && ['홈','이웃가게','우리단지','내정보'].includes(text)){ev.preventDefault();ev.stopImmediatePropagation();main(text);return;}
+ if(cls.contains('back')||cls.contains('route-back')||((/^←|^‹|^< /.test(text))&&!cls.contains('modal-back'))){ev.preventDefault();ev.stopImmediatePropagation();backFallback();return;}
+ // home: current scene -> selected shop detail
+ if(SCREEN==='home' && el.id==='detailBtn'){ev.preventDefault();ev.stopImmediatePropagation();const k=el.dataset.shopKey||'food';go(FILES.shopDetail+'?shop='+encodeURIComponent(k));return;}
+ // shops cards -> specific shop detail
+ if(SCREEN==='shops' && cls.contains('shop-link')){ev.preventDefault();ev.stopImmediatePropagation();if(window.openShopCompareV2)window.openShopCompareV2(el.dataset.shopKey||'florist');return;}
+ if(SCREEN==='shops' && text==='이웃가게 제보'){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.apply+'?mode=report');return;}
+ if(SCREEN==='shops' && (text==='내 가게 등록 신청'||text==='내 가게 등록 문의')){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.apply+'?mode=apply');return;}
+ if(SCREEN==='complex' && cls.contains('channel-link')){ev.preventDefault();ev.stopImmediatePropagation();const i=[...document.querySelectorAll('.channel-link')].indexOf(el);go([FILES.noticeList,FILES.apartment,FILES.residentList,FILES.community][i]||FILES.complex);return;}
+ if(SCREEN==='noticeList' && (cls.contains('pinned-link')||cls.contains('notice-row'))){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.noticeDetail);return;}
+ if(SCREEN==='apartment' && cls.contains('feature-link')){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.chair);return;}
+ if(SCREEN==='residentList' && cls.contains('story-link')){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.residentDetail);return;}
+ if(SCREEN==='community' && cls.contains('write-type')){ev.preventDefault();ev.stopImmediatePropagation();const i=[...document.querySelectorAll('.write-type')].indexOf(el);go([FILES.writeHello,FILES.writeStory,FILES.writeQuestion,FILES.writeTogether][i]||FILES.community);return;}
+ if(SCREEN==='community' && el.tagName==='A' && text.includes('안녕하세요')){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.communityDetail);return;}
+ if(SCREEN==='my' && cls.contains('card-link')){ev.preventDefault();ev.stopImmediatePropagation();const i=[...document.querySelectorAll('.card-link')].indexOf(el);go(i===0?FILES.messages:FILES.household);return;}
+ if(SCREEN==='my' && cls.contains('menu-row')){ev.preventDefault();ev.stopImmediatePropagation();const i=[...document.querySelectorAll('.menu-row')].indexOf(el);go(FILES.activity+'?tab='+Math.min(i,3));return;}
+ if(SCREEN==='my' && (text.includes('설정 열기')||text.includes('이용 설정'))){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.settings);return;}
+ if(SCREEN==='messages' && cls.contains('mail-row')){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.messageDetail);return;}
+ if(SCREEN==='messageDetail' && (text.includes('공개 프로필')||text.includes('산책메이트'))){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.profile);return;}
+ if(SCREEN==='profile' && cls.contains('message-button')){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.messageDetail);return;}
+ if(SCREEN==='settings' && (cls.contains('support-button')||text.includes('1:1 문의'))){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.inquiry);return;}
+ if(SCREEN==='activity' && cls.contains('side-link')){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.profile);return;}
+ // known data-route or anchors
+ const dr=el.dataset&&el.dataset.route; if(dr){const f=routeFrom(dr);if(f){ev.preventDefault();ev.stopImmediatePropagation();go(f);return;}}
+ if(el.tagName==='A'){const f=routeFrom(el.getAttribute('href'));if(f){ev.preventDefault();ev.stopImmediatePropagation();go(f);return;}}
+},true);
+
+// screen-specific initial state
+if(SCREEN==='shopDetail'){ const p=new URLSearchParams(location.search),k=p.get('shop'); if(k) setTimeout(()=>window.postMessage({type:'danjion-integrated:setShop',shopKey:k},'*'),0); }
+if(SCREEN==='apply'){ const p=new URLSearchParams(location.search),mode=p.get('mode'); if(mode) setTimeout(()=>window.postMessage({type:'danjion-integrated:setMode',mode},'*'),0); }
+if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt(p.get('tab')||'0',10); if(Number.isInteger(i)) setTimeout(()=>window.postMessage({type:'danjion-integrated:activityTab',index:i},'*'),0); }
+})();
+</script>
+<script id="danjion-review-route-sync">
+(function(){
+  try{
+    if(new URLSearchParams(location.search).get('review')==='1'){
+      sessionStorage.removeItem('danjionRouteStack');
+    }
+  }catch(e){}
+  function reportRoute(){
+    try{
+      const file=decodeURIComponent((location.pathname.split('/').pop()||'index.html').split('?')[0]);
+      if(window.parent!==window) window.parent.postMessage({type:'danjion-route',file:file,href:location.href},'*');
+    }catch(e){}
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',reportRoute,{once:true});else reportRoute();
+  window.addEventListener('pageshow',reportRoute);
+  window.addEventListener('hashchange',reportRoute);
+})();
+</script>
+</body>
+</html>
