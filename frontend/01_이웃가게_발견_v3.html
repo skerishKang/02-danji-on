@@ -1053,7 +1053,6 @@
     <div class="review-body">
       <div class="review-count"><h3 id="shopReviewTitle"></h3><span id="shopReviewCount"></span></div>
       <div class="review-list" id="shopReviewList"></div>
-      <div class="review-view-actions"><button type="button" class="review-write-open" id="shopReviewWriteOpen">후기 남기기</button></div>
     </div>
   </section>
 </div>
@@ -1179,7 +1178,7 @@
  document.getElementById('shopCompareBenefitBtn').onclick=()=>openCoupon(active);
  document.getElementById('shopCompareInquiry').onclick=()=>openShopInquiry(active);
  document.getElementById('shopReviewOpen').onclick=openReview;document.getElementById('shopReviewOpen2').onclick=()=>openReviewWrite(active);document.getElementById('shopReviewClose').onclick=closeReview;review.addEventListener('click',e=>{if(e.target===review)closeReview()});
- document.getElementById('shopReviewWriteOpen').onclick=()=>openReviewWrite(active);
+
  document.getElementById('shopReviewWriteClose').onclick=closeReviewWrite;
  
  document.getElementById('shopReviewSubmit').onclick=submitReview;
@@ -1188,7 +1187,7 @@
  document.getElementById('shopInquiryModal').addEventListener('click',e=>{if(e.target.id==='shopInquiryModal')closeShopInquiry()});
  document.getElementById('shopInquiryForm').addEventListener('submit',sendShopInquiry);
  document.getElementById('shopCouponClose').onclick=closeCoupon;coupon.addEventListener('click',e=>{if(e.target===coupon)closeCoupon()});
- document.getElementById('shopCouponStore').onclick=()=>{let a=savedBenefits();if(!a.includes(active)){a.push(active);setBenefits(a);flash('내정보의 받은 혜택에 보관했습니다.')}syncCouponStore()};
+ document.getElementById('shopCouponStore').onclick=()=>{let a=savedBenefits();if(a.includes(active)){a=a.filter(x=>x!==active);setBenefits(a);flash('보관을 취소했습니다.')}else{a.push(active);setBenefits(a);flash('내정보의 받은 혜택에 보관했습니다.')}syncCouponStore()};
  document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(document.getElementById('shopInquiryModal').classList.contains('open'))closeShopInquiry();else if(document.getElementById('shopReviewWriteModal').classList.contains('open'))closeReviewWrite();else if(coupon.classList.contains('open'))closeCoupon();else if(review.classList.contains('open'))closeReview();else if(modal.classList.contains('open'))closeShop()}});
  const key=initial.get('shop');if(key&&byKey[key])setTimeout(()=>openShop(key),60);
 })();
