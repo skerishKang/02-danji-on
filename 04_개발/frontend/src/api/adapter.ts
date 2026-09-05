@@ -23,6 +23,7 @@ import type {
   BusinessContact,
   BusinessFilters,
   BusinessShareRef,
+  ComplexNewsChannel,
   ComplexPost,
   DataAdapter,
   RelationType,
@@ -462,6 +463,7 @@ export class ApiAdapter implements DataAdapter {
       id: String(raw.id),
       sourceName: String(raw.source_name ?? ''),
       category: String(raw.category ?? ''),
+      channel: String(raw.channel ?? 'apartment_news') as ComplexNewsChannel,
       title: String(raw.title ?? ''),
       body: String(raw.body ?? ''),
       publishedAt: String(raw.published_at ?? '')

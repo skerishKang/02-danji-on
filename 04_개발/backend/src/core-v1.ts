@@ -67,6 +67,13 @@ function relationFilter(value: string | null): string | null {
   return ['resident', 'resident_family', 'neighbor', 'local'].includes(value) ? value : '__invalid__';
 }
 
+const NEWS_CHANNELS = ['danjion_notice', 'apartment_news', 'management_office', 'chair_greeting'];
+
+function channelFilter(value: string | null): string | null {
+  if (!value || value === 'all') return null;
+  return NEWS_CHANNELS.includes(value.trim()) ? value.trim() : '__invalid__';
+}
+
 async function handlePublicGet(sql: Sql, id: string, url: URL): Promise<Response | null> {
   const path = url.pathname;
 
@@ -221,15 +228,18 @@ async function handlePublicGet(sql: Sql, id: string, url: URL): Promise<Response
   if (match) {
     const slug = decodeURIComponent(match[1]);
     const category = url.searchParams.get('category')?.trim() || null;
+    const channel = channelFilter(url.searchParams.get('channel'));
+    if (channel === '__invalid__') return fail('INVALID_CHANNEL', 'Invalid channel filter', 400, id);
     const limit = clampLimit(url.searchParams.get('limit'), 20, 50);
     const rows = await sql`
-      select p.id, p.source_name, p.category, p.title, p.body,
+      select p.id, p.source_name, p.category, p.channel, p.title, p.body,
              p.attachment_object_key, p.published_at
       from complex_posts p
       join complexes c on c.id = p.complex_id
       where c.slug = ${slug}
         and p.status = 'published'
         and (${category}::text is null or ${category} = 'all' or p.category = ${category})
+        and (${channel}::text is null or ${channel} = 'all' or p.channel = ${channel})
       order by p.published_at desc nulls last, p.created_at desc
       limit ${limit}
     `;
@@ -241,7 +251,7 @@ async function handlePublicGet(sql: Sql, id: string, url: URL): Promise<Response
     const slug = decodeURIComponent(match[1]);
     const postId = match[2];
     const rows = await sql`
-      select p.id, p.source_name, p.category, p.title, p.body,
+      select p.id, p.source_name, p.category, p.channel, p.title, p.body,
              p.attachment_object_key, p.published_at
       from complex_posts p
       join complexes c on c.id = p.complex_id

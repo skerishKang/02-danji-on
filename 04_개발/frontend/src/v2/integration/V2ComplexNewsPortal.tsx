@@ -1,8 +1,28 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { publicComplexNewsClient } from '../../public-complex-news-client';
-import type { ComplexPost } from '../../types';
+import type { ComplexNewsChannel, ComplexPost } from '../../types';
 import './v2-complex-news.css';
+
+const HUB_CHANNEL_TO_ENUM: Record<'official' | 'apartment', ComplexNewsChannel> = {
+  official: 'danjion_notice',
+  apartment: 'apartment_news'
+};
+
+const CHANNEL_LABELS: Record<ComplexNewsChannel, string> = {
+  danjion_notice: '단지온공지',
+  apartment_news: '아파트소식',
+  management_office: '관리사무소',
+  chair_greeting: '회장 인사말'
+};
+
+const CHANNEL_FILTERS: Array<{ value: ComplexNewsChannel | 'all'; label: string }> = [
+  { value: 'all', label: '전체' },
+  { value: 'danjion_notice', label: '단지온공지' },
+  { value: 'apartment_news', label: '아파트소식' },
+  { value: 'management_office', label: '관리사무소' },
+  { value: 'chair_greeting', label: '회장 인사말' }
+];
 
 function publishedLabel(value: string): string {
   const date = new Date(value);
@@ -16,6 +36,7 @@ export default function V2ComplexNewsPortal() {
   const [open, setOpen] = useState(false);
   const [posts, setPosts] = useState<ComplexPost[]>([]);
   const [selected, setSelected] = useState<ComplexPost | null>(null);
+  const [activeChannel, setActiveChannel] = useState<ComplexNewsChannel | 'all'>('all');
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState('');
 
@@ -33,20 +54,24 @@ export default function V2ComplexNewsPortal() {
   useEffect(() => {
     const openFromHub = (event: Event) => {
       const channel = (event as CustomEvent<{ channel?: unknown }>).detail?.channel;
-      if (channel !== 'official' && channel !== 'apartment') return;
-      void openList();
+      if (channel !== 'official' && channel !== 'apartment' && channel !== 'danjion_notice' && channel !== 'apartment_news' && channel !== 'management_office' && channel !== 'chair_greeting') return;
+      const enumChannel = channel === 'official' || channel === 'apartment'
+        ? HUB_CHANNEL_TO_ENUM[channel as 'official' | 'apartment']
+        : channel as ComplexNewsChannel;
+      void openList(enumChannel);
     };
     window.addEventListener('danjion:v2-open-complex-news', openFromHub);
     return () => window.removeEventListener('danjion:v2-open-complex-news', openFromHub);
   }, []);
 
-  async function openList() {
+  async function openList(channel: ComplexNewsChannel | 'all' = 'all') {
     setOpen(true);
     setSelected(null);
+    setActiveChannel(channel);
     setBusy(true);
     setStatus('공식소식을 불러오는 중입니다.');
     try {
-      setPosts(await publicComplexNewsClient.listPosts());
+      setPosts(await publicComplexNewsClient.listPosts(channel === 'all' ? undefined : { channel }));
       setStatus('');
     } catch (error) {
       setPosts([]);
@@ -93,9 +118,24 @@ export default function V2ComplexNewsPortal() {
         <h2 id="v2-complex-news-title">단지 공식소식</h2>
         {!selected && (
           <div data-v2-complex-news-list>
+            <div className="v2-complex-news-filters" role="group" aria-label="공식소식 채널 필터">
+              {CHANNEL_FILTERS.map((filter) => (
+                <button
+                  type="button"
+                  className={`v2-btn v2-btn-small${activeChannel === filter.value ? ' is-active' : ''}`}
+                  disabled={busy}
+                  aria-pressed={activeChannel === filter.value}
+                  data-v2-complex-news-filter={filter.value}
+                  key={filter.value}
+                  onClick={() => void openList(filter.value)}
+                >
+                  {filter.label}
+                </button>
+              ))}
+            </div>
             {posts.map((post) => (
               <article key={post.id} data-v2-complex-news-item>
-                <small>{post.category} · {post.sourceName}</small>
+                <small>{CHANNEL_LABELS[post.channel]} · {post.category} · {post.sourceName}</small>
                 <h3>{post.title}</h3>
                 <p>{publishedLabel(post.publishedAt)}</p>
                 <button type="button" className="v2-btn v2-btn-small" disabled={busy} onClick={() => void openDetail(post.id)}>내용 보기</button>
@@ -106,7 +146,7 @@ export default function V2ComplexNewsPortal() {
         )}
         {selected && (
           <article data-v2-complex-news-detail>
-            <small>{selected.category} · {selected.sourceName}</small>
+            <small>{CHANNEL_LABELS[selected.channel]} · {selected.category} · {selected.sourceName}</small>
             <h3>{selected.title}</h3>
             <p>{publishedLabel(selected.publishedAt)}</p>
             <div>{selected.body}</div>
