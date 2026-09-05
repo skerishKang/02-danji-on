@@ -20,6 +20,17 @@ const authority = Object.freeze({
 });
 assert.equal(Object.keys(authority).length, 6);
 
+// 2026-09-05 TRACK K: '우리 단지의 변화' belongs to the 회장인사 archive
+// (handoff 09_회장인사_상세.html, impl V2Gate1ResidentHome), not to the 12-17
+// community surface. The doesNotMatch below pins that relocation.
+const RELOCATED_NEIGHBOR_CONVERSATION = [
+  { anchor: '우리 단지의 변화', authority: '09_회장인사_상세.html', impl: 'V2Gate1ResidentHome.tsx (negative pin)' }
+];
+for (const reloc of RELOCATED_NEIGHBOR_CONVERSATION) {
+  assert.ok(reloc.anchor.length > 0 && reloc.authority.length > 0 && reloc.impl.length > 0,
+    `relocated neighbor-conversation anchor must name its new authority/impl: ${reloc.anchor}`);
+}
+
 // Screen 12 must be a resident neighbor-conversation surface, not a second
 // official-news aggregator. Official/public complex_posts live on their own
 // resident-news boundary (#257 remains separate from B3).

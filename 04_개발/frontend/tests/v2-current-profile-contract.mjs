@@ -13,11 +13,22 @@ const [integration, profileClient, safetyClient, messagesClient, main] = await P
 const CURRENT_008_PROFILE_AUTHORITY = {
   title: '22_주민_공개프로필.html',
   screen: '22 주민 공개프로필',
-  anchors: ['이 주민 신고하기', '이 주민 차단하기', '메시지 보내기', '공개 프로필']
+  anchors: ['이 주민 신고하기', '이 주민 차단하기', '메시지 보내기', '공개 프로필'],
+  // 2026-09-05 TRACK K: report reasons are pinned to the 22-aligned
+  // six-constant set shared with the 21 conversation surface.
+  relocated: [
+    { anchor: '개인정보 침해', authority: '22_주민_공개프로필.html', impl: 'V2ResidentProfileIntegration.tsx (6종 상수)' },
+    { anchor: '스팸', authority: '22_주민_공개프로필.html', impl: 'V2ResidentProfileIntegration.tsx (6종 상수)' }
+  ]
 };
 
 for (const anchor of CURRENT_008_PROFILE_AUTHORITY.anchors) {
   assert.ok(anchor.length > 0, `22 design requirement anchor must be named: ${anchor}`);
+}
+
+for (const reloc of CURRENT_008_PROFILE_AUTHORITY.relocated) {
+  assert.ok(reloc.anchor.length > 0 && reloc.authority.length > 0 && reloc.impl.length > 0,
+    `22 relocated anchor must name its new authority/impl: ${reloc.anchor}`);
 }
 
 for (const reason of ['개인정보 침해', '명예훼손 우려', '스팸', '욕설·괴롭힘', '위협', '기타']) {

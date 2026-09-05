@@ -14,11 +14,22 @@ const [flows, app, integrated, share, reviews, main] = await Promise.all([
 const CURRENT_008_REGISTRATION_AUTHORITY = {
   title: '25A_신청제보.html',
   screen: '25A 신청제보',
-  anchors: ['가게등록', '제보', '확인서류', '가게사진']
+  anchors: ['가게등록', '제보', '확인서류', '가게사진'],
+  // 2026-09-05 TRACK K: step titles and review action are shared vocabulary.
+  relocated: [
+    { anchor: '주민 관계', authority: '04_데일리홈.html', impl: 'V2ProductFlows.tsx (stepTitles)' },
+    { anchor: '하는 일', authority: '09_회장인사_상세.html', impl: 'V2ProductFlows.tsx (stepTitles)' },
+    { anchor: '후기 등록', authority: 'consistency.js', impl: 'V2BusinessReviewsIntegration.tsx' }
+  ]
 };
 
 for (const anchor of CURRENT_008_REGISTRATION_AUTHORITY.anchors) {
   assert.ok(anchor.length > 0, `25A design requirement anchor must be named: ${anchor}`);
+}
+
+for (const reloc of CURRENT_008_REGISTRATION_AUTHORITY.relocated) {
+  assert.ok(reloc.anchor.length > 0 && reloc.authority.length > 0 && reloc.impl.length > 0,
+    `25A relocated anchor must name its new authority/impl: ${reloc.anchor}`);
 }
 
 assert.match(flows, /stepTitles = \['주민 관계', '하는 일', '사진과 혜택', '공개 경계 확인'\]/,

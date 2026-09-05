@@ -12,11 +12,21 @@ const [panel, portal, client, main] = await Promise.all([
 const CURRENT_008_SUMMARY_AUTHORITY = {
   title: '19_내정보_메인.html',
   screen: '19 내정보 메인',
-  anchors: ['나의 활동', '이용 설정', '메시지함 보기', '우리집 연결']
+  anchors: ['나의 활동', '이용 설정', '메시지함 보기', '우리집 연결'],
+  // 2026-09-05 TRACK K: summary row labels are shared with shop detail and auth.
+  relocated: [
+    { anchor: '저장한 가게', authority: '02_이웃가게_상세.html', impl: 'V2MySummaryPanel.tsx (saved-business)' },
+    { anchor: '인증 완료', authority: 'index.html', impl: 'V2MySummaryPanel.tsx (household)' }
+  ]
 };
 
 for (const anchor of CURRENT_008_SUMMARY_AUTHORITY.anchors) {
   assert.ok(anchor.length > 0, `19 design requirement anchor must be named: ${anchor}`);
+}
+
+for (const reloc of CURRENT_008_SUMMARY_AUTHORITY.relocated) {
+  assert.ok(reloc.anchor.length > 0 && reloc.authority.length > 0 && reloc.impl.length > 0,
+    `19 relocated anchor must name its new authority/impl: ${reloc.anchor}`);
 }
 
 for (const text of ['내 단지온 요약', '내 게시글', '내 댓글·답글', '받은 공감', '저장한 가게', '읽지 않은 메시지', '세대 인증']) {

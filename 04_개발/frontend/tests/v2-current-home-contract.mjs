@@ -12,6 +12,18 @@ const [hero, cinematic, shell, visualEntry, authEntry, topbar, reference] = awai
   readFile(new URL('tests/v2/reference-contract.ts', root), 'utf8')
 ]);
 
+// 2026-09-05 TRACK K: anchors relocated out of the daily-home composition.
+// Authority stays in the handoff web entry (index.html marketing hero/CTA) and
+// the daily home pins them with negative assertions below.
+const RELOCATED_HOME_AUTHORITY = [
+  { anchor: '우리 아파트에,', authority: 'index.html', impl: 'V2Hero.tsx (negative pin)' },
+  { anchor: '가입하고 시작하기', authority: 'index.html', impl: 'V2Hero.tsx (negative pin)' }
+];
+for (const reloc of RELOCATED_HOME_AUTHORITY) {
+  assert.ok(reloc.anchor.length > 0 && reloc.authority.length > 0 && reloc.impl.length > 0,
+    `relocated home anchor must name its new authority/impl: ${reloc.anchor}`);
+}
+
 assert.match(hero, /WELCOME HOME · \{complexName\}/,
   'current home must expose the 04 WELCOME HOME intro');
 assert.match(hero, /필요한 일, 우리 단지에서 먼저 찾습니다\./,

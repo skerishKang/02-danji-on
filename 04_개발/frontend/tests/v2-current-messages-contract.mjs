@@ -11,11 +11,21 @@ const [integration, client, main] = await Promise.all([
 const CURRENT_008_MESSAGES_AUTHORITY = {
   title: '20_메시지함_목록.html',
   screen: '20 메시지함 목록',
-  anchors: ['메시지함', '안 읽음', '안 읽은 메시지', '새 메시지']
+  anchors: ['메시지함', '안 읽음', '안 읽은 메시지', '새 메시지'],
+  // 2026-09-05 TRACK K: interaction labels are shared with the conversation view.
+  relocated: [
+    { anchor: '프로필 보기', authority: '21_메시지_대화상세.html', impl: 'V2MessagesIntegration.tsx' },
+    { anchor: '새로고침', authority: '21_메시지_대화상세.html', impl: 'V2MessagesIntegration.tsx' }
+  ]
 };
 
 for (const anchor of CURRENT_008_MESSAGES_AUTHORITY.anchors) {
   assert.ok(anchor.length > 0, `20 design requirement anchor must be named: ${anchor}`);
+}
+
+for (const reloc of CURRENT_008_MESSAGES_AUTHORITY.relocated) {
+  assert.ok(reloc.anchor.length > 0 && reloc.authority.length > 0 && reloc.impl.length > 0,
+    `20 relocated anchor must name its new authority/impl: ${reloc.anchor}`);
 }
 
 assert.match(integration, /data-v2-messages-panel/,

@@ -3,8 +3,8 @@ import { createPortal } from 'react-dom';
 import { residentInquiriesClient, type ResidentInquiryDetail, type ResidentInquirySummary } from '../../resident-inquiries-client';
 
 const STATUS_LABEL: Record<string, string> = {
-  received: '접수됨',
-  in_progress: '처리 중',
+  received: '접수 완료',
+  in_progress: '답변 대기',
   answered: '답변 완료',
   closed: '종료'
 };
