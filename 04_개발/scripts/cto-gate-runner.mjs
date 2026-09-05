@@ -49,7 +49,8 @@ function run(cmd, args, cwd, label) {
   const pretty = `${cmd} ${args.join(' ')}`;
   process.stdout.write(`\n[STEP] ${label || pretty}\n`);
   try {
-    execFileSync(cmd, args, { cwd, stdio: 'inherit' });
+    // Windows: npm은 npm.cmd이며 Node>=18.20은 shell 없이 .cmd 실행을 거부(ENOENT/EINVAL).
+    execFileSync(cmd, args, { cwd, stdio: 'inherit', shell: process.platform === 'win32' });
     return true;
   } catch (e) {
     process.stdout.write(`  ✗ FAILED: ${pretty}\n`);
