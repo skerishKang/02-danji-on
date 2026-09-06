@@ -793,15 +793,7 @@
   overflow:auto!important;
   padding:24px 26px 30px!important;
 }
-.review-write-actions button:first-child{
-  width:48px!important;
-  min-width:48px!important;
-  padding:0!important;
-  font-size:26px!important;
-  line-height:1!important;
-  display:grid!important;
-  place-items:center!important;
-}
+
 @media(max-width:760px){
   .shop-inquiry-modal{
     place-items:center!important;
@@ -1089,8 +1081,8 @@
 (function(){
  try{sessionStorage.setItem('danjion:shopVariant','v3')}catch(e){}
  const SHOP_DATA=[
-  {key:'florist',category:'cafe food',name:'로드힐 꽃작업실',relation:'우리 주민 가게',image:'assets/home-florist.png',desc:'계절 꽃다발과 작은 선물을 예약 상담으로 준비합니다.',service:'꽃다발 · 작은 선물 · 예약 제작',way:'예약 상담 후 방문 수령',location:'광주 남구 방림동 일대',contact:'1:1 문의로 날짜·용도·예산 상담',reviews:[['연블리 · 방림명지로드힐 주민','2026.08.30','부모님 생신 꽃다발을 정성스럽게 준비해 주셨어요. 상담도 편안했습니다.'],['산책메이트 · 방림명지로드힐 주민','2026.08.26','원하는 분위기를 잘 들어주시고 예약 시간에 맞춰 준비해 주셨어요.'],['하루한잔 · 방림명지로드힐 주민','2026.08.18','선물할 사람에 맞춰 꽃 구성을 설명해 주셔서 고르기 편했습니다.']],benefit:'꽃다발 예약 상담 시 주민 전용 혜택',value:'예약혜택',code:'DANJION · F052'},
-  {key:'food',category:'food',name:'오늘의 반찬',relation:'우리 주민 가게',image:'assets/scene-food.webp',desc:'매일 먹는 반찬을 직접 만들고 예약 주문으로 준비하는 이웃입니다.',service:'반찬 · 김치 · 계절 메뉴',way:'메뉴별 가격 · 예약 주문',location:'방림명지로드힐 인근',contact:'예약 주문 시 문의',reviews:[['연블리 · 방림명지로드힐 주민','2026.08.28','반찬이 깔끔하고 예약해 두니 찾기 편했습니다.']],benefit:'방림명지로드힐 주민 10% 할인',value:'10%',code:'DANJION · F010'},
+  {key:'florist',category:'cafe food',name:'로드힐 꽃작업실',relation:'우리 주민 가게',image:'assets/home-florist.png',desc:'계절 꽃다발과 작은 선물을 예약 상담으로 준비합니다.',service:'꽃다발 · 작은 선물 · 예약 제작',way:'예약 상담 후 방문 수령',location:'광주 남구 방림동 일대',contact:'1:1 문의로 날짜·용도·예산 상담',reviews:[['연블리 · 방림명지로드힐 주민','2026.08.30','부모님 생신 꽃다발을 정성스럽게 준비해 주셨어요. 상담도 편안했습니다.','찾아주셔서 정말 감사합니다. 생신 꽃다발은 늘 정성껏 준비하겠습니다.','2026.08.31'],['산책메이트 · 방림명지로드힐 주민','2026.08.26','원하는 분위기를 잘 들어주시고 예약 시간에 맞춰 준비해 주셨어요.'],['하루한잔 · 방림명지로드힐 주민','2026.08.18','선물할 사람에 맞춰 꽃 구성을 설명해 주셔서 고르기 편했습니다.','감사합니다. 다음에도 예쁘게 만들어 드릴게요.','2026.08.19']],benefit:'꽃다발 예약 상담 시 주민 전용 혜택',value:'예약혜택',code:'DANJION · F052'},
+  {key:'food',category:'food',name:'오늘의 반찬',relation:'우리 주민 가게',image:'assets/scene-food.webp',desc:'매일 먹는 반찬을 직접 만들고 예약 주문으로 준비하는 이웃입니다.',service:'반찬 · 김치 · 계절 메뉴',way:'메뉴별 가격 · 예약 주문',location:'방림명지로드힐 인근',contact:'예약 주문 시 문의',reviews:[['연블리 · 방림명지로드힐 주민','2026.08.28','반찬이 깔끔하고 예약해 두니 찾기 편했습니다.','예약해 주셔서 감사해요. 내일 메뉴도 알찬 걸로 준비하겠습니다.','2026.08.28']],benefit:'방림명지로드힐 주민 10% 할인',value:'10%',code:'DANJION · F010'},
   {key:'home',category:'home',name:'온케어 홈서비스',relation:'주민 가족 가게',image:'assets/scene-home-care.webp',desc:'에어컨과 세탁기 안쪽까지 분해하고 세척·점검하는 생활관리 서비스입니다.',service:'에어컨 청소 · 세탁기 청소 · 생활 점검',way:'평일·토요일 예약',location:'광주 남구 방문 서비스',contact:'1:1 문의 후 작업 범위·방문시간 협의',reviews:[['방림회관 · 방림명지로드힐 주민','2026.08.21','작업 전 범위를 설명해 주셔서 안심했고 정리도 깔끔했습니다.']],benefit:'방림명지로드힐 출장비 면제',value:'면제',code:'DANJION · H001'},
   {key:'professional',category:'pro',name:'바른 세무상담',relation:'우리 주민 가게',image:'assets/scene-professional.webp',desc:'사업자와 개인이 준비한 문서를 함께 보며 세금·사업 절차를 설명하는 이웃입니다.',service:'세무 · 사업자등록 · 기초 문서상담',way:'평일 오후 · 예약',location:'비대면 또는 광주 남구 인근 상담',contact:'1:1 문의로 상담 예약',reviews:[['방림생활 · 방림명지로드힐 주민','2026.08.19','문서를 하나씩 보면서 설명해 주셔서 이해하기 쉬웠습니다.']],benefit:'방림명지로드힐 첫 상담 무료',value:'무료',code:'DANJION · P001'},
   {key:'learning',category:'learn',name:'한결 수학',relation:'우리 주민 가게',image:'assets/scene-learning.webp',desc:'중·고등학생에게 문제를 푸는 이유부터 설명하는 수학 과외입니다.',service:'중·고등학생 수학 과외',way:'예약 상담 · 방문/비대면',location:'방림명지로드힐 인근',contact:'1:1 문의로 상담',reviews:[['연블리 · 방림명지로드힐 주민','2026.08.16','설명을 천천히 해 주셔서 아이가 부담 없이 시작했습니다.']],benefit:'방림명지로드힐 학생 첫 수업 무료',value:'무료',code:'DANJION · L001'},
@@ -1145,7 +1137,8 @@
  function syncModalSave(){document.getElementById('shopCompareSave').textContent=savedKeys().includes(active)?'♥ 저장됨':'♡ 저장'}
  function reviewData(s){return Array.isArray(s.reviews)?s.reviews:[]}
  function renderReviewPreview(s){const rs=reviewData(s),first=rs[0];document.getElementById('shopCompareReviewCount').textContent=rs.length+'개';document.getElementById('shopCompareReviewSnippet').textContent=first?first[0]+' · '+first[2]:'아직 등록된 후기가 없습니다.'}
- function openReview(){const s=byKey[active];if(!s)return;const rs=reviewData(s);document.getElementById('shopReviewTitle').textContent=s.name;document.getElementById('shopReviewCount').textContent='후기 '+rs.length+'개';document.getElementById('shopReviewList').innerHTML=rs.length?rs.map(r=>`<article class="review-item"><div class="review-item-head"><b>${esc(r[0])}</b><time>${esc(r[1])}</time></div><p>${esc(r[2])}</p></article>`).join(''):'<p class="review-item">아직 등록된 후기가 없습니다.</p>';review.classList.add('open');review.setAttribute('aria-hidden','false');document.body.style.overflow='hidden'}
+ function replyHTML(r,ri){return (r[3]?`<div class="review-reply"><div class="review-reply-head"><span class="owner-badge">가게 주인</span><time>${esc(r[4]||'')}</time></div><p>${esc(r[3])}</p></div>`:'')+(r[5]?r[5].map((c)=>`<div class="review-reply"><div class="review-reply-head"><span class="resident-badge-r">주민</span><b>${esc(c[0])}</b><time>${esc(c[1])}</time></div><p>${esc(c[2])}</p></div>`).join(''):'')+`<button type="button" class="review-comment-toggle" data-ri="${ri}">댓글 달기</button><div class="review-comment-form" data-form="${ri}"><textarea maxlength="500" placeholder="따뜻한 댓글을 남겨주세요."></textarea><button type="button" data-send="${ri}">등록</button></div>`}
+function openReview(){const s=byKey[active];if(!s)return;const rs=reviewData(s);document.getElementById('shopReviewTitle').textContent=s.name;document.getElementById('shopReviewCount').textContent='후기 '+rs.length+'개';document.getElementById('shopReviewList').innerHTML=rs.length?rs.map((r,ri)=>`<article class="review-item" data-review="${ri}"><div class="review-item-head"><b>${esc(r[0])}</b><time>${esc(r[1])}</time></div><p>${esc(r[2])}</p>${replyHTML(r,ri)}</article>`).join(''):'<p class="review-item">아직 등록된 후기가 없습니다.</p>';review.classList.add('open');review.setAttribute('aria-hidden','false');document.body.style.overflow='hidden';document.getElementById('shopReviewList').querySelectorAll('.review-comment-toggle').forEach(b=>b.onclick=()=>{const f=review.querySelector(`[data-form="${b.dataset.ri}"]`);f.classList.toggle('open');if(f.classList.contains('open'))f.querySelector('textarea').focus()});document.getElementById('shopReviewList').querySelectorAll('[data-send]').forEach(b=>b.onclick=()=>{const ri=Number(b.dataset.send);const f=review.querySelector(`[data-form="${ri}"]`);const v=f.querySelector('textarea').value.trim();if(!v){flash('댓글 내용을 입력해 주세요.');return}const s=byKey[active];s.reviews[ri][5]=s.reviews[ri][5]||[];s.reviews[ri][5].push(['연블리','방금',v]);openReview();})}
  function closeReview(){review.classList.remove('open');review.setAttribute('aria-hidden','true');if(!coupon.classList.contains('open')&&!modal.classList.contains('open'))document.body.style.overflow=''}
  function openReviewWrite(key){const sh=byKey[key];if(!sh)return;document.getElementById('shopReviewWriteTitle').textContent=sh.name+' 후기를 남겨주세요.';document.getElementById('shopReviewInput').value='';document.getElementById('shopReviewWriteModal').classList.add('open');document.getElementById('shopReviewWriteModal').setAttribute('aria-hidden','false');document.body.style.overflow='hidden'}
  function closeReviewWrite(){const el=document.getElementById('shopReviewWriteModal');el.classList.remove('open');el.setAttribute('aria-hidden','true');if(!modal.classList.contains('open')&&!review.classList.contains('open')&&!coupon.classList.contains('open'))document.body.style.overflow=''}
@@ -1284,5 +1277,19 @@ if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt
   window.addEventListener('hashchange',reportRoute);
 })();
 </script>
+
+<style id="review-replies-20260906">
+.review-reply{margin:10px 0 0 12px;padding:11px 13px;border-left:3px solid var(--coral);background:#fdf7ef;border-radius:0 8px 8px 0}
+.review-reply-head{display:flex;align-items:center;gap:7px;font-size:12px;font-weight:900;color:#101317}
+.review-reply-head .owner-badge{background:var(--coral);color:#fff;padding:2px 7px;border-radius:999px;font-size:10px;font-weight:950}
+.review-reply-head .resident-badge-r{background:#255e49;color:#fff;padding:2px 7px;border-radius:999px;font-size:10px;font-weight:950}
+.review-reply-head time{color:#8a857d;font-weight:700}
+.review-reply p{margin:6px 0 0;font-size:14px;line-height:1.55;color:#101317;word-break:keep-all}
+.review-comment-toggle{margin-top:9px;border:0;background:none;padding:0;font-size:12px;font-weight:900;color:#8a857d;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+.review-comment-form{display:none;margin-top:9px;gap:7px}
+.review-comment-form.open{display:flex}
+.review-comment-form textarea{flex:1;min-height:44px;border:1px solid var(--line);background:#fff;padding:9px 11px;font:inherit;font-size:13px;resize:none;border-radius:8px}
+.review-comment-form button{height:44px;padding:0 14px;border:0;border-radius:8px;background:var(--ink);color:#fff;font-weight:900;font-size:13px;cursor:pointer}
+</style>
 </body>
 </html>
