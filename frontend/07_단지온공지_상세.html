@@ -148,7 +148,7 @@
 .level-notice h2{margin-top:34px}
 @media(max-width:760px){.level-notice .lv-score{grid-template-columns:1fr!important}.level-notice .lv-badge{flex-basis:58px;height:40px;font-size:12.5px}}
 </style>
-<h1 style="letter-spacing:-.05em;line-height:1.14;margin-bottom:6px">이웃 온기 레벨 안내<br>게시글·댓글·공감으로 LV.5까지</h1>
+<h1 style="font-size:clamp(26px,2.4vw,34px);letter-spacing:-.045em;line-height:1.2;margin-bottom:10px">이웃 온기 레벨 안내 — 게시글·댓글·공감으로 LV.5까지</h1>
 <p style="font-size:16px;color:#56534e;margin:16px 0 8px">이웃 온기는 주민 활동이 쌓이는 기록입니다. 점수는 비공개이고, 단계(LV)만 프로필에 표시돼요.</p>
 <div class="lv-row"><span class="lv-badge lv1">LV.1</span><div class="lv-text"><b>시작 새 이웃</b><small>단지온 가입과 동시에 시작합니다.</small><em>0점 이상</em></div></div>
 <div class="lv-row"><span class="lv-badge lv2">LV.2</span><div class="lv-text"><b>인사하는 이웃</b><small>첫 인사와 반응을 나눕니다.</small><em>30점 이상</em></div></div>
@@ -202,7 +202,7 @@
   const gn=document.getElementById('levelNotice'); if(!gn)return;
   const h1=document.querySelector('h1');
   if(h1) h1.textContent='이웃 온기 레벨 안내 — 게시글·댓글·공감으로 LV.5까지';
-  document.querySelectorAll('main > *').forEach(el=>{ if(el.id!=='levelNotice') el.style.display='none'; });
+  document.querySelectorAll('main > *').forEach(el=>{ if(el.id!=='levelNotice' && !el.classList.contains('route')) el.style.display='none'; });
   gn.style.display='block';
   document.title='단지온공지 · 이웃 온기 레벨 안내';
 })();
