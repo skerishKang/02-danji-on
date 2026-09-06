@@ -131,7 +131,6 @@
 </div>
 </article>
 </main>
-<div class="mobile-sticky"><a class="back-list" href="06_단지온공지_목록.html">공지 목록으로 돌아가기 <span>→</span></a></div>
 <nav aria-label="모바일 주요 메뉴" class="mobile-bottom"><button aria-label="홈" data-route="04_데일리홈.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><path d="m3 10 9-7 9 7v10h-6v-6H9v6H3z"></path></svg><span>홈</span></button><button aria-label="이웃가게" data-route="01_이웃가게_발견.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><path d="M4 7h16l-1 13H5L4 7Z"></path><path d="M8 7V5a4 4 0 0 1 8 0v2"></path></svg><span>이웃가게</span></button><button aria-label="우리단지" class="active" data-route="05_우리단지_첫화면.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><path d="M4 21V9l8-6 8 6v12"></path><path d="M8 13h8M8 17h8"></path></svg><span>우리단지</span></button><button aria-label="내정보" data-route="19_내정보_메인.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><circle cx="12" cy="8" r="4"></circle><path d="M4 21a8 8 0 0 1 16 0"></path></svg><span>내정보</span></button></nav>
 <script>
     const sectionLinks=[...document.querySelectorAll('.article-index a')];
@@ -159,23 +158,30 @@
 
 <section class="level-notice" id="levelNotice" hidden>
 <style>
-.level-notice .lv-row{display:flex;gap:14px;align-items:center;border-bottom:1px solid var(--line);padding:14px 0;font-size:15px}
-.level-notice .lv-badge{flex:0 0 58px;height:40px;display:grid;place-items:center;border-radius:999px;font-weight:950;font-size:13px}
+.level-notice{padding-bottom:46px}
+.level-notice .lv-row{display:flex;gap:16px;align-items:flex-start;border-bottom:1px solid var(--line);padding:19px 0}
+.level-notice .lv-badge{flex:0 0 64px;height:44px;display:grid;place-items:center;border-radius:999px;font-weight:950;font-size:13.5px}
 .level-notice .lv1{background:#e4dccd;color:#101317}.level-notice .lv2{background:#eef0e6;color:#255e49}.level-notice .lv3{background:var(--amber);color:#101317}.level-notice .lv4{background:#255e49;color:#fff}.level-notice .lv5{background:var(--coral);color:#fff}
-.level-notice .lv-score{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:16px}
-.level-notice .lv-score div{background:#fffdf8;border:1px solid var(--line);padding:11px 13px;font-size:13.5px;font-weight:850}
+.level-notice .lv-text b{display:block;font-size:17px;letter-spacing:-.02em;margin-bottom:4px}
+.level-notice .lv-text small{display:block;font-size:13.5px;color:#56534e;line-height:1.5;margin-bottom:5px}
+.level-notice .lv-text em{display:block;font-style:normal;font-weight:950;font-size:13px;color:var(--coral)}
+.level-notice .lv-score{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin-top:18px}
+.level-notice .lv-score div{background:#fffdf8;border:1px solid var(--line);padding:13px 14px;font-size:13.5px;font-weight:850;line-height:1.45}
 .level-notice .lv-score b{color:var(--coral)}
-.level-notice p{font-size:15px;line-height:1.7;color:#101317;word-break:keep-all}
+.level-notice .lv-score small{color:#8a857d;font-weight:700}
+.level-notice p{font-size:15px;line-height:1.75;color:#101317;word-break:keep-all}
 .level-notice small{color:#8a857d}
+.level-notice h2{margin-top:34px}
+@media(max-width:760px){.level-notice .lv-score{grid-template-columns:1fr!important}.level-notice .lv-badge{flex-basis:58px;height:40px;font-size:12.5px}}
 </style>
-<h1 style="letter-spacing:-.05em;line-height:1.12">이웃 온기 레벨 안내<br>게시글·댓글·공감으로 LV.5까지</h1>
-<p style="font-size:16px;color:#56534e;margin:14px 0 0">이웃 온기는 주민 활동이 쌓이는 기록입니다. 점수는 비공개이고, 단계(LV)만 프로필에 표시돼요.</p>
-<div class="lv-row"><span class="lv-badge lv1">LV.1</span><span><b>시작 새 이웃</b> — 단지온 가입과 동시에 시작합니다. <small>0점 이상</small></span></div>
-<div class="lv-row"><span class="lv-badge lv2">LV.2</span><span><b>인사하는 이웃</b> — 첫 인사와 반응을 나눕니다. <small>30점 이상</small></span></div>
-<div class="lv-row"><span class="lv-badge lv3">LV.3</span><span><b>참여하는 이웃</b> — 게시글과 댓글로 꾸준히 대화합니다. <small>80점 이상</small></span></div>
-<div class="lv-row"><span class="lv-badge lv4">LV.4</span><span><b>도움 주는 이웃</b> — 유용한 정보와 답을 나눕니다. <small>160점 이상</small></span></div>
-<div class="lv-row"><span class="lv-badge lv5">LV.5</span><span><b>함께 만드는 이웃</b> — 단지 문화를 함께 만드는 최고 단계. <small>280점 이상</small></span></div>
-<h2 style="font-size:24px;letter-spacing:-.04em;margin:30px 0 0">온기 점수 획득 방법</h2>
+<h1 style="letter-spacing:-.05em;line-height:1.14;margin-bottom:6px">이웃 온기 레벨 안내<br>게시글·댓글·공감으로 LV.5까지</h1>
+<p style="font-size:16px;color:#56534e;margin:16px 0 8px">이웃 온기는 주민 활동이 쌓이는 기록입니다. 점수는 비공개이고, 단계(LV)만 프로필에 표시돼요.</p>
+<div class="lv-row"><span class="lv-badge lv1">LV.1</span><div class="lv-text"><b>시작 새 이웃</b><small>단지온 가입과 동시에 시작합니다.</small><em>0점 이상</em></div></div>
+<div class="lv-row"><span class="lv-badge lv2">LV.2</span><div class="lv-text"><b>인사하는 이웃</b><small>첫 인사와 반응을 나눕니다.</small><em>30점 이상</em></div></div>
+<div class="lv-row"><span class="lv-badge lv3">LV.3</span><div class="lv-text"><b>참여하는 이웃</b><small>게시글과 댓글로 꾸준히 대화합니다.</small><em>80점 이상</em></div></div>
+<div class="lv-row"><span class="lv-badge lv4">LV.4</span><div class="lv-text"><b>도움 주는 이웃</b><small>유용한 정보와 답을 나눕니다.</small><em>160점 이상</em></div></div>
+<div class="lv-row"><span class="lv-badge lv5">LV.5</span><div class="lv-text"><b>함께 만드는 이웃</b><small>단지 문화를 함께 만드는 최고 단계입니다.</small><em>280점 이상</em></div></div>
+<h2 style="font-size:25px;letter-spacing:-.04em;margin:36px 0 0">온기 점수 획득 방법</h2>
 <div class="lv-score">
 <div>게시글 작성 <b>+10</b></div>
 <div>가게 후기 작성 <b>+10</b></div>
@@ -184,8 +190,9 @@
 <div>받은 공감 <b>+1</b> <small>받을 때마다</small></div>
 <div>가게 주인 답글 받기 <b>+5</b> <small>내 가게 후기에</small></div>
 </div>
-<h2 style="font-size:24px;letter-spacing:-.04em;margin:30px 0 12px">알아두세요</h2>
-<p>온기는 경쟁 점수가 아니라 꾸준함의 기록입니다. 점수는 비공개이며 프로필에는 단계만 표시됩니다. 도배·어뷰징으로 인한 점수는 운영 기준에 따라 조정될 수 있고, 레벨이 낮아도 좋은 글은 언제나 환영합니다.</p>
+<h2 style="font-size:25px;letter-spacing:-.04em;margin:36px 0 14px">알아두세요</h2>
+<p>온기는 경쟁 점수가 아니라 꾸준함의 기록입니다. 점수는 비공개이며 프로필에는 단계만 표시됩니다.</p>
+<p>도배·어뷰징으로 인한 점수는 운영 기준에 따라 조정될 수 있고, 레벨이 낮아도 좋은 글은 언제나 환영합니다.</p>
 </section>
 <script id="notice-level-toggle-20260906">
 (function(){
