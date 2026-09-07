@@ -54,15 +54,26 @@
   background:none!important;
   box-sizing:border-box!important;
 }
-/* SVG 화살표(06/07/08 계열) */
+/* SVG 화살표(06/07/08 계열) — 뒤로가기 버튼 안의 모든 SVG에 동일 규격 적용 */
+.route svg,
 .route .back svg,
-.route .route-back svg{
+.route .route-back svg,
+.route .route-left svg{
   width:20px!important;
   height:20px!important;
   fill:none!important;
   stroke:#4a3f8f!important;
   stroke-width:2!important;
   flex:none!important;
+}
+/* 화살표↔라벨 간격 8px: 텍스트 화살표 버튼과 SVG 버튼 모두 */
+.route > button:first-child,
+.route .route-left > button:first-child,
+.route .route-inner > button:first-child,
+.route .back{
+  gap:8px!important;
+  padding-left:0!important;
+  padding-right:0!important;
 }
 
 /* 3) 라벨·경로 표기: "←  내정보  / 1:1 메시지" 형태 공통 */
