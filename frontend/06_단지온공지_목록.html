@@ -6,6 +6,7 @@
 <title>단지온 · 단지온공지 · STEP 06</title>
 <style>
     @import url("assets/consistency.css");
+@import url("assets/consistency-backfix.css");
     :root{--paper:#f6f2e9;--paper2:#fffdf8;--ink:#101317;--navy:#101d30;--coral:#ee6045;--amber:#f2b84b;--green:#255e49;--muted:#6d6a64;--line:#d8d0c3;--soft:#ece5d8;--header:76px}
     *{box-sizing:border-box}html{background:var(--paper);color:var(--ink);font-family:Pretendard,"Pretendard Variable","Noto Sans KR",Arial,sans-serif}body{margin:0;min-width:320px;background:var(--paper)}button,input{font:inherit;color:inherit}button{cursor:pointer}
     .site-header{height:var(--header);border-bottom:1px solid var(--line);background:rgba(246,242,233,.96);display:flex;align-items:center;position:sticky;top:0;z-index:40;backdrop-filter:blur(12px)}.header-inner{width:min(1280px,calc(100% - 64px));margin:auto;display:flex;align-items:center;justify-content:space-between}.brand{display:flex;align-items:baseline;gap:10px;border:0;background:none;padding:0;font-weight:900;font-size:25px;letter-spacing:-.05em}.brand small{font-size:11px;letter-spacing:.11em;color:#5f5c56;font-weight:850}.desktop-nav{display:flex;align-items:center;gap:42px;height:var(--header)}.desktop-nav button{height:100%;border:0;background:none;padding:0 2px;font-size:16px;font-weight:780;position:relative}.desktop-nav button.active::after{content:"";height:3px;position:absolute;left:0;right:0;bottom:0;background:var(--coral)}.identity{font-size:14px;font-weight:780;color:#58554f}.mobile-head{display:none}
@@ -136,8 +137,8 @@
 <section class="notice-head"><div><div class="eyebrow">서비스 최상위 운영 공지</div><h1>단지온공지</h1></div><div class="head-copy"><b>꼭 필요한 내용만 가장 먼저 전합니다.</b>서비스 이용방법, 운영기준, 중요한 변경사항을 확인하세요.</div></section>
 <section class="tools"><nav aria-label="공지 분류" class="filters"><button class="filter active" data-filter="all">전체</button><button class="filter" data-filter="essential">필수안내</button><button class="filter" data-filter="guide">이용방법</button><button class="filter" data-filter="policy">운영기준</button><button class="filter" data-filter="update">새 기능</button></nav><form class="search" id="searchForm"><input aria-label="공지 검색" placeholder="공지 검색" type="search"/><button type="submit">검색</button></form></section>
 <section class="notice-layout">
-<article class="pinned" data-kind="essential"><span class="pin-label">중요 공지 · 처음 읽어주세요</span><h2>단지온을 처음 이용하는<br/>주민 여러분께 안내드립니다.</h2><p>단지온의 네 가지 메뉴와 주민 정보 보호, 글쓰기 운영방식을 한 번에 확인할 수 있습니다.</p><div class="pinned-date">2026.08.31 업데이트</div><button class="pinned-link" data-toast="중요 공지 상세로 이동합니다." type="button"><span>중요 공지 읽기</span><span>→</span></button></article>
-<div class="notice-list"><div class="list-head"><h2>전체 공지</h2><span>최신순</span></div><button class="notice-row" data-kind="guide" data-toast="단지온 이용 안내 상세로 이동합니다." type="button"><span class="type">이용방법</span><strong>단지온 홈과 네 가지 메뉴 이용 안내</strong><time>2026.08.31</time></button><button class="notice-row" data-kind="guide" data-toast="주민 사업자 등록 안내 상세로 이동합니다." type="button"><span class="type">이용방법</span><strong>주민 사업자와 이웃가게 등록 안내</strong><time>2026.08.29</time></button><button class="notice-row" data-kind="policy" data-toast="개인정보 공개 기준 상세로 이동합니다." type="button"><span class="type">운영기준</span><strong>동·호수와 개인정보 공개 기준 안내</strong><time>2026.08.27</time></button><button class="notice-row" data-kind="policy" data-toast="글쓰기 운영기준 상세로 이동합니다." type="button"><span class="type">운영기준</span><strong>이웃대화 글쓰기와 게시물 운영기준</strong><time>2026.08.26</time></button><button class="notice-row" data-kind="update" data-toast="메시지 기능 안내 상세로 이동합니다." type="button"><span class="type">새 기능</span><strong>주민 간 1:1 메시지 이용 안내</strong><time>2026.08.24</time></button><p class="notice-empty" id="noticeEmpty" hidden>검색 결과가 없습니다.</p></div>
+<article class="pinned" data-kind="essential"><span class="pin-label">중요 공지 · 처음 읽어주세요</span><h2>단지온을 처음 이용하는<br/>주민 여러분께 안내드립니다.</h2><p>단지온의 네 가지 메뉴와 주민 정보 보호, 글쓰기 운영방식을 한 번에 확인할 수 있습니다.</p><button class="pinned-link" data-toast="중요 공지 상세로 이동합니다." type="button"><span>중요 공지 읽기</span><span>→</span></button></article>
+<div class="notice-list"><div class="list-head"><h2>전체 공지</h2></div><button class="notice-row" data-kind="guide" data-toast="단지온 이용 안내 상세로 이동합니다." type="button"><span class="type">이용방법</span><strong>단지온 홈과 네 가지 메뉴 이용 안내</strong></button><button class="notice-row" data-notice="biz" type="button"><span class="type">이용방법</span><strong>주민 사업자와 이웃가게 등록 안내</strong></button><button class="notice-row" data-notice="message" type="button"><span class="type">새 기능</span><strong>주민 간 1:1 메시지 이용 안내</strong></button><button class="notice-row" data-notice="writing" type="button"><span class="type">운영기준</span><strong>이웃대화 글쓰기 방법과 AI 운영기준 안내</strong></button><button class="notice-row" data-notice="level" type="button"><span class="type">레벨 안내</span><strong>이웃 온기 레벨 안내 — 게시글·댓글·공감으로 LV.5까지</strong></button><p class="notice-empty" id="noticeEmpty" hidden>검색 결과가 없습니다.</p></div>
 </section>
 </main>
 <nav aria-label="모바일 주요 메뉴" class="mobile-bottom"><button aria-label="홈" data-route="04_데일리홈.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><path d="m3 10 9-7 9 7v10h-6v-6H9v6H3z"></path></svg><span>홈</span></button><button aria-label="이웃가게" data-route="01_이웃가게_발견.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><path d="M4 7h16l-1 13H5L4 7Z"></path><path d="M8 7V5a4 4 0 0 1 8 0v2"></path></svg><span>이웃가게</span></button><button aria-label="우리단지" class="active" data-route="05_우리단지_첫화면.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><path d="M4 21V9l8-6 8 6v12"></path><path d="M8 13h8M8 17h8"></path></svg><span>우리단지</span></button><button aria-label="내정보" data-route="19_내정보_메인.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><circle cx="12" cy="8" r="4"></circle><path d="M4 21a8 8 0 0 1 16 0"></path></svg><span>내정보</span></button></nav><div class="toast" role="status"></div>
@@ -170,7 +171,7 @@ function go(f){
   if(!f)return;
   location.href=f;
 }
-function main(label){go({'홈':FILES.home,'이웃가게':FILES.shops,'우리단지':FILES.complex,'내정보':FILES.my}[label]);}
+function main(label){if(label==='이웃가게'&&(()=>{try{return['v2','v3'].includes(sessionStorage.getItem('danjion:shopVariant'))}catch(e){return false}})()){go(sessionStorage.getItem('danjion:shopVariant')==='v3'?'01_이웃가게_발견_v3.html':'01_이웃가게_발견_v2.html');return;}go({'홈':FILES.home,'이웃가게':FILES.shops,'우리단지':FILES.complex,'내정보':FILES.my}[label]);}
 function routeFrom(v){v=(v||'').split('#')[0]; if(!v)return null;
   const q=v.includes('?')?'?'+v.split('?').slice(1).join('?'):''; const p=v.split('?')[0];
   const arr=[["29_", "index.html"], ["04_", "04_데일리홈.html"], ["01_", "01_이웃가게_발견.html"], ["02_", "02_이웃가게_상세.html"], ["05_", "05_우리단지_첫화면.html"], ["06_", "06_단지온공지_목록.html"], ["07_", "07_단지온공지_상세.html"], ["08_", "08_아파트소식_목록.html"], ["09_", "09_회장인사_상세.html"], ["10_", "10_주민소식_목록.html"], ["11_", "11_주민소식_상세.html"], ["12_", "12_이웃대화_첫화면.html"], ["13_", "13_이웃대화_글상세_댓글.html"], ["14_", "14_가입인사_글쓰기.html"], ["15_", "15_단지이야기_글쓰기.html"], ["16_", "16_궁금해요_글쓰기.html"], ["17_", "17_같이해요_글쓰기.html"], ["19_", "19_내정보_메인.html"], ["20_", "20_메시지함_목록.html"], ["21_", "21_메시지_대화상세.html"], ["22_", "22_주민_공개프로필.html"], ["23_", "23_이웃온기.html"], ["24_", "24_설정.html"], ["25_", "25_1대1문의.html"], ["26_", "26_우리집연결.html"], ["27_", "27_알림함.html"], ["28_", "28_나의활동.html"]];
@@ -218,7 +219,7 @@ document.addEventListener('click',function(ev){
  if(SCREEN==='noticeList' && (cls.contains('pinned-link')||cls.contains('notice-row'))){
    ev.preventDefault();ev.stopImmediatePropagation();
    const from=new URLSearchParams(location.search).get('from');
-   go(FILES.noticeDetail+(from==='my-help'?'?from=my-help':''));return;
+   if(el.dataset.notice==='biz'){go(FILES.noticeDetail+'?notice=biz');return;}if(el.dataset.notice==='writing'){go(FILES.noticeDetail+'?notice=writing');return;}if(el.dataset.notice==='message'){go(FILES.noticeDetail+'?notice=message');return;}if(el.dataset.notice==='level'){go(FILES.noticeDetail+'?notice=level');return;} if(el.dataset.kind==='guide'||el.dataset.notice==='first'){go(FILES.noticeDetail+'?notice=first');return;} go(FILES.noticeDetail+(from==='my-help'?'?from=my-help':''));return;
  }
  if(SCREEN==='apartment' && cls.contains('feature-link')){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.chair);return;}
  if(SCREEN==='residentList' && cls.contains('story-link')){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.residentDetail);return;}
@@ -263,6 +264,32 @@ if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',reportRoute,{once:true});else reportRoute();
   window.addEventListener('pageshow',reportRoute);
   window.addEventListener('hashchange',reportRoute);
+})();
+</script>
+<script id="back-scroll-restore-20260906b">
+(function(){
+  var KEY='danjion:back:06';
+  try{
+    window.addEventListener('click',function(ev){
+      var el=ev.target.closest('button,a,[data-route],[role="button"],.notice-row,.pinned-link,.story-link,.feature-link,.post-row,.mail-row,.community-row');
+      if(!el)return;
+      if(el.closest('.desktop-nav,.mobile-bottom,.brand,.public-header')){try{sessionStorage.removeItem(KEY)}catch(e){}return;}
+      try{sessionStorage.setItem(KEY,String(Math.round(window.scrollY||0)))}catch(e){}
+    },true);
+    var saved=sessionStorage.getItem(KEY);
+    if(saved!==null){
+      sessionStorage.removeItem(KEY);
+      try{if('scrollRestoration' in history)history.scrollRestoration='manual'}catch(e){}
+      var y=parseInt(saved,10)||0,applied=0,cancel=false;
+      var stop=function(){cancel=true};
+      window.addEventListener('wheel',stop,{passive:true,once:true});
+      window.addEventListener('touchstart',stop,{passive:true,once:true});
+      window.addEventListener('keydown',stop,{once:true});
+      var apply=function(){if(cancel||applied>=4)return;applied++;if(Math.abs(window.scrollY-y)>2)window.scrollTo(0,y)};
+      var whenReady=function(){requestAnimationFrame(function(){requestAnimationFrame(apply)});setTimeout(apply,160);setTimeout(apply,420);setTimeout(apply,750)};
+      if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',whenReady,{once:true});else whenReady();
+    }
+  }catch(e){}
 })();
 </script>
 </body>

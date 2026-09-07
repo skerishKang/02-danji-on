@@ -6,13 +6,14 @@
 <title>단지온 · 회장 인사 · STEP 09</title>
 <style>
     @import url("assets/consistency.css");
+@import url("assets/consistency-backfix.css");
     :root{--paper:#f6f2e9;--paper2:#fffdf8;--ink:#101317;--navy:#101d30;--coral:#ee6045;--amber:#f2b84b;--muted:#6d6a64;--line:#d8d0c3;--header:76px}
     *{box-sizing:border-box}html{background:var(--paper);color:var(--ink);font-family:Pretendard,"Pretendard Variable","Noto Sans KR",Arial,sans-serif}body{margin:0;min-width:320px;background:var(--paper)}a{color:inherit}button{font:inherit;color:inherit}.serif{font-family:"Noto Serif KR","Nanum Myeongjo",Batang,serif}
     .site-header{height:var(--header);border-bottom:1px solid var(--line);background:rgba(246,242,233,.96);display:flex;align-items:center;position:sticky;top:0;z-index:40;backdrop-filter:blur(12px)}.header-inner{width:min(1280px,calc(100% - 64px));margin:auto;display:flex;align-items:center;justify-content:space-between}.brand{display:flex;align-items:baseline;gap:10px;text-decoration:none;font-weight:900;font-size:25px;letter-spacing:-.05em}.brand small{font-size:11px;letter-spacing:.11em;color:#5f5c56;font-weight:850}.desktop-nav{display:flex;align-items:center;gap:42px;height:var(--header)}.desktop-nav a{height:100%;display:flex;align-items:center;text-decoration:none;padding:0 2px;font-size:16px;font-weight:780;position:relative}.desktop-nav a.active::after{content:"";height:3px;position:absolute;left:0;right:0;bottom:0;background:var(--coral)}.identity{font-size:14px;font-weight:780;color:#58554f}.mobile-head{display:none}
     main{width:min(1180px,calc(100% - 64px));margin:auto;padding-bottom:110px}.route{height:64px;display:flex;align-items:center;gap:11px;border-bottom:1px solid var(--line);font-size:16px}.route a{display:flex;align-items:center;gap:9px;text-decoration:none;font-weight:900}.route svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.9}.route span{color:var(--muted);font-weight:760}.route span::before{content:"/";margin-right:11px;color:#aaa49b}
     .article-head{padding:58px 0 42px;border-bottom:1px solid var(--ink)}.eyebrow{display:flex;align-items:center;gap:12px;color:var(--coral);font-size:18px;font-weight:900}.eyebrow::before{content:"";width:34px;height:3px;background:var(--coral)}h1{max-width:980px;font-size:56px;line-height:1.22;letter-spacing:-.045em;margin:22px 0 34px;word-break:keep-all;font-weight:900}.meta{display:flex;justify-content:space-between;align-items:end;gap:30px}.author{display:flex;align-items:center;gap:16px}.author-mark{width:56px;height:56px;border-radius:50%;background:var(--navy);color:#fff;display:grid;place-items:center;font-size:21px;font-weight:900}.author strong{display:block;font-size:22px}.author small{display:block;margin-top:5px;font-size:17px;color:var(--muted);font-weight:700}.meta time{font-size:15px;color:var(--muted);font-weight:700}
     .opening{min-height:250px;margin-top:30px;background:var(--navy);color:#fff}.opening-quote{min-height:250px;padding:32px 48px 28px;display:flex;flex-direction:column;justify-content:space-between}.quote-mark{font-size:56px;line-height:.7;color:var(--coral)}.opening blockquote{max-width:920px;font-size:40px;line-height:1.48;letter-spacing:-.045em;margin:14px 0;word-break:keep-all}.opening-caption{font-size:16px;color:rgba(255,255,255,.68);font-weight:820}
-    .article-grid{display:grid;grid-template-columns:270px minmax(0,700px);justify-content:center;gap:64px;margin-top:67px}.article-index{align-self:start;position:sticky;top:112px;border-top:2px solid var(--ink);padding-top:20px}.article-index strong{display:block;font-size:17px;color:var(--coral);margin-bottom:17px}.article-index span{display:block;font-size:17px;line-height:1.85;color:#5d5953;font-weight:650}.article-body{font-size:19px;line-height:1.95;color:#3f3d39;word-break:keep-all}.article-body .greeting{font-size:23px;font-weight:800;color:var(--ink);margin-top:0}.article-body h2{font-size:30px;line-height:1.35;letter-spacing:-.035em;color:var(--ink);margin:58px 0 18px}.article-body p{margin:0 0 22px}.article-body strong{color:var(--ink)}.pullquote{margin:54px 0;padding:34px 0;border-top:1px solid var(--ink);border-bottom:1px solid var(--ink);font-size:31px;line-height:1.65;letter-spacing:-.035em;color:var(--ink)}.support{margin:42px 0 0;background:transparent;color:var(--ink);padding:30px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}.support .label{display:block;color:var(--coral);font-size:17px;font-weight:900;margin-bottom:16px}.support strong{color:var(--ink)}.support p{color:#4f4c47;margin:0}.support p+p{margin-top:17px}.signature{margin-top:55px;padding-top:25px;border-top:1px solid var(--line);display:flex;justify-content:flex-end}.signature div{text-align:left}.signature strong{display:block;font-size:30px;color:var(--ink)}.signature span{display:block;margin-top:5px;font-size:17px;color:var(--muted);font-weight:700}.back-link{margin-top:70px;border-top:1px solid var(--ink);padding-top:20px;display:flex;justify-content:space-between;text-decoration:none;font-size:17px;font-weight:880}.back-link span:last-child{font-size:23px}.mobile-bottom{display:none}
+    .article-grid{display:grid;grid-template-columns:270px minmax(0,700px);justify-content:center;gap:64px;margin-top:67px}.article-index{align-self:start;position:sticky;top:112px;border-top:2px solid var(--ink);padding-top:20px}.article-index strong{display:block;font-size:17px;color:var(--coral);margin-bottom:17px}.article-index span{display:block;font-size:17px;line-height:1.85;color:#5d5953;font-weight:650}.article-body{font-size:19px;line-height:1.95;color:#3f3d39;word-break:keep-all}.article-body .greeting{font-size:23px;font-weight:800;color:var(--ink);margin-top:0}.article-body h2{font-size:30px;line-height:1.35;letter-spacing:-.035em;color:var(--ink);margin:58px 0 18px}.article-body p{margin:0 0 22px}.article-body strong{color:var(--ink)}.pullquote{margin:54px 0;padding:34px 0;border-top:1px solid var(--ink);border-bottom:1px solid var(--ink);font-size:31px;line-height:1.65;letter-spacing:-.035em;color:var(--ink)}.support{margin:42px 0 0;background:transparent;color:var(--ink);padding:30px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}.support .label{display:block;color:var(--ink);font-size:19px;font-weight:950;margin-bottom:18px;letter-spacing:-.02em}.support strong{color:var(--ink)}.support p{color:#4f4c47;margin:0}.support p+p{margin-top:17px}.signature{margin-top:55px;padding-top:25px;border-top:1px solid var(--line);display:flex;justify-content:flex-end}.signature div{text-align:left}.signature strong{display:block;font-size:30px;color:var(--ink)}.signature span{display:block;margin-top:5px;font-size:17px;color:var(--muted);font-weight:700}.back-link{margin-top:70px;border-top:1px solid var(--ink);padding-top:20px;display:flex;justify-content:space-between;text-decoration:none;font-size:17px;font-weight:880}.back-link span:last-child{font-size:23px}.mobile-bottom{display:none}
     @media(max-width:760px){:root{--header:60px}body{padding-bottom:72px;background:#fbf8f2}.header-inner{width:100%;padding:0 20px}.brand{font-size:21px}.brand small,.desktop-nav,.identity{display:none}.mobile-head{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:820;color:var(--muted)}main{width:100%;padding:0 20px 54px}.route{height:56px;margin:0 -20px;padding:0 20px;background:var(--paper2);font-size:15px}.route span{font-size:15px}.article-head{padding:34px 0 29px}.eyebrow{font-size:15px;gap:9px}.eyebrow::before{width:24px;height:2px}h1{font-size:37px;line-height:1.27;margin:18px 0 27px}.meta{display:block}.author-mark{width:48px;height:48px;font-size:19px}.author{gap:13px}.author strong{font-size:19px}.author small{font-size:15px}.meta time{display:block;margin:17px 0 0 61px;font-size:14px}.opening{margin:0 -20px;min-height:235px}.opening-quote{min-height:235px;padding:24px 20px 22px}.quote-mark{font-size:44px}.opening blockquote{font-size:28px;line-height:1.5;margin:10px 0}.opening-caption{font-size:14px}.article-grid{display:block;margin-top:32px}.article-index{position:static;border-top:0;border-left:4px solid var(--coral);padding:0 0 0 16px;margin-bottom:38px}.article-index strong{font-size:16px;margin-bottom:9px}.article-index span{font-size:16px;line-height:1.78}.article-body{font-size:17px;line-height:1.88}.article-body .greeting{font-size:20px}.article-body h2{font-size:25px;margin:44px 0 15px}.pullquote{font-size:25px;margin:40px 0;padding:27px 0}.support{margin:35px 0 0;padding:26px 0}.support .label{font-size:16px}.signature{margin-top:45px}.signature strong{font-size:26px}.signature span{font-size:16px}.back-link{margin-top:55px}.mobile-bottom{position:fixed;display:grid;grid-template-columns:repeat(4,1fr);left:0;right:0;bottom:0;height:68px;background:rgba(255,253,248,.98);border-top:1px solid var(--line);z-index:50}.mobile-bottom a{display:grid;place-items:center;align-content:center;gap:3px;color:#706d67;font-size:10px;font-weight:780;text-decoration:none}.mobile-bottom a.active{color:var(--coral)}.mobile-bottom svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8}}
     @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
   </style>
@@ -60,10 +61,10 @@
 <article>
 <header class="article-head"><div class="eyebrow">회장 인사 · 단지온을 시작하며</div><h1>1년 넘게 늦어진 주민생활 개선,<br/>이제 시작합니다.</h1><div class="meta"><div class="author"><span class="author-mark">김</span><div><strong>김경애</strong><small>제5기 입주자대표회의 회장</small></div></div><time datetime="2026-08-31">2026.08.31</time></div></header>
 <section class="opening"><div class="opening-quote"><span class="quote-mark serif">“</span><blockquote class="serif">주민 생활에 필요한 일까지<br/>더 미룰 수는 없다고 생각했습니다.</blockquote><span class="opening-caption">방림명지로드힐 · 단지온을 시작하며</span></div></section>
-<div class="article-grid"><aside class="article-index"><strong>회장 인사 핵심</strong><span>1년 넘게 미뤄진 주민생활 개선<br/>기획·구축·운영 전 과정 무상지원<br/>아파트·주민 추가비용 0원</span></aside><div class="article-body">
+<div class="article-grid"><aside class="article-index"><strong>회장인사 요약</strong><a href="#chairLate">1년 넘게 미뤄진 주민생활 개선</a><a href="#chairSupport">기획·구축·운영 전 과정 무상지원</a><a href="#chairPlatform">아파트·주민 추가비용 0원</a></aside><div class="article-body">
 <p class="greeting">주민 여러분, 안녕하세요.</p>
 <p><strong>2025년 7월 29일 제5기 회장 임기를 시작하면서</strong>, 주민 여러분의 생활에 실제로 도움이 되는 일들을 하나씩 만들어가고 싶었습니다.</p>
-<h2>왜 1년 넘게 늦어졌는지 먼저 말씀드립니다.</h2>
+<h2 id="chairLate">왜 1년 넘게 늦어졌는지 먼저 말씀드립니다.</h2>
 <p>임기 시작 직후부터 선거 절차와 관련한 민원과 재투표 논의가 이어졌고, 이후에도 여러 현안과 분쟁이 계속되면서 처음 계획했던 주민생활 개선의 일들을 제때 추진하지 못했습니다.</p>
 <p>어느덧 1년이 넘었습니다. 그 시간은 회장에게만 늦어진 시간이 아니었습니다. <strong>주민 여러분이 더 일찍 누릴 수 있었던 생활 편의와, 우리 단지 이웃이 하는 일과 가게가 주민들을 더 일찍 만날 기회도 함께 늦어졌습니다.</strong></p>
 <h2>그래서 이제 단지온을 시작합니다.</h2>
@@ -71,8 +72,8 @@
 <p>단순한 커뮤니티에 그치지 않고 <strong>주민 사업자에게는 더 많은 소개와 매출의 기회를, 이용하는 주민에게는 가까운 서비스와 혜택이 돌아오는 생활경제의 연결</strong>을 만들고자 합니다.</p>
 <h2>비용은 아파트와 주민에게 넘기지 않겠습니다.</h2>
 <p>새로운 일을 시작하면서 한 가지 원칙은 분명했습니다. 아파트 관리비를 새로 쓰거나 주민 개인에게 추가 비용을 부담시키는 방식으로 시작하고 싶지 않았습니다.</p>
-<div class="support"><span class="label">파디엠(PADIEM) · 구축부터 운영까지 전액 무상지원</span><p><strong>파디엠(PADIEM)은 단지온의 기획·디자인·개발·구축에 필요한 전문인력과 개발비뿐 아니라, 향후 플랫폼 운영에 필요한 서버비·유지보수비·기술지원비와 운영 인력 비용까지 부담합니다. 아파트와 주민에게 별도의 구축비나 운영비를 청구하지 않는 방식으로 단지온의 구축과 운영 전 과정을 무상으로 지원합니다.</strong></p><p>단지온이 일회성 시범사업으로 끝나지 않고 주민생활에 실제 도움이 되는 서비스로 정착할 수 있도록, 구축 이후의 운영과 유지관리까지 함께 맡아 지원하기로 한 파디엠(PADIEM)에 주민의 한 사람으로서 깊이 감사드립니다.</p></div>
-<h2>주민의 생활에서 실제로 도움이 되는 플랫폼으로 만들겠습니다.</h2>
+<div class="support" id="chairSupport"><span class="label">파디엠(PADIEM) · 구축부터 운영까지 전액 무상지원</span><p><strong>파디엠은 단지온의 기획·디자인·개발·구축에 필요한 전문인력과 개발비뿐 아니라, 향후 플랫폼 운영에 필요한 서버비·유지보수비·기술지원비와 운영 인력 비용까지 부담합니다. 아파트와 주민에게 별도의 구축비나 운영비를 청구하지 않는 방식으로 단지온의 구축과 운영 전 과정을 무상으로 지원합니다.</strong></p><p>단지온이 일회성 시범사업으로 끝나지 않고 주민생활에 실제 도움이 되는 서비스로 정착할 수 있도록, 구축 이후의 운영과 유지관리까지 함께 맡아 지원하기로 한 파디엠에 주민의 한 사람으로서 깊이 감사드립니다.</p></div>
+<h2 id="chairPlatform">주민의 생활에서 실제로 도움이 되는 플랫폼으로 만들겠습니다.</h2>
 <p>말로만 좋은 서비스가 아니라, 주민이 필요한 정보를 쉽게 찾고 이웃의 일을 자연스럽게 발견하며 우리 단지의 변화를 투명하게 확인할 수 있는 공간으로 차근차근 운영하겠습니다.</p>
 <p>주민 여러분의 많은 관심과 이용을 부탁드립니다. 감사합니다.</p>
 <footer class="signature"><div><strong class="serif">김경애</strong><span>제5기 입주자대표회의 회장</span></div></footer>
@@ -172,6 +173,29 @@ if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt
   window.addEventListener('pageshow',reportRoute);
   window.addEventListener('hashchange',reportRoute);
 })();
+</script>
+
+<style id="chair-index-links-20260906">
+.article-index a{display:block;padding:12px 0;border-bottom:1px solid var(--line);font-size:14px;font-weight:850;color:#56534e;text-decoration:none;scroll-margin-top:120px;cursor:pointer}
+.article-index a:hover{color:var(--coral)}
+.article-index strong{display:block;padding:12px 0;border-bottom:1px solid var(--ink);font-size:15px}
+</style>
+<script id="chair-index-scroll-20260906">
+(function(){
+  document.querySelectorAll('.article-index a[href^="#"]').forEach(a=>{
+    a.addEventListener('click',ev=>{
+      const t=document.getElementById(a.getAttribute('href').slice(1));
+      if(t){ev.preventDefault();t.scrollIntoView({behavior:'smooth',block:'start'});}
+    });
+  });
+})();
+</script>
+<style id="chair-scroll-margin-20260906">#chairLate,#chairSupport,#chairPlatform{scroll-margin-top:130px}</style>
+<style id="chair-title-accent-20260907">.support .label .padiem-name{color:var(--coral)}</style>
+<script id="chair-title-accent-runtime-20260907">
+document.querySelectorAll('.support .label').forEach(function(title){
+  title.innerHTML=title.textContent.replace('파디엠(PADIEM)','<span class="padiem-name">파디엠(PADIEM)</span>');
+});
 </script>
 </body>
 </html>

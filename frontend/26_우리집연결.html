@@ -124,7 +124,7 @@ main{padding-top:24px!important}.page-head{padding-bottom:18px!important}.house-
     line-height:14px!important;text-align:center!important;white-space:nowrap!important;transform:none!important;
   }
 }
-</style><link data-final-header-sync="20260904" href="assets/consistency.css" rel="stylesheet"/></head><body data-danjion-page="26">
+</style><link data-final-header-sync="20260904" href="assets/consistency.css" rel="stylesheet"/><link rel="stylesheet" href="assets/consistency-backfix.css"/></head><body data-danjion-page="26">
 <header class="site-header"><div class="header-inner"><button class="brand" data-demo="단지온 홈으로 이동합니다.">단지온 <small>DANJION by PADIEM</small></button><nav class="desktop-nav"><button data-demo="홈으로 이동합니다.">홈</button><button data-demo="이웃가게로 이동합니다.">이웃가게</button><button data-demo="우리단지로 이동합니다.">우리단지</button><button class="active">내정보</button></nav><span class="identity">방림명지로드힐</span><span class="mobile-title">우리집 연결</span></div></header><div class="route"><div class="route-inner"><button class="back" data-demo="내정보로 돌아갑니다.">← 내정보</button><span class="route-note">가족과 우리집 연결</span></div></div>
 <main><section class="page-head"><div><div class="eyebrow">MY HOUSEHOLD</div><h1>우리집 연결</h1></div></section>
 <section class="house-hero owner-delta"><article class="house-card owner-delta"><small>BANGNIM ROADHILL · MY HOME</small><h2>102동<br/>1802호</h2><p>방림명지로드힐<br/>우리집 연결 완료</p></article><article class="house-summary owner-delta"><small>HOUSEHOLD STATUS</small><h2>현재 우리집 상태</h2><div class="summary-list"><div class="summary-row"><span>연결된 계정</span><b>2명</b></div><div class="summary-row"><span>자동 연결 기준</span><b>2명</b></div><div class="summary-row"><span>추가 가족 연결</span><b>운영팀 확인</b></div></div><div class="capacity"><div class="capacity-top"><b>기본 자동 연결</b><span>2명 완료</span></div><div aria-label="기본 2명 자동 연결, 3명째부터 운영팀 확인 후 추가" class="capacity-track"><i class="on"></i><i class="on"></i><i class="review"></i><i class="review"></i></div><p class="owner-cap-note">같은 동·호의 기본 2명까지 자동으로 연결됩니다. <b>3명째부터 운영팀 확인 후 추가할 수 있습니다.</b></p></div></article></section>
@@ -197,6 +197,7 @@ function routeFrom(v){v=(v||'').split('#')[0]; if(!v)return null;
 function backFallback(){
   const from=new URLSearchParams(location.search).get('from');
   if(from==='settings'){location.href=FILES.settings+'?restore=1';return;}
+  if(SCREEN==='household'){location.href=FILES.my;return;}
   const parentMap={
     shops:FILES.home,shopDetail:FILES.shops,complex:FILES.home,
     noticeList:FILES.complex,noticeDetail:FILES.noticeList,apartment:FILES.complex,chair:FILES.complex,

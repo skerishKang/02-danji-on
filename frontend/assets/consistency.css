@@ -94,7 +94,7 @@ small{font-size:13px!important;line-height:1.45}
   [data-danjion-page="4"] .brand{min-width:0!important;gap:8px!important}
   [data-danjion-page="4"] .wordmark{font-size:23px!important}
   [data-danjion-page="4"] .brand small{font-size:9px!important;white-space:nowrap!important}
-  [data-danjion-page="4"] .home-intro{width:auto!important;margin:0 20px!important;padding:24px 0 18px!important;display:block!important;border-bottom:1px solid var(--ink)!important}
+  [data-danjion-page="4"] .home-intro{width:100%!important;margin:0!important;padding:24px 18px 18px!important;display:block!important;border-bottom:1px solid var(--ink)!important}
   [data-danjion-page="4"] .hello{min-width:0!important}
   [data-danjion-page="4"] .hello small{font-size:12px!important;white-space:normal!important}
   [data-danjion-page="4"] .hello h1{font-size:34px!important;line-height:1.12!important;letter-spacing:-.05em!important;white-space:normal!important;overflow-wrap:anywhere!important;max-width:100%!important}
@@ -102,7 +102,7 @@ small{font-size:13px!important;line-height:1.45}
   [data-danjion-page="4"] .search{width:100%!important;height:52px!important;margin-top:16px!important;grid-template-columns:42px minmax(0,1fr) 52px!important}
   [data-danjion-page="4"] .search input{min-width:0!important;width:100%!important;height:49px!important}
   [data-danjion-page="4"] .search button{height:44px!important;margin-right:4px!important}
-  [data-danjion-page="4"] .stage-wrap{width:auto!important;margin:14px 20px 0!important;position:relative!important}
+  [data-danjion-page="4"] .stage-wrap{width:100%!important;margin:14px 0 0!important;padding:0 18px!important;position:relative!important}
   [data-danjion-page="4"] .stage{height:auto!important;display:block!important;overflow:visible!important;min-width:0!important}
   [data-danjion-page="4"] .visual{height:430px!important;min-width:0!important}
   [data-danjion-page="4"] .scene-no{left:20px!important;right:20px!important;top:20px!important;font-size:10px!important;letter-spacing:.09em!important;white-space:normal!important}

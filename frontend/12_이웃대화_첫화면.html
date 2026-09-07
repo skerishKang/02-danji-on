@@ -84,7 +84,7 @@ main{width:min(1280px,calc(100% - 64px));margin:auto;padding-bottom:80px}.route{
     line-height:14px!important;text-align:center!important;white-space:nowrap!important;transform:none!important;
   }
 }
-</style><link data-final-header-sync="20260904" href="assets/consistency.css" rel="stylesheet"/></head>
+</style><link data-final-header-sync="20260904" href="assets/consistency.css" rel="stylesheet"/><link rel="stylesheet" href="assets/consistency-backfix.css"/></head>
 <body data-danjion-page="12">
 <header class="site-header"><div class="header-inner"><a class="brand" href="index.html">단지온 <small>DANJION by PADIEM</small></a><nav class="desktop-nav"><a href="04_데일리홈.html">홈</a><a href="01_이웃가게_발견.html">이웃가게</a><a class="active" href="05_우리단지_첫화면.html">우리단지</a><a href="19_내정보_메인.html">내정보</a></nav><div class="identity">방림명지로드힐</div></div></header>
 <main>
@@ -136,6 +136,118 @@ document.querySelectorAll('.topic').forEach(b=>b.addEventListener('click',()=>{s
 allBtn.addEventListener('click',()=>{showAll=!showAll;try{history.replaceState(null,'',showAll?'?view=all&type='+selected:'?type='+selected)}catch(e){}render()});
 writeMain.addEventListener('click',writeTarget);mobileWrite.addEventListener('click',writeTarget);
 render();
+})();
+</script>
+<script id="danjion-direct-router-v5">
+(function(){
+const SCREEN="community";
+const FILES={"landing": "index.html", "home": "04_데일리홈.html", "shops": "01_이웃가게_발견.html", "shopDetail": "02_이웃가게_상세.html", "complex": "05_우리단지_첫화면.html", "noticeList": "06_단지온공지_목록.html", "noticeDetail": "07_단지온공지_상세.html", "apartment": "08_아파트소식_목록.html", "chair": "09_회장인사_상세.html", "residentList": "10_주민소식_목록.html", "residentDetail": "11_주민소식_상세.html", "community": "12_이웃대화_첫화면.html", "communityDetail": "13_이웃대화_글상세_댓글.html", "writeHello": "14_가입인사_글쓰기.html", "writeStory": "15_단지이야기_글쓰기.html", "writeQuestion": "16_궁금해요_글쓰기.html", "writeTogether": "17_같이해요_글쓰기.html", "my": "19_내정보_메인.html", "messages": "20_메시지함_목록.html", "messageDetail": "21_메시지_대화상세.html", "profile": "22_주민_공개프로필.html", "warmth": "23_이웃온기.html", "settings": "24_설정.html", "inquiry": "25_1대1문의.html", "apply": "25A_신청제보.html", "household": "26_우리집연결.html", "notifications": "27_알림함.html", "activity": "28_나의활동.html"};
+const norm=s=>(s||'').replace(/\s+/g,' ').trim();
+function go(f){
+  if(!f)return;
+  location.href=f;
+}
+function main(label){if(label==='이웃가게'&&(()=>{try{return['v2','v3'].includes(sessionStorage.getItem('danjion:shopVariant'))}catch(e){return false}})()){go(sessionStorage.getItem('danjion:shopVariant')==='v3'?'01_이웃가게_발견_v3.html':'01_이웃가게_발견_v2.html');return;}go({'홈':FILES.home,'이웃가게':FILES.shops,'우리단지':FILES.complex,'내정보':FILES.my}[label]);}
+function routeFrom(v){v=(v||'').split('#')[0]; if(!v)return null;
+  const q=v.includes('?')?'?'+v.split('?').slice(1).join('?'):''; const p=v.split('?')[0];
+  const arr=[["29_", "index.html"], ["04_", "04_데일리홈.html"], ["01_", "01_이웃가게_발견.html"], ["02_", "02_이웃가게_상세.html"], ["05_", "05_우리단지_첫화면.html"], ["06_", "06_단지온공지_목록.html"], ["07_", "07_단지온공지_상세.html"], ["08_", "08_아파트소식_목록.html"], ["09_", "09_회장인사_상세.html"], ["10_", "10_주민소식_목록.html"], ["11_", "11_주민소식_상세.html"], ["12_", "12_이웃대화_첫화면.html"], ["13_", "13_이웃대화_글상세_댓글.html"], ["14_", "14_가입인사_글쓰기.html"], ["15_", "15_단지이야기_글쓰기.html"], ["16_", "16_궁금해요_글쓰기.html"], ["17_", "17_같이해요_글쓰기.html"], ["19_", "19_내정보_메인.html"], ["20_", "20_메시지함_목록.html"], ["21_", "21_메시지_대화상세.html"], ["22_", "22_주민_공개프로필.html"], ["23_", "23_이웃온기.html"], ["24_", "24_설정.html"], ["25_", "25_1대1문의.html"], ["26_", "26_우리집연결.html"], ["27_", "27_알림함.html"], ["28_", "28_나의활동.html"]];
+  for(const [t,f] of arr) if(p.includes(t)) return f+q;
+  if(p==='index.html') return 'index.html'; return null;
+}
+function backFallback(){
+  const parentMap={
+    shops:FILES.home,shopDetail:FILES.shops,complex:FILES.home,
+    noticeList:FILES.complex,noticeDetail:FILES.noticeList,apartment:FILES.complex,chair:FILES.complex,
+    residentList:FILES.complex,residentDetail:FILES.residentList,community:FILES.complex,communityDetail:FILES.community,
+    writeHello:FILES.community,writeStory:FILES.community,writeQuestion:FILES.community,writeTogether:FILES.community,
+    my:FILES.home,messages:FILES.my,messageDetail:FILES.messages,profile:FILES.my,warmth:FILES.my,
+    settings:FILES.my,inquiry:FILES.settings,apply:FILES.shops,household:FILES.my,notifications:FILES.my,activity:FILES.my
+  };
+  location.href=parentMap[SCREEN]||FILES.home;
+}
+
+document.addEventListener('click',function(ev){
+ const el=ev.target.closest('a,button,[data-route]'); if(!el)return;
+ const text=norm(el.textContent), cls=el.classList||{contains:()=>false};
+ // landing internal modal/greeting controls stay native
+ if(SCREEN==='landing'){
+   if(el.matches('[data-auth],[data-preview],[data-greeting],[data-email],[data-social],[data-reset],[data-resend],[data-term],[data-term-close],[data-address-next],[data-terms-next],[data-finish],[data-required-all]')) return;
+   if(el.matches('[data-chair-close]')){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.home);return;}
+   if(el.matches('[data-chair-detail]')){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.chair);return;}
+   if(el.matches('[data-guest-enter]')){ev.preventDefault();ev.stopImmediatePropagation();sessionStorage.setItem('danjionGuest','1');go(FILES.home);return;}
+   if(el.matches('[data-top]')) return;
+ }
+ if(cls.contains('brand')){ev.preventDefault();ev.stopImmediatePropagation();go('index.html');return;}
+ const inMain=!!el.closest('.nav,.desktop-nav,.mobile-bottom,.topbar nav,.main-nav');
+ if(inMain && ['홈','이웃가게','우리단지','내정보'].includes(text)){ev.preventDefault();ev.stopImmediatePropagation();main(text);return;}
+ if(cls.contains('back')||cls.contains('route-back')||((/^←|^‹|^< /.test(text))&&!cls.contains('modal-back'))){ev.preventDefault();ev.stopImmediatePropagation();backFallback();return;}
+ // home: current scene -> selected shop detail
+ if(SCREEN==='home' && el.id==='detailBtn'){ev.preventDefault();ev.stopImmediatePropagation();const k=el.dataset.shopKey||'food';go(FILES.shopDetail+'?shop='+encodeURIComponent(k));return;}
+ // shops cards -> specific shop detail
+ if(SCREEN==='shops' && cls.contains('shop-link')){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.shopDetail+'?shop='+encodeURIComponent(el.dataset.shopKey||'florist'));return;}
+ if(SCREEN==='shops' && text==='이웃가게 제보'){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.apply+'?mode=report');return;}
+ if(SCREEN==='shops' && (text==='내 가게 등록 신청'||text==='내 가게 등록 문의')){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.apply+'?mode=apply');return;}
+ if(SCREEN==='complex' && cls.contains('channel-link')){ev.preventDefault();ev.stopImmediatePropagation();const i=[...document.querySelectorAll('.channel-link')].indexOf(el);go([FILES.noticeList,FILES.apartment,FILES.residentList,FILES.community][i]||FILES.complex);return;}
+ if(SCREEN==='noticeList' && (cls.contains('pinned-link')||cls.contains('notice-row'))){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.noticeDetail);return;}
+ if(SCREEN==='apartment' && cls.contains('feature-link')){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.chair);return;}
+ if(SCREEN==='residentList' && cls.contains('story-link')){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.residentDetail);return;}
+ if(SCREEN==='community' && cls.contains('write-type')){ev.preventDefault();ev.stopImmediatePropagation();const i=[...document.querySelectorAll('.write-type')].indexOf(el);go([FILES.writeHello,FILES.writeStory,FILES.writeQuestion,FILES.writeTogether][i]||FILES.community);return;}
+ if(SCREEN==='community' && el.tagName==='A' && text.includes('안녕하세요')){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.communityDetail);return;}
+ if(SCREEN==='my' && cls.contains('card-link')){ev.preventDefault();ev.stopImmediatePropagation();const i=[...document.querySelectorAll('.card-link')].indexOf(el);go(i===0?FILES.messages:FILES.household);return;}
+ if(SCREEN==='my' && cls.contains('menu-row')){ev.preventDefault();ev.stopImmediatePropagation();const i=[...document.querySelectorAll('.menu-row')].indexOf(el);go(FILES.activity+'?tab='+Math.min(i,3));return;}
+ if(SCREEN==='my' && (text.includes('설정 열기')||text.includes('이용 설정'))){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.settings);return;}
+ if(SCREEN==='messages' && cls.contains('mail-row')){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.messageDetail);return;}
+ if(SCREEN==='messageDetail' && (text.includes('공개 프로필')||text.includes('산책메이트'))){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.profile);return;}
+ if(SCREEN==='profile' && cls.contains('message-button')){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.messageDetail);return;}
+ if(SCREEN==='settings' && (cls.contains('support-button')||text.includes('1:1 문의'))){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.inquiry);return;}
+ if(SCREEN==='activity' && cls.contains('side-link')){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.profile);return;}
+ // known data-route or anchors
+ const dr=el.dataset&&el.dataset.route; if(dr){const f=routeFrom(dr);if(f){ev.preventDefault();ev.stopImmediatePropagation();go(f);return;}}
+ if(el.tagName==='A'){const f=routeFrom(el.getAttribute('href'));if(f){ev.preventDefault();ev.stopImmediatePropagation();go(f);return;}}
+},true);
+
+// screen-specific initial state
+if(SCREEN==='shopDetail'){ const p=new URLSearchParams(location.search),k=p.get('shop'); if(k) setTimeout(()=>window.postMessage({type:'danjion-integrated:setShop',shopKey:k},'*'),0); }
+if(SCREEN==='apply'){ const p=new URLSearchParams(location.search),mode=p.get('mode'); if(mode) setTimeout(()=>window.postMessage({type:'danjion-integrated:setMode',mode},'*'),0); }
+if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt(p.get('tab')||'0',10); if(Number.isInteger(i)) setTimeout(()=>window.postMessage({type:'danjion-integrated:activityTab',index:i},'*'),0); }
+})();
+</script>
+<script id="danjion-review-route-sync">
+(function(){
+  function reportRoute(){
+    try{
+      const file=decodeURIComponent((location.pathname.split('/').pop()||'index.html').split('?')[0]);
+      if(window.parent!==window) window.parent.postMessage({type:'danjion-route',file:file,href:location.href},'*');
+    }catch(e){}
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',reportRoute,{once:true});else reportRoute();
+  window.addEventListener('pageshow',reportRoute);
+})();
+</script>
+<script id="back-scroll-restore-20260906b">
+(function(){
+  var KEY='danjion:back:12';
+  try{
+    window.addEventListener('click',function(ev){
+      var el=ev.target.closest('button,a,[data-route],[role="button"],.notice-row,.pinned-link,.story-link,.feature-link,.post-row,.mail-row,.community-row');
+      if(!el)return;
+      if(el.closest('.desktop-nav,.mobile-bottom,.brand,.public-header')){try{sessionStorage.removeItem(KEY)}catch(e){}return;}
+      try{sessionStorage.setItem(KEY,String(Math.round(window.scrollY||0)))}catch(e){}
+    },true);
+    var saved=sessionStorage.getItem(KEY);
+    if(saved!==null){
+      sessionStorage.removeItem(KEY);
+      try{if('scrollRestoration' in history)history.scrollRestoration='manual'}catch(e){}
+      var y=parseInt(saved,10)||0,applied=0,cancel=false;
+      var stop=function(){cancel=true};
+      window.addEventListener('wheel',stop,{passive:true,once:true});
+      window.addEventListener('touchstart',stop,{passive:true,once:true});
+      window.addEventListener('keydown',stop,{once:true});
+      var apply=function(){if(cancel||applied>=4)return;applied++;if(Math.abs(window.scrollY-y)>2)window.scrollTo(0,y)};
+      var whenReady=function(){requestAnimationFrame(function(){requestAnimationFrame(apply)});setTimeout(apply,160);setTimeout(apply,420);setTimeout(apply,750)};
+      if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',whenReady,{once:true});else whenReady();
+    }
+  }catch(e){}
 })();
 </script>
 </body></html>

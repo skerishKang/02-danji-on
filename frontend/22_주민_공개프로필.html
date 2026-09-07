@@ -7,6 +7,7 @@
 <title>단지온 · 주민 공개 프로필 · STEP 22</title>
 <style>
     @import url("assets/consistency.css");
+@import url("assets/consistency-backfix.css");
     :root{--paper:#f6f2e9;--paper2:#fffdf8;--ink:#101317;--navy:#101d30;--coral:#ee6045;--amber:#f2b84b;--green:#255e49;--muted:#66635e;--line:#d8d0c3;--soft:#ece5d8;--header:76px}
     *{box-sizing:border-box}html{background:var(--paper);color:var(--ink);font-family:Pretendard,"Pretendard Variable","Noto Sans KR",Arial,sans-serif}body{margin:0;min-width:320px;background:var(--paper)}button,textarea{font:inherit;color:inherit}button{cursor:pointer}a{color:inherit;text-decoration:none}
     .site-header{height:var(--header);border-bottom:1px solid var(--line);background:rgba(246,242,233,.96);display:flex;align-items:center;position:sticky;top:0;z-index:40;backdrop-filter:blur(12px)}.header-inner{width:min(1280px,calc(100% - 64px));margin:auto;display:flex;align-items:center;justify-content:space-between}.brand{border:0;background:none;padding:0;font-weight:900;font-size:25px;letter-spacing:-.05em}.brand small{font-size:11px;letter-spacing:.1em;color:#5f5c56;margin-left:9px}.desktop-nav{display:flex;align-items:center;gap:42px;height:var(--header)}.desktop-nav button{height:100%;border:0;background:none;padding:0 2px;font-size:16px;font-weight:800}.identity{font-size:14px;font-weight:800;color:#58554f}.mobile-title{display:none;font-weight:850}
@@ -31,15 +32,15 @@
 .profile-name{font-size:34px!important}.profile-meta{margin-top:6px!important}
 .profile-actions{margin:0!important;padding:0!important;align-self:center!important;display:flex!important;gap:8px!important}
 .profile-actions .primary{height:48px!important;padding:0 18px!important;white-space:nowrap!important}
-.profile-actions .activity-button{display:none!important}
+
 .identity-block::after{width:290px!important;height:290px!important;right:-120px!important;bottom:-190px!important}
 .level-panel{min-height:255px!important;padding:26px 28px!important;background:var(--coral)!important;color:#fff!important}
 .level-panel h2{font-size:30px!important;margin:9px 0 6px!important;color:#fff!important}.level-kicker{color:#fff!important}.level-track{margin-top:15px!important}.level-next{margin-top:8px!important;color:rgba(255,255,255,.9)!important}
 .stats{margin-top:18px!important}.stat{padding-top:12px!important}.stat b{font-size:27px!important;color:#fff!important}.stat span{color:rgba(255,255,255,.82)!important}
 .content-grid{margin-top:12px!important}.tab{height:56px!important}.activity-item{min-height:94px!important;padding:15px 22px!important;gap:16px!important}.item-copy h3{margin-bottom:5px!important}
 .side-card{padding:20px!important}
-@media(max-width:900px){.profile-top{grid-template-columns:72px 1fr!important}.profile-actions{grid-column:1/-1!important;margin-top:10px!important}.profile-actions .activity-button{display:inline-flex!important}.level-panel{min-height:215px!important}}
-@media(max-width:760px){.profile-top{display:grid!important;grid-template-columns:64px 1fr!important}.profile-actions{grid-column:1/-1!important}.profile-actions .activity-button{display:inline-flex!important}.profile-hero{min-height:0!important}.level-panel{min-height:220px!important}.activity-item{min-height:0!important}}
+@media(max-width:900px){.profile-top{grid-template-columns:72px 1fr!important}.profile-actions{grid-column:1/-1!important;margin-top:10px!important}.level-panel{min-height:215px!important}}
+@media(max-width:760px){.profile-top{display:grid!important;grid-template-columns:64px 1fr!important}.profile-actions{grid-column:1/-1!important}.profile-hero{min-height:0!important}.level-panel{min-height:220px!important}.activity-item{min-height:0!important}}
 </style><style id="integrated-compact-fix">main{padding-top:22px!important}.route{min-height:52px!important}.route-inner{min-height:52px!important}.profile-hero,.warmth-hero,.conversation-head{margin-top:0!important}</style><style id="front-audit-bottom-nav-standard-20260904">
 /* Frontend audit 1: all app content screens share one exact bottom navigation geometry. */
 @media (max-width:760px){
@@ -75,8 +76,8 @@
 <div class="route"><div class="route-inner"><button class="back" data-demo="이전 화면 연결은 최종 통합 단계에서 적용합니다." type="button"><span>←</span><span>이웃 프로필</span></button><div class="more-wrap"><button aria-expanded="false" aria-label="더보기" class="more" type="button">···</button><div class="more-menu"><button data-action="report" type="button">이 주민 신고하기</button><button data-action="block" type="button">이 주민 차단하기</button></div></div></div></div>
 <main>
 <section class="profile-hero">
-<article class="identity-block"><div class="profile-top"><span class="avatar">산</span><div><span class="resident-label">방림명지로드힐 주민</span><h1 class="profile-name">산책메이트님</h1><p class="profile-meta">2026년 8월 가입 · 우리집 등록</p></div><div class="profile-actions"><button class="primary message-button" onclick="location.href='21_메시지_대화상세.html'" type="button">1:1 메시지 보내기</button><button class="secondary activity-button" onclick="document.querySelector('.activity').scrollIntoView({behavior:'smooth',block:'start'})" type="button">활동 보기</button></div></div></article>
-<article class="level-panel"><span class="level-kicker">이웃 온기</span><h2>참여하는 이웃</h2><div aria-label="이웃 온기 5단계 중 3단계" class="level-track"><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i></div><span class="level-next">다음 단계 · 도움 주는 이웃</span><div class="stats"><div class="stat"><b>6</b><span>게시글</span></div><div class="stat"><b>18</b><span>댓글</span></div><div class="stat"><b>3</b><span>후기</span></div></div></article>
+<article class="identity-block"><div class="profile-top"><span class="avatar">산</span><div><span class="resident-label">방림명지로드힐 주민</span><h1 class="profile-name">산책메이트님</h1><a class="level-chip" href="23_이웃온기.html" title="이웃 온기 레벨 보기">LV.3 · 참여하는 이웃</a><p class="profile-meta">2026년 8월 가입 · 우리집 등록</p></div><div class="profile-actions"><button class="primary message-button" onclick="location.href='21_메시지_대화상세.html'" type="button">1:1 메시지 보내기</button></div></div></article>
+<article class="level-panel" onclick="location.href='23_이웃온기.html'" role="link" tabindex="0" title="이웃 온기 레벨 자세히"><span class="level-kicker">이웃 온기</span><h2>LV.3 · 참여하는 이웃</h2><div aria-label="이웃 온기 5단계 중 3단계" class="level-track"><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i></div><span class="level-next">다음 단계 · 도움 주는 이웃</span><div class="stats"><div class="stat"><b>6</b><span>게시글</span></div><div class="stat"><b>18</b><span>댓글</span></div><div class="stat"><b>3</b><span>후기</span></div></div></article>
 </section>
 <section class="content-grid">
 <article class="activity"><div class="tabs" role="tablist"><button class="tab active" data-tab="posts" role="tab">게시글 6</button><button class="tab" data-tab="comments" role="tab">댓글 18</button><button class="tab" data-tab="reviews" role="tab">후기 3</button></div>
@@ -84,7 +85,7 @@
 <div class="activity-panel" data-panel="comments"><div class="activity-item"><div class="item-type">단지이야기<span>오늘</span></div><div class="item-copy"><h3>“관리사무소 앞 분리수거 안내판이 새로 바뀌었어요.”</h3><p>사진 덕분에 바로 확인했습니다. 알려주셔서 고맙습니다.</p></div><div class="item-metric"><b>답글 2</b>공감 4</div></div><div class="activity-item"><div class="item-type">궁금해요<span>어제</span></div><div class="item-copy"><h3>“근처에 자전거 바람 넣을 수 있는 곳이 있을까요?”</h3><p>후문 쪽 수리점 앞 공기주입기를 이용할 수 있다고 들었어요.</p></div><div class="item-metric"><b>답글 1</b>공감 3</div></div></div>
 <div class="activity-panel" data-panel="reviews"><div class="activity-item"><div class="item-type">함께한 후기<span>8월 28일</span></div><div class="item-copy"><h3>아이와 함께 걸어서 더 즐거웠어요.</h3><p>짧은 거리로 천천히 걸어 부담 없이 참여할 수 있었습니다.</p></div><div class="item-metric"><b>공감 8</b>공개 후기</div></div><div class="activity-item"><div class="item-type">이웃의 일 후기<span>8월 24일</span></div><div class="item-copy"><h3>수선 상담을 친절하게 안내받았습니다.</h3><p>가격과 가능한 작업을 먼저 설명해줘서 편했습니다.</p></div><div class="item-metric"><b>공감 5</b>공개 후기</div></div></div>
 </article>
-<aside class="side"><section class="side-card dark"><small>NEIGHBOR PROFILE</small><h3>이웃의 공개 활동</h3></section><section class="side-card"><small>PUBLIC INFORMATION</small><h3>주민에게 보이는 정보</h3><ul class="visibility-list"><li><b>프로필</b><span>닉네임·이웃 온기</span></li><li><b>활동</b><span>게시글·댓글·후기</span></li></ul></section></aside>
+<aside class="side"><section class="side-card"><small>PUBLIC INFORMATION</small><h3>주민에게 보이는 정보</h3><ul class="visibility-list"><li><b>프로필</b><span>닉네임·이웃 온기</span></li><li><b>활동</b><span>게시글·댓글·후기</span></li></ul></section></aside>
 </section>
 </main>
 <nav aria-label="모바일 주요 메뉴" class="mobile-bottom"><button aria-label="홈" data-route="04_데일리홈.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><path d="m3 10 9-7 9 7v10h-6v-6H9v6H3z"></path></svg><span>홈</span></button><button aria-label="이웃가게" data-route="01_이웃가게_발견.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><path d="M4 7h16l-1 13H5L4 7Z"></path><path d="M8 7V5a4 4 0 0 1 8 0v2"></path></svg><span>이웃가게</span></button><button aria-label="우리단지" data-route="05_우리단지_첫화면.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><path d="M4 21V9l8-6 8 6v12"></path><path d="M8 13h8M8 17h8"></path></svg><span>우리단지</span></button><button aria-label="내정보" class="active" data-route="19_내정보_메인.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><circle cx="12" cy="8" r="4"></circle><path d="M4 21a8 8 0 0 1 16 0"></path></svg><span>내정보</span></button></nav>
@@ -95,7 +96,7 @@
     const toast=document.querySelector('.toast');let toastTimer;function showToast(text){toast.textContent=text;toast.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>toast.classList.remove('show'),2200)}
     document.querySelectorAll('[data-demo]').forEach(button=>button.addEventListener('click',()=>showToast(button.dataset.demo)));
     const more=document.querySelector('.more'),menu=document.querySelector('.more-menu');more.addEventListener('click',()=>{const open=menu.classList.toggle('open');more.setAttribute('aria-expanded',String(open))});document.addEventListener('click',event=>{if(!event.target.closest('.more-wrap')){menu.classList.remove('open');more.setAttribute('aria-expanded','false')}});
-    document.querySelectorAll('.tab').forEach(tab=>tab.addEventListener('click',()=>{document.querySelectorAll('.tab').forEach(item=>item.classList.remove('active'));document.querySelectorAll('.activity-panel').forEach(item=>item.classList.remove('active'));tab.classList.add('active');document.querySelector('[data-panel="'+tab.dataset.tab+'"]').classList.add('active')}));document.querySelector('.activity-button').addEventListener('click',()=>document.querySelector('.activity').scrollIntoView({behavior:'smooth',block:'start'}));
+    document.querySelectorAll('.tab').forEach(tab=>tab.addEventListener('click',()=>{document.querySelectorAll('.tab').forEach(item=>item.classList.remove('active'));document.querySelectorAll('.activity-panel').forEach(item=>item.classList.remove('active'));tab.classList.add('active');document.querySelector('[data-panel="'+tab.dataset.tab+'"]').classList.add('active')}));
     const messageLayer=document.querySelector('#messageLayer'),actionLayer=document.querySelector('#actionLayer');function openLayer(layer){layer.classList.add('open')}function closeLayers(){document.querySelectorAll('.overlay').forEach(layer=>layer.classList.remove('open'))}document.querySelectorAll('[data-close]').forEach(button=>button.addEventListener('click',closeLayers));document.querySelectorAll('.overlay').forEach(layer=>layer.addEventListener('click',event=>{if(event.target===layer)closeLayers()}));
     let blocked=false;const messageButtons=document.querySelectorAll('.message-button'),blockButton=document.querySelector('[data-action="block"]');function applyBlocked(){messageButtons.forEach(button=>{button.disabled=blocked;button.textContent=blocked?'차단한 주민입니다':button.classList.contains('side-link')?'메시지 보내기 →':'1:1 메시지 보내기'});blockButton.textContent=blocked?'이 주민 차단 해제하기':'이 주민 차단하기'}messageButtons.forEach(button=>button.addEventListener('click',()=>{if(blocked)return showToast('차단을 해제해야 메시지를 보낼 수 있습니다.');openLayer(messageLayer)}));
     document.querySelector('[data-send]').addEventListener('click',()=>{const field=messageLayer.querySelector('textarea');if(!field.value.trim())return showToast('메시지 내용을 입력해 주세요.');field.value='';closeLayers();showToast('메시지를 보냈습니다.')});
@@ -204,5 +205,46 @@ if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt
   if(back){back.textContent='← 설정';back.setAttribute('aria-label','설정으로 돌아가기');}
 })();
 </script>
+<style id="profile-visual-fix-20260906b">
+/* 데스크톱: 이웃 온기 패널 = 코랄(원본 디자인). consistency.css의 크림 오버라이드를 같은 명시도로 이김 */
+[data-danjion-page="22"] .level-panel{background:var(--coral)!important;background-color:var(--coral)!important;color:#fff!important;border:0!important}
+[data-danjion-page="22"] .level-panel .level-kicker{color:rgba(255,255,255,.94)!important}
+[data-danjion-page="22"] .level-panel h2{color:#fff!important}
+[data-danjion-page="22"] .level-panel p,[data-danjion-page="22"] .level-panel .level-next{color:rgba(255,255,255,.88)!important}
+[data-danjion-page="22"] .level-panel .stat b{color:#fff!important}
+[data-danjion-page="22"] .level-panel .stat span{color:rgba(255,255,255,.82)!important}
+[data-danjion-page="22"] .level-panel .level-track i{background:rgba(255,255,255,.32)!important}
+[data-danjion-page="22"] .level-panel .level-track i.on{background:#fff!important}
+[data-danjion-page="22"] .level-panel .stats{border-top-color:rgba(255,255,255,.45)!important}
+/* 데스크톱: 메시지 버튼을 곤색 영역 오른쪽 끝으로 정렬 */
+@media(min-width:901px){[data-danjion-page="22"] .profile-actions{margin-left:auto!important;padding-right:42px!important}}
+/* 정보 카드 = 곤색 안내 밴드 (피드와 구분) */
+[data-danjion-page="22"] .side-card{background:var(--navy)!important;color:#fff!important;border:0!important}
+[data-danjion-page="22"] .side-card small{color:var(--amber)!important}
+[data-danjion-page="22"] .side-card h3{color:#fff!important}
+[data-danjion-page="22"] .side-card .visibility-list li{border-bottom-color:rgba(255,255,255,.18)!important}
+[data-danjion-page="22"] .side-card .visibility-list li b{color:#fff!important}
+[data-danjion-page="22"] .side-card .visibility-list li span{color:rgba(255,255,255,.82)!important}
+[data-danjion-page="22"] .side{grid-template-columns:1fr!important}
+/* 모바일: 패널·정보카드 공통 조정 */
+@media(max-width:760px){
+  [data-danjion-page="22"] .profile-hero{display:block!important}
+  [data-danjion-page="22"] .level-panel{background:var(--coral)!important;background-color:var(--coral)!important;color:#fff!important;border:0!important;min-height:0!important;padding:24px 20px!important;width:100%!important;max-width:100%!important;overflow:hidden}
+  [data-danjion-page="22"] .level-panel .level-kicker,[data-danjion-page="22"] .level-panel h2,[data-danjion-page="22"] .level-panel p,[data-danjion-page="22"] .level-panel .level-next,[data-danjion-page="22"] .level-panel .stat b,[data-danjion-page="22"] .level-panel .stat span{color:#fff!important}
+  [data-danjion-page="22"] .level-panel .level-track i{background:rgba(255,255,255,.32)!important}
+  [data-danjion-page="22"] .level-panel .level-track i.on{background:#fff!important}
+  [data-danjion-page="22"] .level-panel .stats{border-top-color:rgba(255,255,255,.45)!important}
+  [data-danjion-page="22"] .profile-actions{width:100%!important}
+  [data-danjion-page="22"] .profile-actions .message-button{flex:1!important;width:100%!important;display:flex!important;align-items:center!important;justify-content:center!important}
+}
+</style>
+
+
+<style id="level-chip-20260906">
+.level-chip{display:inline-flex;align-items:center;gap:5px;margin-left:10px;padding:6px 11px;border-radius:999px;background:var(--amber);color:#101317!important;font-size:12px;font-weight:900;text-decoration:none;line-height:1;vertical-align:middle;cursor:pointer;white-space:nowrap;box-shadow:0 1px 4px rgba(16,23,35,.25)}
+.level-chip:hover{filter:brightness(1.07)}
+.level-card{cursor:pointer}
+.level-more{margin-top:auto;padding-top:12px;font-size:12px;color:var(--amber);font-weight:900}
+</style>
 </body>
 </html>

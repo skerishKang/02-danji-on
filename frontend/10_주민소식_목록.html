@@ -7,6 +7,7 @@
 <title>단지온 · 주민소식 · STEP 10</title>
 <style>
     @import url("assets/consistency.css");
+@import url("assets/consistency-backfix.css");
     :root{--paper:#f6f2e9;--paper2:#fffdf8;--ink:#101317;--navy:#101d30;--coral:#ee6045;--amber:#f2b84b;--green:#255e49;--muted:#6d6a64;--line:#d8d0c3;--header:76px}
     *{box-sizing:border-box}html{background:var(--paper);color:var(--ink);font-family:Pretendard,"Pretendard Variable","Noto Sans KR",Arial,sans-serif}body{margin:0;min-width:320px;background:var(--paper)}button,input,textarea,select{font:inherit;color:inherit}button{cursor:pointer}a{color:inherit;text-decoration:none}
     .site-header{height:var(--header);border-bottom:1px solid var(--line);background:rgba(246,242,233,.96);display:flex;align-items:center;position:sticky;top:0;z-index:40;backdrop-filter:blur(12px)}.header-inner{width:min(1280px,calc(100% - 64px));margin:auto;display:flex;align-items:center;justify-content:space-between}.brand{display:flex;align-items:baseline;gap:10px;border:0;background:none;padding:0;font-weight:900;font-size:25px;letter-spacing:-.05em}.brand small{font-size:11px;letter-spacing:.11em;color:#5f5c56;font-weight:850}.desktop-nav{display:flex;align-items:center;gap:42px;height:var(--header)}.desktop-nav button{height:100%;border:0;background:none;padding:0 2px;font-size:16px;font-weight:780;position:relative}.desktop-nav button.active::after{content:"";height:3px;position:absolute;left:0;right:0;bottom:0;background:var(--coral)}.identity{font-size:14px;font-weight:780;color:#58554f}.mobile-head{display:none}
@@ -233,7 +234,7 @@ function go(f){
   if(!f)return;
   location.href=f;
 }
-function main(label){go({'홈':FILES.home,'이웃가게':FILES.shops,'우리단지':FILES.complex,'내정보':FILES.my}[label]);}
+function main(label){if(label==='이웃가게'&&(()=>{try{return['v2','v3'].includes(sessionStorage.getItem('danjion:shopVariant'))}catch(e){return false}})()){go(sessionStorage.getItem('danjion:shopVariant')==='v3'?'01_이웃가게_발견_v3.html':'01_이웃가게_발견_v2.html');return;}go({'홈':FILES.home,'이웃가게':FILES.shops,'우리단지':FILES.complex,'내정보':FILES.my}[label]);}
 function routeFrom(v){v=(v||'').split('#')[0]; if(!v)return null;
   const q=v.includes('?')?'?'+v.split('?').slice(1).join('?'):''; const p=v.split('?')[0];
   const arr=[["29_", "index.html"], ["04_", "04_데일리홈.html"], ["01_", "01_이웃가게_발견.html"], ["02_", "02_이웃가게_상세.html"], ["05_", "05_우리단지_첫화면.html"], ["06_", "06_단지온공지_목록.html"], ["07_", "07_단지온공지_상세.html"], ["08_", "08_아파트소식_목록.html"], ["09_", "09_회장인사_상세.html"], ["10_", "10_주민소식_목록.html"], ["11_", "11_주민소식_상세.html"], ["12_", "12_이웃대화_첫화면.html"], ["13_", "13_이웃대화_글상세_댓글.html"], ["14_", "14_가입인사_글쓰기.html"], ["15_", "15_단지이야기_글쓰기.html"], ["16_", "16_궁금해요_글쓰기.html"], ["17_", "17_같이해요_글쓰기.html"], ["19_", "19_내정보_메인.html"], ["20_", "20_메시지함_목록.html"], ["21_", "21_메시지_대화상세.html"], ["22_", "22_주민_공개프로필.html"], ["23_", "23_이웃온기.html"], ["24_", "24_설정.html"], ["25_", "25_1대1문의.html"], ["26_", "26_우리집연결.html"], ["27_", "27_알림함.html"], ["28_", "28_나의활동.html"]];
@@ -314,6 +315,32 @@ if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',reportRoute,{once:true});else reportRoute();
   window.addEventListener('pageshow',reportRoute);
   window.addEventListener('hashchange',reportRoute);
+})();
+</script>
+<script id="back-scroll-restore-20260906b">
+(function(){
+  var KEY='danjion:back:10';
+  try{
+    window.addEventListener('click',function(ev){
+      var el=ev.target.closest('button,a,[data-route],[role="button"],.notice-row,.pinned-link,.story-link,.feature-link,.post-row,.mail-row,.community-row');
+      if(!el)return;
+      if(el.closest('.desktop-nav,.mobile-bottom,.brand,.public-header')){try{sessionStorage.removeItem(KEY)}catch(e){}return;}
+      try{sessionStorage.setItem(KEY,String(Math.round(window.scrollY||0)))}catch(e){}
+    },true);
+    var saved=sessionStorage.getItem(KEY);
+    if(saved!==null){
+      sessionStorage.removeItem(KEY);
+      try{if('scrollRestoration' in history)history.scrollRestoration='manual'}catch(e){}
+      var y=parseInt(saved,10)||0,applied=0,cancel=false;
+      var stop=function(){cancel=true};
+      window.addEventListener('wheel',stop,{passive:true,once:true});
+      window.addEventListener('touchstart',stop,{passive:true,once:true});
+      window.addEventListener('keydown',stop,{once:true});
+      var apply=function(){if(cancel||applied>=4)return;applied++;if(Math.abs(window.scrollY-y)>2)window.scrollTo(0,y)};
+      var whenReady=function(){requestAnimationFrame(function(){requestAnimationFrame(apply)});setTimeout(apply,160);setTimeout(apply,420);setTimeout(apply,750)};
+      if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',whenReady,{once:true});else whenReady();
+    }
+  }catch(e){}
 })();
 </script>
 </body></html>
