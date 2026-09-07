@@ -6,6 +6,7 @@
 <title>단지온 · 중요 공지 상세 · STEP 07</title>
 <style>
     @import url("assets/consistency.css");
+@import url("assets/consistency-backfix.css");
     :root{--paper:#f6f2e9;--paper2:#fffdf8;--ink:#101317;--navy:#101d30;--coral:#ee6045;--amber:#f2b84b;--green:#255e49;--muted:#6d6a64;--line:#d8d0c3;--soft:#ece5d8;--header:76px}
     *{box-sizing:border-box}html{background:var(--paper);color:var(--ink);font-family:Pretendard,"Pretendard Variable","Noto Sans KR",Arial,sans-serif;scroll-behavior:smooth;scroll-padding-top:105px}body{margin:0;min-width:320px;background:var(--paper)}button,a{font:inherit;color:inherit}button,a{cursor:pointer}a{text-decoration:none}
     .site-header{height:var(--header);border-bottom:1px solid var(--line);background:rgba(246,242,233,.96);display:flex;align-items:center;position:sticky;top:0;z-index:40;backdrop-filter:blur(12px)}.header-inner{width:min(1280px,calc(100% - 64px));margin:auto;display:flex;align-items:center;justify-content:space-between}.brand{display:flex;align-items:baseline;gap:10px;border:0;background:none;padding:0;font-weight:900;font-size:25px;letter-spacing:-.05em}.brand small{font-size:11px;letter-spacing:.11em;color:#5f5c56;font-weight:850}.desktop-nav{display:flex;align-items:center;gap:42px;height:var(--header)}.desktop-nav button{height:100%;border:0;background:none;padding:0 2px;font-size:16px;font-weight:780;position:relative}.desktop-nav button.active::after{content:"";height:3px;position:absolute;left:0;right:0;bottom:0;background:var(--coral)}.identity{font-size:14px;font-weight:780;color:#58554f}.mobile-head{display:none}
@@ -167,13 +168,8 @@
 #noticeContent .lv5{background:var(--coral)!important;color:#fff!important}
 #noticeContent .lv-text b{display:block!important;font-size:17px!important;letter-spacing:-.02em!important;margin-bottom:4px!important}
 #noticeContent .lv-text small{display:block!important;font-size:13.5px!important;color:#56534e!important;line-height:1.5!important;margin-bottom:5px!important}
-#noticeContent .lv-text em{display:block!important;font-style:normal!important;font-weight:950!important;font-size:13px!important;color:var(--coral)!important}
-#noticeContent .lv-score{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:9px!important;margin-top:18px!important}
-#noticeContent .lv-score div{background:#fffdf8!important;border:1px solid var(--line)!important;padding:13px 14px!important;font-size:13.5px!important;font-weight:850!important;line-height:1.45!important}
-#noticeContent .lv-score b{color:var(--coral)!important}
-#noticeContent .lv-score small{color:#8a857d!important;font-weight:700!important}
 @media(max-width:900px){.article-body{grid-template-columns:1fr!important;gap:26px!important}.article-index{position:static!important;display:flex!important;flex-wrap:wrap!important;gap:0 14px!important;border-top:1px solid var(--ink)}.article-index a{border-bottom:0!important;padding:10px 2px!important;font-size:14px}}
-@media(max-width:760px){#noticeContent .lv-score{grid-template-columns:1fr!important}#noticeContent .lv-badge{flex-basis:58px!important;height:40px!important;font-size:12.5px!important}}
+@media(max-width:760px){#noticeContent .lv-badge{flex-basis:58px!important;height:40px!important;font-size:12.5px!important}}
 </style>
 <style id="notice-mobile-index-hide-20260906">@media(max-width:760px){.article-index{display:none!important}.article-body{grid-template-columns:1fr!important;gap:18px!important}}</style>
 <script id="notice-renderer-20260906">

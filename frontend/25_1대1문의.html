@@ -2,6 +2,7 @@
 
 <html lang="ko"><head><meta charset="utf-8"/><meta content="width=device-width,initial-scale=1" name="viewport"/><title>단지온 · 1:1 문의 · STEP 25</title><script defer="" src="assets/consistency.js"></script><style>
 @import url("assets/consistency.css");
+@import url("assets/consistency-backfix.css");
 :root{--paper:#f6f2e9;--paper2:#fffdf8;--ink:#101317;--navy:#101d30;--coral:#ee6045;--amber:#f2b84b;--green:#255e49;--muted:#68645e;--line:#d8d0c3;--soft:#ece5d8;--header:76px}*{box-sizing:border-box}html{font-family:Pretendard,"Pretendard Variable","Noto Sans KR",Arial,sans-serif;background:var(--paper);color:var(--ink)}body{margin:0;min-width:320px;background:var(--paper)}button,input,textarea{font:inherit;color:inherit}button{cursor:pointer}button:focus-visible,input:focus-visible,textarea:focus-visible{outline:3px solid var(--amber);outline-offset:2px}.site-header{height:var(--header);border-bottom:1px solid var(--line);background:rgba(246,242,233,.96);position:sticky;top:0;z-index:40;backdrop-filter:blur(12px)}.header-inner{width:min(1280px,calc(100% - 64px));height:100%;margin:auto;display:flex;align-items:center;justify-content:space-between}.brand{border:0;background:none;padding:0;display:flex;align-items:baseline;gap:10px;font-size:25px;font-weight:900;letter-spacing:-.05em}.brand small{font-size:11px;letter-spacing:.11em;color:#5f5c56}.desktop-nav{height:100%;display:flex;align-items:center;gap:42px}.desktop-nav button{height:100%;border:0;background:none;padding:0 2px;font-size:16px;font-weight:800;position:relative}.desktop-nav .active::after{content:"";position:absolute;left:0;right:0;bottom:0;height:3px;background:var(--coral)}.identity{font-size:14px;font-weight:800;color:#58554f}.mobile-title{display:none;font-size:14px;font-weight:850}.route{height:62px;border-bottom:1px solid var(--ink)}.route-inner{width:min(1280px,calc(100% - 64px));height:100%;margin:auto;display:flex;align-items:center;justify-content:space-between}.back{border:0;background:none;padding:0;font-size:16px;font-weight:900}.route-note{font-size:14px;color:var(--muted)}main{width:min(1280px,calc(100% - 64px));margin:auto;padding:42px 0 110px}.page-head{display:flex;align-items:end;justify-content:space-between;gap:35px;padding-bottom:25px;border-bottom:1px solid var(--ink)}.eyebrow{font-size:14px;font-weight:900;color:var(--coral);letter-spacing:.03em;margin-bottom:12px}h1{font-size:58px;line-height:1;letter-spacing:-.055em;margin:0}.page-copy{text-align:right;font-size:16px;line-height:1.6;color:var(--muted)}.page-copy b{display:block;color:var(--ink);font-size:19px;margin-bottom:5px}
 .inquiry-layout{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(340px,.7fr);gap:16px;margin-top:18px}.form-panel,.side-panel{border:1px solid var(--line);background:var(--paper2)}.intro{background:var(--navy);color:#fff;padding:31px 34px;display:flex;align-items:center;justify-content:space-between;gap:28px}.intro small{display:block;color:var(--amber);font-size:14px;font-weight:900;margin-bottom:9px}.intro h2{font-size:28px;line-height:1.32;letter-spacing:-.04em;margin:0}.resident-check{min-width:205px;border-left:1px solid rgba(255,255,255,.3);padding-left:25px}.resident-check b{display:flex;align-items:center;gap:8px;font-size:16px}.resident-check b::before{content:"✓";width:27px;height:27px;border-radius:50%;display:grid;place-items:center;background:var(--green)}.resident-check span{display:block;font-size:14px;line-height:1.5;color:rgba(255,255,255,.68);margin-top:8px}.form-body{padding:29px 34px 34px}.field{margin-top:28px}.field:first-child{margin-top:0}.label-row{display:flex;align-items:end;justify-content:space-between;gap:20px;margin-bottom:12px}.label-row label,.label-row b{font-size:18px}.label-row span{font-size:14px;color:var(--muted)}.categories{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.category{min-height:60px;border:1px solid var(--line);background:#fff;font-size:16px;font-weight:850}.category.active{border:2px solid var(--coral);background:#fff5f1;color:var(--coral)}.guide{margin-top:11px;border-left:4px solid var(--amber);background:var(--soft);padding:15px 17px}.guide b{display:block;font-size:15px;margin-bottom:5px}.guide p{font-size:14px;line-height:1.55;color:var(--muted);margin:0}.text-input{width:100%;height:55px;border:1px solid var(--line);background:#fff;padding:0 16px;font-size:16px}.text-area{width:100%;min-height:190px;resize:vertical;border:1px solid var(--line);background:#fff;padding:16px;font-size:16px;line-height:1.65}.text-input::placeholder,.text-area::placeholder{color:#99938b}.attach-row{display:grid;grid-template-columns:170px 1fr;gap:12px}.attach{height:54px;border:1px solid var(--ink);background:#fff;font-size:15px;font-weight:900}.attach-note{display:flex;align-items:center;font-size:14px;line-height:1.5;color:var(--muted)}.reply-box{display:flex;align-items:center;justify-content:space-between;gap:20px;border:1px solid var(--line);background:#fff;padding:17px}.reply-box b{display:block;font-size:16px;margin-bottom:5px}.reply-box span{font-size:14px;color:var(--muted)}.reply-value{text-align:right}.reply-value strong{display:block;font-size:15px}.reply-value small{font-size:13px;color:var(--muted)}.submit-area{margin-top:28px;border-top:1px solid var(--ink);padding-top:22px;display:flex;align-items:center;justify-content:space-between;gap:25px}.submit-area p{font-size:14px;line-height:1.6;color:var(--muted);margin:0}.submit{min-width:210px;height:56px;border:0;background:var(--coral);color:#fff;font-size:17px;font-weight:900}
 .side-title{background:var(--coral);color:#fff;padding:28px}.side-title small{font-size:14px;font-weight:900}.side-title h2{font-size:29px;letter-spacing:-.04em;margin:12px 0 8px}.side-title p{font-size:15px;line-height:1.6;color:rgba(255,255,255,.84);margin:0}.history{padding:0 25px}.history-head{min-height:66px;border-bottom:1px solid var(--ink);display:flex;align-items:center;justify-content:space-between}.history-head b{font-size:18px}.history-head span{font-size:14px;color:var(--muted)}.ticket{width:100%;border:0;border-bottom:1px solid var(--line);background:none;text-align:left;padding:20px 0}.ticket:last-child{border-bottom:0}.ticket-top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:9px}.badge{font-size:13px;font-weight:900;color:var(--coral)}.badge.done{color:var(--green)}.ticket time{font-size:13px;color:var(--muted)}.ticket b{display:block;font-size:16px;line-height:1.45;margin-bottom:6px}.ticket p{font-size:14px;color:var(--muted);margin:0}.help-card{margin:16px 25px 25px;border:1px solid var(--line);background:var(--soft);padding:20px}.help-card b{font-size:16px}.help-card p{font-size:14px;line-height:1.6;color:var(--muted);margin:8px 0 0}.mobile-bottom{display:none}.toast{position:fixed;left:50%;bottom:28px;z-index:100;transform:translate(-50%,20px);opacity:0;background:var(--ink);color:#fff;padding:14px 19px;font-size:15px;font-weight:850;pointer-events:none;transition:.22s}.toast.show{transform:translate(-50%,0);opacity:1}
@@ -59,7 +60,7 @@ function go(f){
   if(!f)return;
   location.href=f;
 }
-function main(label){go({'홈':FILES.home,'이웃가게':FILES.shops,'우리단지':FILES.complex,'내정보':FILES.my}[label]);}
+function main(label){const v2=new URLSearchParams(location.search).get('from')==='v2-shop';go({'홈':FILES.home,'이웃가게':v2?'01_이웃가게_발견_v2.html':FILES.shops,'우리단지':FILES.complex,'내정보':FILES.my}[label]);}
 function routeFrom(v){v=(v||'').split('#')[0]; if(!v)return null;
   const q=v.includes('?')?'?'+v.split('?').slice(1).join('?'):''; const p=v.split('?')[0];
   const arr=[["29_", "index.html"], ["04_", "04_데일리홈.html"], ["01_", "01_이웃가게_발견.html"], ["02_", "02_이웃가게_상세.html"], ["05_", "05_우리단지_첫화면.html"], ["06_", "06_단지온공지_목록.html"], ["07_", "07_단지온공지_상세.html"], ["08_", "08_아파트소식_목록.html"], ["09_", "09_회장인사_상세.html"], ["10_", "10_주민소식_목록.html"], ["11_", "11_주민소식_상세.html"], ["12_", "12_이웃대화_첫화면.html"], ["13_", "13_이웃대화_글상세_댓글.html"], ["14_", "14_가입인사_글쓰기.html"], ["15_", "15_단지이야기_글쓰기.html"], ["16_", "16_궁금해요_글쓰기.html"], ["17_", "17_같이해요_글쓰기.html"], ["19_", "19_내정보_메인.html"], ["20_", "20_메시지함_목록.html"], ["21_", "21_메시지_대화상세.html"], ["22_", "22_주민_공개프로필.html"], ["23_", "23_이웃온기.html"], ["24_", "24_설정.html"], ["25_", "25_1대1문의.html"], ["26_", "26_우리집연결.html"], ["27_", "27_알림함.html"], ["28_", "28_나의활동.html"]];
@@ -69,6 +70,12 @@ function routeFrom(v){v=(v||'').split('#')[0]; if(!v)return null;
 function backFallback(){
   const p=new URLSearchParams(location.search);
   const from=p.get('from');
+  if(from==='v2-shop'||from==='shop'){
+    try{sessionStorage.setItem('danjion:shopVariant','v2')}catch(e){}
+    const shop=p.get('shop')||'florist';
+    location.href='01_이웃가게_발견_v2.html?shop='+encodeURIComponent(shop);
+    return;
+  }
   if(from==='my-help'){location.href=FILES.my+'?restore=help';return;}
   if(from==='settings'){
     const q=new URLSearchParams();
@@ -100,7 +107,7 @@ document.addEventListener('click',function(ev){
    if(el.matches('[data-guest-enter]')){ev.preventDefault();ev.stopImmediatePropagation();sessionStorage.setItem('danjionGuest','1');go(FILES.home);return;}
    if(el.matches('[data-top]')) return;
  }
- if(cls.contains('brand')){ev.preventDefault();ev.stopImmediatePropagation();go('index.html');return;}
+ if(cls.contains('brand')){ev.preventDefault();ev.stopImmediatePropagation();go(new URLSearchParams(location.search).get('from')==='v2-shop'?'index2.html':'index.html');return;}
  const inMain=!!el.closest('.nav,.desktop-nav,.mobile-bottom,.topbar nav,.main-nav');
  if(inMain && ['홈','이웃가게','우리단지','내정보'].includes(text)){ev.preventDefault();ev.stopImmediatePropagation();main(text);return;}
  if(cls.contains('back')||cls.contains('route-back')||((/^←|^‹|^< /.test(text))&&!cls.contains('modal-back'))){ev.preventDefault();ev.stopImmediatePropagation();backFallback();return;}
@@ -159,7 +166,17 @@ if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt
   const from=new URLSearchParams(location.search).get('from');
   const back=document.querySelector('.back,.route-back,[data-back],.danjion-simple-back button');
   if(!back)return;
-  if(from==='my-help'){
+  if(from==='v2-shop'||from==='shop'){
+    try{sessionStorage.setItem('danjion:shopVariant','v2')}catch(e){}
+    const shop=new URLSearchParams(location.search).get('shop')||'florist';
+    back.textContent='← 이웃가게';
+    back.setAttribute('aria-label','이전 이웃가게 팝업으로 돌아가기');
+    document.querySelectorAll('.desktop-nav button,.mobile-bottom button').forEach(btn=>{
+      const t=(btn.textContent||'').replace(/\s+/g,' ').trim();
+      btn.classList.toggle('active',t==='이웃가게');
+      if(t==='이웃가게')btn.setAttribute('aria-current','page');else btn.removeAttribute('aria-current');
+    });
+  }else if(from==='my-help'){
     back.textContent='← 내정보';
     back.setAttribute('aria-label','내정보 도움말 위치로 돌아가기');
   }else if(from==='settings'){

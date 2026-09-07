@@ -156,7 +156,7 @@ function setMode(m){
   f.className='form '+(isReport?'mode-report':'mode-owner');
   owner.classList.toggle('active',!isReport);report.classList.toggle('active',isReport);
   title.textContent=isReport?'이웃가게 제보':'내 가게 등록 신청';
-  lead.innerHTML=isReport?'가족·이웃·가까운 가게를 단지온에 먼저 알려주세요. <b>제보자는 사업자서류가 없어도 됩니다.</b> 확인서류는 가게 운영자가 ceo@padiem.net 으로 별도 제출하고 승인 후 등록합니다.':'가게 운영자가 단지온 등록을 신청하는 화면입니다. 아래 항목을 채우고 <b>확인서류와 사진</b>을 함께 첨부합니다.';
+  lead.innerHTML=isReport?'가족·이웃·가까운 가게를 단지온에 먼저 알려주세요. 확인서류는 가게 운영자가 ceo@padiem.net 으로 별도 제출하고 승인 후 등록됩니다.':'가게 운영자가 단지온 등록을 신청하는 화면입니다. 아래 항목을 채우고 <b>확인서류와 사진</b>을 함께 첨부합니다.';
   submit.textContent=isReport?'이웃가게 제보하기':'등록 신청하기';
   syncDisabled(isReport?'report':'owner');
 }
