@@ -39,6 +39,7 @@
     "test:community-c6a-security": "node tests/community-c6a-security-gate.mjs",
     "test:complex-news-channel": "node tests/complex-news-channel-contract.mjs",
     "test:complex-news-channel-write": "tsx tests/complex-news-channel-write-contract.mjs",
+    "test:complex-news-channel-040-lifecycle": "bash tests/complex-news-channel-040-postgres-lifecycle.sh",
     "test:business-category-benefit": "node tests/business-category-benefit-contract.mjs",
     "test:community-replies": "node tests/community-replies-contract.mjs",
     "test:community-notifications": "node tests/community-notifications-contract.mjs",
