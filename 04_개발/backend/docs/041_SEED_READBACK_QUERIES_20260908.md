@@ -29,7 +29,35 @@ where c.slug = 'banglim-myeongji-roadhill'
   and b.status = 'approved'
   and r.verification_status = 'verified';
 -- 기대: 0
+
+-- category collision preflight (production apply 전 필수 실행)
+-- 이 migration이 시드하려는 6개 slug와 6개 name이 기존에 존재하는지 확인
+select id, slug, name
+from business_categories
+where slug in ('food','cafe','home','learn','pro','car')
+   or name in (
+     '음식점·카페·반찬',
+     '카페·디저트',
+     '생활·홈케어',
+     '교육·과외',
+     '전문·문서·촬영',
+     '자동차 정비'
+   )
+order by slug, name;
 ```
+
+### Category collision 판정 (preflight 결과에 따라)
+
+| 결과 | 판정 | 조치 |
+|---|---|---|
+| 0 rows | `SAFE` | 그대로 apply |
+| same slug + 의도한 name 그대로 | `SAFE / REUSE` | 그대로 apply — ON CONFLICT(slug)가 기존 row 재사용 |
+| same slug + 다른 name | `STOP` | apply 금지 — slug 소유자가 달라 의도와 어긋남. 사전 조율 필요 |
+| same name + 다른 slug | `STOP` | apply 금지 — name unique 제약 충돌로 insert가 실패함. 사전 조율 필요 |
+
+production apply 전에 이 쿼리를 **반드시** 실행하고 판정이 SAFE/SAFE·REUSE인
+경우에만 진행한다. STOP 판정 시 migration을 고쳐서 다시 PR 리뷰부터
+진행한다.
 
 ## 2. Post-apply readback (적용 직후)
 

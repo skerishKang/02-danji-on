@@ -115,7 +115,7 @@ on conflict (slug) do nothing;
 --    status 'approved' satisfies the public discovery WHERE clause.
 -- ---------------------------------------------------------------------------
 insert into businesses (id, owner_user_id, category_id, kind, name, summary, description, price_text, service_area, availability_text, status)
-select v.id, null, bc.id, v.kind, v.name, v.summary, v.description, v.price_text, v.service_area, v.availability_text, 'approved'
+select v.id::uuid, null, bc.id, v.kind, v.name, v.summary, v.description, v.price_text, v.service_area, v.availability_text, 'approved'
 from (values
   ('d0a1c4a1-41c5-4c51-b2b2-000000000001','food','shop','로드힐 꽃작업실','계절 꽃다발과 작은 선물 예약 상담','파일럿 안내용 예시 가게입니다. 실제 운영 정보는 등록 후 확정됩니다.','꽃다발 · 주문 상담','광주 남구 방림동 일대','예약 상담 후 방문 수령'),
   ('d0a1c4a1-41c5-4c51-b2b2-000000000002','food','shop','오늘의 반찬','매일 만드는 국과 반찬 예약 주문','파일럿 안내용 예시 가게입니다.','반찬 · 김치 · 계절 메뉴','방림명지로드힐 인근','예약 주문 후 수령'),
@@ -167,7 +167,7 @@ on conflict (business_id, complex_id) do nothing;
 --    displays via activeBenefit.title.
 -- ---------------------------------------------------------------------------
 insert into benefits (id, complex_id, business_id, title, description, conditions, status)
-select v.id, c.id, b.id, v.title, v.description, v.conditions, 'active'
+select v.id::uuid, c.id, b.id, v.title, v.description, v.conditions, 'active'
 from (values
   ('d0a1c4a1-41c5-4c51-a1b1-000000000001','로드힐 꽃작업실','주민 전용 예약 혜택 안내','파일럿 예시 혜택입니다. 실제 조건은 운영 정책 확정 후 반영됩니다.','주민 확인 후 적용'),
   ('d0a1c4a1-41c5-4c51-a1b1-000000000002','오늘의 반찬','주민 할인 안내','파일럿 예시 혜택입니다. 실제 조건은 운영 정책 확정 후 반영됩니다.','주민 확인 후 적용'),
