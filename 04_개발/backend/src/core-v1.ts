@@ -109,6 +109,16 @@ async function handlePublicGet(sql: Sql, id: string, url: URL): Promise<Response
       select b.id, b.kind, b.name, b.summary, b.description, b.price_text,
              b.service_area, b.availability_text,
              bc.slug as category_slug, bc.name as category_name,
+             coalesce(
+               (
+                 select array_agg(bcr_cat.slug order by bcr_cat.sort_order, bcr_cat.slug)
+                 from business_category_relations bcr
+                 join business_categories bcr_cat on bcr_cat.id = bcr.category_id
+                 where bcr.business_id = b.id
+                   and bcr_cat.is_active
+               ),
+               case when bc.slug is not null then array[bc.slug] else array[]::text[] end
+             ) as categories,
              r.relation_type, r.priority,
              (
                select bm.object_key
@@ -123,6 +133,8 @@ async function handlePublicGet(sql: Sql, id: string, url: URL): Promise<Response
                  'title', be.title,
                  'description', be.description,
                  'conditions', be.conditions,
+                 'value', be.value_text,
+                 'code', be.code,
                  'startsAt', be.starts_at,
                  'endsAt', be.ends_at
                )
@@ -144,7 +156,16 @@ async function handlePublicGet(sql: Sql, id: string, url: URL): Promise<Response
         and b.status = 'approved'
         and r.verification_status = 'verified'
         and (${relation}::text is null or r.relation_type = ${relation})
-        and (${category}::text is null or ${category} = 'all' or bc.slug = ${category} or bc.name = ${category})
+        and (${category}::text is null or ${category} = 'all'
+             or bc.slug = ${category} or bc.name = ${category}
+             or exists (
+               select 1
+               from business_category_relations bcr
+               join business_categories bcr_cat on bcr_cat.id = bcr.category_id
+               where bcr.business_id = b.id
+                 and bcr_cat.is_active
+                 and (bcr_cat.slug = ${category} or bcr_cat.name = ${category})
+             ))
         and (
           ${query}::text is null
           or b.name ilike ${query}
@@ -171,6 +192,16 @@ async function handlePublicGet(sql: Sql, id: string, url: URL): Promise<Response
       select b.id, b.kind, b.name, b.summary, b.description, b.price_text,
              b.service_area, b.availability_text,
              bc.slug as category_slug, bc.name as category_name,
+             coalesce(
+               (
+                 select array_agg(bcr_cat.slug order by bcr_cat.sort_order, bcr_cat.slug)
+                 from business_category_relations bcr
+                 join business_categories bcr_cat on bcr_cat.id = bcr.category_id
+                 where bcr.business_id = b.id
+                   and bcr_cat.is_active
+               ),
+               case when bc.slug is not null then array[bc.slug] else array[]::text[] end
+             ) as categories,
              r.relation_type
       from businesses b
       join business_complex_relations r on r.business_id = b.id
@@ -191,7 +222,7 @@ async function handlePublicGet(sql: Sql, id: string, url: URL): Promise<Response
       order by sort_order, created_at
     `;
     const benefits = await sql`
-      select id, title, description, conditions, starts_at, ends_at
+      select id, title, description, conditions, value_text, code, starts_at, ends_at
       from benefits
       where business_id = ${businessId}::uuid
         and complex_id = (
@@ -209,7 +240,8 @@ async function handlePublicGet(sql: Sql, id: string, url: URL): Promise<Response
   if (match) {
     const slug = decodeURIComponent(match[1]);
     const rows = await sql`
-      select be.id, be.title, be.description, be.conditions, be.starts_at, be.ends_at,
+      select be.id, be.title, be.description, be.conditions, be.value_text, be.code,
+             be.starts_at, be.ends_at,
              b.id as business_id, b.name as business_name
       from benefits be
       join complexes c on c.id = be.complex_id
