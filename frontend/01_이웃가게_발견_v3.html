@@ -1186,7 +1186,7 @@ function openReview(){const s=byKey[active];if(!s)return;const rs=reviewData(s);
 
  /* === Stage 5-A: discovery API → 가게 목록만 실데이터 교체 (저장·후기·문의·신청은 기존 데모 동작 유지) === */
  const DISCOVERY_API_BASE=(new URLSearchParams(location.search).get('apiBase')||'').replace(/\/+$/,'');
- const DISCOVERY_COMPLEX_SLUG='bangnim-myeongji-roadhill';
+ const DISCOVERY_COMPLEX_SLUG='banglim-myeongji-roadhill';
  const RELATION_LABEL={'resident':'우리 주민 가게','resident_family':'주민 가족 가게','neighbor':'이웃가게'};
  const CATEGORY_BY_SLUG={cafe:'cafe',food:'food',home:'home',learn:'learn',pro:'pro',car:'car'};
  function mapApiBusiness(b,i){
