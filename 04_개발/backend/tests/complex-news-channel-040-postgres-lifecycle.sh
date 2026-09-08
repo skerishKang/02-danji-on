@@ -54,7 +54,7 @@ echo "PASS 040 first apply exits 0"
 
 # column exists, type/nullability/default
 expect_scalar 'channel column exists with not-null default' \
-  'text|t|apartment_news' \
+  "text|NO|'apartment_news'::text" \
   "select data_type || '|' || is_nullable || '|' || column_default
    from information_schema.columns
    where table_name = 'complex_posts' and column_name = 'channel'"
