@@ -180,14 +180,21 @@ if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt
 [data-danjion-page="23"] .level-track i.on{background:var(--coral)!important}
 [data-danjion-page="23"] .my-level{background:#f5f0e6!important;color:#101317!important}
 </style>
-<section class="onki-policy-guide" style="margin:26px 0 0;border:1px solid var(--line);background:var(--paper2);padding:26px 24px">
-<h2 style="font-size:26px;letter-spacing:-.04em;margin:0">이웃 온기, 이렇게 안내됩니다</h2>
-<p style="font-size:15px;color:#56534e;margin:10px 0 0;line-height:1.65">이웃 온기는 주민 활동을 보여주는 안내 단계입니다. 현재 화면은 시각 검토용이며, 점수 산식은 확정되지 않았습니다.</p>
-<div style="margin-top:18px;border-top:1px solid var(--line);padding-top:16px;font-size:14px;line-height:1.8;color:#101317">
-프로필에는 단계 표현만 예시로 표시하며, 실제 산정 기준은 별도 운영 결정 후 적용됩니다.
+<section class="onki-score-guide" style="margin:26px 0 0;border:1px solid var(--line);background:var(--paper2);padding:26px 24px">
+<h2 style="font-size:26px;letter-spacing:-.04em;margin:0">온기 점수, 이렇게 쌓입니다</h2>
+<p style="font-size:15px;color:#56534e;margin:10px 0 0;line-height:1.65">게시글·댓글·공감 같은 활동이 온기 점수가 되고, 점수가 쌓이면 단계(LV)가 올라갑니다. 점수는 비공개이고 단계만 표시돼요.</p>
+<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin-top:18px">
+<div style="background:#fffdf8;border:1px solid var(--line);padding:13px 15px;font-size:14px;font-weight:850">게시글 작성 <b style="color:var(--coral)">+10</b></div>
+<div style="background:#fffdf8;border:1px solid var(--line);padding:13px 15px;font-size:14px;font-weight:850">가게 후기 작성 <b style="color:var(--coral)">+10</b></div>
+<div style="background:#fffdf8;border:1px solid var(--line);padding:13px 15px;font-size:14px;font-weight:850">댓글 작성 <b style="color:var(--coral)">+3</b> <small style="color:#8a857d">하루 최대 9점</small></div>
+<div style="background:#fffdf8;border:1px solid var(--line);padding:13px 15px;font-size:14px;font-weight:850">공감 보내기 <b style="color:var(--coral)">+1</b> <small style="color:#8a857d">하루 최대 5점</small></div>
+<div style="background:#fffdf8;border:1px solid var(--line);padding:13px 15px;font-size:14px;font-weight:850">받은 공감 <b style="color:var(--coral)">+1</b> <small style="color:#8a857d">받을 때마다</small></div>
+<div style="background:#fffdf8;border:1px solid var(--line);padding:13px 15px;font-size:14px;font-weight:850">가게 주인 답글 <b style="color:var(--coral)">+5</b> <small style="color:#8a857d">받은 후기에</small></div>
 </div>
-<p style="font-size:13px;color:#8a857d;margin:12px 0 0;line-height:1.6">세부 기준은 운영 정책 확정 후 공지로 안내됩니다.</p>
+<div style="margin-top:18px;border-top:1px solid var(--line);padding-top:16px;font-size:14px;line-height:1.8;color:#101317">
+<b>LV.1 시작</b> 0점 이상 · <b>LV.2 인사</b> 30점 이상 · <b>LV.3 참여</b> 80점 이상 · <b>LV.4 도움</b> 160점 이상 · <b>LV.5 함께</b> 280점 이상
+</div>
+<p style="font-size:13px;color:#8a857d;margin:12px 0 0;line-height:1.6">온기는 경쟁 점수가 아니라 꾸준함의 기록입니다. 도배나 어뷰징으로 인한 점수는 운영 기준에 따라 조정될 수 있습니다.</p>
 </section>
 
 </body>
-</html>
