@@ -102,11 +102,29 @@ assert.match(core, /'code', be\.code,/,
 assert.match(core, /'conditions', be\.conditions,/,
   'existing conditions key must remain');
 
-// (I) Detail endpoint + benefits list expose the new columns additively.
-assert.match(core, /select id, title, description, conditions, value_text, code, starts_at, ends_at[\s\S]*from benefits/,
-  'detail benefits select must include value_text and code');
-assert.match(core, /select be\.id, be\.title, be\.description, be\.conditions, be\.value_text, be\.code,/,
-  'public benefits list must include value_text and code');
+// (I) Detail endpoint + benefits list expose the new columns additively,
+//     with the SAME external value key as active_benefit.
+assert.match(core, /select id, title, description, conditions, value_text as value, code, starts_at, ends_at[\s\S]*from benefits/,
+  'detail benefits select must alias value_text to the external value key');
+assert.match(core, /select be\.id, be\.title, be\.description, be\.conditions, be\.value_text as value, be\.code,/,
+  'public benefits list must alias value_text to the external value key');
+
+// (I2) API_BENEFIT_VALUE_FIELD_CONSISTENT: all three external surfaces use
+//      key `value`; no surface may leak the raw value_text key to clients.
+{
+  const surfaces = [
+    ['active_benefit', /'value', be\.value_text,/],
+    ['detail benefits', /value_text as value, code, starts_at, ends_at/],
+    ['public benefits', /be\.value_text as value/]
+  ];
+  for (const [name, re] of surfaces) {
+    assert.ok(re.test(core), `${name} must expose the external value key`);
+  }
+  // No benefit payload field is named value_text externally:
+  // the only permitted value_text occurrences are the DB column reads above.
+  assert.ok(!/'value_text'/.test(core),
+    'no JSON key may be named value_text in API payloads');
+}
 
 // (J) Ordering and relation semantics are untouched.
 assert.match(core, /order by case r\.relation_type[\s\S]*when 'resident' then 0[\s\S]*when 'resident_family' then 1[\s\S]*when 'neighbor' then 2/,

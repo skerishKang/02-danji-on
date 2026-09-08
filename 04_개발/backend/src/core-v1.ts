@@ -222,7 +222,7 @@ async function handlePublicGet(sql: Sql, id: string, url: URL): Promise<Response
       order by sort_order, created_at
     `;
     const benefits = await sql`
-      select id, title, description, conditions, value_text, code, starts_at, ends_at
+      select id, title, description, conditions, value_text as value, code, starts_at, ends_at
       from benefits
       where business_id = ${businessId}::uuid
         and complex_id = (
@@ -240,7 +240,7 @@ async function handlePublicGet(sql: Sql, id: string, url: URL): Promise<Response
   if (match) {
     const slug = decodeURIComponent(match[1]);
     const rows = await sql`
-      select be.id, be.title, be.description, be.conditions, be.value_text, be.code,
+      select be.id, be.title, be.description, be.conditions, be.value_text as value, be.code,
              be.starts_at, be.ends_at,
              b.id as business_id, b.name as business_name
       from benefits be

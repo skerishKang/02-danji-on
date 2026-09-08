@@ -125,6 +125,35 @@ expect_scalar 'benefit code round-trips verbatim' \
   'DANJION · F010' \
   "select code from benefits where id = '50000000-0000-4000-8000-000000000001'"
 
+# C2. API shape: all three external surfaces expose key `value` (value_text is
+#     the DB column only). These SELECTs mirror core-v1.ts verbatim.
+expect_scalar 'active_benefit-shape value key reads 10%' \
+  '10%' \
+  "select json_build_object('value', be.value_text, 'code', be.code)->>'value'
+   from benefits be
+   where be.id = '50000000-0000-4000-8000-000000000001'"
+expect_scalar 'detail-shape value key reads 10%' \
+  '10%' \
+  "select value from (
+     select id, title, description, conditions, value_text as value, code, starts_at, ends_at
+     from benefits
+     where id = '50000000-0000-4000-8000-000000000001'
+   ) detail_shape"
+expect_scalar 'public-shape value key reads 10%' \
+  '10%' \
+  "select value from (
+     select be.id, be.title, be.description, be.conditions, be.value_text as value, be.code,
+            be.starts_at, be.ends_at, b.id as business_id, b.name as business_name
+     from benefits be
+     join businesses b on b.id = be.business_id
+     where be.id = '50000000-0000-4000-8000-000000000001'
+   ) public_shape"
+expect_scalar 'active_benefit-shape code key reads DANJION · F010' \
+  'DANJION · F010' \
+  "select json_build_object('value', be.value_text, 'code', be.code)->>'code'
+   from benefits be
+   where be.id = '50000000-0000-4000-8000-000000000001'"
+
 # D. legacy benefit rows stay null-safe.
 expect_scalar 'legacy benefit value_text is null' \
   '' \
