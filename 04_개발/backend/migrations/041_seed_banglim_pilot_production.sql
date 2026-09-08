@@ -35,19 +35,41 @@
 --
 -- Rollback plan (manual, destructive steps NOT automated in this file)
 --   This migration's own pilot rows are keyed by the deterministic UUID
---   ranges below, so a manual rollback is a targeted DELETE of only those
---   ids — in FK-safe order:
---     1. DELETE FROM benefits           WHERE id LIKE 'd0a1c4a1-41c5-4c51-a1b1-%';
---     2. DELETE FROM business_complex_relations WHERE business_id IN
---          (SELECT id FROM businesses WHERE id LIKE 'd0a1c4a1-41c5-4c51-b2b2-%');
---     3. DELETE FROM businesses         WHERE id LIKE 'd0a1c4a1-41c5-4c51-b2b2-%';
---     4. DELETE FROM business_categories WHERE id LIKE 'd0a1c4a1-41c5-4c51-c3c3-%'
---          AND NOT EXISTS (SELECT 1 FROM businesses b
---                          JOIN business_categories bc ON bc.id = b.category_id
---                          WHERE bc.id LIKE 'd0a1c4a1-41c5-4c51-c3c3-%'
---                            AND b.id NOT LIKE 'd0a1c4a1-41c5-4c51-b2b2-%');
---     5. DELETE FROM complexes          WHERE id = 'd0a1c4a1-41c5-4c51-0000-000000000001';
---   Caution: step 4/5 must be re-checked against live FK references before
+--   exact list below, so a manual rollback is a targeted DELETE of only
+--   those ids — in FK-safe order. uuid columns are compared with exact
+--   equality/IN lists only; pattern matching on uuid is never used
+--   because PostgreSQL has no uuid pattern operator.
+--   Pilot business ids (referred to below as PILOT_BUSINESS_IDS):
+--     d0a1c4a1-41c5-4c51-b2b2-000000000001 .. 000000000008
+--   Pilot benefit ids:
+--     d0a1c4a1-41c5-4c51-a1b1-000000000001 .. 000000000004
+--   Pilot category ids:
+--     d0a1c4a1-41c5-4c51-c3c3-000000000001 .. 000000000006
+--   Pilot complex id:
+--     d0a1c4a1-41c5-4c51-0000-000000000001
+--   Steps (write out the full IN list for PILOT_BUSINESS_IDS in each step):
+--     1. DELETE FROM benefits WHERE id IN (
+--          'd0a1c4a1-41c5-4c51-a1b1-000000000001'::uuid,
+--          'd0a1c4a1-41c5-4c51-a1b1-000000000002'::uuid,
+--          'd0a1c4a1-41c5-4c51-a1b1-000000000003'::uuid,
+--          'd0a1c4a1-41c5-4c51-a1b1-000000000004'::uuid);
+--     2. DELETE FROM business_complex_relations WHERE business_id IN (
+--          <PILOT_BUSINESS_IDS as exact ::uuid list>);
+--     3. DELETE FROM businesses WHERE id IN (<PILOT_BUSINESS_IDS exact list>);
+--     4. Categories: delete ONLY rows this migration created AND that no
+--          non-pilot business references:
+--          DELETE FROM business_categories WHERE id IN (
+--            'd0a1c4a1-41c5-4c51-c3c3-000000000001'::uuid, ... 000000000006)
+--            AND NOT EXISTS (
+--              SELECT 1 FROM businesses b
+--              WHERE b.category_id IN (<pilot category exact list>)
+--                AND b.id NOT IN (<PILOT_BUSINESS_IDS exact list>));
+--          (If any non-pilot business references a pilot category, the NOT
+--          EXISTS guard silently keeps that category — that is intended.)
+--     5. DELETE FROM complexes
+--          WHERE id = 'd0a1c4a1-41c5-4c51-0000-000000000001'::uuid
+--            AND slug = 'banglim-myeongji-roadhill';  -- exact id + slug guard
+--   Caution: steps must be re-checked against live FK references before
 --   running. If any other rows now reference these pilot rows, STOP and use
 --   a dedicated backout migration instead of ad-hoc DELETEs.
 --
@@ -124,7 +146,16 @@ select b.id, c.id,
   'verified', 100
 from businesses b
 join complexes c on c.slug = 'banglim-myeongji-roadhill'
-where b.id like 'd0a1c4a1-41c5-4c51-b2b2-%'
+where b.id in (
+  'd0a1c4a1-41c5-4c51-b2b2-000000000001'::uuid,
+  'd0a1c4a1-41c5-4c51-b2b2-000000000002'::uuid,
+  'd0a1c4a1-41c5-4c51-b2b2-000000000003'::uuid,
+  'd0a1c4a1-41c5-4c51-b2b2-000000000004'::uuid,
+  'd0a1c4a1-41c5-4c51-b2b2-000000000005'::uuid,
+  'd0a1c4a1-41c5-4c51-b2b2-000000000006'::uuid,
+  'd0a1c4a1-41c5-4c51-b2b2-000000000007'::uuid,
+  'd0a1c4a1-41c5-4c51-b2b2-000000000008'::uuid
+)
 on conflict (business_id, complex_id) do nothing;
 
 -- ---------------------------------------------------------------------------
@@ -143,7 +174,17 @@ from (values
   ('d0a1c4a1-41c5-4c51-a1b1-000000000003','온케어 홈서비스','출장비 관련 안내','파일럿 예시 혜택입니다. 실제 조건은 운영 정책 확정 후 반영됩니다.','주민 확인 후 적용'),
   ('d0a1c4a1-41c5-4c51-a1b1-000000000004','바른 세무상담','첫 상담 관련 안내','파일럿 예시 혜택입니다. 실제 조건은 운영 정책 확정 후 반영됩니다.','주민 확인 후 적용')
 ) as v(id, business_name, title, description, conditions)
-join businesses b on b.name = v.business_name and b.id like 'd0a1c4a1-41c5-4c51-b2b2-%'
+join businesses b on b.name = v.business_name
+  and b.id in (
+    'd0a1c4a1-41c5-4c51-b2b2-000000000001'::uuid,
+    'd0a1c4a1-41c5-4c51-b2b2-000000000002'::uuid,
+    'd0a1c4a1-41c5-4c51-b2b2-000000000003'::uuid,
+    'd0a1c4a1-41c5-4c51-b2b2-000000000004'::uuid,
+    'd0a1c4a1-41c5-4c51-b2b2-000000000005'::uuid,
+    'd0a1c4a1-41c5-4c51-b2b2-000000000006'::uuid,
+    'd0a1c4a1-41c5-4c51-b2b2-000000000007'::uuid,
+    'd0a1c4a1-41c5-4c51-b2b2-000000000008'::uuid
+  )
 join complexes c on c.slug = 'banglim-myeongji-roadhill'
 on conflict (id) do nothing;
 

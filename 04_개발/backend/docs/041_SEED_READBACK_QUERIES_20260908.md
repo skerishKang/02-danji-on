@@ -40,18 +40,48 @@ from complexes
 where slug = 'banglim-myeongji-roadhill';
 -- 기대: 1 row, status='pilot'
 
--- 이 migration이 만든 row만 (deterministic UUID prefix로 격리)
-select count(*) from businesses where id like 'd0a1c4a1-41c5-4c51-b2b2-%';
+-- 이 migration이 만든 row만 (deterministic UUID exact list로 격리)
+select count(*) from businesses where id in (
+  'd0a1c4a1-41c5-4c51-b2b2-000000000001'::uuid,
+  'd0a1c4a1-41c5-4c51-b2b2-000000000002'::uuid,
+  'd0a1c4a1-41c5-4c51-b2b2-000000000003'::uuid,
+  'd0a1c4a1-41c5-4c51-b2b2-000000000004'::uuid,
+  'd0a1c4a1-41c5-4c51-b2b2-000000000005'::uuid,
+  'd0a1c4a1-41c5-4c51-b2b2-000000000006'::uuid,
+  'd0a1c4a1-41c5-4c51-b2b2-000000000007'::uuid,
+  'd0a1c4a1-41c5-4c51-b2b2-000000000008'::uuid
+);
 -- 기대: 8
 
-select count(*) from business_categories where id like 'd0a1c4a1-41c5-4c51-c3c3-%';
+select count(*) from business_categories where id in (
+  'd0a1c4a1-41c5-4c51-c3c3-000000000001'::uuid,
+  'd0a1c4a1-41c5-4c51-c3c3-000000000002'::uuid,
+  'd0a1c4a1-41c5-4c51-c3c3-000000000003'::uuid,
+  'd0a1c4a1-41c5-4c51-c3c3-000000000004'::uuid,
+  'd0a1c4a1-41c5-4c51-c3c3-000000000005'::uuid,
+  'd0a1c4a1-41c5-4c51-c3c3-000000000006'::uuid
+);
 -- 기대: 최대 6 (기존 동일 slug category가 있으면 ON CONFLICT로 재사용 → 6 미만 가능)
 
 select count(*) from business_complex_relations
-where business_id like 'd0a1c4a1-41c5-4c51-b2b2-%';
+where business_id in (
+  'd0a1c4a1-41c5-4c51-b2b2-000000000001'::uuid,
+  'd0a1c4a1-41c5-4c51-b2b2-000000000002'::uuid,
+  'd0a1c4a1-41c5-4c51-b2b2-000000000003'::uuid,
+  'd0a1c4a1-41c5-4c51-b2b2-000000000004'::uuid,
+  'd0a1c4a1-41c5-4c51-b2b2-000000000005'::uuid,
+  'd0a1c4a1-41c5-4c51-b2b2-000000000006'::uuid,
+  'd0a1c4a1-41c5-4c51-b2b2-000000000007'::uuid,
+  'd0a1c4a1-41c5-4c51-b2b2-000000000008'::uuid
+);
 -- 기대: 8
 
-select count(*) from benefits where id like 'd0a1c4a1-41c5-4c51-a1b1-%';
+select count(*) from benefits where id in (
+  'd0a1c4a1-41c5-4c51-a1b1-000000000001'::uuid,
+  'd0a1c4a1-41c5-4c51-a1b1-000000000002'::uuid,
+  'd0a1c4a1-41c5-4c51-a1b1-000000000003'::uuid,
+  'd0a1c4a1-41c5-4c51-a1b1-000000000004'::uuid
+);
 -- 기대: 4
 
 -- public discovery join count (API 노출 기준, 위 pre-apply와 동일 쿼리)
@@ -77,6 +107,10 @@ row 수 변화 없음. 재적용 후 위 post-apply readback 수치가 동일하
 ## 5. Rollback (수동 절차 — 자동화 금지)
 
 migration 파일 헤더 주석의 5단계 순서를 따른다 (benefits → relations →
-businesses → categories(조건부) → complexes). 각 단계 전에 FK 참조를 재확인하고,
-파일럿 row 외 다른 row가 참조하고 있으면 즉시 중단하고 전용 backout
-migration을 별도 작성한다.
+businesses → categories(조건부) → complexes). 모든 식별은 **exact UUID IN
+list**로만 수행한다(uuid 컬럼에 패턴 매칭 금지 — PostgreSQL에 uuid 패턴
+연산자가 없음). complex 삭제는 `id = ...::uuid and slug =
+'banglim-myeongji-roadhill'` 동시 조건을 건다. category 삭제는 이
+migration이 만든 category면서 파일럿 외 business가 참조하지 않는 경우에만
+(NOT EXISTS 가드). 각 단계 전에 FK 참조를 재확인하고, 파일럿 row 외 다른
+row가 참조하고 있으면 즉시 중단하고 전용 backout migration을 별도 작성한다.
