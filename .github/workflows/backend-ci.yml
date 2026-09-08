@@ -330,6 +330,36 @@ jobs:
           DATABASE_URL: postgresql://postgres@127.0.0.1:5432/danjion_reviews?sslmode=disable
         run: bash tests/business-reviews-postgres-lifecycle.sh
 
+  complex-news-channel-040-postgres-lifecycle:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_DB: danjion_040_compat
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d danjion_040_compat"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    defaults:
+      run:
+        working-directory: 04_개발/backend
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+      - name: Run migration 040 compatibility + 040→041→042 sequence lifecycle
+        env:
+          DATABASE_URL: postgresql://postgres@127.0.0.1:5432/danjion_040_compat?sslmode=disable
+        run: bash tests/complex-news-channel-040-postgres-lifecycle.sh
+
   business-category-benefit-postgres-lifecycle:
     runs-on: ubuntu-latest
     services:
