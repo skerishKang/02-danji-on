@@ -109,10 +109,10 @@ expect_scalar 'legacy primary category preserved' \
 # A. legacy rows without join rows coalesce to the primary slug (API fallback semantics).
 expect_scalar 'legacy business coalesces to primary slug' \
   'food' \
-  "select coalesce(
-     (select array_agg(bcr_cat.slug) from business_category_relations bcr join business_categories bcr_cat on bcr_cat.id = bcr.category_id where bcr.business_id = b.id and bcr_cat.is_active),
+  "select (coalesce(
+     (select array_agg(bcr_cat.slug order by bcr_cat.sort_order, bcr_cat.slug) from business_category_relations bcr join business_categories bcr_cat on bcr_cat.id = bcr.category_id where bcr.business_id = b.id and bcr_cat.is_active),
      case when bc.slug is not null then array[bc.slug] else array[]::text[] end
-   )[1]
+   ))[1]
    from businesses b
    left join business_categories bc on bc.id = b.category_id
    where b.id = '40000000-0000-4000-8000-000000000001'"
