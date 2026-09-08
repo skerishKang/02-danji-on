@@ -1080,7 +1080,7 @@
 <script id="frontend2-b-shop-runtime-20260905">
 (function(){
  try{sessionStorage.setItem('danjion:shopVariant','v3')}catch(e){}
- const SHOP_DATA=[
+ let SHOP_DATA=[
   {key:'florist',category:'cafe food',name:'로드힐 꽃작업실',relation:'우리 주민 가게',image:'assets/home-florist.png',desc:'계절 꽃다발과 작은 선물을 예약 상담으로 준비합니다.',service:'꽃다발 · 작은 선물 · 예약 제작',way:'예약 상담 후 방문 수령',location:'광주 남구 방림동 일대',contact:'1:1 문의로 날짜·용도·예산 상담',reviews:[['연블리 · 방림명지로드힐 주민','2026.08.30','부모님 생신 꽃다발을 정성스럽게 준비해 주셨어요. 상담도 편안했습니다.','찾아주셔서 정말 감사합니다. 생신 꽃다발은 늘 정성껏 준비하겠습니다.','2026.08.31'],['산책메이트 · 방림명지로드힐 주민','2026.08.26','원하는 분위기를 잘 들어주시고 예약 시간에 맞춰 준비해 주셨어요.'],['하루한잔 · 방림명지로드힐 주민','2026.08.18','선물할 사람에 맞춰 꽃 구성을 설명해 주셔서 고르기 편했습니다.','감사합니다. 다음에도 예쁘게 만들어 드릴게요.','2026.08.19']],benefit:'꽃다발 예약 상담 시 주민 전용 혜택',value:'예약혜택',code:'DANJION · F052'},
   {key:'food',category:'food',name:'오늘의 반찬',relation:'우리 주민 가게',image:'assets/scene-food.webp',desc:'매일 먹는 반찬을 직접 만들고 예약 주문으로 준비하는 이웃입니다.',service:'반찬 · 김치 · 계절 메뉴',way:'메뉴별 가격 · 예약 주문',location:'방림명지로드힐 인근',contact:'예약 주문 시 문의',reviews:[['연블리 · 방림명지로드힐 주민','2026.08.28','반찬이 깔끔하고 예약해 두니 찾기 편했습니다.','예약해 주셔서 감사해요. 내일 메뉴도 알찬 걸로 준비하겠습니다.','2026.08.28']],benefit:'방림명지로드힐 주민 10% 할인',value:'10%',code:'DANJION · F010'},
   {key:'home',category:'home',name:'온케어 홈서비스',relation:'주민 가족 가게',image:'assets/scene-home-care.webp',desc:'에어컨과 세탁기 안쪽까지 분해하고 세척·점검하는 생활관리 서비스입니다.',service:'에어컨 청소 · 세탁기 청소 · 생활 점검',way:'평일·토요일 예약',location:'광주 남구 방문 서비스',contact:'1:1 문의 후 작업 범위·방문시간 협의',reviews:[['방림회관 · 방림명지로드힐 주민','2026.08.21','작업 전 범위를 설명해 주셔서 안심했고 정리도 깔끔했습니다.']],benefit:'방림명지로드힐 출장비 면제',value:'면제',code:'DANJION · H001'},
@@ -1090,7 +1090,7 @@
   {key:'beauty',category:'home',name:'정다운 헤어',relation:'주민 가족 가게',image:'assets/scene-beauty.webp',desc:'가족이 운영하는 생활 미용 서비스로 커트와 기본 관리를 제공합니다.',service:'커트 · 염색 · 기본 케어',way:'화–일 예약 우선',location:'방림동 인근',contact:'1:1 문의로 예약 상담',reviews:[['산책메이트 · 방림명지로드힐 주민','2026.08.23','요청한 스타일을 잘 반영해 주셨어요.']],benefit:'입주민 커트 할인',value:'할인',code:'DANJION · B018'},
   {key:'photo',category:'pro',name:'사진하는 이웃',relation:'우리 주민 가게',image:'assets/scene-photo.webp',desc:'가족사진과 프로필을 자연스럽게 촬영하고 기본 보정을 제공합니다.',service:'가족사진 · 프로필 · 소규모 촬영',way:'주말·평일 저녁 예약',location:'광주 남구 촬영',contact:'1:1 문의로 촬영 상담',reviews:[['하루한잔 · 방림명지로드힐 주민','2026.08.17','가족사진 분위기를 편하게 잡아 주셔서 좋았습니다.']],benefit:'입주민 촬영비 할인',value:'촬영할인',code:'DANJION · PH01'}
  ];
- const byKey=Object.fromEntries(SHOP_DATA.map(s=>[s.key,s]));
+ let byKey=Object.fromEntries(SHOP_DATA.map(s=>[s.key,s]));
  const grid=document.getElementById('shopGridV2'),filters=[...document.querySelectorAll('.filter')],title=document.querySelector('.catalog-head h2'),meta=document.querySelector('.catalog-head span');
  let currentFilter='all',query='';
  const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -1146,7 +1146,7 @@ function openReview(){const s=byKey[active];if(!s)return;const rs=reviewData(s);
  function openShopInquiry(key){const sh=byKey[key];if(!sh)return;document.getElementById('shopInquiryTitle').textContent=sh.name+'에 문의하세요.';document.getElementById('shopInquirySubject').value='';document.getElementById('shopInquiryText').value='';document.getElementById('shopInquiryModal').classList.add('open');document.getElementById('shopInquiryModal').setAttribute('aria-hidden','false');document.body.style.overflow='hidden'}
  function closeShopInquiry(){const el=document.getElementById('shopInquiryModal');el.classList.remove('open');el.setAttribute('aria-hidden','true');if(!modal.classList.contains('open')&&!review.classList.contains('open')&&!coupon.classList.contains('open'))document.body.style.overflow=''}
  function sendShopInquiry(ev){ev.preventDefault();const sh=byKey[active];if(!sh)return;const subject=document.getElementById('shopInquirySubject').value.trim();const text=document.getElementById('shopInquiryText').value.trim();if(!subject||!text){flash('문의 제목과 내용을 입력해 주세요.');return}let arr=[];try{arr=JSON.parse(localStorage.getItem('danjion:demo:shop-inquiries')||'[]')}catch(_){}arr.unshift({type:'shop_inquiry',shopKey:active,shopName:sh.name,recipientType:'shop_owner',recipientDisplay:sh.name,subject,text,at:new Date().toISOString()});localStorage.setItem('danjion:demo:shop-inquiries',JSON.stringify(arr.slice(0,50)));closeShopInquiry();flash('문의가 접수됐습니다.')}
- function openShop(key){active=byKey[key]?key:'florist';const s=byKey[active];const relTxt=s.relation==='이웃 단지 주민 가게'?'이웃가게':s.relation;const relCls=(s.relation==='우리 주민 가게')?'rel-owner':((s.relation==='주민 가족 가게')?'rel-family':((s.relation==='이웃 단지 주민 가게'||s.relation==='이웃가게')?'rel-neighbor':'rel-family'));[['shopCompareRelation',relTxt],['shopCompareTitle',s.name],['shopCompareDesc',s.desc],['shopCompareService',s.service],['shopCompareWay',s.way],['shopCompareLocation',s.location||'단지 인근 생활권'],['shopCompareContact',s.contact||'1:1 문의로 확인'],['shopCompareBenefit',s.benefit]].forEach(([id,v])=>document.getElementById(id).textContent=v);document.getElementById('shopCompareRelation').className='shop-compare-kicker '+relCls;renderReviewPreview(s);const img=document.getElementById('shopCompareImage');img.src=s.image;img.alt=s.name+' 대표 이미지';img.style.objectPosition='50% 50%';const gallery=document.getElementById('shopCompareGallery'),positions=['50% 50%','30% 55%','75% 45%'];gallery.innerHTML=positions.map((pos,i)=>`<button type="button" class="${i===0?'active':''}" data-pos="${pos}" aria-label="사진 ${i+1}"><img src="${s.image}" alt=""></button>`).join('');gallery.querySelectorAll('button').forEach(b=>b.onclick=()=>{gallery.querySelectorAll('button').forEach(x=>x.classList.remove('active'));b.classList.add('active');img.style.objectPosition=b.dataset.pos});syncModalSave();modal.classList.add('open');modal.setAttribute('aria-hidden','false');document.body.style.overflow='hidden'}
+ function openShop(key){active=byKey[key]?key:(byKey['florist']?'florist':(SHOP_DATA[0]?SHOP_DATA[0].key:'florist'));const s=byKey[active];const relTxt=s.relation==='이웃 단지 주민 가게'?'이웃가게':s.relation;const relCls=(s.relation==='우리 주민 가게')?'rel-owner':((s.relation==='주민 가족 가게')?'rel-family':((s.relation==='이웃 단지 주민 가게'||s.relation==='이웃가게')?'rel-neighbor':'rel-family'));[['shopCompareRelation',relTxt],['shopCompareTitle',s.name],['shopCompareDesc',s.desc],['shopCompareService',s.service],['shopCompareWay',s.way],['shopCompareLocation',s.location||'단지 인근 생활권'],['shopCompareContact',s.contact||'1:1 문의로 확인'],['shopCompareBenefit',s.benefit]].forEach(([id,v])=>document.getElementById(id).textContent=v);document.getElementById('shopCompareRelation').className='shop-compare-kicker '+relCls;renderReviewPreview(s);const img=document.getElementById('shopCompareImage');img.src=s.image;img.alt=s.name+' 대표 이미지';img.style.objectPosition='50% 50%';const gallery=document.getElementById('shopCompareGallery'),positions=['50% 50%','30% 55%','75% 45%'];gallery.innerHTML=positions.map((pos,i)=>`<button type="button" class="${i===0?'active':''}" data-pos="${pos}" aria-label="사진 ${i+1}"><img src="${s.image}" alt=""></button>`).join('');gallery.querySelectorAll('button').forEach(b=>b.onclick=()=>{gallery.querySelectorAll('button').forEach(x=>x.classList.remove('active'));b.classList.add('active');img.style.objectPosition=b.dataset.pos});syncModalSave();modal.classList.add('open');modal.setAttribute('aria-hidden','false');document.body.style.overflow='hidden'}
  function closeShop(){modal.classList.remove('open');modal.setAttribute('aria-hidden','true');if(!coupon.classList.contains('open')&&!review.classList.contains('open'))document.body.style.overflow=''}
  function openCoupon(key){const s=byKey[key];if(!s)return;active=key;document.getElementById('shopCouponShop').textContent=s.name+' · '+s.relation;document.getElementById('shopCouponTitle').textContent=s.benefit;document.getElementById('shopCouponValue').textContent=s.value;document.getElementById('shopCouponCode').textContent=s.code;document.getElementById('shopCouponNote').textContent='예약·문의 또는 방문 시 방림명지로드힐 주민임을 확인한 뒤 적용합니다. 실제 제공 조건은 가게 안내를 우선합니다.';syncCouponStore();coupon.classList.add('open');coupon.setAttribute('aria-hidden','false');document.body.style.overflow='hidden'}
  function syncCouponStore(){document.getElementById('shopCouponStore').textContent=savedBenefits().includes(active)?'✓ 내 혜택에 보관됨':'내 혜택에 보관'}
@@ -1183,6 +1183,66 @@ function openReview(){const s=byKey[active];if(!s)return;const rs=reviewData(s);
  document.getElementById('shopCouponStore').onclick=()=>{let a=savedBenefits();if(a.includes(active)){a=a.filter(x=>x!==active);setBenefits(a);flash('보관을 취소했습니다.')}else{a.push(active);setBenefits(a);flash('내정보의 받은 혜택에 보관했습니다.')}syncCouponStore()};
  document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(document.getElementById('shopInquiryModal').classList.contains('open'))closeShopInquiry();else if(document.getElementById('shopReviewWriteModal').classList.contains('open'))closeReviewWrite();else if(coupon.classList.contains('open'))closeCoupon();else if(review.classList.contains('open'))closeReview();else if(modal.classList.contains('open'))closeShop()}});
  const key=initial.get('shop');if(key&&byKey[key])setTimeout(()=>openShop(key),60);
+
+ /* === Stage 5-A: discovery API → 가게 목록만 실데이터 교체 (저장·후기·문의·신청은 기존 데모 동작 유지) === */
+ const DISCOVERY_API_BASE=(new URLSearchParams(location.search).get('apiBase')||'').replace(/\/+$/,'');
+ const DISCOVERY_COMPLEX_SLUG='bangnim-myeongji-roadhill';
+ const RELATION_LABEL={'resident':'우리 주민 가게','resident_family':'주민 가족 가게','neighbor':'이웃가게'};
+ const CATEGORY_BY_SLUG={cafe:'cafe',food:'food',home:'home',learn:'learn',pro:'pro',car:'car'};
+ function mapApiBusiness(b,i){
+   const relation=RELATION_LABEL[b.relationType]||'이웃가게';
+   const benefit=b.activeBenefit||{};
+   const categorySlug=CATEGORY_BY_SLUG[b.categorySlug]||'pro';
+   const desc=b.summary||b.description||'';
+   const service=(b.priceText||b.availabilityText||'').trim();
+   return {
+     key:'api-'+(b.id||('idx-'+i)),
+     category:categorySlug,
+     name:b.name||('이웃가게 '+(i+1)),
+     relation,
+     image:b.representativeImageObjectKey||'assets/scene-car.webp',
+     desc:desc||'등록된 소개가 아직 없습니다.',
+     service:service||'1:1 문의로 확인',
+     way:'가게 안내에 따릅니다.',
+     location:b.serviceArea||'단지 인근 생활권',
+     contact:'1:1 문의로 확인',
+     reviews:[(benefit.title?'최신 혜택 '+benefit.title:'')].filter(Boolean).map(t=>[t,'방금','DB에서 가져온 활성 혜택입니다.']),
+     benefit:benefit.title||'주민 전용 혜택',
+     value:benefit.conditions||'혜택',
+     code:'DANJION · API'
+   };
+ }
+ function apiShops(){
+   const base=DISCOVERY_API_BASE||(location.origin.startsWith('http')&&location.origin.startsWith('http')?location.origin:'');
+   if(!base||base==='null')return Promise.reject(new Error('no api base'));
+   const url=base+'/api/v1/complexes/'+encodeURIComponent(DISCOVERY_COMPLEX_SLUG)+'/businesses?limit=50';
+   const ctrl=('AbortController' in window)?new AbortController():null;
+   const timer=ctrl?setTimeout(()=>ctrl.abort(),8000):null;
+   return fetch(url,{credentials:'omit',signal:ctrl?ctrl.signal:undefined})
+     .then(res=>{if(!res.ok)throw new Error('HTTP '+res.status);return res.json()})
+     .then(json=>{
+       const rows=(json&&json.data)||[];
+       if(timer)clearTimeout(timer);
+       if(!Array.isArray(rows)||!rows.length)throw new Error('empty business list');
+       return rows.map(mapApiBusiness);
+     })
+     .catch(err=>{if(timer)clearTimeout(timer);throw err});
+ }
+ /* API 성공 → SHOP_DATA 교체 + 재렌더 / 실패(빈 DB 포함) → 기존 SHOP_DATA fallback */
+ try{
+   apiShops().then(list=>{
+     SHOP_DATA.length=0;
+     Array.prototype.push.apply(SHOP_DATA,list);
+     Object.keys(byKey).forEach(k=>delete byKey[k]);
+     list.forEach(s=>{byKey[s.key]=s});
+     currentFilter='all';query='';
+     document.querySelectorAll('.filter').forEach(b=>b.classList.toggle('active',b.dataset.filter==='all'));
+     draw();
+     console.info('[danjion] discovery API shops loaded:',list.length);
+   }).catch(err=>{
+     console.info('[danjion] discovery API unavailable, using demo SHOP_DATA fallback:',String(err&&err.message||err));
+   });
+ }catch(e){console.info('[danjion] discovery API wiring skipped:',String(e))}
 })();
 </script>
 <script id="danjion-direct-router-v5">
