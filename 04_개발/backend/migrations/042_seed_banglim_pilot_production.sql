@@ -1,5 +1,9 @@
--- 041_seed_banglim_pilot_production.sql
+-- 042_seed_banglim_pilot_production.sql
 -- Stage 5-C: production pilot seed for the Banglim Myeongji Roadhill complex.
+-- Renumbered 041 → 042 after PR #282: 041 is now the schema/API contract
+-- (041_business_category_benefit_contract.sql: business_category_relations,
+-- benefits.value_text, benefits.code) and must apply first. This seed
+-- consumes that contract.
 --
 -- Purpose
 --   The production Worker/API/schema are healthy, but complexes and businesses
@@ -23,12 +27,13 @@
 --     frontend/01_이웃가게_발견_v3.html (SHOP_DATA 8)
 --   RULE: backend/database adapt to the frontend authority. Do NOT rewrite
 --   product semantics (names, copy, relations, benefit wording) to fit the
---   current schema. Fields the current schema cannot represent are kept
---   verbatim where a column allows and documented as SCHEMA_GAP in
---   04_개발/backend/docs/041_SEED_READBACK_QUERIES_20260908.md.
+--   schema. Multi-category sets (florist=cafe+food, car=car+home) and
+--   benefit value/code are seeded through the 041 contract columns/tables;
+--   readback in 04_개발/backend/docs/042_SEED_READBACK_QUERIES_20260908.md.
 --
 -- Authority
 --   Schema: 04_개발/backend/migrations/001_initial_schema.sql (+ 003 constraints)
+--   Contract: 04_개발/backend/migrations/041_business_category_benefit_contract.sql
 --   API contract: 04_개발/backend/src/core-v1.ts (public discovery)
 --   900/901/902 dev seeds are REFERENCE ONLY and never applied to production.
 --   Root backend/ (sibling starter) migrations are NOT an authority here.
@@ -41,8 +46,10 @@
 -- HOLD boundaries
 --   benefit wording follows the sibling v3 authority verbatim (it predates
 --   and is neutral of #253/#139 delivery-mode decisions: no coupon/reserve/
---   onsite semantics are added). Schema-authoritative fields only:
---   title, description, conditions, status.
+--   onsite semantics are added). Schema-authoritative fields:
+--   title, description, conditions, status, and the 041 contract fields
+--   value_text (display value only — no settlement logic) and code
+--   (product copy — no redemption semantics).
 --   No warmth scoring, no resident verification, no personal data (#263/#59).
 --
 -- Rollback plan (manual, destructive steps NOT automated in this file)
@@ -69,10 +76,13 @@
 --          'd0a1c4a1-41c5-4c51-a1b1-000000000006'::uuid,
 --          'd0a1c4a1-41c5-4c51-a1b1-000000000007'::uuid,
 --          'd0a1c4a1-41c5-4c51-a1b1-000000000008'::uuid);
---     2. DELETE FROM business_complex_relations WHERE business_id IN (
+--     2. DELETE FROM business_category_relations WHERE business_id IN (
 --          <PILOT_BUSINESS_IDS as exact ::uuid list>);
---     3. DELETE FROM businesses WHERE id IN (<PILOT_BUSINESS_IDS exact list>);
---     4. Categories: delete ONLY rows this migration created AND that no
+--          -- must run BEFORE businesses: relations FK-reference businesses
+--     3. DELETE FROM business_complex_relations WHERE business_id IN (
+--          <PILOT_BUSINESS_IDS as exact ::uuid list>);
+--     4. DELETE FROM businesses WHERE id IN (<PILOT_BUSINESS_IDS exact list>);
+--     5. Categories: delete ONLY rows this migration created AND that no
 --          non-pilot business references:
 --          DELETE FROM business_categories WHERE id IN (
 --            'd0a1c4a1-41c5-4c51-c3c3-000000000001'::uuid, ... 000000000006)
@@ -82,7 +92,7 @@
 --                AND b.id NOT IN (<PILOT_BUSINESS_IDS exact list>));
 --          (If any non-pilot business references a pilot category, the NOT
 --          EXISTS guard silently keeps that category — that is intended.)
---     5. DELETE FROM complexes
+--     6. DELETE FROM complexes
 --          WHERE id = 'd0a1c4a1-41c5-4c51-0000-000000000001'::uuid
 --            AND slug = 'banglim-myeongji-roadhill';  -- exact id + slug guard
 --   Caution: steps must be re-checked against live FK references before
@@ -131,8 +141,10 @@ on conflict (slug) do nothing;
 --    status 'approved' satisfies the public discovery WHERE clause.
 --    summary = v3 desc, description = v3 service/way/contact context,
 --    price_text = v3 service, service_area = v3 location,
---    availability_text = v3 way. category: primary category only
---    (multi-category v3 values are documented as SCHEMA_GAP).
+--    availability_text = v3 way. category_id = primary category only
+--    (businesses.category_id stays the primary-category compat column).
+--    The FULL v3 category sets — including multi-category — are seeded in
+--    section 3b via the 041 contract table business_category_relations.
 -- ---------------------------------------------------------------------------
 insert into businesses (id, owner_user_id, category_id, kind, name, summary, description, price_text, service_area, availability_text, status)
 select v.id::uuid, null, bc.id, v.kind, v.name, v.summary, v.description, v.price_text, v.service_area, v.availability_text, 'approved'
@@ -148,6 +160,40 @@ from (values
 ) as v(id, category_slug, kind, name, summary, description, price_text, service_area, availability_text)
 join business_categories bc on bc.slug = v.category_slug
 on conflict (id) do nothing;
+
+-- ---------------------------------------------------------------------------
+-- 3b) Business category relations — 041 contract (business_category_relations)
+--     Sibling final v3 category sets, seeded COMPLETE for every business so
+--     the API categories[] array is deterministic:
+--       로드힐 꽃작업실     = cafe + food  (multi, v3 authority)
+--       우리동네 자동차정비 = car + home   (multi, v3 authority)
+--       오늘의 반찬        = food
+--       온케어 홈서비스    = home
+--       바른 세무상담      = pro
+--       한결수학          = learn
+--       정다운 헤어        = home
+--       사진하는 이웃      = pro
+--     Expected total = 10 relation rows (6 single + 2 + 2).
+--     businesses.category_id (primary) is NOT modified here — it keeps the
+--     backward-compatibility semantic from section 3.
+-- ---------------------------------------------------------------------------
+insert into business_category_relations (business_id, category_id)
+select b.id, bc.id
+from (values
+  ('d0a1c4a1-41c5-4c51-b2b2-000000000001','cafe'),
+  ('d0a1c4a1-41c5-4c51-b2b2-000000000001','food'),
+  ('d0a1c4a1-41c5-4c51-b2b2-000000000002','food'),
+  ('d0a1c4a1-41c5-4c51-b2b2-000000000003','home'),
+  ('d0a1c4a1-41c5-4c51-b2b2-000000000004','pro'),
+  ('d0a1c4a1-41c5-4c51-b2b2-000000000005','learn'),
+  ('d0a1c4a1-41c5-4c51-b2b2-000000000006','car'),
+  ('d0a1c4a1-41c5-4c51-b2b2-000000000006','home'),
+  ('d0a1c4a1-41c5-4c51-b2b2-000000000007','home'),
+  ('d0a1c4a1-41c5-4c51-b2b2-000000000008','pro')
+) as v(business_id, category_slug)
+join businesses b on b.id = v.business_id::uuid
+join business_categories bc on bc.slug = v.category_slug
+on conflict (business_id, category_id) do nothing;
 
 -- ---------------------------------------------------------------------------
 -- 4) Complex relations (public discovery contract: verified)
@@ -181,27 +227,25 @@ where b.id in (
 on conflict (business_id, complex_id) do nothing;
 
 -- ---------------------------------------------------------------------------
--- 5) Benefits — sibling v3 authority wording (8)
---    Titles are the v3 benefit copy verbatim. Schema-authoritative fields
---    only: title, description, conditions, status. v3 value/code (예: 10%,
---    DANJION · F010) have no dedicated columns in the current benefits
---    schema and are documented as SCHEMA_GAP in the readback doc —
---    NOT dropped requirements, NOT neutralized. #253/#139 delivery-mode
---    decisions remain open; these rows add no coupon/reserve/onsite
---    semantics beyond what the v3 copy itself states.
+-- 5) Benefits — sibling v3 authority wording (8) + 041 contract fields
+--    Titles are the v3 benefit copy verbatim. value_text = the v3 display
+--    value verbatim (product data only — NO settlement logic), code = the
+--    v3 product code verbatim (NO coupon/redemption semantics inferred).
+--    #253/#139 delivery-mode decisions remain open; these rows add no
+--    coupon/reserve/onsite semantics beyond what the v3 copy itself states.
 -- ---------------------------------------------------------------------------
-insert into benefits (id, complex_id, business_id, title, description, conditions, status)
-select v.id::uuid, c.id, b.id, v.title, v.description, v.conditions, 'active'
+insert into benefits (id, complex_id, business_id, title, description, conditions, value_text, code, status)
+select v.id::uuid, c.id, b.id, v.title, v.description, v.conditions, v.value_text, v.code, 'active'
 from (values
-  ('d0a1c4a1-41c5-4c51-a1b1-000000000001','로드힐 꽃작업실','꽃다발 예약 상담 시 주민 전용 혜택','단지온 예약혜택(DANJION · F052)','주민 확인 후 적용'),
-  ('d0a1c4a1-41c5-4c51-a1b1-000000000002','오늘의 반찬','방림명지로드힐 주민 10% 할인','단지온 10% 할인(DANJION · F010)','주민 확인 후 적용'),
-  ('d0a1c4a1-41c5-4c51-a1b1-000000000003','온케어 홈서비스','방림명지로드힐 출장비 면제','단지온 면제(DANJION · H001)','주민 확인 후 적용'),
-  ('d0a1c4a1-41c5-4c51-a1b1-000000000004','바른 세무상담','방림명지로드힐 첫 상담 무료','단지온 무료(DANJION · P001)','주민 확인 후 적용'),
-  ('d0a1c4a1-41c5-4c51-a1b1-000000000005','한결수학','방림명지로드힐 학생 첫 수업 무료','단지온 무료(DANJION · L001)','주민 확인 후 적용'),
-  ('d0a1c4a1-41c5-4c51-a1b1-000000000006','우리동네 자동차정비','주민 공임 할인','단지온 공임할인(DANJION · C014)','주민 확인 후 적용'),
-  ('d0a1c4a1-41c5-4c51-a1b1-000000000007','정다운 헤어','입주민 커트 할인','단지온 할인(DANJION · B018)','주민 확인 후 적용'),
-  ('d0a1c4a1-41c5-4c51-a1b1-000000000008','사진하는 이웃','입주민 촬영비 할인','단지온 촬영할인(DANJION · PH01)','주민 확인 후 적용')
-) as v(id, business_name, title, description, conditions)
+  ('d0a1c4a1-41c5-4c51-a1b1-000000000001','로드힐 꽃작업실','꽃다발 예약 상담 시 주민 전용 혜택','단지온 예약혜택(DANJION · F052)','주민 확인 후 적용','예약혜택','DANJION · F052'),
+  ('d0a1c4a1-41c5-4c51-a1b1-000000000002','오늘의 반찬','방림명지로드힐 주민 10% 할인','단지온 10% 할인(DANJION · F010)','주민 확인 후 적용','10%','DANJION · F010'),
+  ('d0a1c4a1-41c5-4c51-a1b1-000000000003','온케어 홈서비스','방림명지로드힐 출장비 면제','단지온 면제(DANJION · H001)','주민 확인 후 적용','면제','DANJION · H001'),
+  ('d0a1c4a1-41c5-4c51-a1b1-000000000004','바른 세무상담','방림명지로드힐 첫 상담 무료','단지온 무료(DANJION · P001)','주민 확인 후 적용','무료','DANJION · P001'),
+  ('d0a1c4a1-41c5-4c51-a1b1-000000000005','한결수학','방림명지로드힐 학생 첫 수업 무료','단지온 무료(DANJION · L001)','주민 확인 후 적용','무료','DANJION · L001'),
+  ('d0a1c4a1-41c5-4c51-a1b1-000000000006','우리동네 자동차정비','주민 공임 할인','단지온 공임할인(DANJION · C014)','주민 확인 후 적용','공임할인','DANJION · C014'),
+  ('d0a1c4a1-41c5-4c51-a1b1-000000000007','정다운 헤어','입주민 커트 할인','단지온 할인(DANJION · B018)','주민 확인 후 적용','할인','DANJION · B018'),
+  ('d0a1c4a1-41c5-4c51-a1b1-000000000008','사진하는 이웃','입주민 촬영비 할인','단지온 촬영할인(DANJION · PH01)','주민 확인 후 적용','촬영할인','DANJION · PH01')
+) as v(id, business_name, title, description, conditions, value_text, code)
 join businesses b on b.name = v.business_name
   and b.id in (
     'd0a1c4a1-41c5-4c51-b2b2-000000000001'::uuid,

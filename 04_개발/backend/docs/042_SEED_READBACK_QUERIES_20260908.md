@@ -1,0 +1,320 @@
+# 042 Seed Readback Queries — Banglim pilot (Stage 5-C)
+
+상태: **migration 작성만 완료, DB 미적용** (`DB_APPLIED = NO`)
+
+이 문서는 `04_개발/backend/migrations/042_seed_banglim_pilot_production.sql`의
+적용 전/후 확인용 read-only 쿼리와 예상 결과를 정의한다.
+시드는 PR #282의 스키마/API contract
+(`041_business_category_benefit_contract.sql`)를 소비한다 — **041 apply가
+선행 조건**이다. Stage 5-C에서는 어떤 쿼리도 production에 실행하지
+않는다(적용 단계에서 사용).
+
+## 0. Pre-apply contract preflight (041 schema 존재 확인 — 필수)
+
+```sql
+-- A. 041 contract objects exist
+select to_regclass('business_category_relations') as relation_table;
+-- 기대: 'business_category_relations' (041 미적용이면 STOP — apply 순서 오류)
+
+select column_name from information_schema.columns
+where table_name = 'benefits' and column_name in ('value_text','code')
+order by column_name;
+-- 기대: 2 rows ('code', 'value_text')
+
+-- D. 042가 이미 적용되었는지 확인 (재적용 안전성 — idempotent하므로 재실행은 무해하나 기록용)
+select count(*) from businesses where id in (
+  'd0a1c4a1-41c5-4c51-b2b2-000000000001'::uuid,
+  'd0a1c4a1-41c5-4c51-b2b2-000000000008'::uuid
+);
+-- 기대: 0 (최초 apply) / 2 (이미 적용됨 — 재적용은 no-op이므로 진행해도 무해)
+```
+
+## 1. Pre-apply readback (적용 직전, 전부 SELECT만)
+
+```sql
+-- complex 존재 여부
+select id, name, slug, status
+from complexes
+where slug = 'banglim-myeongji-roadhill';
+-- 기대: 0 rows
+
+-- business 총량
+select count(*) from businesses;
+-- 기대(2026-09-08 감아드 기준): 0
+
+-- pilot discovery join count (실제 public API WHERE와 동일 계약)
+select count(*) as discoverable
+from businesses b
+join business_complex_relations r on r.business_id = b.id
+join complexes c on c.id = r.complex_id
+where c.slug = 'banglim-myeongji-roadhill'
+  and c.status in ('active','pilot')
+  and b.status = 'approved'
+  and r.verification_status = 'verified';
+-- 기대: 0
+
+-- C. target UUID collision preflight (이 migration의 deterministic UUID 충돌 여부)
+select
+  (select count(*) from businesses where id::text like 'd0a1c4a1-41c5-4c51-b2b2-%') as business_id_collisions,
+  (select count(*) from benefits where id::text like 'd0a1c4a1-41c5-4c51-a1b1-%') as benefit_id_collisions,
+  (select count(*) from business_categories where id::text like 'd0a1c4a1-41c5-4c51-c3c3-%') as category_id_collisions,
+  (select count(*) from complexes where id = 'd0a1c4a1-41c5-4c51-0000-000000000001'::uuid) as complex_id_collisions;
+-- 기대(최초 apply): 0 / 0 / 0 / 0
+-- (id::text LIKE는 uuid 컬럼 자체에 패턴을 쓰지 않고 text cast 후 접두사 비교 —
+--  rollback의 exact-UUID 원칙과 별개로, 시드 자체가 소유한 deterministic prefix만 검사)
+
+-- category collision preflight (production apply 전 필수 실행)
+-- 이 migration이 시드하려는 6개 slug와 6개 name이 기존에 존재하는지 확인
+select id, slug, name
+from business_categories
+where slug in ('food','cafe','home','learn','pro','car')
+   or name in (
+     '음식점·카페·반찬',
+     '카페·디저트',
+     '생활·홈케어',
+     '교육·과외',
+     '전문·문서·촬영',
+     '자동차 정비'
+   )
+order by slug, name;
+```
+
+### Category collision 판정 (preflight 결과에 따라)
+
+| 결과 | 판정 | 조치 |
+|---|---|---|
+| 0 rows | `SAFE` | 그대로 apply |
+| same slug + 의도한 name 그대로 | `SAFE / REUSE` | 그대로 apply — ON CONFLICT(slug)가 기존 row 재사용 |
+| same slug + 다른 name | `STOP` | apply 금지 — slug 소유자가 달라 의도와 어긋남. 사전 조율 필요 |
+| same name + 다른 slug | `STOP` | apply 금지 — name unique 제약 충돌로 insert가 실패함. 사전 조율 필요 |
+
+production apply 전에 이 쿼리를 **반드시** 실행하고 판정이 SAFE/SAFE·REUSE인
+경우에만 진행한다. STOP 판정 시 migration을 고쳐서 다시 PR 리뷰부터
+진행한다.
+
+## 2. Post-apply readback (적용 직후)
+
+```sql
+-- complex 1건, slug/status 확인
+select id, name, slug, status
+from complexes
+where slug = 'banglim-myeongji-roadhill';
+-- 기대: 1 row, status='pilot'
+
+-- 이 migration이 만든 row만 (deterministic UUID exact list로 격리)
+select count(*) from businesses where id in (
+  'd0a1c4a1-41c5-4c51-b2b2-000000000001'::uuid,
+  'd0a1c4a1-41c5-4c51-b2b2-000000000002'::uuid,
+  'd0a1c4a1-41c5-4c51-b2b2-000000000003'::uuid,
+  'd0a1c4a1-41c5-4c51-b2b2-000000000004'::uuid,
+  'd0a1c4a1-41c5-4c51-b2b2-000000000005'::uuid,
+  'd0a1c4a1-41c5-4c51-b2b2-000000000006'::uuid,
+  'd0a1c4a1-41c5-4c51-b2b2-000000000007'::uuid,
+  'd0a1c4a1-41c5-4c51-b2b2-000000000008'::uuid
+);
+-- 기대: 8
+
+select count(*) from business_categories where id in (
+  'd0a1c4a1-41c5-4c51-c3c3-000000000001'::uuid,
+  'd0a1c4a1-41c5-4c51-c3c3-000000000002'::uuid,
+  'd0a1c4a1-41c5-4c51-c3c3-000000000003'::uuid,
+  'd0a1c4a1-41c5-4c51-c3c3-000000000004'::uuid,
+  'd0a1c4a1-41c5-4c51-c3c3-000000000005'::uuid,
+  'd0a1c4a1-41c5-4c51-c3c3-000000000006'::uuid
+);
+-- 기대: 최대 6 (기존 동일 slug category가 있으면 ON CONFLICT로 재사용 → 6 미만 가능)
+
+select count(*) from business_complex_relations
+where business_id in (
+  'd0a1c4a1-41c5-4c51-b2b2-000000000001'::uuid,
+  'd0a1c4a1-41c5-4c51-b2b2-000000000002'::uuid,
+  'd0a1c4a1-41c5-4c51-b2b2-000000000003'::uuid,
+  'd0a1c4a1-41c5-4c51-b2b2-000000000004'::uuid,
+  'd0a1c4a1-41c5-4c51-b2b2-000000000005'::uuid,
+  'd0a1c4a1-41c5-4c51-b2b2-000000000006'::uuid,
+  'd0a1c4a1-41c5-4c51-b2b2-000000000007'::uuid,
+  'd0a1c4a1-41c5-4c51-b2b2-000000000008'::uuid
+);
+-- 기대: 8
+
+select count(*) from benefits where id in (
+  'd0a1c4a1-41c5-4c51-a1b1-000000000001'::uuid,
+  'd0a1c4a1-41c5-4c51-a1b1-000000000002'::uuid,
+  'd0a1c4a1-41c5-4c51-a1b1-000000000003'::uuid,
+  'd0a1c4a1-41c5-4c51-a1b1-000000000004'::uuid,
+  'd0a1c4a1-41c5-4c51-a1b1-000000000005'::uuid,
+  'd0a1c4a1-41c5-4c51-a1b1-000000000006'::uuid,
+  'd0a1c4a1-41c5-4c51-a1b1-000000000007'::uuid,
+  'd0a1c4a1-41c5-4c51-a1b1-000000000008'::uuid
+);
+-- 기대: 8 (가게 8개 각각 1개씩 — sibling v3 전체 benefit 원문)
+
+-- 041 contract: business_category_relations (10 = 단일 6 + florist 2 + car 2)
+select count(*) from business_category_relations
+where business_id in (
+  'd0a1c4a1-41c5-4c51-b2b2-000000000001'::uuid,
+  'd0a1c4a1-41c5-4c51-b2b2-000000000002'::uuid,
+  'd0a1c4a1-41c5-4c51-b2b2-000000000003'::uuid,
+  'd0a1c4a1-41c5-4c51-b2b2-000000000004'::uuid,
+  'd0a1c4a1-41c5-4c51-b2b2-000000000005'::uuid,
+  'd0a1c4a1-41c5-4c51-b2b2-000000000006'::uuid,
+  'd0a1c4a1-41c5-4c51-b2b2-000000000007'::uuid,
+  'd0a1c4a1-41c5-4c51-b2b2-000000000008'::uuid
+);
+-- 기대: 10
+
+-- exact category set 검증 (v3 authority)
+select b.name, bc.slug
+from business_category_relations bcr
+join businesses b on b.id = bcr.business_id
+join business_categories bc on bc.id = bcr.category_id
+where b.id = 'd0a1c4a1-41c5-4c51-b2b2-000000000001'::uuid  -- 로드힐 꽃작업실
+order by bc.sort_order;
+-- 기대: 'cafe', 'food' (2 rows)
+
+select b.name, bc.slug
+from business_category_relations bcr
+join businesses b on b.id = bcr.business_id
+join business_categories bc on bc.id = bcr.category_id
+where b.id = 'd0a1c4a1-41c5-4c51-b2b2-000000000006'::uuid  -- 우리동네 자동차정비
+order by bc.sort_order;
+-- 기대: 'car', 'home' (2 rows)
+
+-- benefit value_text/code 8/8 원문 검증
+select b.name as business_name, be.value_text, be.code
+from benefits be
+join businesses b on b.id = be.business_id
+where be.id in (
+  'd0a1c4a1-41c5-4c51-a1b1-000000000001'::uuid,
+  'd0a1c4a1-41c5-4c51-a1b1-000000000002'::uuid,
+  'd0a1c4a1-41c5-4c51-a1b1-000000000003'::uuid,
+  'd0a1c4a1-41c5-4c51-a1b1-000000000004'::uuid,
+  'd0a1c4a1-41c5-4c51-a1b1-000000000005'::uuid,
+  'd0a1c4a1-41c5-4c51-a1b1-000000000006'::uuid,
+  'd0a1c4a1-41c5-4c51-a1b1-000000000007'::uuid,
+  'd0a1c4a1-41c5-4c51-a1b1-000000000008'::uuid
+)
+order by be.id;
+-- 기대 (정확히 8행, value_text/code 원문):
+--   로드힐 꽃작업실     | 예약혜택 | DANJION · F052
+--   오늘의 반찬         | 10%      | DANJION · F010
+--   온케어 홈서비스     | 면제     | DANJION · H001
+--   바른 세무상담       | 무료     | DANJION · P001
+--   한결수학           | 무료     | DANJION · L001
+--   우리동네 자동차정비 | 공임할인 | DANJION · C014
+--   정다운 헤어         | 할인     | DANJION · B018
+--   사진하는 이웃       | 촬영할인 | DANJION · PH01
+
+select count(*) from benefits
+where id in (
+  'd0a1c4a1-41c5-4c51-a1b1-000000000001'::uuid,
+  'd0a1c4a1-41c5-4c51-a1b1-000000000002'::uuid,
+  'd0a1c4a1-41c5-4c51-a1b1-000000000003'::uuid,
+  'd0a1c4a1-41c5-4c51-a1b1-000000000004'::uuid,
+  'd0a1c4a1-41c5-4c51-a1b1-000000000005'::uuid,
+  'd0a1c4a1-41c5-4c51-a1b1-000000000006'::uuid,
+  'd0a1c4a1-41c5-4c51-a1b1-000000000007'::uuid,
+  'd0a1c4a1-41c5-4c51-a1b1-000000000008'::uuid
+) and value_text is not null and code is not null;
+-- 기대: 8 (8/8 value_text + code 완비)
+
+-- public discovery join count (API 노출 기준, 위 pre-apply와 동일 쿼리)
+-- 기대: 8
+```
+
+## 3. API 기대값 (적용 후에만 확인; Stage 5-C 범위 밖)
+
+```
+GET /api/v1/complexes/banglim-myeongji-roadhill
+  => 200, data.slug = 'banglim-myeongji-roadhill', data.status = 'pilot'
+
+GET /api/v1/complexes/banglim-myeongji-roadhill/businesses?limit=50
+  => 200, data.length = 8
+     relation 정렬: resident → resident_family → neighbor 순, priority 100 동순위
+     각 row에 categories[] 포함 (041 contract):
+       로드힐 꽃작업실     categories = ['cafe','food']
+       오늘의 반찬         categories = ['food']
+       온케어 홈서비스     categories = ['home']
+       바른 세무상담       categories = ['pro']
+       한결수학           categories = ['learn']
+       우리동네 자동차정비 categories = ['car','home']
+       정다운 헤어         categories = ['home']
+       사진하는 이웃       categories = ['pro']
+     category_slug (primary, legacy 호환)도 유지:
+       꽃작업실 = 'food', 자동차정비 = 'car'
+     각 row의 active_benefit에 value/code 포함 (041 contract):
+       예: 오늘의 반찬 active_benefit.value = '10%'
+           active_benefit.code = 'DANJION · F010'
+```
+
+## 4. Idempotency 확인 (재적용 시)
+
+같은 migration을 다시 실행해도 모든 insert가 `ON CONFLICT DO NOTHING`이므로
+row 수 변화 없음. 재적용 후 위 post-apply readback 수치가 동일하게 유지되어야 한다.
+
+## 5. Rollback (수동 절차 — 자동화 금지)
+
+migration 파일 헤더 주석의 6단계 순서를 따른다 (benefits →
+business_category_relations → business_complex_relations → businesses →
+categories(조건부) → complexes). **business_category_relations를 먼저
+삭제해야** businesses/categories 삭제 시 FK 제약에 걸리지 않는다. 모든
+식별은 **exact UUID IN list**로만 수행한다(uuid 컬럼에 패턴 매칭 금지 —
+PostgreSQL에 uuid 패턴 연산자가 없음). complex 삭제는 `id = ...::uuid and
+slug = 'banglim-myeongji-roadhill'` 동시 조건을 건다. category 삭제는 이
+migration이 만든 category면서 파일럿 외 business가 참조하지 않는 경우에만
+(NOT EXISTS 가드). 각 단계 전에 FK 참조를 재확인하고, 파일럿 row 외 다른
+row가 참조하고 있으면 즉시 중단하고 전용 backout migration을 별도 작성한다.
+
+## 6. Product authority — sibling final v3 parity
+
+```text
+PRODUCT_AUTHORITY =
+  sibling final v3 frontend at
+  a2e856de522f77793ced0718cf58ab4b2d210732
+  frontend/01_이웃가게_발견_v3.html (SHOP_DATA 8)
+
+RULE =
+  backend/database adapt to frontend authority.
+  Do not rewrite product semantics to fit current schema.
+```
+
+### Parity matrix (seed ↔ sibling v3 SHOP_DATA — 041 contract 적용 후)
+
+| BUSINESS | AUTHORITY_NAME | AUTHORITY_RELATION | AUTHORITY_CATEGORY | DB_REPRESENTATION | AUTHORITY_BENEFIT | VALUE | CODE | PARITY_STATUS | GAP |
+|---|---|---|---|---|---|---|---|---|---|
+| 로드힐 꽃작업실 | 로드힐 꽃작업실 | 우리 주민 가게 → resident | cafe + food | categories=[cafe,food] + primary food | 꽃다발 예약 상담 시 주민 전용 혜택 | 예약혜택 | DANJION · F052 | COMPLETE | — |
+| 오늘의 반찬 | 오늘의 반찬 | 우리 주민 가게 → resident | food | categories=[food] | 방림명지로드힐 주민 10% 할인 | 10% | DANJION · F010 | COMPLETE | — |
+| 온케어 홈서비스 | 온케어 홈서비스 | 주민 가족 가게 → resident_family | home | categories=[home] | 방림명지로드힐 출장비 면제 | 면제 | DANJION · H001 | COMPLETE | — |
+| 바른 세무상담 | 바른 세무상담 | 우리 주민 가게 → resident | pro | categories=[pro] | 방림명지로드힐 첫 상담 무료 | 무료 | DANJION · P001 | COMPLETE | — |
+| 한결수학 | 한결수학 | 우리 주민 가게 → resident | learn | categories=[learn] | 방림명지로드힐 학생 첫 수업 무료 | 무료 | DANJION · L001 | COMPLETE | — |
+| 우리동네 자동차정비 | 우리동네 자동차정비 | 이웃단지 가게 → neighbor | car + home | categories=[car,home] + primary car | 주민 공임 할인 | 공임할인 | DANJION · C014 | COMPLETE | — |
+| 정다운 헤어 | 정다운 헤어 | 주민 가족 가게 → resident_family | home | categories=[home] | 입주민 커트 할인 | 할인 | DANJION · B018 | COMPLETE | — |
+| 사진하는 이웃 | 사진하는 이웃 | 우리 주민 가게 → resident | pro | categories=[pro] | 입주민 촬영비 할인 | 촬영할인 | DANJION · PH01 | COMPLETE | — |
+
+- 이름/copy/relation/benefit 문구는 v3 원문 그대로 seed (PASS).
+- 041 contract 적용으로 MULTI_CATEGORY / BENEFIT_VALUE / BENEFIT_CODE
+  3개 gap이 모두 해소되어 PARITY_STATUS = COMPLETE (8/8).
+
+### Contract gap 해소 내역 (PR #282 041 contract로 해소)
+
+```text
+SCHEMA_GAP_MULTI_CATEGORY = RESOLVED (041)
+  AUTHORITY_VALUE = 로드힐 꽃작업실 "cafe food", 우리동네 자동차정비 "car home"
+  RESOLUTION = business_category_relations (041) + seed 3b 섹션 10행
+  businesses.category_id = primary 호환 컬럼으로 유지
+
+SCHEMA_GAP_BENEFIT_VALUE = RESOLVED (041)
+  AUTHORITY_VALUE = 가게별 value 문자열 (예: 오늘의 반찬 value = 10%)
+  RESOLUTION = benefits.value_text (041, nullable) + seed 8/8
+  API_FIELD = value (3 endpoint 동일 — active_benefit.value / detail value / public value)
+
+SCHEMA_GAP_BENEFIT_CODE = RESOLVED (041)
+  AUTHORITY_VALUE = 가게별 code (예: 오늘의 반찬 code = DANJION · F010)
+  RESOLUTION = benefits.code (041, nullable, non-unique by design) + seed 8/8
+  API_FIELD = code
+```
+
+중립화 문구("주민 할인 안내", "출장비 관련 안내", "첫 상담 관련 안내",
+"파일럿 예시 혜택입니다…" 등)는 모두 제거하고 v3 원문 benefit으로
+교체했다. #253/#139는 delivery-mode 결정 보류일 뿐, v3에 이미 있는
+혜택 문구를 중립화하는 근거가 아니다.
