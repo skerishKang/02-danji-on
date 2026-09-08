@@ -14,8 +14,18 @@
 --   All rows are explicit PILOT PLACEHOLDER demo data.
 --   NO real personal data, phone numbers, address details, or owner
 --   accounts (businesses.owner_user_id is left NULL on purpose).
---   Business names/descriptions reuse the v3 Stage 4 demo catalog character,
+--   Business names/descriptions follow the sibling final v3 catalog,
 --   not real resident/business identities.
+--
+-- PRODUCT_AUTHORITY
+--   Sibling final v3 frontend at
+--     a2e856de522f77793ced0718cf58ab4b2d210732
+--     frontend/01_이웃가게_발견_v3.html (SHOP_DATA 8)
+--   RULE: backend/database adapt to the frontend authority. Do NOT rewrite
+--   product semantics (names, copy, relations, benefit wording) to fit the
+--   current schema. Fields the current schema cannot represent are kept
+--   verbatim where a column allows and documented as SCHEMA_GAP in
+--   04_개발/backend/docs/041_SEED_READBACK_QUERIES_20260908.md.
 --
 -- Authority
 --   Schema: 04_개발/backend/migrations/001_initial_schema.sql (+ 003 constraints)
@@ -29,8 +39,10 @@
 --   This migration never overwrites existing rows (no ON CONFLICT DO UPDATE).
 --
 -- HOLD boundaries
---   benefits rows stay neutral: title/description/conditions/status only.
---   No delivery-mode/coupon/reserve-onsite semantics (#253/#139 HOLD).
+--   benefit wording follows the sibling v3 authority verbatim (it predates
+--   and is neutral of #253/#139 delivery-mode decisions: no coupon/reserve/
+--   onsite semantics are added). Schema-authoritative fields only:
+--   title, description, conditions, status.
 --   No warmth scoring, no resident verification, no personal data (#263/#59).
 --
 -- Rollback plan (manual, destructive steps NOT automated in this file)
@@ -42,7 +54,7 @@
 --   Pilot business ids (referred to below as PILOT_BUSINESS_IDS):
 --     d0a1c4a1-41c5-4c51-b2b2-000000000001 .. 000000000008
 --   Pilot benefit ids:
---     d0a1c4a1-41c5-4c51-a1b1-000000000001 .. 000000000004
+--     d0a1c4a1-41c5-4c51-a1b1-000000000001 .. 000000000008
 --   Pilot category ids:
 --     d0a1c4a1-41c5-4c51-c3c3-000000000001 .. 000000000006
 --   Pilot complex id:
@@ -52,7 +64,11 @@
 --          'd0a1c4a1-41c5-4c51-a1b1-000000000001'::uuid,
 --          'd0a1c4a1-41c5-4c51-a1b1-000000000002'::uuid,
 --          'd0a1c4a1-41c5-4c51-a1b1-000000000003'::uuid,
---          'd0a1c4a1-41c5-4c51-a1b1-000000000004'::uuid);
+--          'd0a1c4a1-41c5-4c51-a1b1-000000000004'::uuid,
+--          'd0a1c4a1-41c5-4c51-a1b1-000000000005'::uuid,
+--          'd0a1c4a1-41c5-4c51-a1b1-000000000006'::uuid,
+--          'd0a1c4a1-41c5-4c51-a1b1-000000000007'::uuid,
+--          'd0a1c4a1-41c5-4c51-a1b1-000000000008'::uuid);
 --     2. DELETE FROM business_complex_relations WHERE business_id IN (
 --          <PILOT_BUSINESS_IDS as exact ::uuid list>);
 --     3. DELETE FROM businesses WHERE id IN (<PILOT_BUSINESS_IDS exact list>);
@@ -110,21 +126,25 @@ values
 on conflict (slug) do nothing;
 
 -- ---------------------------------------------------------------------------
--- 3) Pilot businesses (PILOT PLACEHOLDER demo data)
+-- 3) Pilot businesses — copy from sibling final v3 authority (SHOP_DATA 8)
 --    owner_user_id intentionally NULL: no owner account seeding.
 --    status 'approved' satisfies the public discovery WHERE clause.
+--    summary = v3 desc, description = v3 service/way/contact context,
+--    price_text = v3 service, service_area = v3 location,
+--    availability_text = v3 way. category: primary category only
+--    (multi-category v3 values are documented as SCHEMA_GAP).
 -- ---------------------------------------------------------------------------
 insert into businesses (id, owner_user_id, category_id, kind, name, summary, description, price_text, service_area, availability_text, status)
 select v.id::uuid, null, bc.id, v.kind, v.name, v.summary, v.description, v.price_text, v.service_area, v.availability_text, 'approved'
 from (values
-  ('d0a1c4a1-41c5-4c51-b2b2-000000000001','food','shop','로드힐 꽃작업실','계절 꽃다발과 작은 선물 예약 상담','파일럿 안내용 예시 가게입니다. 실제 운영 정보는 등록 후 확정됩니다.','꽃다발 · 주문 상담','광주 남구 방림동 일대','예약 상담 후 방문 수령'),
-  ('d0a1c4a1-41c5-4c51-b2b2-000000000002','food','shop','오늘의 반찬','매일 만드는 국과 반찬 예약 주문','파일럿 안내용 예시 가게입니다.','반찬 · 김치 · 계절 메뉴','방림명지로드힐 인근','예약 주문 후 수령'),
-  ('d0a1c4a1-41c5-4c51-b2b2-000000000003','home','service','온케어 홈서비스','에어컨·세탁기 분해 세척과 생활 점검','파일럿 안내용 예시 서비스입니다.','기종·작업 범위에 따라 상담','광주 남구 방문 서비스','평일·토요일 예약'),
-  ('d0a1c4a1-41c5-4c51-b2b2-000000000004','pro','service','바른 세무상담','세무·사업자등록·기초 문서 상담','파일럿 안내용 예시 서비스입니다.','기초 상담 문의로 안내','비대면 또는 광주 남구 인근','예약 상담'),
-  ('d0a1c4a1-41c5-4c51-b2b2-000000000005','learn','service','한결 수학','중·고등 수학 오답·내신 지도','파일럿 안내용 예시 서비스입니다.','학년·진도에 따라 상담','방림명지로드힐 인근','사전 상담 예약'),
-  ('d0a1c4a1-41c5-4c51-b2b2-000000000006','car','service','우리동네 자동차정비','기본 점검·소모품 교체·하체 점검','파일럿 안내용 예시 서비스입니다.','차량 상태 확인 후 안내','광주 남구 생활권','월–토 예약/방문'),
-  ('d0a1c4a1-41c5-4c51-b2b2-000000000007','home','service','정다운 헤어','커트와 기본 케어 생활 미용','파일럿 안내용 예시 서비스입니다.','커트 기본 요금 문의','방림동 인근','예약 우선'),
-  ('d0a1c4a1-41c5-4c51-b2b2-000000000008','pro','service','사진하는 이웃','가족사진·프로필 소규모 촬영','파일럿 안내용 예시 서비스입니다.','촬영 구성에 따라 상담','광주 남구 촬영','주말·평일 저녁 예약')
+  ('d0a1c4a1-41c5-4c51-b2b2-000000000001','food','shop','로드힐 꽃작업실','계절 꽃다발과 작은 선물을 예약 상담으로 준비합니다.','꽃다발 · 작은 선물 · 예약 제작','꽃다발 · 작은 선물 · 예약 제작','광주 남구 방림동 일대','예약 상담 후 방문 수령'),
+  ('d0a1c4a1-41c5-4c51-b2b2-000000000002','food','shop','오늘의 반찬','매일 먹기 좋은 국과 반찬, 김치를 소량으로 정성껏 준비합니다.','가정식 반찬 · 국 · 김치 · 계절 메뉴 · 1:1 문의로 메뉴·수령 시간 상담','가정식 반찬 · 국 · 김치 · 계절 메뉴','방림명지로드힐 인근','전화·1:1 문의 후 예약 주문'),
+  ('d0a1c4a1-41c5-4c51-b2b2-000000000003','home','service','온케어 홈서비스','에어컨과 세탁기 내부를 분해 세척하고 작동 상태를 함께 점검합니다.','에어컨 분해세척 · 세탁기 청소 · 생활 점검 · 1:1 문의로 기종·작업 범위·방문 시간 상담','에어컨 분해세척 · 세탁기 청소 · 생활 점검','광주 남구 방문 서비스','평일·토요일 방문 예약'),
+  ('d0a1c4a1-41c5-4c51-b2b2-000000000004','pro','service','바른 세무상담','개인과 소상공인의 세무·사업자등록·기초 문서를 함께 살펴봅니다.','세무 상담 · 사업자등록 · 기초 문서 · 1:1 문의로 상담 내용·시간 예약','세무 상담 · 사업자등록 · 기초 문서','비대면 또는 광주 남구 인근 상담','평일 오후 · 예약 상담'),
+  ('d0a1c4a1-41c5-4c51-b2b2-000000000005','learn','service','한결수학','학생별 진도와 오답을 살피며 중·고등 수학을 지도합니다.','중·고등 수학 · 내신 대비 · 오답 지도 · 1:1 문의로 학년·수업 일정 상담','중·고등 수학 · 내신 대비 · 오답 지도','방림명지로드힐 인근','방문·비대면 수업 · 사전 상담'),
+  ('d0a1c4a1-41c5-4c51-b2b2-000000000006','car','service','우리동네 자동차정비','기본 점검과 소모품 교체부터 하체 점검까지 직접 설명하는 정비 서비스입니다.','차량 점검 · 오일 · 소모품 · 하체 · 1:1 문의 또는 전화 상담','차량 점검 · 오일 · 소모품 · 하체','광주 남구 생활권','월–토 예약/방문'),
+  ('d0a1c4a1-41c5-4c51-b2b2-000000000007','home','service','정다운 헤어','가족이 운영하는 생활 미용 서비스로 커트와 기본 관리를 제공합니다.','커트 · 염색 · 기본 케어 · 1:1 문의로 예약 상담','커트 · 염색 · 기본 케어','방림동 인근','화–일 예약 우선'),
+  ('d0a1c4a1-41c5-4c51-b2b2-000000000008','pro','service','사진하는 이웃','가족사진과 프로필을 자연스럽게 촬영하고 기본 보정을 제공합니다.','가족사진 · 프로필 · 소규모 촬영 · 1:1 문의로 촬영 상담','가족사진 · 프로필 · 소규모 촬영','광주 남구 촬영','주말·평일 저녁 예약')
 ) as v(id, category_slug, kind, name, summary, description, price_text, service_area, availability_text)
 join business_categories bc on bc.slug = v.category_slug
 on conflict (id) do nothing;
@@ -134,13 +154,15 @@ on conflict (id) do nothing;
 --    verification_status is the schema value required by the public read
 --    path only. It does NOT assert real resident/owner/legal verification
 --    happened; these rows are explicitly pilot placeholders and carry no
---    verified_by user. relation_type mirrors the v3 relation labels.
+--    verified_by user. relation_type follows the sibling v3 authority
+--    mapping: 우리 주민 가게 -> resident, 주민 가족 가게 ->
+--    resident_family, 이웃단지 가게 -> neighbor.
 -- ---------------------------------------------------------------------------
 insert into business_complex_relations (business_id, complex_id, relation_type, verification_status, priority)
 select b.id, c.id,
   case
-    when b.name in ('우리동네 자동차정비') then 'neighbor'
-    when b.name in ('정다운 헤어','사진하는 이웃') then 'resident_family'
+    when b.name = '우리동네 자동차정비' then 'neighbor'
+    when b.name in ('온케어 홈서비스','정다운 헤어') then 'resident_family'
     else 'resident'
   end,
   'verified', 100
@@ -159,20 +181,26 @@ where b.id in (
 on conflict (business_id, complex_id) do nothing;
 
 -- ---------------------------------------------------------------------------
--- 5) Benefits — neutral pilot placeholders only (#253/#139 HOLD)
---    Schema-authoritative fields only: title, description, conditions,
---    status. No dates are forced (starts_at/ends_at NULL = always active
---    window), no delivery/coupon/reserve semantics, no claim mechanics.
---    Titles stay in the neutral "예약·문의 시 확인" register that the v3 UI
---    displays via activeBenefit.title.
+-- 5) Benefits — sibling v3 authority wording (8)
+--    Titles are the v3 benefit copy verbatim. Schema-authoritative fields
+--    only: title, description, conditions, status. v3 value/code (예: 10%,
+--    DANJION · F010) have no dedicated columns in the current benefits
+--    schema and are documented as SCHEMA_GAP in the readback doc —
+--    NOT dropped requirements, NOT neutralized. #253/#139 delivery-mode
+--    decisions remain open; these rows add no coupon/reserve/onsite
+--    semantics beyond what the v3 copy itself states.
 -- ---------------------------------------------------------------------------
 insert into benefits (id, complex_id, business_id, title, description, conditions, status)
 select v.id::uuid, c.id, b.id, v.title, v.description, v.conditions, 'active'
 from (values
-  ('d0a1c4a1-41c5-4c51-a1b1-000000000001','로드힐 꽃작업실','주민 전용 예약 혜택 안내','파일럿 예시 혜택입니다. 실제 조건은 운영 정책 확정 후 반영됩니다.','주민 확인 후 적용'),
-  ('d0a1c4a1-41c5-4c51-a1b1-000000000002','오늘의 반찬','주민 할인 안내','파일럿 예시 혜택입니다. 실제 조건은 운영 정책 확정 후 반영됩니다.','주민 확인 후 적용'),
-  ('d0a1c4a1-41c5-4c51-a1b1-000000000003','온케어 홈서비스','출장비 관련 안내','파일럿 예시 혜택입니다. 실제 조건은 운영 정책 확정 후 반영됩니다.','주민 확인 후 적용'),
-  ('d0a1c4a1-41c5-4c51-a1b1-000000000004','바른 세무상담','첫 상담 관련 안내','파일럿 예시 혜택입니다. 실제 조건은 운영 정책 확정 후 반영됩니다.','주민 확인 후 적용')
+  ('d0a1c4a1-41c5-4c51-a1b1-000000000001','로드힐 꽃작업실','꽃다발 예약 상담 시 주민 전용 혜택','단지온 예약혜택(DANJION · F052)','주민 확인 후 적용'),
+  ('d0a1c4a1-41c5-4c51-a1b1-000000000002','오늘의 반찬','방림명지로드힐 주민 10% 할인','단지온 10% 할인(DANJION · F010)','주민 확인 후 적용'),
+  ('d0a1c4a1-41c5-4c51-a1b1-000000000003','온케어 홈서비스','방림명지로드힐 출장비 면제','단지온 면제(DANJION · H001)','주민 확인 후 적용'),
+  ('d0a1c4a1-41c5-4c51-a1b1-000000000004','바른 세무상담','방림명지로드힐 첫 상담 무료','단지온 무료(DANJION · P001)','주민 확인 후 적용'),
+  ('d0a1c4a1-41c5-4c51-a1b1-000000000005','한결수학','방림명지로드힐 학생 첫 수업 무료','단지온 무료(DANJION · L001)','주민 확인 후 적용'),
+  ('d0a1c4a1-41c5-4c51-a1b1-000000000006','우리동네 자동차정비','주민 공임 할인','단지온 공임할인(DANJION · C014)','주민 확인 후 적용'),
+  ('d0a1c4a1-41c5-4c51-a1b1-000000000007','정다운 헤어','입주민 커트 할인','단지온 할인(DANJION · B018)','주민 확인 후 적용'),
+  ('d0a1c4a1-41c5-4c51-a1b1-000000000008','사진하는 이웃','입주민 촬영비 할인','단지온 촬영할인(DANJION · PH01)','주민 확인 후 적용')
 ) as v(id, business_name, title, description, conditions)
 join businesses b on b.name = v.business_name
   and b.id in (

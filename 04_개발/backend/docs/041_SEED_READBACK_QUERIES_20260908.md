@@ -108,9 +108,13 @@ select count(*) from benefits where id in (
   'd0a1c4a1-41c5-4c51-a1b1-000000000001'::uuid,
   'd0a1c4a1-41c5-4c51-a1b1-000000000002'::uuid,
   'd0a1c4a1-41c5-4c51-a1b1-000000000003'::uuid,
-  'd0a1c4a1-41c5-4c51-a1b1-000000000004'::uuid
+  'd0a1c4a1-41c5-4c51-a1b1-000000000004'::uuid,
+  'd0a1c4a1-41c5-4c51-a1b1-000000000005'::uuid,
+  'd0a1c4a1-41c5-4c51-a1b1-000000000006'::uuid,
+  'd0a1c4a1-41c5-4c51-a1b1-000000000007'::uuid,
+  'd0a1c4a1-41c5-4c51-a1b1-000000000008'::uuid
 );
--- 기대: 4
+-- 기대: 8 (가게 8개 각각 1개씩 — sibling v3 전체 benefit 원문)
 
 -- public discovery join count (API 노출 기준, 위 pre-apply와 동일 쿼리)
 -- 기대: 8
@@ -142,3 +146,58 @@ list**로만 수행한다(uuid 컬럼에 패턴 매칭 금지 — PostgreSQL에 
 migration이 만든 category면서 파일럿 외 business가 참조하지 않는 경우에만
 (NOT EXISTS 가드). 각 단계 전에 FK 참조를 재확인하고, 파일럿 row 외 다른
 row가 참조하고 있으면 즉시 중단하고 전용 backout migration을 별도 작성한다.
+
+## 6. Product authority — sibling final v3 parity
+
+```text
+PRODUCT_AUTHORITY =
+  sibling final v3 frontend at
+  a2e856de522f77793ced0718cf58ab4b2d210732
+  frontend/01_이웃가게_발견_v3.html (SHOP_DATA 8)
+
+RULE =
+  backend/database adapt to frontend authority.
+  Do not rewrite product semantics to fit current schema.
+```
+
+### Parity matrix (seed ↔ sibling v3 SHOP_DATA)
+
+| BUSINESS | AUTHORITY_NAME | AUTHORITY_RELATION | AUTHORITY_CATEGORY | DB_REPRESENTATION | AUTHORITY_BENEFIT | VALUE | CODE | PARITY_STATUS | GAP |
+|---|---|---|---|---|---|---|---|---|---|
+| 로드힐 꽃작업실 | 로드힐 꽃작업실 | 우리 주민 가게 → resident | cafe + food | food (primary only) | 꽃다발 예약 상담 시 주민 전용 혜택 | 예약혜택 | DANJION · F052 | PARTIAL | MULTI_CATEGORY, BENEFIT_VALUE, BENEFIT_CODE |
+| 오늘의 반찬 | 오늘의 반찬 | 우리 주민 가게 → resident | food | food | 방림명지로드힐 주민 10% 할인 | 10% | DANJION · F010 | PARTIAL | BENEFIT_VALUE, BENEFIT_CODE |
+| 온케어 홈서비스 | 온케어 홈서비스 | 주민 가족 가게 → resident_family | home | home | 방림명지로드힐 출장비 면제 | 면제 | DANJION · H001 | PARTIAL | BENEFIT_VALUE, BENEFIT_CODE |
+| 바른 세무상담 | 바른 세무상담 | 우리 주민 가게 → resident | pro | pro | 방림명지로드힐 첫 상담 무료 | 무료 | DANJION · P001 | PARTIAL | BENEFIT_VALUE, BENEFIT_CODE |
+| 한결수학 | 한결수학 | 우리 주민 가게 → resident | learn | learn | 방림명지로드힐 학생 첫 수업 무료 | 무료 | DANJION · L001 | PARTIAL | BENEFIT_VALUE, BENEFIT_CODE |
+| 우리동네 자동차정비 | 우리동네 자동차정비 | 이웃단지 가게 → neighbor | car + home | car (primary only) | 주민 공임 할인 | 공임할인 | DANJION · C014 | PARTIAL | MULTI_CATEGORY, BENEFIT_VALUE, BENEFIT_CODE |
+| 정다운 헤어 | 정다운 헤어 | 주민 가족 가게 → resident_family | home | home | 입주민 커트 할인 | 할인 | DANJION · B018 | PARTIAL | BENEFIT_VALUE, BENEFIT_CODE |
+| 사진하는 이웃 | 사진하는 이웃 | 우리 주민 가게 → resident | pro | pro | 입주민 촬영비 할인 | 촬영할인 | DANJION · PH01 | PARTIAL | BENEFIT_VALUE, BENEFIT_CODE |
+
+- 이름/copy/relation/benefit 문구는 v3 원문 그대로 seed (PASS). PARITY가
+  PARTIAL인 이유는 아래 SCHEMA_GAP뿐이다.
+
+### SCHEMA_GAP (이번 PR에서 schema redesign 없이 문서로만 남김)
+
+```text
+SCHEMA_GAP_MULTI_CATEGORY = YES
+  AUTHORITY_VALUE = 로드힐 꽃작업실 "cafe food", 우리동네 자동차정비 "car home"
+  CURRENT_DB_REPRESENTATION = primary category only (businesses.category_id 단일)
+  FOLLOWUP_REQUIRED = business-category many-to-many contract
+
+SCHEMA_GAP_BENEFIT_VALUE = YES
+  AUTHORITY_VALUE = 가게별 value 문자열 (예: 오늘의 반찬 value = 10%)
+  CURRENT_DB_REPRESENTATION = 별도 컬럼 없음 (v3 문구 자체는 benefits.title에 보존)
+  FOLLOWUP_REQUIRED = benefit value storage + API contract extension
+
+SCHEMA_GAP_BENEFIT_CODE = YES
+  AUTHORITY_VALUE = 가게별 code (예: 오늘의 반찬 code = DANJION · F010)
+  CURRENT_DB_REPRESENTATION = 별도 컬럼 없음 (code는 benefits.description에
+    "단지온 …(DANJION · Fxxx)" 형태로 문자열 보존 — data는 소실되지 않으나
+    구조화된 필드는 아님)
+  FOLLOWUP_REQUIRED = benefit code storage + API contract extension
+```
+
+중립화 문구("주민 할인 안내", "출장비 관련 안내", "첫 상담 관련 안내",
+"파일럿 예시 혜택입니다…" 등)는 모두 제거하고 v3 원문 benefit으로
+교체했다. #253/#139는 delivery-mode 결정 보류일 뿐, v3에 이미 있는
+혜택 문구를 중립화하는 근거가 아니다.
