@@ -52,4 +52,18 @@ assert.match(api, /request\.method === 'DELETE'[\s\S]*deleteOwnReview/);
 assert.match(app, /handleBusinessReviewRequest/);
 assert.match(app, /const businessReviewResponse = await handleBusinessReviewRequest\(request, env, id\)/);
 
-console.log('PASS business review/reply persistence owner lifecycle AuthZ and privacy contract');
+// #278 sibling-final-v3 bridge readiness: lock the presentation-safe response shape.
+assert.match(api, /return ok\(\{[\s\S]*businessId,[\s\S]*reviews:\s*rows\.map\(\(row\) => \(\{[\s\S]*id:\s*String\(row\.id\)[\s\S]*body:\s*String\(row\.body\)[\s\S]*isMine:/,
+  'review list must expose businessId and normalized review rows');
+assert.match(api, /author:\s*\{[\s\S]*userId:\s*String\(row\.author_user_id\)[\s\S]*nickname:\s*String\(row\.author_nickname\)[\s\S]*avatarUrl:/,
+  'review list must expose safe author presentation metadata');
+assert.match(api, /reply:\s*row\.reply_body\s*\?\s*\{[\s\S]*body:\s*String\(row\.reply_body\)[\s\S]*createdAt:\s*row\.reply_created_at[\s\S]*updatedAt:\s*row\.reply_updated_at[\s\S]*\}\s*:\s*null/,
+  'review list must expose a nullable owner reply object with timestamps');
+assert.match(api, /createdAt:\s*row\.created_at[\s\S]*updatedAt:\s*row\.updated_at/,
+  'review rows must preserve createdAt/updatedAt timestamps for v3 rendering');
+assert.match(api, /return ok\(\{[\s\S]*id:\s*String\(row\.id\)[\s\S]*businessId,[\s\S]*body:\s*String\(row\.body\)[\s\S]*isMine:\s*true[\s\S]*\},\s*requestId,\s*201\)/,
+  'review create response must be immediately renderable as the caller-owned review');
+assert.match(api, /return ok\(\{[\s\S]*reviewId:\s*String\(row\.review_id\)[\s\S]*businessId,[\s\S]*body:\s*String\(row\.body\)[\s\S]*createdAt:\s*row\.created_at[\s\S]*updatedAt:\s*row\.updated_at/,
+  'owner reply response must expose stable review/business ids, body, and timestamps');
+
+console.log('PASS business review/reply persistence owner lifecycle AuthZ privacy and sibling-v3 response-shape contract');

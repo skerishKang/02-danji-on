@@ -21,6 +21,24 @@ assert.ok(economy.includes('${resident.id}::uuid'));
 assert.ok(economy.includes('on conflict (applicant_user_id, submission_key)'));
 assert.ok(economy.includes('on conflict (user_id, benefit_id) do nothing'));
 
+// Sibling final v3 owner-registration bridge depends on these canonical fields.
+for (const field of [
+  'id', 'relation_type', 'business_name', 'category_name', 'service_summary',
+  'price_text', 'contact_method', 'service_area', 'benefit_text',
+  'availability_text', 'representative_image_object_key', 'status',
+  'review_note', 'approved_business_id', 'submission_key', 'created_at', 'updated_at'
+]) {
+  assert.ok(economy.includes(field), `owner application persistence must retain ${field}`);
+}
+assert.match(economy, /if \(inserted\[0\]\) return ok\(\{ \.\.\.inserted\[0\], idempotency_replayed: false \}, requestId, 201\)/,
+  'new owner application must return the persisted row, replay marker, and HTTP 201');
+assert.match(economy, /idempotency_replayed: true/,
+  'owner application idempotent replay must be explicit');
+assert.match(economy, /Only changes_requested applications can be resubmitted/,
+  'owner application resubmit must remain changes_requested-only');
+assert.equal(economy.includes('/shop-recommendations'), false,
+  'owner application mutation authority must not absorb non-owner report/recommendation routes');
+
 // Legacy application handler is read-only detail ownership now. It must never
 // become a dormant alternate create/resubmit authority again.
 assert.ok(legacyApplication.includes("request.method === 'GET'"));
