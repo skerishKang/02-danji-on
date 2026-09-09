@@ -1094,7 +1094,7 @@
  const grid=document.getElementById('shopGridV2'),filters=[...document.querySelectorAll('.filter')],title=document.querySelector('.catalog-head h2'),meta=document.querySelector('.catalog-head span');
  let currentFilter='all',query='';
  const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
- function filtered(){return SHOP_DATA.filter(s=>(currentFilter==='all'||s.category.split(' ').includes(currentFilter))&&(!query||(s.name+' '+s.desc+' '+s.service+' '+s.benefit).toLowerCase().includes(query.toLowerCase())))}
+ function filtered(){return SHOP_DATA.filter(s=>(currentFilter==='all'||s.category.split(' ').includes(currentFilter)||(Array.isArray(s.categories)&&s.categories.includes(currentFilter)))&&(!query||(s.name+' '+s.desc+' '+s.service+' '+s.benefit).toLowerCase().includes(query.toLowerCase())))}
  function relationClass(rel){return rel==='우리 주민 가게'?'b-rel-owner':rel==='주민 가족 가게'?'b-rel-family':'b-rel-neighbor'}
  function card(s,i){
    const cls=i===0?'b-featured':i===1?'b-medium':'b-row';
@@ -1190,26 +1190,30 @@ function openReview(){const s=byKey[active];if(!s)return;const rs=reviewData(s);
  const RELATION_LABEL={'resident':'우리 주민 가게','resident_family':'주민 가족 가게','neighbor':'이웃단지 가게'};
  const CATEGORY_BY_SLUG={cafe:'cafe',food:'food',home:'home',learn:'learn',pro:'pro',car:'car'};
  function mapApiBusiness(b,i){
-   const relation=RELATION_LABEL[b.relationType]||'이웃단지 가게';
-   const benefit=b.activeBenefit||{};
-   const categorySlug=CATEGORY_BY_SLUG[b.categorySlug]||'pro';
+   const relationType=b.relation_type??b.relationType??'';
+   const relation=RELATION_LABEL[relationType]||'이웃단지 가게';
+   const benefit=b.active_benefit??b.activeBenefit??{};
+   const categorySlug=CATEGORY_BY_SLUG[b.category_slug??b.categorySlug]||'pro';
+   const apiCategories=Array.isArray(b.categories)?b.categories.map(c=>CATEGORY_BY_SLUG[c]).filter(Boolean):[];
+   const categories=apiCategories.length?apiCategories:(categorySlug!=='pro'?[categorySlug]:[]);
    const desc=b.summary||b.description||'';
-   const service=(b.priceText||b.availabilityText||'').trim();
+   const service=((b.price_text??b.priceText)||(b.availability_text??b.availabilityText)||'').trim();
    return {
      key:'api-'+(b.id||('idx-'+i)),
      category:categorySlug,
+     categories:categories.length?categories:[categorySlug],
      name:b.name||('이웃가게 '+(i+1)),
      relation,
-     image:b.representativeImageObjectKey||'assets/scene-car.webp',
+     image:(b.representative_image_object_key??b.representativeImageObjectKey)||'assets/scene-car.webp',
      desc:desc||'등록된 소개가 아직 없습니다.',
      service:service||'1:1 문의로 확인',
      way:'가게 안내에 따릅니다.',
-     location:b.serviceArea||'단지 인근 생활권',
+     location:(b.service_area??b.serviceArea)||'단지 인근 생활권',
      contact:'1:1 문의로 확인',
      reviews:[(benefit.title?'최신 혜택 '+benefit.title:'')].filter(Boolean).map(t=>[t,'방금','DB에서 가져온 활성 혜택입니다.']),
      benefit:benefit.title||'주민 전용 혜택',
-     value:benefit.conditions||'혜택',
-     code:'DANJION · API'
+     value:benefit.value||benefit.conditions||'혜택',
+     code:benefit.code||'DANJION · API'
    };
  }
  function apiShops(){
