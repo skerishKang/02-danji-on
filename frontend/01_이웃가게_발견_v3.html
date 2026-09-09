@@ -1077,6 +1077,9 @@
 }
 </style>
 <div aria-live="polite" class="toast" role="status"></div>
+<!-- DANJION LOCAL B(#278): saved-shops / reviews bridge runtimes -->
+<script src="assets/saved-shops-bridge.js"></script>
+<script src="assets/reviews-bridge.js"></script>
 <script id="frontend2-b-shop-runtime-20260905">
 (function(){
  try{sessionStorage.setItem('danjion:shopVariant','v3')}catch(e){}
@@ -1123,26 +1126,31 @@
      <button class="row-save save-shop-v2" data-save-key="${esc(s.key)}" type="button">♡ 저장</button>
    </div>`;
  }
- function savedKeys(){try{const a=JSON.parse(localStorage.getItem('danjion:savedShops')||'[]');return Array.isArray(a)?a:[]}catch(e){return[]}}
- function setSaved(a){localStorage.setItem('danjion:savedShops',JSON.stringify(a))}
- function savedBenefits(){try{const a=JSON.parse(localStorage.getItem('danjion:savedBenefits')||'[]');return Array.isArray(a)?a:[]}catch(e){return[]}}
- function setBenefits(a){localStorage.setItem('danjion:savedBenefits',JSON.stringify(a))}
- function syncSaveButtons(){const a=savedKeys();document.querySelectorAll('[data-save-key]').forEach(b=>b.textContent=a.includes(b.dataset.saveKey)?'♥ 저장됨':'♡ 저장')}
+function savedBenefits(){try{const a=JSON.parse(localStorage.getItem('danjion:savedBenefits')||'[]');return Array.isArray(a)?a:[]}catch(e){return[]}}
+function setBenefits(a){localStorage.setItem('danjion:savedBenefits',JSON.stringify(a))}
+let __savedShopsBridge=null;
+async function initSavedShopsBridge(){__savedShopsBridge=DanJionSavedShopsBridge.create({apiBase:DISCOVERY_API_BASE});await __savedShopsBridge.load();syncSaveButtons()}
+function syncSaveButtons(){if(!__savedShopsBridge){document.querySelectorAll('[data-save-key]').forEach(b=>b.textContent='♡ 저장');return}document.querySelectorAll('[data-save-key]').forEach(b=>b.textContent=__savedShopsBridge.isSaved(b.dataset.saveKey)?'♥ 저장됨':'♡ 저장')}
  function draw(){const list=filtered();title.textContent=query?`“${query}” 검색 결과`:'이웃가게 전체';meta.textContent=`총 ${list.length}곳 · 사진과 목록으로 보기`;if(!list.length){grid.innerHTML='<div style="grid-column:1/-1;padding:42px 0;border-top:1px solid #111"><b style="font-size:22px">조건에 맞는 이웃가게가 없습니다.</b><p>검색어를 줄이거나 전체 필터로 다시 확인해 주세요.</p></div>';return}const visual=list.slice(0,4).map(card).join(''),rest=list.slice(4).map(textRow).join('');grid.innerHTML=visual+(rest?`<div class="b-text-list">${rest}</div>`:'');syncSaveButtons()}
  filters.forEach(b=>b.addEventListener('click',()=>{filters.forEach(x=>x.classList.remove('active'));b.classList.add('active');currentFilter=b.dataset.filter;draw()}));
  document.getElementById('searchForm').addEventListener('submit',e=>{e.preventDefault();query=document.getElementById('searchInput').value.trim();draw()});
  const initial=new URLSearchParams(location.search);query=(initial.get('q')||'').trim();if(query)document.getElementById('searchInput').value=query;draw();
  const modal=document.getElementById('shopCompareModal'),coupon=document.getElementById('shopCouponModal'),toast=document.querySelector('.toast');let active='florist',toastTimer;
  function flash(msg){toast.textContent=msg;toast.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>toast.classList.remove('show'),1800)}
- function syncModalSave(){document.getElementById('shopCompareSave').textContent=savedKeys().includes(active)?'♥ 저장됨':'♡ 저장'}
- function reviewData(s){return Array.isArray(s.reviews)?s.reviews:[]}
+ function syncModalSave(){if(!__savedShopsBridge){document.getElementById('shopCompareSave').textContent='♡ 저장';return}document.getElementById('shopCompareSave').textContent=__savedShopsBridge.isSaved(active)?'♥ 저장됨':'♡ 저장'}
+ let __reviewsBridge=null;
+async function initReviewsBridge(){__reviewsBridge=DanjionReviewsBridge.createReviewsBridge({apiBase:DISCOVERY_API_BASE,complexSlug:DISCOVERY_COMPLEX_SLUG})}
+function bridgeReviewToArray(r){return[r.author?.nickname||'',r.createdAt||'',r.body||'',r.reply?.body||'',r.reply?.createdAt||'',[],r.id||'']}
+function reviewData(s){return Array.isArray(s.reviews)?s.reviews:[]}
+async function loadServerReviews(key){if(!__reviewsBridge)return;const r=await __reviewsBridge.list(key);if(r.mode!=='server')return;const s=byKey[key];if(!s)return;s.reviews=(r.reviews||[]).map(bridgeReviewToArray);renderReviewPreview(s)}
  function renderReviewPreview(s){const rs=reviewData(s),first=rs[0];document.getElementById('shopCompareReviewCount').textContent=rs.length+'개';document.getElementById('shopCompareReviewSnippet').textContent=first?first[0]+' · '+first[2]:'아직 등록된 후기가 없습니다.'}
  function replyHTML(r,ri){return (r[3]?`<div class="review-reply"><div class="review-reply-head"><span class="owner-badge">가게 주인</span><time>${esc(r[4]||'')}</time></div><p>${esc(r[3])}</p></div>`:'')+(r[5]?r[5].map((c)=>`<div class="review-reply"><div class="review-reply-head"><span class="resident-badge-r">주민</span><b>${esc(c[0])}</b><time>${esc(c[1])}</time></div><p>${esc(c[2])}</p></div>`).join(''):'')+`<button type="button" class="review-comment-toggle" data-ri="${ri}">댓글 달기</button><div class="review-comment-form" data-form="${ri}"><textarea maxlength="500" placeholder="따뜻한 댓글을 남겨주세요."></textarea><button type="button" data-send="${ri}">등록</button></div>`}
-function openReview(){const s=byKey[active];if(!s)return;const rs=reviewData(s);document.getElementById('shopReviewTitle').textContent=s.name;document.getElementById('shopReviewCount').textContent='후기 '+rs.length+'개';document.getElementById('shopReviewList').innerHTML=rs.length?rs.map((r,ri)=>`<article class="review-item" data-review="${ri}"><div class="review-item-head"><b>${esc(r[0])}</b><time>${esc(r[1])}</time></div><p>${esc(r[2])}</p>${replyHTML(r,ri)}</article>`).join(''):'<p class="review-item">아직 등록된 후기가 없습니다.</p>';review.classList.add('open');review.setAttribute('aria-hidden','false');document.body.style.overflow='hidden';document.getElementById('shopReviewList').querySelectorAll('.review-comment-toggle').forEach(b=>b.onclick=()=>{const f=review.querySelector(`[data-form="${b.dataset.ri}"]`);f.classList.toggle('open');if(f.classList.contains('open'))f.querySelector('textarea').focus()});document.getElementById('shopReviewList').querySelectorAll('[data-send]').forEach(b=>b.onclick=()=>{const ri=Number(b.dataset.send);const f=review.querySelector(`[data-form="${ri}"]`);const v=f.querySelector('textarea').value.trim();if(!v){flash('댓글 내용을 입력해 주세요.');return}const s=byKey[active];s.reviews[ri][5]=s.reviews[ri][5]||[];s.reviews[ri][5].push(['연블리','방금',v]);openReview();})}
+async function openReview(keepLoaded){const s=byKey[active];if(!s)return;if(!keepLoaded){try{await loadServerReviews(active)}catch(_){void 0}}
+ const rs=reviewData(s);document.getElementById('shopReviewTitle').textContent=s.name;document.getElementById('shopReviewCount').textContent='후기 '+rs.length+'개';document.getElementById('shopReviewList').innerHTML=rs.length?rs.map((r,ri)=>`<article class="review-item" data-review="${ri}"><div class="review-item-head"><b>${esc(r[0])}</b><time>${esc(r[1])}</time></div><p>${esc(r[2])}</p>${replyHTML(r,ri)}</article>`).join(''):'<p class="review-item">아직 등록된 후기가 없습니다.</p>';review.classList.add('open');review.setAttribute('aria-hidden','false');document.body.style.overflow='hidden';document.getElementById('shopReviewList').querySelectorAll('.review-comment-toggle').forEach(b=>b.onclick=()=>{const f=review.querySelector(`[data-form="${b.dataset.ri}"]`);f.classList.toggle('open');if(f.classList.contains('open'))f.querySelector('textarea').focus()});document.getElementById('shopReviewList').querySelectorAll('[data-send]').forEach(b=>b.onclick=()=>{const ri=Number(b.dataset.send);const f=review.querySelector(`[data-form="${ri}"]`);const v=f.querySelector('textarea').value.trim();if(!v){flash('댓글 내용을 입력해 주세요.');return}s.reviews[ri][5]=s.reviews[ri][5]||[];s.reviews[ri][5].push(['연블리','방금',v]);openReview(true);})}
  function closeReview(){review.classList.remove('open');review.setAttribute('aria-hidden','true');if(!coupon.classList.contains('open')&&!modal.classList.contains('open'))document.body.style.overflow=''}
  function openReviewWrite(key){const sh=byKey[key];if(!sh)return;document.getElementById('shopReviewWriteTitle').textContent=sh.name+' 후기를 남겨주세요.';document.getElementById('shopReviewInput').value='';document.getElementById('shopReviewWriteModal').classList.add('open');document.getElementById('shopReviewWriteModal').setAttribute('aria-hidden','false');document.body.style.overflow='hidden'}
  function closeReviewWrite(){const el=document.getElementById('shopReviewWriteModal');el.classList.remove('open');el.setAttribute('aria-hidden','true');if(!modal.classList.contains('open')&&!review.classList.contains('open')&&!coupon.classList.contains('open'))document.body.style.overflow=''}
- function submitReview(){const v=document.getElementById('shopReviewInput').value.trim();if(!v){flash('후기 내용을 입력해 주세요.');return}const sh=byKey[active];if(!sh)return;sh.reviews=[...(sh.reviews||[]),['나도 이용한 이웃','방금',v]];closeReviewWrite();renderReviewPreview(sh);flash('후기가 등록됐습니다.')}
+ async function submitReview(){const v=document.getElementById('shopReviewInput').value.trim();if(!v){flash('후기 내용을 입력해 주세요.');return}const s=byKey[active];if(!s)return;const r=await __reviewsBridge.create(active,v);if(r.mode==='static'){s.reviews=[...(s.reviews||[]),['나도 이용한 이웃','방금',v]];closeReviewWrite();renderReviewPreview(s);flash('후기가 등록됐습니다.');return}if(!r.ok){flash(r.mode==='auth-required'?'로그인 후 이용 가능합니다.':'후기 등록 실패');return}flash('후기가 등록됐습니다.');closeReviewWrite();if(r.review)s.reviews=[bridgeReviewToArray(r.review),...(s.reviews||[])];renderReviewPreview(s)}
  function openShopInquiry(key){const sh=byKey[key];if(!sh)return;document.getElementById('shopInquiryTitle').textContent=sh.name+'에 문의하세요.';document.getElementById('shopInquirySubject').value='';document.getElementById('shopInquiryText').value='';document.getElementById('shopInquiryModal').classList.add('open');document.getElementById('shopInquiryModal').setAttribute('aria-hidden','false');document.body.style.overflow='hidden'}
  function closeShopInquiry(){const el=document.getElementById('shopInquiryModal');el.classList.remove('open');el.setAttribute('aria-hidden','true');if(!modal.classList.contains('open')&&!review.classList.contains('open')&&!coupon.classList.contains('open'))document.body.style.overflow=''}
  function sendShopInquiry(ev){ev.preventDefault();const sh=byKey[active];if(!sh)return;const subject=document.getElementById('shopInquirySubject').value.trim();const text=document.getElementById('shopInquiryText').value.trim();if(!subject||!text){flash('문의 제목과 내용을 입력해 주세요.');return}let arr=[];try{arr=JSON.parse(localStorage.getItem('danjion:demo:shop-inquiries')||'[]')}catch(_){}arr.unshift({type:'shop_inquiry',shopKey:active,shopName:sh.name,recipientType:'shop_owner',recipientDisplay:sh.name,subject,text,at:new Date().toISOString()});localStorage.setItem('danjion:demo:shop-inquiries',JSON.stringify(arr.slice(0,50)));closeShopInquiry();flash('문의가 접수됐습니다.')}
@@ -1153,24 +1161,22 @@ function openReview(){const s=byKey[active];if(!s)return;const rs=reviewData(s);
  function closeCoupon(){coupon.classList.remove('open');coupon.setAttribute('aria-hidden','true');if(!modal.classList.contains('open')&&!review.classList.contains('open'))document.body.style.overflow=''}
  window.openShopCompareV2=openShop;
  const review=document.getElementById('shopReviewModal');
- grid.addEventListener('click',e=>{
-   const save=e.target.closest('[data-save-key]');
-   if(save){
-     e.preventDefault();e.stopPropagation();
-     let a=savedKeys(),k=save.dataset.saveKey;
-     a=a.includes(k)?a.filter(x=>x!==k):[...a,k];
-     setSaved(a);syncSaveButtons();if(k===active)syncModalSave();
-     flash(a.includes(k)?'저장한 이웃가게에 담았습니다.':'저장을 취소했습니다.');
-     return;
-   }
-   const shop=e.target.closest('[data-shop-key]');
-   if(shop){e.preventDefault();e.stopPropagation();openShop(shop.dataset.shopKey);}
- });
+grid.addEventListener('click',e=>{
+  const save=e.target.closest('[data-save-key]');
+  if(save){
+    e.preventDefault();e.stopPropagation();
+    const k=save.dataset.saveKey;
+    (async()=>{const r=await __savedShopsBridge.toggle(k);flash(r.saved?'저장한 이웃가게에 담았습니다.':'저장을 취소했습니다.');syncSaveButtons();if(k===active)syncModalSave()})().catch(()=>{syncSaveButtons();if(k===active)syncModalSave()});
+    return;
+  }
+  const shop=e.target.closest('[data-shop-key]');
+  if(shop){e.preventDefault();e.stopPropagation();openShop(shop.dataset.shopKey);}
+});
  document.getElementById('shopCompareClose').onclick=closeShop.onclick=closeShop;modal.addEventListener('click',e=>{if(e.target===modal)closeShop()});
- document.getElementById('shopCompareSave').onclick=()=>{let a=savedKeys();a=a.includes(active)?a.filter(x=>x!==active):[...a,active];setSaved(a);syncModalSave();syncSaveButtons();flash(a.includes(active)?'저장한 이웃가게에 담았습니다.':'저장을 취소했습니다.')};
+ document.getElementById('shopCompareSave').onclick=async()=>{try{const r=await __savedShopsBridge.toggle(active);flash(r.saved?'저장한 이웃가게에 담았습니다.':'저장을 취소했습니다.')}catch(_){void 0}syncModalSave();syncSaveButtons()};
  document.getElementById('shopCompareBenefitBtn').onclick=()=>openCoupon(active);
  document.getElementById('shopCompareInquiry').onclick=()=>openShopInquiry(active);
- document.getElementById('shopReviewOpen').onclick=openReview;document.getElementById('shopReviewOpen2').onclick=()=>openReviewWrite(active);document.getElementById('shopReviewClose').onclick=closeReview;review.addEventListener('click',e=>{if(e.target===review)closeReview()});
+ document.getElementById('shopReviewOpen').onclick=()=>openReview();document.getElementById('shopReviewOpen2').onclick=()=>openReviewWrite(active);document.getElementById('shopReviewClose').onclick=closeReview;review.addEventListener('click',e=>{if(e.target===review)closeReview()});
 
  document.getElementById('shopReviewWriteClose').onclick=closeReviewWrite;
  
@@ -1248,6 +1254,9 @@ function openReview(){const s=byKey[active];if(!s)return;const rs=reviewData(s);
      console.info('[danjion] discovery API unavailable, using demo SHOP_DATA fallback:',String(err&&err.message||err));
    });
  }catch(e){console.info('[danjion] discovery API wiring skipped:',String(e))}
+ /* DANJION LOCAL B(#278): boot persistence bridges (saved-shops / reviews) */
+ try{initSavedShopsBridge()}catch(e){console.info('[danjion] savedShopsBridge init skipped:',String(e))}
+ try{initReviewsBridge()}catch(e){console.info('[danjion] reviewsBridge init skipped:',String(e))}
 })();
 </script>
 <script id="danjion-direct-router-v5">
@@ -1361,5 +1370,14 @@ if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt
 .shop-compare-kicker.rel-family{background:var(--amber)!important;color:#101317!important}
 .shop-compare-kicker.rel-neighbor{background:#255e49!important;color:#fff!important}
 </style>
+
+<!-- DANJION LOCAL B(#278): application/report bridge runtime (ES module) -->
+<script type="module">
+  import { createApplicationReportBridge, DANJION_COMPLEX_SLUG } from './assets/application-report-bridge.js';
+  const appReportApiBase = (new URLSearchParams(location.search).get('apiBase') || '').replace(/\/+$/, '');
+  window.DanjionApplicationReportBridge = { createApplicationReportBridge, DANJION_COMPLEX_SLUG };
+  window.__applicationReportBridge = createApplicationReportBridge({ apiBase: appReportApiBase, complexSlug: DANJION_COMPLEX_SLUG });
+  window.dispatchEvent(new Event('danjion:bridges-ready'));
+</script>
 </body>
 </html>

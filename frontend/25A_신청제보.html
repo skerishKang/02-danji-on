@@ -185,10 +185,77 @@ bindFile('#ownerProof','#ownerProofStatus');bindFile('#ownerOtherDocs','#ownerOt
 
 let timer;
 function showToast(msg){toast.textContent=msg;toast.classList.add('show');clearTimeout(timer);timer=setTimeout(()=>toast.classList.remove('show'),2300)}
-f.addEventListener('submit',e=>{
+const OWNER_RELATION_MAP={self:'resident',family:'resident_family'};
+let __applicationReportBridge=null;
+let __applicationReportComplexSlug='';
+let __ownerSubmissionKey=null;
+let __ownerSubmitting=false;
+function danjionApiBase(){return (new URLSearchParams(location.search).get('apiBase')||'').replace(/\/+$/,'')}
+async function ensureApplicationReportBridge(){
+  if(__applicationReportBridge)return __applicationReportBridge;
+  const mod=await import('./assets/application-report-bridge.js');
+  __applicationReportComplexSlug=mod.DANJION_COMPLEX_SLUG;
+  __applicationReportBridge=mod.createApplicationReportBridge({apiBase:danjionApiBase(),complexSlug:mod.DANJION_COMPLEX_SLUG});
+  return __applicationReportBridge;
+}
+function ownerSubmissionKey(){if(!__ownerSubmissionKey)__ownerSubmissionKey='application:'+(crypto.randomUUID?crypto.randomUUID():Date.now().toString(36));return __ownerSubmissionKey}
+function resetOwnerSubmissionKey(){__ownerSubmissionKey=null}
+f.addEventListener('input',resetOwnerSubmissionKey);
+f.addEventListener('change',resetOwnerSubmissionKey);
+function ownerInput(name){const el=f.elements[name];return el?String(el.value||'').trim():''}
+async function uploadBusinessImage(file){
+  const body=new FormData();
+  body.set('kind','business-image');
+  body.set('complexSlug',__applicationReportComplexSlug);
+  body.set('file',file);
+  try{
+    const response=await fetch(danjionApiBase()+'/api/v1/storage/objects',{method:'POST',credentials:'include',body});
+    if(!response.ok)return {ok:false,reason:[401,403].includes(response.status)?'auth-required':'server-error'};
+    const payload=await response.json().catch(()=>null);
+    const objectKey=payload&&payload.data&&payload.data.objectKey;
+    return objectKey?{ok:true,objectKey}:{ok:false,reason:'server-error'};
+  }catch(_){return {ok:false,reason:'network-error'}}
+}
+f.addEventListener('submit',async e=>{
   e.preventDefault();
   if(!f.reportValidity()) return;
-  showToast(f.classList.contains('mode-report')?'제보 내용 확인 완료 · 실제 제출 연결 시 서류는 ceo@padiem.net 으로 받습니다.':'입력·파일 선택 확인 완료 · 서버 제출 연결 전 검토용 화면입니다.');
+  const isReport=f.classList.contains('mode-report');
+  if(isReport||!danjionApiBase()){
+    showToast(isReport?'제보 내용 확인 완료 · 실제 제출 연결 시 서류는 ceo@padiem.net 으로 받습니다.':'입력·파일 선택 확인 완료 · 서버 제출 연결 전 검토용 화면입니다.');
+    return;
+  }
+  if(__ownerSubmitting) return;
+  const relationType=OWNER_RELATION_MAP[ownerInput('ownerRelation')];
+  const businessName=ownerInput('ownerShopName');
+  const categoryName=ownerInput('category');
+  const serviceSummary=ownerInput('servicePrice');
+  if(!relationType){showToast('선택한 관계로는 아직 서버 신청을 연결할 수 없습니다.');return}
+  if(!businessName||!categoryName||!serviceSummary){showToast('필수 항목을 다시 확인해 주세요.');return}
+  const photoFiles=Array.from(photos.files||[]);
+  if(photoFiles.length>1){showToast('서버 신청은 대표 사진 1장까지 연결됩니다. 대표 사진 1장만 선택해 주세요.');return}
+  __ownerSubmitting=true;
+  try{
+    const bridge=await ensureApplicationReportBridge();
+    let representativeImageObjectKey=null;
+    if(photoFiles.length===1){
+      const upload=await uploadBusinessImage(photoFiles[0]);
+      if(!upload.ok){
+        showToast(upload.reason==='auth-required'?'로그인 후 이용 가능합니다.':'사진 업로드에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+        return;
+      }
+      representativeImageObjectKey=upload.objectKey;
+    }
+    const result=await bridge.createOwnerApplication({relationType,businessName,categoryName,serviceSummary,
+      priceText:serviceSummary,serviceArea:ownerInput('locationUse'),benefitText:ownerInput('benefit'),
+      availabilityText:ownerInput('hours'),contactMethod:ownerInput('contact'),representativeImageObjectKey},
+      {idempotencyKey:ownerSubmissionKey()});
+    if(!result.ok){
+      showToast(result.reason==='auth-required'?'로그인 후 이용 가능합니다.':'접수를 완료하지 못했습니다. 잠시 후 다시 시도해 주세요.');
+      return;
+    }
+    resetOwnerSubmissionKey();
+    showToast('신청이 접수됐습니다. 확인서류는 ceo@padiem.net 으로 보내주시면 승인 후 등록됩니다.');
+  }finally{__ownerSubmitting=false}
 });
 function autoSize(el){el.style.height='auto';el.style.height=Math.max(108,el.scrollHeight)+'px'}
 document.querySelectorAll('textarea').forEach(t=>{autoSize(t);t.addEventListener('input',()=>autoSize(t))});
