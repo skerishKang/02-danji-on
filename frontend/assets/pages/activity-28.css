@@ -1,6 +1,6 @@
 
-@import url("assets/consistency.css");
-@import url("assets/consistency-backfix.css");
+@import url("../consistency.css");
+@import url("../consistency-backfix.css");
 :root{--paper:#f6f2e9;--paper2:#fffdf8;--ink:#101317;--navy:#101d30;--coral:#ee6045;--amber:#f2b84b;--green:#255e49;--muted:#68645e;--line:#d8d0c3;--soft:#ece5d8;--header:76px}*{box-sizing:border-box}html{font-family:Pretendard,"Pretendard Variable","Noto Sans KR",Arial,sans-serif;background:var(--paper);color:var(--ink)}body{margin:0;min-width:320px;background:var(--paper)}button,input{font:inherit;color:inherit}button{cursor:pointer}button:focus-visible,input:focus-visible{outline:3px solid var(--amber);outline-offset:2px}.site-header{height:var(--header);border-bottom:1px solid var(--line);background:rgba(246,242,233,.96);position:sticky;top:0;z-index:40;backdrop-filter:blur(12px)}.header-inner{width:min(1280px,calc(100% - 64px));height:100%;margin:auto;display:flex;align-items:center;justify-content:space-between}.brand{border:0;background:none;padding:0;display:flex;align-items:baseline;gap:10px;font-size:25px;font-weight:900;letter-spacing:-.05em}.brand small{font-size:11px;letter-spacing:.11em;color:#5f5c56}.desktop-nav{height:100%;display:flex;align-items:center;gap:42px}.desktop-nav button{height:100%;border:0;background:none;padding:0 2px;font-size:16px;font-weight:800;position:relative}.desktop-nav .active::after{content:"";position:absolute;left:0;right:0;bottom:0;height:3px;background:var(--coral)}.identity{font-size:14px;font-weight:800;color:#58554f}.mobile-title{display:none;font-size:14px;font-weight:850}.route{height:62px;border-bottom:1px solid var(--ink)}.route-inner{width:min(1280px,calc(100% - 64px));height:100%;margin:auto;display:flex;align-items:center;justify-content:space-between}.back{border:0;background:none;padding:0;font-size:16px;font-weight:900}.route-note{font-size:14px;color:var(--muted)}main{width:min(1280px,calc(100% - 64px));margin:auto;padding:42px 0 110px}.page-head{display:flex;align-items:end;justify-content:space-between;gap:35px;padding-bottom:25px;border-bottom:1px solid var(--ink)}.eyebrow{font-size:14px;font-weight:900;color:var(--coral);letter-spacing:.03em;margin-bottom:12px}h1{font-size:58px;line-height:1;letter-spacing:-.055em;margin:0}.page-copy{text-align:right;font-size:16px;line-height:1.6;color:var(--muted)}.page-copy b{display:block;color:var(--ink);font-size:19px;margin-bottom:5px}
 .summary{display:grid;grid-template-columns:1.15fr repeat(4,1fr);margin-top:18px;border:1px solid var(--line);background:var(--paper2)}.summary-title{background:var(--navy);color:#fff;padding:25px 28px}.summary-title small{font-size:14px;font-weight:900;color:var(--amber)}.summary-title b{display:block;font-size:23px;margin:9px 0 6px}.summary-title span{font-size:14px;color:rgba(255,255,255,.68)}.summary-stat{min-height:112px;border-right:1px solid var(--line);padding:22px;display:flex;flex-direction:column;justify-content:space-between}.summary-stat:last-child{border-right:0}.summary-stat span{font-size:14px;color:var(--muted)}.summary-stat b{font-size:31px;line-height:1}.summary-stat small{font-size:13px;color:var(--coral);font-weight:850}
 .tabs{display:grid;grid-template-columns:repeat(4,1fr);margin-top:16px;border-bottom:1px solid var(--ink)}.tab{min-height:67px;border:1px solid var(--line);border-bottom:0;background:var(--paper2);font-size:17px;font-weight:900;position:relative}.tab+.tab{border-left:0}.tab span{margin-left:7px;color:var(--coral)}.tab.active{background:var(--ink);border-color:var(--ink);color:#fff}.tab.active span{color:var(--amber)}.toolbar{min-height:72px;border:1px solid var(--line);border-top:0;background:var(--paper2);padding:13px 18px;display:flex;align-items:center;justify-content:space-between;gap:18px}.subfilters{display:flex;gap:7px;overflow-x:auto;scrollbar-width:none}.subfilter{height:42px;border:1px solid var(--line);background:#fff;padding:0 15px;font-size:14px;font-weight:850;white-space:nowrap}.subfilter.active{border-color:var(--coral);color:var(--coral);background:#fff6f2}.search{display:flex;height:43px;border:1px solid var(--line);background:#fff}.search input{width:220px;border:0;background:none;padding:0 13px;font-size:14px}.search button{width:45px;border:0;border-left:1px solid var(--line);background:var(--ink);color:#fff;font-weight:900}
@@ -69,7 +69,6 @@
   }
 }
 
-
 @media(max-width:760px){
  body[data-danjion-page="28"] .tabs{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;overflow:visible!important}
  body[data-danjion-page="28"] .tab{width:100%!important;min-width:0!important;min-height:56px!important;font-size:14px!important;border:1px solid var(--line)!important}
@@ -79,7 +78,6 @@
  body[data-danjion-page="28"] .subfilters{display:flex!important;flex-wrap:wrap!important;overflow:visible!important;gap:6px!important}
  body[data-danjion-page="28"] .subfilter{width:auto!important;flex:0 0 auto!important;height:38px!important;padding:0 11px!important;font-size:12px!important;white-space:nowrap!important}
 }
-
 
 /* Frontend audit 1: all app content screens share one exact bottom navigation geometry. */
 @media (max-width:760px){
@@ -109,7 +107,6 @@
   .toast{bottom:82px!important}
 }
 @media (min-width:761px){.mobile-bottom{display:none!important}}
-
 
 body[data-danjion-page="28"].visual-special .activity-layout{display:block!important}
 body[data-danjion-page="28"].visual-special .activity-list{border:0!important;background:transparent!important}
@@ -171,7 +168,6 @@ body[data-danjion-page="28"].visual-special .tabs{display:none!important}
  .danjion-detail-modal{padding:0;align-items:end}.danjion-detail-shell{width:100%;max-height:92dvh;border-left:0;border-right:0;border-bottom:0}.danjion-modal-grid{display:block}.danjion-modal-image{min-height:0;height:35dvh}.danjion-modal-info{padding:22px 20px 28px}.danjion-modal-info h2{font-size:31px}.modal-actions{display:grid;grid-template-columns:1fr 1fr}.modal-actions button{width:100%}
 }
 
-
 .activity-copy h2{margin:0}
 .activity-title-open{appearance:none;border:0;background:transparent;padding:0;margin:0;color:inherit;font:inherit;font-weight:inherit;text-align:left;cursor:pointer}
 .activity-title-open:hover{text-decoration:underline;text-underline-offset:4px}
@@ -188,11 +184,9 @@ body[data-danjion-page="28"].visual-special .tabs{display:none!important}
 .activity-detail-meta{margin-top:22px;padding-top:17px;border-top:1px solid #cfc8bc;color:#625e57;font-size:14px;font-weight:700}
 @media(max-width:760px){.activity-detail-modal{align-items:end;padding:0}.activity-detail-shell{width:100%;max-height:88dvh;border-left:0;border-right:0;border-bottom:0}.activity-detail-body{padding:22px 20px 28px}.activity-detail-body h2{font-size:26px}}
 
-
 body.visual-special .rows:has(.visual-shop-card:only-child){grid-template-columns:minmax(0,760px)!important;justify-content:start}
 .b-activity-coupon{position:fixed;inset:0;z-index:1850;display:none;place-items:center;padding:24px;background:rgba(5,10,18,.6);backdrop-filter:blur(8px)}.b-activity-coupon.open{display:grid}.b-activity-coupon-shell{width:min(520px,calc(100vw - 32px));background:#fffaf1;border:1px solid #171717;box-shadow:0 30px 90px rgba(0,0,0,.34)}.b-activity-coupon-head{height:62px;padding:0 18px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #cfc8bc}.b-activity-coupon-head button{width:42px;height:42px;border:1px solid #171717;background:transparent;font-size:24px}.b-activity-coupon-body{padding:27px}.b-activity-coupon-body small{display:block;color:#e95c3e;font-weight:900}.b-activity-coupon-body h3{font-size:31px;line-height:1.15;letter-spacing:-.045em;margin:9px 0}.b-activity-coupon-value{font-size:46px;font-weight:950;letter-spacing:-.05em;margin:22px 0}.b-activity-coupon-code{display:flex;justify-content:space-between;gap:12px;border-top:1px dashed #8f887e;border-bottom:1px dashed #8f887e;padding:14px 0}.b-activity-coupon-note{font-size:14px;line-height:1.65;color:#625e57;margin-top:18px}.b-activity-coupon-actions{display:grid;grid-template-columns:.8fr 1.2fr;gap:8px;margin-top:22px}.b-activity-coupon-actions button{min-height:50px;border:1px solid #171717;background:#fff;font-weight:900}.b-activity-coupon-actions .primary{background:#171717;color:#fff}
 @media(max-width:760px){body.visual-special .rows:has(.visual-shop-card:only-child){grid-template-columns:1fr!important}.b-activity-coupon{align-items:end;padding:0}.b-activity-coupon-shell{width:100%;border-left:0;border-right:0;border-bottom:0}.b-activity-coupon-body{padding:23px 20px 28px}.b-activity-coupon-body h3{font-size:27px}.b-activity-coupon-value{font-size:40px}.b-activity-coupon-actions{grid-template-columns:1fr}}
-
 
 body[data-danjion-page="28"].visual-special .subfilters .subfilter{cursor:pointer}
 body[data-danjion-page="28"].visual-special .subfilters .subfilter.active{
@@ -242,11 +236,9 @@ body[data-danjion-page="28"].visual-special #danjionModalBenefitAction{order:3}
   }
 }
 
-
 body[data-danjion-page="28"] .visual-shop-card{min-height:0!important}
 body[data-danjion-page="28"] .visual-shop-card .visual-shop-media,
 body[data-danjion-page="28"] .visual-benefit-card .visual-shop-media{
   aspect-ratio:1/1!important;min-height:0!important;height:auto!important;align-self:center!important;
 }
 body[data-danjion-page="28"] .visual-shop-media img{height:100%!important}
-
