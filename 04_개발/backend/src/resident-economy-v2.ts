@@ -15,6 +15,12 @@ type DocumentInput = {
 type ApplicationInput = {
   complexSlug: string;
   relationType: string;
+  // #341: canonical owner relation (self|co|family|etc) as submitted, and the
+  // projection-enum resolution authority. co/etc resolve to null and block
+  // approval fail-closed; legacy callers may omit relationRaw and send only a
+  // projection-enum relationType, which resolves to itself.
+  relationRaw: string;
+  resolvedRelationType: string | null;
   businessName: string;
   categoryName: string;
   serviceSummary: string;
@@ -34,6 +40,16 @@ type ApplicationInput = {
 
 const MAX_APPLICATION_PHOTOS = 3;
 const BUSINESS_IMAGE_NAMESPACE = 'gdrive/public/business-image/';
+
+// #341 owner relation resolution contract. Only self and family pre-resolve;
+// co and etc stay unresolved (approval fails closed server-side). No
+// co -> neighbor and no etc -> * inference exists anywhere in this lane.
+const OWNER_RELATION_RAW_VALUES = ['self', 'co', 'family', 'etc'];
+const OWNER_RELATION_PROJECTION_VALUES = ['resident', 'resident_family', 'neighbor', 'local'];
+const OWNER_RELATION_PRE_RESOLVE_MAP: Record<string, string> = {
+  self: 'resident',
+  family: 'resident_family'
+};
 
 function isValidPhotoObjectKeyFormat(value: string): boolean {
   if (!value.startsWith(BUSINESS_IMAGE_NAMESPACE)) return false;
@@ -138,6 +154,8 @@ function applicationInput(payload: Record<string, unknown>, photoKeys: string[] 
   return {
     complexSlug: String(payload.complexSlug ?? '').trim(),
     relationType: String(payload.relationType ?? '').trim(),
+    relationRaw: String(payload.relationRaw ?? '').trim(),
+    resolvedRelationType: null,
     businessName: String(payload.businessName ?? '').trim(),
     categoryName: String(payload.categoryName ?? '').trim(),
     serviceSummary: String(payload.serviceSummary ?? '').trim(),
@@ -176,8 +194,29 @@ function photoContractAgreement(
 
 function validateApplication(input: ApplicationInput, requestId: string): Response | null {
   if (!input.complexSlug) return fail('VALIDATION_ERROR', 'complexSlug is required', 400, requestId);
-  if (!['resident', 'resident_family', 'neighbor', 'local'].includes(input.relationType)) {
-    return fail('VALIDATION_ERROR', 'Invalid relationType', 400, requestId);
+  if (input.relationRaw) {
+    // #341 canonical raw lane: raw is authoritative; the legacy field may only
+    // echo the pre-resolved projection value (or stay absent for unresolved
+    // co/etc). A raw value is never mapped to a non-equivalent projection.
+    if (!OWNER_RELATION_RAW_VALUES.includes(input.relationRaw)) {
+      return fail('VALIDATION_ERROR', 'Invalid relationRaw', 400, requestId);
+    }
+    const projected = OWNER_RELATION_PRE_RESOLVE_MAP[input.relationRaw] ?? null;
+    if (input.relationType && projected && input.relationType !== projected) {
+      return fail('VALIDATION_ERROR', 'relationType must agree with relationRaw when both are provided', 400, requestId);
+    }
+    if (input.relationType && !projected) {
+      return fail('VALIDATION_ERROR', 'relationType must be omitted until relationRaw is resolvable', 400, requestId);
+    }
+    input.relationType = projected ?? '';
+    input.resolvedRelationType = projected;
+  } else {
+    if (!OWNER_RELATION_PROJECTION_VALUES.includes(input.relationType)) {
+      return fail('VALIDATION_ERROR', 'Invalid relationType', 400, requestId);
+    }
+    // Legacy lane: an already-projection-valued relation_type is its own
+    // resolution; relation_raw stays absent (no invented raw value).
+    input.resolvedRelationType = input.relationType;
   }
   if (!input.businessName || !input.categoryName || !input.serviceSummary) {
     return fail('VALIDATION_ERROR', 'businessName, categoryName and serviceSummary are required', 400, requestId);
@@ -222,14 +261,34 @@ function validIdempotencyKey(value: string): boolean {
 }
 
 async function fingerprint(input: ApplicationInput): Promise<string> {
-  const canonical = JSON.stringify(input);
+  // The canonical form must stay byte-identical to the pre-#341 shape for
+  // legacy payloads (no relationRaw), so stored fingerprints keep replaying.
+  // relationRaw is part of the request body and is appended when present;
+  // resolvedRelationType is derived and never fingerprinted.
+  const canonicalPayload: Record<string, unknown> = {
+    complexSlug: input.complexSlug,
+    relationType: input.relationType,
+    businessName: input.businessName,
+    categoryName: input.categoryName,
+    serviceSummary: input.serviceSummary,
+    priceText: input.priceText,
+    contactMethod: input.contactMethod,
+    serviceArea: input.serviceArea,
+    benefitText: input.benefitText,
+    availabilityText: input.availabilityText,
+    representativeImageObjectKey: input.representativeImageObjectKey,
+    photoObjectKeys: input.photoObjectKeys,
+    documents: input.documents
+  };
+  if (input.relationRaw) canonicalPayload.relationRaw = input.relationRaw;
+  const canonical = JSON.stringify(canonicalPayload);
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(canonical));
   return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('');
 }
 
 async function existingBusinessApplication(sql: Sql, applicantUserId: string, submissionKey: string) {
   const rows = await sql`
-    select id, relation_type, business_name, category_name, service_summary,
+    select id, relation_type, relation_raw, resolved_relation_type, business_name, category_name, service_summary,
            price_text, contact_method, service_area, benefit_text,
            availability_text, representative_image_object_key, status,
            review_note, approved_business_id, submission_key,
@@ -666,7 +725,8 @@ async function createBusinessApplication(
         `,
         sql`
           insert into business_applications (
-            id, complex_id, applicant_user_id, relation_type, business_name, category_name,
+            id, complex_id, applicant_user_id, relation_type, relation_raw,
+            resolved_relation_type, business_name, category_name,
             service_summary, price_text, contact_method, service_area, benefit_text,
             availability_text, representative_image_object_key, submission_key,
             submission_fingerprint, status
@@ -675,7 +735,9 @@ async function createBusinessApplication(
             ${newApplicationId}::uuid,
             ${resident.complexId}::uuid,
             ${resident.id}::uuid,
-            ${input.relationType},
+            ${input.relationType || null},
+            ${input.relationRaw || null},
+            ${input.resolvedRelationType},
             ${input.businessName},
             ${input.categoryName},
             ${input.serviceSummary},
@@ -696,7 +758,7 @@ async function createBusinessApplication(
           on conflict (applicant_user_id, submission_key)
             where submission_key is not null
           do nothing
-          returning id, relation_type, business_name, category_name, service_summary,
+          returning id, relation_type, relation_raw, resolved_relation_type, business_name, category_name, service_summary,
                     price_text, contact_method, service_area, benefit_text,
                     availability_text, representative_image_object_key, status,
                     review_note, approved_business_id, submission_key, created_at, updated_at
@@ -725,7 +787,8 @@ async function createBusinessApplication(
       [inserted] = await sql.transaction([
         sql`
           insert into business_applications (
-            id, complex_id, applicant_user_id, relation_type, business_name, category_name,
+            id, complex_id, applicant_user_id, relation_type, relation_raw,
+            resolved_relation_type, business_name, category_name,
             service_summary, price_text, contact_method, service_area, benefit_text,
             availability_text, representative_image_object_key, submission_key,
             submission_fingerprint, status
@@ -733,7 +796,9 @@ async function createBusinessApplication(
             ${newApplicationId}::uuid,
             ${resident.complexId}::uuid,
             ${resident.id}::uuid,
-            ${input.relationType},
+            ${input.relationType || null},
+            ${input.relationRaw || null},
+            ${input.resolvedRelationType},
             ${input.businessName},
             ${input.categoryName},
             ${input.serviceSummary},
@@ -750,7 +815,7 @@ async function createBusinessApplication(
           on conflict (applicant_user_id, submission_key)
             where submission_key is not null
           do nothing
-          returning id, relation_type, business_name, category_name, service_summary,
+          returning id, relation_type, relation_raw, resolved_relation_type, business_name, category_name, service_summary,
                     price_text, contact_method, service_area, benefit_text,
                     availability_text, representative_image_object_key, status,
                     review_note, approved_business_id, submission_key, created_at, updated_at
@@ -904,7 +969,9 @@ async function resubmitBusinessApplication(
           `,
           sql`
             update business_applications a
-            set relation_type = ${input.relationType},
+            set relation_type = ${input.relationType || null},
+                relation_raw = ${input.relationRaw || null},
+                resolved_relation_type = ${input.resolvedRelationType},
                 business_name = ${input.businessName},
                 category_name = ${input.categoryName},
                 service_summary = ${input.serviceSummary},
@@ -925,7 +992,7 @@ async function resubmitBusinessApplication(
               and bio.state = 'active'
               and bio.uploader_user_id = ${resident.id}::uuid
               and bio.complex_id = ${resident.complexId}::uuid
-            returning a.id, a.relation_type, a.business_name, a.category_name,
+            returning a.id, a.relation_type, a.relation_raw, a.resolved_relation_type, a.business_name, a.category_name,
                       a.service_summary, a.price_text, a.contact_method, a.service_area,
                       a.benefit_text, a.availability_text, a.representative_image_object_key,
                       a.status, a.review_note, a.approved_business_id, a.created_at, a.updated_at
@@ -943,7 +1010,9 @@ async function resubmitBusinessApplication(
           `,
           sql`
             update business_applications a
-            set relation_type = ${input.relationType},
+            set relation_type = ${input.relationType || null},
+                relation_raw = ${input.relationRaw || null},
+                resolved_relation_type = ${input.resolvedRelationType},
                 business_name = ${input.businessName},
                 category_name = ${input.categoryName},
                 service_summary = ${input.serviceSummary},
@@ -964,7 +1033,7 @@ async function resubmitBusinessApplication(
               and bio.state = 'active'
               and bio.uploader_user_id = ${resident.id}::uuid
               and bio.complex_id = ${resident.complexId}::uuid
-            returning a.id, a.relation_type, a.business_name, a.category_name,
+            returning a.id, a.relation_type, a.relation_raw, a.resolved_relation_type, a.business_name, a.category_name,
                       a.service_summary, a.price_text, a.contact_method, a.service_area,
                       a.benefit_text, a.availability_text, a.representative_image_object_key,
                       a.status, a.review_note, a.approved_business_id, a.created_at, a.updated_at
@@ -992,7 +1061,9 @@ async function resubmitBusinessApplication(
       [rows] = await sql.transaction([
         sql`
           update business_applications a
-          set relation_type = ${input.relationType},
+          set relation_type = ${input.relationType || null},
+              relation_raw = ${input.relationRaw || null},
+              resolved_relation_type = ${input.resolvedRelationType},
               business_name = ${input.businessName},
               category_name = ${input.categoryName},
               service_summary = ${input.serviceSummary},
@@ -1008,7 +1079,7 @@ async function resubmitBusinessApplication(
           where a.id = ${applicationId}::uuid
             and a.applicant_user_id = ${resident.id}::uuid
             and a.status = 'changes_requested'
-          returning a.id, a.relation_type, a.business_name, a.category_name,
+          returning a.id, a.relation_type, a.relation_raw, a.resolved_relation_type, a.business_name, a.category_name,
                     a.service_summary, a.price_text, a.contact_method, a.service_area,
                     a.benefit_text, a.availability_text, a.representative_image_object_key,
                     a.status, a.review_note, a.approved_business_id, a.created_at, a.updated_at
@@ -1027,7 +1098,9 @@ async function resubmitBusinessApplication(
   } else {
     rows = await sql`
       update business_applications a
-      set relation_type = ${input.relationType},
+      set relation_type = ${input.relationType || null},
+          relation_raw = ${input.relationRaw || null},
+          resolved_relation_type = ${input.resolvedRelationType},
           business_name = ${input.businessName},
           category_name = ${input.categoryName},
           service_summary = ${input.serviceSummary},
@@ -1043,7 +1116,7 @@ async function resubmitBusinessApplication(
       where a.id = ${applicationId}::uuid
         and a.applicant_user_id = ${resident.id}::uuid
         and a.status = 'changes_requested'
-      returning a.id, a.relation_type, a.business_name, a.category_name,
+      returning a.id, a.relation_type, a.relation_raw, a.resolved_relation_type, a.business_name, a.category_name,
                 a.service_summary, a.price_text, a.contact_method, a.service_area,
                 a.benefit_text, a.availability_text, a.representative_image_object_key,
                 a.status, a.review_note, a.approved_business_id, a.created_at, a.updated_at
@@ -1119,7 +1192,9 @@ async function resubmitWithGallery(
   const updateQuery = mirror
     ? sql`
         update business_applications a
-        set relation_type = ${input.relationType},
+        set relation_type = ${input.relationType || null},
+            relation_raw = ${input.relationRaw || null},
+            resolved_relation_type = ${input.resolvedRelationType},
             business_name = ${input.businessName},
             category_name = ${input.categoryName},
             service_summary = ${input.serviceSummary},
@@ -1140,14 +1215,16 @@ async function resubmitWithGallery(
           and bio.state = 'active'
           and bio.uploader_user_id = ${resident.id}::uuid
           and bio.complex_id = ${resident.complexId}::uuid
-        returning a.id, a.relation_type, a.business_name, a.category_name,
+        returning a.id, a.relation_type, a.relation_raw, a.resolved_relation_type, a.business_name, a.category_name,
                   a.service_summary, a.price_text, a.contact_method, a.service_area,
                   a.benefit_text, a.availability_text, a.representative_image_object_key,
                   a.status, a.review_note, a.approved_business_id, a.created_at, a.updated_at
       `
     : sql`
         update business_applications a
-        set relation_type = ${input.relationType},
+        set relation_type = ${input.relationType || null},
+            relation_raw = ${input.relationRaw || null},
+            resolved_relation_type = ${input.resolvedRelationType},
             business_name = ${input.businessName},
             category_name = ${input.categoryName},
             service_summary = ${input.serviceSummary},
@@ -1163,7 +1240,7 @@ async function resubmitWithGallery(
         where a.id = ${applicationId}::uuid
           and a.applicant_user_id = ${resident.id}::uuid
           and a.status = 'changes_requested'
-        returning a.id, a.relation_type, a.business_name, a.category_name,
+        returning a.id, a.relation_type, a.relation_raw, a.resolved_relation_type, a.business_name, a.category_name,
                   a.service_summary, a.price_text, a.contact_method, a.service_area,
                   a.benefit_text, a.availability_text, a.representative_image_object_key,
                   a.status, a.review_note, a.approved_business_id, a.created_at, a.updated_at

@@ -71,12 +71,14 @@ assert.match(apply25a, /if\(!danjionApiBase\(\)\)\{[\s\S]*?showToast\('제보 �
   'G: report lane with no apiBase must return early with a demo toast, no server write');
 assert.ok(apply25a.includes('createRecommendation'),
   'G: report lane with apiBase must allow bridge.createRecommendation');
-assert.match(apply25a, /const OWNER_RELATION_MAP=\{self:'resident',family:'resident_family'\};/,
-  'H: only the grounded owner relations may be mapped; co/etc must never be coerced to a backend enum');
-assert.doesNotMatch(apply25a, /OWNER_RELATION_MAP\s*=\s*\{[^}]*(co|etc):/,
-  'H: 공동 운영자/기타 must not be mapped to any backend relation');
-assert.match(apply25a, /선택한 관계로는 아직 서버 신청을 연결할 수 없습니다\./,
-  'H: unmapped relation must fail closed with an honest notice instead of a guessed relation');
+assert.doesNotMatch(apply25a, /OWNER_RELATION_MAP/,
+  'H: #341 owner lane must carry no coercion table; self -> resident / family -> resident_family is server-side authority only');
+assert.match(apply25a, /const OWNER_RELATIONS=new Set\(\['self','co','family','etc'\]\);/,
+  'H: owner lane must validate exactly the four canonical raw relations; co/etc must never be coerced to a backend enum');
+assert.match(apply25a, /createOwnerApplication\(\{relationRaw,/,
+  'H: owner submit must send the canonical relationRaw verbatim (no frontend pre-resolution)');
+assert.match(apply25a, /if\(!OWNER_RELATIONS\.has\(relationRaw\)\)\{showToast\('선택한 관계로는 아직 서버 신청을 연결할 수 없습니다\.'\);return\}/,
+  'H: unsupported relation must fail closed with an honest notice instead of a guessed relation');
 /* photo handling: never silently dropped, canonical storage contract only, sibling visual authority kept */
 assert.match(apply25a, /const MAX_PHOTOS=3;/, 'PHOTO: selection must cap at the backend 0..3 photo contract');
 assert.match(apply25a, /photos\.files\.length>MAX_PHOTOS\)\{alert\(/,
