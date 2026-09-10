@@ -1,6 +1,6 @@
 # CANONICAL_STATIC_TO_LIVE_INVENTORY — KILO1 #316 Phase 1 (Reconciliation at current main)
 
-READ-ONLY audit. FRESH_MAIN_SHA=46c3cfc6c490db2331da935e821fe82f263e35f2 (assignment-time main was 769bc230; #336 household + #314 owner-gallery merged between assignment and audit; audit is classified against the true fresh head).
+READ-ONLY audit. FRESH_MAIN_SHA=72ad6232977721bfa2b5f41e32f174a1c81b388f (merge-forward from 46c3cfc; #340/#331 resident surfaces + #342 CI gate merged mid-audit; audit is classified against the true fresh head).
 Authority: this reconciliation supersedes the accepted #318 matrix (b4b50a1) where merged leaves changed surface state. No source, backend, schema, migration, or production changes.
 
 ## Legend
@@ -11,21 +11,22 @@ Authority: this reconciliation supersedes the accepted #318 matrix (b4b50a1) whe
 - POLICY_HOLD = owner-decision gate (#59/#139/#235/#253/#263) blocks wiring
 
 ## Classification deltas since #318 (accepted at b4b50a1)
-| Surface | #318 class | Class @46c3cfc | Delta reason |
+| Surface | #318 class | Class @72ad623 | Delta reason |
 |---|---|---|---|
 | index3.html | DISCONNECTED | LIVE_SERVER (server mode) | #324 session runtime + #333/#338 auth wiring merged |
 | 26_우리집연결.html | DISCONNECTED | LIVE_SERVER (server mode) | #336 household-claim-bridge merged |
 | 06/07/08/09 news | DISCONNECTED | HYBRID_SAFE_FALLBACK | #335 danjion-news-bridge wired; public GET, no session needed |
 | 20/21/27 messages+notif | DISCONNECTED | HYBRID_SAFE_FALLBACK | #337 messages-notifications-bridge wired (DanjionSession) |
 | 25A_신청제보.html | HYBRID(owner)/DEMO(report) | HYBRID_SAFE_FALLBACK (both lanes) | #309 report lane + #314 owner gallery merged |
-| 19/22/24/28 + 25 | DISCONNECTED | DISCONNECTED (leaf #331 OPEN) | no wiring on main yet |
+| 19/22/24/28 profile+settings+activity | DISCONNECTED | HYBRID_SAFE_FALLBACK | #340 resident-bridge.js wired, serverConfig apiBase gate, demo-guard fallback |
+| 25_1대1문의.html | DISCONNECTED | HYBRID_SAFE_FALLBACK | #340 inquiry-bridge wired, `if(!API_BASE)return` demo guard |
 | 12/13/15/16/17 + 14 | DISCONNECTED | DISCONNECTED (leaf #329 OPEN) | no wiring on main yet |
 | 01_이웃가게_발견_v3 | HYBRID_SAFE_FALLBACK | HYBRID_SAFE_FALLBACK | unchanged |
 | 23/07-warmth | POLICY_HOLD | POLICY_HOLD (#263) | unchanged |
 | 03 coupons mode display | POLICY_HOLD(#253/#139) | POLICY_HOLD | unchanged |
 | 02/04/05/10/11 | DISCONNECTED | DISCONNECTED | unchanged; 10/11 owned by #329-adjacent resident-news (see overlap) |
 
-## Reconciled matrix (39 canonical files @46c3cfc)
+## Reconciled matrix (39 canonical files @72ad623)
 | # | File | Class | Bridge/runtime | Backend authority | Blocking/dependency | Lane overlap | Next leaf |
 |---|---|---|---|---|---|---|---|
 | 1 | index3.html | LIVE_SERVER | danjion-session.js (#324) | signup-contact-verification-v1, verified-signup-v1, auth-better-v1 | none — merged #338 | #325 CLOSED | none (done) |
@@ -45,11 +46,11 @@ Authority: this reconciliation supersedes the accepted #318 matrix (b4b50a1) whe
 | 15 | 15_단지이야기_글쓰기.html | DISCONNECTED | none | community-resident-v1 POST resident_story | wiring | #329 — ACTIVE LANE | #329 |
 | 16 | 16_궁금해요_글쓰기.html | DISCONNECTED | none | community-resident-v1 POST question | wiring | #329 — ACTIVE LANE | #329 |
 | 17 | 17_같이해요_글쓰기.html | DISCONNECTED | none | community-resident-v1 POST together | wiring | #329 — ACTIVE LANE | #329 |
-| 18 | 19_내정보_메인.html | DISCONNECTED | none | core-v1 /me; resident-summary-v1 | wiring + session | #331 (KILO2 B8) — ACTIVE LANE | #331 |
-| 19 | 22_주민_공개프로필.html | DISCONNECTED | none | resident-profile-v1 | wiring | #331 — ACTIVE LANE | #331 |
-| 20 | 24_설정.html | DISCONNECTED | none | resident-settings-v1 | wiring | #331 — ACTIVE LANE | #331 |
-| 21 | 28_나의활동.html | DISCONNECTED | consistency.js + assets/pages/activity-28.js (local render only) | resident-activity-v1 | wiring | #331 — ACTIVE LANE | #331 |
-| 22 | 25_1대1문의.html | DISCONNECTED | none (inquiry-bridge.js exists, used by 01v3) | inquiries-v1 | wiring; reuse bridge, no signature change | #331 — ACTIVE LANE | #331 |
+| 18 | 19_내정보_메인.html | HYBRID_SAFE_FALLBACK | resident-bridge.js (#340) | core-v1 /me; resident-summary-v1 | none — merged #340 | #331 CLOSED (PR #340) | none (done) |
+| 19 | 22_주민_공개프로필.html | HYBRID_SAFE_FALLBACK | resident-bridge.js (#340) | resident-profile-v1 | none — merged #340 | #331 CLOSED | none (done) |
+| 20 | 24_설정.html | HYBRID_SAFE_FALLBACK | resident-bridge.js (#340) | resident-settings-v1 | none — merged #340 | #331 CLOSED | none (done) |
+| 21 | 28_나의활동.html | HYBRID_SAFE_FALLBACK | resident-bridge.js + activity-28.js local render (#340) | resident-activity-v1 | none — merged #340 | #331 CLOSED | none (done) |
+| 22 | 25_1대1문의.html | HYBRID_SAFE_FALLBACK | inquiry-bridge.js reuse (#340; signature unchanged) | inquiries-v1 | none — merged #340 | #331 CLOSED | none (done) |
 | 23 | 10_주민소식_목록.html | DISCONNECTED | none | resident-news-v1 (verified) | wiring + session | unassigned (#321/#329 adjacent; resident-news-v1 ≠ community-resident-v1) | new leaf (see rec #1) |
 | 24 | 11_주민소식_상세.html | DISCONNECTED | consistency.js only | resident-news-v1 detail | wiring + session | unassigned | new leaf (see rec #1) |
 | 25 | 02_이웃가게_상세.html | DISCONNECTED | none; hardcoded SHOPS | core-v1 businesses/:id + reviews | superseded by 01v3 in B mode; wire only if A-mode survives | none | hold as artifact (see rec #4) |
@@ -68,28 +69,27 @@ Authority: this reconciliation supersedes the accepted #318 matrix (b4b50a1) whe
 | 38 | 02 (A-mode detail, same file as row 25) | (see row 25) | — | — | — | — | — |
 | 39 | (Vite admin app, not static) | n/a | 04_개발/frontend/src | admin routes | #334 Draft active (KILO3 #315 lane) | #334/#315 | #315 |
 
-## Totals @46c3cfc (39 canonical files; rows 25/38 same file, counted once → 38 physical + 1 Vite note)
+## Totals @72ad623 (actual row basis: 39 matrix entries = 37 physical canonical HTML + 02 dup-row + 1 Vite note)
 - LIVE_SERVER = 2 (index3, 26)
-- HYBRID_SAFE_FALLBACK = 8 (01v3, 25A, 06, 07, 08, 09, 20, 21, 27 → count: 01v3, 25A, 06, 07, 08, 09, 20, 21, 27 = 9 pages; 07 carries warmth-copy HOLD note)
-  - corrected: HYBRID_SAFE_FALLBACK = 9
+- HYBRID_SAFE_FALLBACK = 14 (01v3, 25A, 06, 07, 08, 09, 20, 21, 27, 19, 22, 24, 28, 25; 07 carries warmth-copy HOLD note)
 - DEMO_ONLY = 8 (03v2, 01, 01v2, index2, app2, app3, 00_APP_390, 18_공통앱셸)
-- DISCONNECTED = 16 (12, 13, 14, 15, 16, 17, 19, 22, 24, 28, 25, 10, 11, 02, 04, 05)
-- POLICY_HOLD = 3 (03_주민혜택_쿠폰, 23_이웃온기, 07-warmth-copy [07 counted in HYBRID; HOLD applies to copy only])
-  - corrected: POLICY_HOLD = 2 file-level (03, 23); 07 is HYBRID with HOLD-flagged copy
-- Canonical HTML count = 37 physical static files (39 list entries − 02 duplicate-row − 1 Vite note)
+- DISCONNECTED = 11 (12, 13, 14, 15, 16, 17, 10, 11, 02, 04, 05)
+- POLICY_HOLD = 2 file-level (03_주민혜택_쿠폰, 23_이웃온기); 07 is HYBRID with HOLD-flagged copy
+- Row-basis check: 2 + 14 + 8 + 11 + 2 = 37 physical canonical files ✓ (39 matrix rows − 02 duplicate-row − 1 Vite note)
+- Canonical HTML count = 37 physical static files
 
 ## Active lane overlap
-- #329 (KILO3 B6): 12/13/14/15/16/17 + community-resident-v1 + migration 047 — files DO NOT overlap #331
-- #331 (KILO2 B8): 19/22/24/28/25 + inquiry-bridge.js — files DO NOT overlap #329
+- #329 (KILO3 B6): 12/13/14/15/16/17 + community-resident-v1 + migration 047 — files DO NOT overlap #331; still OPEN (only remaining static wiring lane)
+- #331 (KILO2 B8): 19/22/24/28/25 — CLOSED via PR #340; bridge = resident-bridge.js + inquiry-bridge reuse (no signature change)
 - #327 (B4): 25A + application-report-bridge + admin-api.ts — blocked_by #309/#314 (both now merged); ready to unblock
 - #334 Draft (KILO3 #315): Vite src only (AdminApp.tsx, admin-api.ts, mock-recommendation-store.ts) — no static-file overlap
 - #322 operator train / #321 resident train: umbrella lanes awaiting leaf selection from this inventory
 
 ## Duplicate/superseded issue reconciliation
 - #316 (this) vs #318 (closed inventory): #316's first-phase inventory IS #318's accepted deliverable. #316 should NOT re-run leaf creation. Remaining #316 value = this reconciliation delta + closing recommendation.
-- Leaf issues #324/#325/#326/#328/#330: CLOSED+merged — correctly tracked.
+- Leaf issues #324/#325/#326/#328/#330/#331: CLOSED+merged — correctly tracked.
 - #327: still OPEN but its blockers (#309, #314) are both merged → ready for assignment; no duplicate exists.
-- #329/#331: OPEN, assigned to KILO3/KILO2 — no duplication.
+- #329/#331: #331 CLOSED via PR #340; #329 OPEN (KILO3) — no duplication.
 - #321/#322: umbrella trains, not duplicates; consume this inventory.
 - Verdict: **#316 is materially superseded by #318 + leaves #324–#331 for inventory; the implementation-queue remainder is fully covered by #321/#322/#327/#329/#331 + recommendations below. Recommend closing #316 as superseded after CENTRAL accepts this reconciliation, or retitling it to track only recs #1–#4.**
 
