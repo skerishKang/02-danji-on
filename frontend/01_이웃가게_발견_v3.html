@@ -1209,12 +1209,12 @@ grid.addEventListener('click',e=>{
  const DISCOVERY_COMPLEX_SLUG='banglim-myeongji-roadhill';
  const RELATION_LABEL={'resident':'우리 주민 가게','resident_family':'주민 가족 가게','neighbor':'이웃단지 가게'};
   const CATEGORY_BY_SLUG={cafe:'cafe',food:'food',home:'home',learn:'learn',pro:'pro',car:'car'};
-  const BENEFIT_UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-  function benefitIdFromValue(value){const text=String(value==null?'':value).trim().toLowerCase();return BENEFIT_UUID.test(text)?text:null}
- function mapApiBusiness(b,i){
+  function mapApiBusiness(b,i){
    const relationType=b.relation_type??b.relationType??'';
    const relation=RELATION_LABEL[relationType]||'이웃단지 가게';
-   const benefit=b.active_benefit??b.activeBenefit??{};
+    const benefit=b.active_benefit??b.activeBenefit??{};
+    const BENEFIT_ID_UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    const benefitIdValue=benefit&&benefit.id!=null?String(benefit.id).trim().toLowerCase():'';
    const categorySlug=CATEGORY_BY_SLUG[b.category_slug??b.categorySlug]||'pro';
    const apiCategories=Array.isArray(b.categories)?b.categories.map(c=>CATEGORY_BY_SLUG[c]).filter(Boolean):[];
    const categories=apiCategories.length?apiCategories:(categorySlug!=='pro'?[categorySlug]:[]);
@@ -1236,7 +1236,7 @@ grid.addEventListener('click',e=>{
       benefit:benefit.title||'주민 전용 혜택',
       value:benefit.value||benefit.conditions||'혜택',
       code:benefit.code||'DANJION · API',
-      benefitId:benefitIdFromValue(benefit.id)
+      benefitId:BENEFIT_ID_UUID.test(benefitIdValue)?benefitIdValue:''
    };
  }
  function apiShops(){

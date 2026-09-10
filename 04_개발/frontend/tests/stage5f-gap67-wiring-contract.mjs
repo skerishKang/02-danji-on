@@ -22,10 +22,17 @@ assert.match(html, /initBenefitClaimBridge\(\)/, 'benefit claim bridge must be b
 assert.match(html, /initInquiryBridge\(\)/, 'inquiry bridge must be booted');
 
 /* --- GAP-6: server benefit id is preserved so claims are grounded in real rows --- */
-assert.match(html, /benefitId:benefitIdFromValue\(benefit\.id\)/,
-  'mapApiBusiness must carry the active benefit UUID through to the shop record');
-assert.match(html, /const BENEFIT_UUID=\/\^\[0-9a-f\]\{8\}-\[0-9a-f\]\{4\}-\[1-5\]/,
-  'benefit UUID guard must exist in the page runtime');
+/* mapApiBusiness must be SELF-CONTAINED (stage5a extracts and evals it in isolation) */
+const mapSrc = html.match(/function mapApiBusiness\(b,i\)\{[\s\S]*?\n \}/)?.[0];
+assert.ok(mapSrc, 'mapApiBusiness must exist in the v3 discovery runtime');
+assert.match(mapSrc, /\^\[0-9a-f\]\{8\}-\[0-9a-f\]\{4\}-\[1-5\]/,
+  'benefit UUID validation must live INSIDE mapApiBusiness (no outer-scope dependency)');
+assert.match(mapSrc, /benefitId:[A-Z_a-z]+\.test\(benefitIdValue\)\?benefitIdValue:''/,
+  'mapApiBusiness must carry a validated benefit UUID through to the shop record');
+assert.doesNotMatch(mapSrc, /benefitIdFromValue/,
+  'mapApiBusiness must not reference outer-scope helpers (stage5a isolation regression guard)');
+assert.match(mapSrc, /benefit\.id!=null\?String\(benefit\.id\)/,
+  'benefitId must come only from the API benefit row, never guessed');
 assert.match(html, /__benefitClaimBridge\.claim\(s\.benefitId\)/,
   'coupon save must go through the benefit claim bridge');
 assert.match(html, /if\(r\.mode==='auth-required'\)\{flash\('로그인 후 이용 가능합니다\.'\);return\}[\s\S]*?if\(r\.mode==='error'\)\{flash\('혜택 보관에 실패했습니다\.'\);return\}/,
