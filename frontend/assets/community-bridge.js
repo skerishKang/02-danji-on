@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const POST_KINDS = ['question', 'together', 'resident_story', 'life_report'];
+  const POST_KINDS = ['question', 'together', 'resident_story', 'life_report', 'greeting'];
   const DEFAULT_COMPLEX_SLUG = 'banglim-myeongji-roadhill';
   const MAX_TITLE_CHARS = 160;
   const MAX_BODY_CHARS = 10000;
