@@ -68,6 +68,27 @@ body{min-height:100vh;overflow-x:hidden}.request-underlay{position:fixed;inset:0
 }
 </style><style id="frontcheck-close-task-v1">
 .close-task{display:grid!important;place-items:center!important;width:44px!important;height:44px!important;padding:0!important;font-size:28px!important;line-height:1!important;font-weight:500!important;text-align:center!important}
+</style><style id="owner-application-status-20260911">
+/* #313 [Leaf B12]: owner application status + private document reopen. Additive
+   block only — the submission form, its styles and its copy are untouched. The
+   panel is hidden until the authenticated caller's own list loads, so the
+   static/demo lane keeps its existing appearance. */
+#myApplicationsSection[hidden]{display:none!important}
+#myApplicationsSection .status-card{border:1px solid var(--line);background:#fff;padding:16px 18px;margin-bottom:12px}
+#myApplicationsSection .status-head{display:flex;align-items:center;justify-content:space-between;gap:14px}
+#myApplicationsSection .status-name{font-size:17px;font-weight:950}
+#myApplicationsSection .status-badge{font-size:12px;font-weight:950;padding:5px 10px;border:1px solid var(--line);white-space:nowrap}
+#myApplicationsSection .status-badge.status-pending{background:#f2ede3;color:#4d4943}
+#myApplicationsSection .status-badge.status-changes_requested{background:#fdf1dc;color:#8a5b00}
+#myApplicationsSection .status-badge.status-approved{background:#e6f0ea;color:var(--green)}
+#myApplicationsSection .status-badge.status-rejected{background:#fbe7e2;color:#a3351d}
+#myApplicationsSection .status-note{margin:10px 0 0;font-size:13px;color:var(--muted);line-height:1.6}
+#myApplicationsSection .doc-list{margin-top:13px;border-top:1px solid var(--line);padding-top:11px}
+#myApplicationsSection .doc-label{display:block;font-size:12px;font-weight:900;color:var(--muted);margin-bottom:8px}
+#myApplicationsSection .doc-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:7px 0}
+#myApplicationsSection .doc-kind{font-size:14px;font-weight:800}
+#myApplicationsSection .doc-open{border:1px solid var(--ink);background:var(--paper2);font-size:13px;font-weight:900;padding:8px 14px}
+#myApplicationsSection .doc-open[disabled]{opacity:.5}
 </style><link data-final-header-sync="20260904" href="assets/consistency.css" rel="stylesheet"/></head>
 <body data-danjion-page="25"><iframe aria-hidden="true" class="request-underlay" src="01_이웃가게_발견.html" tabindex="-1" title="이웃가게 배경"></iframe><div aria-hidden="true" class="request-scrim"></div><div class="request-sheet"><header class="head"><button aria-label="단지온 시작 화면" class="brand" onclick="location.href=(sessionStorage.getItem('danjion:shopVariant')==='v3'?'index3.html':(sessionStorage.getItem('danjion:shopVariant')==='v2'?'index2.html':'index.html'))" type="button"><span>단지온</span><small>DANJION by PADIEM</small></button><button aria-label="신청·제보 닫기" class="back close-task" onclick="location.href=(sessionStorage.getItem('danjion:shopVariant')==='v3'?'01_이웃가게_발견_v3.html':(sessionStorage.getItem('danjion:shopVariant')==='v2'?'01_이웃가게_발견_v2.html':'01_이웃가게_발견.html'))" type="button">×</button></header><main class="wrap">
 <div class="eyebrow">NEIGHBOR SHOP REQUEST</div>
@@ -78,6 +99,11 @@ body{min-height:100vh;overflow-x:hidden}.request-underlay{position:fixed;inset:0
 <button id="reportTab" type="button">이웃가게 제보</button>
 </div>
 <form class="form mode-owner" id="requestForm">
+<section class="section owner-only" hidden="" id="myApplicationsSection">
+<h2>내 신청 현황</h2>
+<p class="hint" id="myApplicationNote"></p>
+<div id="myApplicationList"></div>
+</section>
 <section class="section">
 <h2>가게와 신청자</h2>
 <div class="owner-only">
@@ -302,6 +328,97 @@ document.querySelectorAll('textarea').forEach(t=>{autoSize(t);t.addEventListener
 const initial=new URLSearchParams(location.search).get('mode')==='report'?'report':'owner';
 setMode(initial);
 toggleEtc(ownerRelation,ownerEtcWrap,ownerEtc);toggleEtc(reportRelation,reportEtcWrap,reportEtc);
+</script>
+<script id="danjion-owner-application-status-20260911">
+// #313 [Leaf B12]: owner application status readback + private document reopen.
+// Additive block only — the submission form above is untouched. The panel stays
+// hidden until the server answers for the authenticated caller, so the
+// static/demo lane (no apiBase) keeps its existing appearance. Every failure
+// fails closed with an honest notice: no invented status, no object-key URL, no
+// Drive link, no local fake persistence.
+(async function(){
+  const section=document.getElementById('myApplicationsSection');
+  const list=document.getElementById('myApplicationList');
+  const note=document.getElementById('myApplicationNote');
+  if(!section||!list)return;
+  const apiBase=(new URLSearchParams(location.search).get('apiBase')||'').replace(/\/+$/,'');
+  // Static/demo lane: never claim server state, never reveal the panel.
+  if(!apiBase)return;
+  let mod;
+  try{mod=await import('./assets/application-report-bridge.js')}catch(_){return}
+  const bridge=mod.createApplicationReportBridge({apiBase,complexSlug:mod.DANJION_COMPLEX_SLUG});
+  const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  function setNote(message){if(note)note.textContent=message||''}
+  function el(tag,cls,text){const n=document.createElement(tag);if(cls)n.className=cls;if(text!=null)n.textContent=text;return n}
+  function openBlob(blob){
+    if(!blob||typeof URL==='undefined'||typeof URL.createObjectURL!=='function')return false;
+    const url=URL.createObjectURL(blob);
+    window.open(url,'_blank','noopener');
+    setTimeout(()=>URL.revokeObjectURL(url),60000);
+    return true;
+  }
+  // The route is addressed only by the server-issued (applicationId, documentId)
+  // pair. A missing or malformed id fails closed without any network call and
+  // without ever falling back to the object key.
+  async function reopen(applicationId,documentId,button){
+    if(!UUID.test(String(applicationId||''))||!UUID.test(String(documentId||''))){
+      setNote('서버가 문서 식별자를 제공하지 않아 이 서류는 다시 열 수 없습니다.');
+      return;
+    }
+    button.disabled=true;
+    try{
+      const result=await bridge.openOwnerApplicationDocument(applicationId,documentId);
+      if(!result.ok){
+        setNote(result.reason==='auth-required'
+          ?'로그인 후 이용 가능합니다.'
+          :'서류를 열지 못했습니다. 잠시 후 다시 시도해 주세요.');
+        return;
+      }
+      if(!openBlob(result.blob)){setNote('이 브라우저에서는 서류를 새 창으로 열 수 없습니다.');return}
+      setNote('');
+    }finally{button.disabled=false}
+  }
+  function documentRow(applicationId,doc){
+    const row=el('div','doc-row');
+    row.appendChild(el('span','doc-kind',mod.ownerDocumentKindLabel(doc.kind)));
+    const button=el('button','doc-open','다시 열기');
+    button.type='button';
+    button.setAttribute('aria-label',mod.ownerDocumentKindLabel(doc.kind)+' 다시 열기');
+    button.onclick=()=>reopen(applicationId,doc.documentId,button);
+    row.appendChild(button);
+    return row;
+  }
+  function applicationCard(application){
+    const card=el('article','status-card');
+    const head=el('div','status-head');
+    head.appendChild(el('b','status-name',application.businessName||'이름 없는 신청'));
+    head.appendChild(el('span','status-badge status-'+String(application.status||'unknown'),mod.ownerApplicationStatusLabel(application.status)));
+    card.appendChild(head);
+    if(application.reviewNote)card.appendChild(el('p','status-note','검토 의견: '+application.reviewNote));
+    const docs=Array.isArray(application.documents)?application.documents:[];
+    if(docs.length){
+      const box=el('div','doc-list');
+      box.appendChild(el('span','doc-label','내가 제출한 비공개 서류'));
+      for(const doc of docs)box.appendChild(documentRow(application.id,doc));
+      card.appendChild(box);
+    }
+    return card;
+  }
+  let result;
+  try{result=await bridge.listOwnerApplications()}catch(_){result={ok:false,reason:'network-error'}}
+  section.hidden=false;
+  if(!result.ok){
+    list.textContent='';
+    setNote(result.reason==='auth-required'
+      ?'로그인 후 내 신청 현황을 확인할 수 있습니다.'
+      :'신청 현황을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.');
+    return;
+  }
+  const rows=Array.isArray(result.data)?result.data:[];
+  if(!rows.length){setNote('아직 등록 신청 내역이 없습니다.');return}
+  setNote('신청자 본인의 신청과 제출 서류만 표시합니다. 다른 신청자의 자료는 보이지 않습니다.');
+  for(const application of rows)list.appendChild(applicationCard(application));
+})();
 </script>
 <script id="danjion-apply-variant-bridge-20260905">
 (function(){
