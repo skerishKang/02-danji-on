@@ -135,31 +135,66 @@ async function loadPosts() {
   }
 }
 
-document.querySelectorAll('[data-post-id]').forEach(button => button.addEventListener('click', () => {
-  const pid = button.dataset.postId;
-  if (pid) {
-    bridge.getPost(pid).then(result => {
-      if (result.ok && result.data) {
-        const post = result.data;
-        dialog.querySelector('.dialog-type').textContent = post.category || '아파트소식';
-        dialog.querySelector('h2').textContent = post.title;
-        dialog.querySelector('time').textContent = formatDate(post.publishedAt);
-        dialog.querySelector('p').textContent = post.body || '';
-        if (window.matchMedia('(max-width:760px)').matches) dialog.show(); else dialog.showModal();
-      }
-    });
+const stories = {
+  meeting: { type: '회의 후 진행', title: '주민 안내문자·방송·게시판 홍보 협조 논의', date: '2026.08.28', body: '서비스 도입 과정과 이용방법이 주민에게 정확히 전달될 수 있도록 안내문자, 방송과 게시판 홍보 방식에 관한 협조 사항을 정리하고 있습니다.' },
+  business: { type: '생활소식', title: '단지 내 주민 사업자 소개자료 접수 준비', date: '2026.08.25', body: '주민이 운영하는 가게와 서비스를 정확하게 소개하기 위해 기본정보, 운영시간, 품목과 사진을 확인하는 접수 방식을 준비하고 있습니다.' },
+  record: { type: '현장기록', title: '우리 단지에서 달라진 일을 사진으로 기록합니다', date: '2026.08.22', body: '공지에 그치지 않고 실제로 달라진 시설과 생활편의, 주민 의견이 반영된 결과를 사진과 함께 남길 예정입니다.' }
+};
+
+function openStoryDialog({ type, title, date, body }) {
+  dialog.querySelector('.dialog-type').textContent = type;
+  dialog.querySelector('h2').textContent = title;
+  dialog.querySelector('time').textContent = date;
+  dialog.querySelector('p').textContent = body;
+  if (window.matchMedia('(max-width:760px)').matches) dialog.show(); else dialog.showModal();
+}
+
+// Delegated: sibling-final-v3 static [data-story] rows and server-rendered [data-post-id] rows
+// open the same dialog. Server rows are injected after render, so binding must not be one-shot.
+document.addEventListener('click', event => {
+  const row = event.target.closest('[data-story], [data-post-id]');
+  if (!row) return;
+
+  const story = stories[row.dataset.story];
+  if (story) {
+    openStoryDialog(story);
+    return;
   }
-}));
+
+  const pid = row.dataset.postId || '';
+  if (!pid) return;
+  bridge.getPost(pid).then(result => {
+    if (result.ok && result.data) {
+      const post = result.data;
+      openStoryDialog({
+        type: post.category || '아파트소식',
+        title: post.title,
+        date: formatDate(post.publishedAt),
+        body: post.body || ''
+      });
+    }
+  });
+});
 
 dialog.querySelectorAll('[data-close-story]').forEach(button => button.addEventListener('click', () => dialog.close()));
 dialog.addEventListener('click', event => { if (event.target === dialog && !window.matchMedia('(max-width:760px)').matches) dialog.close(); });
 
+function storyFilterItems() {
+  // Static sibling-final-v3 rows expose data-kind; server rows expose data-post-id.
+  return [...document.querySelectorAll('[data-kind], [data-post-id]')];
+}
+
+function storyItemMatches(item, button) {
+  const kind = item.dataset.kind || '';
+  if (kind) return kind === button.dataset.filter;
+  return (item.querySelector('.type')?.textContent || '').includes(button.textContent.trim());
+}
+
 const filters = [...document.querySelectorAll('.filter')];
-const items = [...document.querySelectorAll('[data-post-id]')];
 filters.forEach(button => button.addEventListener('click', () => {
   filters.forEach(item => item.classList.toggle('active', item === button));
-  items.forEach(item => {
-    item.hidden = button.dataset.filter !== 'all' && !item.querySelector('.type')?.textContent.includes(button.textContent.trim());
+  storyFilterItems().forEach(item => {
+    item.hidden = button.dataset.filter !== 'all' && !storyItemMatches(item, button);
   });
 }));
 
@@ -218,7 +253,12 @@ document.addEventListener('click',function(ev){
  if(SCREEN==='noticeList' && (cls.contains('pinned-link')||cls.contains('notice-row'))){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.noticeDetail);return;}
   if(SCREEN==='apartment' && cls.contains('feature-link')){
     ev.preventDefault();ev.stopImmediatePropagation();
-    const pid = el.dataset.postId || (el.closest('[data-post-id]')?.dataset.postId) || '';
+    // The server-rendered feature link carries ?postId= in its href, not in a data attribute,
+    // so the href query has to be read too or the chair post id is dropped (#358 defect 3).
+    const href=el.getAttribute('href')||'';
+    let hrefPostId='';
+    try{hrefPostId=new URLSearchParams(href.split('?').slice(1).join('?')).get('postId')||'';}catch(e){hrefPostId='';}
+    const pid = el.dataset.postId || (el.closest('[data-post-id]')?.dataset.postId) || hrefPostId || '';
     go(FILES.chair + (pid ? '?postId=' + encodeURIComponent(pid) : ''));
     return;
   }

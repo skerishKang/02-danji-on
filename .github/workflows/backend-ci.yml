@@ -482,3 +482,33 @@ jobs:
           bash tests/business-image-postgres-concurrency.sh
           bash tests/business-image-upload-idempotency-postgres.sh
           bash tests/business-image-resolved-lease-cleanup-postgres.sh
+
+  application-documents-owner-list-postgres-lifecycle:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_DB: danjion_owner_doc_list
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d danjion_owner_doc_list"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    defaults:
+      run:
+        working-directory: 04_개발/backend
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+      - name: Run #362 owner application list document metadata lifecycle
+        env:
+          DATABASE_URL: postgresql://postgres@127.0.0.1:5432/danjion_owner_doc_list?sslmode=disable
+        run: bash tests/application-documents-owner-list-postgres-lifecycle.sh

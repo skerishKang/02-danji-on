@@ -46,7 +46,7 @@ function makeSql({
 {
   const { sql, state } = makeSql({
     galleryRows: [{ object_key: KEY_A }, { object_key: KEY_B }],
-    documentRows: [{ object_key: DOC_1, document_kind: 'operation_proof', sort_order: 0 }]
+    documentRows: [{ id: '11111111-1111-4111-8111-111111111111', object_key: DOC_1, document_kind: 'operation_proof', sort_order: 0 }]
   });
   const res = await resolveCreateReplay(sql, { id: 'app-1', submission_fingerprint: FINGERPRINT }, FINGERPRINT, REQUEST_ID);
   assert.ok(res instanceof Response, 'replay returns a Response');
@@ -56,7 +56,7 @@ function makeSql({
   assert.deepEqual(body.data.photoObjectKeys, [KEY_A, KEY_B], 'replay must return the persisted gallery');
   assert.deepEqual(
     body.data.documents,
-    [{ objectKey: DOC_1, kind: 'operation_proof', sortOrder: 0 }],
+    [{ id: '11111111-1111-4111-8111-111111111111', objectKey: DOC_1, kind: 'operation_proof', sortOrder: 0 }],
     'replay must return the persisted document set'
   );
   assert.equal(state.transactions, 0, 'replay must not open a write transaction');
@@ -88,7 +88,7 @@ function makeSql({
 {
   const { sql, state } = makeSql({
     galleryRows: [{ object_key: KEY_A }],
-    documentRows: [{ object_key: DOC_1, document_kind: 'operation_proof', sort_order: 0 }],
+    documentRows: [{ id: '11111111-1111-4111-8111-111111111111', object_key: DOC_1, document_kind: 'operation_proof', sort_order: 0 }],
     documentFails: true
   });
   const res = await resolveCreateReplay(sql, { id: 'app-1', submission_fingerprint: FINGERPRINT }, FINGERPRINT, REQUEST_ID);

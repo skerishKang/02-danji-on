@@ -372,7 +372,14 @@ type ApplicationDocumentRegistryRow = {
   kind?: string;
 };
 
+// #362: the owner metadata additionally carries the opaque document row id —
+// the only key the private byte route GET
+// /api/v1/me/business-applications/:applicationId/documents/:documentId
+// accepts. objectKey/kind/sortOrder semantics are unchanged and authorization
+// (owner + application binding) is untouched: this reader stays scoped to one
+// already-authorized application row.
 type ApplicationDocumentResponse = {
+  id: string;
   objectKey: string;
   kind: string;
   sortOrder: number;
@@ -383,12 +390,13 @@ async function getApplicationDocuments(
   applicationId: string
 ): Promise<ApplicationDocumentResponse[]> {
   const rows = await sql`
-    select object_key, document_kind, sort_order
+    select id, object_key, document_kind, sort_order
     from business_application_documents
     where application_id = ${applicationId}::uuid
     order by sort_order
   `;
-  return (rows as Array<{ object_key: string; document_kind: string; sort_order: number }>).map((row) => ({
+  return (rows as Array<{ id: string; object_key: string; document_kind: string; sort_order: number }>).map((row) => ({
+    id: String(row.id),
     objectKey: row.object_key,
     kind: row.document_kind,
     sortOrder: row.sort_order

@@ -355,11 +355,29 @@ async function handlePrivate(request: Request, env: CoreEnv, sql: Sql, id: strin
   }
 
   if (request.method === 'GET' && path === '/api/v1/me/business-applications') {
+    // #362 part B: every owner-scoped application carries its document
+    // metadata. The correlated subquery can only see rows of the
+    // actor-filtered application itself (d.application_id = a.id under the
+    // applicant_user_id = actor.id predicate), so other applicants' documents
+    // cannot enter the response. Applications without documents coalesce to
+    // a truthful []. The row id is the opaque key for the #310 owner byte
+    // route; objectKey/kind/sortOrder semantics match resident-economy
+    // metadata and ordering is unchanged.
     const rows = await sql`
       select a.id, c.slug as complex_slug, a.relation_type, a.relation_raw,
              a.resolved_relation_type, a.business_name,
              a.category_name, a.service_summary, a.status, a.review_note,
-             a.approved_business_id, a.created_at, a.updated_at
+             a.approved_business_id, a.created_at, a.updated_at,
+             coalesce((
+               select json_agg(json_build_object(
+                 'id', d.id,
+                 'objectKey', d.object_key,
+                 'kind', d.document_kind,
+                 'sortOrder', d.sort_order
+               ) order by d.sort_order)
+               from business_application_documents d
+               where d.application_id = a.id
+             ), '[]'::json) as documents
       from business_applications a
       join complexes c on c.id = a.complex_id
       where a.applicant_user_id = ${actor.id}::uuid
