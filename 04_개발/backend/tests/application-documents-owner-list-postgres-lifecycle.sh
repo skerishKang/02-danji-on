@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # #362 part B: owner application list carries document metadata.
-# Applies 001 + 002 + 045 + 048 against a scratch database and runs the
+# Applies 001 + 002 + 019 + 045 + 048 against a scratch database and runs the
 # GET /api/v1/me/business-applications SELECT from core-v1.ts verbatim
 # (only the actor uuid is interpolated) to prove:
 #   A. documents[] attaches to every actor-owned application
@@ -43,6 +43,7 @@ KEY_B1='gdrive/private/application-document/cccccccccccccccccccccccccccccccccccc
 
 "${psql_cmd[@]}" -f migrations/001_initial_schema.sql
 "${psql_cmd[@]}" -f migrations/002_admin_workflow.sql
+"${psql_cmd[@]}" -f migrations/019_business_image_lifecycle_registry.sql
 "${psql_cmd[@]}" -f migrations/045_application_documents.sql
 "${psql_cmd[@]}" -f migrations/048_owner_application_relation_resolution.sql
 
