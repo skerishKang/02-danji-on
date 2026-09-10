@@ -6,19 +6,37 @@ import type { CoreEnv } from './core-v1';
 
 type Sql = NeonQueryFunction<false, false>;
 
-type RecommendationInput = {
+type ReportRelation = 'resident_family' | 'neighbor' | 'local';
+
+// Report R-B intake shape. The reporter may arrive without a canonical
+// category or a resolvable relation: categoryName is optional and the raw
+// relation text is always preserved in reportedRelationRaw.
+export type RecommendationInput = {
   complexSlug: string;
-  relationType: 'resident_family' | 'neighbor' | 'local';
+  reportedRelationRaw: string;
   businessName: string;
-  categoryName: string;
+  categoryName: string | null;
   serviceSummary: string;
   serviceArea: string | null;
   reporterNote: string | null;
+  relationDetail: string | null;
+  reportPrice: string | null;
+  reportHours: string | null;
 };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const COMPLEX_SLUG = /^[a-z0-9][a-z0-9-]{0,119}$/;
-const RELATIONS = new Set(['resident_family', 'neighbor', 'local']);
+// Report R-B pre-resolution: only family -> resident_family and
+// neighbor -> neighbor may be auto-pre-resolved at intake. nearby is
+// DELIBERATELY absent: nearby -> local auto-resolve is FORBIDDEN, so a
+// nearby report stays raw with resolved_relation_type NULL. etc and any
+// other raw text also stays raw with resolved NULL.
+const REPORT_RB_PRE_RESOLVE: Record<string, ReportRelation> = {
+  family: 'resident_family',
+  resident_family: 'resident_family',
+  neighbor: 'neighbor',
+  local: 'local'
+};
 const REVIEW_STATES = new Set(['changes_requested', 'approved', 'rejected']);
 const MAX_BODY_BYTES = 32 * 1024;
 
@@ -41,21 +59,54 @@ function sqlFor(env: CoreEnv): Sql {
   return neon(env.DATABASE_URL);
 }
 
-// Fail-closed category resolution: approvals require an exact canonical
-// business_categories.name match that is active. No heuristic matching and no category auto-creation. null means the category resolved.
-async function resolveApprovalCategory(sql: Sql, categoryName: string) {
+// Report R-B intake resolution. The raw relation is always preserved by the
+// caller; only family -> resident_family and neighbor -> neighbor are
+// pre-resolved. Legacy relation_type mirrors the resolved value and stays
+// NULL while unresolved (it is not an approval authority).
+export function preResolveRelation(raw: string): ReportRelation | null {
+  return REPORT_RB_PRE_RESOLVE[raw.trim().toLowerCase()] ?? null;
+}
+
+// Report intake category is NOT required. When the reporter supplies one,
+// resolve it to the canonical id with an exact active-name match; otherwise
+// resolved_category_id stays NULL and approval fails closed. The raw text is
+// kept in legacy category_name either way.
+async function resolveReportCategory(sql: Sql, categoryName: string | null): Promise<string | null> {
+  if (!categoryName) return null;
+  const rows = await sql`
+    select bc.id
+    from business_categories bc
+    where bc.name = ${categoryName}
+      and bc.is_active = true
+    limit 1
+  `;
+  return rows[0] ? String(rows[0].id) : null;
+}
+
+// Fail-closed approval authority: ONLY resolved_category_id +
+// resolved_relation_type approve a report. Legacy category_name /
+// relation_type are never read. No heuristic matching and no category
+// auto-creation.
+async function resolveApprovalAuthority(
+  sql: Sql,
+  resolvedCategoryId: string | null,
+  resolvedRelationType: string | null
+) {
+  if (!resolvedCategoryId || !resolvedRelationType) {
+    return { code: 'REPORT_RB_UNRESOLVED', message: 'Recommendation is missing resolved category or relation' };
+  }
   const rows = await sql`
     select bc.id, bc.is_active
     from business_categories bc
-    where bc.name = ${categoryName}
+    where bc.id = ${resolvedCategoryId}::uuid
     limit 1
   `;
   const row = rows[0];
   if (!row) {
-    return { code: 'CATEGORY_NOT_RESOLVED', message: 'Category does not match an active canonical category' };
+    return { code: 'CATEGORY_NOT_RESOLVED', message: 'Resolved category does not match a canonical category' };
   }
   if (!row.is_active) {
-    return { code: 'CATEGORY_NOT_ACTIVE', message: 'Category is not active' };
+    return { code: 'CATEGORY_NOT_ACTIVE', message: 'Resolved category is not active' };
   }
   return null;
 }
@@ -85,40 +136,58 @@ function stringOrNull(value: unknown): string | null {
   return text || null;
 }
 
-function recommendationInput(payload: Record<string, unknown>, forcedComplexSlug?: string): RecommendationInput | null {
+export function recommendationInput(payload: Record<string, unknown>, forcedComplexSlug?: string): RecommendationInput | null {
   const complexSlug = (forcedComplexSlug ?? String(payload.complexSlug ?? '')).trim();
-  const relationType = String(payload.relationType ?? '').trim();
+  // relationType keeps the legacy field name for intake compatibility; the
+  // value is treated as raw R-B text and always preserved verbatim.
+  const reportedRelationRaw = String(payload.relationRaw ?? payload.relationType ?? '').trim();
   const businessName = String(payload.businessName ?? '').trim();
-  const categoryName = String(payload.categoryName ?? '').trim();
+  const categoryName = stringOrNull(payload.categoryName);
   const serviceSummary = String(payload.serviceSummary ?? '').trim();
   const serviceArea = stringOrNull(payload.serviceArea);
   const reporterNote = stringOrNull(payload.reporterNote);
-  if (!COMPLEX_SLUG.test(complexSlug) || !RELATIONS.has(relationType)) return null;
+  const relationDetail = stringOrNull(payload.relationDetail);
+  const reportPrice = stringOrNull(payload.reportPrice);
+  const reportHours = stringOrNull(payload.reportHours);
+  if (!COMPLEX_SLUG.test(complexSlug)) return null;
+  if (reportedRelationRaw.length < 1 || reportedRelationRaw.length > 120) return null;
   if (businessName.length < 1 || businessName.length > 160) return null;
-  if (categoryName.length < 1 || categoryName.length > 120) return null;
+  if (categoryName && categoryName.length > 120) return null;
   if (serviceSummary.length < 1 || serviceSummary.length > 1000) return null;
   if (serviceArea && serviceArea.length > 300) return null;
   if (reporterNote && reporterNote.length > 1000) return null;
+  if (relationDetail && relationDetail.length > 1000) return null;
+  if (reportPrice && reportPrice.length > 120) return null;
+  if (reportHours && reportHours.length > 120) return null;
   return {
     complexSlug,
-    relationType: relationType as RecommendationInput['relationType'],
+    reportedRelationRaw,
     businessName,
     categoryName,
     serviceSummary,
     serviceArea,
-    reporterNote
+    reporterNote,
+    relationDetail,
+    reportPrice,
+    reportHours
   };
 }
 
 function mapRecommendation(row: Record<string, unknown>) {
   return {
     id: String(row.id),
-    relationType: String(row.relation_type),
+    relationType: row.relation_type ? String(row.relation_type) : null,
+    reportedRelationRaw: row.reported_relation_raw ? String(row.reported_relation_raw) : null,
+    resolvedRelationType: row.resolved_relation_type ? String(row.resolved_relation_type) : null,
+    relationDetail: row.relation_detail ? String(row.relation_detail) : null,
     businessName: String(row.business_name),
-    categoryName: String(row.category_name),
+    categoryName: row.category_name ? String(row.category_name) : null,
+    resolvedCategoryId: row.resolved_category_id ? String(row.resolved_category_id) : null,
     serviceSummary: String(row.service_summary),
     serviceArea: row.service_area ? String(row.service_area) : null,
     reporterNote: row.reporter_note ? String(row.reporter_note) : null,
+    reportPrice: row.report_price ? String(row.report_price) : null,
+    reportHours: row.report_hours ? String(row.report_hours) : null,
     status: String(row.status),
     reviewNote: row.review_note ? String(row.review_note) : null,
     approvedBusinessId: row.approved_business_id ? String(row.approved_business_id) : null,
@@ -131,8 +200,10 @@ async function listMine(request: Request, env: CoreEnv, sql: Sql, requestId: str
   const resident = await requireVerifiedResident(request, env, sql, requestId, complexSlug);
   if (resident instanceof Response) return resident;
   const rows = await sql`
-    select id, relation_type, business_name, category_name, service_summary,
-           service_area, reporter_note, status, review_note, approved_business_id,
+    select id, relation_type, reported_relation_raw, resolved_relation_type,
+           relation_detail, business_name, category_name, resolved_category_id,
+           service_summary, service_area, reporter_note, report_price,
+           report_hours, status, review_note, approved_business_id,
            created_at, updated_at
     from shop_recommendations
     where reporter_user_id = ${resident.id}::uuid
@@ -150,17 +221,25 @@ async function createMine(request: Request, env: CoreEnv, sql: Sql, requestId: s
   const resident = await requireVerifiedResident(request, env, sql, requestId, input.complexSlug);
   if (resident instanceof Response) return resident;
 
+  const resolvedRelationType = preResolveRelation(input.reportedRelationRaw);
+  const resolvedCategoryId = await resolveReportCategory(sql, input.categoryName);
   const rows = await sql`
     insert into shop_recommendations (
-      complex_id, reporter_user_id, relation_type, business_name, category_name,
-      service_summary, service_area, reporter_note
+      complex_id, reporter_user_id, relation_type, reported_relation_raw,
+      resolved_relation_type, relation_detail, business_name, category_name,
+      resolved_category_id, service_summary, service_area, reporter_note,
+      report_price, report_hours
     ) values (
-      ${resident.complexId}::uuid, ${resident.id}::uuid, ${input.relationType},
-      ${input.businessName}, ${input.categoryName}, ${input.serviceSummary},
-      ${input.serviceArea}, ${input.reporterNote}
+      ${resident.complexId}::uuid, ${resident.id}::uuid, ${resolvedRelationType},
+      ${input.reportedRelationRaw}, ${resolvedRelationType}, ${input.relationDetail},
+      ${input.businessName}, ${input.categoryName}, ${resolvedCategoryId},
+      ${input.serviceSummary}, ${input.serviceArea}, ${input.reporterNote},
+      ${input.reportPrice}, ${input.reportHours}
     )
-    returning id, relation_type, business_name, category_name, service_summary,
-              service_area, reporter_note, status, review_note, approved_business_id,
+    returning id, relation_type, reported_relation_raw, resolved_relation_type,
+              relation_detail, business_name, category_name, resolved_category_id,
+              service_summary, service_area, reporter_note, report_price,
+              report_hours, status, review_note, approved_business_id,
               created_at, updated_at
   `;
   return ok(mapRecommendation(rows[0] as Record<string, unknown>), requestId, 201);
@@ -195,14 +274,22 @@ async function resubmitMine(
   if (payload instanceof Response) return payload;
   const input = recommendationInput(payload, complexSlug);
   if (!input) return fail('VALIDATION_ERROR', 'Invalid shop recommendation', 400, requestId);
+  const resolvedRelationType = preResolveRelation(input.reportedRelationRaw);
+  const resolvedCategoryId = await resolveReportCategory(sql, input.categoryName);
   const rows = await sql`
     update shop_recommendations
-    set relation_type = ${input.relationType},
+    set relation_type = ${resolvedRelationType},
+        reported_relation_raw = ${input.reportedRelationRaw},
+        resolved_relation_type = ${resolvedRelationType},
+        relation_detail = ${input.relationDetail},
         business_name = ${input.businessName},
         category_name = ${input.categoryName},
+        resolved_category_id = ${resolvedCategoryId},
         service_summary = ${input.serviceSummary},
         service_area = ${input.serviceArea},
         reporter_note = ${input.reporterNote},
+        report_price = ${input.reportPrice},
+        report_hours = ${input.reportHours},
         status = 'pending',
         review_note = null,
         reviewed_by = null,
@@ -211,8 +298,10 @@ async function resubmitMine(
       and reporter_user_id = ${resident.id}::uuid
       and complex_id = ${resident.complexId}::uuid
       and status = 'changes_requested'
-    returning id, relation_type, business_name, category_name, service_summary,
-              service_area, reporter_note, status, review_note, approved_business_id,
+    returning id, relation_type, reported_relation_raw, resolved_relation_type,
+              relation_detail, business_name, category_name, resolved_category_id,
+              service_summary, service_area, reporter_note, report_price,
+              report_hours, status, review_note, approved_business_id,
               created_at, updated_at
   `;
   if (!rows[0]) return fail('CONFLICT', 'Recommendation can no longer be resubmitted', 409, requestId);
@@ -234,8 +323,10 @@ async function adminList(
   const allowed = new Set(['pending', 'changes_requested', 'approved', 'rejected']);
   if (!allowed.has(status)) return fail('VALIDATION_ERROR', 'Invalid recommendation status', 400, requestId);
   const rows = await sql`
-    select r.id, r.relation_type, r.business_name, r.category_name, r.service_summary,
-           r.service_area, r.reporter_note, r.status, r.review_note, r.approved_business_id,
+    select r.id, r.relation_type, r.reported_relation_raw, r.resolved_relation_type,
+           r.relation_detail, r.business_name, r.category_name, r.resolved_category_id,
+           r.service_summary, r.service_area, r.reporter_note, r.report_price,
+           r.report_hours, r.status, r.review_note, r.approved_business_id,
            r.created_at, r.updated_at, u.display_name as reporter_nickname
     from shop_recommendations r
     join app_users u on u.id = r.reporter_user_id
@@ -260,7 +351,8 @@ async function adminReview(
   recommendationId: string
 ): Promise<Response> {
   const currentRows = await sql`
-    select r.id, r.status, r.approved_business_id, r.category_name, c.slug as complex_slug
+    select r.id, r.status, r.approved_business_id, r.resolved_category_id,
+           r.resolved_relation_type, c.slug as complex_slug
     from shop_recommendations r
     join complexes c on c.id = r.complex_id
     where r.id = ${recommendationId}::uuid
@@ -287,14 +379,21 @@ async function adminReview(
     if (String(current.status) === 'approved' && current.approved_business_id) {
       return ok({ id: recommendationId, status: 'approved', approvedBusinessId: current.approved_business_id, alreadyApproved: true }, requestId);
     }
-    const categoryError = await resolveApprovalCategory(sql, String(current.category_name ?? ''));
-    if (categoryError) {
-      // Domain-consistent fail-closed: the reporter can fix category_name via
-      // the existing changes_requested -> resubmit flow, so return the
-      // recommendation to changes_requested instead of approving a business
-      // with an unresolved category. Falls back to fail-closed when the row
-      // is no longer reviewable.
-      const note = reviewNote ?? '카테고리를 확인할 수 없어 승인이 보류되었습니다. 카테고리 확인 후 다시 제출해 주세요.';
+    const authorityError = await resolveApprovalAuthority(
+      sql,
+      current.resolved_category_id ? String(current.resolved_category_id) : null,
+      current.resolved_relation_type ? String(current.resolved_relation_type) : null
+    );
+    if (authorityError) {
+      // Domain-consistent fail-closed: legacy category_name / relation_type
+      // are NOT approval authorities, so an unresolved report can never
+      // approve. The reporter can repair via the existing
+      // changes_requested -> resubmit flow (category optional at intake,
+      // family/neighbor auto-pre-resolved, raw always preserved), so return
+      // the recommendation to changes_requested instead of approving a
+      // business with unresolved authority. Falls back to fail-closed when
+      // the row is no longer reviewable.
+      const note = reviewNote ?? '카테고리 또는 관계를 확인할 수 없어 승인이 보류되었습니다. 확인 후 다시 제출해 주세요.';
       const transitioned = await sql`
         update shop_recommendations
         set status = 'changes_requested',
@@ -307,9 +406,9 @@ async function adminReview(
         returning id, status, review_note, reviewed_at
       `;
       if (transitioned[0]) {
-        return ok({ ...transitioned[0], categoryUnresolved: categoryError.code }, requestId);
+        return ok({ ...transitioned[0], categoryUnresolved: authorityError.code }, requestId);
       }
-      return fail(categoryError.code, categoryError.message, 409, requestId);
+      return fail(authorityError.code, authorityError.message, 409, requestId);
     }
     const rows = await sql`
       with approved as (
@@ -322,9 +421,11 @@ async function adminReview(
         where r.id = ${recommendationId}::uuid
           and r.complex_id = ${operator.complexId}::uuid
           and r.status in ('pending','changes_requested')
+          and r.resolved_category_id is not null
+          and r.resolved_relation_type is not null
           and exists (
             select 1 from business_categories bc
-            where bc.name = r.category_name
+            where bc.id = r.resolved_category_id
               and bc.is_active = true
           )
         returning r.*
@@ -336,7 +437,7 @@ async function adminReview(
         )
         select a.approved_business_id,
                null,
-               (select bc.id from business_categories bc where bc.name = a.category_name and bc.is_active = true limit 1),
+               a.resolved_category_id,
                'service', a.business_name, a.service_summary, a.service_summary,
                a.service_area, 'approved'
         from approved a
@@ -348,7 +449,7 @@ async function adminReview(
           business_id, complex_id, relation_type, verification_status,
           priority, verified_by, verified_at
         )
-        select a.approved_business_id, a.complex_id, a.relation_type,
+        select a.approved_business_id, a.complex_id, a.resolved_relation_type,
                'verified', 100, ${operator.id}::uuid, now()
         from approved a
         on conflict (business_id, complex_id) do update
