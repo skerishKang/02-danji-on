@@ -77,19 +77,25 @@ assert.doesNotMatch(apply25a, /OWNER_RELATION_MAP\s*=\s*\{[^}]*(co|etc):/,
   'H: 공동 운영자/기타 must not be mapped to any backend relation');
 assert.match(apply25a, /선택한 관계로는 아직 서버 신청을 연결할 수 없습니다\./,
   'H: unmapped relation must fail closed with an honest notice instead of a guessed relation');
-/* photo handling: never silently dropped, canonical storage contract only */
-assert.match(apply25a, /const MAX_PHOTOS=3;/, 'PHOTO: gallery must cap at the backend 0..3 photo contract');
-assert.match(apply25a, /for\(const file of pendingFiles\)\{[\s\S]*?await uploadBusinessImage\(file\)/,
-  'PHOTO: submit must upload every pending gallery file, never silently discard extras');
+/* photo handling: never silently dropped, canonical storage contract only, sibling visual authority kept */
+assert.match(apply25a, /const MAX_PHOTOS=3;/, 'PHOTO: selection must cap at the backend 0..3 photo contract');
+assert.match(apply25a, /photos\.files\.length>MAX_PHOTOS\)\{alert\(/,
+  'PHOTO: over-cap selection must be rejected at the existing file input, not silently trimmed');
+assert.match(apply25a, /const photoFiles=Array\.from\(photos\.files\|\|\[\]\)\.slice\(0,MAX_PHOTOS\);/,
+  'PHOTO: submit must consume the existing file input selection order (no parallel gallery state)');
+assert.match(apply25a, /for\(const file of photoFiles\)\{[\s\S]*?await uploadBusinessImage\(file\)/,
+  'PHOTO: submit must upload every selected photo file in order, never silently discard extras');
 assert.match(apply25a, /body\.set\('kind','business-image'\)/, 'PHOTO: upload must use the canonical business-image kind');
 assert.match(apply25a, /\/api\/v1\/storage\/objects',\{method:'POST',credentials:'include'/,
   'PHOTO: upload must hit POST /api/v1/storage/objects with credentials');
-assert.match(apply25a, /if\(!upload\.ok\)\{[\s\S]*?return;[\s\S]*?\}[\s\S]*?const finalPhotoKeys=\[\.\.\.photoObjectKeys,\.\.\.uploadedKeys\];/,
-  'PHOTO: upload failure must abort the submit (fail closed, no keyless fake); success collects object keys');
-assert.match(apply25a, /photoObjectKeys:finalPhotoKeys/,
+assert.match(apply25a, /if\(!upload\.ok\)\{[\s\S]*?return;[\s\S]*?uploadedKeys\.push\(upload\.objectKey\);/,
+  'PHOTO: upload failure must abort the submit (fail closed, no keyless fake); success collects object keys in order');
+assert.match(apply25a, /photoObjectKeys:uploadedKeys/,
   'PHOTO: submit payload must carry the canonical photoObjectKeys array (representative mirrors keys[0] in the bridge)');
 assert.doesNotMatch(apply25a, /gallery[A-Za-z]*\s*:|imageObjectKeys/,
   'PHOTO: only the canonical photoObjectKeys field may be added to the payload');
+assert.doesNotMatch(apply25a, /photo-gallery|photoGallery|photo-thumb|photo-remove|renderPhotoGallery/,
+  'PHOTO: no new gallery presentation may be added; persistence uses the sibling file-input UI unchanged');
 
 /* --- I. product parity guard: copy / labels / SHOP_DATA unchanged --- */
 assert.match(html, /♡ 저장/, 'unsaved save label must be preserved');
