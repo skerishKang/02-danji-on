@@ -21,6 +21,7 @@ import { validateRequestPayload } from './payload-policy';
 import { handleProductMutationRateLimitRequest } from './product-rate-limit-v1';
 import { handleResidentActivityRequest } from './resident-activity-v1';
 import { handleResidentApplicationRequest } from './resident-application-v1';
+import { handleAdminApplicationDocumentRequest, handleResidentApplicationDocumentRequest } from './resident-application-docs-v1';
 import { handleResidentBlockRequest } from './resident-blocks-v1';
 import { handleResidentEconomyMutationRequest } from './resident-economy-v2';
 import { handleResidentMessageRequest } from './resident-messages-v1';
@@ -167,6 +168,8 @@ export default {
       if (adminVerificationResponse) return respond(adminVerificationResponse);
       const adminOperationalResponse = await handleAdminOperationalRequest(request, env, id);
       if (adminOperationalResponse) return respond(adminOperationalResponse);
+      const adminApplicationDocumentResponse = await handleAdminApplicationDocumentRequest(request, env, id);
+      if (adminApplicationDocumentResponse) return respond(adminApplicationDocumentResponse);
       const communityModerationResponse = await handleCommunityModerationRequest(request, env, id);
       if (communityModerationResponse) return respond(communityModerationResponse);
       const residentNewsResponse = await handleResidentNewsRequest(request, env, id);
@@ -217,6 +220,8 @@ export default {
       if (benefitWalletResponse) return respond(benefitWalletResponse);
       const residentApplicationResponse = await handleResidentApplicationRequest(request, env, id);
       if (residentApplicationResponse) return respond(residentApplicationResponse);
+      const residentApplicationDocumentResponse = await handleResidentApplicationDocumentRequest(request, env, id);
+      if (residentApplicationDocumentResponse) return respond(residentApplicationDocumentResponse);
       return respond(await core.fetch(request, env));
     } catch (error) {
       console.error('[DanjiOn App]', id, error);
