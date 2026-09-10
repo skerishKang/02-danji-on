@@ -33,6 +33,10 @@ type ParsedObjectKey = {
   kind: StorageKind;
   fileId: string;
 };
+
+type ApplicationDocumentRegistryRow = {
+  object_key?: string;
+};
 type BusinessImageRegistryRow = {
   object_key?: string;
   uploader_user_id?: string;
@@ -144,6 +148,7 @@ function driveFileNameForUpload(kind: StorageKind, file: File): string {
 }
 
 function objectKey(kind: StorageKind, fileId: string): string {
+  if (kind === 'application-document') return `gdrive/private/application-document/${fileId}`;
   return `gdrive/${storageVisibility(kind)}/${kind}/${fileId}`;
 }
 
@@ -154,9 +159,10 @@ function parseObjectKey(value: string): ParsedObjectKey | null {
   const kind = parts[2];
   const fileId = parts[3];
   if ((visibility !== 'public' && visibility !== 'private') ||
-      (kind !== 'business-image' && kind !== 'resident-evidence') ||
-      !DRIVE_FILE_ID.test(fileId)) return null;
-  if (storageVisibility(kind) !== visibility) return null;
+      (kind !== 'business-image' && kind !== 'resident-evidence' && kind !== 'application-document')) return null;
+  if (kind === 'application-document') {
+    if (visibility !== 'private' || !DRIVE_FILE_ID.test(fileId)) return null;
+  } else if (storageVisibility(kind) !== visibility) return null;
   return { objectKey: value.trim(), visibility, kind, fileId };
 }
 
@@ -299,6 +305,40 @@ export async function businessImageDeleteConflict(
     return fail(
       'BUSINESS_IMAGE_IN_USE',
       'Business image is still referenced by an active application or business record',
+      409,
+      requestId
+    );
+  }
+  return null;
+}
+
+export async function applicationDocumentDeleteConflict(
+  sql: Sql,
+  objectKeyValue: string,
+  requestId: string
+): Promise<Response | null> {
+  let rows;
+  try {
+    rows = await sql`
+      select exists (
+        select 1
+        from business_application_documents bad
+        where bad.object_key = ${objectKeyValue}
+      ) as document_in_use
+    `;
+  } catch {
+    return fail(
+      'DOCUMENT_REFERENCE_CHECK_UNAVAILABLE',
+      'Application document usage could not be verified before deletion',
+      503,
+      requestId
+    );
+  }
+  const usage = rows[0] as { document_in_use?: boolean } | undefined;
+  if (usage?.document_in_use) {
+    return fail(
+      'DOCUMENT_IN_USE',
+      'Application document is still referenced by an active application',
       409,
       requestId
     );
@@ -856,14 +896,35 @@ async function removeObject(request: Request, env: DriveEnv, requestId: string):
     return ok({ objectKey: parsed.objectKey, deleted: true }, requestId);
   }
 
-  if (parsed.kind === 'business-image') {
-    const registry = await readBusinessImageRegistry(auth.sql, parsed.objectKey, requestId);
-    if (registry instanceof Response) return registry;
-    if (registry) return removeRegisteredBusinessImage(auth, env, parsed, registry, requestId);
-    return removeLegacyUnregisteredBusinessImage(auth, env, parsed, requestId);
-  }
+   if (parsed.kind === 'business-image') {
+     const registry = await readBusinessImageRegistry(auth.sql, parsed.objectKey, requestId);
+     if (registry instanceof Response) return registry;
+     if (registry) return removeRegisteredBusinessImage(auth, env, parsed, registry, requestId);
+     return removeLegacyUnregisteredBusinessImage(auth, env, parsed, requestId);
+   }
 
-  return fail('INVALID_OBJECT_KEY', 'Invalid storage object key', 400, requestId);
+   if (parsed.kind === 'application-document') {
+     const conflict = await applicationDocumentDeleteConflict(auth.sql, parsed.objectKey, requestId);
+     if (conflict) return conflict;
+     let metadata: DriveMetadata | null;
+     try {
+       metadata = await readDriveMetadata(env, parsed);
+     } catch {
+       return fail('STORAGE_UNAVAILABLE', 'Storage object could not be verified', 503, requestId);
+     }
+     if (!metadata || !metadataMatches(env, parsed, metadata)) return fail('NOT_FOUND', 'Storage object not found', 404, requestId);
+     const denied = await authorizeObject(auth.actor, metadata, requestId);
+     if (denied) return denied;
+     const response = await googleFetch(env, `${DRIVE_API}/files/${encodeURIComponent(parsed.fileId)}?supportsAllDrives=true`, {
+       method: 'PATCH',
+       headers: { 'content-type': 'application/json' },
+       body: JSON.stringify({ trashed: true })
+     });
+     if (!response.ok) throw new Error(`Google Drive delete failed (${response.status})`);
+     return ok({ objectKey: parsed.objectKey, deleted: true }, requestId);
+   }
+
+   return fail('INVALID_OBJECT_KEY', 'Invalid storage object key', 400, requestId);
 }
 
 export async function handleStorageRequest(request: Request, env: CoreEnv, requestId: string): Promise<Response | null> {

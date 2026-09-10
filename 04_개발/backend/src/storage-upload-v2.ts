@@ -11,6 +11,7 @@ type DriveEnv = CoreEnv & {
   GOOGLE_DRIVE_CLIENT_SECRET?: string;
   GOOGLE_DRIVE_REFRESH_TOKEN?: string;
   GOOGLE_DRIVE_PUBLIC_BUSINESS_FOLDER_ID?: string;
+  GOOGLE_DRIVE_PRIVATE_RESIDENT_VERIFICATION_FOLDER_ID?: string;
 };
 type DriveMetadata = {
   id: string;
@@ -126,6 +127,18 @@ function fileIdFromBusinessImageObjectKey(value: string): string | null {
   const fileId = value.slice(prefix.length);
   return DRIVE_FILE_ID.test(fileId) ? fileId : null;
 }
+
+function applicationDocumentObjectKey(fileId: string): string {
+  return `gdrive/private/application-document/${fileId}`;
+}
+
+function fileIdFromApplicationDocumentObjectKey(value: string): string | null {
+  const prefix = 'gdrive/private/application-document/';
+  if (!value.startsWith(prefix)) return null;
+  const fileId = value.slice(prefix.length);
+  return DRIVE_FILE_ID.test(fileId) ? fileId : null;
+}
+
 
 async function generateDriveFileId(env: DriveEnv): Promise<string> {
   const response = await googleFetch(env, `${DRIVE_API}/files/generateIds?count=1&space=drive&type=files`);
@@ -821,14 +834,126 @@ export async function runTrackedBusinessImageUpload(
     );
   }
 
-  const activationError = await activateBusinessImageUpload(
-    sql, objectKeyValue, resident.id, resident.complexId, requestId
-  );
-  if (activationError) return activationError;
-  return { objectKey: objectKeyValue, metadata };
-}
+   const activationError = await activateBusinessImageUpload(
+     sql, objectKeyValue, resident.id, resident.complexId, requestId
+   );
+   if (activationError) return activationError;
+   return { objectKey: objectKeyValue, metadata };
+ }
 
-export async function handleTrackedStorageUploadRequest(
+  async function uploadApplicationDocumentFile(
+    env: DriveEnv,
+    file: File,
+    fileId: string,
+    uploaderUserId: string,
+    complexSlug: string
+  ): Promise<DriveMetadata> {
+    const folderId = env.GOOGLE_DRIVE_PRIVATE_RESIDENT_VERIFICATION_FOLDER_ID?.trim();
+    if (!folderId) throw new Error('Google Drive private folder is not configured for application documents');
+    const boundary = `danjion-${crypto.randomUUID()}`;
+    const metadata = {
+      name: `${new Date().toISOString().slice(0, 10)}-${crypto.randomUUID()}-${safeStorageFileName(file.name)}`,
+      parents: [folderId],
+      appProperties: {
+        danjionKind: 'application-document',
+        danjionVisibility: 'private',
+        danjionUploaderUserId: uploaderUserId,
+        danjionComplexSlug: complexSlug
+      }
+    };
+   const body = new Blob([
+     `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n`,
+     `--${boundary}\r\nContent-Type: ${file.type}\r\n\r\n`,
+     file,
+     `\r\n--${boundary}--\r\n`
+   ]);
+   const response = await googleFetch(
+     env,
+     `${DRIVE_UPLOAD_API}/files?uploadType=multipart&fields=id,name,mimeType,size,parents,appProperties&supportsAllDrives=true`,
+     {
+       method: 'POST',
+       headers: { 'content-type': `multipart/related; boundary=${boundary}` },
+       body
+     }
+   );
+   if (!response.ok) {
+     const detail = await response.text().catch(() => '');
+     throw new Error(`Google Drive application-document upload failed (${response.status})${detail ? `: ${detail.slice(0, 240)}` : ''}`);
+   }
+   return response.json() as Promise<DriveMetadata>;
+ }
+
+ async function registerApplicationDocumentObject(
+   sql: Sql,
+   objectKeyValue: string,
+   uploaderUserId: string,
+   complexId: string,
+   requestId: string
+ ): Promise<Response | null> {
+   try {
+     const rows = await sql`
+       insert into business_image_objects (
+         object_key, uploader_user_id, complex_id, state, kind
+       ) values (
+         ${objectKeyValue}, ${uploaderUserId}::uuid, ${complexId}::uuid, 'active', 'application-document'
+       )
+       on conflict (object_key) do nothing
+       returning object_key
+     `;
+     if (rows[0]) return null;
+     return fail(
+       'APPLICATION_DOCUMENT_REGISTRY_CONFLICT',
+       'Application document object key is already registered',
+       409,
+       requestId
+     );
+   } catch {
+     return fail(
+       'APPLICATION_DOCUMENT_REGISTRY_UNAVAILABLE',
+       'Application document lifecycle registry is unavailable',
+       503,
+       requestId
+     );
+   }
+ }
+
+ async function runTrackedApplicationDocumentUpload(
+   env: CoreEnv,
+   sql: Sql,
+   file: File,
+   resident: TrackedResident,
+   requestId: string,
+   idempotencyKey: string | null
+ ): Promise<UploadSuccess | Response> {
+   let fileId: string;
+   try {
+     fileId = await generateDriveFileId(env as DriveEnv);
+   } catch {
+     return fail('APPLICATION_DOCUMENT_ID_RESERVATION_UNAVAILABLE', 'Google Drive could not reserve an upload id', 503, requestId);
+   }
+   const objectKeyValue = applicationDocumentObjectKey(fileId);
+
+   const registrationError = await registerApplicationDocumentObject(
+     sql, objectKeyValue, resident.id, resident.complexId, requestId
+   );
+   if (registrationError) return registrationError;
+
+     let metadata: DriveMetadata;
+     try {
+       metadata = await uploadApplicationDocumentFile(
+         env as DriveEnv, file, fileId, resident.id, resident.complexSlug
+       );
+     } catch {
+       return fail('APPLICATION_DOCUMENT_UPLOAD_FAILED', 'Application document upload to Google Drive failed', 502, requestId);
+     }
+    if (!metadata || metadata.trashed) {
+      return fail('APPLICATION_DOCUMENT_NOT_FOUND', 'Application document is missing after upload', 404, requestId);
+    }
+
+    return { objectKey: objectKeyValue, metadata };
+  }
+
+ export async function handleTrackedStorageUploadRequest(
   request: Request,
   env: CoreEnv,
   requestId: string
@@ -857,7 +982,7 @@ export async function handleTrackedStorageUploadRequest(
   const kind = String(form.get('kind') || '').trim();
   const complexSlug = String(form.get('complexSlug') || '').trim();
 
-  if (kind === 'resident-evidence') {
+   if (kind === 'resident-evidence') {
     return fail(
       'RESIDENT_VERIFICATION_POLICY_HOLD',
       'Resident verification evidence upload is unavailable until the verification and privacy policy is approved',
@@ -872,8 +997,8 @@ export async function handleTrackedStorageUploadRequest(
     const status = validation.code === 'UNSUPPORTED_MEDIA_TYPE' ? 415 : validation.code === 'FILE_TOO_LARGE' ? 413 : 400;
     return fail(validation.code, validation.message, status, requestId);
   }
-  if (validation.kind !== 'business-image') {
-    return fail('VALIDATION_ERROR', 'Only business-image persistence is available on the current upload path', 400, requestId);
+  if (validation.kind !== 'business-image' && validation.kind !== 'application-document') {
+    return fail('VALIDATION_ERROR', 'Only business-image and application-document persistence is available on the current upload path', 400, requestId);
   }
   if (!complexSlug) return fail('VALIDATION_ERROR', 'complexSlug is required', 400, requestId);
 
@@ -892,17 +1017,24 @@ export async function handleTrackedStorageUploadRequest(
     );
   }
 
-  const result = await runTrackedBusinessImageUpload(
-    env, sql, file, resident, requestId, rawIdempotencyKey
-  );
-  if (result instanceof Response) return result;
+   let result: UploadSuccess | Response;
+   if (validation.kind === 'business-image') {
+     result = await runTrackedBusinessImageUpload(
+       env, sql, file, resident, requestId, rawIdempotencyKey
+     );
+   } else {
+     result = await runTrackedApplicationDocumentUpload(
+       env, sql, file, resident, requestId, rawIdempotencyKey
+     );
+   }
+   if (result instanceof Response) return result;
 
-  return ok({
-    objectKey: result.objectKey,
-    fileName: file.name,
-    contentType: file.type,
-    size: file.size,
-    visibility: validation.policy.visibility,
-    idempotencyReplayed: result.idempotencyReplayed === true
-  }, requestId, 201);
-}
+   return ok({
+     objectKey: result.objectKey,
+     fileName: file.name,
+     contentType: file.type,
+     size: file.size,
+     visibility: validation.policy.visibility,
+     idempotencyReplayed: result.idempotencyReplayed === true
+   }, requestId, 201);
+ }

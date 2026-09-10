@@ -113,8 +113,15 @@ assert.ok(storage.includes("a.status in ('draft', 'pending', 'changes_requested'
   'gallery guard must share the live-status set (rejected stays non-blocking)');
 
 // ------------------------------------------------------- out of scope guard
-assert.equal(economy.includes('application-document'), false,
-  'GAP-4 must not invent the GAP-5 document kind');
+// GAP-5 legitimately owns the 'application-document' kind, so the blanket
+// whole-file absence check is replaced with a scoped one: the GAP-4 photo
+// gallery insert helper must still never reference document semantics.
+const galleryHelperStart = economy.indexOf('function galleryInsertForApplication(');
+assert.ok(galleryHelperStart >= 0, 'GAP-4 gallery insert helper must remain present');
+const galleryHelperEnd = economy.indexOf('\n}', galleryHelperStart);
+assert.ok(galleryHelperEnd > galleryHelperStart, 'GAP-4 gallery insert helper must have a body');
+assert.equal(economy.slice(galleryHelperStart, galleryHelperEnd).includes('application-document'), false,
+  'GAP-4 photo gallery helper must not invent the GAP-5 document kind');
 assert.equal(economy.includes('resident-evidence'), false,
   'GAP-4 must not touch the policy-HOLD evidence path');
 
@@ -122,23 +129,23 @@ assert.equal(economy.includes('resident-evidence'), false,
 const createStart = economy.indexOf('async function createBusinessApplication(');
 const createEnd = economy.indexOf('async function resubmitBusinessApplication(', createStart);
 const createBlock = economy.slice(createStart, createEnd);
-const replayStart = economy.indexOf('export async function resolveCreateReplay(');
-const replayEnd = economy.indexOf('async function createBusinessApplication(', replayStart);
+const replayStart = economy.indexOf('async function idempotentReplayResponse(');
+const replayEnd = economy.indexOf('function businessImageRegistryFailure(', replayStart);
 const replayHelper = economy.slice(replayStart, replayEnd);
 
 // A. CREATE ATOMICITY: application row + gallery rows commit/rollback together.
 const txStart = createBlock.indexOf('await sql.transaction([');
 const appInsertInTx = createBlock.indexOf('insert into business_applications', txStart);
-const galleryInsertInTx = createBlock.indexOf('galleryInsertForApplication(sql, applicationId, galleryKeys)', txStart);
+const galleryInsertInTx = createBlock.indexOf('galleryInsertForApplication(sql, newApplicationId, galleryKeys)', txStart);
 assert.ok(txStart >= 0 && appInsertInTx > txStart && galleryInsertInTx > appInsertInTx,
   'A. application insert and gallery insert must run inside the SAME create transaction');
 assert.ok(createBlock.indexOf(']);', galleryInsertInTx) > galleryInsertInTx,
   'A. the gallery insert must be a member of the create transaction array');
 
 // B. Pre-generated id + existence guard so a conflict never writes orphan gallery rows.
-assert.ok(createBlock.includes('const applicationId = crypto.randomUUID()'),
+assert.ok(createBlock.includes('const newApplicationId = crypto.randomUUID()'),
   'B. create must pre-generate the application id for the in-transaction gallery insert');
-assert.ok(createBlock.includes('${applicationId}::uuid'),
+assert.ok(createBlock.includes('${newApplicationId}::uuid'),
   'B. the application insert must use the pre-generated id');
 assert.ok(economy.includes('where exists (select 1 from business_applications a where a.id = ${applicationId}::uuid)'),
   'B. the gallery insert must be existence-guarded so an idempotent conflict writes no orphan rows');

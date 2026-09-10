@@ -10,6 +10,12 @@ export const STORAGE_UPLOAD_POLICIES = Object.freeze({
     maxBytes: 10 * 1024 * 1024,
     maxFiles: 1,
     mimeTypes: Object.freeze(['image/jpeg', 'image/png', 'image/webp', 'application/pdf'])
+  }),
+  'application-document': Object.freeze({
+    visibility: 'private',
+    maxBytes: 10 * 1024 * 1024,
+    maxFiles: 1,
+    mimeTypes: Object.freeze(['image/jpeg', 'image/png', 'image/webp', 'application/pdf'])
   })
 });
 
