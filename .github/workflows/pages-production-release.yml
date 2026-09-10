@@ -36,7 +36,7 @@ jobs:
       VITE_STORAGE_MODE: drive
       VITE_API_BASE_URL: https://padiem-danjion-api-production.padiem.workers.dev
       VITE_AUTH_BASE_URL: https://padiem-danjion-api-production.padiem.workers.dev
-      VITE_COMPLEX_SLUG: bangnim-myeongji-roadhill
+      VITE_COMPLEX_SLUG: banglim-myeongji-roadhill
       PAGES_PROJECT: danjion
       PAGES_PRODUCTION_BRANCH: main
       CANONICAL_PAGES_URL: https://danjion.pages.dev
