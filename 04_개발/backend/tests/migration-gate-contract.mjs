@@ -141,20 +141,23 @@ const seedOptInPlan = await computeMigrationPlan({
 });
 assert.ok(seedOptInPlan.apply_set.includes('042_seed_banglim_pilot_production.sql'), '042 applies only with explicit opt-in');
 
-// 12. 045 (PR #304) can appear later without any code rewrite.
+// 12. 045 (PR #304, merged) is classified and flows through the gate; later migrations need no code rewrite.
+assert.equal(classifyMigration(ledger, '045_application_documents.sql').class, 'schema');
+const plan045 = await computeMigrationPlan({ ledger, inventory, appliedResolver: resolverFromApplied(new Set()), targetSha });
+assert.ok(plan045.apply_set.includes('045_application_documents.sql'), '045 flows through the gate automatically once classified');
 const futureLedger = JSON.parse(JSON.stringify(ledger));
-futureLedger.migrations['045_future_pr304.sql'] = {
+futureLedger.migrations['046_future_pr.sql'] = {
   class: 'schema',
-  marker: { kind: 'table', schema: 'public', name: 'future_pr304_table' },
+  marker: { kind: 'table', schema: 'public', name: 'future_pr_table' },
 };
 const futurePlan = await computeMigrationPlan({
   ledger: futureLedger,
-  inventory: [...inventory, '045_future_pr304.sql'],
+  inventory: [...inventory, '046_future_pr.sql'],
   appliedResolver: resolverFromApplied(new Set()),
   targetSha,
 });
-assert.ok(futurePlan.apply_set.includes('045_future_pr304.sql'), '045 flows through the gate automatically once classified');
-assert.ok(!Object.keys(ledger.migrations).some(f => f.startsWith('045')), '045 absent today is fine; gate has no hard-coded case');
+assert.ok(futurePlan.apply_set.includes('046_future_pr.sql'), 'later migrations flow through the gate automatically once classified');
+assert.ok(!Object.keys(ledger.migrations).some(f => f.startsWith('046')), '046 absent today is fine; gate has no hard-coded case');
 
 // 13. Target SHA recorded.
 assert.equal(inventoryPlan.target_sha, targetSha);

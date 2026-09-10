@@ -52,6 +52,7 @@
     "042_seed_banglim_pilot_production.sql": { "class": "production_seed", "opt_in_required": true, "marker": { "kind": "data_probe", "query": "select exists(select 1 from complexes where slug = 'bangnim-myeongji-roadhill')" } },
     "043_business_review_comments.sql": { "class": "schema", "marker": { "kind": "table", "schema": "public", "name": "business_review_comments" } },
     "044_application_photos.sql": { "class": "schema", "marker": { "kind": "table", "schema": "public", "name": "business_application_photos" } },
+    "045_application_documents.sql": { "class": "schema", "marker": { "kind": "table", "schema": "public", "name": "business_application_documents" } },
     "900_dev_seed.sql": { "class": "dev_seed_prohibited", "reason": "DEVELOPMENT ONLY. Deterministic dev IDs must never reach production." },
     "901_dev_contacts.sql": { "class": "dev_seed_prohibited", "reason": "DEVELOPMENT ONLY. Fake contact values must never reach production." },
     "902_dev_unverified_resident.sql": { "class": "dev_seed_prohibited", "reason": "DEVELOPMENT ONLY. Dev unverified resident fixture must never reach production." }
