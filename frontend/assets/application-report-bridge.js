@@ -2,7 +2,6 @@ export const DANJION_COMPLEX_SLUG = 'banglim-myeongji-roadhill';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const OWNER_RELATIONS = new Set(['resident', 'resident_family', 'neighbor', 'local']);
-const REPORT_RELATIONS = new Set(['resident_family', 'neighbor', 'local']);
 
 function joinUrl(base, path) {
   const root = String(base || '').replace(/\/+$/, '');
@@ -62,21 +61,37 @@ function ownerPayload(input, complexSlug) {
   };
 }
 
+// Report R-B intake (backend #308 is authority). The raw relation text is
+// always preserved verbatim: family / neighbor / nearby / etc pass through
+// untouched — NO frontend mapping (nearby -> local is FORBIDDEN server-side),
+// NO category synthesis (categoryName is sent only when the reporter supplied
+// one; otherwise it stays absent and approval fails closed server-side), and
+// NO legacy relation coercion (canonical field is relationRaw; relationType
+// is accepted as a raw-text alias and never mapped).
 function reportPayload(input, complexSlug) {
-  const relationType = clean(input?.relationType);
+  const relationRaw = clean(input?.relationRaw ?? input?.relationType);
   const businessName = clean(input?.businessName);
-  const categoryName = clean(input?.categoryName);
   const serviceSummary = clean(input?.serviceSummary);
-  if (!relationType || !REPORT_RELATIONS.has(relationType) || !businessName || !categoryName || !serviceSummary) return null;
-  return {
+  if (!relationRaw || relationRaw.length > 120 || !businessName || !serviceSummary) return null;
+  const body = {
     complexSlug,
-    relationType,
+    relationRaw,
     businessName,
-    categoryName,
-    serviceSummary,
-    serviceArea: clean(input?.serviceArea),
-    reporterNote: clean(input?.reporterNote)
+    serviceSummary
   };
+  const categoryName = clean(input?.categoryName);
+  if (categoryName) body.categoryName = categoryName;
+  const serviceArea = clean(input?.serviceArea);
+  if (serviceArea) body.serviceArea = serviceArea;
+  const reporterNote = clean(input?.reporterNote);
+  if (reporterNote) body.reporterNote = reporterNote;
+  const relationDetail = clean(input?.relationDetail);
+  if (relationDetail) body.relationDetail = relationDetail;
+  const reportPrice = clean(input?.reportPrice);
+  if (reportPrice) body.reportPrice = reportPrice;
+  const reportHours = clean(input?.reportHours);
+  if (reportHours) body.reportHours = reportHours;
+  return body;
 }
 
 export function normalizeOwnerApplication(row) {
@@ -107,12 +122,18 @@ export function normalizeRecommendation(row) {
   if (!row || typeof row !== 'object') return null;
   return {
     id: String(row.id || ''),
-    relationType: String(row.relationType ?? row.relation_type ?? ''),
-    businessName: String(row.businessName ?? row.business_name ?? ''),
-    categoryName: String(row.categoryName ?? row.category_name ?? ''),
-    serviceSummary: String(row.serviceSummary ?? row.service_summary ?? ''),
+    relationType: row.relation_type ?? row.relationType ?? null,
+    reportedRelationRaw: row.reported_relation_raw ?? row.reportedRelationRaw ?? null,
+    resolvedRelationType: row.resolved_relation_type ?? row.resolvedRelationType ?? null,
+    relationDetail: row.relation_detail ?? row.relationDetail ?? null,
+    businessName: String(row.business_name ?? row.businessName ?? ''),
+    categoryName: row.category_name ?? row.categoryName ?? null,
+    resolvedCategoryId: row.resolved_category_id ?? row.resolvedCategoryId ?? null,
+    serviceSummary: String(row.service_summary ?? row.serviceSummary ?? ''),
     serviceArea: row.serviceArea ?? row.service_area ?? null,
     reporterNote: row.reporterNote ?? row.reporter_note ?? null,
+    reportPrice: row.report_price ?? row.reportPrice ?? null,
+    reportHours: row.report_hours ?? row.reportHours ?? null,
     status: String(row.status || ''),
     reviewNote: row.reviewNote ?? row.review_note ?? null,
     approvedBusinessId: row.approvedBusinessId ?? row.approved_business_id ?? null,
