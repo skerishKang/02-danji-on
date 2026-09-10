@@ -118,4 +118,59 @@ assert.equal(economy.includes('application-document'), false,
 assert.equal(economy.includes('resident-evidence'), false,
   'GAP-4 must not touch the policy-HOLD evidence path');
 
-console.log('PASS business application photos GAP-4 contract: 0..3 gallery, mirror, resubmit REPLACE_ALL, delete guard');
+// ------------------------------------------- CENTRAL-REVIEW repair guards (A-F)
+const createStart = economy.indexOf('async function createBusinessApplication(');
+const createEnd = economy.indexOf('async function resubmitBusinessApplication(', createStart);
+const createBlock = economy.slice(createStart, createEnd);
+const replayStart = economy.indexOf('export async function resolveCreateReplay(');
+const replayEnd = economy.indexOf('async function createBusinessApplication(', replayStart);
+const replayHelper = economy.slice(replayStart, replayEnd);
+
+// A. CREATE ATOMICITY: application row + gallery rows commit/rollback together.
+const txStart = createBlock.indexOf('await sql.transaction([');
+const appInsertInTx = createBlock.indexOf('insert into business_applications', txStart);
+const galleryInsertInTx = createBlock.indexOf('galleryInsertForApplication(sql, applicationId, galleryKeys)', txStart);
+assert.ok(txStart >= 0 && appInsertInTx > txStart && galleryInsertInTx > appInsertInTx,
+  'A. application insert and gallery insert must run inside the SAME create transaction');
+assert.ok(createBlock.indexOf(']);', galleryInsertInTx) > galleryInsertInTx,
+  'A. the gallery insert must be a member of the create transaction array');
+
+// B. Pre-generated id + existence guard so a conflict never writes orphan gallery rows.
+assert.ok(createBlock.includes('const applicationId = crypto.randomUUID()'),
+  'B. create must pre-generate the application id for the in-transaction gallery insert');
+assert.ok(createBlock.includes('${applicationId}::uuid'),
+  'B. the application insert must use the pre-generated id');
+assert.ok(economy.includes('where exists (select 1 from business_applications a where a.id = ${applicationId}::uuid)'),
+  'B. the gallery insert must be existence-guarded so an idempotent conflict writes no orphan rows');
+
+// C. REPLAY ORDER: a completed request replays before ownership/Drive revalidation.
+const authCall = createBlock.indexOf('requireVerifiedResident(request, env, sql, requestId, input.complexSlug)');
+const replayLookup = createBlock.indexOf('await existingBusinessApplication(sql, resident.id, rawKey)');
+const ownershipCall = createBlock.indexOf('validateGalleryOwnership(sql, galleryKeys');
+const driveCall = createBlock.indexOf('await validateBusinessImageReference(', replayLookup);
+assert.ok(authCall >= 0 && replayLookup > authCall && ownershipCall > replayLookup && driveCall > replayLookup,
+  'C. completed idempotent replay must resolve after auth but before ownership and Drive revalidation');
+
+// D. FAIL-CLOSED gallery read: never a success with an empty persisted gallery.
+assert.ok(replayHelper.includes("'GALLERY_READ_UNAVAILABLE'"),
+  'D. a persisted-gallery read failure must fail closed with GALLERY_READ_UNAVAILABLE');
+assert.ok(/GALLERY_READ_UNAVAILABLE[\s\S]{0,160}503/.test(replayHelper),
+  'D. the gallery read failure must be a 503, never a success with an empty gallery');
+
+// E. Completed replay must not revalidate current object lifecycle state.
+assert.equal(replayHelper.includes('business_image_objects'), false,
+  'E. completed replay must not re-query the object registry');
+assert.equal(replayHelper.includes('validateBusinessImageReference'), false,
+  'E. completed replay must not re-run Drive validation');
+assert.equal(replayHelper.includes('validateGalleryOwnership'), false,
+  'E. completed replay must not re-run ownership checks');
+
+// F. No representative-only fallback: no compensation delete, no out-of-band persist, no empty-gallery 201.
+assert.equal(createBlock.includes('delete from business_applications'), false,
+  'F. create must not best-effort compensate by deleting the application row');
+assert.equal(economy.includes('persistGalleryRows'), false,
+  'F. create must not persist the gallery outside the transaction');
+assert.equal(createBlock.includes('idempotency_replayed: false }, []'), false,
+  'F. a successful create must never report an empty gallery');
+
+console.log('PASS business application photos GAP-4 contract: 0..3 gallery, mirror, resubmit REPLACE_ALL, delete guard, create atomicity + replay-order + fail-closed read');

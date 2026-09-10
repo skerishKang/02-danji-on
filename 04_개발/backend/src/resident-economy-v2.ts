@@ -189,17 +189,6 @@ async function existingBusinessApplication(sql: Sql, applicantUserId: string, su
   return rows[0] ?? null;
 }
 
-function idempotentReplayResponse(
-  existing: Record<string, unknown>,
-  requestFingerprint: string,
-  requestId: string
-): Response {
-  if (String(existing.submission_fingerprint) !== requestFingerprint) {
-    return fail('IDEMPOTENCY_KEY_REUSED', 'The Idempotency-Key was already used with a different request body', 409, requestId);
-  }
-  return ok({ ...existing, idempotency_replayed: true }, requestId);
-}
-
 function businessImageRegistryFailure(
   registry: BusinessImageRegistryRow | undefined,
   expectedUploaderUserId: string,
@@ -303,68 +292,62 @@ function withGallery(row: Record<string, unknown>, photoKeys: string[]): Record<
   return { ...row, photoObjectKeys: [...photoKeys] };
 }
 
-// Best-effort gallery persistence after the application row commits.
-// On failure the caller compensates (deletes the just-created application)
-// so a 3-photo request never silently persists as a 0-photo application.
-async function persistGalleryRows(
+// GAP-4: builds the gallery insert that runs INSIDE the same transaction as
+// the application insert, so NEW APPLICATION + GALLERY ASSOCIATIONS commit or
+// roll back together. The application id is pre-generated (applicationId) and
+// the `where exists` guard makes the insert a no-op when the application row
+// was not inserted (idempotent conflict), so it never writes orphan rows or
+// aborts a legitimate replay. unique(object_key) still rejects an object that
+// is already attached to a different application, which aborts the whole
+// transaction (application row included) -> no representative-only application.
+function galleryInsertForApplication(sql: Sql, applicationId: string, photoKeys: string[]) {
+  if (photoKeys.length === 1) {
+    return sql`
+      insert into business_application_photos (application_id, object_key, sort_order)
+      select ${applicationId}::uuid, k.object_key, k.sort_order
+      from (values (${photoKeys[0]}::text, 0::int)) as k(object_key, sort_order)
+      where exists (select 1 from business_applications a where a.id = ${applicationId}::uuid)
+    `;
+  }
+  if (photoKeys.length === 2) {
+    return sql`
+      insert into business_application_photos (application_id, object_key, sort_order)
+      select ${applicationId}::uuid, k.object_key, k.sort_order
+      from (values (${photoKeys[0]}::text, 0::int), (${photoKeys[1]}::text, 1::int)) as k(object_key, sort_order)
+      where exists (select 1 from business_applications a where a.id = ${applicationId}::uuid)
+    `;
+  }
+  return sql`
+    insert into business_application_photos (application_id, object_key, sort_order)
+    select ${applicationId}::uuid, k.object_key, k.sort_order
+    from (values (${photoKeys[0]}::text, 0::int), (${photoKeys[1]}::text, 1::int), (${photoKeys[2]}::text, 2::int)) as k(object_key, sort_order)
+    where exists (select 1 from business_applications a where a.id = ${applicationId}::uuid)
+  `;
+}
+
+// GAP-4 BLOCKER: a completed idempotent request must replay its stored result
+// BEFORE any current object-lifecycle revalidation. A request that already
+// succeeded must not fail later because a photo object was retired, and it must
+// never report a persisted gallery as empty when the read fails (fail closed).
+// `existing` is the row already looked up by the caller (null for a new request).
+// Returns null only when there is no completed match to replay.
+export async function resolveCreateReplay(
   sql: Sql,
-  applicationId: string,
-  photoKeys: string[],
+  existing: Record<string, unknown> | null,
+  requestFingerprint: string | null,
   requestId: string
 ): Promise<Response | null> {
-  if (photoKeys.length === 0) return null;
-  try {
-    if (photoKeys.length === 1) {
-      await sql`
-        insert into business_application_photos (application_id, object_key, sort_order)
-        values (${applicationId}::uuid, ${photoKeys[0]}, 0)
-        on conflict do nothing
-      `;
-    } else if (photoKeys.length === 2) {
-      await sql`
-        insert into business_application_photos (application_id, object_key, sort_order)
-        values (${applicationId}::uuid, ${photoKeys[0]}, 0), (${applicationId}::uuid, ${photoKeys[1]}, 1)
-        on conflict do nothing
-      `;
-    } else {
-      await sql`
-        insert into business_application_photos (application_id, object_key, sort_order)
-        values (${applicationId}::uuid, ${photoKeys[0]}, 0), (${applicationId}::uuid, ${photoKeys[1]}, 1), (${applicationId}::uuid, ${photoKeys[2]}, 2)
-        on conflict do nothing
-      `;
-    }
-  } catch (error) {
-    const message = error instanceof Error ? error.message : '';
-    if (/duplicate|unique|23505/i.test(message)) {
-      return fail('PHOTO_ALREADY_USED', 'Photo object is already attached to another application', 409, requestId);
-    }
-    return fail(
-      'GALLERY_PERSISTENCE_UNAVAILABLE',
-      'Application was created but photo gallery could not be persisted',
-      503,
-      requestId
-    );
+  if (!existing || !requestFingerprint) return null;
+  if (String(existing.submission_fingerprint) !== requestFingerprint) {
+    return fail('IDEMPOTENCY_KEY_REUSED', 'The Idempotency-Key was already used with a different request body', 409, requestId);
   }
-  // Confirm all rows landed (fail-closed against partial writes / conflicts).
+  let stored: string[];
   try {
-    const stored = await readApplicationPhotoKeys(sql, applicationId);
-    if (stored.length !== photoKeys.length || !photoKeys.every((key, index) => stored[index] === key)) {
-      return fail(
-        'PHOTO_ALREADY_USED',
-        'Photo gallery could not be persisted exactly as requested',
-        409,
-        requestId
-      );
-    }
+    stored = await readApplicationPhotoKeys(sql, String(existing.id ?? ''));
   } catch {
-    return fail(
-      'GALLERY_PERSISTENCE_UNAVAILABLE',
-      'Application was created but photo gallery could not be confirmed',
-      503,
-      requestId
-    );
+    return fail('GALLERY_READ_UNAVAILABLE', 'Persisted application photo gallery could not be read', 503, requestId);
   }
-  return null;
+  return ok(withGallery({ ...existing, idempotency_replayed: true }, stored), requestId);
 }
 
 async function createBusinessApplication(
@@ -387,14 +370,6 @@ async function createBusinessApplication(
   if (residentOrResponse instanceof Response) return residentOrResponse;
   const resident = residentOrResponse;
 
-  // GAP-4 gallery ownership is verified before any external Drive call so a
-  // foreign/cross-complex key fails closed without leaking Drive state.
-  const galleryKeys = photoKeys !== null
-    ? photoKeys
-    : (input.representativeImageObjectKey ? [input.representativeImageObjectKey] : []);
-  const ownershipError = await validateGalleryOwnership(sql, galleryKeys.length > 0 ? galleryKeys : null, resident.id, resident.complexId, requestId);
-  if (ownershipError) return ownershipError;
-
   const rawKey = request.headers.get('idempotency-key')?.trim() || null;
   if (rawKey && !validIdempotencyKey(rawKey)) {
     return fail(
@@ -406,27 +381,24 @@ async function createBusinessApplication(
   }
   const requestFingerprint = rawKey ? await fingerprint(input) : null;
 
-  // A completed idempotent request replays its stored result before any
-  // external Drive revalidation. External file state must not change the
-  // semantics of an operation that already completed with the same body.
+  // GAP-4 BLOCKER: a completed idempotent request replays its stored result
+  // first, before any ownership/Drive revalidation. A past success must not fail
+  // later because a photo object was retired, and a replayed gallery read failure
+  // must fail closed rather than report an empty gallery.
   if (rawKey && requestFingerprint) {
     const existing = await existingBusinessApplication(sql, resident.id, rawKey);
-    if (existing) {
-      const existingRow = existing as Record<string, unknown>;
-      const replayCheck = idempotentReplayResponse(existingRow, requestFingerprint, requestId);
-      // Fingerprint mismatch already returned 409 inside the helper path;
-      // on match, enrich the replay with the persisted gallery.
-      if ((replayCheck as Response).status !== 409) {
-        try {
-          const stored = await readApplicationPhotoKeys(sql, String(existingRow.id ?? ''));
-          return ok(withGallery({ ...existingRow, idempotency_replayed: true }, stored), requestId);
-        } catch {
-          return ok(withGallery({ ...existingRow, idempotency_replayed: true }, []), requestId);
-        }
-      }
-      return replayCheck;
-    }
+    const replay = await resolveCreateReplay(sql, existing as Record<string, unknown> | null, requestFingerprint, requestId);
+    if (replay) return replay;
   }
+
+  // Only a genuinely NEW request reaches ownership/Drive checks. Gallery
+  // ownership is verified before any external Drive call so a foreign or
+  // cross-complex key fails closed without leaking Drive state.
+  const galleryKeys = photoKeys !== null
+    ? photoKeys
+    : (input.representativeImageObjectKey ? [input.representativeImageObjectKey] : []);
+  const ownershipError = await validateGalleryOwnership(sql, galleryKeys.length > 0 ? galleryKeys : null, resident.id, resident.complexId, requestId);
+  if (ownershipError) return ownershipError;
 
   // Only a new application may introduce a representative-image reference.
   // Keep PR #103 strict Drive validation before the DB reference-acquisition
@@ -445,9 +417,16 @@ async function createBusinessApplication(
 
   let inserted;
   if (input.representativeImageObjectKey) {
+    // GAP-4 BLOCKER: the application row and its gallery associations must commit
+    // or roll back in ONE transaction. The application id is pre-generated so the
+    // gallery insert runs in the same critical section; the unique(object_key)
+    // constraint aborts the whole transaction when a photo is already attached to
+    // another application, so a multi-photo request can never persist as a
+    // representative-only application (no best-effort compensation delete).
+    const applicationId = crypto.randomUUID();
     let registryRows;
     try {
-      [registryRows, inserted] = await sql.transaction([
+      [registryRows, , inserted] = await sql.transaction([
         sql`
           select object_key, uploader_user_id, complex_id, state
           from business_image_objects
@@ -456,12 +435,13 @@ async function createBusinessApplication(
         `,
         sql`
           insert into business_applications (
-            complex_id, applicant_user_id, relation_type, business_name, category_name,
+            id, complex_id, applicant_user_id, relation_type, business_name, category_name,
             service_summary, price_text, contact_method, service_area, benefit_text,
             availability_text, representative_image_object_key, submission_key,
             submission_fingerprint, status
           )
           select
+            ${applicationId}::uuid,
             ${resident.complexId}::uuid,
             ${resident.id}::uuid,
             ${input.relationType},
@@ -489,7 +469,8 @@ async function createBusinessApplication(
                     price_text, contact_method, service_area, benefit_text,
                     availability_text, representative_image_object_key, status,
                     review_note, approved_business_id, submission_key, created_at, updated_at
-        `
+        `,
+        galleryInsertForApplication(sql, applicationId, galleryKeys)
       ]);
     } catch {
       return fail(
@@ -543,44 +524,21 @@ async function createBusinessApplication(
 
   if (inserted[0]) {
     const created = inserted[0] as Record<string, unknown>;
-    const createdId = String(created.id ?? '');
-    // GAP-4: persist the gallery for the just-created application.
-    // Legacy single-image writes also land one gallery row so future reads
-    // and approved-business promotion see a uniform 0..3 model.
-    if (galleryKeys.length > 0 && createdId) {
-      const galleryError = await persistGalleryRows(sql, createdId, galleryKeys, requestId);
-      if (galleryError) {
-        // Compensate: never leave a 3-photo request persisted as a
-        // representative-only application.
-        try {
-          await sql`delete from business_applications where id = ${createdId}::uuid`;
-        } catch {
-          // Best effort; the 503 below already signals retry-safe state.
-        }
-        return galleryError;
-      }
-      return ok(withGallery({ ...created, idempotency_replayed: false }, galleryKeys), requestId, 201);
-    }
-    return ok(withGallery({ ...created, idempotency_replayed: false }, []), requestId, 201);
+    // The gallery committed atomically with the application row above, so a
+    // successful create can never be representative-only. Echo the request
+    // gallery (0..3) so reads and promotion see a uniform model.
+    return ok(withGallery({ ...created, idempotency_replayed: false }, galleryKeys), requestId, 201);
   }
   if (!rawKey || !requestFingerprint) return fail('CONFLICT', 'Application could not be created', 409, requestId);
 
   // A concurrent request may have won the unique-key race after the pre-read.
-  // Resolve it with the same fingerprint contract rather than treating it as a
-  // generic conflict.
+  // Resolve it through the same fail-closed replay contract: a matching
+  // fingerprint returns the stored gallery, and a gallery read failure returns
+  // 503 rather than reporting an empty gallery.
   const racedExisting = await existingBusinessApplication(sql, resident.id, rawKey);
-  if (!racedExisting) return fail('CONFLICT', 'Idempotent application could not be resolved', 409, requestId);
-  const racedRow = racedExisting as Record<string, unknown>;
-  const racedReplay = idempotentReplayResponse(racedRow, requestFingerprint, requestId);
-  if ((racedReplay as Response).status !== 409) {
-    try {
-      const stored = await readApplicationPhotoKeys(sql, String(racedRow.id ?? ''));
-      return ok(withGallery({ ...racedRow, idempotency_replayed: true }, stored), requestId);
-    } catch {
-      return ok(withGallery({ ...racedRow, idempotency_replayed: true }, []), requestId);
-    }
-  }
-  return racedReplay;
+  const racedReplay = await resolveCreateReplay(sql, racedExisting as Record<string, unknown> | null, requestFingerprint, requestId);
+  if (racedReplay) return racedReplay;
+  return fail('CONFLICT', 'Idempotent application could not be resolved', 409, requestId);
 }
 
 async function resubmitBusinessApplication(
