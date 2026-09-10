@@ -3,8 +3,15 @@ import {
   approveOperationsApplication,
   countPublishedBusinesses,
   getOperationsReviewContext,
+  openOperationsApplicationDocument,
   type OperationsReviewContext
 } from './operations-review-api';
+
+const documentKindLabels: Record<string, string> = {
+  operation_proof: '운영 증빙',
+  other_evidence: '기타 증빙',
+  additional_reference: '추가 참고자료'
+};
 
 const relationLabels: Record<string, string> = {
   resident: '현재 단지 주민 직접 운영',
@@ -39,6 +46,13 @@ export default function OperationsReviewPage() {
   const [note, setNote] = useState('공개 정보와 주민 관계 확인자료를 확인했습니다.');
   const [busy, setBusy] = useState(true);
   const [message, setMessage] = useState('');
+  const [docBusy, setDocBusy] = useState<string | null>(null);
+  const [docError, setDocError] = useState('');
+  const [previewUrl, setPreviewUrl] = useState('');
+
+  useEffect(() => () => {
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+  }, [previewUrl]);
 
   useEffect(() => {
     let alive = true;
@@ -78,6 +92,34 @@ export default function OperationsReviewPage() {
     }
   }
 
+  async function openDocument(documentId: string) {
+    if (!context || context.status === 'rejected') {
+      setDocError('반려된 신청의 서류는 열람할 수 없습니다.');
+      return;
+    }
+    setDocBusy(documentId);
+    setDocError('');
+    try {
+      const opened = await openOperationsApplicationDocument(context.id, documentId);
+      const url = URL.createObjectURL(opened.blob);
+      if (opened.inline) {
+        setPreviewUrl(url);
+      } else {
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = `application-document-${documentId}.pdf`;
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+        URL.revokeObjectURL(url);
+      }
+    } catch (error) {
+      setDocError(error instanceof Error ? error.message : '서류를 열 수 없습니다.');
+    } finally {
+      setDocBusy(null);
+    }
+  }
+
   if (busy && !context) {
     return <main className="operations-review-shell"><div className="operations-loading">운영확인 정보를 불러오는 중입니다.</div></main>;
   }
@@ -88,6 +130,7 @@ export default function OperationsReviewPage() {
 
   const publicProfile = context.publicProfile;
   const privateVerification = context.privateVerification;
+  const documents = context.documents ?? [];
   const approved = context.status === 'approved';
   const publishedCount = afterCount ?? beforeCount;
   const residentUrl = `/?view=listings&businessName=${encodeURIComponent(publicProfile.businessName)}`;
@@ -131,6 +174,36 @@ export default function OperationsReviewPage() {
             <div><dt>입주민 확인 상태</dt><dd>{verificationLabels[privateVerification.membershipVerificationStatus] || privateVerification.membershipVerificationStatus}</dd></div>
             <div><dt>확인자료</dt><dd><strong>확인자료 {privateVerification.evidenceCount}건</strong></dd></div>
           </dl>
+          <div className="review-document-list" aria-label="비공개 증빙서류">
+            <div className="review-document-header">
+              <strong>비공개 증빙서류</strong>
+              <span>{documents.length}건</span>
+            </div>
+            {documents.length === 0 ? (
+              <p className="review-document-empty">등록된 증빙서류가 없습니다.</p>
+            ) : (
+              <ul className="review-document-items">
+                {documents.map((documentItem) => (
+                  <li key={documentItem.id}>
+                    <span className="review-document-kind">{documentKindLabels[documentItem.kind] || documentItem.kind}</span>
+                    <button
+                      type="button"
+                      className="review-document-open"
+                      onClick={() => void openDocument(documentItem.id)}
+                      disabled={busy || docBusy !== null || context.status === 'rejected'}
+                    >
+                      {docBusy === documentItem.id ? '여는 중...' : '서류 열기'}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {context.status === 'rejected' && (
+              <p className="review-document-denied">반려된 신청의 서류는 열람할 수 없습니다.</p>
+            )}
+            {docError && <p className="review-document-error" role="alert">{docError}</p>}
+            {previewUrl && <img className="review-document-preview" src={previewUrl} alt="증빙서류 미리보기" />}
+          </div>
           <div className="privacy-shield" aria-label="민감정보 비공개 보호">
             <strong>민감정보 비공개</strong>
             <span>동·호수, 증빙 이미지, 원문 object key는 review-context 응답에 포함하지 않습니다.</span>
