@@ -1080,6 +1080,8 @@
 <!-- DANJION LOCAL B(#278): saved-shops / reviews bridge runtimes -->
 <script src="assets/saved-shops-bridge.js"></script>
 <script src="assets/reviews-bridge.js"></script>
+<script src="assets/benefit-claim-bridge.js"></script>
+<script src="assets/inquiry-bridge.js"></script>
 <script id="frontend2-b-shop-runtime-20260905">
 (function(){
  try{sessionStorage.setItem('danjion:shopVariant','v3')}catch(e){}
@@ -1139,7 +1141,10 @@ function syncSaveButtons(){if(!__savedShopsBridge){document.querySelectorAll('[d
  function flash(msg){toast.textContent=msg;toast.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>toast.classList.remove('show'),1800)}
  function syncModalSave(){if(!__savedShopsBridge){document.getElementById('shopCompareSave').textContent='♡ 저장';return}document.getElementById('shopCompareSave').textContent=__savedShopsBridge.isSaved(active)?'♥ 저장됨':'♡ 저장'}
  let __reviewsBridge=null;
-async function initReviewsBridge(){__reviewsBridge=DanjionReviewsBridge.createReviewsBridge({apiBase:DISCOVERY_API_BASE,complexSlug:DISCOVERY_COMPLEX_SLUG})}
+  async function initReviewsBridge(){__reviewsBridge=DanjionReviewsBridge.createReviewsBridge({apiBase:DISCOVERY_API_BASE,complexSlug:DISCOVERY_COMPLEX_SLUG})}
+ let __benefitClaimBridge=null,__inquiryBridge=null;
+ function initBenefitClaimBridge(){__benefitClaimBridge=DanjionBenefitClaimBridge.createBenefitClaimBridge({apiBase:DISCOVERY_API_BASE,complexSlug:DISCOVERY_COMPLEX_SLUG})}
+ function initInquiryBridge(){__inquiryBridge=DanjionInquiryBridge.createInquiryBridge({apiBase:DISCOVERY_API_BASE,complexSlug:DISCOVERY_COMPLEX_SLUG})}
 function bridgeReviewToArray(r){return[r.author?.nickname||'',r.createdAt||'',r.body||'',r.reply?.body||'',r.reply?.createdAt||'',[],r.id||'']}
 function reviewData(s){return Array.isArray(s.reviews)?s.reviews:[]}
 async function loadServerReviews(key){if(!__reviewsBridge)return;const r=await __reviewsBridge.list(key);if(r.mode!=='server')return;const s=byKey[key];if(!s)return;s.reviews=(r.reviews||[]).map(bridgeReviewToArray);renderReviewPreview(s)}
@@ -1153,7 +1158,12 @@ async function openReview(keepLoaded){const s=byKey[active];if(!s)return;if(!kee
  async function submitReview(){const v=document.getElementById('shopReviewInput').value.trim();if(!v){flash('후기 내용을 입력해 주세요.');return}const s=byKey[active];if(!s)return;const r=await __reviewsBridge.create(active,v);if(r.mode==='static'){s.reviews=[...(s.reviews||[]),['나도 이용한 이웃','방금',v]];closeReviewWrite();renderReviewPreview(s);flash('후기가 등록됐습니다.');return}if(!r.ok){flash(r.mode==='auth-required'?'로그인 후 이용 가능합니다.':'후기 등록 실패');return}flash('후기가 등록됐습니다.');closeReviewWrite();if(r.review)s.reviews=[bridgeReviewToArray(r.review),...(s.reviews||[])];renderReviewPreview(s)}
  function openShopInquiry(key){const sh=byKey[key];if(!sh)return;document.getElementById('shopInquiryTitle').textContent=sh.name+'에 문의하세요.';document.getElementById('shopInquirySubject').value='';document.getElementById('shopInquiryText').value='';document.getElementById('shopInquiryModal').classList.add('open');document.getElementById('shopInquiryModal').setAttribute('aria-hidden','false');document.body.style.overflow='hidden'}
  function closeShopInquiry(){const el=document.getElementById('shopInquiryModal');el.classList.remove('open');el.setAttribute('aria-hidden','true');if(!modal.classList.contains('open')&&!review.classList.contains('open')&&!coupon.classList.contains('open'))document.body.style.overflow=''}
- function sendShopInquiry(ev){ev.preventDefault();const sh=byKey[active];if(!sh)return;const subject=document.getElementById('shopInquirySubject').value.trim();const text=document.getElementById('shopInquiryText').value.trim();if(!subject||!text){flash('문의 제목과 내용을 입력해 주세요.');return}let arr=[];try{arr=JSON.parse(localStorage.getItem('danjion:demo:shop-inquiries')||'[]')}catch(_){}arr.unshift({type:'shop_inquiry',shopKey:active,shopName:sh.name,recipientType:'shop_owner',recipientDisplay:sh.name,subject,text,at:new Date().toISOString()});localStorage.setItem('danjion:demo:shop-inquiries',JSON.stringify(arr.slice(0,50)));closeShopInquiry();flash('문의가 접수됐습니다.')}
+ async function sendShopInquiry(ev){ev.preventDefault();const sh=byKey[active];if(!sh)return;const subject=document.getElementById('shopInquirySubject').value.trim();const text=document.getElementById('shopInquiryText').value.trim();if(!subject||!text){flash('문의 제목과 내용을 입력해 주세요.');return}
+  if(__inquiryBridge){const r=await __inquiryBridge.submit({shopKey:active,shopName:sh.name,subject,text});
+   if(r.mode==='auth-required'){flash('로그인 후 이용 가능합니다.');return}
+   if(r.ok){closeShopInquiry();flash('문의가 접수됐습니다.');return}
+   if(r.mode==='error'){flash('문의 접수에 실패했습니다.');return}}
+  let arr=[];try{arr=JSON.parse(localStorage.getItem('danjion:demo:shop-inquiries')||'[]')}catch(_){}arr.unshift({type:'shop_inquiry',shopKey:active,shopName:sh.name,recipientType:'shop_owner',recipientDisplay:sh.name,subject,text,at:new Date().toISOString()});localStorage.setItem('danjion:demo:shop-inquiries',JSON.stringify(arr.slice(0,50)));closeShopInquiry();flash('문의가 접수됐습니다.')}
  function openShop(key){active=byKey[key]?key:(byKey['florist']?'florist':(SHOP_DATA[0]?SHOP_DATA[0].key:'florist'));const s=byKey[active];const relTxt=s.relation;const relCls=(s.relation==='우리 주민 가게')?'rel-owner':((s.relation==='주민 가족 가게')?'rel-family':((s.relation==='이웃단지 가게'||s.relation==='이웃가게')?'rel-neighbor':'rel-family'));[['shopCompareRelation',relTxt],['shopCompareTitle',s.name],['shopCompareDesc',s.desc],['shopCompareService',s.service],['shopCompareWay',s.way],['shopCompareLocation',s.location||'단지 인근 생활권'],['shopCompareContact',s.contact||'1:1 문의로 확인'],['shopCompareBenefit',s.benefit]].forEach(([id,v])=>document.getElementById(id).textContent=v);document.getElementById('shopCompareRelation').className='shop-compare-kicker '+relCls;renderReviewPreview(s);const img=document.getElementById('shopCompareImage');img.src=s.image;img.alt=s.name+' 대표 이미지';img.style.objectPosition='50% 50%';const gallery=document.getElementById('shopCompareGallery'),positions=['50% 50%','30% 55%','75% 45%'];gallery.innerHTML=positions.map((pos,i)=>`<button type="button" class="${i===0?'active':''}" data-pos="${pos}" aria-label="사진 ${i+1}"><img src="${s.image}" alt=""></button>`).join('');gallery.querySelectorAll('button').forEach(b=>b.onclick=()=>{gallery.querySelectorAll('button').forEach(x=>x.classList.remove('active'));b.classList.add('active');img.style.objectPosition=b.dataset.pos});syncModalSave();modal.classList.add('open');modal.setAttribute('aria-hidden','false');document.body.style.overflow='hidden'}
  function closeShop(){modal.classList.remove('open');modal.setAttribute('aria-hidden','true');if(!coupon.classList.contains('open')&&!review.classList.contains('open'))document.body.style.overflow=''}
  function openCoupon(key){const s=byKey[key];if(!s)return;active=key;document.getElementById('shopCouponShop').textContent=s.name+' · '+s.relation;document.getElementById('shopCouponTitle').textContent=s.benefit;document.getElementById('shopCouponValue').textContent=s.value;document.getElementById('shopCouponCode').textContent=s.code;document.getElementById('shopCouponNote').textContent='예약·문의 또는 방문 시 방림명지로드힐 주민임을 확인한 뒤 적용합니다. 실제 제공 조건은 가게 안내를 우선합니다.';syncCouponStore();coupon.classList.add('open');coupon.setAttribute('aria-hidden','false');document.body.style.overflow='hidden'}
@@ -1186,7 +1196,11 @@ grid.addEventListener('click',e=>{
  document.getElementById('shopInquiryModal').addEventListener('click',e=>{if(e.target.id==='shopInquiryModal')closeShopInquiry()});
  document.getElementById('shopInquiryForm').addEventListener('submit',sendShopInquiry);
  document.getElementById('shopCouponClose').onclick=closeCoupon;coupon.addEventListener('click',e=>{if(e.target===coupon)closeCoupon()});
- document.getElementById('shopCouponStore').onclick=()=>{let a=savedBenefits();if(a.includes(active)){a=a.filter(x=>x!==active);setBenefits(a);flash('보관을 취소했습니다.')}else{a.push(active);setBenefits(a);flash('내정보의 받은 혜택에 보관했습니다.')}syncCouponStore()};
+ document.getElementById('shopCouponStore').onclick=async()=>{const s=byKey[active];
+  if(s&&s.benefitId&&__benefitClaimBridge&&!savedBenefits().includes(active)){const r=await __benefitClaimBridge.claim(s.benefitId);
+   if(r.mode==='auth-required'){flash('로그인 후 이용 가능합니다.');return}
+   if(r.mode==='error'){flash('혜택 보관에 실패했습니다.');return}}
+  let a=savedBenefits();if(a.includes(active)){a=a.filter(x=>x!==active);setBenefits(a);flash('보관을 취소했습니다.')}else{a.push(active);setBenefits(a);flash('내정보의 받은 혜택에 보관했습니다.')}syncCouponStore()};
  document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(document.getElementById('shopInquiryModal').classList.contains('open'))closeShopInquiry();else if(document.getElementById('shopReviewWriteModal').classList.contains('open'))closeReviewWrite();else if(coupon.classList.contains('open'))closeCoupon();else if(review.classList.contains('open'))closeReview();else if(modal.classList.contains('open'))closeShop()}});
  const key=initial.get('shop');if(key&&byKey[key])setTimeout(()=>openShop(key),60);
 
@@ -1194,11 +1208,13 @@ grid.addEventListener('click',e=>{
  const DISCOVERY_API_BASE=(new URLSearchParams(location.search).get('apiBase')||'').replace(/\/+$/,'');
  const DISCOVERY_COMPLEX_SLUG='banglim-myeongji-roadhill';
  const RELATION_LABEL={'resident':'우리 주민 가게','resident_family':'주민 가족 가게','neighbor':'이웃단지 가게'};
- const CATEGORY_BY_SLUG={cafe:'cafe',food:'food',home:'home',learn:'learn',pro:'pro',car:'car'};
- function mapApiBusiness(b,i){
+  const CATEGORY_BY_SLUG={cafe:'cafe',food:'food',home:'home',learn:'learn',pro:'pro',car:'car'};
+  function mapApiBusiness(b,i){
    const relationType=b.relation_type??b.relationType??'';
    const relation=RELATION_LABEL[relationType]||'이웃단지 가게';
-   const benefit=b.active_benefit??b.activeBenefit??{};
+    const benefit=b.active_benefit??b.activeBenefit??{};
+    const BENEFIT_ID_UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    const benefitIdValue=benefit&&benefit.id!=null?String(benefit.id).trim().toLowerCase():'';
    const categorySlug=CATEGORY_BY_SLUG[b.category_slug??b.categorySlug]||'pro';
    const apiCategories=Array.isArray(b.categories)?b.categories.map(c=>CATEGORY_BY_SLUG[c]).filter(Boolean):[];
    const categories=apiCategories.length?apiCategories:(categorySlug!=='pro'?[categorySlug]:[]);
@@ -1217,9 +1233,10 @@ grid.addEventListener('click',e=>{
      location:(b.service_area??b.serviceArea)||'단지 인근 생활권',
      contact:'1:1 문의로 확인',
      reviews:[(benefit.title?'최신 혜택 '+benefit.title:'')].filter(Boolean).map(t=>[t,'방금','DB에서 가져온 활성 혜택입니다.']),
-     benefit:benefit.title||'주민 전용 혜택',
-     value:benefit.value||benefit.conditions||'혜택',
-     code:benefit.code||'DANJION · API'
+      benefit:benefit.title||'주민 전용 혜택',
+      value:benefit.value||benefit.conditions||'혜택',
+      code:benefit.code||'DANJION · API',
+      benefitId:BENEFIT_ID_UUID.test(benefitIdValue)?benefitIdValue:''
    };
  }
  function apiShops(){
@@ -1254,9 +1271,12 @@ grid.addEventListener('click',e=>{
      console.info('[danjion] discovery API unavailable, using demo SHOP_DATA fallback:',String(err&&err.message||err));
    });
  }catch(e){console.info('[danjion] discovery API wiring skipped:',String(e))}
- /* DANJION LOCAL B(#278): boot persistence bridges (saved-shops / reviews) */
- try{initSavedShopsBridge()}catch(e){console.info('[danjion] savedShopsBridge init skipped:',String(e))}
- try{initReviewsBridge()}catch(e){console.info('[danjion] reviewsBridge init skipped:',String(e))}
+  /* DANJION LOCAL B(#278): boot persistence bridges (saved-shops / reviews) */
+  try{initSavedShopsBridge()}catch(e){console.info('[danjion] savedShopsBridge init skipped:',String(e))}
+  try{initReviewsBridge()}catch(e){console.info('[danjion] reviewsBridge init skipped:',String(e))}
+  /* GAP-6/7: benefit claim + shop inquiry bridges (server-backed shops only) */
+  try{initBenefitClaimBridge()}catch(e){console.info('[danjion] benefitClaimBridge init skipped:',String(e))}
+  try{initInquiryBridge()}catch(e){console.info('[danjion] inquiryBridge init skipped:',String(e))}
 })();
 </script>
 <script id="danjion-direct-router-v5">
