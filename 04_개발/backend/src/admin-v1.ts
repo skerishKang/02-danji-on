@@ -61,7 +61,7 @@ async function requireManager(sql: Sql, actorId: string, complexSlug: string, re
 
 async function applicationContext(sql: Sql, applicationId: string) {
   const rows = await sql`
-    select a.id, a.status, a.approved_business_id, c.slug as complex_slug
+    select a.id, a.status, a.approved_business_id, a.category_name, c.slug as complex_slug
     from business_applications a
     join complexes c on c.id = a.complex_id
     where a.id = ${applicationId}::uuid
@@ -70,9 +70,29 @@ async function applicationContext(sql: Sql, applicationId: string) {
   return rows[0];
 }
 
+// Fail-closed category resolution: approvals require an exact canonical
+// business_categories.name match that is active. No heuristic matching and no category auto-creation. null means the category resolved.
+async function resolveApprovalCategory(sql: Sql, categoryName: string) {
+  const rows = await sql`
+    select bc.id, bc.is_active
+    from business_categories bc
+    where bc.name = ${categoryName}
+    limit 1
+  `;
+  const row = rows[0];
+  if (!row) {
+    return { code: 'CATEGORY_NOT_RESOLVED', message: 'Category does not match an active canonical category' };
+  }
+  if (!row.is_active) {
+    return { code: 'CATEGORY_NOT_ACTIVE', message: 'Category is not active' };
+  }
+  return null;
+}
+
 async function approveApplication(sql: Sql, actorId: string, applicationId: string, reviewNote: string | null) {
   // One data-modifying CTE statement is atomic in PostgreSQL. The UPDATE is the gate:
-  // only pending/changes_requested rows produce downstream inserts.
+  // only pending/changes_requested rows with a resolvable active category produce
+  // downstream inserts, so category resolution failure can never finalize an approval.
   const rows = await sql`
     with approved as (
       update business_applications a
@@ -83,6 +103,11 @@ async function approveApplication(sql: Sql, actorId: string, applicationId: stri
           approved_business_id = coalesce(a.approved_business_id, gen_random_uuid())
       where a.id = ${applicationId}::uuid
         and a.status in ('pending','changes_requested')
+        and exists (
+          select 1 from business_categories bc
+          where bc.name = a.category_name
+            and bc.is_active = true
+        )
       returning a.*
     ),
     created_business as (
@@ -92,7 +117,7 @@ async function approveApplication(sql: Sql, actorId: string, applicationId: stri
       )
       select a.approved_business_id,
              a.applicant_user_id,
-             (select bc.id from business_categories bc where bc.name = a.category_name limit 1),
+             (select bc.id from business_categories bc where bc.name = a.category_name and bc.is_active = true limit 1),
              'service',
              a.business_name,
              a.service_summary,
@@ -168,6 +193,10 @@ async function patchApplication(request: Request, sql: Sql, actor: Actor, applic
   if (status === 'approved') {
     if (String(current.status) === 'approved' && current.approved_business_id) {
       return ok({ id: current.id, status: 'approved', approvedBusinessId: current.approved_business_id, alreadyApproved: true }, requestId);
+    }
+    const categoryError = await resolveApprovalCategory(sql, String(current.category_name ?? ''));
+    if (categoryError) {
+      return fail(categoryError.code, categoryError.message, 409, requestId);
     }
     const approved = await approveApplication(sql, actor.id, applicationId, reviewNote);
     if (approved) return ok(approved, requestId);

@@ -41,6 +41,25 @@ function sqlFor(env: CoreEnv): Sql {
   return neon(env.DATABASE_URL);
 }
 
+// Fail-closed category resolution: approvals require an exact canonical
+// business_categories.name match that is active. No heuristic matching and no category auto-creation. null means the category resolved.
+async function resolveApprovalCategory(sql: Sql, categoryName: string) {
+  const rows = await sql`
+    select bc.id, bc.is_active
+    from business_categories bc
+    where bc.name = ${categoryName}
+    limit 1
+  `;
+  const row = rows[0];
+  if (!row) {
+    return { code: 'CATEGORY_NOT_RESOLVED', message: 'Category does not match an active canonical category' };
+  }
+  if (!row.is_active) {
+    return { code: 'CATEGORY_NOT_ACTIVE', message: 'Category is not active' };
+  }
+  return null;
+}
+
 async function bodyJson(request: Request, requestId: string): Promise<Record<string, unknown> | Response> {
   const contentType = request.headers.get('content-type') || '';
   if (!contentType.includes('application/json')) {
@@ -241,7 +260,7 @@ async function adminReview(
   recommendationId: string
 ): Promise<Response> {
   const currentRows = await sql`
-    select r.id, r.status, r.approved_business_id, c.slug as complex_slug
+    select r.id, r.status, r.approved_business_id, r.category_name, c.slug as complex_slug
     from shop_recommendations r
     join complexes c on c.id = r.complex_id
     where r.id = ${recommendationId}::uuid
@@ -268,6 +287,30 @@ async function adminReview(
     if (String(current.status) === 'approved' && current.approved_business_id) {
       return ok({ id: recommendationId, status: 'approved', approvedBusinessId: current.approved_business_id, alreadyApproved: true }, requestId);
     }
+    const categoryError = await resolveApprovalCategory(sql, String(current.category_name ?? ''));
+    if (categoryError) {
+      // Domain-consistent fail-closed: the reporter can fix category_name via
+      // the existing changes_requested -> resubmit flow, so return the
+      // recommendation to changes_requested instead of approving a business
+      // with an unresolved category. Falls back to fail-closed when the row
+      // is no longer reviewable.
+      const note = reviewNote ?? '카테고리를 확인할 수 없어 승인이 보류되었습니다. 카테고리 확인 후 다시 제출해 주세요.';
+      const transitioned = await sql`
+        update shop_recommendations
+        set status = 'changes_requested',
+            review_note = ${note},
+            reviewed_by = ${operator.id}::uuid,
+            reviewed_at = now()
+        where id = ${recommendationId}::uuid
+          and complex_id = ${operator.complexId}::uuid
+          and status in ('pending','changes_requested')
+        returning id, status, review_note, reviewed_at
+      `;
+      if (transitioned[0]) {
+        return ok({ ...transitioned[0], categoryUnresolved: categoryError.code }, requestId);
+      }
+      return fail(categoryError.code, categoryError.message, 409, requestId);
+    }
     const rows = await sql`
       with approved as (
         update shop_recommendations r
@@ -279,6 +322,11 @@ async function adminReview(
         where r.id = ${recommendationId}::uuid
           and r.complex_id = ${operator.complexId}::uuid
           and r.status in ('pending','changes_requested')
+          and exists (
+            select 1 from business_categories bc
+            where bc.name = r.category_name
+              and bc.is_active = true
+          )
         returning r.*
       ),
       created_business as (
