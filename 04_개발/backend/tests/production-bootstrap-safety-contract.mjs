@@ -6,6 +6,7 @@ const wrangler = JSON.parse(await readFile(new URL('wrangler.jsonc', root), 'utf
 const worker = await readFile(new URL('src/worker-v2.ts', root), 'utf8');
 const signup = await readFile(new URL('src/signup-contact-verification-v1.ts', root), 'utf8');
 const workflow = await readFile(new URL('../../.github/workflows/production-worker-bootstrap.yml', root), 'utf8');
+const productionSmoke = await readFile(new URL('tests/production-readonly-smoke.mjs', root), 'utf8');
 
 const production = wrangler.env?.production;
 assert.ok(production, 'production Worker environment must exist');
@@ -71,5 +72,24 @@ assert.match(workflow, /target_sha/, 'workflow must record target Worker SHA');
 assert.match(workflow, /Applied-state readback|applied-state readback/, 'gate must derive applied state from production DB readback');
 assert.match(workflow, /--confirm-apply/, 'migration apply must require explicit authorization');
 assert.match(workflow, /Required production schema is not fully applied; refusing Worker deploy/, 'deploy must fail closed until schema readback passes');
+assert.match(workflow, /DANJION_PRODUCTION_API_URL:\s*https:\/\/padiem-danjion-api-production\.padiem\.workers\.dev/);
+assert.match(workflow, /name: Production read-only feature smoke/);
+assert.match(workflow, /node tests\/production-readonly-smoke\.mjs/);
+assert.ok(
+  workflow.indexOf('Production health and Better Auth JWKS smoke')
+    < workflow.indexOf('Production read-only feature smoke'),
+  'feature smoke must run only after health/JWKS pass'
+);
+assert.ok(
+  workflow.indexOf('Deploy production Worker with encrypted secrets')
+    < workflow.indexOf('Production read-only feature smoke'),
+  'feature smoke must run after exact Worker deployment'
+);
+assert.match(productionSmoke, /banglim-myeongji-roadhill/, 'production smoke must pin the canonical seed 042 slug');
+assert.match(productionSmoke, /public business discovery/, 'production smoke must positively exercise a feature route beyond health/JWKS');
+assert.match(productionSmoke, /owner application list without auth/, 'production smoke must exercise owner auth boundary');
+assert.match(productionSmoke, /owner private document without auth/, 'production smoke must exercise the private document auth boundary');
+assert.doesNotMatch(productionSmoke, /method:\s*['"](?:POST|PUT|PATCH|DELETE)['"]/i, 'production smoke must be read-only');
+assert.doesNotMatch(productionSmoke, /authorization\s*:/i, 'production smoke must not embed or request a production user token');
 
 console.log('Production bootstrap safety contract: PASS');
