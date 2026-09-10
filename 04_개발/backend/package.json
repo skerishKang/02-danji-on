@@ -42,6 +42,7 @@
     "test:application-documents-review-context": "node tests/application-documents-review-context-contract.mjs",
     "test:application-documents-owner-id": "node tests/application-documents-owner-id-contract.mjs",
     "test:business-application-photos-044-lifecycle": "bash tests/business-application-photos-044-postgres-lifecycle.sh",
+    "test:application-documents-owner-list-postgres-lifecycle": "bash tests/application-documents-owner-list-postgres-lifecycle.sh",
     "test:community-c2-schema": "node tests/community-c2-schema-contract.mjs",
     "test:community-c2-greeting-kind": "node tests/community-c2-greeting-kind-contract.mjs",
     "test:community-c3-resident-api": "node tests/community-c3-resident-api-contract.mjs",
