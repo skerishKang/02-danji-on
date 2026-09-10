@@ -438,4 +438,43 @@ if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt
   window.addEventListener('hashchange',reportRoute);
 })();
 </script>
+<script src="assets/resident-bridge.js"></script>
+<script id="danjion-settings-server">
+(function(){
+  var B=globalThis.DanjionResidentBridge;
+  if(!B||!B.serverConfig)return;
+  var cfg=B.serverConfig();
+  if(!cfg.enabled)return;
+  var arrow=document.querySelector('[data-settings-target="profile"]');
+  if(!arrow||!arrow.parentNode)return;
+  var bridge=B.createResidentBridge({apiBase:cfg.apiBase,complexSlug:cfg.complexSlug});
+  function toast(t){if(typeof window.showToast==='function')window.showToast(t);}
+  var toggle=document.createElement('button');
+  toggle.type='button';
+  toggle.className='toggle';
+  toggle.setAttribute('role','switch');
+  toggle.setAttribute('aria-label','공개 프로필 사용');
+  toggle.setAttribute('aria-checked','false');
+  toggle.dataset.settingsKey='publicProfileEnabled';
+  toggle.disabled=true;
+  arrow.parentNode.replaceChild(toggle,arrow);
+  var busy=false;
+  function apply(val){var on=!!val;toggle.classList.toggle('on',on);toggle.setAttribute('aria-checked',String(on));}
+  bridge.settings().then(function(r){
+    if(r&&r.ok&&r.settings){apply(r.settings.publicProfileEnabled);toggle.disabled=false;return;}
+    if(r&&r.mode==='auth-required'){toast('로그인 후 다시 시도해 주세요.');return;}
+    toast('잠시 후 다시 시도해 주세요.');
+  }).catch(function(){toast('잠시 후 다시 시도해 주세요.');});
+  toggle.addEventListener('click',function(){
+    if(busy||toggle.disabled)return;
+    busy=true;
+    bridge.updateSetting(!toggle.classList.contains('on')).then(function(r){
+      busy=false;
+      if(r&&r.ok&&r.settings){apply(r.settings.publicProfileEnabled);return;}
+      if(r&&r.mode==='auth-required'){toast('로그인 후 다시 시도해 주세요.');return;}
+      toast('잠시 후 다시 시도해 주세요.');
+    }).catch(function(){busy=false;toast('잠시 후 다시 시도해 주세요.');});
+  });
+})();
+</script>
 </body></html>

@@ -133,3 +133,67 @@ if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt
   window.addEventListener('pageshow',reportRoute);
   window.addEventListener('hashchange',reportRoute);
 })();
+
+(function(){
+  var RB=globalThis.DanjionResidentBridge;
+  if(!RB||!RB.createResidentBridge)return;
+  var qp=new URLSearchParams(location.search);
+  if(qp.get('view')==='saved'||qp.get('view')==='benefits')return;
+  var cfg=RB.serverConfig();
+  if(!cfg.enabled)return;
+  var bridge=RB.createResidentBridge({apiBase:cfg.apiBase,complexSlug:cfg.complexSlug});
+  var TAB_TYPE={posts:'posts',comments:'comments',likes:'reactions',reviews:'reviews'};
+  var TYPE_LABEL={post:'게시글',comment:'댓글',reply:'답글',reaction:'공감',review:'가게 후기'};
+  var STATUS_LABEL={published:'공개',pending_review:'검토 중',active:'공개',hidden:'숨김',deleted:'삭제됨',resolved:'해결됨'};
+  var counts={posts:null,comments:null};
+  function fmtDate(iso){var m=/^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso||''));return m?(m[1]+'.'+m[2]+'.'+m[3]):'';}
+  function mapItem(it){
+    return [TYPE_LABEL[it.type]||'활동', fmtDate(it.occurredAt), STATUS_LABEL[it.status]||'', (it.title||'제목 없음'), (it.bodyPreview||''), ''];
+  }
+  function countText(tab){
+    if(tab==='posts'||tab==='comments')return counts[tab]==null?'—':('전체 '+counts[tab]+'개');
+    return '—';
+  }
+  var toolbar=document.querySelector('.toolbar');if(toolbar)toolbar.style.display='none';
+  document.querySelectorAll('.summary-stat small').forEach(function(s){if(/이번 달/.test(s.textContent))s.style.display='none';});
+  function setStat(i,v){var b=document.querySelectorAll('.summary-stat b')[i];if(b)b.textContent=v;}
+  function setTabSpan(tab,v){var el=document.querySelector('.tab[data-tab="'+tab+'"] span');if(el)el.textContent=v;}
+  function listState(msg){var r=document.querySelector('.rows');if(r)r.innerHTML='';var e=document.querySelector('.empty');if(e){e.textContent=msg;e.style.display='grid';}}
+  function applyCountsToDom(){
+    setStat(0,counts.posts==null?'—':counts.posts);
+    setStat(1,counts.comments==null?'—':counts.comments);
+    setStat(2,'—');setStat(3,'—');
+    setTabSpan('posts',counts.posts==null?'—':counts.posts);
+    setTabSpan('comments',counts.comments==null?'—':counts.comments);
+    setTabSpan('likes','—');setTabSpan('reviews','—');
+    var lc=document.querySelector('.list-count');if(lc)lc.textContent=countText(current);
+    if(data[current])data[current].count=countText(current);
+  }
+  function loadTab(tab){
+    var apiType=TAB_TYPE[tab]||'all';
+    current=tab;
+    data[tab].items=[];data[tab].count=countText(tab);
+    listState('불러오는 중…');
+    bridge.activity(apiType,50).then(function(res){
+      if(res.mode==='auth-required'){data[tab].items=[];if(current===tab){document.querySelector('.list-count').textContent='—';listState('로그인 후 다시 시도해 주세요.');}return;}
+      if(res.ok===false){data[tab].items=[];if(current===tab){document.querySelector('.list-count').textContent='—';listState('잠시 후 다시 시도해 주세요.');}return;}
+      data[tab].items=(res.items||[]).map(mapItem);
+      data[tab].count=countText(tab);
+      if(current===tab){render(tab);}
+    }).catch(function(){if(current===tab){listState('잠시 후 다시 시도해 주세요.');}});
+  }
+  var tabsEl=document.querySelector('.tabs');
+  if(tabsEl)tabsEl.addEventListener('click',function(ev){
+    var b=ev.target.closest('.tab');if(!b)return;
+    ev.preventDefault();ev.stopImmediatePropagation();
+    document.querySelectorAll('.tab').forEach(function(t){t.classList.remove('active');});
+    b.classList.add('active');
+    loadTab(b.dataset.tab);
+  },true);
+  bridge.summary().then(function(s){
+    if(s.ok&&s.summary){counts.posts=s.summary.postCount;counts.comments=s.summary.commentCount;}
+    applyCountsToDom();
+  }).catch(function(){applyCountsToDom();});
+  var activeTab=document.querySelector('.tab.active');
+  loadTab(activeTab?activeTab.dataset.tab:'posts');
+})();
