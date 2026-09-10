@@ -78,25 +78,93 @@
 </main>
 <dialog id="storyDialog"><header class="dialog-top"><button aria-label="아파트소식 목록으로 돌아가기" class="dialog-back modal-back" data-close-story="" type="button">← 아파트소식</button><button aria-label="닫기" class="dialog-close" data-close-story="" type="button">×</button></header><div class="dialog-body"><span class="dialog-type"></span><h2></h2><time></time><p></p><div class="dialog-note">아파트소식은 입대의가 중요하다고 판단한 진행사항과 현장기록을 선별해 전합니다.</div></div></dialog>
 <nav aria-label="모바일 주요 메뉴" class="mobile-bottom"><button aria-label="홈" data-route="04_데일리홈.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><path d="m3 10 9-7 9 7v10h-6v-6H9v6H3z"></path></svg><span>홈</span></button><button aria-label="이웃가게" data-route="01_이웃가게_발견.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><path d="M4 7h16l-1 13H5L4 7Z"></path><path d="M8 7V5a4 4 0 0 1 8 0v2"></path></svg><span>이웃가게</span></button><button aria-label="우리단지" class="active" data-route="05_우리단지_첫화면.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><path d="M4 21V9l8-6 8 6v12"></path><path d="M8 13h8M8 17h8"></path></svg><span>우리단지</span></button><button aria-label="내정보" data-route="19_내정보_메인.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><circle cx="12" cy="8" r="4"></circle><path d="M4 21a8 8 0 0 1 16 0"></path></svg><span>내정보</span></button></nav>
-<script>
-    const stories={
-      meeting:{type:'회의 후 진행',title:'주민 안내문자·방송·게시판 홍보 협조 논의',date:'2026.08.28',body:'서비스 도입 과정과 이용방법이 주민에게 정확히 전달될 수 있도록 안내문자, 방송과 게시판 홍보 방식에 관한 협조 사항을 정리하고 있습니다.'},
-      business:{type:'생활소식',title:'단지 내 주민 사업자 소개자료 접수 준비',date:'2026.08.25',body:'주민이 운영하는 가게와 서비스를 정확하게 소개하기 위해 기본정보, 운영시간, 품목과 사진을 확인하는 접수 방식을 준비하고 있습니다.'},
-      record:{type:'현장기록',title:'우리 단지에서 달라진 일을 사진으로 기록합니다',date:'2026.08.22',body:'공지에 그치지 않고 실제로 달라진 시설과 생활편의, 주민 의견이 반영된 결과를 사진과 함께 남길 예정입니다.'}
-    };
-    const dialog=document.querySelector('#storyDialog');
-    document.querySelectorAll('[data-story]').forEach(button=>button.addEventListener('click',()=>{
-      const story=stories[button.dataset.story];
-      dialog.querySelector('.dialog-type').textContent=story.type;
-      dialog.querySelector('h2').textContent=story.title;
-      dialog.querySelector('time').textContent=story.date;
-      dialog.querySelector('p').textContent=story.body;
-      if(window.matchMedia('(max-width:760px)').matches) dialog.show(); else dialog.showModal();
-    }));
-    dialog.querySelectorAll('[data-close-story]').forEach(button=>button.addEventListener('click',()=>dialog.close()));
-    dialog.addEventListener('click',event=>{if(event.target===dialog&&!window.matchMedia('(max-width:760px)').matches)dialog.close()});
-    const filters=[...document.querySelectorAll('.filter')],items=[...document.querySelectorAll('[data-kind]')];filters.forEach(button=>button.addEventListener('click',()=>{filters.forEach(item=>item.classList.toggle('active',item===button));items.forEach(item=>item.hidden=button.dataset.filter!=='all'&&item.dataset.kind!==button.dataset.filter)}));
-  </script>
+<script type="module">
+import { createNewsBridge, DANJION_COMPLEX_SLUG } from './assets/danjion-news-bridge.js';
+
+const apiBase = (new URLSearchParams(location.search).get('apiBase') || '').replace(/\/+$/, '');
+const bridge = createNewsBridge({ apiBase, complexSlug: DANJION_COMPLEX_SLUG });
+
+const dialog = document.querySelector('#storyDialog');
+const newsList = document.querySelector('.news-list');
+const featureEl = document.querySelector('.feature');
+
+function formatDate(ts) {
+  if (!ts) return '';
+  try { return new Date(ts).toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' }); } catch { return ''; }
+}
+
+function renderStories(posts) {
+  const chair = posts.find(p => p.channel === 'chair_greeting');
+  const news = posts.filter(p => p.channel !== 'chair_greeting');
+
+  // Feature (chair greeting)
+  if (chair && featureEl) {
+    featureEl.innerHTML = `
+      <div class="feature-photo"><img alt="${chair.title}" src="assets/bangnim-road-hill.png"/><span class="photo-label">우리 아파트 전경</span></div>
+      <div class="feature-copy">
+        <div class="feature-meta"><span>회장 인사 · 아파트소식 첫 글</span><time>${formatDate(chair.publishedAt)}</time></div>
+        <h2>${chair.title}</h2>
+        <p>${(chair.body || '').slice(0, 200)}...</p>
+        <a class="feature-link" href="09_회장인사_상세.html?postId=${chair.id}">
+          <span>회장말씀 전체 보기</span><span>→</span>
+        </a>
+      </div>
+    `;
+  }
+
+  // News rows
+  const rows = news.map(p => `
+    <button class="news-row" data-post-id="${p.id}" type="button">
+      <span class="type">${p.category || '아파트소식'}</span>
+      <strong>${p.title}</strong>
+      <time>${formatDate(p.publishedAt)}</time>
+      <span class="arrow">→</span>
+    </button>
+  `).join('');
+  if (newsList) {
+    newsList.innerHTML = rows;
+  }
+}
+
+async function loadPosts() {
+  const result = await bridge.listPosts('apartment_news');
+  if (result.ok) {
+    renderStories(result.data);
+  } else {
+    console.error('Failed to load posts:', result.error);
+  }
+}
+
+document.querySelectorAll('[data-post-id]').forEach(button => button.addEventListener('click', () => {
+  const pid = button.dataset.postId;
+  if (pid) {
+    bridge.getPost(pid).then(result => {
+      if (result.ok && result.data) {
+        const post = result.data;
+        dialog.querySelector('.dialog-type').textContent = post.category || '아파트소식';
+        dialog.querySelector('h2').textContent = post.title;
+        dialog.querySelector('time').textContent = formatDate(post.publishedAt);
+        dialog.querySelector('p').textContent = post.body || '';
+        if (window.matchMedia('(max-width:760px)').matches) dialog.show(); else dialog.showModal();
+      }
+    });
+  }
+}));
+
+dialog.querySelectorAll('[data-close-story]').forEach(button => button.addEventListener('click', () => dialog.close()));
+dialog.addEventListener('click', event => { if (event.target === dialog && !window.matchMedia('(max-width:760px)').matches) dialog.close(); });
+
+const filters = [...document.querySelectorAll('.filter')];
+const items = [...document.querySelectorAll('[data-post-id]')];
+filters.forEach(button => button.addEventListener('click', () => {
+  filters.forEach(item => item.classList.toggle('active', item === button));
+  items.forEach(item => {
+    item.hidden = button.dataset.filter !== 'all' && !item.querySelector('.type')?.textContent.includes(button.textContent.trim());
+  });
+}));
+
+loadPosts();
+</script>
 <script id="danjion-direct-router-v5">
 (function(){
 const SCREEN="apartment";
@@ -148,7 +216,12 @@ document.addEventListener('click',function(ev){
  if(SCREEN==='shops' && (text==='내 가게 등록 신청'||text==='내 가게 등록 문의')){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.apply+'?mode=apply');return;}
  if(SCREEN==='complex' && cls.contains('channel-link')){ev.preventDefault();ev.stopImmediatePropagation();const i=[...document.querySelectorAll('.channel-link')].indexOf(el);go([FILES.noticeList,FILES.apartment,FILES.residentList,FILES.community][i]||FILES.complex);return;}
  if(SCREEN==='noticeList' && (cls.contains('pinned-link')||cls.contains('notice-row'))){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.noticeDetail);return;}
- if(SCREEN==='apartment' && cls.contains('feature-link')){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.chair);return;}
+  if(SCREEN==='apartment' && cls.contains('feature-link')){
+    ev.preventDefault();ev.stopImmediatePropagation();
+    const pid = el.dataset.postId || (el.closest('[data-post-id]')?.dataset.postId) || '';
+    go(FILES.chair + (pid ? '?postId=' + encodeURIComponent(pid) : ''));
+    return;
+  }
  if(SCREEN==='residentList' && cls.contains('story-link')){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.residentDetail);return;}
  if(SCREEN==='community' && cls.contains('write-type')){ev.preventDefault();ev.stopImmediatePropagation();const i=[...document.querySelectorAll('.write-type')].indexOf(el);go([FILES.writeHello,FILES.writeStory,FILES.writeQuestion,FILES.writeTogether][i]||FILES.community);return;}
  if(SCREEN==='community' && el.tagName==='A' && text.includes('안녕하세요')){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.communityDetail);return;}
