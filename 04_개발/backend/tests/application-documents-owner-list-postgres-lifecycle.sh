@@ -119,8 +119,8 @@ expect_scalar 'first document exposes objectKey' \
   "select x.documents->0->>'objectKey' from ($LIST_A) x where x.id = '$APP_A1'"
 expect_scalar 'documents ordered by sort_order with kind/sortOrder intact' \
   "operation_proof|other_evidence|0|1" \
-  "select x.documents->0->>'kind' || '|' || x.documents->1->>'kind' || '|' ||
-          x.documents->0->>'sortOrder' || '|' || x.documents->1->>'sortOrder'
+  "select (x.documents->0->>'kind') || '|' || (x.documents->1->>'kind') || '|' ||
+          (x.documents->0->>'sortOrder') || '|' || (x.documents->1->>'sortOrder')
    from ($LIST_A) x where x.id = '$APP_A1'"
 expect_scalar 'document id parses as the uuid the owner byte route requires' \
   't' \
