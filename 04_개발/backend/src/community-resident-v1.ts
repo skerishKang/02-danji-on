@@ -7,10 +7,10 @@ type CommunityEnv = CoreEnv & {
   COMMUNITY_PUBLISH_MODE?: string;
 };
 
-type PostKind = 'question' | 'together' | 'resident_story' | 'life_report';
+type PostKind = 'question' | 'together' | 'resident_story' | 'life_report' | 'greeting';
 type ReportReason = 'abuse' | 'threat' | 'privacy' | 'defamation_risk' | 'spam' | 'other';
 
-const POST_KINDS = new Set<PostKind>(['question', 'together', 'resident_story', 'life_report']);
+const POST_KINDS = new Set<PostKind>(['question', 'together', 'resident_story', 'life_report', 'greeting']);
 const REPORT_REASONS = new Set<ReportReason>(['abuse', 'threat', 'privacy', 'defamation_risk', 'spam', 'other']);
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 

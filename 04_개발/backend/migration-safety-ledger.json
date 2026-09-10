@@ -54,6 +54,7 @@
     "044_application_photos.sql": { "class": "schema", "marker": { "kind": "table", "schema": "public", "name": "business_application_photos" } },
     "045_application_documents.sql": { "class": "schema", "marker": { "kind": "table", "schema": "public", "name": "business_application_documents" } },
     "046_report_rb_schema.sql": { "class": "schema", "marker": { "kind": "column", "table": "shop_recommendations", "name": "resolved_category_id" } },
+    "047_community_greeting_kind.sql": { "class": "schema", "marker": { "kind": "constraint", "table": "community_posts", "name": "community_posts_kind_check_c2" } },
     "048_owner_application_relation_resolution.sql": { "class": "schema", "marker": { "kind": "column", "table": "business_applications", "name": "resolved_relation_type" } },
     "900_dev_seed.sql": { "class": "dev_seed_prohibited", "reason": "DEVELOPMENT ONLY. Deterministic dev IDs must never reach production." },
     "901_dev_contacts.sql": { "class": "dev_seed_prohibited", "reason": "DEVELOPMENT ONLY. Fake contact values must never reach production." },

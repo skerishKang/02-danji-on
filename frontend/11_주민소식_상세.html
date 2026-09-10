@@ -191,4 +191,85 @@ if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt
   window.addEventListener('hashchange',reportRoute);
 })();
 </script>
+<script src="assets/danjion-session.js"></script>
+<script id="resident-news-detail-server-wiring-20260911">
+(function(){
+  const params=new URLSearchParams(location.search);
+  const apiBase=(params.get('apiBase')||'').replace(/\/+$/,'');
+  if(!apiBase)return;
+  const postId=(params.get('postId')||'').trim();
+  const LIST='10_주민소식_목록.html';
+  const routeCategory=document.querySelector('.route span');
+  const title=document.querySelector('.article-head h1');
+  const dek=document.querySelector('.dek');
+  const date=document.querySelector('.article-date');
+  const meta=document.querySelector('.article-head .meta');
+  const hero=document.querySelector('.hero');
+  const summary=document.querySelector('.summary');
+  const body=document.querySelector('.article-body');
+  const navNext=document.querySelector('.article-nav button');
+  function hide(el){if(el)el.hidden=true}
+  function setBody(paragraphs){
+    if(!body)return;
+    body.textContent='';
+    for(const copy of paragraphs){
+      const p=document.createElement('p');
+      p.textContent=copy;
+      body.append(p);
+    }
+  }
+  function fmtDate(value){
+    if(!value)return '게시일 미확인';
+    try{return new Date(value).toLocaleDateString('ko-KR',{year:'numeric',month:'2-digit',day:'2-digit'})}catch(_){return '게시일 미확인'}
+  }
+  // Server mode: every demo-only block that carries authored sample content stands
+  // down, because the authority returns title/body/publishedAt and nothing else.
+  hide(dek);hide(hero);hide(summary);hide(navNext);hide(date);
+  if(meta){
+    const spans=meta.querySelectorAll('span');
+    for(let i=1;i<spans.length;i++)spans[i].hidden=true;
+    const dots=meta.querySelectorAll('i');
+    for(let i=1;i<dots.length;i++)dots[i].hidden=true;
+  }
+  if(routeCategory)routeCategory.textContent='주민소식';
+  if(title)title.textContent='주민소식';
+  function fail(message){
+    if(title)title.textContent=message;
+    if(body){
+      body.textContent='';
+      const back=document.createElement('p');
+      const link=document.createElement('a');
+      link.setAttribute('href',LIST);
+      link.textContent='주민소식 목록으로 돌아가기';
+      back.append(link);
+      body.append(back);
+    }
+  }
+  function render(post){
+    if(title)title.textContent=post.title;
+    if(date){date.hidden=false;date.textContent=fmtDate(post.publishedAt)}
+    const chunks=String(post.body||'').split(/\n{2,}/).map(function(part){return part.trim()}).filter(Boolean);
+    setBody(chunks.length?chunks:['']);
+  }
+  async function load(){
+    if(!postId){fail('소식을 찾을 수 없습니다.');return}
+    try{
+      const mod=await import('./assets/resident-news-bridge.js');
+      const bridge=mod.createResidentNewsBridge({apiBase,fetchImpl:fetch.bind(globalThis),Session:window.DanjionSession,complexSlug:mod.DANJION_RESIDENT_NEWS_COMPLEX_SLUG});
+      const result=await bridge.getPost(postId);
+      if(result.ok&&result.post){render(result.post);return}
+      if(result.reason==='validation-error'||result.status===404){fail('소식을 찾을 수 없습니다.');return}
+      if(result.reason==='auth-required'){
+        fail('로그인이 필요합니다. 단지온 계정 가입·로그인 후 다시 이용해 주세요.');
+        return;
+      }
+      fail('소식을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.');
+    }catch(_){
+      fail('소식을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.');
+    }
+  }
+  setBody(['주민소식을 불러오는 중입니다.']);
+  void load();
+})();
+</script>
 </body></html>

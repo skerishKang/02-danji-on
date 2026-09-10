@@ -343,4 +343,98 @@ if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt
   }catch(e){}
 })();
 </script>
+<script src="assets/danjion-session.js"></script>
+<script id="resident-news-list-server-wiring-20260911">
+(function(){
+  const apiBase=(new URLSearchParams(location.search).get('apiBase')||'').replace(/\/+$/,'');
+  if(!apiBase)return;
+  const stories=document.querySelector('.stories');
+  if(!stories)return;
+  const filters=document.querySelector('.filters');
+  const DETAIL='11_주민소식_상세.html';
+  let bridge=null;
+  async function ensureBridge(){
+    if(bridge)return bridge;
+    const mod=await import('./assets/resident-news-bridge.js');
+    bridge=mod.createResidentNewsBridge({apiBase,fetchImpl:fetch.bind(globalThis),Session:window.DanjionSession,complexSlug:mod.DANJION_RESIDENT_NEWS_COMPLEX_SLUG});
+    return bridge;
+  }
+  function fmtDate(value){
+    if(!value)return '게시일 미확인';
+    try{return new Date(value).toLocaleDateString('ko-KR',{year:'numeric',month:'2-digit',day:'2-digit'})}catch(_){return '게시일 미확인'}
+  }
+  function notice(message){
+    stories.textContent='';
+    const card=document.createElement('article');
+    card.className='story compact';
+    card.setAttribute('data-resident-news-empty','');
+    const copy=document.createElement('p');
+    copy.textContent=message;
+    card.append(copy);
+    stories.append(card);
+  }
+  function render(posts){
+    stories.textContent='';
+    if(!posts.length){notice('아직 게시된 주민소식이 없습니다.');return}
+    for(const post of posts){
+      const card=document.createElement('article');
+      card.className='story compact';
+      card.setAttribute('data-resident-news-id',post.id);
+      const meta=document.createElement('div');
+      meta.className='story-meta';
+      const tag=document.createElement('span');
+      tag.className='tag';
+      tag.textContent='주민소식';
+      const time=document.createElement('time');
+      time.textContent=fmtDate(post.publishedAt);
+      meta.append(tag,time);
+      const heading=document.createElement('h3');
+      const titleLink=document.createElement('a');
+      titleLink.className='story-title-link';
+      titleLink.setAttribute('href',DETAIL+'?postId='+encodeURIComponent(post.id));
+      titleLink.textContent=post.title;
+      heading.append(titleLink);
+      const readLink=document.createElement('a');
+      readLink.className='story-link';
+      readLink.setAttribute('href',DETAIL+'?postId='+encodeURIComponent(post.id));
+      readLink.textContent='소식 읽기';
+      card.append(meta,heading,readLink);
+      stories.append(card);
+    }
+  }
+  // Server-rendered cards own their post id. The shared router otherwise drops the
+  // query when leaving the resident list, so the id is carried through here.
+  window.addEventListener('click',function(ev){
+    const target=ev.target;
+    const card=target&&target.closest?target.closest('[data-resident-news-id]'):null;
+    if(!card)return;
+    ev.preventDefault();
+    ev.stopImmediatePropagation();
+    location.href=DETAIL+'?postId='+encodeURIComponent(card.getAttribute('data-resident-news-id'));
+  },true);
+  async function load(){
+    try{
+      const b=await ensureBridge();
+      const result=await b.listPosts();
+      if(result.ok){render(result.posts);return}
+      if(result.reason==='auth-required'){
+        notice('로그인이 필요합니다. 단지온 계정 가입·로그인 후 다시 이용해 주세요.');
+        return;
+      }
+      if(result.reason==='network-error'){
+        notice('주민소식을 불러오지 못했습니다. 네트워크 상태를 확인해 주세요.');
+        return;
+      }
+      notice('주민소식을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.');
+    }catch(_){
+      notice('주민소식을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.');
+    }
+  }
+  // The authority exposes no category facet, so the demo filter chips stand down
+  // instead of pretending to filter server rows.
+  if(filters)filters.hidden=true;
+  notice('주민소식을 불러오는 중입니다.');
+  void load();
+})();
+</script>
 </body></html>
