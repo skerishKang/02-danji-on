@@ -6,6 +6,12 @@ import type { CoreEnv } from './core-v1';
 
 type Sql = NeonQueryFunction<false, false>;
 
+type DocumentInput = {
+  objectKey: string;
+  kind: 'operation_proof' | 'other_evidence' | 'additional_reference';
+  sortOrder: number;
+};
+
 type ApplicationInput = {
   complexSlug: string;
   relationType: string;
@@ -21,6 +27,9 @@ type ApplicationInput = {
   // GAP-4: additive multi-photo contract. null = field omitted (preserve on
   // resubmit); [] = explicit empty (remove all); [k...] = 0..3 ordered keys.
   photoObjectKeys: string[] | null;
+  // GAP-5: private application documents. undefined = field omitted (preserve
+  // on resubmit); [] = rejected (operation_proof required); [d...] = associated.
+  documents?: DocumentInput[];
 };
 
 const MAX_APPLICATION_PHOTOS = 3;
@@ -108,6 +117,17 @@ function parsePhotoObjectKeys(
 }
 
 function applicationInput(payload: Record<string, unknown>, photoKeys: string[] | null): ApplicationInput {
+  const docsRaw = payload.documents;
+  let documents: DocumentInput[] | undefined;
+  if (Array.isArray(docsRaw)) {
+    documents = docsRaw
+      .filter((d) => typeof d === 'object' && d !== null)
+      .map((d) => ({
+        objectKey: String((d as Record<string, unknown>).objectKey ?? '').trim(),
+        kind: String((d as Record<string, unknown>).kind ?? '').trim() as DocumentInput['kind'],
+        sortOrder: Number((d as Record<string, unknown>).sortOrder ?? 0)
+      }));
+  }
   // GAP-4 backward compatibility:
   // - photoObjectKeys present (incl. []) => authoritative; representative mirrors keys[0] ?? null.
   // - photoObjectKeys omitted => legacy representativeImageObjectKey contract unchanged.
@@ -127,7 +147,8 @@ function applicationInput(payload: Record<string, unknown>, photoKeys: string[] 
     benefitText: String(payload.benefitText ?? '').trim() || null,
     availabilityText: String(payload.availabilityText ?? '').trim() || null,
     representativeImageObjectKey,
-    photoObjectKeys: photoKeys
+    photoObjectKeys: photoKeys,
+    documents
   };
 }
 
@@ -161,6 +182,38 @@ function validateApplication(input: ApplicationInput, requestId: string): Respon
   if (!input.businessName || !input.categoryName || !input.serviceSummary) {
     return fail('VALIDATION_ERROR', 'businessName, categoryName and serviceSummary are required', 400, requestId);
   }
+
+  if (input.documents !== undefined) {
+    if (input.documents.length < 1) {
+      return fail('DOCUMENT_OPERATION_PROOF_REQUIRED', 'At least one operation_proof document is required when documents field is present', 400, requestId);
+    }
+    const operationProofs = input.documents.filter((d) => d.kind === 'operation_proof');
+    const otherEvidences = input.documents.filter((d) => d.kind === 'other_evidence');
+    const additionalReferences = input.documents.filter((d) => d.kind === 'additional_reference');
+
+    if (operationProofs.length < 1) {
+      return fail('DOCUMENT_OPERATION_PROOF_REQUIRED', 'At least one operation_proof document is required when documents field is present', 400, requestId);
+    }
+
+    if (otherEvidences.length > 3) {
+      return fail('VALIDATION_ERROR', 'other_evidence documents cannot exceed 3', 400, requestId);
+    }
+
+    if (additionalReferences.length > 3) {
+      return fail('VALIDATION_ERROR', 'additional_reference documents cannot exceed 3', 400, requestId);
+    }
+
+    const validKinds = ['operation_proof', 'other_evidence', 'additional_reference'];
+    for (const doc of input.documents) {
+      if (!validKinds.includes(doc.kind)) {
+        return fail('DOCUMENT_KIND_INVALID', `Invalid document kind: ${doc.kind}`, 400, requestId);
+      }
+      if (!doc.objectKey || !doc.objectKey.startsWith('gdrive/private/application-document/')) {
+        return fail('DOCUMENT_OBJECT_KEY_INVALID', 'Document object key must reference a private application-document namespace', 400, requestId);
+      }
+    }
+  }
+
   return null;
 }
 
@@ -189,6 +242,39 @@ async function existingBusinessApplication(sql: Sql, applicantUserId: string, su
   return rows[0] ?? null;
 }
 
+// GAP-5 BLOCKER: a replayed create must return the same document set the
+// original 201 response carried, alongside the GAP-4 stored gallery. Both
+// reads run BEFORE any current registry/Drive revalidation, and either read
+// failing closes with 503 rather than reporting a persisted set as empty.
+async function idempotentReplayResponse(
+  sql: Sql,
+  existing: Record<string, unknown>,
+  requestFingerprint: string,
+  requestId: string
+): Promise<Response> {
+  if (String(existing.submission_fingerprint) !== requestFingerprint) {
+    return fail('IDEMPOTENCY_KEY_REUSED', 'The Idempotency-Key was already used with a different request body', 409, requestId);
+  }
+  let stored: string[];
+  try {
+    stored = await readApplicationPhotoKeys(sql, String(existing.id ?? ''));
+  } catch {
+    return fail('GALLERY_READ_UNAVAILABLE', 'Persisted application photo gallery could not be read', 503, requestId);
+  }
+  let docs;
+  try {
+    docs = await getApplicationDocuments(sql, String(existing.id));
+  } catch {
+    return fail(
+      'DOCUMENT_REGISTRY_UNAVAILABLE',
+      'Application document lifecycle registry is unavailable',
+      503,
+      requestId
+    );
+  }
+  return ok(withGallery({ ...existing, documents: docs, idempotency_replayed: true }, stored), requestId);
+}
+
 function businessImageRegistryFailure(
   registry: BusinessImageRegistryRow | undefined,
   expectedUploaderUserId: string,
@@ -211,6 +297,112 @@ function businessImageRegistryFailure(
       409,
       requestId
     );
+  }
+  return null;
+}
+
+// GAP-5: private application document persistence. Documents live in
+// business_application_documents (migration 045) and are validated against the
+// same lifecycle registry as images, but ONLY rows whose kind is
+// 'application-document' may be attached (kind guard below).
+type ApplicationDocumentRegistryRow = {
+  object_key?: string;
+  uploader_user_id?: string;
+  complex_id?: string;
+  state?: string;
+  kind?: string;
+};
+
+type ApplicationDocumentResponse = {
+  objectKey: string;
+  kind: string;
+  sortOrder: number;
+};
+
+async function getApplicationDocuments(
+  sql: Sql,
+  applicationId: string
+): Promise<ApplicationDocumentResponse[]> {
+  const rows = await sql`
+    select object_key, document_kind, sort_order
+    from business_application_documents
+    where application_id = ${applicationId}::uuid
+    order by sort_order
+  `;
+  return (rows as Array<{ object_key: string; document_kind: string; sort_order: number }>).map((row) => ({
+    objectKey: row.object_key,
+    kind: row.document_kind,
+    sortOrder: row.sort_order
+  }));
+}
+
+function applicationDocumentRegistryFailure(
+  registry: ApplicationDocumentRegistryRow | undefined,
+  expectedUploaderUserId: string,
+  expectedComplexId: string,
+  requestId: string
+): Response | null {
+  if (!registry || String(registry.state ?? '') !== 'active') {
+    return fail(
+      'DOCUMENT_NOT_ACTIVE',
+      'Application document is not active',
+      409,
+      requestId
+    );
+  }
+  if (String(registry.kind ?? '') !== 'application-document') {
+    return fail(
+      'DOCUMENT_KIND_INVALID',
+      'Registry row is not an application-document',
+      400,
+      requestId
+    );
+  }
+  if (String(registry.uploader_user_id ?? '') !== expectedUploaderUserId ||
+      String(registry.complex_id ?? '') !== expectedComplexId) {
+    return fail(
+      'DOCUMENT_REGISTRY_MISMATCH',
+      'Application document registry binding does not match this resident and complex',
+      409,
+      requestId
+    );
+  }
+  return null;
+}
+
+async function validateApplicationDocuments(
+  sql: Sql,
+  documents: DocumentInput[],
+  applicantUserId: string,
+  complexId: string,
+  requestId: string
+): Promise<Response | null> {
+  const objectKeys = documents.map((d) => d.objectKey);
+  let rows;
+  try {
+    rows = await sql`
+      select object_key, uploader_user_id::text, complex_id::text, state, kind
+      from business_image_objects
+      where object_key = any(${objectKeys})
+    `;
+  } catch {
+    return fail(
+      'DOCUMENT_REGISTRY_UNAVAILABLE',
+      'Application document lifecycle registry is unavailable',
+      503,
+      requestId
+    );
+  }
+  const registryMap = new Map<string, ApplicationDocumentRegistryRow>();
+  for (const row of rows as ApplicationDocumentRegistryRow[]) {
+    registryMap.set(String(row.object_key), row);
+  }
+  for (const doc of documents) {
+    const registry = registryMap.get(doc.objectKey);
+    const failure = applicationDocumentRegistryFailure(
+      registry, applicantUserId, complexId, requestId
+    );
+    if (failure) return failure;
   }
   return null;
 }
@@ -338,16 +530,7 @@ export async function resolveCreateReplay(
   requestId: string
 ): Promise<Response | null> {
   if (!existing || !requestFingerprint) return null;
-  if (String(existing.submission_fingerprint) !== requestFingerprint) {
-    return fail('IDEMPOTENCY_KEY_REUSED', 'The Idempotency-Key was already used with a different request body', 409, requestId);
-  }
-  let stored: string[];
-  try {
-    stored = await readApplicationPhotoKeys(sql, String(existing.id ?? ''));
-  } catch {
-    return fail('GALLERY_READ_UNAVAILABLE', 'Persisted application photo gallery could not be read', 503, requestId);
-  }
-  return ok(withGallery({ ...existing, idempotency_replayed: true }, stored), requestId);
+  return idempotentReplayResponse(sql, existing, requestFingerprint, requestId);
 }
 
 async function createBusinessApplication(
@@ -387,8 +570,7 @@ async function createBusinessApplication(
   // must fail closed rather than report an empty gallery.
   if (rawKey && requestFingerprint) {
     const existing = await existingBusinessApplication(sql, resident.id, rawKey);
-    const replay = await resolveCreateReplay(sql, existing as Record<string, unknown> | null, requestFingerprint, requestId);
-    if (replay) return replay;
+    if (existing) return await idempotentReplayResponse(sql, existing as Record<string, unknown>, requestFingerprint, requestId);
   }
 
   // Only a genuinely NEW request reaches ownership/Drive checks. Gallery
@@ -415,6 +597,56 @@ async function createBusinessApplication(
     if (imageReferenceError) return imageReferenceError;
   }
 
+  // GAP-5: validate document registry references before the DB mutation.
+  // External object validation first, then DB mutation/association in transaction.
+  if (input.documents && input.documents.length > 0) {
+    const documentValidationError = await validateApplicationDocuments(
+      sql, input.documents, resident.id, resident.complexId, requestId
+    );
+    if (documentValidationError) return documentValidationError;
+  }
+
+  // GAP-5: create the application row and associate its documents in a single
+  // database transaction. The application id is generated client-side so the
+  // document rows can reference it inside the same non-interactive transaction.
+  // There is no compensation-delete: any failure rolls the whole transaction
+  // back, so neither an orphaned application nor a partial document set can be
+  // committed. External Drive validation already ran above, outside this block.
+  const newApplicationId = crypto.randomUUID();
+  let documentInsertQueries: ReturnType<Sql>[] = [];
+  if (input.documents && input.documents.length > 0) {
+    const objectKeys = input.documents.map((doc) => doc.objectKey);
+    let associatedRows;
+    try {
+      associatedRows = await sql`
+        select object_key from business_application_documents
+        where object_key = any(${objectKeys})
+      `;
+    } catch {
+      return fail(
+        'DOCUMENT_REGISTRY_UNAVAILABLE',
+        'Application document lifecycle registry is unavailable',
+        503,
+        requestId
+      );
+    }
+    if ((associatedRows as { object_key: string }[]).length > 0) {
+      return fail(
+        'DOCUMENT_DUPLICATE_OBJECT_KEY',
+        'Application document object key already associated',
+        409,
+        requestId
+      );
+    }
+    documentInsertQueries = input.documents.map((doc) => sql`
+      insert into business_application_documents (
+        application_id, object_key, document_kind, sort_order
+      ) values (
+        ${newApplicationId}::uuid, ${doc.objectKey}, ${doc.kind}, ${doc.sortOrder}
+      )
+    `);
+  }
+
   let inserted;
   if (input.representativeImageObjectKey) {
     // GAP-4 BLOCKER: the application row and its gallery associations must commit
@@ -423,10 +655,9 @@ async function createBusinessApplication(
     // constraint aborts the whole transaction when a photo is already attached to
     // another application, so a multi-photo request can never persist as a
     // representative-only application (no best-effort compensation delete).
-    const applicationId = crypto.randomUUID();
     let registryRows;
     try {
-      [registryRows, , inserted] = await sql.transaction([
+      [registryRows, inserted] = await sql.transaction([
         sql`
           select object_key, uploader_user_id, complex_id, state
           from business_image_objects
@@ -441,7 +672,7 @@ async function createBusinessApplication(
             submission_fingerprint, status
           )
           select
-            ${applicationId}::uuid,
+            ${newApplicationId}::uuid,
             ${resident.complexId}::uuid,
             ${resident.id}::uuid,
             ${input.relationType},
@@ -470,7 +701,8 @@ async function createBusinessApplication(
                     availability_text, representative_image_object_key, status,
                     review_note, approved_business_id, submission_key, created_at, updated_at
         `,
-        galleryInsertForApplication(sql, applicationId, galleryKeys)
+        galleryInsertForApplication(sql, newApplicationId, galleryKeys),
+        ...documentInsertQueries
       ]);
     } catch {
       return fail(
@@ -489,45 +721,60 @@ async function createBusinessApplication(
     );
     if (registryFailure) return registryFailure;
   } else {
-    inserted = await sql`
-      insert into business_applications (
-        complex_id, applicant_user_id, relation_type, business_name, category_name,
-        service_summary, price_text, contact_method, service_area, benefit_text,
-        availability_text, representative_image_object_key, submission_key,
-        submission_fingerprint, status
-      ) values (
-        ${resident.complexId}::uuid,
-        ${resident.id}::uuid,
-        ${input.relationType},
-        ${input.businessName},
-        ${input.categoryName},
-        ${input.serviceSummary},
-        ${input.priceText},
-        ${input.contactMethod},
-        ${input.serviceArea},
-        ${input.benefitText},
-        ${input.availabilityText},
-        null,
-        ${rawKey},
-        ${requestFingerprint},
-        'pending'
-      )
-      on conflict (applicant_user_id, submission_key)
-        where submission_key is not null
-      do nothing
-      returning id, relation_type, business_name, category_name, service_summary,
-                price_text, contact_method, service_area, benefit_text,
-                availability_text, representative_image_object_key, status,
-                review_note, approved_business_id, submission_key, created_at, updated_at
-    `;
+    try {
+      [inserted] = await sql.transaction([
+        sql`
+          insert into business_applications (
+            id, complex_id, applicant_user_id, relation_type, business_name, category_name,
+            service_summary, price_text, contact_method, service_area, benefit_text,
+            availability_text, representative_image_object_key, submission_key,
+            submission_fingerprint, status
+          ) values (
+            ${newApplicationId}::uuid,
+            ${resident.complexId}::uuid,
+            ${resident.id}::uuid,
+            ${input.relationType},
+            ${input.businessName},
+            ${input.categoryName},
+            ${input.serviceSummary},
+            ${input.priceText},
+            ${input.contactMethod},
+            ${input.serviceArea},
+            ${input.benefitText},
+            ${input.availabilityText},
+            null,
+            ${rawKey},
+            ${requestFingerprint},
+            'pending'
+          )
+          on conflict (applicant_user_id, submission_key)
+            where submission_key is not null
+          do nothing
+          returning id, relation_type, business_name, category_name, service_summary,
+                    price_text, contact_method, service_area, benefit_text,
+                    availability_text, representative_image_object_key, status,
+                    review_note, approved_business_id, submission_key, created_at, updated_at
+        `,
+        ...documentInsertQueries
+      ]);
+    } catch {
+      return fail(
+        'DOCUMENT_REGISTRY_UNAVAILABLE',
+        'Application document lifecycle registry is unavailable',
+        503,
+        requestId
+      );
+    }
   }
 
   if (inserted[0]) {
     const created = inserted[0] as Record<string, unknown>;
-    // The gallery committed atomically with the application row above, so a
-    // successful create can never be representative-only. Echo the request
-    // gallery (0..3) so reads and promotion see a uniform model.
-    return ok(withGallery({ ...created, idempotency_replayed: false }, galleryKeys), requestId, 201);
+    const docs = await getApplicationDocuments(sql, String(created.id));
+    // The gallery and the document set committed atomically with the
+    // application row above, so a successful create can never be
+    // representative-only or document-partial. Echo the request gallery (0..3)
+    // so reads and promotion see a uniform model.
+    return ok(withGallery({ ...created, documents: docs, idempotency_replayed: false }, galleryKeys), requestId, 201);
   }
   if (!rawKey || !requestFingerprint) return fail('CONFLICT', 'Application could not be created', 409, requestId);
 
@@ -611,52 +858,119 @@ async function resubmitBusinessApplication(
     if (imageReferenceError) return imageReferenceError;
   }
 
+  // GAP-5: when the documents field is present it is authoritative: the whole
+  // document set is replaced atomically with the application update below
+  // (no-op when the field is omitted, preserving existing rows).
+  if (input.documents !== undefined) {
+    const documentValidationError = await validateApplicationDocuments(
+      sql, input.documents, resident.id, resident.complexId, requestId
+    );
+    if (documentValidationError) return documentValidationError;
+  }
+  let documentDeletes!: ReturnType<Sql>;
+  let documentInserts: ReturnType<Sql>[] = [];
+  if (input.documents !== undefined) {
+    documentDeletes = sql`
+      delete from business_application_documents
+      where application_id = ${applicationId}::uuid
+    `;
+    documentInserts = input.documents.map((doc) => sql`
+      insert into business_application_documents (
+        application_id, object_key, document_kind, sort_order
+      ) values (
+        ${applicationId}::uuid, ${doc.objectKey}, ${doc.kind}, ${doc.sortOrder}
+      )
+      on conflict (object_key) do nothing
+    `);
+  }
+
   // GAP-4 REPLACE ALL: gallery present => application update + photo delete +
   // photo insert commit atomically in one transaction (application id is known).
   if (photoKeys !== null) {
-    return resubmitWithGallery(request, env, sql, requestId, applicationId, resident, input, photoKeys);
+    return resubmitWithGallery(request, env, sql, requestId, applicationId, resident, input, photoKeys, documentDeletes, documentInserts);
   }
 
   let rows;
   if (input.representativeImageObjectKey) {
     let registryRows;
     try {
-      [registryRows, rows] = await sql.transaction([
-        sql`
-          select object_key, uploader_user_id, complex_id, state
-          from business_image_objects
-          where object_key = ${input.representativeImageObjectKey}
-          for update
-        `,
-        sql`
-          update business_applications a
-          set relation_type = ${input.relationType},
-              business_name = ${input.businessName},
-              category_name = ${input.categoryName},
-              service_summary = ${input.serviceSummary},
-              price_text = ${input.priceText},
-              contact_method = ${input.contactMethod},
-              service_area = ${input.serviceArea},
-              benefit_text = ${input.benefitText},
-              availability_text = ${input.availabilityText},
-              representative_image_object_key = bio.object_key,
-              status = 'pending',
-              reviewed_by = null,
-              reviewed_at = null
-          from business_image_objects bio
-          where a.id = ${applicationId}::uuid
-            and a.applicant_user_id = ${resident.id}::uuid
-            and a.status = 'changes_requested'
-            and bio.object_key = ${input.representativeImageObjectKey}
-            and bio.state = 'active'
-            and bio.uploader_user_id = ${resident.id}::uuid
-            and bio.complex_id = ${resident.complexId}::uuid
-          returning a.id, a.relation_type, a.business_name, a.category_name,
-                    a.service_summary, a.price_text, a.contact_method, a.service_area,
-                    a.benefit_text, a.availability_text, a.representative_image_object_key,
-                    a.status, a.review_note, a.approved_business_id, a.created_at, a.updated_at
-        `
-      ]);
+      if (input.documents !== undefined) {
+        [registryRows, rows] = await sql.transaction([
+          sql`
+            select object_key, uploader_user_id, complex_id, state
+            from business_image_objects
+            where object_key = ${input.representativeImageObjectKey}
+            for update
+          `,
+          sql`
+            update business_applications a
+            set relation_type = ${input.relationType},
+                business_name = ${input.businessName},
+                category_name = ${input.categoryName},
+                service_summary = ${input.serviceSummary},
+                price_text = ${input.priceText},
+                contact_method = ${input.contactMethod},
+                service_area = ${input.serviceArea},
+                benefit_text = ${input.benefitText},
+                availability_text = ${input.availabilityText},
+                representative_image_object_key = bio.object_key,
+                status = 'pending',
+                reviewed_by = null,
+                reviewed_at = null
+            from business_image_objects bio
+            where a.id = ${applicationId}::uuid
+              and a.applicant_user_id = ${resident.id}::uuid
+              and a.status = 'changes_requested'
+              and bio.object_key = ${input.representativeImageObjectKey}
+              and bio.state = 'active'
+              and bio.uploader_user_id = ${resident.id}::uuid
+              and bio.complex_id = ${resident.complexId}::uuid
+            returning a.id, a.relation_type, a.business_name, a.category_name,
+                      a.service_summary, a.price_text, a.contact_method, a.service_area,
+                      a.benefit_text, a.availability_text, a.representative_image_object_key,
+                      a.status, a.review_note, a.approved_business_id, a.created_at, a.updated_at
+          `,
+          documentDeletes,
+          ...documentInserts
+        ]);
+      } else {
+        [registryRows, rows] = await sql.transaction([
+          sql`
+            select object_key, uploader_user_id, complex_id, state
+            from business_image_objects
+            where object_key = ${input.representativeImageObjectKey}
+            for update
+          `,
+          sql`
+            update business_applications a
+            set relation_type = ${input.relationType},
+                business_name = ${input.businessName},
+                category_name = ${input.categoryName},
+                service_summary = ${input.serviceSummary},
+                price_text = ${input.priceText},
+                contact_method = ${input.contactMethod},
+                service_area = ${input.serviceArea},
+                benefit_text = ${input.benefitText},
+                availability_text = ${input.availabilityText},
+                representative_image_object_key = bio.object_key,
+                status = 'pending',
+                reviewed_by = null,
+                reviewed_at = null
+            from business_image_objects bio
+            where a.id = ${applicationId}::uuid
+              and a.applicant_user_id = ${resident.id}::uuid
+              and a.status = 'changes_requested'
+              and bio.object_key = ${input.representativeImageObjectKey}
+              and bio.state = 'active'
+              and bio.uploader_user_id = ${resident.id}::uuid
+              and bio.complex_id = ${resident.complexId}::uuid
+            returning a.id, a.relation_type, a.business_name, a.category_name,
+                      a.service_summary, a.price_text, a.contact_method, a.service_area,
+                      a.benefit_text, a.availability_text, a.representative_image_object_key,
+                      a.status, a.review_note, a.approved_business_id, a.created_at, a.updated_at
+          `
+        ]);
+      }
     } catch {
       return fail(
         'BUSINESS_IMAGE_REGISTRY_UNAVAILABLE',
@@ -673,6 +987,43 @@ async function resubmitBusinessApplication(
       requestId
     );
     if (registryFailure) return registryFailure;
+  } else if (input.documents !== undefined) {
+    try {
+      [rows] = await sql.transaction([
+        sql`
+          update business_applications a
+          set relation_type = ${input.relationType},
+              business_name = ${input.businessName},
+              category_name = ${input.categoryName},
+              service_summary = ${input.serviceSummary},
+              price_text = ${input.priceText},
+              contact_method = ${input.contactMethod},
+              service_area = ${input.serviceArea},
+              benefit_text = ${input.benefitText},
+              availability_text = ${input.availabilityText},
+              representative_image_object_key = null,
+              status = 'pending',
+              reviewed_by = null,
+              reviewed_at = null
+          where a.id = ${applicationId}::uuid
+            and a.applicant_user_id = ${resident.id}::uuid
+            and a.status = 'changes_requested'
+          returning a.id, a.relation_type, a.business_name, a.category_name,
+                    a.service_summary, a.price_text, a.contact_method, a.service_area,
+                    a.benefit_text, a.availability_text, a.representative_image_object_key,
+                    a.status, a.review_note, a.approved_business_id, a.created_at, a.updated_at
+        `,
+        documentDeletes,
+        ...documentInserts
+      ]);
+    } catch {
+      return fail(
+        'DOCUMENT_UPDATE_UNAVAILABLE',
+        'Application document update failed',
+        503,
+        requestId
+      );
+    }
   } else {
     rows = await sql`
       update business_applications a
@@ -702,6 +1053,17 @@ async function resubmitBusinessApplication(
   // Legacy preserve path (photoObjectKeys omitted): existing gallery rows stay.
   if (rows[0]) {
     const updated = rows[0] as Record<string, unknown>;
+    if (input.documents !== undefined) {
+      // GAP-5: the replaced document set committed with the application update
+      // above; the response must carry it.
+      const docs = await getApplicationDocuments(sql, applicationId);
+      try {
+        const stored = await readApplicationPhotoKeys(sql, String(updated.id ?? applicationId));
+        return ok(withGallery({ ...updated, documents: docs }, stored), requestId);
+      } catch {
+        return ok({ ...updated, documents: docs }, requestId);
+      }
+    }
     try {
       const stored = await readApplicationPhotoKeys(sql, String(updated.id ?? applicationId));
       return ok(withGallery(updated, stored), requestId);
@@ -724,7 +1086,9 @@ async function resubmitWithGallery(
   applicationId: string,
   resident: { id: string; complexId: string; complexSlug: string },
   input: ApplicationInput,
-  photoKeys: string[]
+  photoKeys: string[],
+  documentDeletes?: ReturnType<Sql>,
+  documentInserts?: ReturnType<Sql>[]
 ): Promise<Response> {
   const mirror = photoKeys.length > 0 ? photoKeys[0] : null;
 
@@ -832,6 +1196,9 @@ async function resubmitWithGallery(
     const queries = lockQuery
       ? (insertQuery ? [lockQuery, updateQuery, deleteQuery, insertQuery] : [lockQuery, updateQuery, deleteQuery])
       : (insertQuery ? [updateQuery, deleteQuery, insertQuery] : [updateQuery, deleteQuery]);
+    // GAP-5: document replacement joins the same transaction when present.
+    if (documentDeletes) queries.push(documentDeletes);
+    if (documentInserts) queries.push(...documentInserts);
     results = await sql.transaction(queries);
   } catch (error) {
     const message = error instanceof Error ? error.message : '';
@@ -849,6 +1216,10 @@ async function resubmitWithGallery(
   const updatedRows = (lockQuery ? results[1] : results[0]) as Array<Record<string, unknown>>;
   if (!updatedRows[0]) {
     return fail('CONFLICT', 'Application can no longer be resubmitted from its current state', 409, requestId);
+  }
+  if (documentDeletes) {
+    const docs = await getApplicationDocuments(sql, applicationId);
+    return ok(withGallery({ ...updatedRows[0], documents: docs }, photoKeys), requestId);
   }
   return ok(withGallery(updatedRows[0], photoKeys), requestId);
 }
