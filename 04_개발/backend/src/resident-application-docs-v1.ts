@@ -29,6 +29,9 @@ const ME_DOCUMENT_ROUTE =
   /^\/api\/v1\/me\/business-applications\/([0-9a-fA-F-]+)\/documents\/([0-9a-fA-F-]+)$/;
 const ADMIN_DOCUMENT_ROUTE =
   /^\/api\/v1\/admin\/business-applications\/([0-9a-fA-F-]+)\/documents\/([0-9a-fA-F-]+)$/;
+// Malformed ids fail closed with the same non-disclosing 404 as a missing
+// document, before any query runs (raw ids must never reach ::uuid casts).
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 type DocumentRow = {
   object_key: string;
@@ -168,14 +171,12 @@ async function streamDriveFile(
 async function serveDocument(
   request: Request,
   env: Env,
+  sql: Sql,
   requestId: string,
   routeScope: 'me' | 'admin',
   applicationId: string,
   documentId: string
 ): Promise<Response> {
-  if (!env.DATABASE_URL) return fail('DATABASE_NOT_CONFIGURED', 'DATABASE_URL is not configured', 503, requestId);
-
-  const sql: Sql = neon(env.DATABASE_URL);
   // Exact documentId -> application -> complex -> registry lookup. The
   // application_id predicate binds the document to the URL application so a
   // documentId from another application never resolves here.
@@ -194,8 +195,6 @@ async function serveDocument(
   if (!row) return fail('NOT_FOUND', 'Application document not found', 404, requestId);
 
   const objectKey = String(row.object_key ?? '');
-  const fileId = parseFileId(objectKey);
-  if (!fileId) return fail('INVALID_OBJECT_KEY', 'Invalid storage object key', 400, requestId);
 
   const complexSlug = String(row.complex_slug);
   const applicantUserId = String(row.applicant_user_id);
@@ -204,6 +203,7 @@ async function serveDocument(
   const actor = await requireActor(request, env, sql, requestId);
   if (actor instanceof Response) return actor;
 
+  let reviewerScope: string | null = null;
   if (routeScope === 'me') {
     // Unrelated applicants get a non-disclosing 404, identical to a missing
     // document, so document existence is never oracle-able across owners.
@@ -229,11 +229,7 @@ async function serveDocument(
       COUNCIL_BUSINESS_REVIEW_SCOPE
     );
     if (authority instanceof Response) return authority;
-    const actorRole = authority.authorityKind === 'padiem' ? 'business.review' : 'council.business.review';
-    const auditError = await auditReviewerDocumentRead(
-      sql, actor, requestId, complexSlug, applicationId, documentId, actorRole
-    );
-    if (auditError) return auditError;
+    reviewerScope = authority.authorityKind === 'padiem' ? 'business.review' : 'council.business.review';
   }
 
   // Registry guard runs after authorization so denial precedence stays
@@ -255,7 +251,37 @@ async function serveDocument(
     );
   }
 
+  // The registry-bound file id is parsed only after kind/state/binding
+  // authority is established.
+  const fileId = parseFileId(objectKey);
+  if (!fileId) return fail('INVALID_OBJECT_KEY', 'Invalid storage object key', 400, requestId);
+
+  // Reviewer document.read audit is the last gate before streaming: a failed
+  // audit fails closed and no bytes are served. Applicant reads stay
+  // unaudited for MVP.
+  if (reviewerScope !== null) {
+    const auditError = await auditReviewerDocumentRead(
+      sql, actor, requestId, complexSlug, applicationId, documentId, reviewerScope
+    );
+    if (auditError) return auditError;
+  }
+
   return streamDriveFile(env, fileId, documentId, requestId);
+}
+
+export async function handleResidentApplicationDocumentWithSql(
+  request: Request,
+  env: Env,
+  sql: Sql,
+  requestId: string
+): Promise<Response | null> {
+  if (request.method !== 'GET') return null;
+  const match = new URL(request.url).pathname.match(ME_DOCUMENT_ROUTE);
+  if (!match) return null;
+  if (!UUID.test(match[1]) || !UUID.test(match[2])) {
+    return fail('NOT_FOUND', 'Application document not found', 404, requestId);
+  }
+  return serveDocument(request, env, sql, requestId, 'me', match[1].toLowerCase(), match[2].toLowerCase());
 }
 
 export async function handleResidentApplicationDocumentRequest(
@@ -266,7 +292,23 @@ export async function handleResidentApplicationDocumentRequest(
   if (request.method !== 'GET') return null;
   const match = new URL(request.url).pathname.match(ME_DOCUMENT_ROUTE);
   if (!match) return null;
-  return serveDocument(request, env, requestId, 'me', match[1], match[2]);
+  if (!env.DATABASE_URL) return fail('DATABASE_NOT_CONFIGURED', 'DATABASE_URL is not configured', 503, requestId);
+  return handleResidentApplicationDocumentWithSql(request, env, neon(env.DATABASE_URL), requestId);
+}
+
+export async function handleAdminApplicationDocumentWithSql(
+  request: Request,
+  env: Env,
+  sql: Sql,
+  requestId: string
+): Promise<Response | null> {
+  if (request.method !== 'GET') return null;
+  const match = new URL(request.url).pathname.match(ADMIN_DOCUMENT_ROUTE);
+  if (!match) return null;
+  if (!UUID.test(match[1]) || !UUID.test(match[2])) {
+    return fail('NOT_FOUND', 'Application document not found', 404, requestId);
+  }
+  return serveDocument(request, env, sql, requestId, 'admin', match[1].toLowerCase(), match[2].toLowerCase());
 }
 
 export async function handleAdminApplicationDocumentRequest(
@@ -277,5 +319,6 @@ export async function handleAdminApplicationDocumentRequest(
   if (request.method !== 'GET') return null;
   const match = new URL(request.url).pathname.match(ADMIN_DOCUMENT_ROUTE);
   if (!match) return null;
-  return serveDocument(request, env, requestId, 'admin', match[1], match[2]);
+  if (!env.DATABASE_URL) return fail('DATABASE_NOT_CONFIGURED', 'DATABASE_URL is not configured', 503, requestId);
+  return handleAdminApplicationDocumentWithSql(request, env, neon(env.DATABASE_URL), requestId);
 }

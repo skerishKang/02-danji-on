@@ -67,6 +67,27 @@ assert.ok(docs.includes("'AUDIT_UNAVAILABLE'") && docs.includes('503'),
 assert.ok(docs.indexOf('auditReviewerDocumentRead(') < docs.indexOf('return streamDriveFile('),
   '11. reviewer audit gate must precede Drive streaming');
 
+// 11b. CENTRAL ordering: lookup -> requireActor -> ownership/status or
+// reviewer authority/status -> registry kind/state -> registry-bound fileId
+// parse -> reviewer document.read audit -> Drive stream.
+const order = [
+  'from business_application_documents bad',
+  'await requireActor(request, env, sql, requestId)',
+  'actor.id !== applicantUserId',
+  'const authority = await requireOperationalAuthority(',
+  "String(row.registry_kind ?? '') !== 'application-document'",
+  "String(row.registry_state ?? '') !== 'active'",
+  'parseFileId(objectKey)',
+  'await auditReviewerDocumentRead(',
+  'return streamDriveFile(',
+];
+let cursor = -1;
+for (const marker of order) {
+  const index = docs.indexOf(marker);
+  assert.ok(index > cursor, `ordering violation: '${marker}' must appear after the previous stage`);
+  cursor = index;
+}
+
 // 12. no public Drive URL / objectKey caller authority: the file id is parsed
 // only from the registry-bound object key, fetched server-side with Bearer
 // auth, and streamed as a body (never a shared URL).
@@ -91,5 +112,15 @@ assert.ok(app.includes('handleAdminApplicationDocumentRequest') &&
 assert.ok(app.includes('handleResidentApplicationDocumentRequest') &&
   app.indexOf('handleResidentApplicationDocumentRequest') < app.lastIndexOf('core.fetch'),
   'me document route must dispatch before core');
+
+// 13. malformed ids fail closed without disclosure: strict UUID validation
+// runs before any query so raw ids never reach ::uuid casts.
+assert.ok(docs.includes('UUID.test(match[1])') && docs.includes('UUID.test(match[2])'),
+  '13. malformed ids must 404 without disclosure before any query');
+
+// 14. disposition policy: PDF downloads as an attachment, images inline.
+assert.ok(docs.includes('attachment; filename="application-document-${documentId}.pdf"') &&
+  docs.includes('inline; filename="application-document-${documentId}"'),
+  '14. PDF must attach and images must inline with caller-opaque filenames');
 
 console.log('PASS GAP-5 Phase-B application document access: applicant/reviewer status matrix, non-disclosing denial, cross-complex authority, registry guards, document.read audit fail-closed, Drive proxy without caller authority');
