@@ -205,17 +205,27 @@ async function loadPosts() {
   }
 }
 
+function noticeFilterItems() {
+  // Static sibling-final-v3 rows expose data-kind; server rows expose data-category.
+  // Elements carrying neither stay outside the filter set (sibling-final-v3 behavior).
+  return [...document.querySelectorAll('.notice-row, .pinned')].filter(el => el.dataset.category || el.dataset.kind);
+}
+
 function applyNoticeFilter() {
-  const query = searchInput.value.trim().toLowerCase();
-  const rows = [...document.querySelectorAll('.notice-row')];
+  const rawQuery = searchInput.value.trim();
+  const query = rawQuery.toLowerCase();
+  const rows = noticeFilterItems();
   let shown = 0;
   rows.forEach(row => {
-    const kindOk = activeCategory === 'all' || row.dataset.category === activeCategory;
+    const kind = row.dataset.category || row.dataset.kind || '';
+    const kindOk = activeCategory === 'all' || kind === activeCategory;
     const textOk = !query || row.textContent.replace(/\s+/g, ' ').toLowerCase().includes(query);
     row.hidden = !(kindOk && textOk);
     if (!row.hidden) shown++;
   });
   if (emptyMsg) emptyMsg.hidden = shown !== 0;
+  const head = document.querySelector('.list-head h2');
+  if (head) head.textContent = rawQuery ? `“${rawQuery}” 검색 결과` : '전체 공지';
 }
 
 const searchInput = document.querySelector('#searchForm input');
@@ -298,7 +308,7 @@ document.addEventListener('click',function(ev){
    const postEl=el.closest('[data-post-id]');
    const postId=postEl?postEl.dataset.postId:'';
    if(postId){go(FILES.noticeDetail+'?postId='+encodeURIComponent(postId)+(from==='my-help'?'&from=my-help':''));return;}
-   go(FILES.noticeDetail+(from==='my-help'?'?from=my-help':''));return;
+   if(el.dataset.notice==='biz'){go(FILES.noticeDetail+'?notice=biz');return;}if(el.dataset.notice==='writing'){go(FILES.noticeDetail+'?notice=writing');return;}if(el.dataset.notice==='message'){go(FILES.noticeDetail+'?notice=message');return;}if(el.dataset.notice==='level'){go(FILES.noticeDetail+'?notice=level');return;} if(el.dataset.kind==='guide'||el.dataset.notice==='first'){go(FILES.noticeDetail+'?notice=first');return;} go(FILES.noticeDetail+(from==='my-help'?'?from=my-help':''));return;
   }
  if(SCREEN==='apartment' && cls.contains('feature-link')){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.chair);return;}
  if(SCREEN==='residentList' && cls.contains('story-link')){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.residentDetail);return;}
