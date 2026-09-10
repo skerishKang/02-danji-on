@@ -7,6 +7,33 @@ const OWNER_RELATIONS = new Set(['resident', 'resident_family', 'neighbor', 'loc
 // server-side authority) and no co/etc inference.
 const OWNER_RELATION_RAW = new Set(['self', 'co', 'family', 'etc']);
 
+// #313: owner-facing application lifecycle. The four canonical states are
+// preserved verbatim from the server — the frontend never invents a state and
+// never collapses one into another (rejected must stay rejected; it must not
+// be softened into changes_requested). An unknown/absent status is surfaced
+// honestly instead of being guessed.
+export const OWNER_APPLICATION_STATUSES = ['pending', 'changes_requested', 'approved', 'rejected'];
+const OWNER_APPLICATION_STATUS_LABELS = {
+  pending: '검토 대기',
+  changes_requested: '보완 요청',
+  approved: '승인 완료',
+  rejected: '반려'
+};
+export function ownerApplicationStatusLabel(status) {
+  return OWNER_APPLICATION_STATUS_LABELS[String(status ?? '')] ?? '상태 확인 중';
+}
+
+// GAP-5 Phase-A document kinds (migration 045). Display-only labels; the wire
+// value is always preserved verbatim.
+const OWNER_DOCUMENT_KIND_LABELS = {
+  operation_proof: '운영 확인서류',
+  other_evidence: '기타 증빙자료',
+  additional_reference: '추가 참고자료'
+};
+export function ownerDocumentKindLabel(kind) {
+  return OWNER_DOCUMENT_KIND_LABELS[String(kind ?? '')] ?? '제출 서류';
+}
+
 function joinUrl(base, path) {
   const root = String(base || '').replace(/\/+$/, '');
   return `${root}${path}`;
@@ -34,6 +61,30 @@ async function request(fetchImpl, url, init = {}) {
     const payload = await parseJson(response);
     if (!response.ok) return failure(response.status, payload);
     return { ok: true, status: response.status, data: payload?.data ?? null, requestId: payload?.requestId ?? null };
+  } catch (error) {
+    return { ok: false, reason: 'network-error', status: 0, error };
+  }
+}
+
+// GAP-5 Phase-B (#310): the applicant document route streams raw bytes with a
+// private/no-store disposition rather than the JSON envelope every other bridge
+// route returns, so it needs its own transport. The object key is never a
+// parameter here: the route is addressed exclusively by the server-issued
+// (applicationId, documentId) pair, and no URL is ever built from an object
+// key or a Drive link.
+async function requestDocument(fetchImpl, url) {
+  try {
+    const response = await fetchImpl(url, { credentials: 'include' });
+    if (!response.ok) {
+      let payload = null;
+      try { payload = await response.json(); } catch { payload = null; }
+      return failure(response.status, payload);
+    }
+    const headers = response.headers;
+    const contentType = typeof headers?.get === 'function' ? (headers.get('content-type') ?? '') : '';
+    const disposition = typeof headers?.get === 'function' ? (headers.get('content-disposition') ?? '') : '';
+    const blob = typeof response.blob === 'function' ? await response.blob() : null;
+    return { ok: true, status: response.status, blob, contentType, disposition };
   } catch (error) {
     return { ok: false, reason: 'network-error', status: 0, error };
   }
@@ -123,6 +174,11 @@ export function normalizeOwnerApplication(row) {
     for (const doc of row.documents) {
       if (!doc || typeof doc !== 'object') continue;
       docs.push({
+        // #313: the server-issued document id is preserved when the API
+        // provides one, so the owner can re-open that exact row through the
+        // GAP-5 route. It is never synthesised and never derived from the
+        // object key — an absent id stays absent and the UI fails closed.
+        documentId: String(doc.id ?? doc.documentId ?? doc.document_id ?? ''),
         objectKey: String(doc.objectKey ?? doc.object_key ?? ''),
         kind: String(doc.kind ?? doc.document_kind ?? ''),
         sortOrder: Number(doc.sortOrder ?? doc.sort_order ?? 0)
@@ -188,6 +244,17 @@ export function createApplicationReportBridge({ apiBase = '', fetchImpl = global
       const result = await request(fetchImpl, joinUrl(apiBase, '/api/v1/me/business-applications'));
       if (!result.ok) return result;
       return { ...result, data: Array.isArray(result.data) ? result.data.map(normalizeOwnerApplication).filter(Boolean) : [] };
+    },
+    // #313: re-open one of the caller's OWN private application documents.
+    // Both ids are server-issued UUIDs; a malformed id fails closed before any
+    // network call (the backend answers malformed ids with a non-disclosing
+    // 404, but the frontend must not even try). There is deliberately no
+    // object-key overload: object keys carry no access authority here.
+    async openOwnerApplicationDocument(applicationId, documentId) {
+      const appId = String(applicationId || '');
+      const docId = String(documentId || '');
+      if (!UUID.test(appId) || !UUID.test(docId)) return { ok: false, reason: 'validation-error', status: 0 };
+      return requestDocument(fetchImpl, joinUrl(apiBase, `/api/v1/me/business-applications/${appId}/documents/${docId}`));
     },
     async createOwnerApplication(input, { idempotencyKey = null } = {}) {
       const body = ownerPayload(input, complexSlug);
