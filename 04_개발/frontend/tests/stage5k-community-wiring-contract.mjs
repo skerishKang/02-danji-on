@@ -124,12 +124,12 @@ function serverPost(overrides = {}) {
   vm.runInContext(sessionSource, context);
   vm.runInContext(bridgeSource, context);
   const bridge = context.DanjionCommunityBridge;
-  assert.deepEqual([...bridge.POST_KINDS].sort(), ['life_report', 'question', 'resident_story', 'together'].sort());
+  assert.deepEqual([...bridge.POST_KINDS].sort(), ['greeting', 'life_report', 'question', 'resident_story', 'together'].sort());
   assert.equal(bridge.DEFAULT_COMPLEX_SLUG, 'banglim-myeongji-roadhill');
   const post = bridge.normalizePost(serverPost({ reactionCount: 'x', commentCount: -3 }));
   assert.equal(post.reactionCount, 0);
   assert.equal(post.commentCount, 0);
-  assert.equal(bridge.normalizePost({ ...serverPost(), kind: 'greeting' }), null, 'kinds outside v1 POST_KINDS never normalize');
+  assert.equal(bridge.normalizePost({ ...serverPost(), kind: 'hello' }), null, 'kinds outside canonical POST_KINDS never normalize (greeting canonical since #348)');
   const comment = bridge.normalizeComment({ id: COMMENT_ID, postId: POST_ID, body: '안녕', status: 'published', author: { nickname: '봄날' } });
   assert.equal(comment.author.nickname, '봄날');
 }
@@ -181,9 +181,9 @@ function serverPost(overrides = {}) {
 {
   let fetched = 0;
   const bridge = loadBridge('?apiBase=' + API_BASE, async () => { fetched++; return makeResponse(200, { data: [] }); });
-  const greeting = await bridge.createPost({ kind: 'greeting', title: '인사', body: '안녕하세요' });
-  assert.equal(greeting.error, 'POST_KIND_INVALID', 'greeting stays out of the write surface');
-  const badKind = await bridge.listPosts('greeting');
+  const hello = await bridge.createPost({ kind: 'hello', title: '인사', body: '안녕하세요' });
+  assert.equal(hello.error, 'POST_KIND_INVALID', 'hello stays out of the write surface; only canonical greeting (#348) is accepted');
+  const badKind = await bridge.listPosts('hello');
   assert.equal(badKind.error, 'POST_KIND_INVALID');
   const badId = await bridge.getPost('story1');
   assert.equal(badId.error, 'POST_ID_INVALID');
@@ -194,7 +194,7 @@ function serverPost(overrides = {}) {
   const longComment = await bridge.addComment(POST_ID, '가'.repeat(301));
   assert.equal(longComment.error, 'COMMENT_BODY_INVALID');
   assert.equal(fetched, 0, 'invalid input must not reach the network');
-  assert.doesNotMatch(bridgeSource, /greeting/i, 'bridge never invents the greeting kind (#329 HOLD)');
+  assert.match(bridgeSource, /'greeting'/, 'greeting is a canonical kind since #348 C2 (never coerced into another kind)');
 }
 
 /* ---------- 6. pages reuse the canonical session runtime + wiring ---------- */
