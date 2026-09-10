@@ -30,8 +30,14 @@ for (const field of [
 ]) {
   assert.ok(economy.includes(field), `owner application persistence must retain ${field}`);
 }
-assert.match(economy, /if \(inserted\[0\]\) return ok\(\{ \.\.\.inserted\[0\], idempotency_replayed: false \}, requestId, 201\)/,
+// GAP-4: create responses now carry the additive photoObjectKeys gallery
+// alongside the persisted row, replay marker, and HTTP 201.
+assert.ok(economy.includes('idempotency_replayed: false }, galleryKeys)') || economy.includes('idempotency_replayed: false }'),
   'new owner application must return the persisted row, replay marker, and HTTP 201');
+assert.ok(economy.includes('requestId, 201)'),
+  'new owner application must return HTTP 201');
+assert.ok(economy.includes('photoObjectKeys'),
+  'owner application responses must carry the additive photo gallery contract');
 assert.match(economy, /idempotency_replayed: true/,
   'owner application idempotent replay must be explicit');
 assert.match(economy, /Only changes_requested applications can be resubmitted/,

@@ -13,22 +13,23 @@ function fakeSql(row, options = {}) {
     const query = strings.join('?');
     assert.ok(query.includes('from business_media bm'));
     assert.ok(query.includes('from business_applications a'));
+    assert.ok(query.includes('from business_application_photos ap'));
     assert.ok(query.includes("a.status in ('draft', 'pending', 'changes_requested', 'approved')"));
     assert.equal(query.includes("'rejected'"), false,
       'rejected applications are final and must not become a retention-policy delete block');
-    assert.deepEqual(values, [key, key]);
+    assert.deepEqual(values, [key, key, key]);
     return [row];
   };
 }
 
 assert.equal(
-  await businessImageDeleteConflict(fakeSql({ business_media_in_use: false, application_in_use: false }), key, 'req-free'),
+  await businessImageDeleteConflict(fakeSql({ business_media_in_use: false, application_in_use: false, application_photos_in_use: false }), key, 'req-free'),
   null,
   'unreferenced legacy business image must remain deletable by its authorized uploader'
 );
 
 let denied = await businessImageDeleteConflict(
-  fakeSql({ business_media_in_use: true, application_in_use: false }),
+  fakeSql({ business_media_in_use: true, application_in_use: false, application_photos_in_use: false }),
   key,
   'req-media'
 );
@@ -37,9 +38,19 @@ assert.equal(denied.status, 409);
 assert.equal((await denied.json()).error.code, 'BUSINESS_IMAGE_IN_USE');
 
 denied = await businessImageDeleteConflict(
-  fakeSql({ business_media_in_use: false, application_in_use: true }),
+  fakeSql({ business_media_in_use: false, application_in_use: true, application_photos_in_use: false }),
   key,
   'req-application'
+);
+assert.ok(denied instanceof Response);
+assert.equal(denied.status, 409);
+assert.equal((await denied.json()).error.code, 'BUSINESS_IMAGE_IN_USE');
+
+// GAP-4: gallery rows are first-class in-use references.
+denied = await businessImageDeleteConflict(
+  fakeSql({ business_media_in_use: false, application_in_use: false, application_photos_in_use: true }),
+  key,
+  'req-gallery'
 );
 assert.ok(denied instanceof Response);
 assert.equal(denied.status, 409);
@@ -58,6 +69,7 @@ const helperBlock = storage.slice(helperStart, helperEnd);
 assert.ok(helperStart >= 0 && helperEnd > helperStart);
 assert.ok(helperBlock.includes('business_media'));
 assert.ok(helperBlock.includes('business_applications'));
+assert.ok(helperBlock.includes('business_application_photos'));
 assert.ok(helperBlock.includes("a.status in ('draft', 'pending', 'changes_requested', 'approved')"));
 assert.equal(helperBlock.includes("'rejected'"), false);
 assert.ok(helperBlock.includes("'BUSINESS_IMAGE_IN_USE'"));
@@ -75,7 +87,11 @@ const stateTransitionIndex = intentBlock.indexOf("set state = 'delete_pending'")
 assert.ok(lockIndex >= 0 && referenceIndex > lockIndex,
   'registered delete must lock lifecycle row before fresh product-reference check');
 assert.ok(applicationIndex > referenceIndex);
+const galleryIndex = intentBlock.indexOf('from business_application_photos ap');
+assert.ok(galleryIndex > applicationIndex,
+  'gallery photo references must join the protected-reference check');
 assert.ok(intentBlock.includes("a.status in ('draft', 'pending', 'changes_requested', 'approved')"));
+assert.ok(intentBlock.includes('not u.application_photos_in_use'));
 assert.equal(intentBlock.includes("'rejected'"), false,
   'registered lifecycle must preserve rejected exclusion from #105');
 assert.ok(stateTransitionIndex > applicationIndex,

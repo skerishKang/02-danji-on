@@ -44,6 +44,7 @@ type DeleteIntentDecision = {
   uploader_user_id?: string;
   business_media_in_use?: boolean;
   application_in_use?: boolean;
+  application_photos_in_use?: boolean;
   delete_intent_acquired?: boolean;
 };
 
@@ -275,7 +276,14 @@ export async function businessImageDeleteConflict(
           from business_applications a
           where a.representative_image_object_key = ${objectKeyValue}
             and a.status in ('draft', 'pending', 'changes_requested', 'approved')
-        ) as application_in_use
+        ) as application_in_use,
+        exists (
+          select 1
+          from business_application_photos ap
+          join business_applications a on a.id = ap.application_id
+          where ap.object_key = ${objectKeyValue}
+            and a.status in ('draft', 'pending', 'changes_requested', 'approved')
+        ) as application_photos_in_use
     `;
   } catch {
     return fail(
@@ -286,8 +294,8 @@ export async function businessImageDeleteConflict(
     );
   }
 
-  const usage = rows[0] as { business_media_in_use?: boolean; application_in_use?: boolean } | undefined;
-  if (usage?.business_media_in_use || usage?.application_in_use) {
+  const usage = rows[0] as { business_media_in_use?: boolean; application_in_use?: boolean; application_photos_in_use?: boolean } | undefined;
+  if (usage?.business_media_in_use || usage?.application_in_use || usage?.application_photos_in_use) {
     return fail(
       'BUSINESS_IMAGE_IN_USE',
       'Business image is still referenced by an active application or business record',
@@ -382,7 +390,13 @@ export async function acquireBusinessImageDeleteIntent(
               select 1 from business_applications a
               where a.representative_image_object_key = ${objectKeyValue}
                 and a.status in ('draft', 'pending', 'changes_requested', 'approved')
-            ) as application_in_use
+            ) as application_in_use,
+            exists (
+              select 1 from business_application_photos ap
+              join business_applications a on a.id = ap.application_id
+              where ap.object_key = ${objectKeyValue}
+                and a.status in ('draft', 'pending', 'changes_requested', 'approved')
+            ) as application_photos_in_use
         ),
         updated as (
           update business_image_objects bio
@@ -395,6 +409,7 @@ export async function acquireBusinessImageDeleteIntent(
             and bio.state = 'active'
             and not u.business_media_in_use
             and not u.application_in_use
+            and not u.application_photos_in_use
           returning bio.object_key
         )
         select
@@ -402,6 +417,7 @@ export async function acquireBusinessImageDeleteIntent(
           (select uploader_user_id::text from business_image_objects where object_key = ${objectKeyValue}) as uploader_user_id,
           u.business_media_in_use,
           u.application_in_use,
+          u.application_photos_in_use,
           exists (select 1 from updated) as delete_intent_acquired
         from usage u
       `
@@ -424,7 +440,7 @@ export async function acquireBusinessImageDeleteIntent(
   }
 
   const decision = (decisionRows as DeleteIntentDecision[])[0];
-  if (decision?.business_media_in_use || decision?.application_in_use) {
+  if (decision?.business_media_in_use || decision?.application_in_use || decision?.application_photos_in_use) {
     return fail(
       'BUSINESS_IMAGE_IN_USE',
       'Business image is still referenced by an active application or business record',
