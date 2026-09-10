@@ -159,7 +159,12 @@ document.querySelectorAll('[data-toast]').forEach(button => button.addEventListe
 
 const filters = [...document.querySelectorAll('.filter')];
 const noticeContainer = document.querySelector('.notice-list');
-const emptyMsg = document.getElementById('noticeEmpty');
+// The sibling-final-v3 pinned card is a sibling of .notice-list, so the server render must
+// own this existing slot instead of injecting a second .pinned into the list (#358 defect 1).
+let pinnedSlot = document.querySelector('.notice-layout > .pinned');
+// Resolved on demand: renderPosts() replaces the .notice-list innerHTML, so a node reference
+// captured at module evaluation goes stale and the empty state stops rendering (#358 defect 2).
+const emptyState = () => document.getElementById('noticeEmpty');
 
 let activeCategory = 'all';
 
@@ -168,21 +173,33 @@ function formatDate(ts) {
   try { return new Date(ts).toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' }); } catch { return ''; }
 }
 
+function renderPinned(pinned) {
+  if (!pinnedSlot) return;
+  if (!pinned) {
+    // Server mode owns the pinned card: dropping the slot keeps demo copy out of server mode
+    // and lets the empty state stay truthful when the server has no posts (#358 defect 1).
+    pinnedSlot.remove();
+    pinnedSlot = null;
+    return;
+  }
+  pinnedSlot.dataset.postId = pinned.id;
+  if (pinned.category) pinnedSlot.dataset.category = pinned.category;
+  pinnedSlot.innerHTML = `
+    <span class="pin-label">중요 공지 · 처음 읽어주세요</span>
+    <h2>${pinned.title}</h2>
+    <p>${(pinned.body || '').slice(0, 150)}...</p>
+    <button class="pinned-link" type="button">공지 상세 보기 →</button>
+  `;
+}
+
 function renderPosts(posts) {
   const pinned = posts.find(p => p.category === 'essential' || p.channel === 'danjion_notice');
   const rest = posts.filter(p => p !== pinned);
 
-  const pinnedHtml = pinned ? `
-    <article class="pinned" data-post-id="${pinned.id}">
-      <span class="pin-label">중요 공지 · 처음 읽어주세요</span>
-      <h2>${pinned.title}</h2>
-      <p>${(pinned.body || '').slice(0, 150)}...</p>
-      <button class="pinned-link" type="button">공지 상세 보기 →</button>
-    </article>
-  ` : '';
+  renderPinned(pinned);
 
   const noticeHtml = rest.map(p => `
-    <button class="notice-row" data-post-id="${p.id}" data-category="${p.category || ''}" type="button">
+    <button class="notice-row" data-post-id="${p.id}" data-category="${p.category || p.channel || 'danjion_notice'}" type="button">
       <span class="type">${p.category || p.channel}</span>
       <strong>${p.title}</strong>
       <time>${formatDate(p.publishedAt)}</time>
@@ -190,10 +207,13 @@ function renderPosts(posts) {
     </button>
   `).join('');
 
-  noticeContainer.innerHTML = `${pinnedHtml}<div class="list-head"><h2>전체 공지</h2></div>${noticeHtml}`;
+  // The server render replaces the whole list, so the sibling-final-v3 empty state has to be
+  // re-emitted here; the static #noticeEmpty node does not survive the innerHTML swap.
+  noticeContainer.innerHTML = `<div class="list-head"><h2>전체 공지</h2></div>${noticeHtml}<p class="notice-empty" id="noticeEmpty" hidden>검색 결과가 없습니다.</p>`;
 
-  const visibleCount = rest.filter(p => p.category === activeCategory || activeCategory === 'all').length;
-  if (emptyMsg) emptyMsg.hidden = visibleCount !== 0;
+  // One filter authority: reuse the sibling-final-v3 filter so category, query and the empty
+  // state stay consistent for server rows too (#358 defect 2).
+  applyNoticeFilter();
 }
 
 async function loadPosts() {
@@ -223,7 +243,8 @@ function applyNoticeFilter() {
     row.hidden = !(kindOk && textOk);
     if (!row.hidden) shown++;
   });
-  if (emptyMsg) emptyMsg.hidden = shown !== 0;
+  const empty = emptyState();
+  if (empty) empty.hidden = shown !== 0;
   const head = document.querySelector('.list-head h2');
   if (head) head.textContent = rawQuery ? `“${rawQuery}” 검색 결과` : '전체 공지';
 }

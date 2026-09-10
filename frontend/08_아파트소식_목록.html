@@ -253,7 +253,12 @@ document.addEventListener('click',function(ev){
  if(SCREEN==='noticeList' && (cls.contains('pinned-link')||cls.contains('notice-row'))){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.noticeDetail);return;}
   if(SCREEN==='apartment' && cls.contains('feature-link')){
     ev.preventDefault();ev.stopImmediatePropagation();
-    const pid = el.dataset.postId || (el.closest('[data-post-id]')?.dataset.postId) || '';
+    // The server-rendered feature link carries ?postId= in its href, not in a data attribute,
+    // so the href query has to be read too or the chair post id is dropped (#358 defect 3).
+    const href=el.getAttribute('href')||'';
+    let hrefPostId='';
+    try{hrefPostId=new URLSearchParams(href.split('?').slice(1).join('?')).get('postId')||'';}catch(e){hrefPostId='';}
+    const pid = el.dataset.postId || (el.closest('[data-post-id]')?.dataset.postId) || hrefPostId || '';
     go(FILES.chair + (pid ? '?postId=' + encodeURIComponent(pid) : ''));
     return;
   }
