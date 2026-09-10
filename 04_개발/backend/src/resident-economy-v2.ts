@@ -18,7 +18,19 @@ type ApplicationInput = {
   benefitText: string | null;
   availabilityText: string | null;
   representativeImageObjectKey: string | null;
+  // GAP-4: additive multi-photo contract. null = field omitted (preserve on
+  // resubmit); [] = explicit empty (remove all); [k...] = 0..3 ordered keys.
+  photoObjectKeys: string[] | null;
 };
+
+const MAX_APPLICATION_PHOTOS = 3;
+const BUSINESS_IMAGE_NAMESPACE = 'gdrive/public/business-image/';
+
+function isValidPhotoObjectKeyFormat(value: string): boolean {
+  if (!value.startsWith(BUSINESS_IMAGE_NAMESPACE)) return false;
+  const fileId = value.slice(BUSINESS_IMAGE_NAMESPACE.length);
+  return /^[A-Za-z0-9_-]{10,200}$/.test(fileId);
+}
 
 type BusinessImageRegistryRow = {
   object_key?: string;
@@ -53,7 +65,56 @@ async function bodyJson(request: Request, requestId: string): Promise<Record<str
   }
 }
 
-function applicationInput(payload: Record<string, unknown>): ApplicationInput {
+// GAP-4: parse optional photoObjectKeys. Returns null when the field is
+// absent (preserve semantics on resubmit), [] when explicitly empty, or the
+// trimmed ordered key list. Returns undefined-sentinel via { ok:false } on
+// shape violations so callers can fail closed with a precise error code.
+function parsePhotoObjectKeys(
+  payload: Record<string, unknown>,
+  requestId: string
+): { ok: true; keys: string[] | null } | { ok: false; response: Response } {
+  const raw = payload.photoObjectKeys;
+  if (raw === undefined || raw === null) return { ok: true, keys: null };
+  if (!Array.isArray(raw)) {
+    return {
+      ok: false,
+      response: fail('VALIDATION_ERROR', 'photoObjectKeys must be an array of 0..3 object keys', 400, requestId)
+    };
+  }
+  const keys = raw.map((entry) => String(entry ?? '').trim()).filter((entry) => entry.length > 0);
+  // An explicitly empty array stays empty (remove-all); a whitespace-only
+  // array is also treated as explicit empty rather than omitted.
+  if (keys.length > MAX_APPLICATION_PHOTOS) {
+    return {
+      ok: false,
+      response: fail('PHOTO_LIMIT_EXCEEDED', 'Maximum 3 photos per application', 400, requestId)
+    };
+  }
+  if (new Set(keys).size !== keys.length) {
+    return {
+      ok: false,
+      response: fail('DUPLICATE_PHOTO_KEYS', 'Duplicate photo object keys are not allowed', 400, requestId)
+    };
+  }
+  for (const key of keys) {
+    if (!isValidPhotoObjectKeyFormat(key)) {
+      return {
+        ok: false,
+        response: fail('INVALID_PHOTO_KEY', 'Each photo must reference a DanjiOn public business image', 400, requestId)
+      };
+    }
+  }
+  return { ok: true, keys };
+}
+
+function applicationInput(payload: Record<string, unknown>, photoKeys: string[] | null): ApplicationInput {
+  // GAP-4 backward compatibility:
+  // - photoObjectKeys present (incl. []) => authoritative; representative mirrors keys[0] ?? null.
+  // - photoObjectKeys omitted => legacy representativeImageObjectKey contract unchanged.
+  const legacy = String(payload.representativeImageObjectKey ?? '').trim() || null;
+  const representativeImageObjectKey = photoKeys !== null
+    ? (photoKeys.length > 0 ? photoKeys[0] : null)
+    : legacy;
   return {
     complexSlug: String(payload.complexSlug ?? '').trim(),
     relationType: String(payload.relationType ?? '').trim(),
@@ -65,8 +126,31 @@ function applicationInput(payload: Record<string, unknown>): ApplicationInput {
     serviceArea: String(payload.serviceArea ?? '').trim() || null,
     benefitText: String(payload.benefitText ?? '').trim() || null,
     availabilityText: String(payload.availabilityText ?? '').trim() || null,
-    representativeImageObjectKey: String(payload.representativeImageObjectKey ?? '').trim() || null
+    representativeImageObjectKey,
+    photoObjectKeys: photoKeys
   };
+}
+
+// When both contracts arrive together they must agree; silent disagreement
+// between the legacy single key and the gallery first key is rejected.
+function photoContractAgreement(
+  payload: Record<string, unknown>,
+  photoKeys: string[] | null,
+  requestId: string
+): Response | null {
+  if (photoKeys === null) return null;
+  if (!('representativeImageObjectKey' in payload)) return null;
+  const legacy = String(payload.representativeImageObjectKey ?? '').trim() || null;
+  const mirror = photoKeys.length > 0 ? photoKeys[0] : null;
+  if (legacy !== mirror) {
+    return fail(
+      'PHOTO_CONTRACT_MISMATCH',
+      'representativeImageObjectKey must equal photoObjectKeys[0] when both are provided',
+      400,
+      requestId
+    );
+  }
+  return null;
 }
 
 function validateApplication(input: ApplicationInput, requestId: string): Response | null {
@@ -142,6 +226,147 @@ function businessImageRegistryFailure(
   return null;
 }
 
+// GAP-4: fail-closed ownership/binding check for every gallery key.
+// Each key must exist in business_image_objects, belong to the applicant +
+// complex, and be in active state. Runs before any Drive call and before any
+// DB mutation.
+async function validateGalleryOwnership(
+  sql: Sql,
+  photoKeys: string[] | null,
+  applicantUserId: string,
+  complexId: string,
+  requestId: string
+): Promise<Response | null> {
+  if (!photoKeys || photoKeys.length === 0) return null;
+  let rows;
+  try {
+    if (photoKeys.length === 1) {
+      rows = await sql`
+        select object_key, uploader_user_id::text as uploader_user_id, complex_id::text as complex_id, state
+        from business_image_objects
+        where object_key = ${photoKeys[0]}
+      `;
+    } else if (photoKeys.length === 2) {
+      rows = await sql`
+        select object_key, uploader_user_id::text as uploader_user_id, complex_id::text as complex_id, state
+        from business_image_objects
+        where object_key = ${photoKeys[0]} or object_key = ${photoKeys[1]}
+      `;
+    } else {
+      rows = await sql`
+        select object_key, uploader_user_id::text as uploader_user_id, complex_id::text as complex_id, state
+        from business_image_objects
+        where object_key = ${photoKeys[0]} or object_key = ${photoKeys[1]} or object_key = ${photoKeys[2]}
+      `;
+    }
+  } catch {
+    return fail(
+      'BUSINESS_IMAGE_REGISTRY_UNAVAILABLE',
+      'Business image lifecycle registry is unavailable',
+      503,
+      requestId
+    );
+  }
+  const byKey = new Map<string, { uploader_user_id?: string; complex_id?: string; state?: string }>();
+  for (const row of rows as Array<{ object_key?: string; uploader_user_id?: string; complex_id?: string; state?: string }>) {
+    if (row.object_key) byKey.set(String(row.object_key), row);
+  }
+  for (const key of photoKeys) {
+    const row = byKey.get(key);
+    if (!row) {
+      return fail('INVALID_PHOTO_KEY', 'Photo object is not registered for product references', 400, requestId);
+    }
+    if (String(row.state ?? '') !== 'active') {
+      return fail('PHOTO_NOT_ACTIVE', 'Photo object is not active for new product references', 409, requestId);
+    }
+    if (String(row.uploader_user_id ?? '') !== applicantUserId) {
+      return fail('PHOTO_OWNER_MISMATCH', 'Photo object does not belong to this applicant', 403, requestId);
+    }
+    if (String(row.complex_id ?? '') !== complexId) {
+      return fail('PHOTO_COMPLEX_MISMATCH', 'Photo object does not belong to this complex', 403, requestId);
+    }
+  }
+  return null;
+}
+
+async function readApplicationPhotoKeys(sql: Sql, applicationId: string): Promise<string[]> {
+  const rows = await sql`
+    select object_key
+    from business_application_photos
+    where application_id = ${applicationId}::uuid
+    order by sort_order asc
+  `;
+  return rows.map((row) => String((row as { object_key?: string }).object_key ?? '')).filter((key) => key.length > 0);
+}
+
+function withGallery(row: Record<string, unknown>, photoKeys: string[]): Record<string, unknown> {
+  return { ...row, photoObjectKeys: [...photoKeys] };
+}
+
+// Best-effort gallery persistence after the application row commits.
+// On failure the caller compensates (deletes the just-created application)
+// so a 3-photo request never silently persists as a 0-photo application.
+async function persistGalleryRows(
+  sql: Sql,
+  applicationId: string,
+  photoKeys: string[],
+  requestId: string
+): Promise<Response | null> {
+  if (photoKeys.length === 0) return null;
+  try {
+    if (photoKeys.length === 1) {
+      await sql`
+        insert into business_application_photos (application_id, object_key, sort_order)
+        values (${applicationId}::uuid, ${photoKeys[0]}, 0)
+        on conflict do nothing
+      `;
+    } else if (photoKeys.length === 2) {
+      await sql`
+        insert into business_application_photos (application_id, object_key, sort_order)
+        values (${applicationId}::uuid, ${photoKeys[0]}, 0), (${applicationId}::uuid, ${photoKeys[1]}, 1)
+        on conflict do nothing
+      `;
+    } else {
+      await sql`
+        insert into business_application_photos (application_id, object_key, sort_order)
+        values (${applicationId}::uuid, ${photoKeys[0]}, 0), (${applicationId}::uuid, ${photoKeys[1]}, 1), (${applicationId}::uuid, ${photoKeys[2]}, 2)
+        on conflict do nothing
+      `;
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : '';
+    if (/duplicate|unique|23505/i.test(message)) {
+      return fail('PHOTO_ALREADY_USED', 'Photo object is already attached to another application', 409, requestId);
+    }
+    return fail(
+      'GALLERY_PERSISTENCE_UNAVAILABLE',
+      'Application was created but photo gallery could not be persisted',
+      503,
+      requestId
+    );
+  }
+  // Confirm all rows landed (fail-closed against partial writes / conflicts).
+  try {
+    const stored = await readApplicationPhotoKeys(sql, applicationId);
+    if (stored.length !== photoKeys.length || !photoKeys.every((key, index) => stored[index] === key)) {
+      return fail(
+        'PHOTO_ALREADY_USED',
+        'Photo gallery could not be persisted exactly as requested',
+        409,
+        requestId
+      );
+    }
+  } catch {
+    return fail(
+      'GALLERY_PERSISTENCE_UNAVAILABLE',
+      'Application was created but photo gallery could not be confirmed',
+      503,
+      requestId
+    );
+  }
+  return null;
+}
+
 async function createBusinessApplication(
   request: Request,
   env: CoreEnv,
@@ -149,13 +374,26 @@ async function createBusinessApplication(
   requestId: string,
   payload: Record<string, unknown>
 ): Promise<Response> {
-  const input = applicationInput(payload);
+  const parsedPhotos = parsePhotoObjectKeys(payload, requestId);
+  if (!parsedPhotos.ok) return parsedPhotos.response;
+  const photoKeys = parsedPhotos.keys;
+  const agreementError = photoContractAgreement(payload, photoKeys, requestId);
+  if (agreementError) return agreementError;
+  const input = applicationInput(payload, photoKeys);
   const invalid = validateApplication(input, requestId);
   if (invalid) return invalid;
 
   const residentOrResponse = await requireVerifiedResident(request, env, sql, requestId, input.complexSlug);
   if (residentOrResponse instanceof Response) return residentOrResponse;
   const resident = residentOrResponse;
+
+  // GAP-4 gallery ownership is verified before any external Drive call so a
+  // foreign/cross-complex key fails closed without leaking Drive state.
+  const galleryKeys = photoKeys !== null
+    ? photoKeys
+    : (input.representativeImageObjectKey ? [input.representativeImageObjectKey] : []);
+  const ownershipError = await validateGalleryOwnership(sql, galleryKeys.length > 0 ? galleryKeys : null, resident.id, resident.complexId, requestId);
+  if (ownershipError) return ownershipError;
 
   const rawKey = request.headers.get('idempotency-key')?.trim() || null;
   if (rawKey && !validIdempotencyKey(rawKey)) {
@@ -173,16 +411,31 @@ async function createBusinessApplication(
   // semantics of an operation that already completed with the same body.
   if (rawKey && requestFingerprint) {
     const existing = await existingBusinessApplication(sql, resident.id, rawKey);
-    if (existing) return idempotentReplayResponse(existing as Record<string, unknown>, requestFingerprint, requestId);
+    if (existing) {
+      const existingRow = existing as Record<string, unknown>;
+      const replayCheck = idempotentReplayResponse(existingRow, requestFingerprint, requestId);
+      // Fingerprint mismatch already returned 409 inside the helper path;
+      // on match, enrich the replay with the persisted gallery.
+      if ((replayCheck as Response).status !== 409) {
+        try {
+          const stored = await readApplicationPhotoKeys(sql, String(existingRow.id ?? ''));
+          return ok(withGallery({ ...existingRow, idempotency_replayed: true }, stored), requestId);
+        } catch {
+          return ok(withGallery({ ...existingRow, idempotency_replayed: true }, []), requestId);
+        }
+      }
+      return replayCheck;
+    }
   }
 
   // Only a new application may introduce a representative-image reference.
   // Keep PR #103 strict Drive validation before the DB reference-acquisition
   // critical section. The Drive call is never held inside a DB transaction.
-  if (input.representativeImageObjectKey) {
+  // GAP-4 validates every gallery key (not just the representative mirror).
+  for (const key of galleryKeys) {
     const imageReferenceError = await validateBusinessImageReference(
       env,
-      input.representativeImageObjectKey,
+      key,
       resident.id,
       resident.complexSlug,
       requestId
@@ -288,7 +541,28 @@ async function createBusinessApplication(
     `;
   }
 
-  if (inserted[0]) return ok({ ...inserted[0], idempotency_replayed: false }, requestId, 201);
+  if (inserted[0]) {
+    const created = inserted[0] as Record<string, unknown>;
+    const createdId = String(created.id ?? '');
+    // GAP-4: persist the gallery for the just-created application.
+    // Legacy single-image writes also land one gallery row so future reads
+    // and approved-business promotion see a uniform 0..3 model.
+    if (galleryKeys.length > 0 && createdId) {
+      const galleryError = await persistGalleryRows(sql, createdId, galleryKeys, requestId);
+      if (galleryError) {
+        // Compensate: never leave a 3-photo request persisted as a
+        // representative-only application.
+        try {
+          await sql`delete from business_applications where id = ${createdId}::uuid`;
+        } catch {
+          // Best effort; the 503 below already signals retry-safe state.
+        }
+        return galleryError;
+      }
+      return ok(withGallery({ ...created, idempotency_replayed: false }, galleryKeys), requestId, 201);
+    }
+    return ok(withGallery({ ...created, idempotency_replayed: false }, []), requestId, 201);
+  }
   if (!rawKey || !requestFingerprint) return fail('CONFLICT', 'Application could not be created', 409, requestId);
 
   // A concurrent request may have won the unique-key race after the pre-read.
@@ -296,7 +570,17 @@ async function createBusinessApplication(
   // generic conflict.
   const racedExisting = await existingBusinessApplication(sql, resident.id, rawKey);
   if (!racedExisting) return fail('CONFLICT', 'Idempotent application could not be resolved', 409, requestId);
-  return idempotentReplayResponse(racedExisting as Record<string, unknown>, requestFingerprint, requestId);
+  const racedRow = racedExisting as Record<string, unknown>;
+  const racedReplay = idempotentReplayResponse(racedRow, requestFingerprint, requestId);
+  if ((racedReplay as Response).status !== 409) {
+    try {
+      const stored = await readApplicationPhotoKeys(sql, String(racedRow.id ?? ''));
+      return ok(withGallery({ ...racedRow, idempotency_replayed: true }, stored), requestId);
+    } catch {
+      return ok(withGallery({ ...racedRow, idempotency_replayed: true }, []), requestId);
+    }
+  }
+  return racedReplay;
 }
 
 async function resubmitBusinessApplication(
@@ -326,7 +610,12 @@ async function resubmitBusinessApplication(
   }
 
   const complexSlug = String(current.complex_slug);
-  const input = applicationInput({ ...payload, complexSlug });
+  const parsedPhotos = parsePhotoObjectKeys({ ...payload }, requestId);
+  if (!parsedPhotos.ok) return parsedPhotos.response;
+  const photoKeys = parsedPhotos.keys;
+  const agreementError = photoContractAgreement({ ...payload }, photoKeys, requestId);
+  if (agreementError) return agreementError;
+  const input = applicationInput({ ...payload, complexSlug }, photoKeys);
   const invalid = validateApplication(input, requestId);
   if (invalid) return invalid;
 
@@ -334,7 +623,26 @@ async function resubmitBusinessApplication(
   if (residentOrResponse instanceof Response) return residentOrResponse;
   const resident = residentOrResponse;
 
-  if (input.representativeImageObjectKey) {
+  // GAP-4: when the gallery field is present it is authoritative (REPLACE ALL
+  // semantics, including explicit []). When omitted, the legacy single-key
+  // contract applies and existing gallery rows are preserved.
+  const galleryKeys = photoKeys !== null
+    ? photoKeys
+    : (input.representativeImageObjectKey ? [input.representativeImageObjectKey] : null);
+  if (galleryKeys && galleryKeys.length > 0) {
+    const ownershipError = await validateGalleryOwnership(sql, galleryKeys, resident.id, resident.complexId, requestId);
+    if (ownershipError) return ownershipError;
+    for (const key of galleryKeys) {
+      const imageReferenceError = await validateBusinessImageReference(
+        env,
+        key,
+        resident.id,
+        resident.complexSlug,
+        requestId
+      );
+      if (imageReferenceError) return imageReferenceError;
+    }
+  } else if (input.representativeImageObjectKey) {
     const imageReferenceError = await validateBusinessImageReference(
       env,
       input.representativeImageObjectKey,
@@ -343,6 +651,12 @@ async function resubmitBusinessApplication(
       requestId
     );
     if (imageReferenceError) return imageReferenceError;
+  }
+
+  // GAP-4 REPLACE ALL: gallery present => application update + photo delete +
+  // photo insert commit atomically in one transaction (application id is known).
+  if (photoKeys !== null) {
+    return resubmitWithGallery(request, env, sql, requestId, applicationId, resident, input, photoKeys);
   }
 
   let rows;
@@ -427,8 +741,158 @@ async function resubmitBusinessApplication(
     `;
   }
 
-  if (rows[0]) return ok(rows[0], requestId);
+  // Legacy preserve path (photoObjectKeys omitted): existing gallery rows stay.
+  if (rows[0]) {
+    const updated = rows[0] as Record<string, unknown>;
+    try {
+      const stored = await readApplicationPhotoKeys(sql, String(updated.id ?? applicationId));
+      return ok(withGallery(updated, stored), requestId);
+    } catch {
+      return ok(updated, requestId);
+    }
+  }
   return fail('CONFLICT', 'Application can no longer be resubmitted from its current state', 409, requestId);
+}
+
+// GAP-4: atomic resubmit with gallery replacement. The application row update,
+// old-gallery delete, and new-gallery insert commit in one transaction so a
+// failed gallery write never leaves the representative mirror disagreeing
+// with the gallery rows.
+async function resubmitWithGallery(
+  request: Request,
+  env: CoreEnv,
+  sql: Sql,
+  requestId: string,
+  applicationId: string,
+  resident: { id: string; complexId: string; complexSlug: string },
+  input: ApplicationInput,
+  photoKeys: string[]
+): Promise<Response> {
+  const mirror = photoKeys.length > 0 ? photoKeys[0] : null;
+
+  // Registry lock (FOR UPDATE) serializes concurrent resubmits/deletes.
+  const lockQuery = photoKeys.length === 0
+    ? null
+    : photoKeys.length === 1
+      ? sql`
+          select object_key, uploader_user_id, complex_id, state
+          from business_image_objects
+          where object_key = ${photoKeys[0]}
+          for update
+        `
+      : photoKeys.length === 2
+        ? sql`
+          select object_key, uploader_user_id, complex_id, state
+          from business_image_objects
+          where object_key = ${photoKeys[0]} or object_key = ${photoKeys[1]}
+          for update
+        `
+        : sql`
+          select object_key, uploader_user_id, complex_id, state
+          from business_image_objects
+          where object_key = ${photoKeys[0]} or object_key = ${photoKeys[1]} or object_key = ${photoKeys[2]}
+          for update
+        `;
+
+  const updateQuery = mirror
+    ? sql`
+        update business_applications a
+        set relation_type = ${input.relationType},
+            business_name = ${input.businessName},
+            category_name = ${input.categoryName},
+            service_summary = ${input.serviceSummary},
+            price_text = ${input.priceText},
+            contact_method = ${input.contactMethod},
+            service_area = ${input.serviceArea},
+            benefit_text = ${input.benefitText},
+            availability_text = ${input.availabilityText},
+            representative_image_object_key = bio.object_key,
+            status = 'pending',
+            reviewed_by = null,
+            reviewed_at = null
+        from business_image_objects bio
+        where a.id = ${applicationId}::uuid
+          and a.applicant_user_id = ${resident.id}::uuid
+          and a.status = 'changes_requested'
+          and bio.object_key = ${mirror}
+          and bio.state = 'active'
+          and bio.uploader_user_id = ${resident.id}::uuid
+          and bio.complex_id = ${resident.complexId}::uuid
+        returning a.id, a.relation_type, a.business_name, a.category_name,
+                  a.service_summary, a.price_text, a.contact_method, a.service_area,
+                  a.benefit_text, a.availability_text, a.representative_image_object_key,
+                  a.status, a.review_note, a.approved_business_id, a.created_at, a.updated_at
+      `
+    : sql`
+        update business_applications a
+        set relation_type = ${input.relationType},
+            business_name = ${input.businessName},
+            category_name = ${input.categoryName},
+            service_summary = ${input.serviceSummary},
+            price_text = ${input.priceText},
+            contact_method = ${input.contactMethod},
+            service_area = ${input.serviceArea},
+            benefit_text = ${input.benefitText},
+            availability_text = ${input.availabilityText},
+            representative_image_object_key = null,
+            status = 'pending',
+            reviewed_by = null,
+            reviewed_at = null
+        where a.id = ${applicationId}::uuid
+          and a.applicant_user_id = ${resident.id}::uuid
+          and a.status = 'changes_requested'
+        returning a.id, a.relation_type, a.business_name, a.category_name,
+                  a.service_summary, a.price_text, a.contact_method, a.service_area,
+                  a.benefit_text, a.availability_text, a.representative_image_object_key,
+                  a.status, a.review_note, a.approved_business_id, a.created_at, a.updated_at
+      `;
+
+  const deleteQuery = sql`
+    delete from business_application_photos
+    where application_id = ${applicationId}::uuid
+  `;
+
+  const insertQuery = photoKeys.length === 0
+    ? null
+    : photoKeys.length === 1
+      ? sql`
+        insert into business_application_photos (application_id, object_key, sort_order)
+        values (${applicationId}::uuid, ${photoKeys[0]}, 0)
+      `
+      : photoKeys.length === 2
+        ? sql`
+        insert into business_application_photos (application_id, object_key, sort_order)
+        values (${applicationId}::uuid, ${photoKeys[0]}, 0), (${applicationId}::uuid, ${photoKeys[1]}, 1)
+      `
+        : sql`
+        insert into business_application_photos (application_id, object_key, sort_order)
+        values (${applicationId}::uuid, ${photoKeys[0]}, 0), (${applicationId}::uuid, ${photoKeys[1]}, 1), (${applicationId}::uuid, ${photoKeys[2]}, 2)
+      `;
+
+  let results;
+  try {
+    const queries = lockQuery
+      ? (insertQuery ? [lockQuery, updateQuery, deleteQuery, insertQuery] : [lockQuery, updateQuery, deleteQuery])
+      : (insertQuery ? [updateQuery, deleteQuery, insertQuery] : [updateQuery, deleteQuery]);
+    results = await sql.transaction(queries);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : '';
+    if (/duplicate|unique|23505/i.test(message)) {
+      return fail('PHOTO_ALREADY_USED', 'Photo object is already attached to another application', 409, requestId);
+    }
+    return fail(
+      'BUSINESS_IMAGE_REGISTRY_UNAVAILABLE',
+      'Business image lifecycle registry is unavailable',
+      503,
+      requestId
+    );
+  }
+
+  const updatedRows = (lockQuery ? results[1] : results[0]) as Array<Record<string, unknown>>;
+  if (!updatedRows[0]) {
+    return fail('CONFLICT', 'Application can no longer be resubmitted from its current state', 409, requestId);
+  }
+  return ok(withGallery(updatedRows[0], photoKeys), requestId);
 }
 
 async function claimBenefit(

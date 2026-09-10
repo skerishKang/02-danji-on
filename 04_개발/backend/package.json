@@ -33,6 +33,8 @@
     "test:business-image-upload-pending": "tsx tests/business-image-upload-pending.test.mjs",
     "test:business-image-background-reconciliation": "tsx tests/business-image-background-reconciliation.test.mjs",
     "test:business-image-upload-idempotency": "tsx tests/business-image-upload-idempotency.test.mjs",
+    "test:business-application-photos": "node tests/business-application-photos-contract.mjs",
+    "test:business-application-photos-044-lifecycle": "bash tests/business-application-photos-044-postgres-lifecycle.sh",
     "test:community-c2-schema": "node tests/community-c2-schema-contract.mjs",
     "test:community-c3-resident-api": "node tests/community-c3-resident-api-contract.mjs",
     "test:community-c4-moderation": "node tests/community-c4-moderation-contract.mjs",
