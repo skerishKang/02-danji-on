@@ -1,6 +1,6 @@
 # CANONICAL_STATIC_TO_LIVE_INVENTORY — KILO1 #316 Phase 1 (Reconciliation at current main)
 
-READ-ONLY audit. FRESH_MAIN_SHA=2a32479cd63c68d2645cb036a57a8ad2ec800758 (merge-forward chain 46c3cfc→72ad623→b70f815→03bf20a→d15392e→2a3bab0→2a32479; #340/#331, #342, #344/#329-C1, #345/#341, #349/#346, #350/#348, #353/#310-restack, #351/#347, #356/#354, #359/#312, #360/#358 merges folded in; audit is classified against the true fresh head).
+READ-ONLY audit. FRESH_MAIN_SHA=cf162b1a44313958cae4414e63e54cbd36d203b4 (merge-forward chain 46c3cfc→72ad623→b70f815→03bf20a→d15392e→2a3bab0→2a32479→cf162b1; #340/#331, #342, #344/#329-C1, #345/#341, #349/#346, #350/#348, #353/#310-restack, #351/#347, #356/#354, #359/#312, #360/#358, #357/#355 test-only frontend-gate temp-cleanup merges folded in; #357 touched frontend/tests gate files only — zero canonical static surfaces, zero class deltas; audit is classified against the true fresh head).
 Authority: this reconciliation supersedes the accepted #318 matrix (b4b50a1) where merged leaves changed surface state. UI authority = SIBLING_FINAL_V3 a2e856d per #352 (closed audit). No source, backend, schema, migration, or production changes.
 
 ## Legend
@@ -30,7 +30,7 @@ Authority: this reconciliation supersedes the accepted #318 matrix (b4b50a1) whe
 | 03 coupons mode display | POLICY_HOLD(#253/#139) | POLICY_HOLD | unchanged |
 | 02_이웃가게_상세 | DISCONNECTED | DISCONNECTED | unchanged; A-mode decision pending |
 
-## Reconciled matrix (39 canonical files @2a32479)
+## Reconciled matrix (39 canonical files @cf162b1)
 | # | File | Class | Bridge/runtime | Backend authority | Blocking/dependency | Lane overlap | Next leaf |
 |---|---|---|---|---|---|---|---|
 | 1 | index3.html | LIVE_SERVER | danjion-session.js (#324) | signup-contact-verification-v1, verified-signup-v1, auth-better-v1 | none — merged #338 | #325 CLOSED | none (done) |
@@ -73,7 +73,7 @@ Authority: this reconciliation supersedes the accepted #318 matrix (b4b50a1) whe
 | 38 | 02 (A-mode detail, same file as row 25) | (see row 25) | — | — | — | — | — |
 | 39 | (Vite admin app, not static) | n/a | 04_개발/frontend/src | admin routes | #334 MERGED; #353/#310-restack merged (private doc access backend) | #334/#315 → #312/#313 (unblocked, OPEN) | #312/#313 |
 
-## Totals @2a32479 (actual row basis: 39 matrix entries = 37 physical canonical HTML + 02 dup-row + 1 Vite note)
+## Totals @cf162b1 (actual row basis: 39 matrix entries = 37 physical canonical HTML + 02 dup-row + 1 Vite note)
 - LIVE_SERVER = 2 (index3, 26)
 - HYBRID_SAFE_FALLBACK = 23 (01v3, 25A, 06, 07, 08, 09, 20, 21, 27, 19, 22, 24, 28, 25, 12, 13, 15, 16, 17, 14, 10, 11, 04; 06/07/08 sibling-v3 demo authority restored via #354/#356 AND server-mode defects repaired via #358/#360; 07 also warmth-copy HOLD #263)
 - DEMO_ONLY = 8 (03v2, 01, 01v2, index2, app2, app3, 00_APP_390, 18_공통앱셸)
@@ -93,6 +93,7 @@ Authority: this reconciliation supersedes the accepted #318 matrix (b4b50a1) whe
 - #352 (authority audit): CLOSED — UI authority = SIBLING_FINAL_V3 a2e856d; 06/07/08 drifts + PR-#351-proposed 05 channel-latest lines classified UNAUTHORIZED_UI_DRIFT; CENTRAL OPTION B removed the 05 lines before merge; all merged wiring verdicts WIRING_ONLY_UI_PRESERVED; BACKEND_ADAPTS_TO_FRONTEND=YES
 - #354 (UI authority repair 06/07/08): CLOSED via PR #356 @2a3bab0 — sibling-final-v3 demo behavior restored (07 NOTICES renderer, 06 data-kind filter + ?notice= fallback, 08 [data-story] dialogs), #335 server bridge preserved, contract-gated
 - #358 (news server-mode follow-up): CLOSED via PR #360 @2a32479 — 06 duplicate pinned fixed, 06 empty-state (#noticeEmpty) preserved in server render, 08 server feature-link postId routing to 09 fixed; demo authority intact
+- #355 (test harness: leaked gate temp dirs): CLOSED via PR #357 @cf162b1 — frontend/tests gate temp-cleanup lifecycle only (retry removeTree, stale-dir reclaim, SIGINT/SIGTERM cleanup, gate-temp-cleanup-contract leaf); no canonical static surface, no source/schema/backend change, zero inventory class deltas
 - #310/#353 (GAP-5 private doc access backend): CLOSED/MERGED (03bf20a restack); #310 replaced by leaf #353
 - #312 (Wave A reviewer private-doc UI): CLOSED via PR #359 @dac560a — Vite app (OperationsReviewPage.tsx, operations-review-api.ts) + backend admin-review-context-v1; no canonical static surface touched
 - #313 (Wave B owner status/reopen UI): OPEN, now BLOCKED_BY #362
