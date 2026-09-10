@@ -186,7 +186,7 @@ bindFile('#ownerProof','#ownerProofStatus');bindFile('#ownerOtherDocs','#ownerOt
 
 let timer;
 function showToast(msg){toast.textContent=msg;toast.classList.add('show');clearTimeout(timer);timer=setTimeout(()=>toast.classList.remove('show'),2300)}
-const OWNER_RELATION_MAP={self:'resident',family:'resident_family'};
+const OWNER_RELATIONS=new Set(['self','co','family','etc']);
 let __applicationReportBridge=null;
 let __applicationReportComplexSlug='';
 let __ownerSubmissionKey=null;
@@ -265,11 +265,11 @@ f.addEventListener('submit',async e=>{
     return;
   }
   if(__ownerSubmitting) return;
-  const relationType=OWNER_RELATION_MAP[ownerInput('ownerRelation')];
+  const relationRaw=ownerInput('ownerRelation');
   const businessName=ownerInput('ownerShopName');
   const categoryName=ownerInput('category');
   const serviceSummary=ownerInput('servicePrice');
-  if(!relationType){showToast('선택한 관계로는 아직 서버 신청을 연결할 수 없습니다.');return}
+  if(!OWNER_RELATIONS.has(relationRaw)){showToast('선택한 관계로는 아직 서버 신청을 연결할 수 없습니다.');return}
   if(!businessName||!categoryName||!serviceSummary){showToast('필수 항목을 다시 확인해 주세요.');return}
   __ownerSubmitting=true;
   try{
@@ -285,7 +285,7 @@ f.addEventListener('submit',async e=>{
       }
       uploadedKeys.push(upload.objectKey);
     }
-    const result=await bridge.createOwnerApplication({relationType,businessName,categoryName,serviceSummary,
+    const result=await bridge.createOwnerApplication({relationRaw,businessName,categoryName,serviceSummary,
       priceText:serviceSummary,serviceArea:ownerInput('locationUse'),benefitText:ownerInput('benefit'),
       availabilityText:ownerInput('hours'),contactMethod:ownerInput('contact'),photoObjectKeys:uploadedKeys},
       {idempotencyKey:ownerSubmissionKey()});

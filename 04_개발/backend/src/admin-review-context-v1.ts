@@ -65,8 +65,10 @@ export async function handleAdminReviewContextRequest(request: Request, env: Cor
       a.service_area,
       a.availability_text,
       a.benefit_text,
-      a.representative_image_object_key,
-      a.relation_type,
+       a.representative_image_object_key,
+       a.relation_type,
+       a.relation_raw,
+       a.resolved_relation_type,
       u.display_name as applicant_name,
       coalesce(m.verification_status, 'pending') as membership_verification_status,
       coalesce((
@@ -118,6 +120,8 @@ export async function handleAdminReviewContextRequest(request: Request, env: Cor
     reviewBasis: {
       applicantDisplayName: row.applicant_name,
       relationType: row.relation_type,
+      relationRaw: row.relation_raw,
+      resolvedRelationType: row.resolved_relation_type,
       residentVerificationStatus: row.membership_verification_status,
       verificationEvidenceCount: Number(row.verification_evidence_count || 0)
     }

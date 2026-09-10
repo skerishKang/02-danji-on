@@ -1,14 +1,19 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import {
   adminAdapter,
+  canReviewRecommendation,
+  recommendationApprovalBlockReason,
   type AdminApplication,
   type AdminApplicationStatus,
   type AdminBusiness,
+  type AdminRecommendation,
+  type AdminRecommendationReviewStatus,
+  type AdminRecommendationStatus,
   type AdminReviewEvent
 } from './admin-api';
 import ResidentNewsReviewPanel from './ResidentNewsReviewPanel';
 
-type AdminTab = 'applications' | 'audit' | 'residentNews' | 'posts' | 'benefits';
+type AdminTab = 'applications' | 'recommendations' | 'audit' | 'residentNews' | 'posts' | 'benefits';
 type ReviewStatus = Exclude<AdminApplicationStatus, 'draft'>;
 
 const statusLabels: Record<AdminApplicationStatus, string> = {
@@ -18,6 +23,8 @@ const statusLabels: Record<AdminApplicationStatus, string> = {
   approved: '승인',
   rejected: '반려'
 };
+
+const recommendationStatusFilters: AdminRecommendationStatus[] = ['pending', 'changes_requested', 'approved', 'rejected'];
 
 const actorLabels: Record<AdminReviewEvent['actorType'], string> = {
   applicant: '신청자',
@@ -44,8 +51,11 @@ export default function AdminApp() {
   const [businesses, setBusinesses] = useState<AdminBusiness[]>([]);
   const [reviewEvents, setReviewEvents] = useState<AdminReviewEvent[]>([]);
   const [statusFilter, setStatusFilter] = useState('all');
+  const [recommendations, setRecommendations] = useState<AdminRecommendation[]>([]);
+  const [recommendationFilter, setRecommendationFilter] = useState<AdminRecommendationStatus>('pending');
   const [auditApplicationId, setAuditApplicationId] = useState('all');
   const [notes, setNotes] = useState<Record<string, string>>({});
+  const [recommendationNotes, setRecommendationNotes] = useState<Record<string, string>>({});
   const [busyId, setBusyId] = useState('');
   const [message, setMessage] = useState('');
   const [postForm, setPostForm] = useState({ sourceName: '단지온 운영자', category: '주민 사업자 소식', title: '', body: '' });
@@ -78,6 +88,16 @@ export default function AdminApp() {
     }
   }
 
+  async function loadRecommendations(status = recommendationFilter) {
+    try {
+      const rows = await adminAdapter.listRecommendations(status);
+      setRecommendations(rows);
+      setRecommendationNotes(Object.fromEntries(rows.map((row) => [row.id, row.reviewNote || ''])));
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : '제보 목록을 불러오지 못했습니다.');
+    }
+  }
+
   useEffect(() => {
     void loadApplications('all');
     void loadBusinesses();
@@ -98,6 +118,35 @@ export default function AdminApp() {
     setMessage('');
     if (next === 'audit') await loadReviewEvents(auditApplicationId);
     if (next === 'benefits') await loadBusinesses();
+    if (next === 'recommendations') await loadRecommendations();
+  }
+
+  async function changeRecommendationFilter(value: string) {
+    const status = (recommendationStatusFilters.includes(value as AdminRecommendationStatus) ? value : 'pending') as AdminRecommendationStatus;
+    setRecommendationFilter(status);
+    await loadRecommendations(status);
+  }
+
+  async function reviewRecommendation(recommendation: AdminRecommendation, status: AdminRecommendationReviewStatus) {
+    if (!canReviewRecommendation(recommendation.status)) return;
+    if (status === 'approved' && recommendationApprovalBlockReason(recommendation)) return;
+    setBusyId(recommendation.id);
+    setMessage('');
+    try {
+      const result = await adminAdapter.reviewRecommendation(recommendation.id, status, recommendationNotes[recommendation.id] || '');
+      if (result.categoryUnresolved) {
+        setMessage(`${recommendation.businessName} 제보는 카테고리·관계가 확정되지 않아 승인할 수 없습니다. 보완 요청으로 전환되었습니다.`);
+      } else if (result.alreadyApproved) {
+        setMessage(`${recommendation.businessName} 제보는 이미 승인되었습니다.`);
+      } else {
+        setMessage(`${recommendation.businessName} 제보를 '${statusLabels[result.status]}' 상태로 변경했습니다.`);
+      }
+      await loadRecommendations(recommendationFilter);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : '제보 검토 상태를 변경하지 못했습니다.');
+    } finally {
+      setBusyId('');
+    }
   }
 
   async function review(application: AdminApplication, status: ReviewStatus) {
@@ -165,6 +214,7 @@ export default function AdminApp() {
 
       <nav className="admin-tabs" aria-label="운영관리 메뉴">
         <button className={tab === 'applications' ? 'active' : ''} onClick={() => void openTab('applications')}>등록 신청</button>
+        <button className={tab === 'recommendations' ? 'active' : ''} onClick={() => void openTab('recommendations')}>가게 제보 심사</button>
         <button className={tab === 'audit' ? 'active' : ''} onClick={() => void openTab('audit')}>검토 이력</button>
         <button className={tab === 'residentNews' ? 'active' : ''} onClick={() => void openTab('residentNews')}>주민소식 검토</button>
         <button className={tab === 'posts' ? 'active' : ''} onClick={() => void openTab('posts')}>단지소식</button>
@@ -214,6 +264,53 @@ export default function AdminApp() {
               </article>
             ))}
             {!applications.length && <div className="admin-empty">조건에 맞는 신청이 없습니다.</div>}
+          </div>
+        </main>
+      )}
+
+      {tab === 'recommendations' && (
+        <main className="admin-section">
+          <div className="admin-section-heading">
+            <div><h2>가게·서비스 제보 심사</h2><p>제보 원문과 확정 상태를 확인합니다. 승인은 카테고리·관계가 확정된 제보만 가능합니다.</p></div>
+            <select aria-label="제보 상태 필터" value={recommendationFilter} onChange={(event) => void changeRecommendationFilter(event.target.value)}>
+              {recommendationStatusFilters.map((value) => <option key={value} value={value}>{statusLabels[value]}</option>)}
+            </select>
+          </div>
+
+          <div className="admin-application-list">
+            {recommendations.map((recommendation) => {
+              const reviewable = canReviewRecommendation(recommendation.status);
+              const approvalBlock = recommendationApprovalBlockReason(recommendation);
+              return (
+                <article key={recommendation.id} className="admin-application-card">
+                  <div className="admin-card-top">
+                    <div>
+                      <span>{recommendation.reporterNickname} · 제보 관계 원문: {recommendation.reportedRelationRaw || '없음'}</span>
+                      <h3>{recommendation.businessName}</h3>
+                      <b>확정 카테고리: {recommendation.resolvedCategoryId ? '확정' : '미확정'} · 확정 관계: {recommendation.resolvedRelationType || '미확정'}</b>
+                    </div>
+                    <span className={`admin-status ${recommendation.status}`}>{statusLabels[recommendation.status]}</span>
+                  </div>
+                  <p className="admin-summary">{recommendation.serviceSummary}</p>
+                  <dl>
+                    <div><dt>알고 있는 가격</dt><dd>{recommendation.reportPrice || '미입력'}</dd></div>
+                    <div><dt>운영시간</dt><dd>{recommendation.reportHours || '미입력'}</dd></div>
+                    <div><dt>위치·연락 방법</dt><dd>{recommendation.serviceArea || '미입력'}</dd></div>
+                    <div><dt>관계 상세</dt><dd>{recommendation.relationDetail || '미입력'}</dd></div>
+                  </dl>
+                  {recommendation.reporterNote && <p className="admin-summary">추천 이유: {recommendation.reporterNote}</p>}
+                  <p className="admin-summary">과거 기록(참고용): {recommendation.categoryName || '없음'} · {recommendation.relationType || '없음'}</p>
+                  <label className="review-note"><span>검토 메모</span><textarea value={recommendationNotes[recommendation.id] || ''} onChange={(event) => setRecommendationNotes((current) => ({ ...current, [recommendation.id]: event.target.value }))} rows={2} placeholder="보완 요청 사유 또는 내부 검토 메모" disabled={!reviewable} /></label>
+                  {approvalBlock && reviewable && <p className="admin-empty">{approvalBlock}</p>}
+                  <div className="review-actions">
+                    <button disabled={busyId === recommendation.id || !reviewable} onClick={() => void reviewRecommendation(recommendation, 'changes_requested')}>보완 요청</button>
+                    <button className="reject" disabled={busyId === recommendation.id || !reviewable} onClick={() => void reviewRecommendation(recommendation, 'rejected')}>반려</button>
+                    <button className="approve" disabled={busyId === recommendation.id || !!approvalBlock} onClick={() => void reviewRecommendation(recommendation, 'approved')}>{busyId === recommendation.id ? '처리 중...' : '승인'}</button>
+                  </div>
+                </article>
+              );
+            })}
+            {!recommendations.length && <div className="admin-empty">조건에 맞는 제보가 없습니다.</div>}
           </div>
         </main>
       )}

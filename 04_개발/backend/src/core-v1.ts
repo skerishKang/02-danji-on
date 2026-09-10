@@ -356,7 +356,8 @@ async function handlePrivate(request: Request, env: CoreEnv, sql: Sql, id: strin
 
   if (request.method === 'GET' && path === '/api/v1/me/business-applications') {
     const rows = await sql`
-      select a.id, c.slug as complex_slug, a.relation_type, a.business_name,
+      select a.id, c.slug as complex_slug, a.relation_type, a.relation_raw,
+             a.resolved_relation_type, a.business_name,
              a.category_name, a.service_summary, a.status, a.review_note,
              a.approved_business_id, a.created_at, a.updated_at
       from business_applications a
