@@ -185,4 +185,93 @@ if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt
   }
 })();
 </script>
+<script src="assets/inquiry-bridge.js"></script>
+<script id="danjion-inquiry-server">
+(function(){
+  var IB=globalThis.DanjionInquiryBridge;
+  if(!IB||!IB.createInquiryBridge)return;
+  var API_BASE=String(new URLSearchParams(location.search).get('apiBase')||'').replace(/\/+$/,'');
+  if(!API_BASE)return;
+  var COMPLEX='banglim-myeongji-roadhill';
+  var bridge=IB.createInquiryBridge({apiBase:API_BASE,complexSlug:COMPLEX});
+  var history=document.querySelector('.history');
+  var submit=document.querySelector('.submit');
+  var subjectEl=document.querySelector('#subject');
+  var contentEl=document.querySelector('#content');
+  function notify(t){try{showToast(t);}catch(e){}}
+  function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+  function fmtDate(iso){var m=/^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso||''));return m?(m[1]+'.'+m[2]+'.'+m[3]):'';}
+  var TYPE_BY_TEXT={'계정·로그인':'account_login','우리집 연결':'household_link','게시글·댓글':'community_post','이웃가게·혜택':'shop_benefit','신고·안전':'safety_report','기타':'general'};
+  var TYPE_LABEL={account_login:'계정·로그인',household_link:'우리집 연결',community_post:'게시글·댓글',shop_benefit:'이웃가게·혜택',safety_report:'신고·안전',general:'기타',shop_inquiry:'이웃가게 문의'};
+  var STATUS_LABEL={received:'답변 대기',in_progress:'처리 중',answered:'답변 완료',closed:'종료됨'};
+  function activeType(){var b=document.querySelector('.category.active');return TYPE_BY_TEXT[b?b.textContent.trim():'']||'general';}
+  var attach=document.querySelector('.attach-row');
+  if(attach&&attach.closest('.field'))attach.closest('.field').style.display='none';
+  function setCount(n){var s=history?history.querySelector('.history-head span'):null;if(s)s.textContent=(n==null?'':n+'건');}
+  function clearTickets(){if(history)history.querySelectorAll('.ticket').forEach(function(t){t.remove();});}
+  function note(msg){
+    if(!history)return;
+    clearTickets();setCount(null);
+    var old=history.querySelector('.state-note');if(old)old.remove();
+    var head=history.querySelector('.history-head');
+    var p=document.createElement('p');p.className='state-note';p.setAttribute('role','status');
+    p.style.cssText='padding:20px 0;margin:0;color:#68645e;font-size:14px;line-height:1.6';
+    p.textContent=msg;
+    history.insertBefore(p,head?head.nextSibling:history.firstChild);
+  }
+  function renderTickets(rows){
+    if(!history)return;
+    var old=history.querySelector('.state-note');if(old)old.remove();
+    clearTickets();setCount(rows.length);
+    var help=history.querySelector('.help-card');
+    rows.forEach(function(it){
+      var done=(it.status==='answered'||it.status==='closed');
+      var label=STATUS_LABEL[it.status]||'접수';
+      var type=TYPE_LABEL[it.inquiryType]||it.inquiryType||'';
+      var b=document.createElement('button');b.type='button';b.className='ticket';
+      b.innerHTML='<span class="ticket-top"><span class="badge'+(done?' done':'')+'">'+esc(label)+'</span><time>'+esc(fmtDate(it.createdAt))+'</time></span><b>'+esc(it.title)+'</b><p>'+esc(type||label)+'</p>';
+      history.insertBefore(b,help);
+    });
+  }
+  function loadList(){
+    bridge.listMine().then(function(r){
+      if(r.mode==='auth-required'){note('로그인 후 이용 가능합니다.');return;}
+      if(r.ok===false||r.mode==='error'){note('잠시 후 다시 시도해 주세요.');return;}
+      var rows=r.inquiries||[];
+      if(!rows.length){note('등록된 문의가 없습니다.');return;}
+      renderTickets(rows);
+    }).catch(function(){note('잠시 후 다시 시도해 주세요.');});
+  }
+  if(submit){
+    var fresh=submit.cloneNode(true);
+    submit.parentNode.replaceChild(fresh,submit);
+    submit=fresh;
+    var busy=false;
+    submit.addEventListener('click',function(){
+      if(busy)return;
+      var subject=(subjectEl?subjectEl.value:'').trim();
+      var text=(contentEl?contentEl.value:'').trim();
+      if(!subject||!text){notify('제목과 내용을 입력해 주세요.');return;}
+      busy=true;submit.disabled=true;
+      bridge.submitGeneral({inquiryType:activeType(),subject:subject,text:text}).then(function(r){
+        busy=false;submit.disabled=false;
+        if(r&&r.ok){
+          if(subjectEl)subjectEl.value='';
+          if(contentEl)contentEl.value='';
+          var sc=document.querySelector('.subject-count');if(sc)sc.textContent='0';
+          var cc=document.querySelector('.content-count');if(cc)cc.textContent='0';
+          notify('문의를 접수했습니다.');
+          loadList();
+          return;
+        }
+        if(r&&r.mode==='client'){notify('제목과 내용을 입력해 주세요.');return;}
+        if(r&&r.mode==='auth-required'){notify('로그인 후 이용 가능합니다.');return;}
+        notify('문의 접수에 실패했습니다.');
+      }).catch(function(){busy=false;submit.disabled=false;notify('문의 접수에 실패했습니다.');});
+    });
+  }
+  note('불러오는 중…');
+  loadList();
+})();
+</script>
 </body></html>

@@ -3,6 +3,7 @@ import { mockBusinesses } from './data/mock';
 import { listMockReviewEvents } from './mock-audit-store';
 import { createStoredMockBenefit, createStoredMockPost } from './mock-content-store';
 import { listApprovedMockBusinesses, listMockApplications, reviewMockApplication, type MockApplicationRecord } from './mock-store';
+import { listMockRecommendations, reviewMockRecommendation } from './mock-recommendation-store';
 
 export type AdminApplicationStatus = 'draft' | 'pending' | 'changes_requested' | 'approved' | 'rejected';
 
@@ -39,6 +40,56 @@ export interface AdminReviewEvent {
   toStatus: AdminApplicationStatus;
   reviewNote?: string | null;
   createdAt: string;
+}
+
+// Report R-B reviewer authority (#308 backend, #315 UI). Approval is decided
+// ONLY by resolved_category_id + resolved_relation_type. Legacy category_name /
+// relation_type are history display and never gate or mutate approval.
+export type AdminRecommendationStatus = 'pending' | 'changes_requested' | 'approved' | 'rejected';
+export type AdminRecommendationReviewStatus = Exclude<AdminRecommendationStatus, 'pending'>;
+
+export interface AdminRecommendation {
+  id: string;
+  businessName: string;
+  serviceSummary: string;
+  serviceArea: string | null;
+  reporterNote: string | null;
+  reportedRelationRaw: string | null;
+  relationDetail: string | null;
+  reportPrice: string | null;
+  reportHours: string | null;
+  categoryName: string | null;
+  relationType: string | null;
+  resolvedCategoryId: string | null;
+  resolvedRelationType: string | null;
+  status: AdminRecommendationStatus;
+  reviewNote: string | null;
+  approvedBusinessId: string | null;
+  reporterNickname: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface RecommendationReviewResult {
+  id: string;
+  status: AdminRecommendationStatus;
+  reviewNote?: string | null;
+  approvedBusinessId?: string | null;
+  alreadyApproved?: boolean;
+  categoryUnresolved?: string;
+}
+
+export function canReviewRecommendation(status: AdminRecommendationStatus) {
+  return status === 'pending' || status === 'changes_requested';
+}
+
+export function recommendationApprovalBlockReason(
+  recommendation: Pick<AdminRecommendation, 'status' | 'resolvedCategoryId' | 'resolvedRelationType'>
+): string | null {
+  if (!canReviewRecommendation(recommendation.status)) return '현재 상태에서는 검토할 수 없습니다.';
+  if (!recommendation.resolvedCategoryId) return '카테고리가 아직 확정되지 않아 승인할 수 없습니다.';
+  if (!recommendation.resolvedRelationType) return '관계가 아직 확정되지 않아 승인할 수 없습니다.';
+  return null;
 }
 
 const COMPLEX_SLUG = import.meta.env.VITE_COMPLEX_SLUG || 'bangnim-myeongji-roadhill';
@@ -116,6 +167,30 @@ function mapReviewEvent(raw: Record<string, unknown>): AdminReviewEvent {
   };
 }
 
+function mapRecommendation(raw: Record<string, unknown>): AdminRecommendation {
+  return {
+    id: String(raw.id),
+    businessName: String(raw.businessName ?? ''),
+    serviceSummary: String(raw.serviceSummary ?? ''),
+    serviceArea: raw.serviceArea ? String(raw.serviceArea) : null,
+    reporterNote: raw.reporterNote ? String(raw.reporterNote) : null,
+    reportedRelationRaw: raw.reportedRelationRaw ? String(raw.reportedRelationRaw) : null,
+    relationDetail: raw.relationDetail ? String(raw.relationDetail) : null,
+    reportPrice: raw.reportPrice ? String(raw.reportPrice) : null,
+    reportHours: raw.reportHours ? String(raw.reportHours) : null,
+    categoryName: raw.categoryName ? String(raw.categoryName) : null,
+    relationType: raw.relationType ? String(raw.relationType) : null,
+    resolvedCategoryId: raw.resolvedCategoryId ? String(raw.resolvedCategoryId) : null,
+    resolvedRelationType: raw.resolvedRelationType ? String(raw.resolvedRelationType) : null,
+    status: String(raw.status ?? 'pending') as AdminRecommendationStatus,
+    reviewNote: raw.reviewNote ? String(raw.reviewNote) : null,
+    approvedBusinessId: raw.approvedBusinessId ? String(raw.approvedBusinessId) : null,
+    reporterNickname: String(raw.reporterNickname ?? '제보자'),
+    createdAt: String(raw.createdAt ?? ''),
+    updatedAt: String(raw.updatedAt ?? '')
+  };
+}
+
 class MockAdminAdapter {
   async listApplications(status = 'all') {
     return listMockApplications(status as AdminApplicationStatus | 'all').map(fromMockApplication);
@@ -132,6 +207,14 @@ class MockAdminAdapter {
 
   async listBusinesses(): Promise<AdminBusiness[]> {
     return [...mockBusinesses, ...listApprovedMockBusinesses()].map(({ id, name }) => ({ id, name }));
+  }
+
+  async listRecommendations(status: AdminRecommendationStatus = 'pending'): Promise<AdminRecommendation[]> {
+    return listMockRecommendations(status);
+  }
+
+  async reviewRecommendation(id: string, status: AdminRecommendationReviewStatus, reviewNote: string): Promise<RecommendationReviewResult> {
+    return reviewMockRecommendation(id, status, reviewNote);
   }
 
   async createPost(input: { sourceName: string; category: string; title: string; body: string }) {
@@ -171,6 +254,20 @@ class ApiAdminAdapter {
   async listBusinesses(): Promise<AdminBusiness[]> {
     const rows = await apiRequest<Record<string, unknown>[]>(`/api/v1/complexes/${COMPLEX_SLUG}/businesses`);
     return rows.map((row) => ({ id: String(row.id), name: String(row.name ?? '') }));
+  }
+
+  async listRecommendations(status: AdminRecommendationStatus = 'pending'): Promise<AdminRecommendation[]> {
+    const data = await apiRequest<{ recommendations?: Record<string, unknown>[] }>(
+      `/api/v1/admin/complexes/${COMPLEX_SLUG}/shop-recommendations?status=${encodeURIComponent(status)}`
+    );
+    return (data.recommendations ?? []).map(mapRecommendation);
+  }
+
+  async reviewRecommendation(id: string, status: AdminRecommendationReviewStatus, reviewNote: string): Promise<RecommendationReviewResult> {
+    return apiRequest<RecommendationReviewResult>(`/api/v1/admin/shop-recommendations/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status, reviewNote })
+    });
   }
 
   async createPost(input: { sourceName: string; category: string; title: string; body: string }) {
