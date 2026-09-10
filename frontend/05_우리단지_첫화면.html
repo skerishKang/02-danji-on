@@ -156,28 +156,24 @@ h1{font-size:clamp(46px,4.3vw,66px);line-height:1;letter-spacing:-.055em;margin:
 <div class="channel-kicker">운영 안내</div>
 <h2>단지온공지</h2>
 <p>서비스 이용방법과 점수·레벨 기준, 운영기준 변경을 공식적으로 안내합니다.</p>
-<p class="channel-latest" data-latest-for="danjion_notice" hidden></p>
 <button class="channel-link" data-route="06_단지온공지_목록.html" type="button"><span>단지온공지 보기</span><span class="arrow">→</span></button>
 </article>
 <article class="channel apartment" data-no="02">
 <div class="channel-kicker">단지 소식</div>
 <h2>아파트소식</h2>
 <p>입주자대표회의가 중요하다고 판단한 단지 소식과 안내를 전합니다.</p>
-<p class="channel-latest" data-latest-for="apartment_news" hidden></p>
 <button class="channel-link" data-route="08_아파트소식_목록.html" type="button"><span>아파트소식 보기</span><span class="arrow">→</span></button>
 </article>
 <article class="channel resident" data-no="03">
 <div class="channel-kicker">주민 제보</div>
 <h2>주민소식</h2>
 <p>주민이 알리고 싶은 생활소식·모임·행사와 이웃의 소식을 함께 나눕니다.</p>
-<p class="channel-latest" data-latest-for="resident_news" hidden></p>
 <button class="channel-link" data-route="10_주민소식_목록.html" type="button"><span>소식 보기 · 제보하기</span><span class="arrow">→</span></button>
 </article>
 <article class="channel dialogue" data-no="04">
 <div class="channel-kicker">주민 대화</div>
 <h2>이웃대화</h2>
 <p>가입인사부터 단지이야기·궁금한 점·같이할 일을 편하게 이야기합니다.</p>
-<p class="channel-latest" data-latest-for="community" hidden></p>
 <button class="channel-link" data-route="12_이웃대화_첫화면.html" type="button"><span>이웃대화 들어가기</span><span class="arrow">→</span></button>
 </article>
 </section>
@@ -185,32 +181,6 @@ h1{font-size:clamp(46px,4.3vw,66px);line-height:1;letter-spacing:-.055em;margin:
 <nav aria-label="모바일 주요 메뉴" class="mobile-bottom"><button aria-label="홈" data-route="04_데일리홈.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><path d="m3 10 9-7 9 7v10h-6v-6H9v6H3z"></path></svg><span>홈</span></button><button aria-label="이웃가게" data-route="01_이웃가게_발견.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><path d="M4 7h16l-1 13H5L4 7Z"></path><path d="M8 7V5a4 4 0 0 1 8 0v2"></path></svg><span>이웃가게</span></button><button aria-label="우리단지" class="active" data-route="05_우리단지_첫화면.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><path d="M4 21V9l8-6 8 6v12"></path><path d="M8 13h8M8 17h8"></path></svg><span>우리단지</span></button><button aria-label="내정보" data-route="19_내정보_메인.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><circle cx="12" cy="8" r="4"></circle><path d="M4 21a8 8 0 0 1 16 0"></path></svg><span>내정보</span></button></nav>
 <script>
 document.querySelectorAll('[data-route]').forEach(button=>button.addEventListener('click',()=>location.href=button.dataset.route));
-</script>
-<script src="assets/danjion-session.js"></script>
-<script id="danjion-hub-latest-wiring-v1">
-(function(){
- const HUB_API_BASE=(new URLSearchParams(location.search).get('apiBase')||'').replace(/\/+$/,'');
- if(!HUB_API_BASE)return;
- const HUB_COMPLEX_SLUG='banglim-myeongji-roadhill';
- const HUB_BASE='/api/v1/complexes/'+encodeURIComponent(HUB_COMPLEX_SLUG);
- function hubPublicJson(path){const ctrl=new AbortController();const t=setTimeout(()=>ctrl.abort(),8000);return fetch(HUB_API_BASE+path,{credentials:'omit',signal:ctrl.signal,headers:{'accept':'application/json'}}).then(r=>{clearTimeout(t);if(!r.ok)throw new Error('HTTP '+r.status);return r.json()}).catch(e=>{clearTimeout(t);throw e})}
- function hubFirstTitle(value){const rows=Array.isArray(value)?value:(value&&Array.isArray(value.posts)?value.posts:[]);return rows[0]?String(rows[0].title||''):''}
- function reveal(key,title){if(!title)return;const el=document.querySelector('[data-latest-for="'+key+'"]');if(el){el.textContent='최근 소식 · '+title;el.hidden=false}}
- const HUB_PUBLIC_SLOTS=[['danjion_notice',HUB_BASE+'/posts?channel=danjion_notice&limit=1'],['apartment_news',HUB_BASE+'/posts?channel=apartment_news&limit=1']];
- const HUB_AUTH_SLOTS=[['resident_news',HUB_BASE+'/resident-news'],['community',HUB_BASE+'/community/posts?limit=1']];
- Promise.allSettled(HUB_PUBLIC_SLOTS.map(async slot=>{
-  try{const json=await hubPublicJson(slot[1]);reveal(slot[0],hubFirstTitle(json&&json.data))}
-  catch(e){console.info('[danjion] hub latest unavailable:',slot[0],String(e&&e.message||e))}
- }));
- Promise.allSettled(HUB_AUTH_SLOTS.map(async slot=>{
-  try{
-   if(typeof DanjionSession==='undefined')throw new Error('session runtime unavailable');
-   const result=await DanjionSession.request(fetch,DanjionSession.joinUrl(HUB_API_BASE,slot[1]),{method:'GET'});
-   if(!result||!result.ok){console.info('[danjion] hub authenticated lane closed:',slot[0],result&&result.reason||'');return}
-   reveal(slot[0],hubFirstTitle(result.data))
-  }catch(e){console.info('[danjion] hub authenticated lane unavailable:',slot[0],String(e&&e.message||e))}
- }));
-})();
 </script>
 <script id="danjion-direct-router-v5">
 (function(){

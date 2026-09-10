@@ -2,11 +2,13 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import vm from 'node:vm';
 
-// Assignment #347 [Leaf B11]: daily-home 04 + complex-hub 05 wired to existing
-// public/bookmark/news authorities only. Static demo fallback preserved without apiBase.
-// CENTRAL review 5623904320: verified-resident lanes (resident-news, community) must use
-// the canonical DanjionSession credentials-included transport; representative_image_object_key
-// must never become an <img src> — only the proven /api/v1/storage/public proxy or local fallback.
+// Assignment #347 [Leaf B11]: daily-home 04 wired to existing public/bookmark/news
+// authorities only. Static demo fallback preserved without apiBase.
+// CENTRAL review 5623904320: verified-resident lane (resident-news) uses the canonical
+// DanjionSession credentials-included transport; representative_image_object_key must
+// never become an <img src> — only the proven /api/v1/storage/public proxy or local fallback.
+// CENTRAL #352 OPTION B (comment 5624249980): page 05 keeps its original static UI —
+// no new visible channel-latest lines and no reveal logic; this contract locks that removal.
 // Run: node frontend/tests/leaf-b11-home-hub-wiring-contract.mjs
 
 const read = (rel) => readFile(new URL(rel, import.meta.url), 'utf8');
@@ -20,27 +22,25 @@ const WRONG = '방님명지로드힐';
 assert.ok(f04.includes('data-danjion-page="4"'), '04 daily-home must keep its page marker');
 assert.ok(f05.includes('data-danjion-page="5"'), '05 complex-hub must keep its page marker');
 
-/* --- canonical slug governance: DB slug only, never the Korean display name --- */
-for (const [name, src] of [['f04', f04], ['f05', f05]]) {
-  assert.ok(!src.includes(WRONG), `${name} must not contain the typo slug "${WRONG}"`);
-  assert.ok(src.includes(`'${CANON}'`), `${name} must use the canonical complex slug`);
-  assert(!/COMPLEX_SLUG='방/.test(src), `${name} must not use the Korean display name as the API slug`);
-}
+/* --- canonical slug governance (wiring lives only in 04 after OPTION B) --- */
+assert.ok(!f04.includes(WRONG), 'f04 must not contain the typo slug');
+assert.ok(f04.includes(`'${CANON}'`), 'f04 must use the canonical complex slug');
+assert(!/COMPLEX_SLUG='방/.test(f04), 'f04 must not use the Korean display name as the API slug');
 
-/* --- canonical session runtime loads before the wiring --- */
-for (const [name, src] of [['f04', f04], ['f05', f05]]) {
-  assert.ok(src.includes('assets/danjion-session.js'), `${name} must load the canonical DanjionSession runtime`);
-  assert.ok(src.indexOf('assets/danjion-session.js') < src.indexOf('loadHomeAuthority') || name === 'f05',
-    '04 session script must load before the inline wiring');
+/* --- OPTION B: page 05 static UI restored — no new visible lines, no reveal logic --- */
+for (const banned of ['channel-latest', 'data-latest-for', 'HUB_API_BASE', 'danjion-hub-latest-wiring', 'DanjionSession']) {
+  assert.ok(!f05.includes(banned), `05 must not contain "${banned}" (OPTION B removes the hub reveal UI)`);
 }
-assert.ok(f05.indexOf('assets/danjion-session.js') < f05.indexOf('danjion-hub-latest-wiring-v1'),
-  '05 session script must load before the hub wiring script');
+assert.ok(f05.includes('data-danjion-page="5"') && f05.includes('danjion-direct-router-v5'),
+  '05 must keep its original static router surfaces');
 
-/* --- 04: saved-shops bridge loads before the inline authority wiring --- */
+/* --- 04: canonical session + bridge scripts load before the wiring --- */
+assert.ok(f04.includes('assets/danjion-session.js'), '04 must load the canonical DanjionSession runtime');
 const bridgeTagAt = f04.indexOf('assets/saved-shops-bridge.js');
 const wiringAt = f04.indexOf('loadHomeAuthority');
 const bootAt = f04.indexOf('syncSaveButton();restart();');
 assert.ok(bridgeTagAt > -1, '04 must load the saved-shops bridge script');
+assert.ok(f04.indexOf('assets/danjion-session.js') < bootAt, '04 session script must load before the inline wiring boots');
 assert.ok(bootAt > -1 && bridgeTagAt < bootAt, '04 bridge script must load before the inline wiring boots');
 assert.ok(wiringAt > bridgeTagAt, '04 authority wiring must come after the bridge tag');
 
@@ -63,8 +63,7 @@ for (const forbidden of ['/api/v1/me/benefits', '/api/v1/admin', '/api/v1/me/bus
   assert.ok(!f04.includes(forbidden), `04 must not touch ${forbidden}`);
 }
 
-/* --- CENTRAL review fix 1: verified-resident lanes use the canonical authenticated transport --- */
-assert.ok(f04.includes("DanJionSavedShopsBridge.create({apiBase:HOME_API_BASE})"), '04 bridge must use HOME_API_BASE');
+/* --- CENTRAL review fix 1: verified-resident lane uses the canonical authenticated transport --- */
 assert.ok(f04.includes("await DanjionSession.request(fetch,DanjionSession.joinUrl(HOME_API_BASE,newsBase+'/resident-news'))"),
   '04 resident-news row must go through the canonical DanjionSession credentials-included transport');
 assert.ok(!/homePublicJson\([^)]*resident-news/.test(f04) && !f04.includes("newsBase+'/resident-news?limit=1'"),
@@ -109,82 +108,6 @@ for (const bad of ['gdrive/private/resident-evidence/x', 'gdrive/public/business
 /* --- 04: no fabricated server semantics --- */
 assert.ok(f04.includes('등록된 주민 혜택 없음'), '04 must show an explicit no-benefit state instead of inventing one');
 assert.ok(f04.includes('관계 확인 중'), '04 must label unknown relation types honestly');
-
-/* --- 05: hidden latest slots on exactly the four channel cards --- */
-for (const slot of ['danjion_notice', 'apartment_news', 'resident_news', 'community']) {
-  assert.ok(f05.includes(`data-latest-for="${slot}" hidden`), `05 must keep the ${slot} slot hidden until authority data arrives`);
-}
-assert.equal((f05.match(/class="channel-latest"/g) || []).length, 4, '05 must expose exactly four latest slots');
-
-/* --- 05: apiBase gate + transport split per authority contract --- */
-assert.ok(f05.includes("const HUB_API_BASE=(new URLSearchParams(location.search).get('apiBase')||'').replace(/\\/+$/,'')"),
-  '05 must derive HUB_API_BASE from the apiBase query param');
-assert.ok(/const HUB_API_BASE=[\s\S]*?if\(!HUB_API_BASE\)return;/.test(f05),
-  '05 must bail out before any fetch when apiBase is absent');
-assert.ok(f05.includes('/posts?channel=danjion_notice&limit=1') && f05.includes('/posts?channel=apartment_news&limit=1'),
-  '05 public news channels stay on the anonymous public transport');
-assert.ok(f05.includes("['resident_news',HUB_BASE+'/resident-news']") && f05.includes("['community',HUB_BASE+'/community/posts?limit=1']"),
-  '05 must target the resident-news feed and community verified-resident feed');
-assert.ok(f05.includes('DanjionSession.request(fetch,DanjionSession.joinUrl(HUB_API_BASE,slot[1])'),
-  '05 resident_news/community slots must use the canonical DanjionSession authenticated transport');
-assert.ok(!/hubPublicJson\([^)]*(resident-news|community)/.test(f05),
-  '05 must not fetch authenticated lanes over the anonymous public transport');
-assert.ok(f05.includes("credentials:'omit'"), '05 public channel reads must omit credentials');
-assert.ok(!f05.includes("method:'POST'") && !f05.includes('method: \'POST\''), '05 must stay read-only');
-
-/* --- runtime: 05 wiring reveals slots only on non-empty titles, per-lane fail-closed --- */
-const block = f05.slice(f05.indexOf('<script id="danjion-hub-latest-wiring-v1">'));
-const body = block.slice(block.indexOf('>') + 1, block.indexOf('</script>'));
-function makeEl() { return { textContent: '', hidden: true }; }
-const els = { danjion_notice: makeEl(), apartment_news: makeEl(), resident_news: makeEl(), community: makeEl() };
-const publicCalls = [];
-const authCalls = [];
-async function runHub(search, publicResponses, sessionResults) {
-  for (const el of Object.values(els)) { el.textContent = ''; el.hidden = true; }
-  publicCalls.length = 0;
-  authCalls.length = 0;
-  const context = {
-    location: { search },
-    URLSearchParams,
-    AbortController: class { constructor() { this.signal = {}; } abort() {} },
-    setTimeout: (fn) => setTimeout(fn, 50),
-    clearTimeout: (t) => clearTimeout(t),
-    console: { info() {} },
-    document: { querySelector: (sel) => { const m = sel.match(/data-latest-for="([^"]+)"/); return m ? els[m[1]] : null; } },
-    fetch: async (url) => {
-      publicCalls.push(String(url));
-      const hit = publicResponses.find((r) => String(url).includes(r.match));
-      return hit ? { ok: hit.ok, status: hit.status, json: async () => hit.body } : { ok: false, status: 500, json: async () => ({}) };
-    },
-    DanjionSession: {
-      joinUrl: (base, path) => base + path,
-      request: async (fetchImpl, url) => {
-        authCalls.push(String(url));
-        const hit = sessionResults.find((r) => String(url).includes(r.match));
-        return hit ? hit.result : { ok: false, reason: 'auth-required', status: 401, error: null };
-      },
-    },
-  };
-  vm.runInNewContext(body, context);
-  await new Promise((r) => setTimeout(r, 120));
-}
-
-await runHub('?apiBase=https://api.test', [
-  { match: 'channel=danjion_notice', ok: true, status: 200, body: { data: [{ title: '운영기준 변경 안내' }] } },
-  { match: 'channel=apartment_news', ok: true, status: 200, body: { data: [] } },
-], [
-  { match: 'resident-news', result: { ok: true, status: 200, data: { posts: [{ id: 'x', title: '우리 단지 새 이웃가게' }] } } },
-  { match: 'community/posts', result: { ok: false, reason: 'auth-required', status: 401, error: null } },
-]);
-assert.equal(publicCalls.length, 2, '05 must use the public transport only for the two public post channels');
-assert.equal(authCalls.length, 2, '05 must route exactly resident-news and community through DanjionSession');
-assert.ok(!els.danjion_notice.hidden && els.danjion_notice.textContent === '최근 소식 · 운영기준 변경 안내', '05 must reveal filled slots with the server title');
-assert.ok(els.apartment_news.hidden, '05 must keep empty-feed slots hidden (no fabricated copy)');
-assert.ok(!els.resident_news.hidden && els.resident_news.textContent === '최근 소식 · 우리 단지 새 이웃가게', '05 resident-news slot must fill from the authenticated {posts} envelope');
-assert.ok(els.community.hidden, '05 must keep the community slot hidden on auth-required (fail closed)');
-
-await runHub('', [], []);
-assert.equal(publicCalls.length + authCalls.length, 0, '05 must not fetch at all without apiBase (static demo preserved)');
 
 /* --- bounded scope: excluded surfaces untouched by this wiring --- */
 const f03 = await read('../03_주민혜택_쿠폰_v2.html');
