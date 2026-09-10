@@ -295,4 +295,203 @@ for (const [status, reason] of [[401, 'auth-required'], [403, 'auth-required'], 
   assert.equal(calls[1].url.includes(OTHER_ID), false, 'another application id must never leak into the request');
 }
 
+/* ------------------------------------------------------------------ *
+ * 5. Canonical merged backend wire shape (#365)
+ * ------------------------------------------------------------------ *
+ * The owner list lane in the merged backend (core-v1 GET
+ * /api/v1/me/business-applications, #362) emits every document with the exact
+ * camelCase keys { id, objectKey, kind, sortOrder }:
+ *
+ *   json_build_object('id', d.id, 'objectKey', d.object_key,
+ *                     'kind', d.document_kind, 'sortOrder', d.sort_order)
+ *
+ * and the resident-economy document reader (#362) emits the same four keys.
+ * The sections above mainly exercise the snake_case aliases, so they would not
+ * catch a future frontend regression that drops or reorders the canonical
+ * camelCase reads. These assertions pin the canonical shape directly.
+ *
+ * Test-only: no runtime defect was found while writing this section.
+ */
+
+/* --- source contract: the canonical camelCase keys are read first, in order --- */
+assert.ok(
+  bridgeSrc.includes("documentId: String(doc.id ?? doc.documentId ?? doc.document_id ?? '')"),
+  'the bridge must read the canonical document id first (id -> documentId)'
+);
+assert.ok(
+  bridgeSrc.includes("objectKey: String(doc.objectKey ?? doc.object_key ?? '')"),
+  'the bridge must read the canonical camelCase objectKey first'
+);
+assert.ok(
+  bridgeSrc.includes("kind: String(doc.kind ?? doc.document_kind ?? '')"),
+  'the bridge must read the canonical camelCase kind first'
+);
+assert.ok(
+  bridgeSrc.includes("sortOrder: Number(doc.sortOrder ?? doc.sort_order ?? 0)"),
+  'the bridge must read the canonical camelCase sortOrder first'
+);
+
+const DOC_ID_2 = '44444444-4444-4444-8444-444444444444';
+const CANONICAL_KEY_1 = 'gdrive/private/application-document/aaaaaaaaaa';
+const CANONICAL_KEY_2 = 'gdrive/private/application-document/bbbbbbbbbb';
+
+/* --- runtime: the exact merged camelCase shape normalizes completely --- */
+{
+  const normalized = normalizeOwnerApplication({
+    id: APP_ID,
+    business_name: '내 가게',
+    status: 'approved',
+    documents: [
+      { id: DOC_ID, objectKey: CANONICAL_KEY_1, kind: 'operation_proof', sortOrder: 2 },
+      { id: DOC_ID_2, objectKey: CANONICAL_KEY_2, kind: 'other_evidence', sortOrder: 0 }
+    ]
+  });
+
+  assert.equal(normalized.documents.length, 2, 'both canonical documents must survive normalization');
+  assert.deepEqual(normalized.documents.map(d => d.documentId), [DOC_ID, DOC_ID_2],
+    'each document must keep its own server-issued id - ids must never be cross-wired');
+  assert.equal(normalized.documents[0].documentId, DOC_ID, 'the canonical id must normalize to documentId');
+  assert.equal(normalized.documents[0].objectKey, CANONICAL_KEY_1, 'the canonical objectKey must be preserved verbatim');
+  assert.equal(normalized.documents[0].kind, 'operation_proof', 'the canonical kind must be preserved verbatim');
+  assert.equal(normalized.documents[0].sortOrder, 2, 'the canonical sortOrder must be preserved as a number');
+  assert.equal(normalized.documents[1].sortOrder, 0, 'a canonical zero sortOrder must survive');
+  assert.deepEqual(normalized.documents.map(d => d.sortOrder), [2, 0],
+    'the frontend must not re-sort - the merged backend owns document ordering');
+  for (const doc of normalized.documents) {
+    assert.equal(typeof doc.sortOrder, 'number', 'sortOrder must always normalize to a number');
+    assert.equal(typeof doc.documentId, 'string', 'documentId must always normalize to a string');
+    assert.equal(typeof doc.objectKey, 'string', 'objectKey must always normalize to a string');
+  }
+}
+
+/* --- canonical camelCase is the authority when both shapes are present --- */
+{
+  const both = normalizeOwnerApplication({
+    id: APP_ID,
+    business_name: '내 가게',
+    status: 'pending',
+    documents: [{
+      id: DOC_ID, document_id: DOC_ID_2,
+      objectKey: 'CANONICAL', object_key: 'LEGACY',
+      kind: 'operation_proof', document_kind: 'other_evidence',
+      sortOrder: 7, sort_order: 9
+    }]
+  });
+  assert.equal(both.documents[0].documentId, DOC_ID, 'the canonical id must win over document_id');
+  assert.equal(both.documents[0].objectKey, 'CANONICAL', 'the canonical objectKey must win over object_key');
+  assert.equal(both.documents[0].kind, 'operation_proof', 'the canonical kind must win over document_kind');
+  assert.equal(both.documents[0].sortOrder, 7, 'the canonical sortOrder must win over sort_order');
+}
+
+/* --- a canonical zero sortOrder must not fall through to the snake_case alias --- */
+{
+  const zero = normalizeOwnerApplication({
+    id: APP_ID, business_name: '내 가게', status: 'pending',
+    documents: [{ sortOrder: 0, sort_order: 5 }]
+  });
+  assert.equal(zero.documents[0].sortOrder, 0,
+    'a canonical sortOrder of 0 must not be replaced by the alias - the reads use nullish coalescing, not ||');
+}
+
+/* --- a numeric-string sortOrder must still normalize to a number --- */
+{
+  const coerced = normalizeOwnerApplication({
+    id: APP_ID, business_name: '내 가게', status: 'pending',
+    documents: [{ id: DOC_ID, objectKey: CANONICAL_KEY_1, kind: 'operation_proof', sortOrder: '3' }]
+  });
+  assert.equal(coerced.documents[0].sortOrder, 3, 'a numeric-string sortOrder must normalize to a number');
+}
+
+/* --- a canonical document without an id keeps objectKey/kind but gains no reopen authority --- */
+{
+  const noId = normalizeOwnerApplication({
+    id: APP_ID, business_name: '내 가게', status: 'pending',
+    documents: [{ objectKey: CANONICAL_KEY_1, kind: 'operation_proof', sortOrder: 0 }]
+  });
+  assert.equal(noId.documents[0].documentId, '',
+    'an absent canonical id must stay absent - it must never be derived from the canonical objectKey');
+  assert.equal(noId.documents[0].objectKey, CANONICAL_KEY_1,
+    'the objectKey is still carried for display, but it carries no reopen authority');
+}
+
+/* --- an application without documents coalesces to a truthful empty list --- */
+{
+  const none = normalizeOwnerApplication({ id: APP_ID, business_name: '내 가게', status: 'pending' });
+  assert.deepEqual(none.documents, [], 'an application without documents must normalize to an empty list');
+}
+
+/* --- end to end: canonical list shape -> reopen through the private route --- */
+{
+  const calls = [];
+  const bridge = createApplicationReportBridge({
+    apiBase: 'https://api.example',
+    fetchImpl: async (url, init = {}) => {
+      calls.push({ url, init });
+      if (url.endsWith('/api/v1/me/business-applications')) {
+        return {
+          ok: true, status: 200,
+          async json() {
+            return {
+              data: [{
+                id: APP_ID, business_name: '내 가게', status: 'changes_requested',
+                documents: [
+                  { id: DOC_ID, objectKey: CANONICAL_KEY_1, kind: 'operation_proof', sortOrder: 1 },
+                  { id: DOC_ID_2, objectKey: CANONICAL_KEY_2, kind: 'additional_reference', sortOrder: 2 }
+                ]
+              }]
+            };
+          }
+        };
+      }
+      return {
+        ok: true, status: 200,
+        headers: okHeaders('application/pdf', `attachment; filename="application-document-${DOC_ID_2}.pdf"`),
+        async blob() { return { size: 8, type: 'application/pdf' }; },
+        async json() { return null; }
+      };
+    }
+  });
+
+  const listed = await bridge.listOwnerApplications();
+  assert.equal(listed.ok, true, 'the canonical owner list response must be accepted');
+  assert.deepEqual(listed.data[0].documents.map(d => d.documentId), [DOC_ID, DOC_ID_2],
+    'the merged canonical list shape must reach the UI with both ids intact');
+
+  const target = listed.data[0].documents[1];
+  const reopened = await bridge.openOwnerApplicationDocument(listed.data[0].id, target.documentId);
+  assert.equal(reopened.ok, true, 'the canonical documentId must reopen the document');
+  assert.equal(calls.length, 2, 'the list then the reopen must be the only two calls');
+  assert.equal(calls[1].url, `https://api.example/api/v1/me/business-applications/${APP_ID}/documents/${DOC_ID_2}`,
+    'the reopen must be addressed only by applicationId + documentId');
+  assert.ok(calls[1].url.endsWith(`/documents/${DOC_ID_2}`),
+    'the reopen must use the second document own id, never the first');
+  for (const forbidden of [CANONICAL_KEY_1, CANONICAL_KEY_2, 'gdrive', 'drive.google', 'storage/public', 'objectKey', 'sortOrder']) {
+    assert.equal(calls[1].url.includes(forbidden), false,
+      `the reopen URL must never carry ${forbidden}`);
+  }
+  assert.equal(calls[1].url.includes('?'), false,
+    'the reopen route must not be parameterised by a caller-supplied key');
+}
+
+/* --- the objectKey can never be substituted for the documentId --- */
+{
+  let called = 0;
+  const bridge = createApplicationReportBridge({
+    apiBase: 'https://api.example',
+    fetchImpl: async () => { called += 1; throw new Error('must not be reached'); }
+  });
+  const asKey = await bridge.openOwnerApplicationDocument(APP_ID, CANONICAL_KEY_1);
+  assert.equal(asKey.ok, false, 'a canonical objectKey must never reopen a document');
+  assert.equal(asKey.reason, 'validation-error', 'the objectKey must fail closed as a validation error');
+  assert.equal(called, 0, 'the objectKey must fail closed before any network call');
+  assert.equal(bridge.openOwnerApplicationDocument.length, 2,
+    'the reopen method must take exactly (applicationId, documentId) - there is no object-key overload');
+}
+
+/* --- 25A hands the canonical documentId to the bridge, never the objectKey --- */
+assert.ok(apply25a.includes('reopen(applicationId,doc.documentId,button)'),
+  '25A must reopen with the normalized documentId');
+assert.ok(!/reopen\([^)]*objectKey/.test(apply25a),
+  '25A must never pass an object key into the reopen path');
+
 console.log('leaf-b12-owner-application-status-contract: PASS');
