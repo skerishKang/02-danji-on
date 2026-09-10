@@ -4,11 +4,23 @@ import { readFile } from 'node:fs/promises';
 const html = await readFile(new URL('../../../frontend/index3.html', import.meta.url), 'utf8');
 const pkg = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
 
+/* --- auth entry does not mislead about phone requirement --- */
+assert.doesNotMatch(html, /휴대전화번호는 필수로 받지 않습니다/,
+  'auth entry must not claim phone is not required when email signup uses phone OTP');
+assert.match(html, /이메일 가입 시 휴대전화번호로 인증합니다/,
+  'auth entry must indicate phone is used for email signup verification');
+
 /* --- phone credential collected on the email signup form --- */
 assert.match(html, /name="phone" type="tel" inputmode="numeric"/,
   'email signup form must collect the phone credential used for account verification');
 assert.match(html, /01\[016789\]\\d\{7,8\}/,
   'phone gate must require the canonical Korean mobile form before calling the server');
+
+/* --- emailVerify step does not reference email receipt (phone OTP now) --- */
+assert.doesNotMatch(html, /이메일로 받은 6자리 인증번호/,
+  'emailVerify must not claim code was received by email when using phone OTP');
+assert.match(html, /function emailVerify\(\)\{[^}]*인증번호를 입력해 주세요/,
+  'emailVerify heading/lead must prompt for the verification code');
 
 /* --- A: verification start is wired to the product endpoint in server mode --- */
 assert.match(html, /const phone=event\.target\.elements\.phone\?event\.target\.elements\.phone\.value\.replace\(.{1,4}D\/g,''\):'';/,
