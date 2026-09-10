@@ -10,6 +10,7 @@ const adminReviewContext = read('src/admin-review-context-v1.ts');
 const adminVerification = read('src/admin-verification-v1.ts');
 const operationalAuthz = read('src/operational-authz-v2.ts');
 const residentApplication = read('src/resident-application-v1.ts');
+const residentApplicationDocs = read('src/resident-application-docs-v1.ts');
 const residentEconomy = read('src/resident-economy-v2.ts');
 const residentVerification = read('src/resident-verification-v1.ts');
 const benefitWallet = read('src/benefit-wallet-v1.ts');
@@ -30,6 +31,7 @@ const privateRouters = [
   adminReviewContext,
   adminVerification,
   residentApplication,
+  residentApplicationDocs,
   residentEconomy,
   residentVerification,
   benefitWallet
@@ -40,6 +42,8 @@ const checks = [
   ['app routes review context before generic admin', app.includes('handleAdminReviewContextRequest') && app.indexOf('handleAdminReviewContextRequest') < app.indexOf("startsWith('/api/v1/admin/')")],
   ['app routes admin before core', app.includes("startsWith('/api/v1/admin/')") && app.includes('handleAdminRequest')],
   ['app routes resident application workflow before core', app.includes('handleResidentApplicationRequest') && app.indexOf('handleResidentApplicationRequest') < app.lastIndexOf('core.fetch')],
+  ['app routes admin application documents before generic admin', app.includes('handleAdminApplicationDocumentRequest') && app.indexOf('handleAdminApplicationDocumentRequest') < app.indexOf("startsWith('/api/v1/admin/')")],
+  ['app routes resident application documents before core', app.includes('handleResidentApplicationDocumentRequest') && app.indexOf('handleResidentApplicationDocumentRequest') < app.lastIndexOf('core.fetch')],
   ['app routes resident benefit wallet before core', app.includes('handleBenefitWalletRequest') && app.indexOf('handleBenefitWalletRequest') < app.lastIndexOf('core.fetch')],
   ['app preflight allows idempotency header', app.includes('idempotency-key') && app.includes('access-control-allow-headers')],
   ['payload policy runs before route handling', app.includes('validateRequestPayload') && app.indexOf('validateRequestPayload') < app.lastIndexOf("startsWith('/api/v1/admin/')")],
@@ -54,6 +58,19 @@ const checks = [
   ['review context never selects residence coordinates or evidence object key', !adminReviewContext.includes('building_code') && !adminReviewContext.includes('unit_code') && !adminReviewContext.includes('evidence_object_key')],
   ['admin audit uses explicit PADIEM or council business-review authority', adminAudit.includes('requireOperationalAuthority') && adminAudit.includes("'business.review'") && adminAudit.includes("'council.business.review'")],
   ['admin audit is complex scoped', adminAudit.includes('e.complex_id = ${operator.complexId}::uuid')],
+  ['application document exposes separate me and admin routes', residentApplicationDocs.includes('ME_DOCUMENT_ROUTE') && residentApplicationDocs.includes('ADMIN_DOCUMENT_ROUTE') && residentApplicationDocs.includes('/api\\/v1\\/me\\/business-applications\\/') && residentApplicationDocs.includes('/api\\/v1\\/admin\\/business-applications\\/')],
+  ['application document download uses reviewer authority', residentApplicationDocs.includes('requireOperationalAuthority') && residentApplicationDocs.includes("'business.review'") && residentApplicationDocs.includes("'council.business.review'")],
+  ['application document applicant owner-scoped via /me route', residentApplicationDocs.includes('actor.id !== applicantUserId')],
+  ['application document reviewer status-gated', residentApplicationDocs.includes('REVIEWER_ALLOWED_STATUSES')],
+  ['application document applicant status-gated', residentApplicationDocs.includes('APPLICANT_ALLOWED_STATUSES')],
+  ['application document streams via server-side Drive proxy', residentApplicationDocs.includes('drive/v3/files/') && residentApplicationDocs.includes('new Response(fileResponse.body') && residentApplicationDocs.includes('Authorization: `Bearer ${token}`')],
+  ['application document enforces private no-store headers', residentApplicationDocs.includes('private, no-store') && residentApplicationDocs.includes('nosniff')],
+  ['application document PDF attachment image inline', residentApplicationDocs.includes('attachment; filename=') && residentApplicationDocs.includes('inline; filename=')],
+  ['application document cross-complex denial via operational authority', residentApplicationDocs.includes('complexSlug')],
+  ['application document uses document.read audit action', residentApplicationDocs.includes("'document.read'") && residentApplicationDocs.includes('auditReviewerDocumentRead')],
+  ['application document audit failure fails closed', residentApplicationDocs.includes('AUDIT_UNAVAILABLE')],
+  ['application document resolves objectKey without caller authority', residentApplicationDocs.includes('parseFileId') && !residentApplicationDocs.includes('searchParams.get')],
+  ['application document enforces registry kind and active state', residentApplicationDocs.includes("!== 'application-document'") && residentApplicationDocs.includes("!== 'active'")],
   ['admin audit supports application filter and limit', adminAudit.includes("url.searchParams.get('applicationId')") && adminAudit.includes("url.searchParams.get('limit')")],
   ['resident verification admin is policy-hold fail closed', adminVerification.includes('RESIDENT_VERIFICATION_POLICY_HOLD') && !adminVerification.includes("role in ('manager','admin')") && !adminVerification.includes('evidence_object_key')],
   ['operational auth never trusts legacy manager/admin membership', !operationalAuthz.includes('complex_memberships') && operationalAuthz.includes('padiem_operator_grants') && operationalAuthz.includes('complex_operator_grants')],
