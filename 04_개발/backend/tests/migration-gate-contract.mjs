@@ -126,6 +126,11 @@ await assert.rejects(
 
 // 10. production_seed distinguished from schema.
 assert.equal(classifyMigration(ledger, '042_seed_banglim_pilot_production.sql').class, 'production_seed');
+assert.deepEqual(
+  classifyMigration(ledger, '042_seed_banglim_pilot_production.sql').marker,
+  { kind: 'data_probe', query: "select exists(select 1 from complexes where slug = 'banglim-myeongji-roadhill')" },
+  '042 production seed readback must use the exact complex slug inserted by migration 042'
+);
 assert.equal(classifyMigration(ledger, '041_business_category_benefit_contract.sql').class, 'schema');
 
 // 11. 042 is not silently treated as an ordinary schema apply.
