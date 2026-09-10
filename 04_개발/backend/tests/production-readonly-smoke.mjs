@@ -56,14 +56,16 @@ const adminList = await getJson(
 expectStatus(adminList, 401, 'admin application list without auth');
 assert.equal(adminList.body?.error?.code, 'AUTH_REQUIRED');
 
-// Recently-added private document route: use syntactically valid UUIDs but no
-// auth. The auth boundary must stop the request before any private lookup/bytes.
+// Recently-added private document route: use syntactically valid but nonexistent
+// UUIDs. This route intentionally performs a bound lookup before actor auth so
+// a missing/cross-application identity is non-disclosing 404. No bytes can be
+// returned and no production row is mutated.
 const fakeApplicationId = '11111111-1111-4111-8111-111111111111';
 const fakeDocumentId = '22222222-2222-4222-8222-222222222222';
 const privateDocument = await getJson(
   `/api/v1/me/business-applications/${fakeApplicationId}/documents/${fakeDocumentId}`
 );
-expectStatus(privateDocument, 401, 'owner private document without auth');
-assert.equal(privateDocument.body?.error?.code, 'AUTH_REQUIRED');
+expectStatus(privateDocument, 404, 'nonexistent owner private document is non-disclosing');
+assert.equal(privateDocument.body?.error?.code, 'NOT_FOUND');
 
 console.log('PASS production read-only feature smoke');
