@@ -44,6 +44,25 @@ export async function readApplicationPhotoGallery(sql: Sql, applicationId: strin
   return rows.map((row) => String((row as { object_key?: string }).object_key ?? '')).filter((key) => key.length > 0);
 }
 
+// #312: reviewers open document bytes only through the admin document route,
+// which is keyed by the document row id. The review context therefore exposes
+// an opaque id/kind/sort-order summary per document and never the object key:
+// listing gives the reviewer nothing to forge and the byte route re-checks
+// authority, status, registry kind/state, and audit on every read.
+export async function readApplicationDocumentSummaries(sql: Sql, applicationId: string): Promise<{ id: string; kind: string; sortOrder: number }[]> {
+  const rows = await sql`
+    select id, document_kind, sort_order
+    from business_application_documents
+    where application_id = ${applicationId}::uuid
+    order by sort_order asc
+  `;
+  return rows.map((row) => ({
+    id: String((row as { id?: string }).id),
+    kind: String((row as { document_kind?: string }).document_kind ?? ''),
+    sortOrder: Number((row as { sort_order?: number }).sort_order ?? 0)
+  }));
+}
+
 export async function handleAdminReviewContextRequest(request: Request, env: CoreEnv, requestId: string): Promise<Response | null> {
   const path = new URL(request.url).pathname;
   const match = path.match(/^\/api\/v1\/admin\/business-applications\/([0-9a-fA-F-]+)\/review-context$/);
@@ -101,11 +120,13 @@ export async function handleAdminReviewContextRequest(request: Request, env: Cor
   if (operator instanceof Response) return operator;
 
   const photoObjectKeys = await readApplicationPhotoGallery(sql, String(row.id));
+  const documents = await readApplicationDocumentSummaries(sql, String(row.id));
 
   return ok({
     id: row.id,
     status: row.status,
     approvedBusinessId: row.approved_business_id,
+    documents,
     publicProfile: {
       businessName: row.business_name,
       categoryName: row.category_name,
