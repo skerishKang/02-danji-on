@@ -186,6 +186,7 @@ h1{font-size:clamp(46px,4.3vw,66px);line-height:1;letter-spacing:-.055em;margin:
 <script>
 document.querySelectorAll('[data-route]').forEach(button=>button.addEventListener('click',()=>location.href=button.dataset.route));
 </script>
+<script src="assets/danjion-session.js"></script>
 <script id="danjion-hub-latest-wiring-v1">
 (function(){
  const HUB_API_BASE=(new URLSearchParams(location.search).get('apiBase')||'').replace(/\/+$/,'');
@@ -193,16 +194,21 @@ document.querySelectorAll('[data-route]').forEach(button=>button.addEventListene
  const HUB_COMPLEX_SLUG='banglim-myeongji-roadhill';
  const HUB_BASE='/api/v1/complexes/'+encodeURIComponent(HUB_COMPLEX_SLUG);
  function hubPublicJson(path){const ctrl=new AbortController();const t=setTimeout(()=>ctrl.abort(),8000);return fetch(HUB_API_BASE+path,{credentials:'omit',signal:ctrl.signal,headers:{'accept':'application/json'}}).then(r=>{clearTimeout(t);if(!r.ok)throw new Error('HTTP '+r.status);return r.json()}).catch(e=>{clearTimeout(t);throw e})}
- const HUB_SLOTS=[['danjion_notice',HUB_BASE+'/posts?channel=danjion_notice&limit=1'],['apartment_news',HUB_BASE+'/posts?channel=apartment_news&limit=1'],['resident_news',HUB_BASE+'/resident-news?limit=1'],['community',HUB_BASE+'/community/posts?limit=1']];
- Promise.allSettled(HUB_SLOTS.map(async slot=>{
+ function hubFirstTitle(value){const rows=Array.isArray(value)?value:(value&&Array.isArray(value.posts)?value.posts:[]);return rows[0]?String(rows[0].title||''):''}
+ function reveal(key,title){if(!title)return;const el=document.querySelector('[data-latest-for="'+key+'"]');if(el){el.textContent='최근 소식 · '+title;el.hidden=false}}
+ const HUB_PUBLIC_SLOTS=[['danjion_notice',HUB_BASE+'/posts?channel=danjion_notice&limit=1'],['apartment_news',HUB_BASE+'/posts?channel=apartment_news&limit=1']];
+ const HUB_AUTH_SLOTS=[['resident_news',HUB_BASE+'/resident-news'],['community',HUB_BASE+'/community/posts?limit=1']];
+ Promise.allSettled(HUB_PUBLIC_SLOTS.map(async slot=>{
+  try{const json=await hubPublicJson(slot[1]);reveal(slot[0],hubFirstTitle(json&&json.data))}
+  catch(e){console.info('[danjion] hub latest unavailable:',slot[0],String(e&&e.message||e))}
+ }));
+ Promise.allSettled(HUB_AUTH_SLOTS.map(async slot=>{
   try{
-   const json=await hubPublicJson(slot[1]);
-   const rows=json&&json.data;
-   const title=Array.isArray(rows)&&rows[0]?String(rows[0].title||''):'';
-   if(!title)return;
-   const el=document.querySelector('[data-latest-for="'+slot[0]+'"]');
-   if(el){el.textContent='최근 소식 · '+title;el.hidden=false}
-  }catch(e){console.info('[danjion] hub latest unavailable:',slot[0],String(e&&e.message||e))}
+   if(typeof DanjionSession==='undefined')throw new Error('session runtime unavailable');
+   const result=await DanjionSession.request(fetch,DanjionSession.joinUrl(HUB_API_BASE,slot[1]),{method:'GET'});
+   if(!result||!result.ok){console.info('[danjion] hub authenticated lane closed:',slot[0],result&&result.reason||'');return}
+   reveal(slot[0],hubFirstTitle(result.data))
+  }catch(e){console.info('[danjion] hub authenticated lane unavailable:',slot[0],String(e&&e.message||e))}
  }));
 })();
 </script>
