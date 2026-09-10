@@ -1,0 +1,30 @@
+name: Toplevel Frontend Contract Gate
+
+# Issue #339: repository-level non-production evidence gate for top-level
+# frontend/** static leaves (e.g. PR #340) that no existing 04_개발-scoped
+# PR gate covers. Read-only checks only: syntax validation + leaf contracts.
+
+on:
+  pull_request:
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/toplevel-frontend-contract-gate.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: danjion-toplevel-frontend-gate-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  toplevel-frontend-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Run top-level frontend contract gate (no network, no production mutation)
+        run: node frontend/tests/toplevel-frontend-contract-gate.mjs

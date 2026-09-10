@@ -45,6 +45,7 @@
     const fetchImpl=options.fetchImpl||fetch.bind(globalThis);
     const apiBase=normalizeBase(options.apiBase);
     const complexSlug=String(options.complexSlug||'banglim-myeongji-roadhill');
+    const listQuery='?complexSlug='+encodeURIComponent(complexSlug);
 
     async function submit(input={}){
       const businessId=businessIdFromKey(input.shopKey);
@@ -62,14 +63,27 @@
       return {ok:true,mode:'server',status:result.status,inquiry:normalizeInquiry(result.data)};
     }
 
+    async function submitGeneral(input={}){
+      const inquiryType=String(input.inquiryType||'').trim();
+      const subject=String(input.subject||'').trim();
+      const text=String(input.text||'').trim();
+      if(!inquiryType||!subject||!text)return {ok:false,mode:'client',error:'INQUIRY_FIELDS_REQUIRED'};
+      const result=await requestJson(fetchImpl,`${apiBase}/api/v1/me/inquiries`,{
+        method:'POST',headers:{'content-type':'application/json'},
+        body:JSON.stringify({complexSlug,inquiryType,title:subject,body:text})
+      });
+      if(!result.ok)return {...result,mode:[401,403].includes(result.status)?'auth-required':'error'};
+      return {ok:true,mode:'server',status:result.status,inquiry:normalizeInquiry(result.data)};
+    }
+
     async function listMine(){
-      const result=await requestJson(fetchImpl,`${apiBase}/api/v1/me/inquiries`,{method:'GET'});
+      const result=await requestJson(fetchImpl,`${apiBase}/api/v1/me/inquiries${listQuery}`,{method:'GET'});
       if(!result.ok)return {...result,mode:[401,403].includes(result.status)?'auth-required':'error',inquiries:[]};
       const rows=Array.isArray(result.data?.inquiries)?result.data.inquiries:[];
       return {mode:'server',status:result.status,inquiries:rows.map(normalizeInquiry).filter(Boolean)};
     }
 
-    return {submit,listMine,businessIdFromKey};
+    return {submit,submitGeneral,listMine,businessIdFromKey};
   }
 
   globalThis.DanjionInquiryBridge={createInquiryBridge,businessIdFromKey,normalizeInquiry};
