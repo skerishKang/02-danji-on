@@ -81,6 +81,118 @@ main{padding-top:18px!important}
     const layer=document.querySelector('.action-layer'),title=document.querySelector('[data-action-title]'),copy=document.querySelector('[data-action-copy]'),reasons=document.querySelector('[data-reasons]'),confirm=document.querySelector('[data-confirm]');let action='report';function openAction(type){action=type;more.classList.remove('open');const block=type==='block';title.textContent=block?'산책메이트님을 차단할까요?':'대화 신고하기';copy.textContent=block?'차단하면 서로 새 메시지를 보낼 수 없습니다. 이전 대화는 내 메시지함에서 확인할 수 있습니다.':'운영팀이 확인할 수 있도록 가장 가까운 이유를 선택해주세요.';reasons.hidden=block;confirm.textContent=block?'이 주민 차단':'운영팀에 신고';confirm.classList.toggle('danger',block);layer.classList.add('open');layer.setAttribute('aria-hidden','false');document.body.style.overflow='hidden'}document.querySelectorAll('[data-action]').forEach(button=>button.addEventListener('click',()=>openAction(button.dataset.action)));document.querySelectorAll('[data-close]').forEach(button=>button.addEventListener('click',()=>{layer.classList.remove('open');layer.setAttribute('aria-hidden','true');document.body.style.overflow=''}));document.querySelectorAll('.reason').forEach(button=>button.addEventListener('click',()=>{document.querySelectorAll('.reason').forEach(item=>item.classList.remove('selected'));button.classList.add('selected')}));confirm.addEventListener('click',()=>{if(action==='report'&&!document.querySelector('.reason.selected')){showToast('신고 이유를 선택해주세요.');return}layer.classList.remove('open');document.body.style.overflow='';showToast(action==='block'?'차단한 시연입니다. 실제 상태는 바뀌지 않습니다.':'신고가 접수된 시연입니다. 실제 전송은 하지 않습니다.')});
     document.querySelectorAll('.toggle').forEach(button=>button.addEventListener('click',()=>{const on=button.classList.toggle('on');button.setAttribute('aria-checked',String(on));showToast(on?'알림을 받습니다.':'알림을 받지 않습니다.')}));const reply=document.querySelector('#reply'),send=document.querySelector('.send');reply.addEventListener('input',()=>{document.querySelector('#count').textContent=reply.value.length;send.disabled=!reply.value.trim()});document.querySelector('#replyForm').addEventListener('submit',event=>{event.preventDefault();const value=reply.value.trim();if(!value)return;const item=document.createElement('article');item.className='message mine';item.innerHTML='<header class="message-head"><div class="sender"><span class="sender-mark">연</span><b>연블리 <span>내가 보냄</span></b></div><time>방금</time></header><p class="message-body"></p><small class="message-state">보냄 · 새로고침하면 초기화되는 시연입니다.</small>';item.querySelector('.message-body').textContent=value;document.querySelector('#thread').appendChild(item);reply.value='';reply.dispatchEvent(new Event('input'));showToast('답장을 보낸 시연입니다.');item.scrollIntoView({behavior:'smooth',block:'center'})});document.querySelector('[data-scroll-reply]').addEventListener('click',()=>{document.querySelector('.composer').scrollIntoView({behavior:'smooth',block:'center'});setTimeout(()=>reply.focus(),350)});document.addEventListener('keydown',event=>{if(event.key==='Escape'){layer.classList.remove('open');more.classList.remove('open');document.body.style.overflow=''}});
   </script>
+<script src="assets/danjion-session.js"></script>
+<script src="assets/messages-notifications-bridge.js"></script>
+<script id="danjion-conversation-detail-live-wiring-330">
+(function(){
+  const params=new URLSearchParams(location.search);
+  const apiBase=(window.DanjionSession&&DanjionSession.danjionApiBase())||'';
+  const conversationId=(params.get('conversation')||'').trim().toLowerCase();
+  if(!apiBase)return;
+  const bridge=DanjionMessagesNotificationsBridge.createMessagesNotificationsBridge({apiBase});
+  const thread=document.getElementById('thread');
+  const replyField=document.getElementById('reply');
+  const sendButton=document.querySelector('.send');
+  const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  let selfId='';
+  let participantNickname='';
+  let sending=false;
+  function esc(value){return String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]))}
+  function fmt(value){
+    if(!value)return '';
+    const date=new Date(value);
+    if(Number.isNaN(date.getTime()))return '';
+    return new Intl.DateTimeFormat('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}).format(date);
+  }
+  function dayKey(value){
+    const date=new Date(value);
+    if(Number.isNaN(date.getTime()))return '';
+    return new Intl.DateTimeFormat('ko-KR',{year:'numeric',month:'long',day:'numeric'}).format(date);
+  }
+  function setParticipantNames(nickname){
+    participantNickname=nickname||participantNickname;
+    const label=participantNickname||'이웃';
+    const head=document.querySelector('.conversation-head .person h1');
+    if(head)head.textContent=label;
+    const route=document.querySelector('.route-left span');
+    if(route)route.textContent='/ '+label;
+    const railName=document.querySelector('.profile-line b');
+    if(railName)railName.textContent=label;
+    const mobileHead=document.querySelector('.mobile-head');
+    if(mobileHead)mobileHead.textContent=label+'님과의 메시지';
+  }
+  function messageHTML(message){
+    const mine=selfId&&message.senderUserId===selfId;
+    const mark=mine?'나':(participantNickname.slice(0,1)||'?');
+    const name=mine?'나':(participantNickname||'이웃');
+    const tag=mine?' <span>내가 보냄</span>':'';
+    const body=message.deletedAt==null?esc(message.body||'').replace(/\n/g,'<br/>'):'삭제된 메시지입니다.';
+    return '<article class="message'+(mine?' mine':'')+'"><header class="message-head"><div class="sender"><span class="sender-mark">'+esc(mark)+'</span><b>'+esc(name)+tag+'</b></div><time>'+fmt(message.createdAt)+'</time></header><p class="message-body">'+body+'</p></article>';
+  }
+  function renderMessages(messages){
+    let html='';let lastDay='';
+    messages.forEach(message=>{
+      const day=dayKey(message.createdAt);
+      if(day&&day!==lastDay){html+='<div class="date-divider">'+esc(day)+'</div>';lastDay=day}
+      html+=messageHTML(message);
+    });
+    thread.innerHTML=html||'<div class="date-divider">대화가 아직 없습니다.</div>';
+  }
+  function showState(text){
+    thread.innerHTML='<div class="date-divider">'+esc(text)+'</div>';
+    replyField.disabled=true;
+    sendButton.disabled=true;
+  }
+  async function load(){
+    if(!UUID.test(conversationId)){showState('열 수 있는 대화가 없습니다. 메시지함에서 다시 선택해 주세요.');return}
+    showState('불러오는 중...');
+    const self=await bridge.getSelfId();
+    if(self.mode==='auth-required'){showState(self.status===403?'본인 확인된 입주민만 메시지를 이용할 수 있습니다.':'로그인 후 이용 가능합니다.');return}
+    if(self.mode==='server')selfId=self.userId;
+    const conversations=await bridge.listConversations();
+    if(conversations.mode==='server'){
+      const found=conversations.conversations.find(row=>row.id===conversationId);
+      if(found)setParticipantNames(found.participant.nickname);
+    }
+    const result=await bridge.listMessages(conversationId);
+    if(result.mode==='auth-required'){showState(result.status===403?'본인 확인된 입주민만 이 대화를 볼 수 있습니다.':'로그인 후 이용 가능합니다.');return}
+    if(result.mode==='error'){showState(result.status===404?'대화를 찾을 수 없습니다. 메시지함에서 다시 선택해 주세요.':'대화를 불러오지 못했습니다. 네트워크 상태를 확인해 주세요.');return}
+    renderMessages(result.messages);
+    replyField.disabled=false;
+    sendButton.disabled=!replyField.value.trim();
+    void bridge.markConversationRead(conversationId);
+  }
+  document.addEventListener('submit',async event=>{
+    if(event.target&&event.target.id!=='replyForm')return;
+    event.preventDefault();event.stopImmediatePropagation();
+    if(sending)return;
+    const text=replyField.value.trim();
+    if(!text)return;
+    sending=true;
+    sendButton.disabled=true;
+    try{
+      const result=await bridge.sendMessage(conversationId,text);
+      if(!result.ok){
+        showToast(result.mode==='auth-required'?(result.status===403?'본인 확인된 입주민만 메시지를 보낼 수 있습니다.':'로그인 후 이용 가능합니다.'):'메시지를 보내지 못했습니다. 잠시 후 다시 시도해 주세요.');
+        return;
+      }
+      thread.insertAdjacentHTML('beforeend',messageHTML(result.message));
+      replyField.value='';
+      replyField.dispatchEvent(new Event('input'));
+      thread.lastElementChild&&thread.lastElementChild.scrollIntoView({behavior:'smooth',block:'center'});
+      showToast('답장이 전송되었습니다.');
+    }finally{
+      sending=false;
+      sendButton.disabled=!replyField.value.trim();
+    }
+  },true);
+  document.querySelectorAll('.toggle').forEach(button=>button.addEventListener('click',function(ev){
+    ev.preventDefault();ev.stopImmediatePropagation();
+    showToast('대화 알림 설정은 서버에 저장되지 않습니다. 알림 설정은 24 설정 화면에서 관리됩니다.');
+  },true));
+  void load();
+})();
+</script>
 <script>
     /* 최종 통합 전 검토용: 같은 차단 상태가 대화 화면 전체에 일관되게 반영되는지 시연합니다. */
     (()=>{

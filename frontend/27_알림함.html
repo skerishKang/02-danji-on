@@ -111,6 +111,75 @@
 <aside class="side"><article class="side-hero"><small>UNREAD NOW</small><strong class="side-count">5</strong><h2>새 알림</h2></article><div class="summary"><div class="summary-head"><b>새 알림 요약</b><span>오늘</span></div><div class="summary-row"><span>단지온공지</span><b class="hot" data-summary="official">1</b></div><div class="summary-row"><span>댓글·공감</span><b class="hot" data-summary="reaction">2</b></div><div class="summary-row"><span>1:1 메시지</span><b class="hot" data-summary="message">1</b></div><div class="summary-row"><span>문의 답변</span><b class="hot" data-summary="account">1</b></div></div><button class="side-action" data-demo="알림 설정으로 이동합니다.">받을 알림 설정하기 →</button></aside></section></main>
 <nav aria-label="모바일 주요 메뉴" class="mobile-bottom"><button aria-label="홈" data-route="04_데일리홈.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><path d="m3 10 9-7 9 7v10h-6v-6H9v6H3z"></path></svg><span>홈</span></button><button aria-label="이웃가게" data-route="01_이웃가게_발견.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><path d="M4 7h16l-1 13H5L4 7Z"></path><path d="M8 7V5a4 4 0 0 1 8 0v2"></path></svg><span>이웃가게</span></button><button aria-label="우리단지" data-route="05_우리단지_첫화면.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><path d="M4 21V9l8-6 8 6v12"></path><path d="M8 13h8M8 17h8"></path></svg><span>우리단지</span></button><button aria-label="내정보" class="active" data-route="19_내정보_메인.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><circle cx="12" cy="8" r="4"></circle><path d="M4 21a8 8 0 0 1 16 0"></path></svg><span>내정보</span></button></nav><div class="toast" role="status"></div>
 <script>const toast=document.querySelector('.toast');let timer;function showToast(text){toast.textContent=text;toast.classList.add('show');clearTimeout(timer);timer=setTimeout(()=>toast.classList.remove('show'),2100)}function updateCounts(){const unreadItems=[...document.querySelectorAll('.notice-item.unread')],total=unreadItems.length;document.querySelector('.unread-count').textContent=total+'개';document.querySelector('.side-count').textContent=total;document.querySelector('.bell i').textContent=total;document.querySelector('.bell').setAttribute('aria-label','새 알림 '+total+'개');document.querySelectorAll('[data-summary]').forEach(badge=>{const count=unreadItems.filter(item=>item.dataset.kind===badge.dataset.summary).length;badge.textContent=count;badge.classList.toggle('hot',count>0)})}document.querySelectorAll('.filter').forEach(button=>button.addEventListener('click',()=>{document.querySelectorAll('.filter').forEach(item=>item.classList.remove('active'));button.classList.add('active');const key=button.dataset.filter;let shown=0;document.querySelectorAll('.notice-item').forEach(item=>{item.hidden=key!=='all'&&item.dataset.kind!==key;if(!item.hidden)shown++});document.querySelectorAll('.date-head').forEach(head=>head.style.display=key==='all'?'flex':'none');document.querySelector('.empty-filter').style.display=shown?'none':'grid'}));document.querySelector('.read-all').addEventListener('click',()=>{document.querySelectorAll('.notice-item.unread').forEach(item=>item.classList.remove('unread'));updateCounts();showToast('새 알림을 모두 읽음으로 표시했습니다.')});document.querySelectorAll('.notice-item').forEach(item=>item.addEventListener('click',()=>{item.classList.remove('unread');updateCounts();showToast(item.dataset.demo)}));document.querySelectorAll('[data-demo]:not(.notice-item)').forEach(button=>button.addEventListener('click',()=>showToast(button.dataset.demo)));updateCounts();</script>
+<script src="assets/danjion-session.js"></script>
+<script src="assets/messages-notifications-bridge.js"></script>
+<script id="danjion-notifications-live-wiring-330">
+(function(){
+  const apiBase=(window.DanjionSession&&DanjionSession.danjionApiBase())||'';
+  if(!apiBase)return;
+  const bridge=DanjionMessagesNotificationsBridge.createMessagesNotificationsBridge({apiBase});
+  const feed=document.querySelector('.feed');
+  const kindLabels={official:['공지','단지온소식'],reaction:['댓글','이웃 반응'],message:['1:1','새 메시지'],account:['문의','계정·우리집']};
+  function esc(value){return String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]))}
+  function fmt(value){
+    if(!value)return '';
+    const date=new Date(value);
+    if(Number.isNaN(date.getTime()))return '';
+    return new Intl.DateTimeFormat('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}).format(date);
+  }
+  function itemHTML(row){
+    const label=kindLabels[row.category]||kindLabels.official;
+    const unread=row.readAt==null;
+    const actor=row.actor&&row.actor.nickname?row.actor.nickname+'님':'';
+    return '<button class="notice-item'+(unread?' unread':'')+'" data-notification="'+esc(row.id)+'" data-kind="'+esc(row.category)+'" type="button"><span class="notice-icon">'+label[0]+'</span><span class="notice-copy"><small>'+label[1]+'</small><b>'+esc(row.title)+'</b><p>'+(actor?esc(actor)+' 관련 알림입니다.':'알림 내용을 확인해 주세요.')+'</p></span><span class="notice-meta"><time>'+fmt(row.createdAt)+'</time><span>→</span></span></button>';
+  }
+  function showState(text){
+    feed.innerHTML='<div class="date-head"><b>알림</b><span>—</span></div><div class="empty-filter" style="display:grid">'+esc(text)+'</div>';
+    document.querySelector('.unread-count').textContent='—';
+    document.querySelector('.side-count').textContent='—';
+    document.querySelector('.bell i').textContent='0';
+  }
+  function render(rows,unreadCount){
+    feed.innerHTML='<div class="date-head"><b>최근 알림</b><span>새 알림부터 보여드려요.</span></div>'+rows.map(itemHTML).join('')+'<div class="empty-filter">표시할 알림이 없습니다.</div>';
+    document.querySelector('.unread-count').textContent=unreadCount+'개';
+    document.querySelector('.side-count').textContent=unreadCount;
+    document.querySelector('.bell i').textContent=unreadCount;
+    document.querySelector('.bell').setAttribute('aria-label','새 알림 '+unreadCount+'개');
+    document.querySelectorAll('[data-summary]').forEach(badge=>{
+      const count=rows.filter(row=>row.readAt==null&&row.category===badge.dataset.summary).length;
+      badge.textContent=count;
+      badge.classList.toggle('hot',count>0);
+    });
+  }
+  async function load(){
+    showState('불러오는 중...');
+    const result=await bridge.listNotifications();
+    if(result.mode==='auth-required'){showState(result.status===403?'본인 확인된 입주민만 알림함을 볼 수 있습니다.':'로그인이 필요합니다.');return}
+    if(result.mode==='error'){showState('알림함을 불러오지 못했습니다. 네트워크 상태를 확인해 주세요.');return}
+    render(result.notifications,result.unreadCount);
+  }
+  document.addEventListener('click',async function(ev){
+    const readAll=ev.target.closest('.read-all');
+    if(readAll){
+      ev.preventDefault();ev.stopImmediatePropagation();
+      const result=await bridge.markAllNotificationsRead();
+      if(!result.ok){showToast(result.mode==='auth-required'?(result.status===403?'본인 확인된 입주민만 알림을 처리할 수 있습니다.':'로그인 후 이용 가능합니다.'):'모두 읽음 처리에 실패했습니다.');return}
+      void load();
+      showToast('새 알림을 모두 읽음으로 표시했습니다.');
+      return;
+    }
+    const item=ev.target.closest('.notice-item[data-notification]');
+    if(item){
+      ev.preventDefault();ev.stopImmediatePropagation();
+      const result=await bridge.markNotificationRead(item.dataset.notification);
+      if(!result.ok){showToast(result.mode==='auth-required'?(result.status===403?'본인 확인된 입주민만 알림을 처리할 수 있습니다.':'로그인 후 이용 가능합니다.'):'알림 처리에 실패했습니다.');return}
+      item.classList.remove('unread');
+      updateCounts();
+    }
+  },true);
+  void load();
+})();
+</script>
 <script id="danjion-direct-router-v5">
 (function(){
 const SCREEN="notifications";
