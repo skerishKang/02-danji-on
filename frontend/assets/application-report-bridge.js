@@ -41,12 +41,23 @@ function clean(value) {
   return text || null;
 }
 
+function photoObjectKeysFrom(input) {
+  const raw = input?.photoObjectKeys;
+  if (raw === undefined || raw === null) return null;
+  if (!Array.isArray(raw)) return null;
+  return raw.map((entry) => String(entry ?? '').trim()).filter((entry) => entry.length > 0);
+}
+
 function ownerPayload(input, complexSlug) {
   const relationType = clean(input?.relationType);
   const businessName = clean(input?.businessName);
   const categoryName = clean(input?.categoryName);
   const serviceSummary = clean(input?.serviceSummary);
   if (!relationType || !OWNER_RELATIONS.has(relationType) || !businessName || !categoryName || !serviceSummary) return null;
+  const photoKeys = photoObjectKeysFrom(input);
+  const representativeImageObjectKey = photoKeys !== null
+    ? (photoKeys.length > 0 ? photoKeys[0] : null)
+    : clean(input?.representativeImageObjectKey);
   return {
     complexSlug,
     relationType,
@@ -58,7 +69,8 @@ function ownerPayload(input, complexSlug) {
     serviceArea: clean(input?.serviceArea),
     benefitText: clean(input?.benefitText),
     availabilityText: clean(input?.availabilityText),
-    representativeImageObjectKey: clean(input?.representativeImageObjectKey)
+    representativeImageObjectKey,
+    photoObjectKeys: photoKeys
   };
 }
 
@@ -81,6 +93,17 @@ function reportPayload(input, complexSlug) {
 
 export function normalizeOwnerApplication(row) {
   if (!row || typeof row !== 'object') return null;
+  const docs = [];
+  if (Array.isArray(row.documents)) {
+    for (const doc of row.documents) {
+      if (!doc || typeof doc !== 'object') continue;
+      docs.push({
+        objectKey: String(doc.objectKey ?? doc.object_key ?? ''),
+        kind: String(doc.kind ?? doc.document_kind ?? ''),
+        sortOrder: Number(doc.sortOrder ?? doc.sort_order ?? 0)
+      });
+    }
+  }
   return {
     id: String(row.id || ''),
     relationType: String(row.relation_type ?? row.relationType ?? ''),
@@ -93,6 +116,10 @@ export function normalizeOwnerApplication(row) {
     benefitText: row.benefit_text ?? row.benefitText ?? null,
     availabilityText: row.availability_text ?? row.availabilityText ?? null,
     representativeImageObjectKey: row.representative_image_object_key ?? row.representativeImageObjectKey ?? null,
+    photoObjectKeys: Array.isArray(row.photoObjectKeys)
+      ? row.photoObjectKeys.map((k) => String(k ?? '')).filter((k) => k.length > 0)
+      : [],
+    documents: docs,
     status: String(row.status || ''),
     reviewNote: row.review_note ?? row.reviewNote ?? null,
     approvedBusinessId: row.approved_business_id ?? row.approvedBusinessId ?? null,

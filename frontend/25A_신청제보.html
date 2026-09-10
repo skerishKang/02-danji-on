@@ -24,6 +24,7 @@ button,input,textarea,select{font:inherit;color:inherit}
 .upload-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.upload{border:1px dashed #9f978b;padding:18px;min-height:124px;background:#fff}.upload b{display:block;margin-bottom:7px}.upload p{margin:0 0 12px;font-size:13px;line-height:1.55;color:var(--muted)}.upload input[type=file]{width:100%;font-size:13px}.file-status{display:block;margin-top:8px;font-size:12px;color:var(--green);font-weight:800}
 .notice{background:#f1e9dc;padding:18px 20px;font-size:14px;line-height:1.75}.notice strong{color:var(--navy)}
 .actions{display:flex;justify-content:center;padding:27px}.submit{min-width:240px;min-height:58px;border:0;background:var(--coral);color:#fff;font-size:17px;font-weight:950}.toast{position:fixed;left:50%;bottom:30px;transform:translate(-50%,20px);opacity:0;background:var(--ink);color:#fff;padding:13px 18px;font-size:13px;font-weight:800;transition:.22s;pointer-events:none}.toast.show{opacity:1;transform:translate(-50%,0)}
+.photo-gallery-wrap{margin:18px 0 0;padding:14px 12px;background:#fff;border:1px solid var(--line);border-radius:8px}.photo-gallery{display:flex;flex-wrap:wrap;gap:10px;align-items:center}.photo-thumb{position:relative;width:96px;height:72px;border:1px solid var(--line);border-radius:6px;overflow:hidden;background:#f2ede3}.photo-thumb img{width:100%;height:100%;object-fit:cover;display:block}.photo-remove{position:absolute;top:2px;right:2px;border:0;background:rgba(16,29,48,.55);color:#fff;font-size:16px;line-height:1;cursor:pointer;border-radius:50%;width:22px;height:22px}
 .mode-report .owner-only{display:none}.mode-owner .report-only{display:none}.other-field[hidden]{display:none}
 @media(max-width:680px){.wrap{width:min(100% - 28px,980px);padding-top:26px}.upload-grid,.field-grid{grid-template-columns:1fr}.wide{grid-column:auto}.section{padding:22px 18px}.actions{padding:22px 18px}.submit{width:100%}.title{font-size:43px}.lead{font-size:16px}.brand small{display:none}}
 </style>
@@ -140,6 +141,7 @@ body{min-height:100vh;overflow-x:hidden}.request-underlay{position:fixed;inset:0
 <label class="upload owner-only"><b>추가 참고자료</b><p>가격표·메뉴판·소개 이미지 등 사진 외에 꼭 필요한 자료가 있을 때만 첨부</p><input accept=".pdf,.jpg,.jpeg,.png,.webp,.hwp,.hwpx,application/pdf,image/*" id="extraDocs" multiple="" name="extraDocs" type="file"/><span class="file-status" id="extraDocsStatus">선택된 파일 없음</span></label>
 <div class="upload report-only"><b>제보자는 확인서류가 없어도 됩니다.</b><p>사진이 있으면 최대 3장까지 첨부해 주세요. 사업자등록증·허가증·자격증 등 확인서류는 가게 운영자가 <b>ceo@padiem.net</b> 으로 별도 제출합니다.</p></div>
 </div>
+<div class="photo-gallery-wrap" id="photoGalleryWrap"><div id="photoGallery" class="photo-gallery"></div><p class="hint">대표 사진은 갤러리의 첫 번째 사진으로 사용됩니다. 썸네일 클릭 시 삭제할 수 있습니다.</p></div>
 </section>
 <div class="actions"><button class="submit" id="submitBtn" type="submit">등록 신청하기</button></div>
 </form>
@@ -169,11 +171,46 @@ ownerRelation.addEventListener('change',()=>toggleEtc(ownerRelation,ownerEtcWrap
 reportRelation.addEventListener('change',()=>toggleEtc(reportRelation,reportEtcWrap,reportEtc));
 owner.onclick=()=>setMode('owner');report.onclick=()=>setMode('report');
 
-const photos=document.querySelector('#photos'),photoStatus=document.querySelector('#photoStatus');
-photos.addEventListener('change',()=>{
-  if(photos.files.length>3){alert('가게 사진은 최대 3장까지 첨부할 수 있습니다.');photos.value='';}
-  photoStatus.textContent=`${photos.files.length} / 3장`;
-});
+const MAX_PHOTOS=3;
+const photosInput=document.querySelector('#photos'),photoStatus=document.querySelector('#photoStatus'),photoGallery=document.querySelector('#photoGallery');
+const pendingFiles=[];
+const photoObjectKeys=[];
+function danjionImageSrc(objectKey){const base=danjionApiBase();return base?`${base}/api/v1/storage/public?objectKey=${encodeURIComponent(objectKey)}`:''}
+function renderPhotoGallery(){
+  photoGallery.innerHTML='';
+  const allKeys=[...photoObjectKeys];
+  for(let i=0;i<pendingFiles.length;i++){allKeys.push('__pending__:'+pendingFiles[i].name)}
+  allKeys.forEach((key,i)=>{
+    const wrap=document.createElement('div');wrap.className='photo-thumb';
+    const img=document.createElement('img');
+    if(String(key).startsWith('__pending__:')){
+      const fileKey=String(key).slice(11);
+      const isPending=pendingFiles.findIndex((f)=>f.name===fileKey);
+      if(isPending>=0){img.src=URL.createObjectURL(pendingFiles[isPending]);img.alt=fileKey}
+    }else{
+      img.src=danjionImageSrc(key);img.alt='사진';
+    }
+    img.loading='lazy';img.onclick=()=>removePhoto(i);
+    const btn=document.createElement('button');btn.type='button';btn.className='photo-remove';btn.setAttribute('aria-label',`사진 ${i+1} 삭제`);btn.textContent='×';btn.onclick=()=>removePhoto(i);
+    wrap.appendChild(img);wrap.appendChild(btn);photoGallery.appendChild(wrap);
+  });
+  photoStatus.textContent=`${allKeys.length} / ${MAX_PHOTOS}장`;
+}
+function removePhoto(index){
+  if(index<photoObjectKeys.length){photoObjectKeys.splice(index,1)}else{pendingFiles.splice(index-photoObjectKeys.length,1)}
+  renderPhotoGallery();
+}
+photosInput.addEventListener('change',()=>{
+  const incoming=Array.from(photosInput.files||[]);
+  const remaining=MAX_PHOTOS-(photoObjectKeys.length+pendingFiles.length);
+  if(incoming.length>remaining){alert(`가게 사진은 최대 ${MAX_PHOTOS}장까지 첨부할 수 있습니다.`);photosInput.value='';return}
+  for(const file of incoming){if(!file.type.startsWith('image/')){alert('이미지 파일만 첨부할 수 있습니다.');photosInput.value='';return}}
+  pendingFiles.push(...incoming);
+  if(pendingFiles.length+photoObjectKeys.length>MAX_PHOTOS){pendingFiles.splice(MAX_PHOTOS-photoObjectKeys.length)}
+  photosInput.value='';
+  renderPhotoGallery();
+})
+function loadExistingPhotos(keys){photoObjectKeys.length=0;photoObjectKeys.push(...keys);renderPhotoGallery()}
 function bindFile(inputId,statusId,max=null){
   const input=document.querySelector(inputId),status=document.querySelector(statusId);
   input.addEventListener('change',()=>{
@@ -231,24 +268,26 @@ f.addEventListener('submit',async e=>{
   const serviceSummary=ownerInput('servicePrice');
   if(!relationType){showToast('선택한 관계로는 아직 서버 신청을 연결할 수 없습니다.');return}
   if(!businessName||!categoryName||!serviceSummary){showToast('필수 항목을 다시 확인해 주세요.');return}
-  const photoFiles=Array.from(photos.files||[]);
-  if(photoFiles.length>1){showToast('서버 신청은 대표 사진 1장까지 연결됩니다. 대표 사진 1장만 선택해 주세요.');return}
-  __ownerSubmitting=true;
-  try{
-    const bridge=await ensureApplicationReportBridge();
-    let representativeImageObjectKey=null;
-    if(photoFiles.length===1){
-      const upload=await uploadBusinessImage(photoFiles[0]);
-      if(!upload.ok){
-        showToast(upload.reason==='auth-required'?'로그인 후 이용 가능합니다.':'사진 업로드에 실패했습니다. 잠시 후 다시 시도해 주세요.');
-        return;
-      }
-      representativeImageObjectKey=upload.objectKey;
-    }
-    const result=await bridge.createOwnerApplication({relationType,businessName,categoryName,serviceSummary,
-      priceText:serviceSummary,serviceArea:ownerInput('locationUse'),benefitText:ownerInput('benefit'),
-      availabilityText:ownerInput('hours'),contactMethod:ownerInput('contact'),representativeImageObjectKey},
-      {idempotencyKey:ownerSubmissionKey()});
+   __ownerSubmitting=true;
+   try{
+     const bridge=await ensureApplicationReportBridge();
+     const uploadedKeys=[];
+     for(const file of pendingFiles){
+       const upload=await uploadBusinessImage(file);
+       if(!upload.ok){
+         showToast(upload.reason==='auth-required'?'로그인 후 이용 가능합니다.':'사진 업로드에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+         return;
+       }
+       uploadedKeys.push(upload.objectKey);
+     }
+      const finalPhotoKeys=[...photoObjectKeys,...uploadedKeys];
+      pendingFiles.length=0;
+      photoObjectKeys.push(...uploadedKeys);
+      renderPhotoGallery();
+      const result=await bridge.createOwnerApplication({relationType,businessName,categoryName,serviceSummary,
+       priceText:serviceSummary,serviceArea:ownerInput('locationUse'),benefitText:ownerInput('benefit'),
+       availabilityText:ownerInput('hours'),contactMethod:ownerInput('contact'),photoObjectKeys:finalPhotoKeys},
+       {idempotencyKey:ownerSubmissionKey()});
     if(!result.ok){
       showToast(result.reason==='auth-required'?'로그인 후 이용 가능합니다.':'접수를 완료하지 못했습니다. 잠시 후 다시 시도해 주세요.');
       return;

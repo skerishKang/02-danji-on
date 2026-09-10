@@ -19,12 +19,16 @@ function response(status, data) {
 {
   const row = normalizeOwnerApplication({
     id: UUID_A, relation_type: 'resident', business_name: '내 가게', category_name: '생활서비스',
-    service_summary: '설명', status: 'pending', submission_key: 'owner-key-123', idempotency_replayed: true
+    service_summary: '설명', status: 'pending', submission_key: 'owner-key-123', idempotency_replayed: true,
+    photoObjectKeys: ['gdrive/public/business-image/a', 'gdrive/public/business-image/b'],
+    representative_image_object_key: 'gdrive/public/business-image/a'
   });
   assert.equal(row.relationType, 'resident');
   assert.equal(row.businessName, '내 가게');
   assert.equal(row.submissionKey, 'owner-key-123');
   assert.equal(row.idempotencyReplayed, true);
+  assert.deepEqual(row.photoObjectKeys, ['gdrive/public/business-image/a', 'gdrive/public/business-image/b']);
+  assert.equal(row.representativeImageObjectKey, 'gdrive/public/business-image/a');
 }
 
 {
@@ -53,6 +57,59 @@ function response(status, data) {
   assert.equal(calls[0].init.credentials, 'include');
   assert.equal(calls[0].init.headers['idempotency-key'], 'owner-key-123');
   assert.equal(JSON.parse(calls[0].init.body).complexSlug, 'banglim-myeongji-roadhill');
+}
+
+{
+  const calls = [];
+  const fetchImpl = async (url, init = {}) => {
+    calls.push({ url, init });
+    if (url.endsWith('/api/v1/me/business-applications') && init.method === 'POST') {
+      return response(201, { data: { id: UUID_A, relation_type: 'resident', business_name: '내 가게', category_name: '생활서비스', service_summary: '설명', status: 'pending', photoObjectKeys: ['gdrive/public/business-image/a', 'gdrive/public/business-image/b'], representative_image_object_key: 'gdrive/public/business-image/a' } });
+    }
+    throw new Error(`unexpected ${url}`);
+  };
+  const bridge = createApplicationReportBridge({ apiBase: 'https://api.example', fetchImpl });
+  const result = await bridge.createOwnerApplication({
+    relationType: 'resident', businessName: '내 가게', categoryName: '생활서비스', serviceSummary: '설명',
+    photoObjectKeys: ['gdrive/public/business-image/a', 'gdrive/public/business-image/b']
+  });
+  assert.equal(result.ok, true);
+  const body = JSON.parse(calls[0].init.body);
+  assert.deepEqual(body.photoObjectKeys, ['gdrive/public/business-image/a', 'gdrive/public/business-image/b']);
+  assert.equal(body.representativeImageObjectKey, 'gdrive/public/business-image/a', 'representative must mirror photoObjectKeys[0]');
+  assert.deepEqual(result.data.photoObjectKeys, ['gdrive/public/business-image/a', 'gdrive/public/business-image/b']);
+}
+
+{
+  const calls = [];
+  const fetchImpl = async (url, init = {}) => {
+    calls.push({ url, init });
+    return response(201, { data: { id: UUID_A, relation_type: 'resident', business_name: '내 가게', category_name: '생활서비스', service_summary: '설명', status: 'pending' } });
+  };
+  const bridge = createApplicationReportBridge({ apiBase: 'https://api.example', fetchImpl });
+  await bridge.createOwnerApplication({
+    relationType: 'resident', businessName: '내 가게', categoryName: '생활서비스', serviceSummary: '설명',
+    photoObjectKeys: [], representativeImageObjectKey: 'gdrive/public/business-image/stale'
+  });
+  const emptyBody = JSON.parse(calls[0].init.body);
+  assert.deepEqual(emptyBody.photoObjectKeys, [], 'empty gallery must be sent as authoritative []');
+  assert.equal(emptyBody.representativeImageObjectKey, null, 'empty gallery must clear representative even if a stale one was passed');
+}
+
+{
+  const calls = [];
+  const fetchImpl = async (url, init = {}) => {
+    calls.push({ url, init });
+    return response(201, { data: { id: UUID_A, relation_type: 'resident', business_name: '내 가게', category_name: '생활서비스', service_summary: '설명', status: 'pending' } });
+  };
+  const bridge = createApplicationReportBridge({ apiBase: 'https://api.example', fetchImpl });
+  await bridge.createOwnerApplication({
+    relationType: 'resident', businessName: '내 가게', categoryName: '생활서비스', serviceSummary: '설명',
+    representativeImageObjectKey: 'gdrive/public/business-image/legacy'
+  });
+  const legacyBody = JSON.parse(calls[0].init.body);
+  assert.equal(legacyBody.photoObjectKeys, null, 'omitted gallery must stay null so the legacy representative contract is untouched');
+  assert.equal(legacyBody.representativeImageObjectKey, 'gdrive/public/business-image/legacy');
 }
 
 {
