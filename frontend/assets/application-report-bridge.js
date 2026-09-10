@@ -2,6 +2,10 @@ export const DANJION_COMPLEX_SLUG = 'banglim-myeongji-roadhill';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const OWNER_RELATIONS = new Set(['resident', 'resident_family', 'neighbor', 'local']);
+// #341: the canonical owner raw relation. The bridge forwards it verbatim —
+// no frontend pre-resolution (self -> resident / family -> resident_family is
+// server-side authority) and no co/etc inference.
+const OWNER_RELATION_RAW = new Set(['self', 'co', 'family', 'etc']);
 
 function joinUrl(base, path) {
   const root = String(base || '').replace(/\/+$/, '');
@@ -48,18 +52,24 @@ function photoObjectKeysFrom(input) {
 }
 
 function ownerPayload(input, complexSlug) {
+  const relationRaw = clean(input?.relationRaw);
   const relationType = clean(input?.relationType);
   const businessName = clean(input?.businessName);
   const categoryName = clean(input?.categoryName);
   const serviceSummary = clean(input?.serviceSummary);
-  if (!relationType || !OWNER_RELATIONS.has(relationType) || !businessName || !categoryName || !serviceSummary) return null;
+  if (!businessName || !categoryName || !serviceSummary) return null;
+  if (relationRaw) {
+    if (!OWNER_RELATION_RAW.has(relationRaw)) return null;
+  } else if (!relationType || !OWNER_RELATIONS.has(relationType)) {
+    return null;
+  }
   const photoKeys = photoObjectKeysFrom(input);
   const representativeImageObjectKey = photoKeys !== null
     ? (photoKeys.length > 0 ? photoKeys[0] : null)
     : clean(input?.representativeImageObjectKey);
   return {
     complexSlug,
-    relationType,
+    ...(relationRaw ? { relationRaw } : { relationType }),
     businessName,
     categoryName,
     serviceSummary,
@@ -122,6 +132,8 @@ export function normalizeOwnerApplication(row) {
   return {
     id: String(row.id || ''),
     relationType: String(row.relation_type ?? row.relationType ?? ''),
+    relationRaw: row.relation_raw ?? row.relationRaw ?? null,
+    resolvedRelationType: row.resolved_relation_type ?? row.resolvedRelationType ?? null,
     businessName: String(row.business_name ?? row.businessName ?? ''),
     categoryName: String(row.category_name ?? row.categoryName ?? ''),
     serviceSummary: String(row.service_summary ?? row.serviceSummary ?? ''),

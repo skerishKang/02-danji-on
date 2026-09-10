@@ -61,7 +61,8 @@ async function requireManager(sql: Sql, actorId: string, complexSlug: string, re
 
 async function applicationContext(sql: Sql, applicationId: string) {
   const rows = await sql`
-    select a.id, a.status, a.approved_business_id, a.category_name, c.slug as complex_slug
+    select a.id, a.status, a.approved_business_id, a.category_name, c.slug as complex_slug,
+           a.relation_type, a.relation_raw, a.resolved_relation_type
     from business_applications a
     join complexes c on c.id = a.complex_id
     where a.id = ${applicationId}::uuid
@@ -103,6 +104,8 @@ async function approveApplication(sql: Sql, actorId: string, applicationId: stri
           approved_business_id = coalesce(a.approved_business_id, gen_random_uuid())
       where a.id = ${applicationId}::uuid
         and a.status in ('pending','changes_requested')
+        and a.relation_type is not null
+        and a.resolved_relation_type is not null
         and exists (
           select 1 from business_categories bc
           where bc.name = a.category_name
@@ -197,6 +200,16 @@ async function patchApplication(request: Request, sql: Sql, actor: Actor, applic
     const categoryError = await resolveApprovalCategory(sql, String(current.category_name ?? ''));
     if (categoryError) {
       return fail(categoryError.code, categoryError.message, 409, requestId);
+    }
+    // #341: approval fails closed while the owner relation is unresolved
+    // (co/etc intake). No co -> neighbor and no etc -> * inference here.
+    if (!current.relation_type || !current.resolved_relation_type) {
+      return fail(
+        'RELATION_NOT_RESOLVED',
+        'Owner relation is unresolved; approval fails closed until a reviewer resolution path exists',
+        409,
+        requestId
+      );
     }
     const approved = await approveApplication(sql, actor.id, applicationId, reviewNote);
     if (approved) return ok(approved, requestId);
