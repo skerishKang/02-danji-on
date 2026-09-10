@@ -191,6 +191,7 @@ let __applicationReportBridge=null;
 let __applicationReportComplexSlug='';
 let __ownerSubmissionKey=null;
 let __ownerSubmitting=false;
+let __reportSubmitting=false;
 function danjionApiBase(){return (new URLSearchParams(location.search).get('apiBase')||'').replace(/\/+$/,'')}
 async function ensureApplicationReportBridge(){
   if(__applicationReportBridge)return __applicationReportBridge;
@@ -217,12 +218,50 @@ async function uploadBusinessImage(file){
     return objectKey?{ok:true,objectKey}:{ok:false,reason:'server-error'};
   }catch(_){return {ok:false,reason:'network-error'}}
 }
+// Report R-B lane (backend #308 is authority): raw relation text is always
+// preserved (family/neighbor/nearby/etc untouched, nearby never mapped to
+// local), category is never synthesized, price/hours/detail are forwarded.
+// Server success is claimed only after a real createRecommendation success;
+// 4xx/5xx/network failures never show a success toast.
+function reportInput(name){const el=f.elements[name];return el?String(el.value||'').trim():''}
+async function submitReport(){
+  if(!danjionApiBase()){
+    showToast('제보 내용 확인 완료 · 실제 제출 연결 시 서류는 ceo@padiem.net 으로 받습니다.');
+    return;
+  }
+  if(__reportSubmitting) return;
+  const businessName=reportInput('reportShopName');
+  const serviceSummary=reportInput('reportWhat');
+  const relationRaw=reportInput('reportRelation');
+  if(!businessName||!serviceSummary||!relationRaw){showToast('필수 항목을 다시 확인해 주세요.');return}
+  let relationDetail='';
+  if(relationRaw==='etc'){
+    relationDetail=reportInput('reportRelationEtc');
+    if(!relationDetail){showToast('필수 항목을 다시 확인해 주세요.');return}
+  }
+  __reportSubmitting=true;
+  try{
+    const bridge=await ensureApplicationReportBridge();
+    const result=await bridge.createRecommendation({relationRaw,businessName,serviceSummary,
+      serviceArea:reportInput('reportLocation'),reporterNote:reportInput('reportReason'),
+      relationDetail,reportPrice:reportInput('reportPrice'),reportHours:reportInput('reportHours')});
+    if(!result.ok){
+      showToast(result.reason==='auth-required'?'로그인 후 이용 가능합니다.':'접수를 완료하지 못했습니다. 잠시 후 다시 시도해 주세요.');
+      return;
+    }
+    showToast('제보가 접수됐습니다. 확인 후 등록됩니다.');
+  }finally{__reportSubmitting=false}
+}
 f.addEventListener('submit',async e=>{
   e.preventDefault();
   if(!f.reportValidity()) return;
   const isReport=f.classList.contains('mode-report');
-  if(isReport||!danjionApiBase()){
-    showToast(isReport?'제보 내용 확인 완료 · 실제 제출 연결 시 서류는 ceo@padiem.net 으로 받습니다.':'입력·파일 선택 확인 완료 · 서버 제출 연결 전 검토용 화면입니다.');
+  if(isReport){
+    await submitReport();
+    return;
+  }
+  if(!danjionApiBase()){
+    showToast('입력·파일 선택 확인 완료 · 서버 제출 연결 전 검토용 화면입니다.');
     return;
   }
   if(__ownerSubmitting) return;

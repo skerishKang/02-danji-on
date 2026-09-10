@@ -157,9 +157,13 @@ function response(status, data) {
   const bridge = createApplicationReportBridge({ fetchImpl: async () => { called += 1; return response(500, {}); } });
   const invalidOwner = await bridge.createOwnerApplication({ relationType: 'alien', businessName: 'x', categoryName: 'x', serviceSummary: 'x' });
   assert.equal(invalidOwner.reason, 'validation-error');
-  const invalidReport = await bridge.createRecommendation({ relationType: 'resident', businessName: 'x', categoryName: 'x', serviceSummary: 'x' });
+  // Report R-B (#308): raw relation text is always preserved, so any
+  // non-empty raw passes client validation; empty/missing fields fail.
+  const invalidReport = await bridge.createRecommendation({ relationRaw: '', businessName: 'x', serviceSummary: 'x' });
   assert.equal(invalidReport.reason, 'validation-error');
-  assert.equal(called, 0, 'invalid owner/report relation must fail before network');
+  const invalidReport2 = await bridge.createRecommendation({ relationRaw: 'neighbor', businessName: '', serviceSummary: 'x' });
+  assert.equal(invalidReport2.reason, 'validation-error');
+  assert.equal(called, 0, 'invalid owner/report payload must fail before network');
 }
 
 {

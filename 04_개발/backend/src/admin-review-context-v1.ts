@@ -28,6 +28,22 @@ function fail(code: string, message: string, status: number, requestId: string):
   return json({ error: { code, message }, requestId }, status, requestId);
 }
 
+// GAP-4: the reviewer must see the full persisted gallery, not only the
+// representative mirror. The read is scoped to one application and ordered by
+// sort_order, so the result is deterministic. A database failure propagates to
+// the caller (fail closed) instead of silently downgrading the response to a
+// representative-only view; an empty array is returned only when the read
+// succeeded and the application genuinely has no gallery rows.
+export async function readApplicationPhotoGallery(sql: Sql, applicationId: string): Promise<string[]> {
+  const rows = await sql`
+    select object_key
+    from business_application_photos
+    where application_id = ${applicationId}::uuid
+    order by sort_order asc
+  `;
+  return rows.map((row) => String((row as { object_key?: string }).object_key ?? '')).filter((key) => key.length > 0);
+}
+
 export async function handleAdminReviewContextRequest(request: Request, env: CoreEnv, requestId: string): Promise<Response | null> {
   const path = new URL(request.url).pathname;
   const match = path.match(/^\/api\/v1\/admin\/business-applications\/([0-9a-fA-F-]+)\/review-context$/);
@@ -82,6 +98,8 @@ export async function handleAdminReviewContextRequest(request: Request, env: Cor
   );
   if (operator instanceof Response) return operator;
 
+  const photoObjectKeys = await readApplicationPhotoGallery(sql, String(row.id));
+
   return ok({
     id: row.id,
     status: row.status,
@@ -96,6 +114,7 @@ export async function handleAdminReviewContextRequest(request: Request, env: Cor
       benefitText: row.benefit_text,
       representativeImageObjectKey: row.representative_image_object_key
     },
+    photoObjectKeys,
     reviewBasis: {
       applicantDisplayName: row.applicant_name,
       relationType: row.relation_type,

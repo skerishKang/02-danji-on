@@ -62,15 +62,15 @@ assert.match(html, /r\.mode==='auth-required'\?'로그인 후 이용 가능합�
 assert.doesNotMatch(html, /danjion:demo:reviews|localStorage\.(get|set)Item\([^)]*review/i,
   'reviews must never be fake-persisted to localStorage as a success stand-in');
 
-/* --- F/G/H. 25A owner form: real bridge wiring, report lane never fakes server success, no coercion --- */
+/* --- F/G/H. 25A owner form: real bridge wiring, report lane allows bridge.createRecommendation, no coercion --- */
 assert.match(apply25a, /bridge\.createOwnerApplication\(/, 'F: owner submit must call the real bridge createOwnerApplication()');
 assert.match(apply25a, /idempotencyKey:ownerSubmissionKey\(\)/, 'F: owner submit must carry a stable idempotency key');
 assert.match(apply25a, /function ownerSubmissionKey\(\)\{if\(!__ownerSubmissionKey\)__ownerSubmissionKey='application:/,
   'F: submission key must be stable across retries (generated once, reset only on input change)');
-assert.match(apply25a, /if\(isReport\|\|!danjionApiBase\(\)\)/,
-  'G: report lane (and no-API demo mode) must return before any server write');
-assert.doesNotMatch(apply25a, /createRecommendation\(/,
-  'G: report lane must not be wired to a server success it cannot ground (no recommendation create call)');
+assert.match(apply25a, /if\(!danjionApiBase\(\)\)\{[\s\S]*?showToast\('제보 내용 확인 완료[\s\S]*?return;/,
+  'G: report lane with no apiBase must return early with a demo toast, no server write');
+assert.ok(apply25a.includes('createRecommendation'),
+  'G: report lane with apiBase must allow bridge.createRecommendation');
 assert.match(apply25a, /const OWNER_RELATION_MAP=\{self:'resident',family:'resident_family'\};/,
   'H: only the grounded owner relations may be mapped; co/etc must never be coerced to a backend enum');
 assert.doesNotMatch(apply25a, /OWNER_RELATION_MAP\s*=\s*\{[^}]*(co|etc):/,

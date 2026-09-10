@@ -76,9 +76,76 @@
 <nav aria-label="모바일 주요 메뉴" class="mobile-bottom"><button aria-label="홈" data-route="04_데일리홈.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><path d="m3 10 9-7 9 7v10h-6v-6H9v6H3z"></path></svg><span>홈</span></button><button aria-label="이웃가게" data-route="01_이웃가게_발견.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><path d="M4 7h16l-1 13H5L4 7Z"></path><path d="M8 7V5a4 4 0 0 1 8 0v2"></path></svg><span>이웃가게</span></button><button aria-label="우리단지" data-route="05_우리단지_첫화면.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><path d="M4 21V9l8-6 8 6v12"></path><path d="M8 13h8M8 17h8"></path></svg><span>우리단지</span></button><button aria-label="내정보" class="active" data-route="19_내정보_메인.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><circle cx="12" cy="8" r="4"></circle><path d="M4 21a8 8 0 0 1 16 0"></path></svg><span>내정보</span></button></nav><div class="toast" role="status"></div>
 <script>
     const toast=document.querySelector('.toast');let timer;function showToast(text){toast.textContent=text;toast.classList.add('show');clearTimeout(timer);timer=setTimeout(()=>toast.classList.remove('show'),1800)}document.querySelectorAll('[data-demo]').forEach(button=>button.addEventListener('click',()=>showToast(button.dataset.demo)));
-    let activeFilter='all';const rows=[...document.querySelectorAll('.mail-row')];const empty=document.querySelector('.empty-result');function apply(){const query=document.querySelector('.search input').value.trim().toLowerCase();let visible=0;rows.forEach(row=>{const kind=row.dataset.kind.split(' ');const matchesFilter=activeFilter==='all'||kind.includes(activeFilter);const matchesSearch=!query||row.dataset.search.toLowerCase().includes(query);row.hidden=!(matchesFilter&&matchesSearch);if(!row.hidden)visible++});empty.style.display=visible?'none':'block'}document.querySelectorAll('[data-filter]').forEach(button=>button.addEventListener('click',()=>{document.querySelectorAll('[data-filter]').forEach(item=>item.classList.remove('active'));button.classList.add('active');activeFilter=button.dataset.filter;apply()}));document.querySelector('[data-filter-shortcut]').addEventListener('click',()=>{document.querySelector('[data-filter="unread"]').click();document.querySelector('.inbox').scrollIntoView({behavior:'smooth',block:'start'})});document.querySelector('#searchForm').addEventListener('submit',event=>{event.preventDefault();apply()});document.querySelector('.search input').addEventListener('input',apply);
+    let activeFilter='all';const liveRows=()=>[...document.querySelectorAll('.mail-list .mail-row')];const empty=document.querySelector('.empty-result');function apply(){const query=document.querySelector('.search input').value.trim().toLowerCase();let visible=0;liveRows().forEach(row=>{const kind=row.dataset.kind.split(' ');const matchesFilter=activeFilter==='all'||kind.includes(activeFilter);const matchesSearch=!query||row.dataset.search.toLowerCase().includes(query);row.hidden=!(matchesFilter&&matchesSearch);if(!row.hidden)visible++});empty.style.display=visible?'none':'block'}document.querySelectorAll('[data-filter]').forEach(button=>button.addEventListener('click',()=>{document.querySelectorAll('[data-filter]').forEach(item=>item.classList.remove('active'));button.classList.add('active');activeFilter=button.dataset.filter;apply()}));document.querySelector('[data-filter-shortcut]').addEventListener('click',()=>{document.querySelector('[data-filter="unread"]').click();document.querySelector('.inbox').scrollIntoView({behavior:'smooth',block:'start'})});document.querySelector('#searchForm').addEventListener('submit',event=>{event.preventDefault();apply()});document.querySelector('.search input').addEventListener('input',apply);
     document.querySelectorAll('.mail-row').forEach(row=>row.addEventListener('click',()=>{row.classList.remove('unread');const count=row.querySelector('.unread-count');if(count)count.remove();showToast('대화 상세 디자인은 다음 한 페이지로 만듭니다.')}));const receive=document.querySelector('.toggle');receive.addEventListener('click',()=>{const on=receive.classList.toggle('on');receive.setAttribute('aria-checked',String(on));showToast(on?'새 메시지를 받습니다.':'새 메시지를 받지 않습니다.')});
   </script>
+<script src="assets/danjion-session.js"></script>
+<script src="assets/messages-notifications-bridge.js"></script>
+<script id="danjion-messages-list-live-wiring-330">
+(function(){
+  const apiBase=(window.DanjionSession&&DanjionSession.danjionApiBase())||'';
+  if(!apiBase)return;
+  const bridge=DanjionMessagesNotificationsBridge.createMessagesNotificationsBridge({apiBase});
+  const list=document.querySelector('.mail-list');
+  const empty=document.querySelector('.empty-result');
+  const strong=empty.querySelector('strong');
+  const note=empty.querySelector('span');
+  function esc(value){return String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]))}
+  function fmt(value){
+    if(!value)return '';
+    const date=new Date(value);
+    if(Number.isNaN(date.getTime()))return '';
+    return new Intl.DateTimeFormat('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}).format(date);
+  }
+  function showState(title,detail){list.innerHTML='';strong.textContent=title;note.textContent=detail;empty.style.display='block'}
+  function render(rows){
+    list.innerHTML=rows.map(row=>{
+      const kind=['live'];if(row.unreadCount>0)kind.push('unread');
+      const previewText=row.latestMessage?row.latestMessage.body:'아직 대화가 없습니다.';
+      const search=(row.participant.nickname+' '+previewText).toLowerCase();
+      return '<button class="mail-row'+(row.unreadCount>0?' unread':'')+'" data-kind="'+kind.join(' ')+'" data-search="'+esc(search)+'" data-conversation="'+esc(row.id)+'" type="button"><span class="avatar">'+esc(row.participant.nickname.slice(0,1)||'?')+'</span><span><span class="mail-top"><b>'+esc(row.participant.nickname)+'</b></span><span class="mail-subject">'+esc(previewText)+'</span><span class="mail-preview">1:1 대화</span></span><span class="mail-side"><time>'+fmt(row.latestMessage?row.latestMessage.createdAt:row.updatedAt)+'</time>'+(row.unreadCount>0?'<span class="unread-count">'+row.unreadCount+'</span>':'<span>→</span>')+'</span></button>';
+    }).join('');
+    const total=rows.length;
+    const unread=rows.reduce((sum,row)=>sum+row.unreadCount,0);
+    const allCount=document.querySelector('.filter[data-filter="all"] span');
+    const unreadCount=document.querySelector('.filter[data-filter="unread"] span');
+    if(allCount)allCount.textContent=String(total);
+    if(unreadCount)unreadCount.textContent=String(unread);
+    const railTitle=document.querySelector('.rail-card h2');
+    if(railTitle)railTitle.innerHTML='안 읽은 메시지<br/>'+unread+'개';
+    const summary=[...document.querySelectorAll('.summary div b')];
+    if(summary[0])summary[0].textContent=String(unread);
+    if(summary[1])summary[1].parentElement.style.display='none';
+    empty.style.display=total?'none':'block';
+    strong.textContent='아직 대화가 없습니다.';
+    note.textContent='주민 프로필이나 가게 상세에서 대화를 시작할 수 있어요.';
+  }
+  async function load(){
+    showState('불러오는 중...','메시지함을 확인하고 있습니다.');
+    const result=await bridge.listConversations();
+    if(result.mode==='auth-required'){
+      showState(result.status===403?'본인 확인된 입주민만 메시지함을 볼 수 있습니다.':'로그인이 필요합니다.',result.status===403?'우리집 연결(26)에서 입주민 확인을 마쳐 주세요.':'로그인 후 다시 시도해 주세요.');
+      const railTitle=document.querySelector('.rail-card h2');
+      if(railTitle)railTitle.innerHTML='안 읽은 메시지<br/>—';
+      return;
+    }
+    if(result.mode==='error'){showState('메시지함을 불러오지 못했습니다.','네트워크 상태를 확인한 뒤 다시 시도해 주세요.');return}
+    render(result.conversations);
+  }
+  document.addEventListener('click',function(ev){
+    const row=ev.target.closest('.mail-row[data-conversation]');
+    if(!row)return;
+    ev.preventDefault();ev.stopImmediatePropagation();
+    location.href='21_메시지_대화상세.html?apiBase='+encodeURIComponent(apiBase)+'&conversation='+encodeURIComponent(row.dataset.conversation);
+  },true);
+  const receive=document.querySelector('.receive .toggle');
+  receive.addEventListener('click',function(ev){
+    ev.preventDefault();ev.stopImmediatePropagation();
+    showToast('수신 여부는 서버에 저장되지 않습니다. 알림 설정은 24 설정 화면에서 관리됩니다.');
+  },true);
+  void load();
+})();
+</script>
 <script id="danjion-direct-router-v5">
 (function(){
 const SCREEN="messages";
