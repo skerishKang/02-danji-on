@@ -64,5 +64,12 @@ assert.match(workflow, /Production health \+ Better Auth JWKS smoke: PASS/);
 assert.match(workflow, /Real phone OTP delivery: HOLD \/ Issue #235/);
 assert.doesNotMatch(workflow, /PADIEM_CONTACT_DELIVERY:/, 'bootstrap must not invent a real phone delivery binding');
 assert.doesNotMatch(workflow, /set -x/, 'production workflow must never shell-trace secret-bearing commands');
+assert.match(workflow, /production-migration-gate\.mjs/, 'workflow must run the guarded migration gate script');
+assert.match(workflow, /test:migration-gate/, 'workflow must run the migration gate test');
+assert.match(workflow, /prohibited/i, 'workflow must exclude prohibited dev seeds from the apply set');
+assert.match(workflow, /target_sha/, 'workflow must record target Worker SHA');
+assert.match(workflow, /Applied-state readback|applied-state readback/, 'gate must derive applied state from production DB readback');
+assert.match(workflow, /--confirm-apply/, 'migration apply must require explicit authorization');
+assert.match(workflow, /Required production schema is not fully applied; refusing Worker deploy/, 'deploy must fail closed until schema readback passes');
 
 console.log('Production bootstrap safety contract: PASS');

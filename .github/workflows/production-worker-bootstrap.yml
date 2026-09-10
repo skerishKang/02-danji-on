@@ -8,6 +8,21 @@ on:
         required: true
         default: false
         type: boolean
+      migration_dry_run:
+        description: 'Reconcile migrations in read-only mode; plan only, never apply'
+        required: false
+        default: true
+        type: boolean
+      migration_apply_confirmed:
+        description: 'Explicitly authorize applying pending production-safe migrations'
+        required: false
+        default: false
+        type: boolean
+      include_production_seed:
+        description: 'Include production seed migrations (e.g. 042) in the apply set'
+        required: false
+        default: false
+        type: boolean
   push:
     branches:
       - main
@@ -26,7 +41,7 @@ jobs:
     name: Guarded production Worker deploy
     if: >-
       (github.event_name == 'workflow_dispatch' && inputs.confirm_production) ||
-      (github.event_name == 'push' && contains(github.event.head_commit.message, '[production-bootstrap]'))
+      (github.event_name == 'push' && github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, '[production-bootstrap]'))
     runs-on: ubuntu-latest
     environment: production
     defaults:
@@ -61,6 +76,24 @@ jobs:
         run: |
           npm run typecheck
           npm run test:production-bootstrap-safety
+          npm run test:migration-gate
+
+      - name: Record release target SHA
+        id: release-target
+        shell: bash
+        run: |
+          set -euo pipefail
+          target_sha="${GITHUB_SHA:-$(git rev-parse HEAD)}"
+          echo "target_sha=${target_sha}" >> "$GITHUB_OUTPUT"
+          echo "Target Worker SHA: ${target_sha}"
+
+      - name: Migration inventory and classification (read-only)
+        id: migration-inventory
+        shell: bash
+        run: |
+          set -euo pipefail
+          export TARGET_SHA="${{ steps.release-target.outputs.target_sha }}"
+          node scripts/production-migration-gate.mjs inventory
 
       - name: Fail closed on missing GitHub deployment authority
         shell: bash
@@ -77,6 +110,76 @@ jobs:
             exit 1
           fi
           echo "Required production deployment inputs are present. Values were not printed."
+
+      - name: Production migration gate (applied-state readback, pending plan)
+        id: migration-gate
+        shell: bash
+        env:
+          DANJION_PRODUCTION_DB_URL: ${{ secrets.DANJION_PRODUCTION_DB_URL }}
+          MIGRATION_DRY_RUN: ${{ inputs.migration_dry_run }}
+          MIGRATION_APPLY_CONFIRMED: ${{ inputs.migration_apply_confirmed }}
+          INCLUDE_PRODUCTION_SEED: ${{ inputs.include_production_seed }}
+        run: |
+          set -euo pipefail
+          export TARGET_SHA="${{ steps.release-target.outputs.target_sha }}"
+          mode="dry-run"
+          if [ "${MIGRATION_DRY_RUN:-true}" != "true" ] && [ "${MIGRATION_APPLY_CONFIRMED:-false}" = "true" ]; then
+            mode="plan"
+          fi
+          gate_args=("$mode")
+          if [ "${INCLUDE_PRODUCTION_SEED:-false}" = "true" ]; then
+            gate_args+=("--include-production-seed")
+          fi
+          node scripts/production-migration-gate.mjs "${gate_args[@]}" | tee "${RUNNER_TEMP}/migration-plan.json"
+          apply_count="$(jq -r '.apply_set | length' "${RUNNER_TEMP}/migration-plan.json")"
+          pending_schema="$(jq -r '.pending_schema | length' "${RUNNER_TEMP}/migration-plan.json")"
+          prohibited="$(jq -r '.prohibited_excluded | join(",")' "${RUNNER_TEMP}/migration-plan.json")"
+          echo "apply_count=${apply_count}" >> "$GITHUB_OUTPUT"
+          echo "pending_schema=${pending_schema}" >> "$GITHUB_OUTPUT"
+          echo "prohibited_excluded=${prohibited}" >> "$GITHUB_OUTPUT"
+          echo "target_sha=${TARGET_SHA}" >> "$GITHUB_OUTPUT"
+          if [ "$mode" = "dry-run" ]; then
+            echo "Migration gate dry-run: PASS (no production mutation performed)"
+            echo "pending_apply_count=${apply_count}" >> "$GITHUB_OUTPUT"
+            echo "apply_authorized=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Migration gate plan: PASS (apply authorized by explicit inputs)"
+            echo "pending_apply_count=${apply_count}" >> "$GITHUB_OUTPUT"
+            echo "apply_authorized=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Apply pending production-safe migrations
+        if: steps.migration-gate.outputs.apply_authorized == 'true'
+        shell: bash
+        env:
+          DANJION_PRODUCTION_DB_URL: ${{ secrets.DANJION_PRODUCTION_DB_URL }}
+        run: |
+          set -euo pipefail
+          export TARGET_SHA="${{ steps.release-target.outputs.target_sha }}"
+          seed_args=()
+          if [ "${{ inputs.include_production_seed }}" = "true" ]; then
+            seed_args+=("--include-production-seed")
+          fi
+          node scripts/production-migration-gate.mjs apply --confirm-apply "${seed_args[@]}"
+
+      - name: Verify production schema readback before deploy
+        shell: bash
+        env:
+          DANJION_PRODUCTION_DB_URL: ${{ secrets.DANJION_PRODUCTION_DB_URL }}
+        run: |
+          set -euo pipefail
+          export TARGET_SHA="${{ steps.release-target.outputs.target_sha }}"
+          seed_args=()
+          if [ "${{ inputs.include_production_seed }}" = "true" ]; then
+            seed_args+=("--include-production-seed")
+          fi
+          node scripts/production-migration-gate.mjs dry-run "${seed_args[@]}" | tee "${RUNNER_TEMP}/migration-verify.json"
+          residual="$(jq -r '.pending_schema | length' "${RUNNER_TEMP}/migration-verify.json")"
+          if [ "$residual" != "0" ]; then
+            echo "::error::Required production schema is not fully applied; refusing Worker deploy."
+            exit 1
+          fi
+          echo "Production schema readback before deploy: PASS"
 
       - name: Verify Padiem Cloudflare account and private verification service
         shell: bash
@@ -211,10 +314,13 @@ jobs:
             echo ''
             echo '- Worker: `padiem-danjion-api-production`'
             echo '- Cloudflare account guard: PASS (`Padiem`)'
+            echo '- Target Worker SHA: `${{ steps.migration-gate.outputs.target_sha }}`'
+            echo '- Migration gate: PASS (pending schema: ${{ steps.migration-gate.outputs.pending_schema }}, apply set: ${{ steps.migration-gate.outputs.apply_count }})'
+            echo '- Prohibited dev seeds excluded from apply set: `${{ steps.migration-gate.outputs.prohibited_excluded }}`'
+            echo '- Production schema readback before deploy: PASS'
             echo '- Production DB health: PASS'
             echo '- Better Auth JWKS: PASS'
             echo '- Padiem contact-verification Service Binding: PRESENT'
-            echo '- Business-image background reconciliation: DISABLED'
             echo '- Real phone OTP delivery: HOLD / Issue #235'
             echo '- Secret values: NOT OUTPUT'
           } >> "$GITHUB_STEP_SUMMARY"
