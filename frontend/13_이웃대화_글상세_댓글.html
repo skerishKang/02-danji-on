@@ -111,4 +111,93 @@ commentList.addEventListener('submit',e=>{const f=e.target.closest('.reply-form'
 commentForm.addEventListener('submit',e=>{e.preventDefault();const v=commentText.value.trim();if(!v)return;comments.push({name:'연블리',level:'참여하는 이웃',text:v,replies:[]});commentText.value='';renderComments();commentList.lastElementChild?.scrollIntoView({behavior:'smooth',block:'center'})});
 renderComments();
 })();
+</script>
+<script src="assets/danjion-session.js"></script>
+<script src="assets/community-bridge.js"></script>
+<script id="danjion-community-detail-live-wiring-329">
+(()=>{
+ const apiBase=(window.DanjionSession&&DanjionSession.danjionApiBase())||'';
+ if(!apiBase)return;
+ const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+ const postId=(new URLSearchParams(location.search).get('post')||'').toLowerCase();
+ if(!UUID.test(postId))return;
+ const bridge=DanjionCommunityBridge.createCommunityBridge({apiBase});
+ const LABEL={resident_story:'단지이야기',question:'궁금해요',together:'같이해요'};
+ const CHIP={resident_story:'story',question:'question',together:'together'};
+ const likeBtn=document.getElementById('likeBtn'),likeCount=document.getElementById('likeCount');
+ const commentList=document.getElementById('commentList'),commentForm=document.getElementById('commentForm');
+ const commentText=document.getElementById('commentText'),backLink=document.getElementById('backLink');
+ const commentCount=document.getElementById('commentCount'),commentTitleCount=document.getElementById('commentTitleCount');
+ const foot=document.querySelector('.composer-foot small');
+ const HINT='서로 존중하는 말로 이야기해 주세요.';
+ let post=null,liked=false,count=0,busy=false,flashTimer=null;
+ function esc(value){return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+ function timeAgo(iso){
+  const t=Date.parse(iso||''); if(!Number.isFinite(t))return '';
+  const m=Math.floor((Date.now()-t)/60000);
+  if(m<1)return '방금 전'; if(m<60)return m+'분 전';
+  const h=Math.floor(m/60); if(h<24)return h+'시간 전';
+  const d=Math.floor(h/24); if(d<30)return d+'일 전';
+  return new Date(t).toLocaleDateString();
+ }
+ function flash(msg){foot.textContent=msg;clearTimeout(flashTimer);flashTimer=setTimeout(()=>{foot.textContent=HINT},4000)}
+ function failMessage(result){
+  if(result.mode==='auth-required')return '로그인이 만료되었습니다. 다시 로그인한 뒤 이용해 주세요.';
+  if(result.status===404)return '게시물을 찾을 수 없습니다.';
+  return '서버 연결에 실패했습니다. 잠시 후 다시 시도해 주세요.';
+ }
+ function renderLike(){
+  likeCount.textContent=count;
+  likeBtn.classList.toggle('liked',liked);
+  likeBtn.firstChild.textContent=liked?'♥ 공감 ':'♡ 공감 ';
+ }
+ async function loadPost(){
+  const result=await bridge.getPost(postId);
+  if(result.mode!=='server'||!result.post){
+   const msg=failMessage(result);
+   document.getElementById('title').textContent=msg;
+   document.getElementById('body').textContent='';
+   return;
+  }
+  post=result.post;liked=post.viewerLiked;count=post.reactionCount;
+  document.getElementById('typeLabel').textContent=LABEL[post.kind]||post.kind;
+  document.getElementById('avatar').textContent=post.author.nickname.slice(0,1);
+  document.getElementById('author').textContent=post.author.nickname;
+  document.getElementById('levelTime').textContent=timeAgo(post.publishedAt||post.createdAt);
+  document.getElementById('title').textContent=post.title;
+  document.getElementById('body').textContent=post.body;
+  renderLike();
+  if(CHIP[post.kind])backLink.href='12_이웃대화_첫화면.html?type='+CHIP[post.kind]+'&apiBase='+encodeURIComponent(apiBase);
+  loadComments();
+ }
+ async function loadComments(){
+  const result=await bridge.listComments(postId);
+  if(result.mode!=='server'){commentCount.textContent=post?post.commentCount:0;return}
+  commentList.innerHTML=result.comments.map(c=>`<li class="comment"><div class="comment-head"><b>${esc(c.author.nickname)}</b><time>${esc(timeAgo(c.publishedAt||c.createdAt))}</time></div><p>${esc(c.body)}</p>${c.status!=='published'?'<div class="comment-tools"><span>게시 대기 중</span></div>':''}</li>`).join('');
+  commentCount.textContent=result.comments.length;
+  commentTitleCount.textContent=result.comments.length;
+ }
+ document.addEventListener('click',ev=>{
+  if(!ev.target.closest('#likeBtn'))return;
+  ev.preventDefault();ev.stopImmediatePropagation();
+  if(!post||busy)return;
+  busy=true;
+  bridge.setReaction(postId,!liked).then(r=>{
+    if(r.ok&&r.mode==='server'){if(r.active!==liked){count+=r.active?1:-1;liked=r.active;renderLike()}}
+    else flash(failMessage(r));
+  }).finally(()=>{busy=false});
+ },true);
+ document.addEventListener('submit',ev=>{
+  if(ev.target!==commentForm)return;
+  ev.preventDefault();ev.stopImmediatePropagation();
+  const v=commentText.value.trim();
+  if(!v){flash('댓글을 입력해 주세요.');return}
+  if(v.length>300){flash('댓글은 300자까지 입력할 수 있습니다.');return}
+  bridge.addComment(postId,v).then(r=>{
+    if(r.ok&&r.mode==='server'){commentText.value='';loadComments()}
+    else flash(failMessage(r));
+  });
+ },true);
+ loadPost();
+})();
 </script></body></html>

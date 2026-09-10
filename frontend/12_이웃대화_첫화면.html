@@ -138,6 +138,62 @@ writeMain.addEventListener('click',writeTarget);mobileWrite.addEventListener('cl
 render();
 })();
 </script>
+<script src="assets/danjion-session.js"></script>
+<script src="assets/community-bridge.js"></script>
+<script id="danjion-community-list-live-wiring-329">
+(()=>{
+ const apiBase=(window.DanjionSession&&DanjionSession.danjionApiBase())||'';
+ if(!apiBase)return;
+ const bridge=DanjionCommunityBridge.createCommunityBridge({apiBase});
+ const list=document.getElementById('postList');
+ const KIND={story:'resident_story',question:'question',together:'together'};
+ const LABEL={resident_story:'단지이야기',question:'궁금해요',together:'같이해요'};
+ const CHIP={resident_story:'story',question:'question',together:'together'};
+ const WRITE={story:'15_단지이야기_글쓰기.html',question:'16_궁금해요_글쓰기.html',together:'17_같이해요_글쓰기.html'};
+ function esc(value){return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+ function timeAgo(iso){
+  const t=Date.parse(iso||''); if(!Number.isFinite(t))return '';
+  const m=Math.floor((Date.now()-t)/60000);
+  if(m<1)return '방금 전'; if(m<60)return m+'분 전';
+  const h=Math.floor(m/60); if(h<24)return h+'시간 전';
+  const d=Math.floor(h/24); if(d<30)return d+'일 전';
+  return new Date(t).toLocaleDateString();
+ }
+ function notice(text){return `<article class="post-row"><div class="post-title"><span class="type">알림</span><b>${esc(text)}</b></div></article>`}
+ function row(p){
+  return `<article class="post-row" data-type="${CHIP[p.kind]}">
+  <div class="author"><span class="avatar">${esc(p.author.nickname.slice(0,1))}</span><div><b>${esc(p.author.nickname)}</b><small>${esc(timeAgo(p.publishedAt||p.createdAt))}</small></div></div>
+  <div class="post-title"><span class="type">${LABEL[p.kind]}</span><a href="13_이웃대화_글상세_댓글.html?apiBase=${encodeURIComponent(apiBase)}&post=${encodeURIComponent(p.id)}">${esc(p.title)}</a></div>
+  <div class="meta-actions"><span>♡ 공감 ${p.reactionCount}</span><span>댓글 ${p.commentCount}</span></div></article>`;
+ }
+ async function loadServer(){
+  const topicEl=document.querySelector('.topic.active');
+  const selected=topicEl?topicEl.dataset.type:'hello';
+  const showAll=Boolean(document.querySelector('.all-filter.active'));
+  if(!showAll&&!KIND[selected]){
+   list.innerHTML=notice('가입인사 카테고리는 아직 서버 연동이 준비되지 않았습니다. 데모 화면으로만 제공합니다.');
+   return;
+  }
+  const result=showAll?await bridge.listPosts(null,{limit:50}):await bridge.listPosts(KIND[selected]);
+  if(result.mode!=='server'){
+   list.innerHTML=notice(result.mode==='auth-required'?'로그인이 만료되었습니다. 다시 로그인한 뒤 이용해 주세요.':'서버 연결에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+   return;
+  }
+  const posts=showAll?result.posts.filter(p=>LABEL[p.kind]):result.posts;
+  list.innerHTML=posts.length?posts.map(row).join(''):notice('아직 등록된 글이 없습니다.');
+ }
+ document.querySelectorAll('.topic,.all-filter').forEach(b=>b.addEventListener('click',()=>{setTimeout(loadServer,0)}));
+ document.addEventListener('click',ev=>{
+  const btn=ev.target.closest('#writeMain,#mobileWrite'); if(!btn)return;
+  const topicEl=document.querySelector('.topic.active');
+  const selected=topicEl?topicEl.dataset.type:'hello';
+  if(!WRITE[selected])return;
+  ev.preventDefault(); ev.stopImmediatePropagation();
+  location.href=WRITE[selected]+'?apiBase='+encodeURIComponent(apiBase);
+ },true);
+ loadServer();
+})();
+</script>
 <script id="danjion-direct-router-v5">
 (function(){
 const SCREEN="community";

@@ -72,4 +72,53 @@ main{width:min(760px,100%);margin:auto;padding:28px 20px 34px}.category{display:
  function publish(){save();if(!title.value.trim()){toast('제목을 입력해주세요.');title.focus();return}if(body.value.trim().length<5){toast('자세한 내용을 조금 더 적어주세요.');body.focus();return}const missing=[...dynamic.querySelectorAll('input[required]')].find(i=>!i.value.trim());if(missing){toast(missing.previousElementSibling?.textContent?.replace('필수','').trim()+'을(를) 입력해주세요.');missing.focus();return}delete drafts[selected];try{localStorage.setItem(key,JSON.stringify(drafts))}catch(e){}toast(data[selected].title+' 글을 게시했습니다.');setTimeout(()=>location.href=COMMUNITY,650)}document.querySelectorAll('[data-publish]').forEach(b=>b.addEventListener('click',publish));render();
 })();
 </script>
+<script src="assets/danjion-session.js"></script>
+<script src="assets/community-bridge.js"></script>
+<script id="danjion-community-write-together-live-wiring-329">
+(()=>{
+ const apiBase=(window.DanjionSession&&DanjionSession.danjionApiBase())||'';
+ if(!apiBase)return;
+ const bridge=DanjionCommunityBridge.createCommunityBridge({apiBase});
+ const title=document.getElementById('title'),body=document.getElementById('body');
+ const dynamic=document.getElementById('dynamicFields');
+ const key='danjionDraft:17:v2';
+ const COMMUNITY='12_이웃대화_첫화면.html?type=together&apiBase='+encodeURIComponent(apiBase);
+ function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(window.__toast);window.__toast=setTimeout(()=>t.classList.remove('show'),1700)}
+ function serverMessage(r){
+  if(r.mode==='auth-required')return '로그인이 만료되었습니다. 다시 로그인한 뒤 이용해 주세요.';
+  if(r.error&&r.error.message)return r.error.message;
+  return '서버 연결에 실패했습니다. 잠시 후 다시 시도해 주세요.';
+ }
+ function fieldLabel(input){return input.previousElementSibling?input.previousElementSibling.textContent.replace('필수','').trim():input.name}
+ function compose(){
+  const lines=[];
+  dynamic.querySelectorAll('input').forEach(i=>{const v=i.value.trim();if(v)lines.push(fieldLabel(i)+': '+v)});
+  return lines.length?body.value.trim()+'\n\n'+lines.join('\n'):body.value.trim();
+ }
+ let busy=false;
+ document.addEventListener('click',ev=>{
+  if(!ev.target.closest('[data-publish]'))return;
+  ev.preventDefault();ev.stopImmediatePropagation();
+  if(busy)return;
+  if(!title.value.trim()){toast('제목을 입력해주세요.');title.focus();return}
+  if(body.value.trim().length<5){toast('자세한 내용을 조금 더 적어주세요.');body.focus();return}
+  const missing=[...dynamic.querySelectorAll('input[required]')].find(i=>!i.value.trim());
+  if(missing){toast(fieldLabel(missing)+'을(를) 입력해주세요.');missing.focus();return}
+  busy=true;
+  bridge.createPost({kind:'together',title:title.value.trim(),body:compose()}).then(r=>{
+   if(r.ok&&r.mode==='server'){
+    try{localStorage.removeItem(key)}catch(e){}
+    toast(r.post&&r.post.status!=='published'?'게시 요청이 접수되었습니다. 심사 후 공개됩니다.':'게시했습니다.');
+    setTimeout(()=>{location.href=COMMUNITY},650);
+   }else toast(serverMessage(r));
+   busy=false;
+  });
+ },true);
+ document.addEventListener('click',ev=>{
+  if(!ev.target.closest('.back'))return;
+  ev.preventDefault();ev.stopImmediatePropagation();
+  location.href=COMMUNITY;
+ },true);
+})();
+</script>
 </body></html>
