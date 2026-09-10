@@ -127,5 +127,45 @@ h1{margin:17px 0 8px;font-size:30px;line-height:1.18;letter-spacing:-.045em}
   document.querySelectorAll('[data-publish]').forEach(b=>b.addEventListener('click',publish));
 })();
 </script>
+<script src="assets/danjion-session.js"></script>
+<script src="assets/community-bridge.js"></script>
+<script id="danjion-community-write-greeting-live-wiring-348">
+(()=>{
+ const apiBase=(window.DanjionSession&&DanjionSession.danjionApiBase())||'';
+ if(!apiBase)return;
+ const bridge=DanjionCommunityBridge.createCommunityBridge({apiBase});
+ const title=document.getElementById('title'),body=document.getElementById('body');
+ const key='danjionDraft:14';
+ const COMMUNITY='12_이웃대화_첫화면.html?type=hello&apiBase='+encodeURIComponent(apiBase);
+ function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(window.__toast);window.__toast=setTimeout(()=>t.classList.remove('show'),1700)}
+ function serverMessage(r){
+  if(r.mode==='auth-required')return '로그인이 만료되었습니다. 다시 로그인한 뒤 이용해 주세요.';
+  if(r.error&&r.error.message)return r.error.message;
+  return '서버 연결에 실패했습니다. 잠시 후 다시 시도해 주세요.';
+ }
+ let busy=false;
+ document.addEventListener('click',ev=>{
+  if(!ev.target.closest('[data-publish]'))return;
+  ev.preventDefault();ev.stopImmediatePropagation();
+  if(busy)return;
+  if(!title.value.trim()){toast('제목을 입력해주세요.');title.focus();return}
+  if(body.value.trim().length<5){toast('내용을 조금 더 적어주세요.');body.focus();return}
+  busy=true;
+  bridge.createPost({kind:'greeting',title:title.value.trim(),body:body.value.trim()}).then(r=>{
+   if(r.ok&&r.mode==='server'){
+    try{localStorage.removeItem(key)}catch(e){}
+    toast(r.post&&r.post.status!=='published'?'게시 요청이 접수되었습니다. 심사 후 공개됩니다.':'게시했습니다.');
+    setTimeout(()=>{location.href=COMMUNITY},650);
+   }else toast(serverMessage(r));
+   busy=false;
+  });
+ },true);
+ document.addEventListener('click',ev=>{
+  if(!ev.target.closest('.back'))return;
+  ev.preventDefault();ev.stopImmediatePropagation();
+  location.href=COMMUNITY;
+ },true);
+})();
+</script>
 </body>
 </html>

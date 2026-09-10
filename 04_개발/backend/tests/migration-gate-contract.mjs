@@ -166,7 +166,9 @@ const futurePlan = await computeMigrationPlan({
   targetSha,
 });
 assert.ok(futurePlan.apply_set.includes('047_future_pr.sql'), 'later migrations flow through the gate automatically once classified');
-assert.ok(!Object.keys(ledger.migrations).some(f => f.startsWith('047')), '047 absent today is fine; gate has no hard-coded case');
+assert.equal(classifyMigration(ledger, '047_community_greeting_kind.sql').class, 'schema', 'the reserved 047 leaf is registered with no hard-coded gate case');
+const plan047 = await computeMigrationPlan({ ledger, inventory, appliedResolver: resolverFromApplied(new Set()), targetSha });
+assert.ok(plan047.apply_set.includes('047_community_greeting_kind.sql'), '047 enters the pending apply set only via its constraint marker readback');
 
 // 13. Target SHA recorded.
 assert.equal(inventoryPlan.target_sha, targetSha);
