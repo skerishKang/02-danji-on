@@ -88,7 +88,7 @@ assert.ok(
 assert.match(productionSmoke, /banglim-myeongji-roadhill/, 'production smoke must pin the canonical seed 042 slug');
 assert.match(productionSmoke, /public business discovery/, 'production smoke must positively exercise a feature route beyond health/JWKS');
 assert.match(productionSmoke, /owner application list without auth/, 'production smoke must exercise owner auth boundary');
-assert.match(productionSmoke, /owner private document without auth/, 'production smoke must exercise the private document auth boundary');
+assert.match(productionSmoke, /nonexistent owner private document is non-disclosing/, 'production smoke must exercise the private document non-disclosure boundary');
 assert.doesNotMatch(productionSmoke, /method:\s*['"](?:POST|PUT|PATCH|DELETE)['"]/i, 'production smoke must be read-only');
 assert.doesNotMatch(productionSmoke, /authorization\s*:/i, 'production smoke must not embed or request a production user token');
 
