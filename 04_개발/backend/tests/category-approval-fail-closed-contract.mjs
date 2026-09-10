@@ -3,9 +3,15 @@ import { readFile } from 'node:fs/promises';
 
 // Regression contract: approval/materialization must never create an approved
 // business with businesses.category_id = NULL. Category resolution is exact
-// canonical business_categories.name match with is_active = true, fail-closed,
-// identical across all three approval paths. No fuzzy/contains/slug matching,
-// no category auto-creation, no relation-table writes, no schema changes.
+// canonical matching with is_active = true, fail-closed, identical across the
+// application lanes and the Report R-B recommendation lane. No fuzzy/contains
+// matching, no category auto-creation, no relation-table writes, no schema
+// changes to the category tables.
+//
+// The application lanes (admin-v1, admin-operational-v2) resolve by exact
+// canonical business_categories.name. The recommendation lane (Report R-B,
+// shop-recommendations-v1) resolves at intake and approves ONLY on
+// resolved_category_id; legacy category_name is not an approval authority.
 
 const root = new URL('../', import.meta.url);
 const [adminV1, adminV2, shopRec, schema, relationsMigration] = await Promise.all([
@@ -16,14 +22,18 @@ const [adminV1, adminV2, shopRec, schema, relationsMigration] = await Promise.al
   readFile(new URL('migrations/041_business_category_benefit_contract.sql', root), 'utf8')
 ]);
 
-const sources = [
+const nameSources = [
   ['admin-v1', adminV1],
-  ['admin-operational-v2', adminV2],
+  ['admin-operational-v2', adminV2]
+];
+
+const atomicSources = [
+  ...nameSources,
   ['shop-recommendations-v1', shopRec]
 ];
 
-// 1. All three paths share the identical fail-closed resolver.
-for (const [name, src] of sources) {
+// 1. Both application paths share the identical fail-closed name resolver.
+for (const [name, src] of nameSources) {
   assert.ok(src.includes("from business_categories bc\n    where bc.name = ${categoryName}\n    limit 1"),
     `${name} must resolve category by exact canonical name`);
   assert.ok(src.includes("if (!row) {\n    return { code: 'CATEGORY_NOT_RESOLVED'"),
@@ -39,7 +49,7 @@ for (const [name, src] of sources) {
 }
 
 // 2. Exact-active resolution inside the atomic approval CTE (race gate).
-for (const [name, src] of sources) {
+for (const [name, src] of nameSources) {
   assert.ok(src.includes("and exists (\n          select 1 from business_categories bc\n          where bc.name = a.category_name\n            and bc.is_active = true\n        )") ||
     src.includes("and exists (\n            select 1 from business_categories bc\n            where bc.name = r.category_name\n              and bc.is_active = true\n          )"),
     `${name} approval CTE must gate on active exact category`);
@@ -50,7 +60,7 @@ for (const [name, src] of sources) {
 }
 
 // 3. Approval pre-check happens before the CTE and uses 409 fail-closed.
-for (const [name, src] of sources) {
+for (const [name, src] of nameSources) {
   const idxResolve = src.indexOf('async function resolveApprovalCategory');
   const idxCte = src.indexOf('with approved as (');
   assert.ok(idxResolve > -1 && idxCte > idxResolve, `${name} must resolve category before the approval CTE`);
@@ -59,19 +69,22 @@ for (const [name, src] of sources) {
 }
 
 // 4. CTE atomicity preserved: single data-modifying statement, UPDATE is the gate.
-for (const [name, src] of sources) {
+for (const [name, src] of atomicSources) {
   assert.ok(src.includes('with approved as ('), `${name} must keep the atomic CTE approval gate`);
   assert.ok(src.includes("status in ('pending','changes_requested')"), `${name} must keep the reviewable-state gate`);
   assert.doesNotMatch(src, /\bbegin\b|\bcommit\b/i, `${name} must keep single-statement atomicity (no manual transaction churn)`);
 }
 
-// 5. Recommendation lane: domain-consistent changes_requested transition.
+// 5. Recommendation lane (Report R-B): fail-closed on the resolved authority,
+// domain-consistent changes_requested transition.
 assert.ok(shopRec.includes("set status = 'changes_requested',"),
-  'shop-recommendations must transition unresolved-category approvals to changes_requested');
-assert.ok(shopRec.includes('categoryUnresolved: categoryError.code'),
+  'shop-recommendations must transition unresolved approvals to changes_requested');
+assert.ok(shopRec.includes('categoryUnresolved: authorityError.code'),
   'shop-recommendations response must surface categoryUnresolved marker');
-assert.ok(shopRec.includes("r.category_name, c.slug as complex_slug"),
-  'shop-recommendations must read category_name for fail-closed resolution');
+assert.ok(shopRec.includes("r.resolved_category_id,\n           r.resolved_relation_type, c.slug as complex_slug"),
+  'shop-recommendations must read the resolved authority for fail-closed resolution');
+assert.doesNotMatch(shopRec, /where bc\.name = [ar]\.category_name/,
+  'shop-recommendations must not approve on legacy category_name');
 assert.match(shopRec, /status = 'pending'[\s\S]*review_note = null[\s\S]*reviewed_by = null[\s\S]*reviewed_at = null/i,
   'resubmission loop must remain intact for reporter recovery');
 

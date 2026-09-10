@@ -65,7 +65,8 @@ const baseScripts = [
   'test:resident-profile', 'test:resident-news', 'test:resident-summary', 'test:resident-settings',
   'test:resident-blocks', 'test:resident-activity', 'test:resident-safety-reports',
   'test:business-share', 'test:business-reviews', 'test:shop-recommendations',
-  'test:category-approval-fail-closed', 'test:inquiries', 'test:security-abuse-rate-limit',
+  'test:category-approval-fail-closed', 'test:report-rb-schema', 'test:report-rb-runtime',
+  'test:inquiries', 'test:security-abuse-rate-limit',
   'test:product-rate-limit-routes', 'test:backend-lane-reconciliation',
 ];
 for (const script of baseScripts) {
@@ -145,19 +146,27 @@ assert.ok(seedOptInPlan.apply_set.includes('042_seed_banglim_pilot_production.sq
 assert.equal(classifyMigration(ledger, '045_application_documents.sql').class, 'schema');
 const plan045 = await computeMigrationPlan({ ledger, inventory, appliedResolver: resolverFromApplied(new Set()), targetSha });
 assert.ok(plan045.apply_set.includes('045_application_documents.sql'), '045 flows through the gate automatically once classified');
+// 12b. 046 (Report R-B, this PR) is classified as an ordinary schema
+// migration with a reliable column readback marker and flows through.
+assert.equal(classifyMigration(ledger, '046_report_rb_schema.sql').class, 'schema');
+assert.deepEqual(classifyMigration(ledger, '046_report_rb_schema.sql').marker,
+  { kind: 'column', table: 'shop_recommendations', name: 'resolved_category_id' },
+  '046 readback marker must be the R-B authority column');
+const plan046 = await computeMigrationPlan({ ledger, inventory, appliedResolver: resolverFromApplied(new Set()), targetSha });
+assert.ok(plan046.apply_set.includes('046_report_rb_schema.sql'), '046 flows through the gate automatically once classified');
 const futureLedger = JSON.parse(JSON.stringify(ledger));
-futureLedger.migrations['046_future_pr.sql'] = {
+futureLedger.migrations['047_future_pr.sql'] = {
   class: 'schema',
   marker: { kind: 'table', schema: 'public', name: 'future_pr_table' },
 };
 const futurePlan = await computeMigrationPlan({
   ledger: futureLedger,
-  inventory: [...inventory, '046_future_pr.sql'],
+  inventory: [...inventory, '047_future_pr.sql'],
   appliedResolver: resolverFromApplied(new Set()),
   targetSha,
 });
-assert.ok(futurePlan.apply_set.includes('046_future_pr.sql'), 'later migrations flow through the gate automatically once classified');
-assert.ok(!Object.keys(ledger.migrations).some(f => f.startsWith('046')), '046 absent today is fine; gate has no hard-coded case');
+assert.ok(futurePlan.apply_set.includes('047_future_pr.sql'), 'later migrations flow through the gate automatically once classified');
+assert.ok(!Object.keys(ledger.migrations).some(f => f.startsWith('047')), '047 absent today is fine; gate has no hard-coded case');
 
 // 13. Target SHA recorded.
 assert.equal(inventoryPlan.target_sha, targetSha);
