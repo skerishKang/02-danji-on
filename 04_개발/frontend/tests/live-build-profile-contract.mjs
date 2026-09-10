@@ -48,6 +48,16 @@ assert.match(pagesWorkflow, /VITE_UI_VARIANT:\s*v2/, 'canonical DanjiOn producti
 assert.match(pagesWorkflow, /VITE_DATA_MODE:\s*api/);
 assert.match(pagesWorkflow, /VITE_AUTH_MODE:\s*danjion/);
 assert.match(pagesWorkflow, /VITE_STORAGE_MODE:\s*drive/);
+assert.match(
+  pagesWorkflow,
+  /VITE_COMPLEX_SLUG:\s*banglim-myeongji-roadhill/,
+  'Pages production must build against the canonical Banglim complex slug from production seed 042'
+);
+assert.doesNotMatch(
+  pagesWorkflow,
+  /bangnim-myeongji-roadhill/,
+  'Pages production must not use the stale bangnim slug typo'
+);
 assert.match(pagesWorkflow, /VITE_API_BASE_URL:\s*https:\/\/padiem-danjion-api-production\.padiem\.workers\.dev/);
 assert.match(pagesWorkflow, /VITE_AUTH_BASE_URL:\s*https:\/\/padiem-danjion-api-production\.padiem\.workers\.dev/);
 assert.match(pagesWorkflow, /PAGES_PROJECT:\s*danjion/);

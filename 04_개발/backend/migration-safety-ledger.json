@@ -49,7 +49,7 @@
     "039_danjion_better_auth_jwks_alg_crv.sql": { "class": "schema", "marker": { "kind": "column", "table": "danjion_auth.jwks", "name": "alg" } },
     "040_complex_news_channel.sql": { "class": "schema", "marker": { "kind": "column", "table": "complex_posts", "name": "channel" } },
     "041_business_category_benefit_contract.sql": { "class": "schema", "marker": { "kind": "table", "schema": "public", "name": "business_category_relations" } },
-    "042_seed_banglim_pilot_production.sql": { "class": "production_seed", "opt_in_required": true, "marker": { "kind": "data_probe", "query": "select exists(select 1 from complexes where slug = 'bangnim-myeongji-roadhill')" } },
+    "042_seed_banglim_pilot_production.sql": { "class": "production_seed", "opt_in_required": true, "marker": { "kind": "data_probe", "query": "select exists(select 1 from complexes where slug = 'banglim-myeongji-roadhill')" } },
     "043_business_review_comments.sql": { "class": "schema", "marker": { "kind": "table", "schema": "public", "name": "business_review_comments" } },
     "044_application_photos.sql": { "class": "schema", "marker": { "kind": "table", "schema": "public", "name": "business_application_photos" } },
     "045_application_documents.sql": { "class": "schema", "marker": { "kind": "table", "schema": "public", "name": "business_application_documents" } },
