@@ -61,6 +61,7 @@ jobs:
       VERIFICATION_WORKER: padiem-contact-verification
       HEALTH_URL: https://padiem-danjion-api-production.padiem.workers.dev/api/health
       JWKS_URL: https://padiem-danjion-api-production.padiem.workers.dev/api/auth/jwks
+      DANJION_PRODUCTION_API_URL: https://padiem-danjion-api-production.padiem.workers.dev
 
     steps:
       - uses: actions/checkout@v4
@@ -305,6 +306,10 @@ jobs:
             exit 1
           fi
           echo "Production health + Better Auth JWKS smoke: PASS"
+
+      - name: Production read-only feature smoke
+        shell: bash
+        run: node tests/production-readonly-smoke.mjs
 
       - name: Record production bootstrap disposition
         shell: bash
