@@ -8,6 +8,7 @@ import { handleAdminRequest } from './admin-v1';
 import { createDanjionAuth, handleBetterAuthRequest, type BetterAuthEnv } from './auth-better-v1';
 import { handleBenefitWalletRequest } from './benefit-wallet-v1';
 import { handleBusinessReviewRequest } from './business-reviews-v1';
+import { handleBusinessReviewCommentRequest } from './business-review-comments-v1';
 import { handleBusinessShareRequest } from './business-share-v1';
 import { handleCommunityModerationRequest } from './community-moderation-v1';
 import { handleCommunityReplyRequest } from './community-replies-v1';
@@ -190,6 +191,8 @@ export default {
       if (residentBlockResponse) return respond(residentBlockResponse);
       const businessReviewResponse = await handleBusinessReviewRequest(request, env, id);
       if (businessReviewResponse) return respond(businessReviewResponse);
+      const businessReviewCommentResponse = await handleBusinessReviewCommentRequest(request, env, id);
+      if (businessReviewCommentResponse) return respond(businessReviewCommentResponse);
       const residentSummaryResponse = await handleResidentSummaryRequest(request, env, id);
       if (residentSummaryResponse) return respond(residentSummaryResponse);
       const residentActivityResponse = await handleResidentActivityRequest(request, env, id);

@@ -40,6 +40,25 @@
     };
   }
 
+  function normalizeComment(raw, businessId, reviewId){
+    if(!raw||typeof raw!=='object')return null;
+    const author=raw.author&&typeof raw.author==='object'?raw.author:{};
+    return {
+      id:String(raw.id||''),
+      businessId:String(raw.businessId||businessId||''),
+      reviewId:String(raw.reviewId||reviewId||''),
+      body:String(raw.body||''),
+      isMine:Boolean(raw.isMine),
+      author:{
+        userId:String(author.userId||''),
+        nickname:String(author.nickname||''),
+        avatarUrl:author.avatarUrl==null?null:String(author.avatarUrl)
+      },
+      createdAt:raw.createdAt??null,
+      updatedAt:raw.updatedAt??null
+    };
+  }
+
   async function requestJson(fetchImpl,url,init){
     let response;
     try{response=await fetchImpl(url,{credentials:'include',...init})}
@@ -119,8 +138,66 @@
       }};
     }
 
-    return {businessIdFromKey,list,create,update,remove,reply};
+    function commentsEndpoint(businessId, reviewId, commentId){
+      const rid=String(reviewId||'').toLowerCase();
+      const cid=commentId?`/${String(commentId).toLowerCase()}`:'';
+      return endpoint(apiBase,complexSlug,businessId,`/${rid}/comments${cid}`);
+    }
+
+    async function listComments(shopKey, reviewId){
+      const businessId=businessIdFromKey(shopKey);
+      const rid=String(reviewId||'').toLowerCase();
+      if(!businessId||!UUID.test(rid))return {mode:'static',businessId,reviewId:rid,comments:[]};
+      const result=await requestJson(fetchImpl,commentsEndpoint(businessId,rid),{method:'GET'});
+      if(!result.ok){
+        const authRequired=[401,403].includes(result.status);
+        return {mode:authRequired?'auth-required':'error',businessId,reviewId:rid,comments:[],status:result.status,error:result.error};
+      }
+      const rows=Array.isArray(result.data?.comments)?result.data.comments:[];
+      return {mode:'server',businessId,reviewId:String(result.data?.reviewId||rid),comments:rows.map((row)=>normalizeComment(row,businessId,rid)).filter(Boolean),status:result.status};
+    }
+
+    async function createComment(shopKey, reviewId, body){
+      const businessId=businessIdFromKey(shopKey);
+      const rid=String(reviewId||'').toLowerCase();
+      if(!businessId||!UUID.test(rid))return {ok:false,mode:'client',error:'VALID_IDS_REQUIRED'};
+      const text=String(body||'').trim();
+      if(!text)return {ok:false,mode:'client',error:'REVIEW_BODY_REQUIRED'};
+      if(text.length>500)return {ok:false,mode:'client',error:'COMMENT_BODY_TOO_LONG'};
+      const result=await requestJson(fetchImpl,commentsEndpoint(businessId,rid),{
+        method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({body:text})
+      });
+      if(!result.ok)return {...result,mode:[401,403].includes(result.status)?'auth-required':'error'};
+      return {ok:true,mode:'server',status:result.status,comment:normalizeComment(result.data,businessId,rid)};
+    }
+
+    async function updateComment(shopKey, reviewId, commentId, body){
+      const businessId=businessIdFromKey(shopKey);
+      const rid=String(reviewId||'').toLowerCase();
+      const cid=String(commentId||'').toLowerCase();
+      if(!businessId||!UUID.test(rid)||!UUID.test(cid))return {ok:false,mode:'client',error:'VALID_IDS_REQUIRED'};
+      const text=String(body||'').trim();
+      if(!text)return {ok:false,mode:'client',error:'REVIEW_BODY_REQUIRED'};
+      if(text.length>500)return {ok:false,mode:'client',error:'COMMENT_BODY_TOO_LONG'};
+      const result=await requestJson(fetchImpl,commentsEndpoint(businessId,rid,cid),{
+        method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify({body:text})
+      });
+      if(!result.ok)return {...result,mode:[401,403].includes(result.status)?'auth-required':'error'};
+      return {ok:true,mode:'server',status:result.status,comment:normalizeComment(result.data,businessId,rid)};
+    }
+
+    async function removeComment(shopKey, reviewId, commentId){
+      const businessId=businessIdFromKey(shopKey);
+      const rid=String(reviewId||'').toLowerCase();
+      const cid=String(commentId||'').toLowerCase();
+      if(!businessId||!UUID.test(rid)||!UUID.test(cid))return {ok:false,mode:'client',error:'VALID_IDS_REQUIRED'};
+      const result=await requestJson(fetchImpl,commentsEndpoint(businessId,rid,cid),{method:'DELETE'});
+      if(!result.ok)return {...result,mode:[401,403].includes(result.status)?'auth-required':'error'};
+      return {ok:true,mode:'server',status:result.status,deleted:Boolean(result.data?.deleted),reviewId:rid,commentId:cid};
+    }
+
+    return {businessIdFromKey,list,create,update,remove,reply,listComments,createComment,updateComment,removeComment};
   }
 
-  globalThis.DanjionReviewsBridge={createReviewsBridge,businessIdFromKey,normalizeReview};
+  globalThis.DanjionReviewsBridge={createReviewsBridge,businessIdFromKey,normalizeReview,normalizeComment};
 })();
