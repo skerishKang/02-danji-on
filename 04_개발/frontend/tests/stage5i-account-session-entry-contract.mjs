@@ -35,8 +35,8 @@ assert.match(html, /providerMap=\{'카카오':'kakao','네이버':'naver','Googl
   'social providers must map to the existing adapter ids only');
 
 /* --- direct signup completion never mints an account session in server mode --- */
-assert.match(html, /else if\(button\.dataset\.finish!==undefined\)\{if\(serverMode\)\{showToast\('실제 가입은 주민 확인 절차를 거친 뒤 처리됩니다[\s\S]*?return\}memberMode=true/,
-  'server-mode finish must fail closed without setting member or resident state');
+assert.match(html, /else if\(button\.dataset\.finish!==undefined\)\{if\(serverMode\)\{showToast\('실제 가입은 서버 계정 가입 절차에서 완료됩니다[\s\S]*?return\}memberMode=true/,
+  'server-mode finish must fail closed with account-signup copy that does not conflate resident verification');
 
 /* --- boot reconciliation replaces fake flags with the real session result --- */
 assert.match(html, /if\(serverMode\)\{serverSessionCheck\(\)\.then\(\(real\)=>\{[\s\S]*?sessionStorage\.removeItem\('danjionMember'\);sessionStorage\.removeItem\('danjionSignedUp'\)\}memberMode=real;syncMemberState\(\)\}\)/,
