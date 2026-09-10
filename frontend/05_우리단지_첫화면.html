@@ -274,5 +274,26 @@ if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt
   window.addEventListener('hashchange',reportRoute);
 })();
 </script>
+<script id="danjion-firstscreen-complex-wiring">
+(function(){
+const FIRST_API_BASE=(new URLSearchParams(location.search).get('apiBase')||'').replace(/\/+$/,'');
+const FIRST_COMPLEX_SLUG='banglim-myeongji-roadhill';
+const DEMO_COMPLEX_NAME='방림명지로드힐';
+async function loadFirstScreenAuthority(){
+ if(!FIRST_API_BASE)return;
+ try{
+  const ctrl=new AbortController();const t=setTimeout(()=>ctrl.abort(),8000);let r;
+  try{r=await fetch(FIRST_API_BASE+'/api/v1/complexes/'+encodeURIComponent(FIRST_COMPLEX_SLUG),{credentials:'omit',signal:ctrl.signal,headers:{accept:'application/json'}})}finally{clearTimeout(t)}
+  if(!r.ok)throw new Error('HTTP '+r.status);
+  const json=await r.json();
+  const name=String(json&&json.data&&json.data.name||'').trim();
+  if(!name){console.info('[danjion] firstscreen complex authority empty, keeping demo name');return}
+  document.querySelectorAll('.identity,.mobile-head').forEach(el=>{el.textContent=name});
+  document.querySelectorAll('.eyebrow').forEach(el=>{const s=String(el.textContent||'');if(s.startsWith(DEMO_COMPLEX_NAME))el.textContent=name+s.slice(DEMO_COMPLEX_NAME.length)});
+ }catch(e){console.info('[danjion] firstscreen complex authority unavailable, keeping demo name:',String(e&&e.message||e))}
+}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',loadFirstScreenAuthority,{once:true});else loadFirstScreenAuthority();
+})();
+</script>
 </body>
 </html>
