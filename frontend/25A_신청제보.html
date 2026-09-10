@@ -169,10 +169,11 @@ ownerRelation.addEventListener('change',()=>toggleEtc(ownerRelation,ownerEtcWrap
 reportRelation.addEventListener('change',()=>toggleEtc(reportRelation,reportEtcWrap,reportEtc));
 owner.onclick=()=>setMode('owner');report.onclick=()=>setMode('report');
 
+const MAX_PHOTOS=3;
 const photos=document.querySelector('#photos'),photoStatus=document.querySelector('#photoStatus');
 photos.addEventListener('change',()=>{
-  if(photos.files.length>3){alert('가게 사진은 최대 3장까지 첨부할 수 있습니다.');photos.value='';}
-  photoStatus.textContent=`${photos.files.length} / 3장`;
+  if(photos.files.length>MAX_PHOTOS){alert(`가게 사진은 최대 ${MAX_PHOTOS}장까지 첨부할 수 있습니다.`);photos.value='';}
+  photoStatus.textContent=`${photos.files.length} / ${MAX_PHOTOS}장`;
 });
 function bindFile(inputId,statusId,max=null){
   const input=document.querySelector(inputId),status=document.querySelector(statusId);
@@ -270,23 +271,23 @@ f.addEventListener('submit',async e=>{
   const serviceSummary=ownerInput('servicePrice');
   if(!relationType){showToast('선택한 관계로는 아직 서버 신청을 연결할 수 없습니다.');return}
   if(!businessName||!categoryName||!serviceSummary){showToast('필수 항목을 다시 확인해 주세요.');return}
-  const photoFiles=Array.from(photos.files||[]);
-  if(photoFiles.length>1){showToast('서버 신청은 대표 사진 1장까지 연결됩니다. 대표 사진 1장만 선택해 주세요.');return}
   __ownerSubmitting=true;
   try{
     const bridge=await ensureApplicationReportBridge();
-    let representativeImageObjectKey=null;
-    if(photoFiles.length===1){
-      const upload=await uploadBusinessImage(photoFiles[0]);
+    const photoFiles=Array.from(photos.files||[]).slice(0,MAX_PHOTOS);
+    if((photos.files||[]).length>MAX_PHOTOS){showToast(`가게 사진은 최대 ${MAX_PHOTOS}장까지 첨부할 수 있습니다.`);return}
+    const uploadedKeys=[];
+    for(const file of photoFiles){
+      const upload=await uploadBusinessImage(file);
       if(!upload.ok){
         showToast(upload.reason==='auth-required'?'로그인 후 이용 가능합니다.':'사진 업로드에 실패했습니다. 잠시 후 다시 시도해 주세요.');
         return;
       }
-      representativeImageObjectKey=upload.objectKey;
+      uploadedKeys.push(upload.objectKey);
     }
     const result=await bridge.createOwnerApplication({relationType,businessName,categoryName,serviceSummary,
       priceText:serviceSummary,serviceArea:ownerInput('locationUse'),benefitText:ownerInput('benefit'),
-      availabilityText:ownerInput('hours'),contactMethod:ownerInput('contact'),representativeImageObjectKey},
+      availabilityText:ownerInput('hours'),contactMethod:ownerInput('contact'),photoObjectKeys:uploadedKeys},
       {idempotencyKey:ownerSubmissionKey()});
     if(!result.ok){
       showToast(result.reason==='auth-required'?'로그인 후 이용 가능합니다.':'접수를 완료하지 못했습니다. 잠시 후 다시 시도해 주세요.');
