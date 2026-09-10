@@ -40,6 +40,25 @@
     };
   }
 
+  function normalizeComment(raw, businessId, reviewId){
+    if(!raw||typeof raw!=='object')return null;
+    const author=raw.author&&typeof raw.author==='object'?raw.author:{};
+    return {
+      id:String(raw.id||''),
+      businessId:String(raw.businessId||businessId||''),
+      reviewId:String(raw.reviewId||reviewId||''),
+      body:String(raw.body||''),
+      isMine:Boolean(raw.isMine),
+      author:{
+        userId:String(author.userId||''),
+        nickname:String(author.nickname||''),
+        avatarUrl:author.avatarUrl==null?null:String(author.avatarUrl)
+      },
+      createdAt:raw.createdAt??null,
+      updatedAt:raw.updatedAt??null
+    };
+  }
+
   async function requestJson(fetchImpl,url,init){
     let response;
     try{response=await fetchImpl(url,{credentials:'include',...init})}
@@ -117,25 +136,6 @@
         reviewId:String(result.data?.reviewId||rid),businessId:String(result.data?.businessId||businessId),
         body:String(result.data?.body||''),createdAt:result.data?.createdAt??null,updatedAt:result.data?.updatedAt??null
       }};
-    }
-
-    function normalizeComment(raw, businessId, reviewId){
-      if(!raw||typeof raw!=='object')return null;
-      const author=raw.author&&typeof raw.author==='object'?raw.author:{};
-      return {
-        id:String(raw.id||''),
-        businessId:String(raw.businessId||businessId||''),
-        reviewId:String(raw.reviewId||reviewId||''),
-        body:String(raw.body||''),
-        isMine:Boolean(raw.isMine),
-        author:{
-          userId:String(author.userId||''),
-          nickname:String(author.nickname||''),
-          avatarUrl:author.avatarUrl==null?null:String(author.avatarUrl)
-        },
-        createdAt:raw.createdAt??null,
-        updatedAt:raw.updatedAt??null
-      };
     }
 
     function commentsEndpoint(businessId, reviewId, commentId){
