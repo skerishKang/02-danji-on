@@ -61,6 +61,47 @@ jobs:
         run: |
           npm run typecheck
           npm run test:production-bootstrap-safety
+          npm run test:migration-gate
+
+      - name: Guarded migration inventory and safety classification
+        id: migration-gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          target_sha="${GITHUB_SHA:-$(git rev-parse HEAD)}"
+          echo "Target Worker SHA: ${target_sha:0:12}"
+          ledger="migration-safety-ledger.json"
+          migrations_dir="migrations"
+          if [ ! -f "$ledger" ]; then
+            echo "::error::Migration safety ledger not found."
+            exit 1
+          fi
+          prohibited_prefixes="$(jq -r '.prohibited_prefixes[]' "$ledger")"
+          migration_files="$(find "$migrations_dir" -maxdepth 1 -name '*.sql' -printf '%f\n' | sort)"
+          apply_set=""
+          prohibited_in_apply_set=""
+          for file in $migration_files; do
+            prefix="$(echo "$file" | cut -d'_' -f1)"
+            safety="$(jq -r --arg f "$file" '.migrations[$f].safety // "unknown"' "$ledger")"
+            if [ "$safety" = "prohibited_seed" ]; then
+              prohibited_in_apply_set="${prohibited_in_apply_set}${file} "
+            elif [ "$safety" = "production_safe" ]; then
+              apply_set="${apply_set}${file} "
+            else
+              echo "::error::Unknown safety classification for ${file}"
+              exit 1
+            fi
+          done
+          if [ -n "$prohibited_in_apply_set" ]; then
+            echo "::error::Prohibited seed migrations detected in apply set: ${prohibited_in_apply_set}"
+            exit 1
+          fi
+          apply_count="$(echo "$apply_set" | wc -w)"
+          echo "Migration inventory: ${apply_count} production-safe migrations"
+          echo "Prohibited seed migrations: 0"
+          echo "apply_count=${apply_count}" >> "$GITHUB_OUTPUT"
+          echo "target_sha=${target_sha}" >> "$GITHUB_OUTPUT"
+          echo "Migration safety gate: PASS"
 
       - name: Fail closed on missing GitHub deployment authority
         shell: bash
@@ -214,7 +255,9 @@ jobs:
             echo '- Production DB health: PASS'
             echo '- Better Auth JWKS: PASS'
             echo '- Padiem contact-verification Service Binding: PRESENT'
-            echo '- Business-image background reconciliation: DISABLED'
+            echo '- Migration safety gate: PASS'
+echo '- Target Worker SHA: ${{ steps.migration-gate.outputs.target_sha }}'
+echo '- Production-safe migrations: ${{ steps.migration-gate.outputs.apply_count }}'
             echo '- Real phone OTP delivery: HOLD / Issue #235'
             echo '- Secret values: NOT OUTPUT'
           } >> "$GITHUB_STEP_SUMMARY"
