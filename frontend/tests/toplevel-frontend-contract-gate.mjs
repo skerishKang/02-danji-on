@@ -32,7 +32,39 @@ const report = (ok, label, detail = '') => {
   console.log(`${ok ? 'PASS' : 'FAIL'} ${label}${detail ? `\n${detail}` : ''}`);
 };
 
-const tmp = mkdtempSync(path.join(root, '.toplevel-frontend-gate-'));
+// Issue #355 [test-harness lifecycle]: the repo-root temp dir is bounded by this
+// fixed prefix. Two real-world leak paths defeated the plain finally-rmSync:
+// (1) Windows transient locks (EBUSY/EPERM) -> rmSync throws and leaves the tree;
+// (2) SIGINT/SIGTERM kills -> finally never executes, so the next run inherits a
+// stale dir. removeTree retries with a short bounded backoff and never masks the
+// original error; sweepStale reclaims any prefix dir before this run creates its
+// own, so no .toplevel-frontend-gate-* directory remains after a completed run.
+// Concurrency note: parallel gate runs in one checkout are not supported (as before).
+const TMP_PREFIX = '.toplevel-frontend-gate-';
+const sleepSync = (ms) => {
+  try { Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms); }
+  catch { const until = Date.now() + ms; while (Date.now() < until) {} }
+};
+const removeTree = (dir) => {
+  for (let attempt = 0; attempt < 10; attempt++) {
+    try { rmSync(dir, { recursive: true, force: true }); return; }
+    catch (e) {
+      if (e.code === 'ENOENT') return;
+      sleepSync(50 * (attempt + 1));
+    }
+  }
+  try { rmSync(dir, { recursive: true, force: true }); } catch {}
+};
+const sweepStale = () => {
+  for (const entry of readdirSync(root, { withFileTypes: true })) {
+    if (entry.isDirectory() && entry.name.startsWith(TMP_PREFIX)) removeTree(path.join(root, entry.name));
+  }
+};
+sweepStale();
+const tmp = mkdtempSync(path.join(root, TMP_PREFIX));
+for (const sig of ['SIGINT', 'SIGTERM']) {
+  process.once(sig, () => { removeTree(tmp); process.exit(sig === 'SIGINT' ? 130 : 143); });
+}
 try {
   const jsFiles = walk(FRONTEND, (n) => n.endsWith('.js'))
     .filter((p) => rel(p).startsWith('frontend/assets/'));
@@ -68,7 +100,7 @@ try {
 
   console.log(`checked ${jsFiles.length} asset scripts, ${inlineCount} inline script blocks in ${htmlFiles.length} html files, ${contracts.length} leaf contracts`);
 } finally {
-  rmSync(tmp, { recursive: true, force: true });
+  removeTree(tmp);
 }
 
 if (failures) {
