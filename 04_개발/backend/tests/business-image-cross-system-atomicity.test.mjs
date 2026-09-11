@@ -31,18 +31,27 @@ assert.equal(migration.includes('resident-evidence'), false,
   'resident evidence must stay outside the business-image lifecycle registry');
 
 // Upload must not return a business-image key before active registry registration.
-const uploadStart = storage.indexOf('async function upload(');
-const uploadEnd = storage.indexOf('async function streamObject(', uploadStart);
-const uploadBlock = storage.slice(uploadStart, uploadEnd);
-const driveUpload = uploadBlock.indexOf('await uploadDriveFile(');
-const keyBuild = uploadBlock.indexOf('const uploadedObjectKey = objectKey(');
-const register = uploadBlock.indexOf('await registerBusinessImageObject(');
-const returnKey = uploadBlock.indexOf('objectKey: uploadedObjectKey');
-assert.ok(driveUpload >= 0 && keyBuild > driveUpload);
-assert.ok(register > keyBuild, 'Drive upload must be followed by DB lifecycle registration');
-assert.ok(returnKey > register, 'object key must be returned only after registry registration succeeds');
-assert.ok(uploadBlock.includes("if (validation.kind === 'business-image')"));
-assert.ok(uploadBlock.includes('resident.complexId'));
+// #372 D2 / #375 F6: the generic upload path was removed from storage-v1; the
+// tracked business-image upload lane (storage-upload-v2) owns the live
+// reservation -> Drive upload -> activation -> return sequence.
+const uploadV2 = await readFile(new URL('src/storage-upload-v2.ts', root), 'utf8');
+const trackedStart = uploadV2.indexOf('export async function runTrackedBusinessImageUpload(');
+const trackedEnd = uploadV2.indexOf('export async function handleTrackedStorageUploadRequest(', trackedStart);
+assert.ok(trackedStart >= 0 && trackedEnd > trackedStart, 'tracked business image upload runtime must exist');
+const uploadBlock = uploadV2.slice(trackedStart, trackedEnd);
+const reserve = uploadBlock.indexOf('await reserveBusinessImageUpload(');
+const driveUpload = uploadBlock.indexOf('await uploadDriveFileWithId(');
+const register = uploadBlock.indexOf('activateBusinessImageUpload(');
+const returnKey = uploadBlock.indexOf('return { objectKey: objectKeyValue, metadata }');
+assert.ok(reserve >= 0 && driveUpload > reserve,
+  'Drive upload must be preceded by an upload_pending registry reservation');
+assert.ok(register > driveUpload, 'Drive upload must be followed by DB lifecycle activation');
+assert.ok(returnKey > register, 'object key must be returned only after registry activation succeeds');
+assert.ok(uploadV2.includes("insert into business_image_objects"),
+  'tracked lane must own the lifecycle reservation row');
+assert.ok(uploadV2.includes("'upload_pending'"),
+  'reservation must start in upload_pending state');
+assert.ok(uploadV2.includes('resident.complexId'));
 
 // Create: strict Drive validation remains before the two-command DB reference transaction.
 const createStart = economy.indexOf('async function createBusinessApplication(');

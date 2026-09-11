@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
 const app = read('src/app.ts');
 const storage = read('src/storage-v1.ts');
+const uploadV2 = read('src/storage-upload-v2.ts');
 const executableStorage = storage.replace(/^\s*\/\/.*$/gm, '');
 const residentEconomy = read('src/resident-economy-v2.ts');
 const frontendStorage = read('../frontend/src/storage.ts');
@@ -18,7 +19,9 @@ const devVars = read('.dev.vars.example');
 assert.ok(app.includes("import { handleStorageRequest } from './storage-v1';"));
 assert.ok(app.indexOf('handleStorageRequest') < app.lastIndexOf('core.fetch'));
 assert.ok(storage.includes("import { requireActor as requireCanonicalActor, type Actor } from './auth-v1';"));
-assert.ok(storage.includes("import { requireVerifiedResident } from './authorization-v2';"));
+// #372 D2 / #375 F6: the verified-resident upload authority now belongs to the
+// tracked upload lane; storage-v1 no longer hosts the generic upload path.
+assert.ok(uploadV2.includes("import { requireVerifiedResident } from './authorization-v2';"));
 assert.ok(storage.includes('await requireCanonicalActor(request, env, sql, requestId)'));
 assert.equal(executableStorage.includes('AUTH_ADAPTER_PENDING'), false, 'storage must not retain the pre-Track-A pending auth path');
 assert.equal(executableStorage.includes('actorFromRequest'), false, 'storage must not retain a duplicate actor resolver');
@@ -32,17 +35,29 @@ assert.ok(storage.includes("path === '/api/v1/storage/public'"));
 assert.ok(storage.includes("path === '/api/v1/storage/private'"));
 assert.ok(storage.includes("parsed.visibility !== 'private' || parsed.kind !== 'resident-evidence'"));
 
-const uploadStart = storage.indexOf('async function upload(');
-const uploadEnd = storage.indexOf('async function streamObject(', uploadStart);
-assert.ok(uploadStart >= 0 && uploadEnd > uploadStart, 'upload block must exist');
-const upload = storage.slice(uploadStart, uploadEnd);
-const uploadAuthIndex = upload.indexOf('await requireStorageActor(request, env, requestId)');
+// #372 D2 / #375 F6: POST /api/v1/storage/objects is owned exclusively by the
+// tracked upload lane (storage-upload-v2). The generic upload path on the
+// storage route owner was dead and is removed; the upload ordering contract is
+// pinned against the live tracked-upload lane instead.
+assert.equal(storage.includes('async function upload('), false,
+  'storage route owner must not retain the dead generic upload path');
+const storageRouteStart = storage.indexOf('export async function handleStorageRequest');
+const storageRouteBlock = storage.slice(storageRouteStart);
+assert.equal(storageRouteBlock.includes("request.method === 'POST'"), false,
+  'storage route owner must no longer accept POST /api/v1/storage/objects');
+assert.ok(app.indexOf('handleTrackedStorageUploadRequest') < app.indexOf('handleStorageRequest'),
+  'tracked upload lane must intercept storage routes before the storage route owner');
+
+const uploadHandlerStart = uploadV2.indexOf('export async function handleTrackedStorageUploadRequest(');
+assert.ok(uploadHandlerStart >= 0, 'tracked upload handler must exist');
+const upload = uploadV2.slice(uploadHandlerStart);
+const uploadAuthIndex = upload.indexOf('await requireCanonicalActor(request, env, sql, requestId)');
 const uploadHoldIndex = upload.indexOf("if (kind === 'resident-evidence')");
 const uploadValidationIndex = upload.indexOf('validateStorageUpload(kind, files)');
-const verifiedResidentIndex = upload.indexOf('await requireVerifiedResident(request, env, auth.sql, requestId, complexSlug)');
-const driveUploadIndex = upload.indexOf('await uploadDriveFile(env, validation.kind, file, resident, resident.complexSlug)');
-const registryIndex = upload.indexOf('await registerBusinessImageObject(');
-const returnObjectIndex = upload.indexOf('objectKey: uploadedObjectKey');
+const verifiedResidentIndex = upload.indexOf('await requireVerifiedResident(request, env, sql, requestId, complexSlug)');
+const idempotencyIndex = upload.indexOf("request.headers.get('idempotency-key')");
+const businessImageGateIndex = upload.indexOf("if (validation.kind === 'business-image')");
+const trackedUploadIndex = upload.indexOf('await runTrackedBusinessImageUpload(');
 assert.ok(uploadAuthIndex >= 0, 'storage upload must require canonical product authentication');
 assert.ok(uploadHoldIndex > uploadAuthIndex, 'resident-evidence HOLD must execute only after canonical account authentication');
 assert.ok(upload.includes("'RESIDENT_VERIFICATION_POLICY_HOLD'"), 'new resident-evidence persistence must fail closed under Issue #59');
@@ -50,21 +65,21 @@ assert.ok(uploadValidationIndex > uploadHoldIndex,
   'held resident evidence must not enter storage validation/persistence workflow');
 assert.ok(verifiedResidentIndex > uploadValidationIndex,
   'business-image upload must require current Household-v2 verified resident after payload validation');
-assert.ok(driveUploadIndex > verifiedResidentIndex,
-  'Google Drive persistence must occur only after current verified-resident authorization');
-assert.ok(registryIndex > driveUploadIndex,
-  'business-image lifecycle registration must follow successful Drive upload');
-assert.ok(returnObjectIndex > registryIndex,
-  'business-image object key must not be returned before active registry registration succeeds');
-assert.ok(upload.includes("if (validation.kind === 'business-image')"));
-assert.ok(upload.includes('resident.complexId'));
+assert.ok(idempotencyIndex > verifiedResidentIndex,
+  'idempotency key validation must occur only after verified-resident authorization');
+assert.ok(businessImageGateIndex > idempotencyIndex,
+  'kind routing must remain after idempotency validation');
+assert.ok(trackedUploadIndex > businessImageGateIndex,
+  'business-image persistence must run through the tracked lifecycle upload runtime');
+assert.ok(upload.includes('await runTrackedApplicationDocumentUpload('),
+  'application-document uploads must remain on the tracked lane');
 assert.ok(upload.includes("const kind = String(form.get('kind') || '').trim()"));
-assert.ok(upload.includes('const resident = residentOrResponse;'));
+assert.ok(upload.includes("const complexSlug = String(form.get('complexSlug') || '').trim()"));
 assert.ok(residentEconomy.includes('await requireVerifiedResident(request, env, sql, requestId, input.complexSlug)'),
   'business application create must retain the same current verified-resident authority family');
 
 const authorizeStart = storage.indexOf('async function authorizeObject(');
-const authorizeEnd = storage.indexOf('async function upload(', authorizeStart);
+const authorizeEnd = storage.indexOf('async function streamObject(', authorizeStart);
 assert.ok(authorizeStart >= 0 && authorizeEnd > authorizeStart, 'authorizeObject block must exist');
 const authorize = storage.slice(authorizeStart, authorizeEnd);
 const uploaderIndex = authorize.indexOf('props.danjionUploaderUserId === actor.id');

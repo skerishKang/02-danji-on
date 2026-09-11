@@ -90,8 +90,10 @@ assert.match(economy, /if \(input\.relationRaw\) canonicalPayload\.relationRaw =
 assert.doesNotMatch(economy, /canonicalPayload\.resolvedRelationType/,
   'derived resolution must never enter the request fingerprint');
 
-/* --- 7. approval fails closed while unresolved (both admin lanes) --- */
-for (const [label, api] of [['admin-v1', admin], ['admin-operational-v2', adminOps]]) {
+/* --- 7. approval fails closed while unresolved (single operational admin lane) ---
+ * #372 D1 / #375 F9: the legacy admin-v1 operational handlers are removed;
+ * admin-operational-v2 is the only admin approval lane. */
+for (const [label, api] of [['admin-operational-v2', adminOps]]) {
   assert.match(api, /and a\.relation_type is not null/, `${label}: UPDATE gate must reject unresolved relation_type`);
   assert.match(api, /and a\.resolved_relation_type is not null/, `${label}: UPDATE gate must reject unresolved resolution`);
   assert.ok(api.includes('RELATION_NOT_RESOLVED'), `${label}: caller must fail closed with RELATION_NOT_RESOLVED`);
@@ -100,8 +102,12 @@ for (const [label, api] of [['admin-v1', admin], ['admin-operational-v2', adminO
   assert.doesNotMatch(api, /business_complex_relations[\s\S]{0,400}relation_raw/,
     `${label}: raw must never leak into business_complex_relations`);
 }
-assert.match(admin, /select a\.approved_business_id, a\.complex_id, a\.relation_type,/,
-  'admin-v1 projection insert keeps using the resolved legacy column');
+assert.match(adminOps, /select a\.approved_business_id, a\.complex_id, a\.relation_type,/,
+  'admin-operational-v2 projection insert keeps using the resolved legacy column');
+assert.doesNotMatch(admin, /relation_type is not null|RELATION_NOT_RESOLVED|with approved as /,
+  'collapsed admin-v1 gate must not retain operational approval/relation gate logic');
+assert.match(admin, /Admin route not found/,
+  'collapsed admin-v1 gate must remain the terminal 404 for unowned admin routes');
 
 /* --- 8. reviewer read-back is additive --- */
 assert.match(reviewContext, /a\.relation_raw,/, 'review context must read relation_raw');

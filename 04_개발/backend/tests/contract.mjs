@@ -5,6 +5,7 @@ const app = read('src/app.ts');
 const auth = read('src/auth-v1.ts');
 const core = read('src/core-v1.ts');
 const admin = read('src/admin-v1.ts');
+const adminOperational = read('src/admin-operational-v2.ts');
 const adminAudit = read('src/admin-audit-v1.ts');
 const adminReviewContext = read('src/admin-review-context-v1.ts');
 const adminVerification = read('src/admin-verification-v1.ts');
@@ -103,12 +104,15 @@ const checks = [
   ['auth has controlled identity-link error', auth.includes('AUTH_IDENTITY_LINK_FAILED')],
   ['all private and admin routers use shared auth boundary', privateRouters.every((source) => source.includes("from './auth-v1'") || source.includes("from './operational-authz-v2'"))],
   ['legacy auth adapter pending boundary is removed', privateRouters.every((source) => !source.includes('AUTH_ADAPTER_PENDING'))],
-  ['admin list endpoint exists', admin.includes('business-applications$/') && admin.includes("request.method === 'GET'")],
-  ['admin approval uses atomic update gate', admin.includes('with approved as') && admin.includes("a.status in ('pending','changes_requested')")],
-  ['approval creates business relation', admin.includes('created_business') && admin.includes('created_relation')],
-  ['approval can create benefit', admin.includes('created_benefit')],
-  ['post write endpoints exist', admin.includes('createPost') && admin.includes('patchPost')],
-  ['benefit write endpoints exist', admin.includes('createBenefit') && admin.includes('patchBenefit')],
+  // #372 D1 / #375 F9: the operational admin surface lives exclusively in
+  // admin-operational-v2; admin-v1 is the terminal auth + 404 gate only.
+  ['admin list endpoint exists', adminOperational.includes('business-applications$/') && adminOperational.includes("request.method === 'GET'")],
+  ['admin approval uses atomic update gate', adminOperational.includes('with approved as') && adminOperational.includes("a.status in ('pending','changes_requested')")],
+  ['approval creates business relation', adminOperational.includes('created_business') && adminOperational.includes('created_relation')],
+  ['approval can create benefit', adminOperational.includes('created_benefit')],
+  ['post write endpoints exist', adminOperational.includes('createPost') && adminOperational.includes('patchPost')],
+  ['benefit write endpoints exist', adminOperational.includes('createBenefit') && adminOperational.includes('patchBenefit')],
+  ['collapsed admin-v1 gate retains no operational surface', !admin.includes('requireManager') && !admin.includes('complex_memberships') && admin.includes('Admin route not found')],
   ['application link migration exists', adminMigration.includes('approved_business_id')],
   ['tenant model exists', schema.includes('business_complex_relations') && schema.includes('complex_memberships')],
   ['domain length constraints exist', domainConstraints.includes('chk_application_business_name_length') && domainConstraints.includes('chk_post_body_length') && domainConstraints.includes('chk_benefit_title_length')],

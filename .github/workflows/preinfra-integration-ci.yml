@@ -6,13 +6,6 @@ on:
       - '04_개발/frontend/**'
       - '04_개발/backend/**'
       - '.github/workflows/preinfra-integration-ci.yml'
-  push:
-    branches:
-      - feat/preinfra-integration
-    paths:
-      - '04_개발/frontend/**'
-      - '04_개발/backend/**'
-      - '.github/workflows/preinfra-integration-ci.yml'
 
 jobs:
   backend-check:

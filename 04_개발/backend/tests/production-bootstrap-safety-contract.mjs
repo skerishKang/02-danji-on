@@ -17,6 +17,11 @@ assert.equal(
   'https://padiem-danjion-api-production.padiem.workers.dev',
   'Better Auth issuer/base URL must match the canonical production Worker URL'
 );
+assert.equal(
+  production.vars?.NEON_AUTH_BASE_URL,
+  undefined,
+  'production must not configure the legacy Neon auth authority; DANJION_AUTH_BASE_URL is the only production auth base (#376 O4 / #375 F5)'
+);
 assert.deepEqual(
   production.secrets?.required,
   ['DATABASE_URL', 'BETTER_AUTH_SECRET', 'DANJION_CONTACT_REF_SECRET'],

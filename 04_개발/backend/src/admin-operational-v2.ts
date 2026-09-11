@@ -2,7 +2,7 @@ import { neon, type NeonQueryFunction } from '@neondatabase/serverless';
 import { deriveChannel } from './complex-news-channel';
 import type { CoreEnv } from './core-v1';
 import { requireOperationalAuthority, type OperationalAuthority } from './operational-authz-v2';
-import { validateBusinessImageReference } from './storage-v1';
+import { validateBusinessImageReference } from './storage-reference-v1';
 
 type Sql = NeonQueryFunction<false, false>;
 
