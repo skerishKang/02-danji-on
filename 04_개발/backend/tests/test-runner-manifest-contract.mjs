@@ -81,6 +81,7 @@ const EXPECTED_BACKEND_ORDER = [
   "test:security-abuse-rate-limit",
   "test:product-rate-limit-routes",
   "test:migration-gate",
+  "test:migration-ledger-integrity",
   "test:community-c2-greeting-kind",
   "test:application-documents-review-context",
   "test:application-documents-owner-id",

@@ -70,6 +70,7 @@
         {"id":"test:security-abuse-rate-limit","npm":"test:security-abuse-rate-limit","kind":"contract"},
         {"id":"test:product-rate-limit-routes","npm":"test:product-rate-limit-routes","kind":"contract"},
         {"id":"test:migration-gate","npm":"test:migration-gate","kind":"contract"},
+{"id":"test:migration-ledger-integrity","npm":"test:migration-ledger-integrity","kind":"contract"},
         {"id":"test:community-c2-greeting-kind","npm":"test:community-c2-greeting-kind","kind":"contract"},
         {"id":"test:application-documents-review-context","npm":"test:application-documents-review-context","kind":"contract"},
         {"id":"test:application-documents-owner-id","npm":"test:application-documents-owner-id","kind":"contract"},

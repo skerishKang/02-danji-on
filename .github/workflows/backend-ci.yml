@@ -24,19 +24,75 @@ jobs:
       - name: Typecheck and contract tests
         run: npm run check
 
-  resident-settings-postgres-lifecycle:
+  postgres-lifecycle:
+    name: ${{ matrix.name }}
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: resident-settings-postgres-lifecycle
+            database: danjion_settings
+            script: bash tests/resident-settings-postgres-lifecycle.sh
+          - name: resident-safety-reports-postgres-lifecycle
+            database: danjion_safety_reports
+            script: bash tests/resident-safety-reports-postgres-lifecycle.sh
+          - name: business-share-postgres-lifecycle
+            database: danjion_business_share
+            script: bash tests/business-share-postgres-lifecycle.sh
+          - name: resident-activity-postgres-lifecycle
+            database: danjion_activity
+            script: bash tests/resident-activity-postgres-lifecycle.sh
+          - name: resident-notification-postgres-lifecycle
+            database: danjion_notifications
+            script: bash tests/resident-notification-postgres-lifecycle.sh
+          - name: resident-profile-postgres-lifecycle
+            database: danjion_profiles
+            script: bash tests/resident-profile-postgres-lifecycle.sh
+          - name: resident-blocks-postgres-lifecycle
+            database: danjion_blocks
+            script: bash tests/resident-blocks-postgres-lifecycle.sh
+          - name: shop-recommendations-postgres-lifecycle
+            database: danjion_shop_recommendations
+            script: bash tests/shop-recommendations-postgres-lifecycle.sh
+          - name: inquiries-postgres-lifecycle
+            database: danjion_inquiries
+            script: bash tests/inquiries-postgres-lifecycle.sh
+          - name: business-reviews-postgres-lifecycle
+            database: danjion_reviews
+            script: bash tests/business-reviews-postgres-lifecycle.sh
+          - name: complex-news-channel-040-postgres-lifecycle
+            database: danjion_040_compat
+            script: bash tests/complex-news-channel-040-postgres-lifecycle.sh
+          - name: business-category-benefit-postgres-lifecycle
+            database: danjion_business_contract
+            script: bash tests/business-category-benefit-postgres-lifecycle.sh
+          - name: community-replies-postgres-lifecycle
+            database: danjion_community_replies
+            script: bash tests/community-replies-postgres-lifecycle.sh
+          - name: community-postgres-security
+            database: danjion_community
+            script: bash tests/community-postgres-security.sh
+          - name: business-image-postgres-concurrency
+            database: danjion_atomicity
+            script: |
+              bash tests/business-image-postgres-concurrency.sh
+              bash tests/business-image-upload-idempotency-postgres.sh
+              bash tests/business-image-resolved-lease-cleanup-postgres.sh
+          - name: application-documents-owner-list-postgres-lifecycle
+            database: danjion_owner_doc_list
+            script: bash tests/application-documents-owner-list-postgres-lifecycle.sh
     services:
       postgres:
         image: postgres:18
         env:
           POSTGRES_USER: postgres
-          POSTGRES_DB: danjion_settings
+          POSTGRES_DB: ${{ matrix.database }}
           POSTGRES_HOST_AUTH_METHOD: trust
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U postgres -d danjion_settings"
+          --health-cmd "pg_isready -U postgres -d ${{ matrix.database }}"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
@@ -49,460 +105,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y postgresql-client
-      - name: Run resident settings PostgreSQL lifecycle
+      - name: Run ${{ matrix.name }}
         env:
-          DATABASE_URL: postgresql://postgres@127.0.0.1:5432/danjion_settings?sslmode=disable
-        run: bash tests/resident-settings-postgres-lifecycle.sh
-
-  resident-safety-reports-postgres-lifecycle:
-    runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:18
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_DB: danjion_safety_reports
-          POSTGRES_HOST_AUTH_METHOD: trust
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres -d danjion_safety_reports"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-    defaults:
-      run:
-        working-directory: 04_개발/backend
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install PostgreSQL client
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y postgresql-client
-      - name: Run resident safety reports PostgreSQL lifecycle
-        env:
-          DATABASE_URL: postgresql://postgres@127.0.0.1:5432/danjion_safety_reports?sslmode=disable
-        run: bash tests/resident-safety-reports-postgres-lifecycle.sh
-
-  business-share-postgres-lifecycle:
-    runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:18
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_DB: danjion_business_share
-          POSTGRES_HOST_AUTH_METHOD: trust
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres -d danjion_business_share"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-    defaults:
-      run:
-        working-directory: 04_개발/backend
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install PostgreSQL client
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y postgresql-client
-      - name: Run stable business share PostgreSQL lifecycle
-        env:
-          DATABASE_URL: postgresql://postgres@127.0.0.1:5432/danjion_business_share?sslmode=disable
-        run: bash tests/business-share-postgres-lifecycle.sh
-
-  resident-activity-postgres-lifecycle:
-    runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:18
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_DB: danjion_activity
-          POSTGRES_HOST_AUTH_METHOD: trust
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres -d danjion_activity"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-    defaults:
-      run:
-        working-directory: 04_개발/backend
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install PostgreSQL client
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y postgresql-client
-      - name: Run resident activity PostgreSQL lifecycle
-        env:
-          DATABASE_URL: postgresql://postgres@127.0.0.1:5432/danjion_activity?sslmode=disable
-        run: bash tests/resident-activity-postgres-lifecycle.sh
-
-  resident-notification-postgres-lifecycle:
-    runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:18
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_DB: danjion_notifications
-          POSTGRES_HOST_AUTH_METHOD: trust
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres -d danjion_notifications"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-    defaults:
-      run:
-        working-directory: 04_개발/backend
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install PostgreSQL client
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y postgresql-client
-      - name: Run resident notification PostgreSQL lifecycle
-        env:
-          DATABASE_URL: postgresql://postgres@127.0.0.1:5432/danjion_notifications?sslmode=disable
-        run: bash tests/resident-notification-postgres-lifecycle.sh
-
-  resident-profile-postgres-lifecycle:
-    runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:18
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_DB: danjion_profiles
-          POSTGRES_HOST_AUTH_METHOD: trust
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres -d danjion_profiles"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-    defaults:
-      run:
-        working-directory: 04_개발/backend
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install PostgreSQL client
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y postgresql-client
-      - name: Run resident profile PostgreSQL lifecycle
-        env:
-          DATABASE_URL: postgresql://postgres@127.0.0.1:5432/danjion_profiles?sslmode=disable
-        run: bash tests/resident-profile-postgres-lifecycle.sh
-
-  resident-blocks-postgres-lifecycle:
-    runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:18
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_DB: danjion_blocks
-          POSTGRES_HOST_AUTH_METHOD: trust
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres -d danjion_blocks"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-    defaults:
-      run:
-        working-directory: 04_개발/backend
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install PostgreSQL client
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y postgresql-client
-      - name: Run resident blocks PostgreSQL lifecycle
-        env:
-          DATABASE_URL: postgresql://postgres@127.0.0.1:5432/danjion_blocks?sslmode=disable
-        run: bash tests/resident-blocks-postgres-lifecycle.sh
-
-  shop-recommendations-postgres-lifecycle:
-    runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:18
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_DB: danjion_shop_recommendations
-          POSTGRES_HOST_AUTH_METHOD: trust
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres -d danjion_shop_recommendations"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-    defaults:
-      run:
-        working-directory: 04_개발/backend
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install PostgreSQL client
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y postgresql-client
-      - name: Run shop recommendation PostgreSQL lifecycle
-        env:
-          DATABASE_URL: postgresql://postgres@127.0.0.1:5432/danjion_shop_recommendations?sslmode=disable
-        run: bash tests/shop-recommendations-postgres-lifecycle.sh
-
-  inquiries-postgres-lifecycle:
-    runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:18
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_DB: danjion_inquiries
-          POSTGRES_HOST_AUTH_METHOD: trust
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres -d danjion_inquiries"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-    defaults:
-      run:
-        working-directory: 04_개발/backend
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install PostgreSQL client
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y postgresql-client
-      - name: Run inquiry PostgreSQL lifecycle
-        env:
-          DATABASE_URL: postgresql://postgres@127.0.0.1:5432/danjion_inquiries?sslmode=disable
-        run: bash tests/inquiries-postgres-lifecycle.sh
-
-  business-reviews-postgres-lifecycle:
-    runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:18
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_DB: danjion_reviews
-          POSTGRES_HOST_AUTH_METHOD: trust
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres -d danjion_reviews"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-    defaults:
-      run:
-        working-directory: 04_개발/backend
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install PostgreSQL client
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y postgresql-client
-      - name: Run business reviews PostgreSQL lifecycle
-        env:
-          DATABASE_URL: postgresql://postgres@127.0.0.1:5432/danjion_reviews?sslmode=disable
-        run: bash tests/business-reviews-postgres-lifecycle.sh
-
-  complex-news-channel-040-postgres-lifecycle:
-    runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:18
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_DB: danjion_040_compat
-          POSTGRES_HOST_AUTH_METHOD: trust
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres -d danjion_040_compat"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-    defaults:
-      run:
-        working-directory: 04_개발/backend
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install PostgreSQL client
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y postgresql-client
-      - name: Run migration 040 compatibility + 040→041→042 sequence lifecycle
-        env:
-          DATABASE_URL: postgresql://postgres@127.0.0.1:5432/danjion_040_compat?sslmode=disable
-        run: bash tests/complex-news-channel-040-postgres-lifecycle.sh
-
-  business-category-benefit-postgres-lifecycle:
-    runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:18
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_DB: danjion_business_contract
-          POSTGRES_HOST_AUTH_METHOD: trust
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres -d danjion_business_contract"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-    defaults:
-      run:
-        working-directory: 04_개발/backend
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install PostgreSQL client
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y postgresql-client
-      - name: Run #278 business category and benefit PostgreSQL lifecycle
-        env:
-          DATABASE_URL: postgresql://postgres@127.0.0.1:5432/danjion_business_contract?sslmode=disable
-        run: bash tests/business-category-benefit-postgres-lifecycle.sh
-
-  community-replies-postgres-lifecycle:
-    runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:18
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_DB: danjion_community_replies
-          POSTGRES_HOST_AUTH_METHOD: trust
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres -d danjion_community_replies"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-    defaults:
-      run:
-        working-directory: 04_개발/backend
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install PostgreSQL client
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y postgresql-client
-      - name: Run Community nested replies PostgreSQL lifecycle
-        env:
-          DATABASE_URL: postgresql://postgres@127.0.0.1:5432/danjion_community_replies?sslmode=disable
-        run: bash tests/community-replies-postgres-lifecycle.sh
-
-  community-postgres-security:
-    runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:18
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_DB: danjion_community
-          POSTGRES_HOST_AUTH_METHOD: trust
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres -d danjion_community"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-    defaults:
-      run:
-        working-directory: 04_개발/backend
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install PostgreSQL client
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y postgresql-client
-      - name: Run Community C6 real PostgreSQL security lifecycle
-        env:
-          DATABASE_URL: postgresql://postgres@127.0.0.1:5432/danjion_community?sslmode=disable
-        run: bash tests/community-postgres-security.sh
-
-  business-image-postgres-concurrency:
-    runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:18
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_DB: danjion_atomicity
-          POSTGRES_HOST_AUTH_METHOD: trust
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres -d danjion_atomicity"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-    defaults:
-      run:
-        working-directory: 04_개발/backend
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install PostgreSQL client
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y postgresql-client
-      - name: Run real PostgreSQL lifecycle and idempotency probes
-        env:
-          DATABASE_URL: postgresql://postgres@127.0.0.1:5432/danjion_atomicity?sslmode=disable
-        run: |
-          bash tests/business-image-postgres-concurrency.sh
-          bash tests/business-image-upload-idempotency-postgres.sh
-          bash tests/business-image-resolved-lease-cleanup-postgres.sh
-
-  application-documents-owner-list-postgres-lifecycle:
-    runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:18
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_DB: danjion_owner_doc_list
-          POSTGRES_HOST_AUTH_METHOD: trust
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres -d danjion_owner_doc_list"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-    defaults:
-      run:
-        working-directory: 04_개발/backend
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install PostgreSQL client
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y postgresql-client
-      - name: Run #362 owner application list document metadata lifecycle
-        env:
-          DATABASE_URL: postgresql://postgres@127.0.0.1:5432/danjion_owner_doc_list?sslmode=disable
-        run: bash tests/application-documents-owner-list-postgres-lifecycle.sh
+          DATABASE_URL: postgresql://postgres@127.0.0.1:5432/${{ matrix.database }}?sslmode=disable
+        run: ${{ matrix.script }}
