@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
-const html = await readFile(new URL('../../../frontend/index3.html', import.meta.url), 'utf8');
+const html = await readFile(new URL('../../../frontend/index.html', import.meta.url), 'utf8');
 const pkg = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
 
 /* --- auth entry does not mislead about phone requirement --- */
