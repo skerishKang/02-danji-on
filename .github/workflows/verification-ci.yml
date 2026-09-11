@@ -8,15 +8,6 @@ on:
       - '04_개발/backend/migrations/006_resident_verification_constraints.sql'
       - '04_개발/backend/tests/verification-contract.mjs'
       - '.github/workflows/verification-ci.yml'
-  push:
-    branches:
-      - feat/preinfra-integration
-    paths:
-      - '04_개발/frontend/**'
-      - '04_개발/backend/src/*verification*.ts'
-      - '04_개발/backend/migrations/006_resident_verification_constraints.sql'
-      - '04_개발/backend/tests/verification-contract.mjs'
-      - '.github/workflows/verification-ci.yml'
 
 jobs:
   verification-check:
