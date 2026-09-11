@@ -86,8 +86,10 @@ assert.match(html, /else\{showToast\('인증번호를 다시 보냈습니다\.'\
 assert.match(html, /function closeLayer\(\)\{layer\.hidden=true;document\.body\.style\.overflow='';history=\[\];signupPending=null\}/,
   'closing the modal must drop the pending signup session and receipt');
 
-/* --- contract runs in the typecheck chain --- */
-assert.ok(pkg.scripts.typecheck.includes('npm run test:stage5j-index3-account-entry'),
-  'stage5j contract must run in the typecheck chain');
+/* --- contract runs in the authoritative manifest --- */
+const manifest = JSON.parse(await readFile(new URL('../../test-runner.manifest.json', import.meta.url), 'utf8'));
+const runIds = manifest.scopes.frontend.run.map((s) => s.npm || s.id);
+assert.ok(runIds.includes('test:stage5j-index3-account-entry'),
+  'stage5j contract must run in the manifest frontend suite');
 
 console.log('stage5j index3 account entry wiring contract: PASS');
