@@ -1,0 +1,10 @@
+{
+  "version_id": "legacy-a",
+  "entry_file": "index.html",
+  "status": "COMPARISON_KEEP",
+  "source_sha": "f23c4e1f5622a2313c51c94d2ac54df568b2ea9a",
+  "frozen": true,
+  "do_not_merge": "Historical V5 comparison only",
+  "production_data": false,
+  "production_secrets": false
+}

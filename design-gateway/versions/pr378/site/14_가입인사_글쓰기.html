@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+
+<html lang="ko">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width,initial-scale=1,viewport-fit=cover" name="viewport"/>
+<title>단지온 · 가입인사 글쓰기</title>
+<style>
+:root{--paper:#fbfaf6;--paper2:#f3efe6;--ink:#111217;--muted:#74716a;--line:#ded8cc;--coral:#ed5a42;--navy:#101b2d}
+*{box-sizing:border-box}
+html{font-family:Pretendard,"Noto Sans KR",Arial,sans-serif;background:var(--paper);color:var(--ink);-webkit-text-size-adjust:100%}
+body{margin:0;min-width:320px;background:var(--paper);padding-bottom:96px;word-break:keep-all}
+button,input,textarea{font:inherit}
+button{cursor:pointer}
+.writebar{height:66px;position:sticky;top:0;z-index:20;background:rgba(251,250,246,.96);backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
+.writebar-inner{width:min(760px,100%);height:100%;margin:auto;padding:0 20px;display:grid;grid-template-columns:54px 1fr 72px;align-items:center}
+.back{width:44px;height:44px;border:0;background:none;font-size:24px;text-align:left;padding:0;color:var(--ink)}
+.writebar strong{font-size:18px;text-align:center;letter-spacing:-.025em}
+.top-publish{height:40px;border:0;background:none;color:var(--coral);font-weight:900;font-size:15px}
+main{width:min(760px,100%);margin:auto;padding:28px 20px 34px}
+.category{display:inline-flex;align-items:center;min-height:34px;padding:0 12px;border-radius:999px;background:#eee9df;color:#4c4943;font-size:14px;font-weight:850}
+h1{margin:17px 0 8px;font-size:30px;line-height:1.18;letter-spacing:-.045em}
+.lead{margin:0 0 28px;color:var(--muted);font-size:16px;line-height:1.55}
+.editor{border-top:1px solid var(--ink)}
+.field{padding:20px 0;border-bottom:1px solid var(--line)}
+.field label{display:block;font-size:14px;font-weight:900;margin-bottom:10px}
+.title-input{width:100%;height:54px;border:0;background:transparent;padding:0;font-size:20px;font-weight:800;outline:none}
+.title-input::placeholder{color:#aaa59d;font-weight:650}
+.body-input{display:block;width:100%;min-height:260px;border:0;background:transparent;padding:4px 0 0;resize:vertical;font-size:18px;line-height:1.7;outline:none}
+.body-input::placeholder{color:#aaa59d}
+.tools{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:18px 0;border-bottom:1px solid var(--line)}
+.photo{min-height:46px;border:1px solid var(--line);background:#fff;padding:0 16px;font-weight:850}
+.photo-count{color:var(--muted);font-size:14px}
+.rule{padding:17px 0;color:var(--muted);font-size:14px;line-height:1.55}
+.publish-wrap{position:fixed;left:0;right:0;bottom:0;z-index:18;padding:12px max(20px,calc((100vw - 720px)/2));padding-bottom:calc(12px + env(safe-area-inset-bottom,0px));background:linear-gradient(180deg,rgba(251,250,246,0),var(--paper) 24%)}
+.publish{width:100%;height:56px;border:0;background:var(--coral);color:#fff;font-weight:900;font-size:17px}
+.toast{position:fixed;left:50%;bottom:90px;z-index:50;transform:translate(-50%,18px);opacity:0;pointer-events:none;background:var(--ink);color:#fff;padding:12px 16px;font-size:14px;transition:.2s}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+@media(max-width:760px){
+ .writebar{height:58px}.writebar-inner{padding:0 16px;grid-template-columns:48px 1fr 62px}.writebar strong{font-size:17px}
+ main{padding:22px 20px 24px}h1{font-size:26px;margin-top:14px}.lead{font-size:15px;margin-bottom:20px}
+ .field{padding:16px 0}.title-input{font-size:18px}.body-input{min-height:300px;font-size:17px}
+ .publish-wrap{padding-left:16px;padding-right:16px}
+}
+@media(prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
+
+/* APP persistent nav/back fix 20260904 */
+.mobile-bottom{display:none}
+@media(max-width:760px){
+  body{padding-bottom:170px}
+  .writebar{position:fixed!important;left:0;right:0;top:0;height:58px;z-index:80}
+  .writebar-inner{height:58px}
+  main{padding-top:80px!important;padding-bottom:170px!important}
+  .publish-wrap{bottom:68px!important;left:0;right:0;z-index:65!important;padding:10px 16px 12px!important;background:linear-gradient(180deg,rgba(251,250,246,0),var(--paper) 24%)}
+  .toast{bottom:148px!important}
+  .mobile-bottom{position:fixed;display:grid;grid-template-columns:repeat(4,1fr);left:0;right:0;bottom:0;height:68px;background:rgba(255,253,248,.98);border-top:1px solid var(--line);z-index:70}
+  .mobile-bottom a{display:grid;place-items:center;align-content:center;color:#706d67;font-size:11px;font-weight:800;text-decoration:none}
+  .mobile-bottom a.active{color:var(--coral)}
+}
+
+/* 008 mobile bottom icon repair 20260904 */
+@media(max-width:760px){
+.mobile-bottom a{border:0;background:none;text-decoration:none;display:grid!important;place-items:center;align-content:center;gap:3px;color:#706d67;font-size:11px;font-weight:800;line-height:1.05}
+.mobile-bottom a.active{color:var(--coral,#ee6045)}
+.mobile-bottom svg{display:block!important;width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;overflow:visible}
+.mobile-bottom span{display:block}
+}
+</style>
+<style id="front-audit-bottom-nav-standard-20260904">
+/* Frontend audit 1: all app content screens share one exact bottom navigation geometry. */
+@media (max-width:760px){
+  body{padding-bottom:68px!important}
+  .mobile-bottom{
+    position:fixed!important;display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;
+    left:0!important;right:0!important;bottom:0!important;width:100%!important;height:68px!important;
+    margin:0!important;padding:0!important;background:rgba(255,253,248,.98)!important;
+    border:0!important;border-top:1px solid #d8d0c3!important;box-shadow:none!important;z-index:90!important;
+  }
+  .mobile-bottom>button,.mobile-bottom>a{
+    appearance:none!important;-webkit-appearance:none!important;box-sizing:border-box!important;
+    width:auto!important;min-width:0!important;height:67px!important;margin:0!important;padding:0!important;
+    border:0!important;border-radius:0!important;background:transparent!important;text-decoration:none!important;
+    display:grid!important;grid-template-rows:22px 14px!important;align-content:center!important;justify-items:center!important;
+    place-items:initial!important;row-gap:3px!important;column-gap:0!important;
+    color:#706d67!important;font-family:inherit!important;font-size:12px!important;font-weight:800!important;
+    line-height:14px!important;letter-spacing:-.01em!important;text-align:center!important;
+  }
+  .mobile-bottom>button.active,.mobile-bottom>a.active{color:#ee6045!important}
+  .mobile-bottom svg{
+    display:block!important;width:22px!important;height:22px!important;margin:0!important;padding:0!important;
+    stroke:currentColor!important;fill:none!important;stroke-width:1.8!important;stroke-linecap:round!important;stroke-linejoin:round!important;
+    overflow:visible!important;
+  }
+  .mobile-bottom span{display:block!important;height:14px!important;margin:0!important;padding:0!important;line-height:14px!important;white-space:nowrap!important}
+  .toast{bottom:82px!important}
+}
+@media (min-width:761px){.mobile-bottom{display:none!important}}
+</style><style id="frontcheck-bottom-nav-optical-v4">
+/* Frontend audit 1 v4: optical-center every app bottom nav; hide browser scrollbar inside app viewport. */
+@media (max-width:760px){
+  html,body{scrollbar-width:none!important;-ms-overflow-style:none!important}
+  html::-webkit-scrollbar,body::-webkit-scrollbar{width:0!important;height:0!important;display:none!important}
+  html body .mobile-bottom{
+    position:fixed!important;left:0!important;right:0!important;bottom:0!important;
+    width:100%!important;height:68px!important;margin:0!important;padding:0!important;
+    display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;
+    background:rgba(255,253,248,.985)!important;border:0!important;border-top:1px solid #d8d0c3!important;
+    box-shadow:none!important;z-index:990!important;box-sizing:border-box!important;
+  }
+  html body .mobile-bottom>button,html body .mobile-bottom>a{
+    appearance:none!important;-webkit-appearance:none!important;
+    width:100%!important;min-width:0!important;height:67px!important;margin:0!important;padding:0!important;
+    border:0!important;border-radius:0!important;background:transparent!important;text-decoration:none!important;
+    display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;
+    gap:4px!important;color:#706d67!important;font-family:inherit!important;font-size:12px!important;font-weight:800!important;
+    line-height:14px!important;letter-spacing:-.01em!important;text-align:center!important;box-sizing:border-box!important;
+  }
+  html body .mobile-bottom>button.active,html body .mobile-bottom>a.active{color:#ee6045!important}
+  html body .mobile-bottom svg{
+    display:block!important;flex:0 0 22px!important;width:22px!important;height:22px!important;
+    margin:0 auto!important;padding:0!important;transform:none!important;
+    stroke:currentColor!important;fill:none!important;stroke-width:1.8!important;stroke-linecap:round!important;stroke-linejoin:round!important;
+    overflow:visible!important;box-sizing:content-box!important;
+  }
+  html body .mobile-bottom span{
+    display:block!important;flex:0 0 14px!important;width:100%!important;height:14px!important;margin:0!important;padding:0!important;
+    line-height:14px!important;text-align:center!important;white-space:nowrap!important;transform:none!important;
+  }
+}
+</style><style id="frontcheck-close-task-v1">
+.writebar .close-task{display:grid!important;place-items:center!important;width:44px!important;height:44px!important;padding:0!important;font-size:28px!important;line-height:1!important;font-weight:500!important;text-align:center!important}
+</style></head>
+<body data-danjion-page="14">
+<header class="writebar">
+<div class="writebar-inner">
+<button aria-label="글쓰기 닫기" class="back close-task" type="button">×</button>
+<strong>가입인사 글쓰기</strong>
+<button class="top-publish" data-publish="" type="button">게시</button>
+</div>
+</header>
+<main>
+<span class="category">가입인사</span>
+<h1>새로 온 이웃에게 간단히 인사해보세요.</h1>
+<p class="lead">종류는 이미 선택했습니다. 바로 작성하면 됩니다.</p>
+<form id="writeForm">
+<section class="editor">
+<div class="field">
+<label for="title">제목</label>
+<input autocomplete="off" class="title-input" id="title" maxlength="80" placeholder="안녕하세요, 새로 이사 왔습니다"/>
+</div>
+<div class="field">
+<label for="body">내용</label>
+<textarea class="body-input" id="body" maxlength="2000" placeholder="어떤 이웃인지, 반가운 인사나 간단한 소개를 적어주세요."></textarea>
+</div>
+<div class="tools">
+<button class="photo" id="photoBtn" type="button">사진 추가</button>
+<span class="photo-count" id="photoCount">0 / 3</span>
+<input accept="image/*" hidden="" id="photos" multiple="" type="file"/>
+</div>
+<p class="rule">댓글은 기본으로 열립니다. 필요한 설정은 게시 후에도 바꿀 수 있습니다.</p>
+</section>
+</form>
+</main>
+<nav aria-label="모바일 주요 메뉴" class="mobile-bottom"><button aria-label="홈" data-route="04_데일리홈.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><path d="m3 10 9-7 9 7v10h-6v-6H9v6H3z"></path></svg><span>홈</span></button><button aria-label="이웃가게" data-route="01_이웃가게_발견.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><path d="M4 7h16l-1 13H5L4 7Z"></path><path d="M8 7V5a4 4 0 0 1 8 0v2"></path></svg><span>이웃가게</span></button><button aria-label="우리단지" class="active" data-route="05_우리단지_첫화면.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><path d="M4 21V9l8-6 8 6v12"></path><path d="M8 13h8M8 17h8"></path></svg><span>우리단지</span></button><button aria-label="내정보" data-route="19_내정보_메인.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><circle cx="12" cy="8" r="4"></circle><path d="M4 21a8 8 0 0 1 16 0"></path></svg><span>내정보</span></button></nav>
+<div class="publish-wrap"><button class="publish" data-publish="" type="button">가입인사 게시하기</button></div>
+<div class="toast" id="toast" role="status"></div>
+<script>
+(function(){
+  try{history.scrollRestoration='manual'}catch(e){}; requestAnimationFrame(()=>window.scrollTo(0,0));
+  const COMMUNITY='12_이웃대화_첫화면.html?type=hello';
+  const title=document.getElementById('title'), body=document.getElementById('body'), photos=document.getElementById('photos');
+  const key='danjionDraft:14';
+  function reportRoute(){try{if(parent!==window)parent.postMessage({type:'danjion-route',file:'14_가입인사_글쓰기.html',href:location.href},'*')}catch(e){}}
+  reportRoute(); addEventListener('pageshow',reportRoute);
+  function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(window.__toast);window.__toast=setTimeout(()=>t.classList.remove('show'),1700)}
+  function save(){try{localStorage.setItem(key,JSON.stringify({title:title.value,body:body.value}))}catch(e){}}
+  try{const d=JSON.parse(localStorage.getItem(key)||'null');if(d){title.value=d.title||'';body.value=d.body||''}}catch(e){}
+  title.addEventListener('input',save);body.addEventListener('input',save);
+  document.querySelector('.back').addEventListener('click',()=>location.href=COMMUNITY);
+  document.getElementById('photoBtn').addEventListener('click',()=>photos.click());
+  photos.addEventListener('change',()=>{const n=Math.min(photos.files.length,3);document.getElementById('photoCount').textContent=n+' / 3'});
+  function publish(){
+    if(!title.value.trim()){toast('제목을 입력해주세요.');title.focus();return}
+    if(body.value.trim().length<5){toast('내용을 조금 더 적어주세요.');body.focus();return}
+    try{localStorage.removeItem(key)}catch(e){}
+    toast('게시했습니다.');
+    setTimeout(()=>location.href=COMMUNITY,650);
+  }
+  document.querySelectorAll('[data-publish]').forEach(b=>b.addEventListener('click',publish));
+})();
+</script>
+</body>
+</html>

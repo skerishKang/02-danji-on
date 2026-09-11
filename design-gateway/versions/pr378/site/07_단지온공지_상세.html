@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+
+<html lang="ko">
+<head>
+<meta charset="utf-8"/><meta content="width=device-width,initial-scale=1" name="viewport"/>
+<title>단지온 · 중요 공지 상세 · STEP 07</title>
+<style>
+    @import url("assets/consistency.css");
+@import url("assets/consistency-backfix.css");
+    :root{--paper:#f6f2e9;--paper2:#fffdf8;--ink:#101317;--navy:#101d30;--coral:#ee6045;--amber:#f2b84b;--green:#255e49;--muted:#6d6a64;--line:#d8d0c3;--soft:#ece5d8;--header:76px}
+    *{box-sizing:border-box}html{background:var(--paper);color:var(--ink);font-family:Pretendard,"Pretendard Variable","Noto Sans KR",Arial,sans-serif;scroll-behavior:smooth;scroll-padding-top:105px}body{margin:0;min-width:320px;background:var(--paper)}button,a{font:inherit;color:inherit}button,a{cursor:pointer}a{text-decoration:none}
+    .site-header{height:var(--header);border-bottom:1px solid var(--line);background:rgba(246,242,233,.96);display:flex;align-items:center;position:sticky;top:0;z-index:40;backdrop-filter:blur(12px)}.header-inner{width:min(1280px,calc(100% - 64px));margin:auto;display:flex;align-items:center;justify-content:space-between}.brand{display:flex;align-items:baseline;gap:10px;border:0;background:none;padding:0;font-weight:900;font-size:25px;letter-spacing:-.05em}.brand small{font-size:11px;letter-spacing:.11em;color:#5f5c56;font-weight:850}.desktop-nav{display:flex;align-items:center;gap:42px;height:var(--header)}.desktop-nav button{height:100%;border:0;background:none;padding:0 2px;font-size:16px;font-weight:780;position:relative}.desktop-nav button.active::after{content:"";height:3px;position:absolute;left:0;right:0;bottom:0;background:var(--coral)}.identity{font-size:14px;font-weight:780;color:#58554f}.mobile-head{display:none}
+    main{width:min(1280px,calc(100% - 64px));margin:auto;padding:0 0 110px}.route{height:58px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--line)}.route a{display:flex;align-items:center;gap:9px;font-size:15px;font-weight:850}.route svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8}.route span{font-size:14px;color:var(--muted)}.route span::before{content:"/";margin-right:10px;color:#aaa49b}
+    .article-head{display:grid;grid-template-columns:180px minmax(0,1fr);gap:54px;padding:52px 0 46px;border-bottom:1px solid var(--ink)}.head-label{padding-top:5px}.head-label span{display:inline-flex;align-items:center;gap:10px;color:var(--coral);font-size:14px;font-weight:900}.head-label span::before{content:"";width:28px;height:2px;background:var(--coral)}.head-label b{display:block;font-size:70px;line-height:1;margin-top:26px;color:var(--soft);letter-spacing:-.06em}.article-head h1{max-width:900px;font-size:54px;line-height:1.2;letter-spacing:-.055em;margin:0;word-break:keep-all}.lead{max-width:760px;font-size:19px;line-height:1.75;color:var(--muted);margin:24px 0 29px}.meta{display:flex;align-items:center;gap:13px;font-size:14px;font-weight:780}.meta span+span::before{content:"";display:inline-block;width:1px;height:13px;background:var(--line);margin-right:13px;vertical-align:-2px}
+    .article-body{display:grid;grid-template-columns:180px minmax(0,1fr);gap:54px;padding-top:56px}.article-index{position:sticky;top:108px;align-self:start;border-top:1px solid var(--ink)}.article-index a{display:block;padding:16px 10px 16px 2px;border-bottom:1px solid var(--line);font-size:15px;font-weight:820;color:var(--muted);transition:color .18s,transform .18s}.article-index a:hover,.article-index a:focus-visible,.article-index a[aria-current="true"]{color:var(--coral);font-weight:900}
+#noticeContent .writing li{display:block!important;padding-left:26px!important;position:relative}
+#noticeContent .writing li::before{position:absolute!important;left:2px!important;top:15px!important}
+#noticeContent .lv-row{display:flex!important;gap:16px!important;align-items:flex-start!important;border-bottom:1px solid var(--line)!important;padding:19px 0!important;scroll-margin-top:105px}
+#noticeContent .lv-badge{flex:0 0 64px!important;height:44px!important;display:grid!important;place-items:center!important;border-radius:999px!important;font-weight:950!important;font-size:13.5px!important}
+#noticeContent .lv1{background:#e4dccd!important;color:#101317!important}
+#noticeContent .lv2{background:#cfe3f2!important;color:#1d4e77!important}
+#noticeContent .lv3{background:var(--amber)!important;color:#101317!important}
+#noticeContent .lv4{background:#255e49!important;color:#fff!important}
+#noticeContent .lv5{background:var(--coral)!important;color:#fff!important}
+#noticeContent .lv-text b{display:block!important;font-size:17px!important;letter-spacing:-.02em!important;margin-bottom:4px!important}
+#noticeContent .lv-text small{display:block!important;font-size:13.5px!important;color:#56534e!important;line-height:1.5!important;margin-bottom:5px!important}
+#noticeContent .lv-text em{display:block!important;font-style:normal!important;font-weight:950!important;font-size:13px!important;color:var(--coral)!important}
+#noticeContent .lv-score{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:9px!important;margin-top:18px!important}
+#noticeContent .lv-score div{background:#fffdf8!important;border:1px solid var(--line)!important;padding:13px 14px!important;font-size:13.5px!important;font-weight:850!important;line-height:1.45!important}
+#noticeContent .lv-score b{color:var(--coral)!important}
+#noticeContent .lv-score small{color:#8a857d!important;font-weight:700!important}
+#noticeContent .lv-row,#noticeContent .lv-score div{scroll-margin-top:105px}
+#noticeContent h2{font-size:25px!important;letter-spacing:-.04em!important;margin:36px 0 0!important}
+@media(max-width:760px){#noticeContent .lv-score{grid-template-columns:1fr!important}#noticeContent .lv-badge{flex-basis:58px!important;height:40px!important;font-size:12.5px!important}}.content{max-width:900px}.opening{font-size:21px;line-height:1.9;margin:0 0 47px;letter-spacing:-.02em}.opening strong{font-weight:900}.menu-guide,.notice-box,.writing{scroll-margin-top:105px}
+    .menu-guide{border-top:1px solid var(--ink)}.guide-row{display:grid;grid-template-columns:88px 180px 1fr;gap:28px;align-items:start;padding:28px 0;border-bottom:1px solid var(--line)}.guide-row .num{font-size:13px;font-weight:900;color:var(--coral)}.guide-row h2{font-size:24px;line-height:1.35;letter-spacing:-.035em;margin:0}.guide-row p{font-size:17px;line-height:1.75;color:var(--muted);margin:0;word-break:keep-all}
+    .notice-box{margin-top:48px;padding:36px;background:var(--navy);color:#fff;display:grid;grid-template-columns:190px 1fr;gap:42px;position:relative;overflow:hidden}.notice-box::after{content:"";position:absolute;width:250px;height:250px;border:1px solid rgba(255,255,255,.09);border-radius:50%;right:-88px;bottom:-120px}.notice-box .kicker{color:var(--amber);font-size:14px;font-weight:900;position:relative;z-index:2}.notice-box h2{font-size:31px;line-height:1.35;letter-spacing:-.04em;margin:0 0 15px;position:relative;z-index:2}.notice-box p{font-size:17px;line-height:1.75;color:rgba(255,255,255,.74);margin:0;position:relative;z-index:2}
+    .writing{margin-top:50px;padding-top:38px;border-top:1px solid var(--ink)}.writing .kicker{font-size:14px;font-weight:900;color:var(--coral)}.writing h2{font-size:32px;line-height:1.35;letter-spacing:-.04em;margin:12px 0 17px}.writing p{font-size:18px;line-height:1.82;color:var(--muted);margin:0}.writing ul{list-style:none;margin:27px 0 0;padding:0;border-top:1px solid var(--line)}.writing li{display:grid;grid-template-columns:24px 1fr;gap:13px;padding:16px 0;border-bottom:1px solid var(--line);font-size:17px;line-height:1.55}.writing li::before{content:"✓";font-weight:900;color:var(--green)}
+    .article-foot{margin-top:58px;padding-top:22px;border-top:1px solid var(--ink);display:flex;align-items:center;justify-content:space-between}.article-foot p{font-size:14px;color:var(--muted);margin:0}.back-list{min-width:180px;height:52px;background:var(--ink);color:#fff;display:flex;align-items:center;justify-content:center;gap:13px;font-size:15px;font-weight:850}.back-list span{font-size:20px}.mobile-bottom,.mobile-sticky{display:none}
+    @media(max-width:760px){:root{--header:60px}body{padding-bottom:48px;background:#fbf8f2}.header-inner{width:100%;padding:0 20px}.brand{font-size:21px}.brand small,.desktop-nav,.identity{display:none}.mobile-head{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:820;color:var(--muted)}main{width:100%;padding:0 20px 40px}.route{height:52px;margin:0 -20px;padding:0 20px;background:var(--paper2)}.route a{font-size:14px}.route span{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.article-head{display:block;padding:30px 0 31px}.head-label{display:flex;align-items:center;justify-content:space-between;padding:0}.head-label span{font-size:13px}.head-label span::before{width:20px}.head-label b{font-size:30px;margin:0;color:#d9d2c6}.article-head h1{font-size:37px;line-height:1.24;margin-top:25px}.lead{font-size:17px;line-height:1.7;margin:19px 0 23px}.meta{font-size:13px}.article-body{display:block;padding-top:31px}.article-index{display:none}.opening{font-size:18px;line-height:1.85;margin-bottom:36px}.guide-row{grid-template-columns:45px 1fr;gap:6px 13px;padding:23px 0}.guide-row .num{grid-row:1/3;font-size:12px;padding-top:5px}.guide-row h2{font-size:21px}.guide-row p{font-size:16px;line-height:1.72}.notice-box{margin:35px -20px 0;padding:29px 20px;display:block}.notice-box .kicker{font-size:13px}.notice-box h2{font-size:27px;margin:19px 0 13px}.notice-box p{font-size:16px}.writing{margin-top:39px;padding-top:30px}.writing .kicker{font-size:13px}.writing h2{font-size:27px}.writing p{font-size:17px}.writing li{font-size:16px}.article-foot{display:none}.mobile-sticky{display:block;position:fixed;left:0;right:0;bottom:68px;z-index:48;padding:10px 20px;background:rgba(255,253,248,.96);border-top:1px solid var(--line)}.mobile-sticky .back-list{width:100%;height:50px}.mobile-bottom{position:fixed;display:grid;grid-template-columns:repeat(4,1fr);left:0;right:0;bottom:0;height:68px;background:rgba(255,253,248,.98);border-top:1px solid var(--line);z-index:50}.mobile-bottom button{border:0;background:none;display:grid;place-items:center;align-content:center;gap:3px;color:#706d67;font-size:10px;font-weight:780}.mobile-bottom button.active{color:var(--coral)}.mobile-bottom svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8}}
+    @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}}
+  
+/* 2026-09-02 owner pass: WEB header/brand geometry normalized to 04 daily-home baseline. */
+@media (min-width:761px){
+  .site-header{
+    height:76px!important;
+    border-bottom:1px solid var(--line,#d8d0c3)!important;
+    background:rgba(246,242,233,.96)!important;
+    display:flex!important;
+    align-items:center!important;
+    position:sticky!important;
+    top:0!important;
+    z-index:40!important;
+    backdrop-filter:blur(12px)!important;
+  }
+  .site-header .header-inner{
+    width:min(1280px,calc(100% - 64px))!important;
+    margin:auto!important;
+    display:flex!important;
+    align-items:center!important;
+    justify-content:space-between!important;
+    padding:0!important;
+  }
+  .site-header .brand{
+    display:flex!important;
+    align-items:baseline!important;
+    gap:10px!important;
+    border:0!important;
+    background:none!important;
+    padding:0!important;
+    color:var(--ink,#101317)!important;
+    text-decoration:none!important;
+    font-family:inherit!important;
+    font-size:25px!important;
+    font-weight:900!important;
+    letter-spacing:-.05em!important;
+    line-height:1!important;
+  }
+  .site-header .brand small{
+    font-family:inherit!important;
+    font-size:11px!important;
+    line-height:1.2!important;
+    letter-spacing:.11em!important;
+    color:#5f5c56!important;
+    font-weight:850!important;
+  }
+  .site-header .desktop-nav{
+    display:flex!important;
+    align-items:center!important;
+    gap:42px!important;
+    height:76px!important;
+  }
+  .site-header .identity{
+    font-family:inherit!important;
+    font-size:14px!important;
+    line-height:1.2!important;
+    font-weight:780!important;
+    color:#58554f!important;
+    white-space:nowrap!important;
+  }
+}
+</style>
+<style id="front-audit-bottom-nav-standard-20260904">
+/* Frontend audit 1: all app content screens share one exact bottom navigation geometry. */
+@media (max-width:760px){
+  body{padding-bottom:68px!important}
+  .mobile-bottom{
+    position:fixed!important;display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;
+    left:0!important;right:0!important;bottom:0!important;width:100%!important;height:68px!important;
+    margin:0!important;padding:0!important;background:rgba(255,253,248,.98)!important;
+    border:0!important;border-top:1px solid #d8d0c3!important;box-shadow:none!important;z-index:90!important;
+  }
+  .mobile-bottom>button,.mobile-bottom>a{
+    appearance:none!important;-webkit-appearance:none!important;box-sizing:border-box!important;
+    width:auto!important;min-width:0!important;height:67px!important;margin:0!important;padding:0!important;
+    border:0!important;border-radius:0!important;background:transparent!important;text-decoration:none!important;
+    display:grid!important;grid-template-rows:22px 14px!important;align-content:center!important;justify-items:center!important;
+    place-items:initial!important;row-gap:3px!important;column-gap:0!important;
+    color:#706d67!important;font-family:inherit!important;font-size:12px!important;font-weight:800!important;
+    line-height:14px!important;letter-spacing:-.01em!important;text-align:center!important;
+  }
+  .mobile-bottom>button.active,.mobile-bottom>a.active{color:#ee6045!important}
+  .mobile-bottom svg{
+    display:block!important;width:22px!important;height:22px!important;margin:0!important;padding:0!important;
+    stroke:currentColor!important;fill:none!important;stroke-width:1.8!important;stroke-linecap:round!important;stroke-linejoin:round!important;
+    overflow:visible!important;
+  }
+  .mobile-bottom span{display:block!important;height:14px!important;margin:0!important;padding:0!important;line-height:14px!important;white-space:nowrap!important}
+  .toast{bottom:82px!important}
+}
+@media (min-width:761px){.mobile-bottom{display:none!important}}
+</style></head>
+<body data-danjion-page="7"><script src="assets/consistency.js"></script>
+<header class="site-header"><div class="header-inner"><button class="brand" type="button">단지온 <small>DANJION by PADIEM</small></button><nav class="desktop-nav"><button type="button">홈</button><button type="button">이웃가게</button><button class="active" type="button">우리단지</button><button type="button">내정보</button></nav><div class="identity">방림명지로드힐</div><div class="mobile-head">방림명지로드힐 <span>⌄</span></div></div></header>
+<main>
+ <div class="route"><a class="route-back" href="06_단지온공지_목록.html"><svg viewbox="0 0 24 24"><path d="M19 12H5M10 7l-5 5 5 5"></path></svg>단지온공지</a><span id="routeLabel">중요 공지</span></div>
+ <article>
+  <header class="article-head">
+   <div class="head-label"><span id="noticeLabel">처음 읽는 안내</span><b id="noticeNum">01</b></div>
+   <div><h1 id="noticeH1">단지온을 처음 이용하는 주민 여러분께 안내드립니다.</h1><p class="lead" id="noticeLead">단지온의 네 가지 메뉴와 주민 정보 보호, 글쓰기 운영방식을 한 번에 알려드립니다.</p><div class="meta"><span>단지온 운영팀</span></div></div>
+  </header>
+  <div class="article-body">
+   <nav aria-label="공지 내용" class="article-index" id="noticeIndex"></nav>
+   <div class="content" id="noticeContent"></div>
+  </div>
+ </article>
+</main>
+
+<style id="notice-view-20260906">
+.article-body{display:grid;grid-template-columns:180px minmax(0,1fr);gap:54px;padding-top:56px}
+.article-index{position:sticky;top:108px;align-self:start;border-top:1px solid var(--ink)}
+.article-index a{display:block;padding:16px 10px 16px 2px;border-bottom:1px solid var(--line);font-size:15px;font-weight:820;color:var(--muted);transition:color .18s,transform .18s}
+.article-index a:hover,.article-index a:focus-visible{color:var(--ink);transform:translateX(2px)}
+.article-index a[aria-current="true"]{color:var(--coral);font-weight:900}
+.content{max-width:900px}
+.content>p{font-size:16px;line-height:1.75;color:#101317;margin:0 0 18px}
+.content h2{font-size:25px!important;letter-spacing:-.04em!important;margin:36px 0 0!important;scroll-margin-top:105px}
+#noticeContent .writing{margin-top:48px}
+#noticeContent .writing .kicker{display:block;color:var(--coral);font-size:14px;font-weight:900;margin-bottom:10px}
+#noticeContent .writing h2{font-size:30px;letter-spacing:-.04em;margin:0 0 14px}
+#noticeContent .writing>p{font-size:16px;line-height:1.7;color:#101317;margin:0 0 16px}
+#noticeContent .writing ul{margin:0;padding:0;list-style:none;border-top:1px solid var(--line)}
+#noticeContent .writing li{display:block!important;padding:15px 2px 15px 26px!important;border-bottom:1px solid var(--line);font-size:15.5px;line-height:1.7;color:#101317;word-break:keep-all;position:relative}
+#noticeContent .writing li::before{content:"✓";position:absolute!important;left:2px!important;top:15px!important;font-weight:900;color:var(--green)}
+#noticeContent .writing li b{color:var(--ink)}
+#noticeContent .menu-guide{border-top:1px solid var(--ink)}
+#noticeContent .guide-row,#noticeContent .notice-box{scroll-margin-top:105px}
+#noticeContent .lv-row{display:flex!important;gap:16px!important;align-items:flex-start!important;border-bottom:1px solid var(--line)!important;padding:19px 0!important;scroll-margin-top:105px}
+#noticeContent .lv-badge{flex:0 0 64px!important;height:44px!important;display:grid!important;place-items:center!important;border-radius:999px!important;font-weight:950!important;font-size:13.5px!important}
+#noticeContent .lv1{background:#e4dccd!important;color:#101317!important}
+#noticeContent .lv2{background:#cfe3f2!important;color:#1d4e77!important}
+#noticeContent .lv3{background:var(--amber)!important;color:#101317!important}
+#noticeContent .lv4{background:#255e49!important;color:#fff!important}
+#noticeContent .lv5{background:var(--coral)!important;color:#fff!important}
+#noticeContent .lv-text b{display:block!important;font-size:17px!important;letter-spacing:-.02em!important;margin-bottom:4px!important}
+#noticeContent .lv-text small{display:block!important;font-size:13.5px!important;color:#56534e!important;line-height:1.5!important;margin-bottom:5px!important}
+#noticeContent .lv-text em{display:block!important;font-style:normal!important;font-weight:950!important;font-size:13px!important;color:var(--coral)!important}
+#noticeContent .lv-score{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:9px!important;margin-top:18px!important}
+#noticeContent .lv-score div{background:#fffdf8!important;border:1px solid var(--line)!important;padding:13px 14px!important;font-size:13.5px!important;font-weight:850!important;line-height:1.45!important}
+#noticeContent .lv-score b{color:var(--coral)!important}
+#noticeContent .lv-score small{color:#8a857d!important;font-weight:700!important}
+@media(max-width:900px){.article-body{grid-template-columns:1fr!important;gap:26px!important}.article-index{position:static!important;display:flex!important;flex-wrap:wrap!important;gap:0 14px!important;border-top:1px solid var(--ink)}.article-index a{border-bottom:0!important;padding:10px 2px!important;font-size:14px}}
+@media(max-width:760px){#noticeContent .lv-score{grid-template-columns:1fr!important}#noticeContent .lv-badge{flex-basis:58px!important;height:40px!important;font-size:12.5px!important}}
+</style>
+<style id="notice-mobile-index-hide-20260906">@media(max-width:760px){.article-index{display:none!important}.article-body{grid-template-columns:1fr!important;gap:18px!important}}</style>
+<script id="notice-renderer-20260906">
+(function(){
+ const NOTICES={
+  first:{label:'처음 읽는 안내',num:'01',route:'중요 공지',title:'단지온을 처음 이용하는 주민 여러분께 안내드립니다.',lead:'단지온의 네 가지 메뉴와 주민 정보 보호, 글쓰기 운영방식을 한 번에 알려드립니다.',date:'2026.09.06 업데이트',
+   index:[['menus','네 가지 메뉴'],['privacy','개인정보 보호'],['privacyList','보이는 정보·지켜지는 정보']],
+   html:'<p class="opening">단지온은 <strong>방림명지로드힐 주민의 생활을 더 편리하게 연결하는 플랫폼</strong>입니다. 복잡한 기능을 찾아다니지 않아도 아래 네 가지 메뉴에서 필요한 일을 바로 시작할 수 있습니다.</p><section class="menu-guide" id="menus"><div class="guide-row"><span class="num">01</span><h2>홈</h2><p>오늘 확인할 이웃의 일, 주민혜택과 우리단지 새 소식을 간단히 모아봅니다.</p></div><div class="guide-row"><span class="num">02</span><h2>이웃가게</h2><p>우리 주민이 운영하는 가게와 가까운 이웃가게의 위치·운영시간·품목을 확인합니다.</p></div><div class="guide-row"><span class="num">03</span><h2>우리단지</h2><p>단지온공지, 아파트소식, 주민소식과 주민이 직접 이야기하는 이웃대화를 구분해 봅니다.</p></div><div class="guide-row"><span class="num">04</span><h2>내정보</h2><p>내 프로필과 이웃 온기 레벨, 작성글, 1:1 메시지, 알림과 이용 설정을 관리합니다.</p></div></section><section class="notice-box" id="privacy"><div class="kicker">개인정보 보호</div><div><h2>동·호수는 이웃에게 공개하지 않습니다.</h2><p>동·호 정보는 우리집 연결과 입주민 확인을 위한 용도로만 사용합니다. 공개 프로필에는 닉네임과 단지 이름만 표시됩니다.</p></div></section><section class="writing" id="privacyList"><span class="kicker">개인정보 보호</span><h2>보이는 정보, 지켜지는 정보</h2><p>주민에게 보이는 정보와 보호되는 정보를 구분해 운영합니다.</p><ul><li><b>공개되는 정보</b> — 닉네임, 이웃 온기 단계, 작성한 게시글·댓글·후기, 가게 소개와 운영 정보.</li><li><b>보호되는 정보</b> — 동·호수, 실명, 연락처, 이메일, 우리집 등록 정보와 가족 구성 정보.</li><li><b>가게 프로필</b> — 가게 이름과 운영 정보만 공개하며, 운영자의 개인 계정 정보는 연결해서 보여주지 않습니다.</li><li><b>문의 기록</b> — 가게에 문의한 내용은 가게 주인에게만 전달되고, 운영 기준에 따라 보관 기간이 지난 뒤 삭제됩니다.</li></ul></section>'},
+  biz:{label:'이웃가게 운영',num:'02',route:'이웃가게 안내',title:'주민 사업자와 이웃가게 등록 안내드립니다.',lead:'우리 주민의 가게를 먼저 소개하고, 등록부터 혜택까지 한 번에 알려드립니다.',date:'2026.09.06 업데이트',
+   index:[['apply','등록 신청 방법'],['check','운영 확인 절차'],['info','가게 프로필 정보'],['benefit','주민 혜택 등록'],['review','후기와 문의']],
+   html:'<p class="opening">이웃가게는 <strong>우리 주민이 직접 하는 일을 가장 먼저 소개하는 공간</strong>입니다. 등록은 무료이고, 아래 절차로 진행됩니다.</p><section class="writing" id="apply"><span class="kicker">등록 신청 방법</span><h2>이웃가게에서 신청서를 작성합니다.</h2><p>이웃가게 화면의 <b>내 가게 등록 신청</b>을 누르면 신청서가 열립니다.</p><ul><li>가게 이름과 업종(반찬·세탁·자동차·과외 등), 운영 방식을 적어주세요.</li><li>가게 소개와 제공 서비스, 대표 사진을 올려주세요.</li><li>주민 혜택 등록은 선택입니다. 없어도 등록할 수 있습니다.</li></ul></section><section class="writing" id="check"><span class="kicker">운영 확인 절차</span><h2>주민 관계를 확인한 뒤 게시합니다.</h2><p>관계 우선순위는 단지온의 중심 원칙입니다.</p><ul><li><b>우리 주민 가게</b> — 현재 단지 주민이 직접 운영하는 가게. 가장 먼저 보여집니다.</li><li><b>주민 가족 가게</b> — 주민의 가족이 운영하는 가게.</li><li><b>이웃가게</b> — 인근 단지·동네의 가게.</li></ul><p>확인이 필요한 경우 사업자등록증이나 서류를 요청할 수 있고, 제출은 ceo@padiem.net 으로 진행합니다. 확인 결과는 신청서에 남긴 연락 방법으로 안내합니다.</p></section><section class="writing" id="info"><span class="kicker">가게 프로필 정보</span><h2>주민이 판단할 수 있는 정보를 담습니다.</h2><ul><li>서비스 품목, 이용 방법, 운영 시간, 위치 안내(정확한 주소 대신 생활권 안내).</li><li>가게 사진은 실제 작업·판매 장면을 사용합니다.</li><li>동·호수와 개인 연락처는 가게 정보에 넣지 않습니다. 문의는 가게 문의로 받습니다.</li></ul></section><section class="writing" id="benefit"><span class="kicker">주민 혜택 등록</span><h2>혜택은 선택, 약속은 지킵니다.</h2><ul><li>할인·출장비 면제·무료 상담 같은 주민 혜택을 등록하면 혜택 보기와 쿠폰으로 표시됩니다.</li><li>혜택은 예약·방문 시 주민 확인 후 적용하며, 적용 방식은 가게 안내를 우선합니다.</li><li>혜택 내용을 바꿀 때는 신청서 수정으로 알려주세요.</li></ul></section><section class="writing" id="review"><span class="kicker">후기와 문의</span><h2>이용한 주민이 후기를 남깁니다.</h2><ul><li>후기는 별점 없이 이용 경험 중심으로 남기고, 가게 주인이 답글을 달 수 있습니다.</li><li>가게 문의는 가게 주인의 메시지함으로 전달됩니다.</li><li>허위 후기나 악의적 후기는 운영 기준에 따라 조치될 수 있습니다.</li></ul></section>'},
+  message:{label:'주민 소통',num:'03',route:'1:1 메시지 안내',title:'주민 간 1:1 메시지 이용 안내드립니다.',lead:'이웃과 주고받는 1:1 메시지의 시작 방법과 안전 기준을 알려드립니다.',date:'2026.09.06 업데이트',
+   index:[['start','메시지 시작 방법'],['shop','가게 문의는 이렇게'],['safe','차단·신고와 설정'],['manner','메시지 예절']],
+   html:'<p class="opening">메시지는 <strong>실시간 채팅이 아닌 편지처럼 주고받는 1:1 대화</strong>입니다. 답장은 상대가 확인하는 대로 도착합니다.</p><section class="writing" id="start"><span class="kicker">메시지 시작 방법</span><h2>프로필에서 보내거나, 글에서 이어갑니다.</h2><ul><li>이웃의 공개 프로필이나 게시글 작성자를 눌러 메시지를 보냅니다.</li><li>받은 메시지는 내정보의 메시지함에 쌓이고, 답장하면 같은 대화에 이어집니다.</li><li>대화 상대는 닉네임으로 표시되고, 동·호수는 보이지 않습니다.</li></ul></section><section class="writing" id="shop"><span class="kicker">가게 문의는 이렇게</span><h2>가게에 문의하면 가게 주인에게 갑니다.</h2><ul><li>가게 팝업의 <b>가게 문의</b>로 보낸 문의는 가게 주인의 메시지함에 <b>가게 문의</b>로 표시됩니다.</li><li>가게 주인이 답장하면 대화에 가게 이름으로 표시됩니다.</li><li>예약 확정이나 결제는 가게 안내에 따라 진행합니다.</li></ul></section><section class="writing" id="safe"><span class="kicker">차단·신고와 설정</span><h2>불편할 때 바로 쓸 수 있게 만들어 뒀습니다.</h2><ul><li>대화 상대를 <b>차단</b>하면 더 이상 메시지를 받지 않습니다.</li><li><b>신고</b>하면 운영진이 확인하고 조치합니다.</li><li>설정에서 메시지 받기와 알림을 끌 수 있습니다.</li></ul></section><section class="writing" id="manner"><span class="kicker">메시지 예절</span><h2>이웃 사이의 대화라는 것을 기억합니다.</h2><ul><li>늦은 시간의 연락은 상대를 배려해서 피해 주세요.</li><li>거래·예약 내용은 대화에 기록으로 남겨 두면 서로 도움이 됩니다.</li><li>불편한 대화는 무리하게 이어가기보다 조용히 마무리해도 괜찮습니다.</li></ul></section>'},  writing:{label:'이웃대화 운영',num:'04',route:'이웃대화 운영기준',title:'이웃대화 글쓰기 방법과 AI 운영기준을 안내드립니다.',lead:'네 가지 말머리로 글을 쓰고, 모든 글과 댓글은 단지온 AI가 검수합니다.',date:'2026.09.06 업데이트',
+   index:[['type','말머리 4종'],['how','글쓰는 방법'],['rule','주의사항'],['ai','AI 검수와 조치']],
+   html:'<p class="opening">이웃대화는 <strong>주민끼리 소식을 주고받는 공간</strong>입니다. 말머리를 고르고, 아래 기준만 지키면 누구나 편하게 쓸 수 있습니다.</p>'
+     +'<section class="writing" id="type"><span class="kicker">말머리 4종</span><h2>이야기 종류를 먼저 고릅니다.</h2>'
+     +'<ul><li><b>가입인사</b> — 새로 이사 온 인사. 자기소개와 함께 남겨요.</li>'
+     +'<li><b>단지이야기</b> — 단지에서 본 생활 이야기와 소식.</li>'
+     +'<li><b>궁금해요</b> — 궁금한 것을 물어보고 이웃의 답을 받아요.</li>'
+     +'<li><b>같이해요</b> — 산책·모임처럼 함께할 일을 모집해요.</li></ul></section>'
+     +'<section class="writing" id="how"><span class="kicker">글쓰는 방법</span><h2>말머리에 맞는 양식이 열립니다.</h2>'
+     +'<ul><li>제목과 내용을 쓰고, 필요하면 사진을 함께 올립니다.</li>'
+     +'<li>같이해요는 희망 인원·연령·일자·장소를 적을 수 있습니다.</li>'
+     +'<li>본문은 최소 10자 이상 써 주세요.</li>'
+     +'<li>쓰다 만 글은 임시 저장되니 언제든 이어 쓸 수 있습니다.</li></ul></section>'
+     +'<section class="writing" id="rule"><span class="kicker">주의사항</span><h2>지켜야 할 기준이 있습니다.</h2>'
+     +'<ul><li>욕설·비방·혐오 표현과 개인정보 무단 공개는 금지입니다.</li>'
+     +'<li>반복 광고와 도배 글은 올릴 수 없습니다.</li>'
+     +'<li>확인되지 않은 허위 정보를 퍼뜨리지 않습니다.</li>'
+     +'<li>거래 분쟁이 우려되는 내용은 이웃가게의 공식 문의로 진행합니다.</li></ul></section>'
+     +'<section class="writing" id="ai"><span class="kicker">AI 검수와 조치</span><h2>모든 글과 댓글은 단지온 AI가 검수합니다.</h2>'
+     +'<ul><li>글이 올라오면 <b>단지온 AI</b>가 운영기준 위반 여부를 자동으로 검수합니다.</li>'
+     +'<li>기준을 벗어난 글은 <b>AI가 즉시 숨김·삭제 조치</b>를 할 수 있습니다.</li>'
+     +'<li>반복되는 위반 계정은 <b>AI가 자동으로 이용을 제한</b>합니다.</li>'
+     +'<li>신고가 접수되면 AI 검수 결과에 따라 빠르게 조치합니다.</li>'
+     +'<li>단지온은 <b>AI 기반 운영</b>으로 검수·조치를 자동화해, 안전한 주민 대화를 유지합니다.</li></ul></section>'},
+  level:{label:'새로운 안내',num:'05',route:'레벨 안내',title:'이웃 온기 레벨 안내 — 게시글·댓글·공감으로 LV.5까지',lead:'이웃 온기는 주민 활동이 쌓이는 기록입니다. 점수는 비공개이고, 단계(LV)만 프로필에 표시돼요.',date:'2026.09.06 업데이트',
+   index:[['lvLevels','레벨 단계'],['lvScore','온기 점수 획득 방법'],['lvNote','알아두세요']],
+   html:'<div class="lv-row"><span class="lv-badge lv1">LV.1</span><div class="lv-text"><b>시작 새 이웃</b><small>단지온 가입과 동시에 시작합니다.</small><em>0점 이상</em></div></div><div class="lv-row"><span class="lv-badge lv2">LV.2</span><div class="lv-text"><b>인사하는 이웃</b><small>첫 인사와 반응을 나눕니다.</small><em>30점 이상</em></div></div><div class="lv-row"><span class="lv-badge lv3">LV.3</span><div class="lv-text"><b>참여하는 이웃</b><small>게시글과 댓글로 꾸준히 대화합니다.</small><em>80점 이상</em></div></div><div class="lv-row"><span class="lv-badge lv4">LV.4</span><div class="lv-text"><b>도움 주는 이웃</b><small>유용한 정보와 답을 나눕니다.</small><em>160점 이상</em></div></div><div class="lv-row"><span class="lv-badge lv5">LV.5</span><div class="lv-text"><b>함께 만드는 이웃</b><small>단지 문화를 함께 만드는 최고 단계입니다.</small><em>280점 이상</em></div></div><h2 style="font-size:25px;letter-spacing:-.04em;margin:36px 0 0" id="lvScore">온기 점수 획득 방법</h2><div class="lv-score"><div>게시글 작성 <b>+10</b></div><div>가게 후기 작성 <b>+10</b></div><div>댓글 작성 <b>+3</b> <small>하루 최대 9점</small></div><div>공감 보내기 <b>+1</b> <small>하루 최대 5점</small></div><div>받은 공감 <b>+1</b> <small>받을 때마다</small></div><div>가게 주인 답글 받기 <b>+5</b> <small>내 가게 후기에</small></div></div><h2 style="font-size:25px;letter-spacing:-.04em;margin:36px 0 14px" id="lvNote">알아두세요</h2><p>온기는 경쟁 점수가 아니라 꾸준함의 기록입니다. 점수는 비공개이며 프로필에는 단계만 표시됩니다.</p><p>도배·어뷰징으로 인한 점수는 운영 기준에 따라 조정될 수 있고, 레벨이 낮아도 좋은 글은 언제나 환영합니다.</p>'}
+ };
+ const q=new URLSearchParams(location.search), key=q.get("notice")||"first", data=NOTICES[key]||NOTICES.first;
+ document.getElementById("noticeLabel").textContent=data.label;
+ document.getElementById("noticeNum").textContent=data.num;
+ document.getElementById("routeLabel").textContent=data.route;
+ document.getElementById("noticeH1").textContent=data.title;
+ document.getElementById("noticeLead").textContent=data.lead;
+ 
+ document.title="단지온공지 · "+data.title;
+ document.getElementById("noticeIndex").innerHTML=data.index.map((x,i)=>"<a href=\"#"+x[0]+"\""+(i===0?" aria-current=\"true\"":"")+">"+x[1]+"</a>").join("");
+ document.getElementById("noticeContent").innerHTML=data.html;
+ const links=[...document.querySelectorAll("#noticeIndex a")];
+ const setActive=id=>links.forEach(a=>{const on=a.getAttribute("href")==="#"+id;a.setAttribute("aria-current",on?"true":"false");a.style.color=on?"var(--coral)":"";});
+ if(links.length)setActive(links[0].getAttribute("href").slice(1));
+ const obs=new IntersectionObserver(es=>{es.forEach(e=>{if(e.isIntersecting)setActive(e.target.id)})},{rootMargin:"-30% 0px -60% 0px"});
+ data.index.forEach(x=>{const t=document.getElementById(x[0]);if(t)obs.observe(t)});
+})();
+</script>
+<nav aria-label="모바일 주요 메뉴" class="mobile-bottom"><button aria-label="홈" data-route="04_데일리홈.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><path d="m3 10 9-7 9 7v10h-6v-6H9v6H3z"></path></svg><span>홈</span></button><button aria-label="이웃가게" data-route="01_이웃가게_발견.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><path d="M4 7h16l-1 13H5L4 7Z"></path><path d="M8 7V5a4 4 0 0 1 8 0v2"></path></svg><span>이웃가게</span></button><button aria-label="우리단지" class="active" data-route="05_우리단지_첫화면.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><path d="M4 21V9l8-6 8 6v12"></path><path d="M8 13h8M8 17h8"></path></svg><span>우리단지</span></button><button aria-label="내정보" data-route="19_내정보_메인.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><circle cx="12" cy="8" r="4"></circle><path d="M4 21a8 8 0 0 1 16 0"></path></svg><span>내정보</span></button></nav>
+<style id="notice-spacing-20260906">
+.content h2{margin:36px 0 16px!important}
+#noticeContent p{line-height:1.8}
+#noticeContent .writing li{padding:16px 2px 16px 26px!important}
+#noticeContent .opening{margin:0 0 30px!important}
+#noticeContent .guide-row{gap:20px!important;padding:26px 0!important;align-items:start!important}
+#noticeContent .guide-row h2{margin:0!important}
+#noticeContent .guide-row .num{padding-top:7px}
+#noticeContent .notice-box{padding:30px 34px!important;gap:32px!important}
+#noticeContent .notice-box p{font-size:16px!important;line-height:1.7!important;margin:0!important}
+.notice-view-gap{height:26px}
+</style>
+<style id="notice-lvnote-gap-and-side-cleanup-20260906">
+/* "알아두세요" 제목과 본문 사이 간격 (사이드 메뉴 줄 정리) */
+#noticeContent h2#lvNote{margin-top:64px!important;margin-bottom:24px!important;padding-top:18px!important;border-top:1px solid var(--line);font-size:25px!important;letter-spacing:-.04em!important}
+#noticeContent h2#lvNote + p{margin-top:0!important}
+.article-index a{border-bottom:0!important;padding:16px 0!important}
+.article-index a + a{padding-top:0!important}
+</style>
+<style id="notice-rule-cleanup-20260907">
+/* 공지 본문은 선 대신 여백과 제목 크기로 구분합니다. */
+.article-head{border-bottom:0!important}
+.article-index{border-top:0!important}
+.article-index a{border:0!important}
+#noticeContent .menu-guide{border-top:0!important}
+#noticeContent .guide-row{border-bottom:0!important}
+#noticeContent .writing{border-top:0!important;padding-top:0!important}
+#noticeContent .writing ul{border-top:0!important}
+#noticeContent .writing li{border-bottom:0!important;padding-top:11px!important;padding-bottom:11px!important}
+.article-foot{border-top:0!important}
+@media(max-width:900px){.article-index{border-top:0!important}}
+</style>
+</body>
+</html>

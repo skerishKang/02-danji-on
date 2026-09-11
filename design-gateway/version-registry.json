@@ -1,0 +1,81 @@
+{
+  "schema_version": "danjion-static-design-version/v1",
+  "generated_from_main": "f23c4e1f5622a2313c51c94d2ac54df568b2ea9a",
+  "gateway_status": "NON_PRODUCTION_STATIC_REGISTRY_ONLY",
+  "production_url_untouched": true,
+  "production_api_write": false,
+  "production_secrets": false,
+  "versions": [
+    {
+      "version_id": "v3-current",
+      "display_name": "Static V3 current authority",
+      "source_path": "frontend/",
+      "source_ref": "origin/main",
+      "source_sha": "f23c4e1f5622a2313c51c94d2ac54df568b2ea9a",
+      "entry_file": "index.html",
+      "build_or_copy_method": "Frozen copy of frontend/*.html excluding explicit V2/AB comparison entries, plus frontend/assets/",
+      "status": "DESIGN_AUTHORITY",
+      "frozen": true,
+      "mutable": false,
+      "do_not_merge": "Static design authority only; not production React authority and not a gateway implementation",
+      "known_limitations": [
+        "Static prototype contains demo/local fallback behavior and is not a production API contract.",
+        "Some prototype image URLs are external design assets; a future gateway deployment must apply network policy before publishing.",
+        "The V3 bundle intentionally excludes index2/app2, V2 shop, benefit B, and comparison launcher pages."
+      ]
+    },
+    {
+      "version_id": "legacy-a",
+      "display_name": "Legacy A: V5 responsive functional prototype",
+      "source_path": "03_HTML결과물/05_실사사진중심_v5/01_단지온_v5_반응형기능기준.html",
+      "source_ref": "origin/main",
+      "source_sha": "f23c4e1f5622a2313c51c94d2ac54df568b2ea9a",
+      "entry_file": "index.html",
+      "build_or_copy_method": "Single-file frozen copy; no build step",
+      "status": "COMPARISON_KEEP",
+      "frozen": true,
+      "mutable": false,
+      "do_not_merge": "Historical comparison only; never promote to product authority without a separate Owner decision",
+      "known_limitations": [
+        "Single-file prototype is a visual/interaction reference, not the current API/runtime source.",
+        "May contain prototype-only data and behaviors; it must not receive production credentials."
+      ]
+    },
+    {
+      "version_id": "legacy-b",
+      "display_name": "Legacy B: V7 Silly Color System keyart",
+      "source_path": "03_HTML결과물/08_실리나이스_다색기능_v7/01_단지온_v7_실리나이스_다색기능.html",
+      "source_ref": "origin/main",
+      "source_sha": "f23c4e1f5622a2313c51c94d2ac54df568b2ea9a",
+      "entry_file": "index.html",
+      "build_or_copy_method": "Single-file frozen copy; no build step",
+      "status": "COMPARISON_KEEP",
+      "frozen": true,
+      "mutable": false,
+      "do_not_merge": "Historical visual comparison only; never promote to product authority",
+      "known_limitations": [
+        "V7 is a visual/keyart exploration and does not represent current production navigation or backend behavior.",
+        "The second V7 HTML file is byte-identical to the selected first file and is not retained separately."
+      ]
+    },
+    {
+      "version_id": "pr378",
+      "display_name": "PR #378 final-v3 frozen comparison",
+      "source_path": "[최종-v3]/",
+      "source_ref": "origin/pr-378 (PR #378 head)",
+      "source_sha": "b618cad4abb4d966181f3ab7fcac2e7c2ebcc7f3",
+      "entry_file": "site/index.html",
+      "build_or_copy_method": "Frozen copy of the PR #378 [최종-v3]/ tree under site/; no rebuild or source rewrite",
+      "status": "COMPARISON_KEEP",
+      "frozen": true,
+      "mutable": false,
+      "do_not_merge": "DO_NOT_MERGE: PR #378 is comparison material only and is not product authority",
+      "known_limitations": [
+        "PR #378 remains an open comparison PR with central DO-NOT-MERGE direction.",
+        "The artifact is intentionally frozen at the PR head and must not be rebased or silently refreshed.",
+        "The frozen source app.html references historical index3.html navigation that is absent from the PR tree; this broken link is preserved byte-for-byte and must be handled externally by the gateway wrapper or metadata layer.",
+        "Its runtime wiring is comparison-only and must not be given production secrets or production data access."
+      ]
+    }
+  ]
+}

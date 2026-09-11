@@ -1,0 +1,10 @@
+{
+  "version_id": "v3-current",
+  "entry_file": "index.html",
+  "status": "DESIGN_AUTHORITY",
+  "source_sha": "f23c4e1f5622a2313c51c94d2ac54df568b2ea9a",
+  "frozen": true,
+  "do_not_merge": "Static design authority only; not production React authority",
+  "production_data": false,
+  "production_secrets": false
+}

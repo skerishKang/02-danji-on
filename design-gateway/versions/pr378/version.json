@@ -1,0 +1,10 @@
+{
+  "version_id": "pr378",
+  "entry_file": "site/index.html",
+  "status": "COMPARISON_KEEP",
+  "source_sha": "b618cad4abb4d966181f3ab7fcac2e7c2ebcc7f3",
+  "frozen": true,
+  "do_not_merge": "DO_NOT_MERGE: PR #378 comparison material only",
+  "production_data": false,
+  "production_secrets": false
+}

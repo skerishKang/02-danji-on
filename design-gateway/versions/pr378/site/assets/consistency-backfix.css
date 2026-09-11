@@ -1,0 +1,197 @@
+/* ==========================================================================
+   단지온 — 뒤로가기(이전 화살표) 라인 전면 통일 (2026-09-07)
+   오너 지시: 위치·간격·색을 전 화면에서 동일하게. 색은 검정 대신 보라 계열.
+   이 파일은 각 화면 style 블록의 @import consistency.css "바로 다음"에서
+   로드되므로, 개별 화면 CSS보다 먼저 적용됩니다(!important로 보장).
+   ========================================================================== */
+
+/* 1) 라인(궤도) 자체: 헤더 바로 아래 고정 높이, 좌 20px, 세로 중앙 정렬 */
+.route{
+  display:flex!important;
+  align-items:center!important;
+  height:54px!important;
+  min-height:54px!important;
+  padding:0 20px!important;
+  margin:0!important;
+  box-sizing:border-box!important;
+}
+.route .route-inner{
+  display:flex!important;
+  align-items:center!important;
+  justify-content:space-between!important;
+  width:100%!important;
+  padding:0!important;
+  margin:0!important;
+}
+/* 경계선: 곤색 배경 페이지(05/12/13 등)와 흰 배경 모두에서 보이도록 단지온 라인색 고정 */
+.route{border-bottom:1px solid #d8d0c3!important}
+.route .route-left{
+  display:inline-flex!important;
+  align-items:center!important;
+  gap:0!important;
+  padding:0!important;
+  margin:0!important;
+}
+
+/* 2) 뒤로가기 버튼: 색·크기·간격 공통 규격 */
+.route .back,
+.route .route-back,
+.route > button:first-child,
+.route > a:first-child,
+.route .route-left > button:first-child{
+  color:#4a3f8f!important;
+  font-size:15px!important;
+  font-weight:850!important;
+  display:inline-flex!important;
+  align-items:center!important;
+  gap:8px!important;
+  padding:0 4px!important;
+  margin:0!important;
+  min-width:44px!important;
+  min-height:44px!important;
+  text-decoration:none!important;
+  border:0!important;
+  background:none!important;
+  box-sizing:border-box!important;
+}
+/* SVG 화살표(06/07/08 계열) — 뒤로가기 버튼 안의 모든 SVG에 동일 규격 적용 */
+.route svg,
+.route .back svg,
+.route .route-back svg,
+.route .route-left svg{
+  width:20px!important;
+  height:20px!important;
+  fill:none!important;
+  stroke:#4a3f8f!important;
+  stroke-width:2!important;
+  flex:none!important;
+}
+/* 화살표↔라벨 간격 8px: 텍스트 화살표 버튼과 SVG 버튼 모두 */
+.route > button:first-child,
+.route .route-left > button:first-child,
+.route .route-inner > button:first-child,
+.route .back{
+  gap:8px!important;
+  padding-left:0!important;
+  padding-right:0!important;
+}
+
+/* 3) 라벨·경로 표기: "←  내정보  / 1:1 메시지" 형태 공통 */
+.route > span,
+.route .route-left > span{
+  color:#6d6a64!important;
+  font-size:13px!important;
+  font-weight:650!important;
+  margin-left:2px!important;
+}
+.route > span + span::before,
+.route .route-left > span + span::before{
+  content:"/"!important;
+  margin:0 7px 0 2px!important;
+  color:#aaa49b!important;
+  font-weight:400!important;
+}
+
+/* 4) 데스크톱(웹): 라인 높이 + 모든 화면이 로고(brand)와 같은 시작선에서 출발.
+      기준 = 08 아파트소식(컨테이너 min(1280px, 100%-64px), 좌 40px 라인).
+      두 구조를 모두 커버:
+      ㉠ route 자체가 컨테이너인 화면(06/07/08/10/11 등): route 폭을 컨테이너로 강제
+      ㉡ route가 풀폭 바 + route-inner 컨테이너인 화면(20/21/24/25/26/28 등):
+         route는 풀폭 유지, route-inner에 컨테이너 폭 강제(기존 CSS 상실 대비) */
+@media (min-width:761px){
+  .route{height:58px!important;min-height:58px!important;padding:0 32px!important;box-sizing:border-box!important}
+  .route:has(> .route-inner){width:100%!important;margin:0!important}
+  .route .route-inner{width:min(1280px,calc(100% - 64px))!important;height:100%!important;margin-left:auto!important;margin-right:auto!important;padding-left:32px!important;padding-right:32px!important;box-sizing:border-box!important}
+  .route:has(> .route-inner){padding:0!important}
+  /* 하단 안내(route-note)는 우측, 뒤로가기 그룹은 좌측 고정 */
+  .route .route-inner{justify-content:space-between!important}
+}
+
+/* 4-1) 라벨 규칙: 화살표 "바로 뒤"의 첫 경로 라벨만 보라 + 동일 폰트(15px/850).
+      두 번째 경로 표기와 우측 설명(route-note)은 회색 유지 (오너 지시) */
+.route > button:first-child + span:first-of-type,
+.route .route-inner > button:first-child + span:first-of-type,
+.route .route-left > span:first-of-type{
+  color:#4a3f8f!important;font-size:15px!important;font-weight:850!important;margin-left:2px!important;
+}
+/* 4-2) 메시지함(20)/대화상세(21): 페이지 고유 CSS가 route를 1180px 컨테이너에
+      넣어 다른 화면과 시작선이 어긋남 → 기준 컨테이너(1280px)로 강제.
+      route가 main 안에서 margin:0으로 시작하므로 main 폭도 함께 맞춘다.
+      페이지 고유 CSS의 route 좌우 32px 패딩 제거로 기준선(105px)에 맞춘다 */
+@media (min-width:761px){
+  body[data-danjion-page="20"] .route,
+  body[data-danjion-page="21"] .route,
+  body[data-danjion-page="20"] main,
+  body[data-danjion-page="21"] main{
+    width:min(1280px,calc(100% - 64px))!important;
+    margin-left:auto!important;margin-right:auto!important;
+  }
+  body[data-danjion-page="20"] .route,
+  body[data-danjion-page="21"] .route{
+    padding-left:0!important;padding-right:0!important;
+  }
+}
+
+/* 4-3) 2차 통일 (2026-09-08): 화살표와 첫 경로 라벨을 "한 덩어리"로.
+      화살표만 있는 버튼(10/11/20/21 등)은 버튼 내부에 화살표+라벨 간격(8px)을 맞추고,
+      뒤따르는 별도 라벨(<a>/<span>)은 같은 보라·15px/850으로 통일해
+      아파트소식(08)의 "← 우리단지 / 아파트소식" 형태와 동일하게 보이게 한다. */
+.route > button:first-child:not(:has(svg)){
+  gap:8px!important;
+}
+.route > button:first-child:not(:has(svg)) + a,
+.route > button:first-child:not(:has(svg)) + span{
+  color:#4a3f8f!important;
+  font-size:15px!important;
+  font-weight:850!important;
+  margin-left:0!important;
+  text-decoration:none!important;
+}
+/* 두 번째 경로 표기(/ xxx)는 회색 유지 */
+.route > span + span,
+.route .route-left > span + span{
+  color:#6d6a64!important;font-size:13px!important;font-weight:650!important;
+}
+/* 4-4) 주민소식 상세(11): main이 1180px 컨테이너라 목록(10)·아파트소식(08)보다
+      화살표가 안쪽으로 밀림 → 기준 컨테이너(1280px)로 맞추고 route 좌우 패딩은
+      기준 화면들과 동일하게 32px 유지 (시작선 = 컨테이너 좌측 + 32px) */
+@media (min-width:761px){
+  body[data-danjion-page="11"] main{
+    width:min(1280px,calc(100% - 64px))!important;
+    margin-left:auto!important;margin-right:auto!important;
+  }
+}
+/* 4-5) 앱(≤760px): route가 자체 좌패딩(20px)을 갖는 화면은 main 패딩(20px)과 겹쳐
+      x=40이 됨 → route 패딩을 제거해 x=20 통일 (06/07/08/10/11 전부 적용) */
+@media (max-width:760px){
+  body[data-danjion-page="06"] .route,
+  body[data-danjion-page="07"] .route,
+  body[data-danjion-page="08"] .route,
+  body[data-danjion-page="6"] .route,
+  body[data-danjion-page="7"] .route,
+  body[data-danjion-page="8"] .route,
+  body[data-danjion-page="10"] .route,
+  body[data-danjion-page="11"] .route{
+    padding-left:0!important;padding-right:0!important;
+  }
+  body[data-danjion-page="06"] main,
+  body[data-danjion-page="07"] main,
+  body[data-danjion-page="08"] main,
+  body[data-danjion-page="6"] main,
+  body[data-danjion-page="7"] main,
+  body[data-danjion-page="8"] main{
+    padding-left:20px!important;padding-right:20px!important;
+  }
+  body[data-danjion-page="06"] .route,
+  body[data-danjion-page="07"] .route,
+  body[data-danjion-page="08"] .route,
+  body[data-danjion-page="6"] .route,
+  body[data-danjion-page="7"] .route,
+  body[data-danjion-page="8"] .route{
+    margin:0!important;
+  }
+}
+
+/* 5) 예외 보호: 팝업 내부 닫기(dialog-back/modal-back)와 글쓰기 ×(close-task)는
+      뒤로가기 라인이 아니므로 이 규격의 영향을 받지 않게 명시적으로 격리 */
+.dialog-back.modal-back{all:revert}
