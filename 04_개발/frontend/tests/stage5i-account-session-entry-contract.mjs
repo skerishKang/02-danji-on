@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
-const html = await readFile(new URL('../../../frontend/index3.html', import.meta.url), 'utf8');
+const html = await readFile(new URL('../../../frontend/index.html', import.meta.url), 'utf8');
 const session = await readFile(new URL('../../../frontend/assets/danjion-session.js', import.meta.url), 'utf8');
 const pkg = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
 
