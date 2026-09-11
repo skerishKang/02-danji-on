@@ -1,10 +1,10 @@
 (()=>{
   const decoded=decodeURIComponent(location.pathname);
-  const FILES={1:'01_이웃가게_발견.html',2:'02_이웃가게_상세.html',3:'03_주민혜택_쿠폰.html',4:'04_데일리홈.html',5:'05_우리단지_첫화면.html',6:'06_단지온공지_목록.html',7:'07_단지온공지_상세.html',8:'08_아파트소식_목록.html',9:'09_회장인사_상세.html',10:'10_주민소식_목록.html',11:'11_주민소식_상세.html',12:'12_이웃대화_첫화면.html',13:'13_이웃대화_글상세_댓글.html',14:'14_가입인사_글쓰기.html',15:'15_단지이야기_글쓰기.html',16:'16_궁금해요_글쓰기.html',17:'17_같이해요_글쓰기.html',18:'18_공통앱셸.html',19:'19_내정보_메인.html',20:'20_메시지함_목록.html',21:'21_메시지_대화상세.html',22:'22_주민_공개프로필.html',23:'23_이웃온기.html',24:'24_설정.html',25:'25_1대1문의.html',26:'26_우리집연결.html',27:'27_알림함.html',28:'28_나의활동.html',29:'index3.html'};
+  const FILES={1:'01_이웃가게_발견.html',2:'02_이웃가게_상세.html',3:'03_주민혜택_쿠폰.html',4:'04_데일리홈.html',5:'05_우리단지_첫화면.html',6:'06_단지온공지_목록.html',7:'07_단지온공지_상세.html',8:'08_아파트소식_목록.html',9:'09_회장인사_상세.html',10:'10_주민소식_목록.html',11:'11_주민소식_상세.html',12:'12_이웃대화_첫화면.html',13:'13_이웃대화_글상세_댓글.html',14:'14_가입인사_글쓰기.html',15:'15_단지이야기_글쓰기.html',16:'16_궁금해요_글쓰기.html',17:'17_같이해요_글쓰기.html',18:'18_공통앱셸.html',19:'19_내정보_메인.html',20:'20_메시지함_목록.html',21:'21_메시지_대화상세.html',22:'22_주민_공개프로필.html',23:'23_이웃온기.html',24:'24_설정.html',25:'25_1대1문의.html',26:'26_우리집연결.html',27:'27_알림함.html',28:'28_나의활동.html',29:'index.html'};
   const __variant=()=>{try{return sessionStorage.getItem('danjion:shopVariant')}catch(e){return null}};
   const isShopVariantB=()=>['v2','v3'].includes(__variant());
   const shopV2File=__variant()==='v3'?'01_이웃가게_발견_v3.html':'01_이웃가게_발견_v2.html';
-  const shopLanding=__variant()==='v3'?'index3.html':'index2.html';
+  const shopLanding=__variant()==='v3'?'index.html':'index2.html';
   const route=number=>{
     if(isShopVariantB()){
       if(number===1||number===2)return shopV2File;
@@ -15,7 +15,7 @@
   };
   const TOP={'홈':4,'이웃가게':1,'우리단지':5,'내정보':19};
   const FALLBACK={1:4,2:1,3:4,4:29,5:4,6:5,7:6,8:5,9:8,10:5,11:10,12:5,13:12,14:12,15:12,16:12,17:12,19:4,20:19,21:20,22:19,23:19,24:19,25:19,26:19,27:19,28:19,29:4};
-  const pageNumber=()=>{const file=(decoded.split('/').pop()||'').split('?')[0];if(file==='index3.html'||file==='')return 29;const m=file.match(/^(\d{2})(?:A)?_/);return m?Number(m[1]):0};
+  const pageNumber=()=>{const file=(decoded.split('/').pop()||'').split('?')[0];if(file==='index.html'||file==='')return 29;const m=file.match(/^(\d{2})(?:A)?_/);return m?Number(m[1]):0};
   const clean=value=>(value||'').replace(/\s+/g,' ').trim();
   document.addEventListener('click',event=>{
     if(!isShopVariantB())return;
