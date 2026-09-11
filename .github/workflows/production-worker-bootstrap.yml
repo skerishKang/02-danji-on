@@ -44,6 +44,9 @@ jobs:
       (github.event_name == 'push' && github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, '[production-bootstrap]'))
     runs-on: ubuntu-latest
     environment: production
+    permissions:
+      contents: read
+      actions: write
     defaults:
       run:
         working-directory: 04_개발/backend
@@ -275,7 +278,10 @@ jobs:
 
       - name: Deploy production Worker with encrypted secrets
         shell: bash
-        run: npx wrangler deploy --env production --secrets-file "${{ steps.secrets.outputs.path }}"
+        run: |
+          set -euo pipefail
+          npx wrangler deploy --env production --secrets-file "${{ steps.secrets.outputs.path }}" \
+            | tee "${RUNNER_TEMP}/wrangler-deploy-output.txt"
 
       - name: Verify required Worker secret names
         shell: bash
@@ -289,6 +295,50 @@ jobs:
             fi
           done
           echo "Required Worker secret-name readback: PASS"
+
+      - name: Capture deployed artifact provenance
+        id: provenance
+        shell: bash
+        run: |
+          set -euo pipefail
+          status_file="${RUNNER_TEMP}/danjion-deployments-status.json"
+          provenance_file="${RUNNER_TEMP}/danjion-deploy-provenance.json"
+          npx wrangler deployments status --env production --json > "$status_file"
+          tree_digest="sha256:$(git ls-tree -r HEAD --format='%(objectname) %(path)' | LC_ALL=C sort | sha256sum | cut -d' ' -f1)"
+          node scripts/deploy-provenance.mjs capture \
+            --deploy-log "${RUNNER_TEMP}/wrangler-deploy-output.txt" \
+            --status-file "$status_file" \
+            --source-sha "${{ steps.release-target.outputs.target_sha }}" \
+            --source-tree-digest "$tree_digest" \
+            --worker-name "$TARGET_WORKER" \
+            --out "$provenance_file"
+          {
+            echo "source_sha=$(jq -r .source_sha "$provenance_file")"
+            echo "worker_version_id=$(jq -r .worker_version_id "$provenance_file")"
+            echo "deployment_id=$(jq -r .deployment_id "$provenance_file")"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Verify deployed artifact provenance readback
+        shell: bash
+        run: |
+          set -euo pipefail
+          provenance_file="${RUNNER_TEMP}/danjion-deploy-provenance.json"
+          version_view="${RUNNER_TEMP}/danjion-version-view.json"
+          readback_status="${RUNNER_TEMP}/danjion-deployments-status-readback.json"
+          npx wrangler versions view "${{ steps.provenance.outputs.worker_version_id }}" --env production --json > "$version_view"
+          npx wrangler deployments status --env production --json > "$readback_status"
+          node scripts/deploy-provenance.mjs verify \
+            --record "$provenance_file" \
+            --status-file "$readback_status" \
+            --version-view-file "$version_view"
+
+      - name: Upload deploy provenance evidence
+        if: always() && hashFiles(format('{0}/danjion-deploy-provenance.json', runner.temp)) != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: danjion-deploy-provenance-${{ github.sha }}
+          path: ${{ runner.temp }}/danjion-deploy-provenance.json
+          if-no-files-found: error
 
       - name: Production health and Better Auth JWKS smoke
         shell: bash
@@ -326,6 +376,9 @@ jobs:
             echo '- Production DB health: PASS'
             echo '- Better Auth JWKS: PASS'
             echo '- Padiem contact-verification Service Binding: PRESENT'
+            echo "- Deploy provenance: source \`${{ steps.provenance.outputs.source_sha }}\` → Worker Version \`${{ steps.provenance.outputs.worker_version_id }}\` → Deployment \`${{ steps.provenance.outputs.deployment_id }}\`"
+            echo '- Deployed artifact provenance readback (deployments status + versions view): PASS'
+            echo '- Provenance evidence artifact: `danjion-deploy-provenance-${{ github.sha }}`'
             echo '- Real phone OTP delivery: HOLD / Issue #235'
             echo '- Secret values: NOT OUTPUT'
           } >> "$GITHUB_STEP_SUMMARY"
