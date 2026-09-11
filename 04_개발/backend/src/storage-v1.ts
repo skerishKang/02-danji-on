@@ -1,10 +1,7 @@
 import { neon, type NeonQueryFunction } from '@neondatabase/serverless';
 import { requireActor as requireCanonicalActor, type Actor } from './auth-v1';
-import { requireVerifiedResident } from './authorization-v2';
 import type { CoreEnv } from './core-v1';
 import {
-  safeStorageFileName,
-  validateStorageUpload,
   type StorageKind,
   type StorageVisibility
 } from './storage-policy.mjs';
@@ -53,9 +50,7 @@ type DeleteIntentDecision = {
 };
 
 const DRIVE_API = 'https://www.googleapis.com/drive/v3';
-const DRIVE_UPLOAD_API = 'https://www.googleapis.com/upload/drive/v3';
 const TOKEN_ENDPOINT = 'https://oauth2.googleapis.com/token';
-const MAX_UPLOAD_REQUEST_BYTES = 12 * 1024 * 1024;
 const DRIVE_FILE_ID = /^[A-Za-z0-9_-]{10,200}$/;
 let cachedAccessToken: { value: string; expiresAt: number } | null = null;
 
@@ -131,26 +126,10 @@ function storageVisibility(kind: StorageKind): StorageVisibility {
   return kind === 'business-image' ? 'public' : 'private';
 }
 
-function opaquePrivateName(contentType: string): string {
-  const extension = {
-    'image/jpeg': 'jpg',
-    'image/png': 'png',
-    'image/webp': 'webp',
-    'application/pdf': 'pdf'
-  }[contentType] || 'bin';
-  return `${new Date().toISOString().slice(0, 10)}-${crypto.randomUUID()}.${extension}`;
-}
-
-function driveFileNameForUpload(kind: StorageKind, file: File): string {
-  return kind === 'resident-evidence'
-    ? opaquePrivateName(file.type)
-    : `${new Date().toISOString().slice(0, 10)}-${crypto.randomUUID()}-${safeStorageFileName(file.name)}`;
-}
-
-function objectKey(kind: StorageKind, fileId: string): string {
-  if (kind === 'application-document') return `gdrive/private/application-document/${fileId}`;
-  return `gdrive/${storageVisibility(kind)}/${kind}/${fileId}`;
-}
+// #372 D2/D5 / #375 F6: the generic upload path (objectKey scheme builder,
+// upload filename helpers, Drive multipart upload, and the POST handler) was
+// dead — storage-upload-v2 owns POST /api/v1/storage/objects and never
+// returns null for it, so this route owner only serves DELETE + streaming.
 
 export function parseObjectKey(value: string): ParsedObjectKey | null {
   const parts = value.trim().split('/');
@@ -484,48 +463,6 @@ async function finalizeBusinessImageRetired(
   }
 }
 
-async function uploadDriveFile(
-  env: DriveEnv,
-  kind: StorageKind,
-  file: File,
-  actor: Actor,
-  complexSlug: string
-): Promise<DriveMetadata> {
-  const folderId = folderFor(env, kind);
-  if (!folderId) throw new Error(`Google Drive folder is not configured for ${kind}`);
-  const boundary = `danjion-${crypto.randomUUID()}`;
-  const metadata = {
-    name: driveFileNameForUpload(kind, file),
-    parents: [folderId],
-    appProperties: {
-      danjionKind: kind,
-      danjionVisibility: storageVisibility(kind),
-      danjionUploaderUserId: actor.id,
-      danjionComplexSlug: complexSlug
-    }
-  };
-  const body = new Blob([
-    `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n`,
-    `--${boundary}\r\nContent-Type: ${file.type}\r\n\r\n`,
-    file,
-    `\r\n--${boundary}--\r\n`
-  ]);
-  const response = await googleFetch(
-    env,
-    `${DRIVE_UPLOAD_API}/files?uploadType=multipart&fields=id,name,mimeType,size,parents,appProperties&supportsAllDrives=true`,
-    {
-      method: 'POST',
-      headers: { 'content-type': `multipart/related; boundary=${boundary}` },
-      body
-    }
-  );
-  if (!response.ok) {
-    const detail = await response.text().catch(() => '');
-    throw new Error(`Google Drive upload failed (${response.status})${detail ? `: ${detail.slice(0, 240)}` : ''}`);
-  }
-  return response.json() as Promise<DriveMetadata>;
-}
-
 async function authorizeObject(
   actor: Actor,
   metadata: DriveMetadata,
@@ -554,70 +491,6 @@ async function authorizeObject(
     403,
     requestId
   );
-}
-
-async function upload(request: Request, env: DriveEnv, requestId: string): Promise<Response> {
-  const auth = await requireStorageActor(request, env, requestId);
-  if (auth instanceof Response) return auth;
-  const contentLength = Number(request.headers.get('content-length') || 0);
-  if (contentLength > MAX_UPLOAD_REQUEST_BYTES) return fail('PAYLOAD_TOO_LARGE', 'Upload request is too large', 413, requestId);
-  const form = await request.formData();
-  const kind = String(form.get('kind') || '').trim();
-  const complexSlug = String(form.get('complexSlug') || '').trim();
-
-  // Issue #59 leaves the resident-verification provider, evidence collection,
-  // retention and review authority unresolved. A direct generic-storage call
-  // must not become an alternate evidence-collection workflow while held.
-  if (kind === 'resident-evidence') {
-    return fail(
-      'RESIDENT_VERIFICATION_POLICY_HOLD',
-      'Resident verification evidence upload is unavailable until the verification and privacy policy is approved',
-      503,
-      requestId
-    );
-  }
-
-  const files = form.getAll('file').filter((value): value is File => value instanceof File);
-  const validation = validateStorageUpload(kind, files);
-  if (!validation.ok) {
-    const status = validation.code === 'UNSUPPORTED_MEDIA_TYPE' ? 415 : validation.code === 'FILE_TOO_LARGE' ? 413 : 400;
-    return fail(validation.code, validation.message, status, requestId);
-  }
-  if (!complexSlug) return fail('VALIDATION_ERROR', 'complexSlug is required', 400, requestId);
-
-  // Business media is consumed by the Household-v2 resident-economy flow, so
-  // its upload uses the same verified-resident authority rather than legacy
-  // complex_memberships existence or role fields.
-  const residentOrResponse = await requireVerifiedResident(request, env, auth.sql, requestId, complexSlug);
-  if (residentOrResponse instanceof Response) return residentOrResponse;
-  const resident = residentOrResponse;
-
-  const file = files[0];
-  const uploaded = await uploadDriveFile(env, validation.kind, file, resident, resident.complexSlug);
-  if (!uploaded.id) throw new Error('Google Drive upload returned no file id');
-  const uploadedObjectKey = objectKey(validation.kind, uploaded.id);
-
-  // An uploaded business image is not referenceable until PostgreSQL owns an
-  // active lifecycle row. If registration fails, do not return the key; the
-  // Drive object is an orphan candidate rather than a product reference.
-  if (validation.kind === 'business-image') {
-    const registrationError = await registerBusinessImageObject(
-      auth.sql,
-      uploadedObjectKey,
-      resident.id,
-      resident.complexId,
-      requestId
-    );
-    if (registrationError) return registrationError;
-  }
-
-  return ok({
-    objectKey: uploadedObjectKey,
-    fileName: file.name,
-    contentType: file.type,
-    size: file.size,
-    visibility: validation.policy.visibility
-  }, requestId, 201);
 }
 
 async function streamObject(request: Request, env: DriveEnv, requestId: string, privateRoute: boolean): Promise<Response> {
@@ -886,7 +759,9 @@ export async function handleStorageRequest(request: Request, env: CoreEnv, reque
   if (!driveConfigured(driveEnv)) return fail('STORAGE_NOT_CONFIGURED', 'Google Drive storage mode is not enabled', 503, requestId);
   if (!requiredDriveCredentials(driveEnv)) return fail('STORAGE_NOT_CONFIGURED', 'Google Drive OAuth credentials are not configured', 503, requestId);
 
-  if (path === '/api/v1/storage/objects' && request.method === 'POST') return upload(request, driveEnv, requestId);
+  // POST /api/v1/storage/objects is owned by storage-upload-v2 (dispatched
+  // before this route in app.ts and never null for that method+path), so no
+  // POST branch remains here (#372 D2 / #375 F6).
   if (path === '/api/v1/storage/objects' && request.method === 'DELETE') return removeObject(request, driveEnv, requestId);
   if (path === '/api/v1/storage/public' && request.method === 'GET') return streamObject(request, driveEnv, requestId, false);
   if (path === '/api/v1/storage/private' && request.method === 'GET') return streamObject(request, driveEnv, requestId, true);
