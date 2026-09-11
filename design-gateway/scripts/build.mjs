@@ -1,0 +1,77 @@
+#!/usr/bin/env node
+/**
+ * Design gateway build (#395) — deterministic, no network, no dependencies.
+ *
+ * Assembles dist/ for the dedicated NON-PRODUCTION Cloudflare Pages project:
+ *   dist/index.html + gateway shell        (landing, cards from registry)
+ *   dist/registry/versions.json            (registry snapshot)
+ *   dist/<versionId>/...                   (one stable subpath per retained version)
+ *
+ * Bundle sources:
+ *   mode=assembled  -> copied from the canonical in-repo sourceDir (read-only)
+ *   mode=mounted    -> copied from preview-bundles/<id>/ when state=READY
+ *                      (KILO2/KILO3 deliverables per INTEGRATION_CONTRACT)
+ *   mounted PENDING -> skipped; the landing card shows PENDING status
+ */
+import { cpSync, mkdirSync, rmSync, existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import {
+  loadAndValidateRegistry, GATEWAY_ROOT, REPO_ROOT, DIST_DIR, repoPath
+} from './registry-lib.mjs';
+
+function fail(msg) {
+  console.error(`BUILD FAIL: ${msg}`);
+  process.exitCode = 1;
+  throw new Error(msg);
+}
+
+function bundleReady(version) {
+  const b = version.bundle;
+  if (b.mode === 'assembled') return true;
+  if (b.state !== 'READY') return false;
+  const dir = repoPath(...b.mountPath.split('/'));
+  const entry = join(dir, b.entry);
+  const info = join(dir, 'BUILD_INFO.json');
+  if (!existsSync(entry)) fail(`mounted bundle ${version.id}: entry ${b.entry} missing`);
+  if (!existsSync(info)) fail(`mounted bundle ${version.id}: BUILD_INFO.json missing`);
+  const parsed = JSON.parse(readFileSync(info, 'utf8'));
+  if (parsed.sourceSha !== version.source.sha) {
+    fail(`mounted bundle ${version.id}: BUILD_INFO.sourceSha ${parsed.sourceSha} != registry ${version.source.sha}`);
+  }
+  return true;
+}
+
+const registry = loadAndValidateRegistry();
+
+rmSync(DIST_DIR, { recursive: true, force: true });
+mkdirSync(DIST_DIR, { recursive: true });
+
+cpSync(join(GATEWAY_ROOT, 'gateway'), DIST_DIR, { recursive: true });
+mkdirSync(join(DIST_DIR, 'registry'), { recursive: true });
+cpSync(join(GATEWAY_ROOT, 'registry', 'versions.json'), join(DIST_DIR, 'registry', 'versions.json'));
+
+const summary = [];
+for (const version of registry.versions) {
+  const target = join(DIST_DIR, version.id);
+  if (!bundleReady(version)) {
+    summary.push({ id: version.id, mode: version.bundle.mode, state: version.bundle.state, dist: '(pending — not built)' });
+    continue;
+  }
+  const sourceDir = version.bundle.mode === 'assembled'
+    ? repoPath(...version.bundle.sourceDir.split('/'))
+    : repoPath(...version.bundle.mountPath.split('/'));
+  if (!existsSync(sourceDir)) fail(`${version.id}: source dir not found: ${sourceDir}`);
+  mkdirSync(target, { recursive: true });
+  cpSync(sourceDir, target, {
+    recursive: true,
+    filter: (src) => !src.endsWith('.gitkeep')
+  });
+  summary.push({ id: version.id, mode: version.bundle.mode, state: version.bundle.state, dist: `/${version.id}/` });
+}
+
+console.log('design-gateway build OK (non-production artifact only)');
+console.log(`registry: ${registry.versions.length} versions | capturedFromMain: ${registry.gateway.capturedFromMain.slice(0, 7)}`);
+for (const row of summary) {
+  console.log(`  ${row.id.padEnd(12)} ${row.mode.padEnd(9)} ${row.state.padEnd(7)} -> ${row.dist}`);
+}
+console.log('DEPLOY: none performed. Publishing is a separate approved gate (see README).');
