@@ -7,6 +7,7 @@ import { handleAdminReviewContextRequest } from './admin-review-context-v1';
 import { handleAdminVerificationRequest } from './admin-verification-v1';
 import { handleAdminRequest } from './admin-v1';
 import { handleBetterAuthRequest, type BetterAuthEnv } from './auth-better-v1';
+import { handleBenefitClaimRequest } from './benefit-claim-v1';
 import { handleBenefitWalletRequest } from './benefit-wallet-v1';
 import { handleBusinessReviewRequest } from './business-reviews-v1';
 import { handleBusinessReviewCommentRequest } from './business-review-comments-v1';
@@ -213,6 +214,8 @@ export default {
       if (residentVerificationResponse) return respond(residentVerificationResponse);
       const residentEconomyResponse = await handleResidentEconomyMutationRequest(request, env, id);
       if (residentEconomyResponse) return respond(residentEconomyResponse);
+      const benefitClaimResponse = await handleBenefitClaimRequest(request, env, id);
+      if (benefitClaimResponse) return respond(benefitClaimResponse);
       const benefitWalletResponse = await handleBenefitWalletRequest(request, env, id);
       if (benefitWalletResponse) return respond(benefitWalletResponse);
       const residentApplicationResponse = await handleResidentApplicationRequest(request, env, id);

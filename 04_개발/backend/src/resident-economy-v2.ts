@@ -1309,61 +1309,6 @@ async function resubmitWithGallery(
   return ok(withGallery(updatedRows[0], photoKeys), requestId);
 }
 
-async function claimBenefit(
-  request: Request,
-  env: CoreEnv,
-  sql: Sql,
-  requestId: string,
-  benefitId: string,
-  payload: Record<string, unknown>
-): Promise<Response> {
-  const complexSlug = String(payload.complexSlug ?? '').trim();
-  if (!complexSlug) return fail('VALIDATION_ERROR', 'complexSlug is required', 400, requestId);
-
-  const residentOrResponse = await requireVerifiedResident(request, env, sql, requestId, complexSlug);
-  if (residentOrResponse instanceof Response) return residentOrResponse;
-  const resident = residentOrResponse;
-
-  const benefitRows = await sql`
-    select be.id, be.complex_id, be.business_id
-    from benefits be
-    join businesses b on b.id = be.business_id
-    join complexes c on c.id = be.complex_id
-    where be.id = ${benefitId}::uuid
-      and c.id = ${resident.complexId}::uuid
-      and be.status = 'active'
-      and b.status = 'approved'
-      and (be.starts_at is null or be.starts_at <= now())
-      and (be.ends_at is null or be.ends_at >= now())
-    limit 1
-  `;
-  if (!benefitRows[0]) return fail('NOT_FOUND', 'Active benefit not found for this complex', 404, requestId);
-
-  const inserted = await sql`
-    insert into benefit_claims (benefit_id, user_id, complex_id, claim_code, status)
-    values (
-      ${benefitId}::uuid,
-      ${resident.id}::uuid,
-      ${resident.complexId}::uuid,
-      ('DANJION-' || upper(substr(replace(gen_random_uuid()::text, '-', ''), 1, 8))),
-      'stored'
-    )
-    on conflict (user_id, benefit_id) do nothing
-    returning id, benefit_id, claim_code, status, claimed_at, used_at
-  `;
-  if (inserted[0]) return ok(inserted[0], requestId, 201);
-
-  const existing = await sql`
-    select id, benefit_id, claim_code, status, claimed_at, used_at
-    from benefit_claims
-    where user_id = ${resident.id}::uuid
-      and benefit_id = ${benefitId}::uuid
-    limit 1
-  `;
-  if (!existing[0]) return fail('CONFLICT', 'Benefit claim could not be resolved', 409, requestId);
-  return ok(existing[0], requestId);
-}
-
 export async function handleResidentEconomyMutationRequest(
   request: Request,
   env: CoreEnv,
@@ -1374,10 +1319,7 @@ export async function handleResidentEconomyMutationRequest(
   const applicationResubmit = request.method === 'PATCH'
     ? path.match(/^\/api\/v1\/me\/business-applications\/([0-9a-fA-F-]+)$/)
     : null;
-  const benefitClaim = request.method === 'POST'
-    ? path.match(/^\/api\/v1\/me\/benefits\/([0-9a-fA-F-]+)\/claim$/)
-    : null;
-  if (!applicationCreate && !applicationResubmit && !benefitClaim) return null;
+  if (!applicationCreate && !applicationResubmit) return null;
   if (!env.DATABASE_URL) return fail('DATABASE_NOT_CONFIGURED', 'DATABASE_URL is not configured', 503, requestId);
 
   const payload = await bodyJson(request, requestId);
@@ -1388,5 +1330,5 @@ export async function handleResidentEconomyMutationRequest(
   if (applicationResubmit) {
     return resubmitBusinessApplication(request, env, sql, requestId, applicationResubmit[1], payload);
   }
-  return claimBenefit(request, env, sql, requestId, benefitClaim![1], payload);
+  return null;
 }

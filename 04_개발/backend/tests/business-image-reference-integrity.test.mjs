@@ -115,7 +115,7 @@ assert.ok(createBlock.includes('resident.id'));
 assert.ok(createBlock.includes('resident.complexSlug'));
 
 const resubmitStart = economy.indexOf('async function resubmitBusinessApplication(');
-const resubmitEnd = economy.indexOf('async function claimBenefit(', resubmitStart);
+const resubmitEnd = economy.indexOf('export async function handleResidentEconomyMutationRequest(', resubmitStart);
 const resubmitBlock = economy.slice(resubmitStart, resubmitEnd);
 const resubmitActor = resubmitBlock.indexOf('await requireActor(request, env, sql, requestId)');
 const resubmitOwnerLookup = resubmitBlock.indexOf('const currentRows = await sql');

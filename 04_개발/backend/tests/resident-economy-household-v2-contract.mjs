@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 
 const root = new URL('../', import.meta.url);
 const economy = await readFile(new URL('src/resident-economy-v2.ts', root), 'utf8');
+const claim = await readFile(new URL('src/benefit-claim-v1.ts', root), 'utf8');
 const app = await readFile(new URL('src/app.ts', root), 'utf8');
 const legacyApplication = await readFile(new URL('src/resident-application-v1.ts', root), 'utf8');
 const legacyWallet = await readFile(new URL('src/benefit-wallet-v1.ts', root), 'utf8');
@@ -15,11 +16,21 @@ assert.ok(!economy.includes('complex_memberships'));
 assert.ok(economy.includes("path === '/api/v1/me/business-applications'"));
 assert.ok(economy.includes("request.method === 'PATCH'"));
 assert.ok(economy.includes('/business-applications\\/([0-9a-fA-F-]+)'));
-assert.ok(economy.includes('/benefits\\/([0-9a-fA-F-]+)\\/claim'));
+assert.ok(claim.includes('/benefits\\/([0-9a-fA-F-]+)\\/claim'));
 assert.ok(economy.includes('${resident.complexId}::uuid'));
 assert.ok(economy.includes('${resident.id}::uuid'));
 assert.ok(economy.includes('on conflict (applicant_user_id, submission_key)'));
-assert.ok(economy.includes('on conflict (user_id, benefit_id) do nothing'));
+assert.ok(claim.includes('on conflict (user_id, benefit_id) do nothing'));
+
+// D3-A: claim mutation authority lives exclusively in benefit-claim-v1.
+assert.ok(claim.includes('requireVerifiedResident(request, env, sql, requestId, complexSlug)'));
+assert.ok(claim.includes('${resident.id}::uuid'));
+assert.ok(claim.includes('${resident.complexId}::uuid'));
+assert.ok(claim.includes("'DANJION-' || upper"));
+assert.equal(economy.includes('insert into benefit_claims'), false,
+  'claim persistence must not remain in resident-economy-v2');
+assert.equal(economy.includes("'DANJION-' || upper"), false,
+  'claim code generation must not remain in resident-economy-v2');
 
 // Sibling final v3 owner-registration bridge depends on these canonical fields.
 for (const field of [
@@ -56,7 +67,7 @@ assert.equal(legacyApplication.includes('insert into business_applications'), fa
 assert.equal(legacyApplication.includes('update business_applications'), false);
 
 // Legacy wallet keeps actor-owned list/use only. Claim belongs exclusively to
-// resident-economy-v2 and must not retain legacy verification authority.
+// benefit-claim-v1 and must not retain legacy verification authority.
 assert.ok(legacyWallet.includes("request.method === 'GET'"));
 assert.ok(legacyWallet.includes("request.method === 'PATCH'"));
 assert.ok(legacyWallet.includes('/benefits\\/([0-9a-fA-F-]+)\\/use'));
@@ -81,9 +92,10 @@ assert.equal(core.includes('No membership for target complex'), false);
 // Routing order remains defense in depth even though legacy mutation ownership
 // is now removed from the lower handlers themselves.
 const v2 = app.indexOf('handleResidentEconomyMutationRequest(request, env, id)');
+const claimRoute = app.indexOf('handleBenefitClaimRequest(request, env, id)');
 const wallet = app.indexOf('handleBenefitWalletRequest(request, env, id)');
 const application = app.indexOf('handleResidentApplicationRequest(request, env, id)');
 const coreFallback = app.indexOf('return respond(await core.fetch(request, env))');
-assert.ok(v2 >= 0 && wallet > v2 && application > v2 && coreFallback > application);
+assert.ok(v2 >= 0 && claimRoute > v2 && wallet > claimRoute && application > v2 && coreFallback > application);
 
 console.log('PASS resident economy Household v2 sole-mutation-authority and business-contact authz contract');

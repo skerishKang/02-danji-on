@@ -71,7 +71,7 @@ assert.ok(createBlock.includes('bio.complex_id = ${resident.complexId}::uuid'));
 
 // Resubmit: replacement reference is acquired under the same registry lock discipline.
 const resubmitStart = economy.indexOf('async function resubmitBusinessApplication(');
-const resubmitEnd = economy.indexOf('async function claimBenefit(', resubmitStart);
+const resubmitEnd = economy.indexOf('export async function handleResidentEconomyMutationRequest(', resubmitStart);
 const resubmitBlock = economy.slice(resubmitStart, resubmitEnd);
 const resubmitValidate = resubmitBlock.indexOf('await validateBusinessImageReference(');
 const resubmitTransaction = resubmitBlock.indexOf('await sql.transaction([');
