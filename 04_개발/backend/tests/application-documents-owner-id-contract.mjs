@@ -2,9 +2,11 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
 const root = new URL('../', import.meta.url);
-const [economy, docs, core] = await Promise.all([
+const [economy, docs, adminDocs, docsCore, core] = await Promise.all([
   readFile(new URL('src/resident-economy-v2.ts', root), 'utf8'),
   readFile(new URL('src/resident-application-docs-v1.ts', root), 'utf8'),
+  readFile(new URL('src/admin-application-docs-v1.ts', root), 'utf8'),
+  readFile(new URL('src/application-docs-core-v1.ts', root), 'utf8'),
   readFile(new URL('src/core-v1.ts', root), 'utf8')
 ]);
 
@@ -40,9 +42,9 @@ assert.ok(economy.includes('and a.applicant_user_id = ${actor.id}::uuid'),
 // contract (still me/admin route pair, still id-keyed lookup).
 assert.doesNotMatch(economy, /documents\/\$\{|ME_DOCUMENT_ROUTE|streamDriveFile/,
   '6a. resident-economy must not gain any document byte route');
-assert.ok(docs.includes('ME_DOCUMENT_ROUTE') && docs.includes('ADMIN_DOCUMENT_ROUTE') &&
-  docs.includes('where bad.id = ${documentId}::uuid'),
-  '6b. the byte route must remain the id-keyed me/admin pair from #310');
+assert.ok(docs.includes('ME_DOCUMENT_ROUTE') && adminDocs.includes('ADMIN_DOCUMENT_ROUTE') &&
+  docsCore.includes('where bad.id = ${documentId}::uuid'),
+  '6b. the byte route must remain the id-keyed me/admin pair from #310 (#375 F11 lane split keeps the pair, one route per lane)');
 
 // 7. Part B: the owner application LIST in core-v1 attaches documents[] to
 // every row, scoped through the already actor-filtered application set
