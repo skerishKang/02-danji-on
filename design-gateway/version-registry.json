@@ -7,24 +7,6 @@
   "production_secrets": false,
   "versions": [
     {
-      "version_id": "v2-runtime",
-      "display_name": "V2 runtime build (comparison)",
-      "source_path": "04_개발/frontend",
-      "source_ref": "origin/main",
-      "source_sha": "f23c4e1f5622a2313c51c94d2ac54df568b2ea9a",
-      "entry_file": "index.html",
-      "build_or_copy_method": "npm ci --ignore-scripts && npm run build; retain dist/ output only",
-      "status": "COMPARISON_KEEP",
-      "frozen": true,
-      "mutable": false,
-      "do_not_merge": "Gateway artifact only; do not copy into or modify production React V2 source",
-      "known_limitations": [
-        "Built from the current V2 source but is not the production URL or a production deployment.",
-        "The Vite build emits one unresolved field-demo asset warning; this does not affect the retained entry contract.",
-        "No production API write or production secret is included or configured by this bundle."
-      ]
-    },
-    {
       "version_id": "v3-current",
       "display_name": "Static V3 current authority",
       "source_path": "frontend/",
@@ -91,7 +73,7 @@
       "known_limitations": [
         "PR #378 remains an open comparison PR with central DO-NOT-MERGE direction.",
         "The artifact is intentionally frozen at the PR head and must not be rebased or silently refreshed.",
-        "The source app.html referenced index3.html although the PR tree did not include it; the bundle includes a byte-identical index3.html alias to keep the frozen entry self-contained.",
+        "The frozen source app.html references historical index3.html navigation that is absent from the PR tree; this broken link is preserved byte-for-byte and must be handled externally by the gateway wrapper or metadata layer.",
         "Its runtime wiring is comparison-only and must not be given production secrets or production data access."
       ]
     }

@@ -8,7 +8,6 @@ Mode: `STATIC_DESIGN_VERSION_PACKAGER`
 
 | Version | Classification | Source | Entry | Why retained |
 |---|---|---|---|---|
-| `v2-runtime` | `COMPARISON_KEEP` | `04_개발/frontend` at current main | `index.html` | Current React runtime surface; comparison only, source remains untouched |
 | `v3-current` | `DESIGN_AUTHORITY` | `frontend/` at current main | `index.html` | Current static V3 design authority documented by `README_V3_PROMOTION_20260906.md` |
 | `legacy-a` | `COMPARISON_KEEP` | `03_HTML결과물/05_실사사진중심_v5/01_단지온_v5_반응형기능기준.html` | `index.html` | Canonical V5 functional/information-architecture reference for visual comparison |
 | `legacy-b` | `COMPARISON_KEEP` | `03_HTML결과물/08_실리나이스_다색기능_v7/01_단지온_v7_실리나이스_다색기능.html` | `index.html` | Distinct V7 color/keyart exploration; second V7 file is byte-identical and dropped |
@@ -32,11 +31,13 @@ Mode: `STATIC_DESIGN_VERSION_PACKAGER`
 | `02_디자인팀/03_편집형브랜드_v3`, `06_울트라블루_키아트_v6`, `07_색상3안_키아트_v6`, `08_실리나이스_다색기능_v7`, `09_살아있는이웃가게_M1_모션검증` | `ARCHIVE_ONLY` | Design-team working/source exploration; retained in repository history, not duplicated into unmanaged gateway bundles |
 | `04_개발/frontend/src/v2` | `DESIGN_AUTHORITY` for production React V2 only | Not copied into static bundles; production React V2 remains the product authority and is outside this packaging PR |
 
+The React V2 runtime comparison bundle is owned by KILO3 under PR #400 and is intentionally absent from this KILO2 static packaging lane.
+
 ## Safety boundary
 
 - This PR adds static artifacts and registry metadata only.
 - It does not modify `04_개발/frontend/src`, V2 routing, production Pages configuration, or the gateway implementation owned by KILO1.
 - No production API write, production secret, Cloudflare binding, or deployment is included.
 - `PR #378` is frozen comparison material and remains `DO_NOT_MERGE`.
-- PR #378's source `app.html` referenced a missing `index3.html`; the bundle adds a byte-identical frozen alias to make the retained entry self-contained without changing the PR source.
+- PR #378's frozen source `app.html` references historical `index3.html` navigation that is absent from the source tree. The limitation is preserved byte-for-byte; KILO1 gateway wrapper/metadata is responsible for any external navigation treatment.
 - Stable public subpaths and gateway deployment require a later KILO1 gateway implementation/deployment gate; this PR only prepares independently addressable bundle directories.

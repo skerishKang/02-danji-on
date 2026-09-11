@@ -6,7 +6,6 @@ import { fileURLToPath } from 'node:url';
 const root = fileURLToPath(new URL('.', import.meta.url));
 const registry = JSON.parse(await readFile(join(root, 'version-registry.json'), 'utf8'));
 const expected = new Map([
-  ['v2-runtime', 'index.html'],
   ['v3-current', 'index.html'],
   ['legacy-a', 'index.html'],
   ['legacy-b', 'index.html'],
@@ -18,6 +17,7 @@ assert.equal(registry.generated_from_main, 'f23c4e1f5622a2313c51c94d2ac54df568b2
 assert.equal(registry.production_url_untouched, true);
 assert.equal(registry.production_api_write, false);
 assert.equal(registry.production_secrets, false);
+assert.equal(registry.versions.length, 4);
 assert.deepEqual(new Set(registry.versions.map((version) => version.version_id)), new Set(expected.keys()));
 
 for (const version of registry.versions) {
@@ -45,6 +45,7 @@ async function walk(directory) {
   }
 }
 await walk(join(root, 'versions'));
+assert.ok(!files.some((file) => relative(root, file).replaceAll('\\', '/').startsWith('versions/v2-runtime/')), 'v2-runtime must not be packaged by KILO2');
 for (const file of files) {
   const text = await readFile(file, 'utf8');
   assert.doesNotMatch(text, /CLOUDFLARE_API_TOKEN\s*[=:]\s*[^\s,}]+/);
@@ -57,5 +58,6 @@ const pr378 = registry.versions.find((version) => version.version_id === 'pr378'
 assert.equal(pr378.source_sha, 'b618cad4abb4d966181f3ab7fcac2e7c2ebcc7f3');
 assert.match(pr378.do_not_merge, /DO_NOT_MERGE/);
 assert.ok(files.some((file) => relative(join(root, 'versions', 'pr378'), file) === join('site', 'index.html')));
+assert.ok(!files.some((file) => relative(join(root, 'versions', 'pr378'), file) === join('site', 'index3.html')));
 
 console.log(`static design registry: PASS retained=${registry.versions.length} files=${files.length}`);

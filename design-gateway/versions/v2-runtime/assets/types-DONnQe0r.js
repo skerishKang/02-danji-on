@@ -1,1 +1,0 @@
-var e={resident:`방림명지로드힐 주민 운영`,resident_family:`방림명지로드힐 주민 가족 운영`,neighbor:`이웃 단지 주민 운영`,local:`우리 동네 가게`},t={draft:`작성 중`,pending:`확인 대기`,changes_requested:`보완 요청`,approved:`승인 완료`,rejected:`반려`},n={stored:`보관 중`,used:`사용 완료`};export{n,e as r,t};
