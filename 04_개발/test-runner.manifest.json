@@ -74,6 +74,7 @@
         {"id":"test:application-documents-review-context","npm":"test:application-documents-review-context","kind":"contract"},
         {"id":"test:application-documents-owner-id","npm":"test:application-documents-owner-id","kind":"contract"},
         {"id":"test:deploy-provenance","npm":"test:deploy-provenance","kind":"contract"},
+        {"id":"test:cross-platform-executable-contract","npm":"test:cross-platform-executable-contract","kind":"contract"},
         {"id":"test:runner-manifest-contract","npm":"test:runner-manifest-contract","kind":"contract"}
       ]
     },
@@ -140,6 +141,24 @@
       ]
     }
   },
+  "portable_local": {
+    "description": "Supported local entrypoints. The lifecycle shell scripts remain bash, but Windows local execution must go through the existing run-postgres-lifecycle.mjs Git Bash bridge rather than a bare bash/WSL invocation.",
+    "backend": {
+      "launcher": "tests/run-postgres-lifecycle.mjs",
+      "npm_scripts": [
+        "test:business-application-photos-044-lifecycle",
+        "test:application-documents-owner-list-postgres-lifecycle",
+        "test:complex-news-channel-040-lifecycle",
+        "test:report-rb-postgres-lifecycle"
+      ],
+      "shell_scripts": [
+        "tests/business-application-photos-044-postgres-lifecycle.sh",
+        "tests/application-documents-owner-list-postgres-lifecycle.sh",
+        "tests/complex-news-channel-040-postgres-lifecycle.sh",
+        "tests/report-rb-postgres-lifecycle.sh"
+      ]
+    }
+  },
   "ci_only": {
     "description": "Direct-node / postgres-lifecycle coverage executed only as dedicated CI jobs (backend-ci.yml and friends). Listed here so F12 can inventory full suite coverage. The runner NEVER executes ci_only steps under run/--scope; --list shows them tagged ci_only.",
     "backend": {
@@ -156,16 +175,17 @@
         {"id":"shop-recommendations-postgres-lifecycle","sh":"tests/shop-recommendations-postgres-lifecycle.sh","job":"shop-recommendations-postgres-lifecycle"},
         {"id":"inquiries-postgres-lifecycle","sh":"tests/inquiries-postgres-lifecycle.sh","job":"inquiries-postgres-lifecycle"},
         {"id":"business-reviews-postgres-lifecycle","sh":"tests/business-reviews-postgres-lifecycle.sh","job":"business-reviews-postgres-lifecycle"},
-        {"id":"complex-news-channel-040-postgres-lifecycle","sh":"tests/complex-news-channel-040-postgres-lifecycle.sh","job":"complex-news-channel-040-postgres-lifecycle"},
+        {"id":"community-postgres-security","sh":"tests/community-postgres-security.sh","job":"community-postgres-security"},
         {"id":"business-category-benefit-postgres-lifecycle","sh":"tests/business-category-benefit-postgres-lifecycle.sh","job":"business-category-benefit-postgres-lifecycle"},
         {"id":"community-replies-postgres-lifecycle","sh":"tests/community-replies-postgres-lifecycle.sh","job":"community-replies-postgres-lifecycle"},
-        {"id":"application-documents-owner-list-postgres-lifecycle","sh":"tests/application-documents-owner-list-postgres-lifecycle.sh","job":"application-documents-owner-list-postgres-lifecycle"},
+        {"id":"business-image-postgres-concurrency","sh":"tests/business-image-postgres-concurrency.sh","job":"business-image-postgres-concurrency"},
+        {"id":"business-image-upload-idempotency-postgres","sh":"tests/business-image-upload-idempotency-postgres.sh","job":"business-image-postgres-concurrency"},
+        {"id":"business-image-resolved-lease-cleanup-postgres","sh":"tests/business-image-resolved-lease-cleanup-postgres.sh","job":"business-image-postgres-concurrency"},
         {"id":"community-notifications-postgres-lifecycle","sh":"tests/community-notifications-postgres-lifecycle.sh","job":"community-notifications-postgres-lifecycle"},
         {"id":"resident-news-postgres-lifecycle","sh":"tests/resident-news-postgres-lifecycle.sh","job":"resident-news-postgres-lifecycle"},
         {"id":"resident-summary-postgres-lifecycle","sh":"tests/resident-summary-postgres-lifecycle.sh","job":"resident-summary-postgres-lifecycle"},
-        {"id":"business-application-photos-044-postgres-lifecycle","sh":"tests/business-application-photos-044-postgres-lifecycle.sh","job":"business-application-photos-044-postgres-lifecycle"},
-        {"id":"business-review-comments-postgres-lifecycle","sh":"tests/business-review-comments-postgres-lifecycle.sh","job":"business-review-comments-postgres-lifecycle"},
-        {"id":"report-rb-postgres-lifecycle","sh":"tests/report-rb-postgres-lifecycle.sh","job":"report-rb-postgres-lifecycle"}
+        {"id":"run-live-db-integration","sh":"tests/run-live-db-integration.sh","job":"live-db-child"},
+        {"id":"business-review-comments-postgres-lifecycle","sh":"tests/business-review-comments-postgres-lifecycle.sh","job":"business-review-comments-postgres-lifecycle"}
       ]
     }
   }

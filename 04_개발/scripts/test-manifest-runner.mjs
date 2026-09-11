@@ -135,14 +135,14 @@ function runStep(step, pkgDir) {
   let cmd;
   let args;
   if (step.npm) {
-    cmd = 'npm';
+    cmd = process.platform === 'win32' ? 'npm.cmd' : 'npm';
     args = ['run', step.npm];
   } else {
     const parts = step.command.trim().split(/\s+/);
     cmd = parts[0];
     args = parts.slice(1);
   }
-  const useShell = process.platform === 'win32'; // npm is npm.cmd on Windows
+  const useShell = process.platform === 'win32'; // npm.cmd requires the Windows command shim.
   return spawnSync(cmd, args, { cwd: pkgDir, stdio: 'inherit', shell: useShell });
 }
 
