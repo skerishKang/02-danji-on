@@ -10,7 +10,7 @@ import {
 } from './storage-policy.mjs';
 
 type Sql = NeonQueryFunction<false, false>;
-type DriveEnv = CoreEnv & {
+export type DriveEnv = CoreEnv & {
   STORAGE_MODE?: string;
   GOOGLE_DRIVE_CLIENT_ID?: string;
   GOOGLE_DRIVE_CLIENT_SECRET?: string;
@@ -18,7 +18,7 @@ type DriveEnv = CoreEnv & {
   GOOGLE_DRIVE_PUBLIC_BUSINESS_FOLDER_ID?: string;
   GOOGLE_DRIVE_PRIVATE_RESIDENT_VERIFICATION_FOLDER_ID?: string;
 };
-type DriveMetadata = {
+export type DriveMetadata = {
   id: string;
   name: string;
   mimeType?: string;
@@ -70,15 +70,15 @@ function ok(data: unknown, requestId: string, status = 200): Response {
   return json({ data, requestId }, status, requestId);
 }
 
-function fail(code: string, message: string, status: number, requestId: string): Response {
+export function fail(code: string, message: string, status: number, requestId: string): Response {
   return json({ error: { code, message }, requestId }, status, requestId);
 }
 
-function driveConfigured(env: DriveEnv): boolean {
+export function driveConfigured(env: DriveEnv): boolean {
   return env.STORAGE_MODE === 'drive';
 }
 
-function requiredDriveCredentials(env: DriveEnv): { clientId: string; clientSecret: string; refreshToken: string } | null {
+export function requiredDriveCredentials(env: DriveEnv): { clientId: string; clientSecret: string; refreshToken: string } | null {
   const clientId = env.GOOGLE_DRIVE_CLIENT_ID?.trim();
   const clientSecret = env.GOOGLE_DRIVE_CLIENT_SECRET?.trim();
   const refreshToken = env.GOOGLE_DRIVE_REFRESH_TOKEN?.trim();
@@ -152,7 +152,7 @@ function objectKey(kind: StorageKind, fileId: string): string {
   return `gdrive/${storageVisibility(kind)}/${kind}/${fileId}`;
 }
 
-function parseObjectKey(value: string): ParsedObjectKey | null {
+export function parseObjectKey(value: string): ParsedObjectKey | null {
   const parts = value.trim().split('/');
   if (parts.length !== 4 || parts[0] !== 'gdrive') return null;
   const visibility = parts[1];
@@ -178,7 +178,7 @@ async function requireStorageActor(
   return { actor: actorOrResponse, sql };
 }
 
-async function readDriveMetadata(env: DriveEnv, parsed: ParsedObjectKey): Promise<DriveMetadata | null> {
+export async function readDriveMetadata(env: DriveEnv, parsed: ParsedObjectKey): Promise<DriveMetadata | null> {
   const response = await googleFetch(
     env,
     `${DRIVE_API}/files/${encodeURIComponent(parsed.fileId)}?fields=id,name,mimeType,size,trashed,parents,appProperties&supportsAllDrives=true`
@@ -188,7 +188,7 @@ async function readDriveMetadata(env: DriveEnv, parsed: ParsedObjectKey): Promis
   return response.json() as Promise<DriveMetadata>;
 }
 
-function metadataMatches(env: DriveEnv, parsed: ParsedObjectKey, metadata: DriveMetadata): boolean {
+export function metadataMatches(env: DriveEnv, parsed: ParsedObjectKey, metadata: DriveMetadata): boolean {
   const expectedFolder = folderFor(env, parsed.kind);
   if (!expectedFolder || metadata.trashed || !metadata.parents?.includes(expectedFolder)) return false;
   const props = metadata.appProperties || {};
@@ -209,59 +209,9 @@ function retirementMetadataMatches(
     props.danjionUploaderUserId === expectedUploaderUserId;
 }
 
-export async function validateBusinessImageReference(
-  env: CoreEnv,
-  objectKeyValue: string,
-  expectedUploaderUserId: string,
-  expectedComplexSlug: string,
-  requestId: string
-): Promise<Response | null> {
-  const driveEnv = env as DriveEnv;
-  if (!driveConfigured(driveEnv) || !requiredDriveCredentials(driveEnv)) {
-    return fail('STORAGE_NOT_CONFIGURED', 'Google Drive storage is not configured for business image verification', 503, requestId);
-  }
-
-  const parsed = parseObjectKey(objectKeyValue);
-  if (!parsed || parsed.visibility !== 'public' || parsed.kind !== 'business-image') {
-    return fail(
-      'INVALID_BUSINESS_IMAGE_REFERENCE',
-      'Representative image must reference a DanjiOn public business image',
-      400,
-      requestId
-    );
-  }
-
-  let metadata: DriveMetadata | null;
-  try {
-    metadata = await readDriveMetadata(driveEnv, parsed);
-  } catch {
-    return fail(
-      'BUSINESS_IMAGE_REFERENCE_UNAVAILABLE',
-      'Representative image could not be verified against storage',
-      503,
-      requestId
-    );
-  }
-  if (!metadata || !metadataMatches(driveEnv, parsed, metadata)) {
-    return fail(
-      'INVALID_BUSINESS_IMAGE_REFERENCE',
-      'Representative image is missing or no longer a valid DanjiOn business image',
-      400,
-      requestId
-    );
-  }
-
-  const props = metadata.appProperties || {};
-  if (props.danjionUploaderUserId !== expectedUploaderUserId || props.danjionComplexSlug !== expectedComplexSlug) {
-    return fail(
-      'BUSINESS_IMAGE_REFERENCE_FORBIDDEN',
-      'Representative image does not belong to this resident and complex',
-      403,
-      requestId
-    );
-  }
-  return null;
-}
+// validateBusinessImageReference now lives in ./storage-reference-v1 (shared
+// reference module) — see #372 BE-S1 / #375 F1. Route lanes must not re-export
+// it from this route owner.
 
 export async function businessImageDeleteConflict(
   sql: Sql,

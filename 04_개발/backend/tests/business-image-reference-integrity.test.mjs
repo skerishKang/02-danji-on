@@ -1,12 +1,13 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { validateBusinessImageReference } from '../src/storage-v1.ts';
+import { validateBusinessImageReference } from '../src/storage-reference-v1.ts';
 
 const root = new URL('../', import.meta.url);
 const economy = await readFile(new URL('src/resident-economy-v2.ts', root), 'utf8');
 const admin = await readFile(new URL('src/admin-operational-v2.ts', root), 'utf8');
 const app = await readFile(new URL('src/app.ts', root), 'utf8');
 const storage = await readFile(new URL('src/storage-v1.ts', root), 'utf8');
+const reference = await readFile(new URL('src/storage-reference-v1.ts', root), 'utf8');
 
 const env = {
   STORAGE_MODE: 'drive',
@@ -84,11 +85,18 @@ const invalidNamespace = await validateBusinessImageReference(
 assert.ok(invalidNamespace instanceof Response);
 assert.equal(invalidNamespace.status, 400);
 
-assert.ok(storage.includes('export async function validateBusinessImageReference('));
-assert.ok(storage.includes("parsed.visibility !== 'public' || parsed.kind !== 'business-image'"));
-assert.ok(storage.includes('metadataMatches(driveEnv, parsed, metadata)'));
-assert.ok(storage.includes('props.danjionUploaderUserId !== expectedUploaderUserId'));
-assert.ok(storage.includes('props.danjionComplexSlug !== expectedComplexSlug'));
+// #372 BE-S1 / #375 F1: the shared business image reference validator is owned
+// by storage-reference-v1, not by the storage route owner (storage-v1).
+assert.ok(reference.includes('export async function validateBusinessImageReference('));
+assert.ok(reference.includes("parsed.visibility !== 'public' || parsed.kind !== 'business-image'"));
+assert.ok(reference.includes('metadataMatches(driveEnv, parsed, metadata)'));
+assert.ok(reference.includes('props.danjionUploaderUserId !== expectedUploaderUserId'));
+assert.ok(reference.includes('props.danjionComplexSlug !== expectedComplexSlug'));
+assert.doesNotMatch(
+  storage,
+  /export async function validateBusinessImageReference\(/,
+  'storage route owner must no longer define the shared business image reference validator'
+);
 
 const createStart = economy.indexOf('async function createBusinessApplication(');
 const createEnd = economy.indexOf('async function resubmitBusinessApplication(', createStart);
@@ -133,7 +141,9 @@ const legacyApplicationRoute = app.indexOf('handleResidentApplicationRequest(req
 assert.ok(economyRoute >= 0 && legacyApplicationRoute > economyRoute,
   'current economy mutation handler must intercept resubmit before legacy application handler');
 
-assert.ok(admin.includes("import { validateBusinessImageReference } from './storage-v1';"));
+assert.ok(admin.includes("import { validateBusinessImageReference } from './storage-reference-v1';"));
+assert.ok(economy.includes("import { validateBusinessImageReference } from './storage-reference-v1';"),
+  'resident economy lane must consume the shared reference module, not the storage route owner');
 assert.ok(admin.includes('a.applicant_user_id'));
 assert.ok(admin.includes('a.representative_image_object_key'));
 const patchStart = admin.indexOf('async function patchApplication(');
