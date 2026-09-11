@@ -84,6 +84,7 @@ const EXPECTED_BACKEND_ORDER = [
   "test:community-c2-greeting-kind",
   "test:application-documents-review-context",
   "test:application-documents-owner-id",
+  "test:deploy-provenance",
   "test:runner-manifest-contract",
 ];
 

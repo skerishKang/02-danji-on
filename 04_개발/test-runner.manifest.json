@@ -73,6 +73,7 @@
         {"id":"test:community-c2-greeting-kind","npm":"test:community-c2-greeting-kind","kind":"contract"},
         {"id":"test:application-documents-review-context","npm":"test:application-documents-review-context","kind":"contract"},
         {"id":"test:application-documents-owner-id","npm":"test:application-documents-owner-id","kind":"contract"},
+        {"id":"test:deploy-provenance","npm":"test:deploy-provenance","kind":"contract"},
         {"id":"test:runner-manifest-contract","npm":"test:runner-manifest-contract","kind":"contract"}
       ]
     },
