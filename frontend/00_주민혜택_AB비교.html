@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>단지온 · 주민혜택 A/B 비교</title>
+<style>
+:root{--navy:#101b2d;--paper:#f6f2e9;--line:#d8d0c3;--coral:#ee6045;--muted:#6d6a64}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;font-family:Pretendard,"Noto Sans KR",Arial,sans-serif;background:var(--navy);color:#fff}
+header{padding:18px 20px;border-bottom:1px solid #334057;display:flex;gap:10px;align-items:center;flex-wrap:wrap;position:sticky;top:0;background:rgba(16,27,45,.98);z-index:10}
+h1{font-size:18px;margin:0 12px 0 0}
+button,a{font:inherit}
+button{min-height:44px;border:1px solid #60708c;background:#132239;color:#fff;padding:0 15px;font-weight:850;cursor:pointer}
+button.active{background:var(--coral);border-color:var(--coral)}
+.note{font-size:12px;color:#c6cfdb;line-height:1.5}
+main{padding:18px;display:grid;gap:14px;justify-items:center}
+.status{width:min(980px,100%);background:#fff;color:#101317;border:1px solid var(--line);padding:14px 16px;display:flex;gap:12px;justify-content:space-between;align-items:center;flex-wrap:wrap}
+.status b{font-size:15px}.status span{font-size:12px;color:var(--muted)}
+.device{padding:10px;background:#202936;box-shadow:0 22px 70px rgba(0,0,0,.45)}
+.frame{width:390px;height:844px;background:var(--paper);border:0;display:block}
+.legend{width:min(980px,100%);display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.card{background:#132239;border:1px solid #334057;padding:14px}
+.card strong{display:block;margin-bottom:5px}.card small{color:#b9c2cf;line-height:1.45}
+.card.official{border-color:var(--coral)}
+@media(max-width:560px){header{position:relative}.legend{grid-template-columns:1fr}.device{padding:0;width:100vw}.frame{width:100vw;height:calc(100svh - 175px)}main{padding:0}.status,.legend{border-left:0;border-right:0}}
+</style>
+</head>
+<body>
+<header>
+  <h1>주민혜택 A/B 비교 · Owner QA</h1>
+  <button id="showA" class="active" type="button">A안 · 공식</button>
+  <button id="showB" type="button">B안 · 비교후보</button>
+  <span class="note">일반 사용자 동선에는 노출하지 않는 검토용 페이지입니다.</span>
+</header>
+<main>
+  <div class="status">
+    <div><b id="currentTitle">A안 · 공식 주민혜택</b><br><span id="currentFile">03_주민혜택_쿠폰.html</span></div>
+    <span id="authority">README_V3_PROMOTION_20260906.md Source of Truth</span>
+  </div>
+  <div class="legend">
+    <div class="card official"><strong>A안 · 공식</strong><small>문서 기준 정식 주민혜택. 실제 서비스 라우팅은 이 파일을 사용합니다.</small></div>
+    <div class="card"><strong>B안 · 비교후보</strong><small>기존 비교안을 보존합니다. Owner가 별도 승격 결정하기 전에는 공식 라우팅으로 사용하지 않습니다.</small></div>
+  </div>
+  <div class="device"><iframe id="preview" class="frame" src="03_주민혜택_쿠폰.html" title="주민혜택 A/B 비교 미리보기"></iframe></div>
+</main>
+<script>
+const preview=document.getElementById('preview');
+const showA=document.getElementById('showA');
+const showB=document.getElementById('showB');
+const currentTitle=document.getElementById('currentTitle');
+const currentFile=document.getElementById('currentFile');
+const authority=document.getElementById('authority');
+
+function select(mode){
+  const isA=mode==='A';
+  try{
+    if(isA) sessionStorage.removeItem('danjion:shopVariant');
+    else sessionStorage.setItem('danjion:shopVariant','v3');
+  }catch(e){}
+  showA.classList.toggle('active',isA);
+  showB.classList.toggle('active',!isA);
+  currentTitle.textContent=isA?'A안 · 공식 주민혜택':'B안 · 비교후보';
+  currentFile.textContent=isA?'03_주민혜택_쿠폰.html':'03_주민혜택_쿠폰_v2.html';
+  authority.textContent=isA?'README_V3_PROMOTION_20260906.md Source of Truth':'비교 전용 · 공식 승격 아님';
+  preview.src=(isA?'03_주민혜택_쿠폰.html':'03_주민혜택_쿠폰_v2.html')+'?owner-qa='+Date.now();
+}
+showA.addEventListener('click',()=>select('A'));
+showB.addEventListener('click',()=>select('B'));
+</script>
+</body>
+</html>
