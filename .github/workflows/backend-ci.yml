@@ -33,46 +33,46 @@ jobs:
         include:
           - name: resident-settings-postgres-lifecycle
             database: danjion_settings
-            script: tests/resident-settings-postgres-lifecycle.sh
+            script: bash tests/resident-settings-postgres-lifecycle.sh
           - name: resident-safety-reports-postgres-lifecycle
             database: danjion_safety_reports
-            script: tests/resident-safety-reports-postgres-lifecycle.sh
+            script: bash tests/resident-safety-reports-postgres-lifecycle.sh
           - name: business-share-postgres-lifecycle
             database: danjion_business_share
-            script: tests/business-share-postgres-lifecycle.sh
+            script: bash tests/business-share-postgres-lifecycle.sh
           - name: resident-activity-postgres-lifecycle
             database: danjion_activity
-            script: tests/resident-activity-postgres-lifecycle.sh
+            script: bash tests/resident-activity-postgres-lifecycle.sh
           - name: resident-notification-postgres-lifecycle
             database: danjion_notifications
-            script: tests/resident-notification-postgres-lifecycle.sh
+            script: bash tests/resident-notification-postgres-lifecycle.sh
           - name: resident-profile-postgres-lifecycle
             database: danjion_profiles
-            script: tests/resident-profile-postgres-lifecycle.sh
+            script: bash tests/resident-profile-postgres-lifecycle.sh
           - name: resident-blocks-postgres-lifecycle
             database: danjion_blocks
-            script: tests/resident-blocks-postgres-lifecycle.sh
+            script: bash tests/resident-blocks-postgres-lifecycle.sh
           - name: shop-recommendations-postgres-lifecycle
             database: danjion_shop_recommendations
-            script: tests/shop-recommendations-postgres-lifecycle.sh
+            script: bash tests/shop-recommendations-postgres-lifecycle.sh
           - name: inquiries-postgres-lifecycle
             database: danjion_inquiries
-            script: tests/inquiries-postgres-lifecycle.sh
+            script: bash tests/inquiries-postgres-lifecycle.sh
           - name: business-reviews-postgres-lifecycle
             database: danjion_reviews
-            script: tests/business-reviews-postgres-lifecycle.sh
+            script: bash tests/business-reviews-postgres-lifecycle.sh
           - name: complex-news-channel-040-postgres-lifecycle
             database: danjion_040_compat
-            script: tests/complex-news-channel-040-postgres-lifecycle.sh
+            script: bash tests/complex-news-channel-040-postgres-lifecycle.sh
           - name: business-category-benefit-postgres-lifecycle
             database: danjion_business_contract
-            script: tests/business-category-benefit-postgres-lifecycle.sh
+            script: bash tests/business-category-benefit-postgres-lifecycle.sh
           - name: community-replies-postgres-lifecycle
             database: danjion_community_replies
-            script: tests/community-replies-postgres-lifecycle.sh
+            script: bash tests/community-replies-postgres-lifecycle.sh
           - name: community-postgres-security
             database: danjion_community
-            script: tests/community-postgres-security.sh
+            script: bash tests/community-postgres-security.sh
           - name: business-image-postgres-concurrency
             database: danjion_atomicity
             script: |
@@ -81,7 +81,7 @@ jobs:
               bash tests/business-image-resolved-lease-cleanup-postgres.sh
           - name: application-documents-owner-list-postgres-lifecycle
             database: danjion_owner_doc_list
-            script: tests/application-documents-owner-list-postgres-lifecycle.sh
+            script: bash tests/application-documents-owner-list-postgres-lifecycle.sh
     services:
       postgres:
         image: postgres:18
