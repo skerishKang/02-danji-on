@@ -12,6 +12,8 @@ const adminVerification = read('src/admin-verification-v1.ts');
 const operationalAuthz = read('src/operational-authz-v2.ts');
 const residentApplication = read('src/resident-application-v1.ts');
 const residentApplicationDocs = read('src/resident-application-docs-v1.ts');
+const adminApplicationDocs = read('src/admin-application-docs-v1.ts');
+const applicationDocsCore = read('src/application-docs-core-v1.ts');
 const residentEconomy = read('src/resident-economy-v2.ts');
 const residentVerification = read('src/resident-verification-v1.ts');
 const benefitWallet = read('src/benefit-wallet-v1.ts');
@@ -32,7 +34,11 @@ const privateRouters = [
   adminReviewContext,
   adminVerification,
   residentApplication,
-  residentApplicationDocs,
+  // #375 F11 lane split: the shared serving core owns requireActor, and the
+  // admin lane owns requireOperationalAuthority; both stay on the private
+  // auth boundary. The resident lane delegates auth to the core.
+  applicationDocsCore,
+  adminApplicationDocs,
   residentEconomy,
   residentVerification,
   benefitWallet
@@ -59,19 +65,22 @@ const checks = [
   ['review context never selects residence coordinates or evidence object key', !adminReviewContext.includes('building_code') && !adminReviewContext.includes('unit_code') && !adminReviewContext.includes('evidence_object_key')],
   ['admin audit uses explicit PADIEM or council business-review authority', adminAudit.includes('requireOperationalAuthority') && adminAudit.includes("'business.review'") && adminAudit.includes("'council.business.review'")],
   ['admin audit is complex scoped', adminAudit.includes('e.complex_id = ${operator.complexId}::uuid')],
-  ['application document exposes separate me and admin routes', residentApplicationDocs.includes('ME_DOCUMENT_ROUTE') && residentApplicationDocs.includes('ADMIN_DOCUMENT_ROUTE') && residentApplicationDocs.includes('/api\\/v1\\/me\\/business-applications\\/') && residentApplicationDocs.includes('/api\\/v1\\/admin\\/business-applications\\/')],
-  ['application document download uses reviewer authority', residentApplicationDocs.includes('requireOperationalAuthority') && residentApplicationDocs.includes("'business.review'") && residentApplicationDocs.includes("'council.business.review'")],
+  // #372 B1 / #375 F11: the application-document surface is split into a
+  // resident lane, an admin lane, and a domain-neutral serving core.
+  ['application document exposes separate me and admin routes', residentApplicationDocs.includes('ME_DOCUMENT_ROUTE') && adminApplicationDocs.includes('ADMIN_DOCUMENT_ROUTE') && residentApplicationDocs.includes('/api\\/v1\\/me\\/business-applications\\/') && adminApplicationDocs.includes('/api\\/v1\\/admin\\/business-applications\\/')],
+  ['application document download uses reviewer authority', adminApplicationDocs.includes('requireOperationalAuthority') && adminApplicationDocs.includes("'business.review'") && adminApplicationDocs.includes("'council.business.review'")],
   ['application document applicant owner-scoped via /me route', residentApplicationDocs.includes('actor.id !== applicantUserId')],
-  ['application document reviewer status-gated', residentApplicationDocs.includes('REVIEWER_ALLOWED_STATUSES')],
+  ['application document reviewer status-gated', adminApplicationDocs.includes('REVIEWER_ALLOWED_STATUSES')],
   ['application document applicant status-gated', residentApplicationDocs.includes('APPLICANT_ALLOWED_STATUSES')],
-  ['application document streams via server-side Drive proxy', residentApplicationDocs.includes('drive/v3/files/') && residentApplicationDocs.includes('new Response(fileResponse.body') && residentApplicationDocs.includes('Authorization: `Bearer ${token}`')],
-  ['application document enforces private no-store headers', residentApplicationDocs.includes('private, no-store') && residentApplicationDocs.includes('nosniff')],
-  ['application document PDF attachment image inline', residentApplicationDocs.includes('attachment; filename=') && residentApplicationDocs.includes('inline; filename=')],
-  ['application document cross-complex denial via operational authority', residentApplicationDocs.includes('complexSlug')],
-  ['application document uses document.read audit action', residentApplicationDocs.includes("'document.read'") && residentApplicationDocs.includes('auditReviewerDocumentRead')],
-  ['application document audit failure fails closed', residentApplicationDocs.includes('AUDIT_UNAVAILABLE')],
-  ['application document resolves objectKey without caller authority', residentApplicationDocs.includes('parseFileId') && !residentApplicationDocs.includes('searchParams.get')],
-  ['application document enforces registry kind and active state', residentApplicationDocs.includes("!== 'application-document'") && residentApplicationDocs.includes("!== 'active'")],
+  ['application document streams via server-side Drive proxy', applicationDocsCore.includes('drive/v3/files/') && applicationDocsCore.includes('new Response(fileResponse.body') && applicationDocsCore.includes('Authorization: `Bearer ${token}`')],
+  ['application document enforces private no-store headers', applicationDocsCore.includes('private, no-store') && applicationDocsCore.includes('nosniff')],
+  ['application document PDF attachment image inline', applicationDocsCore.includes('attachment; filename=') && applicationDocsCore.includes('inline; filename=')],
+  ['application document cross-complex denial via operational authority', adminApplicationDocs.includes('complexSlug')],
+  ['application document uses document.read audit action', adminApplicationDocs.includes("'document.read'") && adminApplicationDocs.includes('auditReviewerDocumentRead')],
+  ['application document audit failure fails closed', adminApplicationDocs.includes('AUDIT_UNAVAILABLE')],
+  ['application document resolves objectKey without caller authority', applicationDocsCore.includes('parseFileId') && ![residentApplicationDocs, adminApplicationDocs, applicationDocsCore].some((source) => source.includes('searchParams.get'))],
+  ['application document enforces registry kind and active state', applicationDocsCore.includes("!== 'application-document'") && applicationDocsCore.includes("!== 'active'")],
+  ['application document lanes are isolated', !residentApplicationDocs.includes('requireOperationalAuthority') && !residentApplicationDocs.includes('ADMIN_DOCUMENT_ROUTE') && !adminApplicationDocs.includes('ME_DOCUMENT_ROUTE') && !adminApplicationDocs.includes('APPLICANT_ALLOWED_STATUSES') && !applicationDocsCore.includes('ME_DOCUMENT_ROUTE') && !applicationDocsCore.includes('ADMIN_DOCUMENT_ROUTE')],
   ['admin audit supports application filter and limit', adminAudit.includes("url.searchParams.get('applicationId')") && adminAudit.includes("url.searchParams.get('limit')")],
   ['resident verification admin is policy-hold fail closed', adminVerification.includes('RESIDENT_VERIFICATION_POLICY_HOLD') && !adminVerification.includes("role in ('manager','admin')") && !adminVerification.includes('evidence_object_key')],
   ['operational auth never trusts legacy manager/admin membership', !operationalAuthz.includes('complex_memberships') && operationalAuthz.includes('padiem_operator_grants') && operationalAuthz.includes('complex_operator_grants')],

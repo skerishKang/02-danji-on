@@ -1,5 +1,6 @@
 import core, { type CoreEnv } from './core-v1';
 import { handleAccountLifecycleRequest } from './account-lifecycle-v1';
+import { handleAdminApplicationDocumentRequest } from './admin-application-docs-v1';
 import { handleAdminAuditRequest } from './admin-audit-v1';
 import { handleAdminOperationalRequest } from './admin-operational-v2';
 import { handleAdminReviewContextRequest } from './admin-review-context-v1';
@@ -21,7 +22,7 @@ import { validateRequestPayload } from './payload-policy';
 import { handleProductMutationRateLimitRequest } from './product-rate-limit-v1';
 import { handleResidentActivityRequest } from './resident-activity-v1';
 import { handleResidentApplicationRequest } from './resident-application-v1';
-import { handleAdminApplicationDocumentRequest, handleResidentApplicationDocumentRequest } from './resident-application-docs-v1';
+import { handleResidentApplicationDocumentRequest } from './resident-application-docs-v1';
 import { handleResidentBlockRequest } from './resident-blocks-v1';
 import { handleResidentEconomyMutationRequest } from './resident-economy-v2';
 import { handleResidentMessageRequest } from './resident-messages-v1';
