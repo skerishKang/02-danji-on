@@ -48,7 +48,9 @@ assert.match(html, /\}else\{showToast\(button\.dataset\.social\+' 인증은 백�
 
 /* --- no dev identity header and no new gallery/hot-file coupling --- */
 assert.doesNotMatch(html, /x-danjion-dev-auth-user/, 'must not manufacture a dev identity');
-assert.ok(pkg.scripts.typecheck.includes('npm run test:stage5i-account-session-entry'),
-  'stage5i contract must run in the typecheck chain');
+const manifest = JSON.parse(await readFile(new URL('../../test-runner.manifest.json', import.meta.url), 'utf8'));
+const runIds = manifest.scopes.frontend.run.map((s) => s.npm || s.id);
+assert.ok(runIds.includes('test:stage5i-account-session-entry'),
+  'stage5i contract must run in the manifest frontend suite');
 
 console.log('stage5i account/session entry reconciliation contract: PASS');

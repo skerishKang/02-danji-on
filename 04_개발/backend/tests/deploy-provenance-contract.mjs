@@ -192,6 +192,11 @@ assert.ok(deployIdx !== -1 && deployIdx < captureIdx && captureIdx < readbackIdx
 assert.doesNotMatch(workflow, /set -x/, 'workflow must never shell-trace secret-bearing commands');
 
 assert.equal(pkg.scripts['test:deploy-provenance'], 'node tests/deploy-provenance-contract.mjs');
-assert.ok(pkg.scripts.check.includes('npm run test:deploy-provenance'), 'check chain must run the provenance contract');
+// `npm run check` is a thin entrypoint that delegates to scripts/test-manifest-runner.mjs;
+// execution order and coverage live in the authoritative test-runner manifest, not a shell chain.
+const runnerManifest = JSON.parse(await readFile(join(backendRoot, '..', 'test-runner.manifest.json'), 'utf8'));
+assert.equal(runnerManifest.scopes.backend.publicScript, 'check', 'backend manifest publicScript must be check');
+const backendRunNpm = runnerManifest.scopes.backend.run.map((s) => s.npm || s.id);
+assert.ok(backendRunNpm.includes('test:deploy-provenance'), 'backend test manifest must run the provenance contract');
 
 console.log('deploy-provenance contract: all assertions passed');

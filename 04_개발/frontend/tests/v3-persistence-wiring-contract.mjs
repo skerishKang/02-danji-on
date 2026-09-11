@@ -112,14 +112,21 @@ assert.match(html, /오늘의 반찬/, 'SHOP_DATA demo shop must be preserved');
 assert.match(html, /부모님 생신 꽃다발을 정성스럽게 준비해 주셨어요\./, 'SHOP_DATA demo review copy must be preserved');
 assert.match(html, /'아직 등록된 후기가 없습니다\.'/, 'empty review copy must be preserved');
 
-/* --- J. stage5a/b/c/d + new wiring test preserved in the typecheck chain (additive only) --- */
-const chain = pkg.scripts['typecheck'];
+/* --- J. stage5a/b/c/d + new wiring test preserved in the authoritative manifest (additive only) --- */
+// `npm run typecheck` is now a thin entrypoint that delegates to scripts/test-manifest-runner.mjs;
+// the ordered frontend suite lives in the manifest, not a shell chain.
+const manifest = JSON.parse(await readFile(new URL('../../test-runner.manifest.json', import.meta.url), 'utf8'));
+const runIds = manifest.scopes.frontend.run.map((s) => s.npm || s.id);
 for (const step of ['test:stage5a', 'test:stage5b', 'test:stage5c', 'test:stage5d-application-report-bridge-runtime']) {
-  assert.ok(chain.includes(`npm run ${step}`), `J: typecheck chain must still run ${step}`);
+  assert.ok(runIds.some((id) => id.startsWith(step)), `J: manifest frontend run must still include ${step}`);
 }
-assert.ok(chain.includes('npm run test:v3-persistence-wiring-contract'),
-  'J: the persistence wiring contract test must run inside the typecheck chain');
-assert.ok(chain.indexOf('npm run test:stage5a') < chain.indexOf('npm run test:v3-persistence-wiring-contract'),
-  'J: the new test must be appended after the stage5 chain, not replace it');
+assert.ok(runIds.includes('test:v3-persistence-wiring-contract'),
+  'J: the persistence wiring contract test must run inside the manifest frontend suite');
+assert.ok(runIds.findIndex((id) => id.startsWith('test:stage5a')) < runIds.indexOf('test:v3-persistence-wiring-contract'),
+  'J: the new test must be ordered after the stage5 chain, not replace it');
+assert.ok(pkg.scripts['typecheck:tsc'], 'J: the raw tsc step must be preserved as the typecheck:tsc script');
+assert.match(pkg.scripts.typecheck, /test-manifest-runner\.mjs/, 'J: typecheck must delegate to the test-manifest runner');
+assert.ok(pkg.scripts.typecheck.includes('--scope frontend'), 'J: typecheck must run the frontend scope');
+assert.ok(!pkg.scripts.typecheck.includes('&&'), 'J: typecheck must not reintroduce an && chain');
 
 console.log('PASS V3 discovery persistence wiring contract (saved-shops / reviews / application-report bridges)');

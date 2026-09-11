@@ -73,11 +73,20 @@ for (const script of baseScripts) {
   assert.ok(pkg.scripts[script], `existing script ${script} must not be removed`);
 }
 
-// 6. npm run check chain preserves every existing link and adds the gate.
+// 6. The authoritative test-runner manifest preserves every existing link and adds the gate.
+//    `npm run check` is now a thin entrypoint that delegates to scripts/test-manifest-runner.mjs;
+//    execution order and coverage live in the manifest, not a shell chain.
+const manifestPath = join(backendRoot, '..', 'test-runner.manifest.json');
+const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
+assert.equal(manifest.scopes.backend.publicScript, 'check', 'backend manifest publicScript must be check');
+const backendRunScripts = new Set(manifest.scopes.backend.run.map((s) => s.npm || s.id));
 for (const script of [...baseScripts, 'typecheck', 'test:migration-gate']) {
-  assert.ok(pkg.scripts.check.includes(`npm run ${script} `) || pkg.scripts.check.endsWith(`npm run ${script}`), `check chain must still run ${script}`);
+  assert.ok(backendRunScripts.has(script), `manifest backend run must still include ${script}`);
 }
-assert.ok(pkg.scripts.check.includes('test:backend-lane-reconciliation'), 'check chain must keep backend-lane-reconciliation');
+assert.ok(backendRunScripts.has('test:backend-lane-reconciliation'), 'manifest must keep backend-lane-reconciliation');
+assert.match(pkg.scripts.check, /test-manifest-runner\.mjs/, 'check must delegate to the test-manifest runner');
+assert.ok(pkg.scripts.check.includes('--scope backend'), 'check must run the backend scope');
+assert.ok(!pkg.scripts.check.includes('&&'), 'check must not reintroduce an && chain');
 
 // 7. PENDING = PRODUCTION_SAFE - APPLIED.
 const applied = new Set();

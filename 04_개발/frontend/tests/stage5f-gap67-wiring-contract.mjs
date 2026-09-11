@@ -64,16 +64,18 @@ assert.match(html, /'내 혜택에 보관'/, 'coupon save button label must be p
 assert.match(html, /'✓ 내 혜택에 보관됨'/, 'coupon saved label must be preserved');
 assert.match(html, /'로그인 후 이용 가능합니다\.'/, 'auth-required notice must reuse the existing canonical copy');
 
-/* --- additive tests chained into typecheck --- */
-const chain = pkg.scripts['typecheck'];
-assert.ok(chain.includes('npm run test:stage5e-benefit-inquiry-bridge-runtime'),
-  'typecheck chain must run the benefit/inquiry bridge runtime test');
-assert.ok(chain.includes('npm run test:stage5f-gap67-wiring-contract'),
-  'typecheck chain must run the GAP-6/7 wiring contract test');
+/* --- additive tests present in the authoritative manifest (ordered, additive only) --- */
+const manifest = JSON.parse(await readFile(new URL('../../test-runner.manifest.json', import.meta.url), 'utf8'));
+const runIds = manifest.scopes.frontend.run.map((s) => s.npm || s.id);
+const hasStep = (step) => runIds.some((id) => id === step || id.startsWith(step + '-'));
+assert.ok(hasStep('test:stage5e-benefit-inquiry-bridge-runtime'),
+  'manifest frontend suite must run the benefit/inquiry bridge runtime test');
+assert.ok(hasStep('test:stage5f-gap67-wiring-contract'),
+  'manifest frontend suite must run the GAP-6/7 wiring contract test');
 for (const step of ['test:stage5b', 'test:stage5c', 'test:stage5d-application-report-bridge-runtime', 'test:v3-persistence-wiring-contract']) {
-  assert.ok(chain.includes(`npm run ${step}`), `existing chain step ${step} must be preserved`);
+  assert.ok(hasStep(step), `existing suite step ${step} must be preserved`);
 }
-assert.ok(chain.indexOf('npm run test:stage5f-gap67-wiring-contract') > chain.indexOf('npm run test:stage5e-benefit-inquiry-bridge-runtime'),
-  'wiring contract must run after the runtime contract');
+assert.ok(runIds.findIndex((id) => id.startsWith('test:stage5f')) > runIds.findIndex((id) => id.startsWith('test:stage5e')),
+  'wiring contract must be ordered after the runtime contract');
 
 console.log('PASS stage5f GAP-6/7 wiring contract (benefit claim + shop inquiry bridges)');
