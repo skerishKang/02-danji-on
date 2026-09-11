@@ -18,7 +18,6 @@ import {
   V2Topbar,
   V2VisualImage,
   V2_REFERENCE_IMAGES,
-  V2_SAMPLE_SHOPS,
   type V2CategoryKey,
   type V2RelationKey,
   type V2ShopVisual,
@@ -33,87 +32,21 @@ import {
   V2_DEMO_OPERATOR_MODE
 } from './v2-live-data';
 import './v2-integration.css';
-
-const LOCAL_IMAGE_FALLBACK = '/field-demo/scenes-sprite.jpg';
-
-const adapterIdByVisualId: Record<string, string> = {
-  'food-01': 'v5-1',
-  'learning-preview': 'v5-4',
-  'home-01': 'v5-3',
-  'pro-01': 'v5-6',
-  'craft-01': 'v5-9',
-  'car-01': 'v5-2',
-  'beauty-01': 'v5-5',
-  'photo-01': 'v5-7'
-};
-
-const learningPreview: V2ShopVisual = {
-  id: 'learning-preview',
-  name: '한결수학',
-  category: 'learning',
-  relation: 'resident',
-  image: V2_REFERENCE_IMAGES.learning,
-  desc: '중·고등학생에게 문제를 푸는 이유부터 설명하는 수학 과외입니다.',
-  services: '중·고등 수학 · 개념 설명 · 문제 풀이',
-  price: '중학생 월 32만원 · 고등학생 상담',
-  area: '방림명지로드힐 생활권 · 방문/비대면 가능',
-  benefit: '방림명지로드힐 학생 첫 수업 무료',
-  availability: '평일 저녁 · 주말 상담',
-  color: '#4057E8'
-};
-
-const demoShops: V2ShopVisual[] = [
-  V2_SAMPLE_SHOPS.find((shop) => shop.id === 'food-01')!,
-  learningPreview,
-  V2_SAMPLE_SHOPS.find((shop) => shop.id === 'home-01')!,
-  V2_SAMPLE_SHOPS.find((shop) => shop.id === 'pro-01')!,
-  ...V2_SAMPLE_SHOPS.filter((shop) => !['food-01', 'home-01', 'pro-01'].includes(shop.id))
-].filter(Boolean);
-
-const emptyApplication: BusinessApplicationInput = {
-  relationType: 'resident',
-  businessName: '',
-  categoryName: '과외·수업',
-  serviceSummary: '',
-  priceText: '',
-  contactMethod: '',
-  serviceArea: '',
-  benefitText: '',
-  availabilityText: '상담 후 협의'
-};
-
-const OWNER_STEP_TITLES: Record<1 | 2 | 3 | 4, string> = {
-  1: '주민 관계를 선택하세요',
-  2: '기본 정보를 확인하세요',
-  3: '사진과 주민혜택을 정하세요',
-  4: '공개정보와 비공개 정보를 확인하세요'
-};
-
-const RECOMMENDATION_STEP_TITLES: Record<1 | 2 | 3 | 4, string> = {
-  1: '주민 관계를 선택하세요',
-  2: '추천할 가게 정보를 알려주세요',
-  3: '추천 범위를 확인하세요',
-  4: '이웃가게 추천을 확인하세요'
-};
-
-function matchesQuery(shop: V2ShopVisual, query: string) {
-  if (!query.trim()) return true;
-  const haystack = [shop.name, shop.desc, shop.services, shop.price, shop.area, shop.benefit].join(' ').toLowerCase();
-  const compact = query.trim().toLowerCase().replace(/\s+/g, ' ');
-  return compact.split(' ').every((token) => haystack.includes(token));
-}
-
-function scrollToSection(id: string) {
-  document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-}
-
-function contactLabel(contact: BusinessContact) {
-  return `${{ phone: '전화', sms: '문자', kakao: '카카오톡', url: '온라인' }[contact.type]} · ${contact.value}`;
-}
-
-function adapterIdForShop(shopId: string) {
-  return V2_API_DATA_MODE ? shopId : (adapterIdByVisualId[shopId] ?? shopId);
-}
+import {
+  adapterIdByVisualId,
+  adapterIdForShop,
+  contactLabel,
+  demoShops,
+  emptyApplication,
+  LOCAL_IMAGE_FALLBACK,
+  matchesQuery,
+  OWNER_STEP_TITLES,
+  RECOMMENDATION_STEP_TITLES,
+  scrollToSection
+} from './v2-integration-data';
+import V2BenefitsSection from './V2BenefitsSection';
+import V2OperatorReviewDialog from './V2OperatorReviewDialog';
+import V2PromoSection from './V2PromoSection';
 
 export default function V2IntegratedApp() {
   const residentAuth = authProvider.snapshot('resident');
@@ -576,28 +509,15 @@ export default function V2IntegratedApp() {
           onToggleSave={(shop) => void toggleSave(shop)}
         />
 
-        <section id="v2-benefits" data-v2-section="benefits" className="v2-integration-section v2-integrated-benefits">
-          <div className="v2-section-inner v2-benefit-layout">
-            <div className="v2-benefit-photo">
-              <V2VisualImage src={primaryBenefitImage.src} fallbackSrc={LOCAL_IMAGE_FALLBACK} alt={primaryBenefit ? `${primaryBenefit.businessName} 주민혜택` : '주민혜택 예시'} fallbackLabel={primaryBenefit?.businessName ?? '주민혜택'} />
-              <div className="v2-benefit-photo-copy"><div className="v2-eyebrow">SCENE 04 · 주민혜택</div><h2>혜택이<br />실제 행동이 됩니다.</h2><p>혜택을 받으면 내정보에서 번호와 사용 상태를 다시 확인할 수 있습니다.</p></div>
-            </div>
-            <div className="v2-benefit-panel">
-              <div className="v2-benefit-card">
-                <span className="v2-tag">방림명지로드힐 입주민 전용{V2_API_DATA_MODE ? '' : ' · 시연용 예시'}</span>
-                <h3>{primaryBenefit?.businessName ?? '현재 연결된 주민혜택 없음'}</h3>
-                <div className="v2-benefit-big">{primaryBenefit?.title ?? '입주민 인증 후 이용 가능한 혜택을 준비 중입니다.'}</div>
-                {primaryBenefit?.description && <p>{primaryBenefit.description}</p>}
-                {primaryBenefit?.conditions && <small>{primaryBenefit.conditions}</small>}
-                <div className="v2-benefit-code"><span>혜택번호</span><strong>{primaryClaim?.code ?? '받기 전'}</strong></div>
-                <div className="v2-benefit-status"><span className={`v2-status-dot v2-status-${claimState}`} /><span>{claimState === 'stored' ? '보관 중' : claimState === 'used' ? '사용 완료' : '아직 받지 않은 혜택'}</span></div>
-                {claimState === 'available' && <button className="v2-btn v2-btn-accent" type="button" disabled={busy || !primaryBenefit} onClick={() => void claimResidentBenefit()}>주민혜택 받기</button>}
-                {claimState === 'stored' && <button className="v2-btn v2-btn-accent" type="button" onClick={() => setProfileOpen(true)}>내정보에서 확인</button>}
-                {claimState === 'used' && <button className="v2-btn" type="button" disabled>사용 완료</button>}
-              </div>
-            </div>
-          </div>
-        </section>
+        <V2BenefitsSection
+          benefit={primaryBenefit}
+          claim={primaryClaim}
+          image={primaryBenefitImage}
+          claimState={claimState}
+          busy={busy}
+          onClaim={() => void claimResidentBenefit()}
+          onOpenProfile={() => setProfileOpen(true)}
+        />
 
         <section id="v2-registration" data-v2-section="registration" className="v2-integration-section v2-registration-section">
           <div className="v2-section-inner v2-registration-teaser">
@@ -606,32 +526,12 @@ export default function V2IntegratedApp() {
           </div>
         </section>
 
-        <section id="v2-promo" data-v2-section="promo" className="v2-integration-section v2-promo-section">
-          <div className="v2-section-inner">
-            <div className="v2-section-heading">
-              <div><div className="v2-kicker">SCENE 06 · PROMOTION</div><h2 className="v2-section-title">입력한 생활정보가 홍보물로 정돈됩니다.</h2></div>
-              <p>홍보물은 직접 운영 등록 신청 데이터를 재배치한 브라우저 미리보기입니다. 이웃가게 추천에는 소유자 홍보물을 만들지 않습니다.</p>
-            </div>
-            <div className="v2-promo-control">
-              <div><span>현재 신청</span><strong>{activeApplication?.businessName ?? '아직 직접 운영 등록 신청이 없습니다.'}</strong></div>
-              <button type="button" className="v2-btn v2-btn-primary" disabled={!activeApplication} onClick={() => setPromoGenerated(true)}>홍보물 만들기</button>
-            </div>
-            {promoGenerated && activeApplication && (
-              <div className="v2-integrated-promo-grid" aria-live="polite">
-                <article><small>단지온 가게소개 카드</small><h3>{activeApplication.businessName}</h3><p>{activeApplication.serviceSummary}</p><strong>{activeApplication.benefitText || '등록된 주민혜택 없음'}</strong></article>
-                <article><small>카카오톡 공유 이미지</small><h3>우리 단지에<br />{activeApplication.serviceSummary}<br />하는 이웃이 있습니다.</h3><p>{activeApplication.businessName}</p></article>
-                <article><small>엘리베이터 게시판 포스터</small><h3>{activeApplication.businessName}</h3><strong>{activeApplication.benefitText || '주민혜택 안내'}</strong><p>{activeApplication.serviceArea || '방림명지로드힐 생활권'}</p></article>
-              </div>
-            )}
-            <div className="v2-promo-next">
-              {V2_DEMO_OPERATOR_MODE ? (
-                <button type="button" className="v2-btn" disabled={!promoGenerated || !activeApplication} onClick={() => setOperatorOpen(true)}>운영확인으로 이동</button>
-              ) : (
-                activeApplication && <div className="v2-operator-pending" role="status"><strong>운영자 검토 대기</strong><span>실서비스에서는 신청자가 승인하지 않습니다. 운영자 화면에서 검토·승인된 뒤 공개 목록에 반영됩니다.</span></div>
-              )}
-            </div>
-          </div>
-        </section>
+        <V2PromoSection
+          application={activeApplication}
+          generated={promoGenerated}
+          onGenerate={() => setPromoGenerated(true)}
+          onOpenOperator={() => setOperatorOpen(true)}
+        />
 
         <section id="v2-ending" data-v2-section="ending" className="v2-integration-section v2-ending-section">
           <div className="v2-section-inner"><div className="v2-kicker">SCENE 07 · CIRCULAR NEIGHBOR ECONOMY</div><h2 className="v2-section-title">우리 단지의 소비가 우리 이웃의 일로 이어집니다.</h2><p>발견 → 혜택 → 등록·추천 → 운영확인 → 다시 발견의 순환을 한 화면에서 확인합니다.</p></div>
@@ -689,14 +589,13 @@ export default function V2IntegratedApp() {
       )}
 
       {V2_DEMO_OPERATOR_MODE && operatorOpen && activeApplication && (
-        <div className="v2-dialog-backdrop">
-          <section className="v2-dialog v2-operator-dialog" role="dialog" aria-modal="true" aria-labelledby="v2-operator-title">
-            <button ref={operatorCloseRef} type="button" className="v2-dialog-close" onClick={() => setOperatorOpen(false)}>닫기</button>
-            <span className="v2-eyebrow">OPERATOR REVIEW · DEMO ONLY</span><h2 id="v2-operator-title">운영확인</h2>
-            <div className="v2-public-private"><article><span>공개정보 확인</span><h3>{activeApplication.businessName}</h3><p>{activeApplication.serviceSummary}</p><strong>{activeApplication.benefitText || '주민혜택 없음'}</strong></article><article><span>비공개 주민관계 확인</span><h3>주민 관계와 인증 경계</h3><p>정확한 동·호수와 증빙 원문은 공개하지 않습니다.</p></article></div>
-            <div className="v2-dialog-actions"><button type="button" className="v2-btn" onClick={() => setOperatorOpen(false)}>홍보물로 돌아가기</button><button type="button" className="v2-btn v2-btn-primary" disabled={busy} onClick={() => void approveApplication()}>승인하여 공개</button></div>
-          </section>
-        </div>
+        <V2OperatorReviewDialog
+          application={activeApplication}
+          busy={busy}
+          closeRef={operatorCloseRef}
+          onClose={() => setOperatorOpen(false)}
+          onApprove={() => void approveApplication()}
+        />
       )}
 
       {message && <button type="button" className="v2-integration-toast" onClick={() => setMessage('')}>{message}</button>}
