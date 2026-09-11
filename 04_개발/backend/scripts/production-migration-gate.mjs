@@ -15,6 +15,28 @@ const backendRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 export const CLASSES = ['schema', 'production_seed', 'dev_seed_prohibited'];
 
+// F13 (#375-M): explicit, deterministic per-migration reconciliation outcomes.
+// REPOSITORY_DECLARATION (ledger) stays separate from LIVE_APPLIED_STATE (runtime readback).
+// Unknown live state always fails closed; supersession is only ever explicit, never guessed.
+export const OUTCOMES = [
+  'APPLY',
+  'ALREADY_APPLIED',
+  'SCHEMA_PRESENT_SKIP',
+  'DEV_ONLY_FORBIDDEN',
+  'BLOCKED_DEPENDENCY',
+  'DEFERRED_OPT_IN',
+  'UNKNOWN_FAIL_CLOSED',
+];
+
+const CATALOG_ONLY_MARKER_KINDS = ['table', 'column', 'index', 'constraint', 'function'];
+export function isCatalogOnlyMarker(marker) {
+  return CATALOG_ONLY_MARKER_KINDS.includes(marker?.kind);
+}
+
+function migrationNumber(file) {
+  return Number(String(file).split('_')[0]);
+}
+
 export class GateError extends Error {}
 
 export function parseLedger(ledgerJson) {
@@ -45,6 +67,41 @@ export function classifyMigration(ledger, file) {
   }
   if (entry.class === 'production_seed' && entry.opt_in_required !== true) {
     throw new GateError(`Production seed ${file} must declare opt_in_required=true; failing closed`);
+  }
+  if (entry.status_expectation !== undefined) {
+    const match = /^superseded_by:(\d{3}_[A-Za-z0-9._-]+\.sql)$/.exec(entry.status_expectation);
+    if (!match) {
+      throw new GateError(`Migration ${file} status_expectation must be "superseded_by:<NNN_file.sql>"; failing closed`);
+    }
+    const target = match[1];
+    if (target === file) {
+      throw new GateError(`Migration ${file} cannot be superseded by itself; failing closed`);
+    }
+    if (!ledger.migrations[target]) {
+      throw new GateError(`Migration ${file} declares supersession by undeclared ${target}; failing closed`);
+    }
+    if (ledger.migrations[target].class === 'dev_seed_prohibited') {
+      throw new GateError(`Migration ${file} cannot be superseded by dev-only ${target}; failing closed`);
+    }
+    if (migrationNumber(target) >= migrationNumber(file)) {
+      throw new GateError(`Migration ${file} may only be superseded by a lower-numbered migration (${target}); failing closed`);
+    }
+  }
+  if (entry.depends_on !== undefined) {
+    if (!Array.isArray(entry.depends_on) || entry.depends_on.length === 0) {
+      throw new GateError(`Migration ${file} depends_on must be a non-empty list; failing closed`);
+    }
+    for (const dep of entry.depends_on) {
+      if (!ledger.migrations[dep]) {
+        throw new GateError(`Migration ${file} depends on undeclared ${dep}; failing closed`);
+      }
+      if (ledger.migrations[dep].class === 'dev_seed_prohibited') {
+        throw new GateError(`Migration ${file} cannot depend on dev-only ${dep}; failing closed`);
+      }
+      if (migrationNumber(dep) >= migrationNumber(file)) {
+        throw new GateError(`Migration ${file} may only depend on lower-numbered migrations (${dep}); failing closed`);
+      }
+    }
   }
   return entry;
 }
@@ -103,6 +160,10 @@ export function createPsqlAppliedResolver(databaseUrl) {
 //   APPLIED         = production DB readback per ledger marker (never file presence)
 //   PENDING         = PRODUCTION_SAFE - APPLIED
 //   APPLY_SET       = pending schema (+ pending production_seed only with opt-in)
+// F13 explicitness: every entry also carries a named `outcome` from OUTCOMES, and the
+// plan carries `next_safe_plan` (the ordered APPLY list). Any inconclusive live readback
+// aborts the whole plan with UNKNOWN_FAIL_CLOSED; SCHEMA_PRESENT_SKIP requires an
+// explicit ledger `status_expectation`; BLOCKED_DEPENDENCY requires explicit `depends_on`.
 export async function computeMigrationPlan({
   ledger,
   inventory,
@@ -114,36 +175,68 @@ export async function computeMigrationPlan({
   if (!Array.isArray(inventory)) throw new GateError('repository inventory is required');
   if (!targetSha) throw new GateError('target Worker SHA is required; failing closed');
 
+  const declarations = new Map();
   const entries = [];
   const prohibited = [];
   for (const file of inventory) {
     const entry = classifyMigration(ledger, file);
+    declarations.set(file, entry);
     if (entry.class === 'dev_seed_prohibited') {
       prohibited.push(file);
-      entries.push({ file, class: entry.class, applied: null, pending: false, in_apply_set: false });
+      entries.push({
+        file,
+        class: entry.class,
+        applied: null,
+        pending: false,
+        in_apply_set: false,
+        outcome: 'DEV_ONLY_FORBIDDEN',
+      });
       continue;
     }
     if (typeof appliedResolver !== 'function') {
-      throw new GateError('Applied-state resolver is required before any production plan; failing closed');
+      throw new GateError('Applied-state resolver is required before any production plan; failing closed (UNKNOWN_FAIL_CLOSED)');
     }
     let applied;
     try {
       applied = await appliedResolver(entry.marker ?? ledger.migrations[file].marker);
     } catch (cause) {
-      throw new GateError(`Applied-state readback failed for ${file}; failing closed: ${cause.message}`);
+      throw new GateError(`Applied-state readback failed for ${file}; failing closed (UNKNOWN_FAIL_CLOSED): ${cause.message}`);
     }
     if (typeof applied !== 'boolean') {
-      throw new GateError(`Applied-state readback for ${file} was not conclusive; failing closed`);
+      throw new GateError(`Applied-state readback for ${file} was not conclusive; failing closed (UNKNOWN_FAIL_CLOSED)`);
     }
-    const seedBlocked = entry.class === 'production_seed' && !includeProductionSeed;
-    entries.push({
-      file,
-      class: entry.class,
-      applied,
-      pending: !applied,
-      in_apply_set: !applied && !seedBlocked,
-      deferred_opt_in: seedBlocked && !applied,
-    });
+    entries.push({ file, class: entry.class, applied });
+  }
+
+  const outcomeByFile = new Map();
+  for (const e of entries) {
+    const declaration = declarations.get(e.file);
+    let outcome;
+    if (e.class === 'dev_seed_prohibited') {
+      outcome = 'DEV_ONLY_FORBIDDEN';
+    } else if (e.applied === true) {
+      outcome = declaration.status_expectation !== undefined ? 'SCHEMA_PRESENT_SKIP' : 'ALREADY_APPLIED';
+    } else if (e.class === 'production_seed' && !includeProductionSeed) {
+      outcome = 'DEFERRED_OPT_IN';
+    } else if (Array.isArray(declaration.depends_on)) {
+      let blocked = false;
+      for (const dep of declaration.depends_on) {
+        if (!outcomeByFile.has(dep)) {
+          throw new GateError(`Migration ${e.file} depends on ${dep}, which is not in the repository inventory; failing closed (UNKNOWN_FAIL_CLOSED)`);
+        }
+        if (!['ALREADY_APPLIED', 'SCHEMA_PRESENT_SKIP'].includes(outcomeByFile.get(dep))) blocked = true;
+      }
+      outcome = blocked ? 'BLOCKED_DEPENDENCY' : 'APPLY';
+    } else {
+      outcome = 'APPLY';
+    }
+    e.outcome = outcome;
+    outcomeByFile.set(e.file, outcome);
+    if (e.class !== 'dev_seed_prohibited') {
+      e.pending = !e.applied;
+      e.in_apply_set = outcome === 'APPLY';
+      e.deferred_opt_in = outcome === 'DEFERRED_OPT_IN';
+    }
   }
 
   const applySet = entries
@@ -162,6 +255,7 @@ export async function computeMigrationPlan({
     pending_schema: entries.filter(e => e.class === 'schema' && e.pending).map(e => e.file),
     pending_production_seed: entries.filter(e => e.class === 'production_seed' && e.pending).map(e => e.file),
     apply_set: applySet,
+    next_safe_plan: applySet.slice(),
     entries,
   };
 }
