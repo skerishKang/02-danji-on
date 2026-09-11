@@ -15,6 +15,7 @@ const residentApplicationDocs = read('src/resident-application-docs-v1.ts');
 const adminApplicationDocs = read('src/admin-application-docs-v1.ts');
 const applicationDocsCore = read('src/application-docs-core-v1.ts');
 const residentEconomy = read('src/resident-economy-v2.ts');
+const benefitClaim = read('src/benefit-claim-v1.ts');
 const residentVerification = read('src/resident-verification-v1.ts');
 const benefitWallet = read('src/benefit-wallet-v1.ts');
 const payloadPolicy = read('src/payload-policy.ts');
@@ -96,9 +97,9 @@ const checks = [
   ['idempotency schema binds key and fingerprint pair', idempotencyMigration.includes('chk_application_submission_pair') && idempotencyMigration.includes('submission_fingerprint')],
   ['public business list exists', core.includes('/businesses') && core.includes('business_complex_relations')],
   ['verified resident contact boundary exists', core.includes('requireVerifiedResident(request, env, sql, id, complexSlug)') && core.includes('business_contacts') && !core.includes("['manager','admin']")],
-  ['benefit claim requires Household-v2 verified resident authority', residentEconomy.includes('requireVerifiedResident(request, env, sql, requestId, complexSlug)')],
-  ['benefit wallet claim is one-per-user-and-benefit', benefitClaimsMigration.includes('unique (user_id, benefit_id)') && residentEconomy.includes('on conflict (user_id, benefit_id) do nothing')],
-  ['benefit wallet claim codes are server issued', residentEconomy.includes("'DANJION-' || upper") && benefitClaimsMigration.includes('chk_benefit_claim_code_format')],
+  ['benefit claim requires Household-v2 verified resident authority', benefitClaim.includes('requireVerifiedResident(request, env, sql, requestId, complexSlug)')],
+  ['benefit wallet claim is one-per-user-and-benefit', benefitClaimsMigration.includes('unique (user_id, benefit_id)') && benefitClaim.includes('on conflict (user_id, benefit_id) do nothing')],
+  ['benefit wallet claim codes are server issued', benefitClaim.includes("'DANJION-' || upper") && benefitClaimsMigration.includes('chk_benefit_claim_code_format')],
   ['benefit wallet supports stored to used lifecycle', benefitClaimsMigration.includes("status in ('stored','used')") && benefitWallet.includes("set status = 'used'")],
   ['benefit wallet use is owner scoped and idempotent', benefitWallet.includes('where user_id = ${actor.id}::uuid') && benefitWallet.includes("and status = 'stored'") && benefitWallet.includes('return ok(existing[0], requestId)')],
   ['live auth dependency is pinned', packageJson.includes('"jose": "6.2.4"')],

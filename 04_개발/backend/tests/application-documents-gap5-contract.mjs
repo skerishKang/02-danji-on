@@ -12,7 +12,7 @@ const createBody = economy.slice(
 );
 const resubmitBody = economy.slice(
   economy.indexOf('async function resubmitBusinessApplication('),
-  economy.indexOf('async function claimBenefit(')
+  economy.indexOf('export async function handleResidentEconomyMutationRequest(')
 );
 const replayBody = economy.slice(
   economy.indexOf('async function idempotentReplayResponse('),

@@ -68,9 +68,9 @@ export const API_ENDPOINT_REGISTRY: readonly ApiEndpointEntry[] = [
   },
   {
     path: '/api/v1/me/benefits',
-    methods: ['GET', 'PATCH'],
+    methods: ['GET', 'POST', 'PATCH'],
     consumers: ['adapter', 'bridge:benefit-claim'],
-    note: 'benefit wallet (PATCH :id/use)'
+    note: 'benefit wallet (PATCH :id/use) + claim (POST :id/claim)'
   },
   {
     path: '/api/v1/me/bookmarks',
