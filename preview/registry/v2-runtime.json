@@ -1,0 +1,20 @@
+{
+  "VERSION_NAME": "v2-runtime-preview",
+  "SOURCE_SHA": "f23c4e1f5622a2313c51c94d2ac54df568b2ea9a",
+  "SOURCE_PATH": "04_개발/frontend",
+  "SOURCE_BRANCH": "kilo3/395-v2-runtime-preview",
+  "CREATED_AT": "2026-09-11T22:08:50.884Z",
+  "STATUS": "COMPARISON_ONLY",
+  "MUTABLE": "NO",
+  "DO_NOT_MERGE": "NO (source branch merges additive preview tooling only; the built bundle itself is a gitignored artifact and is never deployed to danjion.pages.dev)",
+  "SUBPATH": "/v2-runtime/",
+  "BUNDLE_PATH": "04_개발/frontend/dist-v2-runtime-preview",
+  "BUILD_COMMAND": "node 04_개발/scripts/v2-runtime-preview.mjs build",
+  "DATA_MODE": "mock (VITE_DATA_MODE deleted -> localStorage fixture mode)",
+  "AUTH_MODE": "dev (VITE_AUTH_MODE deleted -> DevAuthProvider fixture actor)",
+  "STORAGE_MODE": "mock (VITE_STORAGE_MODE deleted -> browser-only uploads)",
+  "API_BASE": "relative /api only (VITE_API_BASE_URL deleted; no absolute host baked)",
+  "HOSTNAME_ALLOWLIST": [],
+  "SERVES_PRODUCTION_TRAFFIC": "NO",
+  "NOTE": "Comparison-only snapshot of React V2 for design/runtime review. Not a release artifact."
+}
