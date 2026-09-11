@@ -5,13 +5,13 @@
 버전2(index2/app2) 브랜치 `design/frontend-v2-wip-20260906`는 역사 보존용으로 유지하며 더 이상 수정하지 않습니다.
 
 ## 백엔드 연결 대상 (Source of Truth)
-- 웹 진입: `frontend/index3.html`
-- 앱 진입(390×844 확인용 셸): `frontend/app3.html`
+- 웹 진입: `frontend/index.html`
+- 앱 진입(390×844 확인용 셸): `frontend/app.html`
 - 이웃가게 본체: `frontend/01_이웃가게_발견_v3.html`
 - 주민혜택: `frontend/03_주민혜택_쿠폰.html` (A안과 동일 파일)
 
 ## 이번 브랜치에서 바뀐 파일
-- 신규: `index3.html`, `app3.html`, `01_이웃가게_발견_v3.html`
+- 신규: `index.html`, `app.html`, `01_이웃가게_발견_v3.html`
 - 갱신(공용): `assets/consistency.js`, `04_데일리홈.html`, `05_우리단지_첫화면.html`, `19_내정보_메인.html`, `25A_신청제보.html`
   - v3 라우팅 분기 추가(기존 v2/A 동작은 유지)
   - 내정보 → 하위 화면 → 뒤로가기 시 스크롤 위치 복원 추가

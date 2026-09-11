@@ -37,17 +37,17 @@ button.ghost{background:transparent}
   </select>
   <button class="primary" id="reload">다시보기</button>
   <button id="reset">상태 초기화</button>
-  <div class="meta"><b id="currentLabel">29 · 로그인·가입 시작</b><span id="currentFile">index3.html</span></div>
+  <div class="meta"><b id="currentLabel">29 · 로그인·가입 시작</b><span id="currentFile">index.html</span></div>
 </header>
 <main class="stage">
   <div>
-    <div class="device"><div class="phone" id="phone"><iframe id="frame" src="index3.html" title="단지온 앱 화면"></iframe></div></div>
+    <div class="device"><div class="phone" id="phone"><iframe id="frame" src="index.html" title="단지온 앱 화면"></iframe></div></div>
     <div class="size-note">검은 테두리는 기기 외곽이며, 흰색 콘텐츠 영역 자체가 선택한 정확한 viewport입니다.</div>
   </div>
 </main>
 <script>
 const screens=[
-['29 · 로그인·가입 시작','index3.html'],
+['29 · 로그인·가입 시작','index.html'],
 ['04 · 홈','04_데일리홈.html'],
 ['01 · 이웃가게 발견','01_이웃가게_발견.html'],
 ['02 · 이웃가게 상세','02_이웃가게_상세.html'],
@@ -85,10 +85,10 @@ const currentLabel=document.getElementById('currentLabel');
 const currentFile=document.getElementById('currentFile');
 const REVIEW_SCROLL_PREFIX='danjion-review-scroll:';
 let restoringScroll=false;
-function reviewScrollKey(file){return REVIEW_SCROLL_PREFIX+(file||'index3.html')}
+function reviewScrollKey(file){return REVIEW_SCROLL_PREFIX+(file||'index.html')}
 function saveFrameScroll(){
   try{
-const file=basename(frame.contentWindow.location.href)||basename(frame.src)||'index3.html';
+const file=basename(frame.contentWindow.location.href)||basename(frame.src)||'index.html';
     sessionStorage.setItem(reviewScrollKey(file),String(Math.round(frame.contentWindow.scrollY||0)));
   }catch(e){}
 }
@@ -118,7 +118,7 @@ function installFrameReviewHelpers(){
 }
 screens.forEach(([label,url],i)=>{const o=document.createElement('option');o.value=i;o.textContent=label;sel.append(o)});
 function basename(value){try{return decodeURIComponent((value||'').split(/[?#]/)[0].split('/').pop()||'')}catch(e){return (value||'').split(/[?#]/)[0].split('/').pop()||''}}
-function syncFromFrame(){let file='';try{file=basename(frame.contentWindow.location.href)}catch(e){file=basename(frame.src)}if(!file)file='index3.html';const idx=screens.findIndex(([,url])=>basename(url)===file);if(idx>=0){sel.value=idx;currentLabel.textContent=screens[idx][0]}else{currentLabel.textContent='내부 이동 화면'}currentFile.textContent=file}
+function syncFromFrame(){let file='';try{file=basename(frame.contentWindow.location.href)}catch(e){file=basename(frame.src)}if(!file)file='index.html';const idx=screens.findIndex(([,url])=>basename(url)===file);if(idx>=0){sel.value=idx;currentLabel.textContent=screens[idx][0]}else{currentLabel.textContent='내부 이동 화면'}currentFile.textContent=file}
 function go(i){saveFrameScroll();i=Math.max(0,Math.min(screens.length-1,i));sel.value=i;frame.src=screens[i][1];currentLabel.textContent=screens[i][0];currentFile.textContent=screens[i][1]}
 function applyViewport(){const [w,h]=viewport.value.split('x').map(Number);phone.style.width=w+'px';phone.style.height=h+'px'}
 sel.addEventListener('change',()=>go(+sel.value));
@@ -128,7 +128,7 @@ next.addEventListener('click',()=>go(+sel.value+1));
 reload.addEventListener('click',()=>{try{frame.contentWindow.location.reload()}catch(e){frame.src=frame.src}});
 reset.addEventListener('click',()=>{try{frame.contentWindow.sessionStorage.clear();frame.contentWindow.localStorage.removeItem('danjionFontScale')}catch(e){};try{sessionStorage.clear()}catch(e){};go(0)});
 viewport.addEventListener('change',applyViewport);
-frame.addEventListener('load',()=>{syncFromFrame();installFrameReviewHelpers();const file=basename(frame.contentWindow.location.href)||basename(frame.src)||'index3.html';restoreFrameScroll(file);setTimeout(()=>{syncFromFrame();restoreFrameScroll(file)},60)});
+frame.addEventListener('load',()=>{syncFromFrame();installFrameReviewHelpers();const file=basename(frame.contentWindow.location.href)||basename(frame.src)||'index.html';restoreFrameScroll(file);setTimeout(()=>{syncFromFrame();restoreFrameScroll(file)},60)});
 applyViewport();go(0);
 </script>
 </body>

@@ -20,8 +20,8 @@ const WIRING_ID = 'danjion-firstscreen-complex-wiring';
 /* --- sibling-final-v3 UI authority: visible DOM (scripts stripped) is hash-locked --- */
 const visibleDom = (html) => html.replace(/<script\b[\s\S]*?<\/script>/gi, '').replace(/\r\n/g, '\n').replace(/>\s+</g, '><').trim();
 const visibleHash = (html) => createHash('sha256').update(visibleDom(html)).digest('hex');
-assert.equal(visibleHash(f05), '04cab64ff9e2eb8f2de61c32eec43211596f66d7275e6767b07eb5d590615135',
-  '05 visible DOM must remain byte-identical to the sibling-final-v3 authority (no new visible UI, no copy rewrite)');
+assert.equal(visibleHash(f05), 'b5ca6eadeded279fbe83603fcd3acc1faf6b707b861a99b8e6ebe4553b85b1b8',
+  '05 visible DOM must remain byte-identical to the sibling-final-v3 authority after the README-canonical entry rename (data-route index3.html -> index.html); no other visible UI, attribute, or copy may change');
 
 /* --- existing semantic demo copy stays in markup (server may overwrite at runtime only) --- */
 assert.ok(f05.includes(`<div class="identity">${DEMO_NAME}</div>`), '05 desktop identity slot must keep the demo complex name');

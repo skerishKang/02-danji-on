@@ -141,7 +141,7 @@
   }catch(e){}
   function reportRoute(){
     try{
-      const file=decodeURIComponent((location.pathname.split('/').pop()||'index3.html').split('?')[0]);
+      const file=decodeURIComponent((location.pathname.split('/').pop()||'index.html').split('?')[0]);
       if(window.parent!==window) window.parent.postMessage({type:'danjion-route',file:file,href:location.href},'*');
     }catch(e){}
   }
