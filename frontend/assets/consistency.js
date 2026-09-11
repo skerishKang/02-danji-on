@@ -8,7 +8,6 @@
   const route=number=>{
     if(isShopVariantB()){
       if(number===1||number===2)return shopV2File;
-      if(number===3)return '03_주민혜택_쿠폰_v2.html';
       if(number===29)return shopLanding;
     }
     return FILES[number]||'';
@@ -29,8 +28,6 @@
       target=shopLanding;
     }else if(text==='이웃가게'||/01_이웃가게_발견\.html/.test(raw)){
       target=shopV2File;
-    }else if(/03_주민혜택_쿠폰\.html/.test(raw)||/주민혜택 전체보기|주민혜택 보기|전체 혜택 보기/.test(text)){
-      target='03_주민혜택_쿠폰_v2.html';
     }else if(number===4 && (el.id==='detailBtn'||/이 이웃의 일 보기/.test(text))){
       const key=el.dataset.shopKey||'food';
       target=shopV2File+'?shop='+encodeURIComponent(key);
