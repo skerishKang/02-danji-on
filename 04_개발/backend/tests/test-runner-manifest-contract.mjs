@@ -146,8 +146,9 @@ const EXPECTED_FRONTEND_ORDER = [
   "test:stage5k-owner-relation-raw",
   "test:stage5l-greeting-wiring",
   "test:stage5m-reviewer-private-docs",
-  "test:api-endpoint-registry-contract",
-];
+   "test:api-endpoint-registry-contract",
+   "test:v2-runtime-preview-contract",
+ ];
 
 const EXPECTED_CI_ONLY = [
   "resident-settings-postgres-lifecycle",
