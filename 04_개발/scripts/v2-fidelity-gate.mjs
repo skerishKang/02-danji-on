@@ -22,10 +22,12 @@ const requirements = {
     'frontend/src/v2/visual',
     'frontend/src/v2/v2-visual.css'
   ],
+  // #375 F4: the V2App shell is retired. The live product-flow authority is the
+  // integrated shell, the flows it composes, and the integrated stylesheet.
   B: [
-    'frontend/src/v2/V2App.tsx',
+    'frontend/src/v2/integration/V2IntegratedApp.tsx',
     'frontend/src/v2/flows',
-    'frontend/src/v2/v2-flow.css'
+    'frontend/src/v2/integration/v2-integration.css'
   ],
   C: [
     'frontend/src/ui-variant.tsx',
@@ -56,7 +58,7 @@ const mainPath = path.resolve(frontendDir, 'src/main.tsx');
 if (existsSync(mainPath)) {
   const main = readFileSync(mainPath, 'utf8');
   if (/v2\s*=\s*\{?\s*<V2IntegrationPending\b/.test(main)) {
-    blockers.push({ track: 'C+B', missing: ['main.tsx still mounts V2IntegrationPending instead of integrated V2App'] });
+    blockers.push({ track: 'C+B', missing: ['main.tsx still mounts V2IntegrationPending instead of the integrated V2 shell'] });
   }
 }
 

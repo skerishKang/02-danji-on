@@ -88,11 +88,21 @@ assert.match(authResolver, /\/api\/auth\/jwks/);
 assert.match(app, /handleBetterAuthRequest/);
 assert.match(app, /handleVerifiedSignupRequest/);
 assert.match(app, /handleSignupContactVerificationRequest/);
-assert.match(app, /handleSocialOnboardingRequest/);
-assert.match(app, /createDanjionAuth\(env\)\.api\.getSession/);
 assert.match(app, /access-control-allow-credentials/);
 assert.ok(app.indexOf('handleBetterAuthRequest') < app.indexOf('validateRequestPayload(request'), 'auth handler must be mounted before app JSON payload policy');
-assert.ok(app.indexOf('handleSocialOnboardingRequest') < app.indexOf('validateRequestPayload(request'), 'account onboarding status must run before generic product payload policy');
+// #372 D3 / #375 F2: the app-level social-onboarding dispatch was a dead
+// duplicate of the Better Auth handler's internal delegation. auth-better-v1
+// is the sole owner of /auth/social-onboarding/* and it is mounted before the
+// app-level payload policy (pinned via handleBetterAuthRequest above), which
+// preserves the former "onboarding runs before payload policy" invariant.
+assert.doesNotMatch(app, /handleSocialOnboardingRequest/,
+  'app-level social-onboarding dispatch must stay removed; auth-better-v1 owns /auth/social-onboarding/*');
+assert.match(server, /path\.startsWith\('\/auth\/social-onboarding\/'\)/,
+  'auth-better-v1 must keep the social-onboarding prefix branch');
+assert.match(server, /handleSocialOnboardingRequest\(/,
+  'auth-better-v1 must delegate /auth/social-onboarding/* to the social onboarding lane');
+assert.match(server, /auth\.api\.getSession\(\{ headers: incoming\.headers \}\)/,
+  'social onboarding session resolution must stay inside the Better Auth handler');
 
 assert.match(schema, /pgSchema\('danjion_auth'\)/);
 assert.match(migration, /create schema if not exists danjion_auth/i);

@@ -13,7 +13,7 @@ import {
   type BusinessFilters,
   type RelationType
 } from '../../types';
-import type { V2FlowVisualSlots } from '../V2App';
+import type { V2FlowVisualSlots } from './types';
 
 type CategoryRow = [string, string];
 

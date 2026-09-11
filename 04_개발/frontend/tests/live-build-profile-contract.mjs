@@ -32,6 +32,17 @@ const live = run({ VITE_DATA_MODE: 'api', VITE_AUTH_MODE: 'danjion', VITE_STORAG
 assert.equal(live.status, 0, live.stderr || 'exact live profile must pass');
 assert.match(live.stdout, /PASS live frontend authority profile/);
 
+// #376 O4 / #375 F5: the exact live profile must still fail closed when the
+// legacy Neon authority generation is present in the build environment.
+const neonLegacy = run({
+  VITE_DATA_MODE: 'api',
+  VITE_AUTH_MODE: 'danjion',
+  VITE_STORAGE_MODE: 'drive',
+  NEON_AUTH_BASE_URL: 'https://legacy.example/neondb/auth'
+});
+assert.notEqual(neonLegacy.status, 0, 'legacy Neon authority must never qualify as a live artifact');
+assert.match(neonLegacy.stderr, /NEON_AUTH_BASE_URL must be unset/);
+
 assert.match(adapter, /VITE_DATA_MODE === 'api'[\s\S]*new ApiAdapter\(\)[\s\S]*new MockAdapter\(\)/,
   'frontend data authority must remain explicit');
 assert.match(storage, /VITE_STORAGE_MODE === 'drive'[\s\S]*new GoogleDriveStorageAdapter\(\)[\s\S]*new MockStorageAdapter\(\)/,

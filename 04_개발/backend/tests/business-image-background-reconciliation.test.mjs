@@ -106,7 +106,9 @@ assert.equal(activationBlock.includes('reconcile_attempt_count ='), false, 'fore
 assert.equal(activationBlock.includes('reconcile_last_attempt_at ='), false, 'foreground activation preserves last-attempt history');
 
 const retirementStart = storageRuntime.indexOf('async function finalizeBusinessImageRetired(');
-const retirementEnd = storageRuntime.indexOf('async function uploadDriveFile(', retirementStart);
+// #372 D2 / #375 F6: uploadDriveFile was removed with the dead upload path;
+// authorizeObject is the next storage route-owner function after retirement.
+const retirementEnd = storageRuntime.indexOf('async function authorizeObject(', retirementStart);
 const retirementBlock = storageRuntime.slice(retirementStart, retirementEnd);
 assert.ok(retirementStart >= 0 && retirementEnd > retirementStart);
 assert.ok(retirementBlock.includes("set state = 'retired'"));

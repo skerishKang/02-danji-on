@@ -5,7 +5,7 @@ import { handleAdminOperationalRequest } from './admin-operational-v2';
 import { handleAdminReviewContextRequest } from './admin-review-context-v1';
 import { handleAdminVerificationRequest } from './admin-verification-v1';
 import { handleAdminRequest } from './admin-v1';
-import { createDanjionAuth, handleBetterAuthRequest, type BetterAuthEnv } from './auth-better-v1';
+import { handleBetterAuthRequest, type BetterAuthEnv } from './auth-better-v1';
 import { handleBenefitWalletRequest } from './benefit-wallet-v1';
 import { handleBusinessReviewRequest } from './business-reviews-v1';
 import { handleBusinessReviewCommentRequest } from './business-review-comments-v1';
@@ -33,7 +33,6 @@ import { handleResidentSettingsRequest } from './resident-settings-v1';
 import { handleResidentSummaryRequest } from './resident-summary-v1';
 import { handleResidentVerificationRequest } from './resident-verification-v1';
 import { handleShopRecommendationRequest } from './shop-recommendations-v1';
-import { handleSocialOnboardingRequest } from './social-onboarding-v1';
 import {
   handleSignupContactVerificationRequest,
   type SignupContactVerificationEnv
@@ -141,13 +140,10 @@ export default {
       if (verifiedSignupResponse) return respond(verifiedSignupResponse);
       const signupVerificationResponse = await handleSignupContactVerificationRequest(request, env, id);
       if (signupVerificationResponse) return respond(signupVerificationResponse);
-      const socialOnboardingResponse = await handleSocialOnboardingRequest(
-        request,
-        env,
-        id,
-        async (candidateRequest) => createDanjionAuth(env).api.getSession({ headers: candidateRequest.headers })
-      );
-      if (socialOnboardingResponse) return respond(socialOnboardingResponse);
+      // #372 D3 / #375 F2: /auth/social-onboarding/* is owned exclusively by
+      // handleBetterAuthRequest (internal delegation inside auth-better-v1),
+      // which runs above this point. The former app-level dispatch could only
+      // re-run the same null result and has been removed.
       const policyResponse = await validateRequestPayload(request, id);
       if (policyResponse) return respond(policyResponse);
       const businessShareResponse = await handleBusinessShareRequest(request, env, id);

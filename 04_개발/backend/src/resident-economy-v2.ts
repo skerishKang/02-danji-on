@@ -1,7 +1,7 @@
 import { neon, type NeonQueryFunction } from '@neondatabase/serverless';
 import { requireActor } from './auth-v1';
 import { requireVerifiedResident } from './authorization-v2';
-import { validateBusinessImageReference } from './storage-v1';
+import { validateBusinessImageReference } from './storage-reference-v1';
 import type { CoreEnv } from './core-v1';
 
 type Sql = NeonQueryFunction<false, false>;
