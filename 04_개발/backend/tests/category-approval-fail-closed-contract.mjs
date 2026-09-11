@@ -8,10 +8,13 @@ import { readFile } from 'node:fs/promises';
 // matching, no category auto-creation, no relation-table writes, no schema
 // changes to the category tables.
 //
-// The application lanes (admin-v1, admin-operational-v2) resolve by exact
-// canonical business_categories.name. The recommendation lane (Report R-B,
-// shop-recommendations-v1) resolves at intake and approves ONLY on
-// resolved_category_id; legacy category_name is not an approval authority.
+// The application lane (admin-operational-v2) resolves by exact canonical
+// business_categories.name. Since #372 D1 / #375 F9 the legacy admin-v1
+// operational handlers are removed and admin-v1 is only the terminal
+// auth + 404 gate for unowned /api/v1/admin/* routes. The recommendation
+// lane (Report R-B, shop-recommendations-v1) resolves at intake and approves
+// ONLY on resolved_category_id; legacy category_name is not an approval
+// authority.
 
 const root = new URL('../', import.meta.url);
 const [adminV1, adminV2, shopRec, schema, relationsMigration] = await Promise.all([
@@ -22,8 +25,8 @@ const [adminV1, adminV2, shopRec, schema, relationsMigration] = await Promise.al
   readFile(new URL('migrations/041_business_category_benefit_contract.sql', root), 'utf8')
 ]);
 
+// Single operational lane after the admin-v1 collapse (#375 F9).
 const nameSources = [
-  ['admin-v1', adminV1],
   ['admin-operational-v2', adminV2]
 ];
 
@@ -88,15 +91,19 @@ assert.doesNotMatch(shopRec, /where bc\.name = [ar]\.category_name/,
 assert.match(shopRec, /status = 'pending'[\s\S]*review_note = null[\s\S]*reviewed_by = null[\s\S]*reviewed_at = null/i,
   'resubmission loop must remain intact for reporter recovery');
 
-// 6. Application lanes: fail-closed leaves the record unapproved (no silent transition).
-assert.ok(adminV1.includes('const categoryError = await resolveApprovalCategory(sql, String(current.category_name'));
+// 6. Application lane: fail-closed leaves the record unapproved (no silent transition).
 assert.ok(adminV2.includes('const categoryError = await resolveApprovalCategory(sql, String(current.category_name'));
-assert.doesNotMatch(adminV1, /categoryUnresolved/, 'admin-v1 must not adopt the recommendation transition shape');
 assert.doesNotMatch(adminV2, /categoryUnresolved/, 'admin-operational-v2 must not adopt the recommendation transition shape');
+// #372 D1 / #375 F9: the collapsed gate must not retain operational approval
+// or category logic; it only authenticates and 404s unowned admin routes.
+assert.doesNotMatch(adminV1, /resolveApprovalCategory|with approved as |approveApplication|business_categories/,
+  'collapsed admin-v1 gate must not retain operational approval/category logic');
+assert.match(adminV1, /Admin route not found/,
+  'collapsed admin-v1 gate must remain the terminal 404 for unowned admin routes');
+assert.match(adminV1, /requireActor\(/,
+  'collapsed admin-v1 gate must keep the canonical actor auth boundary');
 
-// 7. Both application lanes expose category_name in their context lookups.
-assert.ok(adminV1.includes('a.approved_business_id, a.category_name, c.slug as complex_slug'),
-  'admin-v1 application context must select category_name');
+// 7. The application lane exposes category_name in its context lookups.
 assert.ok(adminV2.includes('a.representative_image_object_key, a.category_name, c.slug as complex_slug'),
   'admin-operational-v2 application context must select category_name');
 
