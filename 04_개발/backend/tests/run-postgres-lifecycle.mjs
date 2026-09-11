@@ -28,7 +28,7 @@ import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 const IS_WINDOWS = process.platform === 'win32';
-const WSL_BASH = /^C:\\Windows\\(System32|SysWOW64)\\bash\.exe$/i;
+const WSL_BASH = /^[A-Z]:[\\/]Windows[\\/](System32|SysWOW64)[\\/]bash\.exe$/i;
 
 function gitBashCandidates() {
   const candidates = [];
@@ -137,6 +137,7 @@ function main() {
   const result = spawnSync(resolved.bash, [bashScriptArg, ...rest], {
     stdio: 'inherit',
     env: process.env,
+    shell: false,
   });
 
   if (result.error) {

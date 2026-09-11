@@ -67,10 +67,9 @@ argv (no shell string), so spaces and non-ASCII path segments are handled
 without manual quoting. Set `DANJION_BASH` to override interpreter discovery.
 
 > Note: `run-postgres-lifecycle.mjs` is a thin bash-discovery shim for local
-> Windows runs, not a test runner framework. The `test:*-postgres-lifecycle`
-> npm scripts still call `bash` directly and are wired for POSIX/CI; routing
-> them through the shim is deferred to the cross-platform contract follow-up
-> (#382) so it does not collide with the runner-manifest work in #375 F8.
+> Windows runs, not a test runner framework. The four supported local
+> lifecycle npm scripts route through this shim. The remaining lifecycle
+> helpers are CI-only inventory entries and stay direct bash jobs.
 
 ## Known environment caveat (not Windows-specific)
 

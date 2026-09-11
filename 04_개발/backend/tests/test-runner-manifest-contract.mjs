@@ -86,6 +86,7 @@ const EXPECTED_BACKEND_ORDER = [
   "test:application-documents-review-context",
   "test:application-documents-owner-id",
   "test:deploy-provenance",
+  "test:cross-platform-executable-contract",
   "test:runner-manifest-contract",
 ];
 
@@ -159,16 +160,17 @@ const EXPECTED_CI_ONLY = [
   "shop-recommendations-postgres-lifecycle",
   "inquiries-postgres-lifecycle",
   "business-reviews-postgres-lifecycle",
-  "complex-news-channel-040-postgres-lifecycle",
+  "community-postgres-security",
   "business-category-benefit-postgres-lifecycle",
   "community-replies-postgres-lifecycle",
-  "application-documents-owner-list-postgres-lifecycle",
+  "business-image-postgres-concurrency",
+  "business-image-upload-idempotency-postgres",
+  "business-image-resolved-lease-cleanup-postgres",
   "community-notifications-postgres-lifecycle",
   "resident-news-postgres-lifecycle",
   "resident-summary-postgres-lifecycle",
-  "business-application-photos-044-postgres-lifecycle",
+  "run-live-db-integration",
   "business-review-comments-postgres-lifecycle",
-  "report-rb-postgres-lifecycle",
 ];
 
 const backendIds = manifest.scopes.backend.run.map((s) => s.id);
