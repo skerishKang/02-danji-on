@@ -10,6 +10,13 @@
 - 이웃가게 본체: `frontend/01_이웃가게_발견_v3.html`
 - 주민혜택: `frontend/03_주민혜택_쿠폰.html` (A안과 동일 파일)
 
+## 주민혜택 비교안 보존
+- **공식 주민혜택은 A안** `frontend/03_주민혜택_쿠폰.html`이며, 일반 사용자 라우팅도 이 파일을 사용합니다.
+- B안 `frontend/03_주민혜택_쿠폰_v2.html`은 삭제하지 않고 **Owner 비교후보**로만 보존합니다.
+- 비교는 `frontend/00_주민혜택_AB비교.html` 또는 `frontend/00_APP_390_통합검토.html`에서 수행합니다.
+- B안은 Owner의 별도 승격 결정 전에는 공식 라우팅·Source of Truth로 취급하지 않습니다.
+- 비교 페이지는 일반 사용자 서비스 동선에 노출하지 않습니다.
+
 ## 이번 브랜치에서 바뀐 파일
 - 신규: `index.html`, `app.html`, `01_이웃가게_발견_v3.html`
 - 갱신(공용): `assets/consistency.js`, `04_데일리홈.html`, `05_우리단지_첫화면.html`, `19_내정보_메인.html`, `25A_신청제보.html`

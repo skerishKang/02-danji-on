@@ -296,7 +296,7 @@ loadHomeAuthority();
 const SCREEN="home";
 const B=(()=>{try{return["v2","v3"].includes(sessionStorage.getItem("danjion:shopVariant"))}catch(e){return false}})();
 const FILES={"landing": "index.html", "home": "04_데일리홈.html", "shops": "01_이웃가게_발견.html", "shopDetail": "02_이웃가게_상세.html", "complex": "05_우리단지_첫화면.html", "noticeList": "06_단지온공지_목록.html", "noticeDetail": "07_단지온공지_상세.html", "apartment": "08_아파트소식_목록.html", "chair": "09_회장인사_상세.html", "residentList": "10_주민소식_목록.html", "residentDetail": "11_주민소식_상세.html", "community": "12_이웃대화_첫화면.html", "communityDetail": "13_이웃대화_글상세_댓글.html", "writeHello": "14_가입인사_글쓰기.html", "writeStory": "15_단지이야기_글쓰기.html", "writeQuestion": "16_궁금해요_글쓰기.html", "writeTogether": "17_같이해요_글쓰기.html", "my": "19_내정보_메인.html", "messages": "20_메시지함_목록.html", "messageDetail": "21_메시지_대화상세.html", "profile": "22_주민_공개프로필.html", "warmth": "23_이웃온기.html", "settings": "24_설정.html", "inquiry": "25_1대1문의.html", "apply": "25A_신청제보.html", "household": "26_우리집연결.html", "notifications": "27_알림함.html", "activity": "28_나의활동.html"};
-const __v3=(()=>{try{return sessionStorage.getItem("danjion:shopVariant")==="v3"}catch(e){return false}})();if(B){const __sf=__v3?'01_이웃가게_발견_v3.html':'01_이웃가게_발견_v2.html';FILES.landing=__v3?'index.html':'index2.html';FILES.shops=__sf;FILES.shopDetail=__sf;FILES.benefits='03_주민혜택_쿠폰_v2.html'}
+const __v3=(()=>{try{return sessionStorage.getItem("danjion:shopVariant")==="v3"}catch(e){return false}})();if(B){const __sf=__v3?'01_이웃가게_발견_v3.html':'01_이웃가게_발견_v2.html';FILES.landing=__v3?'index.html':'index2.html';FILES.shops=__sf;FILES.shopDetail=__sf;}
 const norm=s=>(s||'').replace(/\s+/g,' ').trim();
 function go(f){
   if(!f)return;
