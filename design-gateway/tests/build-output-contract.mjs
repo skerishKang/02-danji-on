@@ -46,14 +46,14 @@ for (const version of registry.versions) {
   assert(existsSync(join(dir, version.bundle.entry)), `dist/${version.id}/${version.bundle.entry} (entry)`);
 }
 
-// Spot-check assembled content actually came from canonical sources.
-assert(existsSync(join(DIST_DIR, 'v3-current', 'index.html')), 'v3-current assembled from frontend/');
-assert(existsSync(join(DIST_DIR, 'legacy-a', 'index2.html')), 'legacy-a exposes index2.html');
-assert(existsSync(join(DIST_DIR, 'legacy-a', 'app2.html')), 'legacy-a exposes app2.html');
-assert(
-  existsSync(join(DIST_DIR, 'legacy-b', '01_단지온_v5_반응형기능기준.html')),
-  'legacy-b exposes v5 entry'
-);
+// Spot-check assembled/mounted content actually came from the merged producer
+// packages under design-gateway/versions/* (KILO2) and preview-bundles/v2-runtime
+// (KILO3), not from any unmanaged fork.
+assert(existsSync(join(DIST_DIR, 'v3-current', 'index.html')), 'v3-current assembled from versions/v3-current');
+assert(existsSync(join(DIST_DIR, 'legacy-a', 'index.html')), 'legacy-a exposes index.html');
+assert(existsSync(join(DIST_DIR, 'legacy-b', 'index.html')), 'legacy-b exposes index.html');
+assert(existsSync(join(DIST_DIR, 'pr378', 'site', 'index.html')), 'pr378 exposes site/index.html');
+assert(existsSync(join(DIST_DIR, 'v2-runtime', 'index.html')), 'v2-runtime mounted bundle copied to dist');
 
 if (failures > 0) {
   console.error(`build-output-contract: ${failures} failure(s)`);

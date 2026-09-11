@@ -41,19 +41,23 @@ preview-bundles/<id>/ dir  ────────► run check + build + verif
                                      built-from commit
 ```
 
-## Current mount points
+## Current mount points / bundle sources
 
-| versionId | producer | expected bundle |
-|---|---|---|
-| `v2-runtime` | KILO2 | `04_개발/frontend` V2 React built with relative base + mock/read-only data mode |
-| `pr378` | integrator | frozen `frontend/` snapshot at `deploy/v3-preview` head `b618cad4…` (branch never merged) |
+| versionId | producer | bundle | state |
+|---|---|---|---|
+| `v2-runtime` | KILO3 | `mounted` at `preview-bundles/v2-runtime/` — V2 React built with relative base + mock/read-only data (`BUILD_INFO.builder=KILO3`, `sourceSha=f23c4e1…`) | READY |
+| `v3-current` | KILO2 | `assembled` from `design-gateway/versions/v3-current/` (entry `index.html`) | READY |
+| `legacy-a` | KILO2 | `assembled` from `design-gateway/versions/legacy-a/` (entry `index.html`) | READY |
+| `legacy-b` | KILO2 | `assembled` from `design-gateway/versions/legacy-b/` (entry `index.html`) | READY |
+| `pr378` | KILO2 | `assembled` from `design-gateway/versions/pr378/` (entry `site/index.html`) — frozen PR #378 artifact, DO-NOT-MERGE | READY |
 
-`v3-current`, `legacy-a`, `legacy-b` use `mode: assembled` (build-time copy
-from canonical in-repo paths) and need no producer bundle.
+Only `v2-runtime` uses `mode: mounted` (needs a producer bundle). The other four
+use `mode: assembled` (build-time read-only copy from KILO2's frozen
+`design-gateway/versions/<id>/` packages) and need no `preview-bundles/` mount.
 
 ## Registry fields exposed on gateway cards
 
 VERSION_NAME (`name`) · SOURCE_SHA (`source.sha`) · SOURCE_REF (`source.ref`) ·
 SOURCE_PATH (`source.path`) · STATUS (`status`: PRODUCTION | DESIGN_AUTHORITY |
-COMPARISON_ONLY | ARCHIVED) · FROZEN (`frozen`) · DO_NOT_MERGE (`doNotMerge`) ·
-CAPTURED_AT (`source.capturedAt`)
+COMPARISON_ONLY | ARCHIVED — the gateway grants none as `PRODUCTION`) ·
+FROZEN (`frozen`) · DO_NOT_MERGE (`doNotMerge`) · CAPTURED_AT (`source.capturedAt`)

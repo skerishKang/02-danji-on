@@ -13,12 +13,16 @@ V3 스태틱 권한(`frontend/`)은 이 디렉터리의 어떤 변경으로도 �
 
   ```
   /               landing (version cards)
-  /v2-runtime/    V2 React runtime comparison build   (STATUS=PRODUCTION)
+  /v2-runtime/    V2 React runtime comparison build   (STATUS=COMPARISON_ONLY)
   /v3-current/    V3 static design authority          (STATUS=DESIGN_AUTHORITY)
-  /legacy-a/      archived V2 static variant          (STATUS=ARCHIVED)
-  /legacy-b/      html-result v5 comparison variant   (STATUS=COMPARISON_ONLY)
+  /legacy-a/      V5 responsive functional prototype  (STATUS=COMPARISON_ONLY)
+  /legacy-b/      V7 silly-color prototype            (STATUS=COMPARISON_ONLY)
   /pr378/         PR #378 frozen artifact             (STATUS=COMPARISON_ONLY, DO-NOT-MERGE)
   ```
+
+- The gateway grants **no** production authority: no entry carries `PRODUCTION`.
+  Exactly one `DESIGN_AUTHORITY` (v3-current) anchors the surface; every other
+  retained version is `COMPARISON_ONLY`.
 
 - Every card shows: VERSION_NAME, SOURCE_SHA, SOURCE_REF, SOURCE_PATH, STATUS,
   FROZEN/MUTABLE, DO_NOT_MERGE, CAPTURED_AT.
@@ -29,13 +33,31 @@ V3 스태틱 권한(`frontend/`)은 이 디렉터리의 어떤 변경으로도 �
 
 ```
 design-gateway/
-├─ registry/versions.json      # single source of truth (danjion-design-registry-v1)
+├─ registry/versions.json      # GATEWAY RUNTIME registry (danjion-design-registry-v1) — 5 versions, drives cards/build
+├─ version-registry.json       # KILO2 PACKAGING registry (danjion-static-design-version/v1) — 4 frozen packages, provenance
+├─ versions/<id>/              # KILO2 frozen read-only packages (v3-current, legacy-a, legacy-b, pr378)
 ├─ gateway/                    # landing shell (index.html, css, js, _headers)
-├─ preview-bundles/<id>/       # mount points for KILO2/KILO3 deliverables
+├─ preview-bundles/<id>/       # mount points for KILO3 deliverables (v2-runtime)
 ├─ scripts/                    # registry-lib, build, check (node-only, zero deps)
 ├─ tests/                      # registry / integration / safety / build-output contracts
 └─ INTEGRATION_CONTRACT.md     # how external bundles are mounted
 ```
+
+## Two registries (reconciled, not merged)
+
+The gateway deliberately keeps **two** registries with different vocabularies,
+linked by matching version ids and `source.sha` provenance — a third is not
+created:
+
+- `registry/versions.json` — the **gateway runtime** registry (`danjion-design-registry-v1`,
+  5 entries). Single source of truth for what the landing page and `build.mjs`
+  emit. Statuses: `DESIGN_AUTHORITY` / `COMPARISON_ONLY` (no `PRODUCTION`).
+- `version-registry.json` — KILO2's **packaging/provenance** registry
+  (`danjion-static-design-version/v1`, 4 frozen packages). Validates the read-only
+  `versions/<id>/` packages. Statuses: `DESIGN_AUTHORITY` / `COMPARISON_KEEP`.
+
+They agree on the underlying artifacts (same `source_sha`/entry per version); the
+`COMPARISON_ONLY` (runtime) vs `COMPARISON_KEEP` (packaging) naming is intentional.
 
 ## Commands
 
@@ -52,12 +74,12 @@ change under `design-gateway/**`. **CI never deploys.**
 
 | mode | source | used by |
 |---|---|---|
-| `assembled` | copied from a canonical in-repo directory at build time (read-only) | v3-current, legacy-a, legacy-b |
-| `mounted` | pre-built bundle dropped into `preview-bundles/<id>/` per INTEGRATION_CONTRACT | v2-runtime (KILO2), pr378 (frozen PR artifact) |
+| `assembled` | copied from a canonical in-repo directory at build time (read-only) | v3-current, legacy-a, legacy-b, pr378 (all from KILO2's `versions/<id>/` packages) |
+| `mounted` | pre-built bundle dropped into `preview-bundles/<id>/` per INTEGRATION_CONTRACT | v2-runtime (KILO3 comparison build) |
 
-`mounted` bundles with `state: PENDING` are skipped by the build and shown as
-PENDING on the landing page — the gateway ships and works before any external
-bundle exists.
+All five bundles are currently `READY`. `mounted` bundles with `state: PENDING`
+would be skipped by the build and shown as PENDING on the landing page — the
+gateway ships and works before any external bundle exists.
 
 ## Adding / changing a version
 

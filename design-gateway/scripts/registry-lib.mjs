@@ -87,7 +87,12 @@ export function validateRegistry(registry) {
 
   const production = registry.versions.filter((v) => v.status === 'PRODUCTION');
   const authority = registry.versions.filter((v) => v.status === 'DESIGN_AUTHORITY');
-  if (production.length !== 1) err(`exactly one PRODUCTION entry required (found ${production.length})`);
+  // This gateway is a NON-PRODUCTION comparison surface: it never grants or
+  // transfers production authority, so zero PRODUCTION entries is the expected
+  // steady state (v2-runtime is COMPARISON_ONLY, not PRODUCTION). At most one is
+  // tolerated for forward compatibility; exactly one DESIGN_AUTHORITY anchors the
+  // authority card.
+  if (production.length > 1) err(`at most one PRODUCTION entry allowed (found ${production.length})`);
   if (authority.length !== 1) err(`exactly one DESIGN_AUTHORITY entry required (found ${authority.length})`);
   if (production[0]?.doNotMerge) err('PRODUCTION entry must not be doNotMerge');
 
