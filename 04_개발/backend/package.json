@@ -76,6 +76,7 @@
     "test:inquiries": "node tests/inquiries-contract.mjs",
     "test:backend-lane-reconciliation": "node tests/backend-lane-reconciliation-contract.mjs",
     "test:migration-gate": "node tests/migration-gate-contract.mjs",
+    "test:migration-ledger-integrity": "node tests/migration-ledger-integrity-contract.mjs",
     "test:deploy-provenance": "node tests/deploy-provenance-contract.mjs",
     "test:security-abuse-rate-limit": "node tests/security-abuse-rate-limit-contract.mjs",
     "test:product-rate-limit-routes": "tsx tests/product-rate-limit-route.test.mjs",
