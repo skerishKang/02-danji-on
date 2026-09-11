@@ -3,12 +3,17 @@
   "SOURCE_SHA": "f23c4e1f5622a2313c51c94d2ac54df568b2ea9a",
   "SOURCE_PATH": "04_개발/frontend",
   "SOURCE_BRANCH": "kilo3/395-v2-runtime-preview",
-  "CREATED_AT": "2026-09-11T22:08:50.884Z",
+  "BUILD_SHA": "8e277c6174456e3e32d8459f85a50c73134a9ff9",
+  "CREATED_AT": "2026-09-11T22:49:23.409Z",
   "STATUS": "COMPARISON_ONLY",
   "MUTABLE": "NO",
-  "DO_NOT_MERGE": "NO (source branch merges additive preview tooling only; the built bundle itself is a gitignored artifact and is never deployed to danjion.pages.dev)",
+  "DO_NOT_MERGE": "NO (source branch merges additive preview tooling plus the review-only bundle mounted at MOUNT_PATH; the artifact is never deployed to danjion.pages.dev)",
   "SUBPATH": "/v2-runtime/",
   "BUNDLE_PATH": "04_개발/frontend/dist-v2-runtime-preview",
+  "MOUNT_PATH": "design-gateway/preview-bundles/v2-runtime",
+  "BUILD_INFO_PATH": "design-gateway/preview-bundles/v2-runtime/BUILD_INFO.json",
+  "BUILDER": "KILO3",
+  "GATEWAY_CONSUMER": "KILO1_PR399",
   "BUILD_COMMAND": "node 04_개발/scripts/v2-runtime-preview.mjs build",
   "DATA_MODE": "mock (VITE_DATA_MODE deleted -> localStorage fixture mode)",
   "AUTH_MODE": "dev (VITE_AUTH_MODE deleted -> DevAuthProvider fixture actor)",
@@ -16,5 +21,5 @@
   "API_BASE": "relative /api only (VITE_API_BASE_URL deleted; no absolute host baked)",
   "HOSTNAME_ALLOWLIST": [],
   "SERVES_PRODUCTION_TRAFFIC": "NO",
-  "NOTE": "Comparison-only snapshot of React V2 for design/runtime review. Not a release artifact."
+  "NOTE": "Comparison-only snapshot of React V2 for design/runtime review. Not a release artifact. Absolute origins in JS string literals are \\u002F-escaped at build time (runtime values unchanged); the external webfont @import is stripped; the demo service worker is stubbed out."
 }
