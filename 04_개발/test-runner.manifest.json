@@ -138,7 +138,8 @@
         {"id":"test:stage5k-owner-relation-raw","npm":"test:stage5k-owner-relation-raw","kind":"contract"},
         {"id":"test:stage5l-greeting-wiring","npm":"test:stage5l-greeting-wiring","kind":"contract"},
         {"id":"test:stage5m-reviewer-private-docs","npm":"test:stage5m-reviewer-private-docs","kind":"contract"},
-        {"id":"test:api-endpoint-registry-contract","npm":"test:api-endpoint-registry-contract","kind":"contract"}
+        {"id":"test:api-endpoint-registry-contract","npm":"test:api-endpoint-registry-contract","kind":"contract"},
+        {"id":"test:v2-runtime-preview-contract","npm":"test:v2-runtime-preview-contract","kind":"contract"}
       ]
     }
   },
