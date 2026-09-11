@@ -1,15 +1,33 @@
 import assert from 'node:assert/strict';
+import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 
 const root = new URL('../', import.meta.url);
-const [flows, app, integrated, share, reviews, main] = await Promise.all([
+const [flows, integrated, share, reviews, main, adapter, types] = await Promise.all([
   readFile(new URL('src/v2/flows/V2ProductFlows.tsx', root), 'utf8'),
-  readFile(new URL('src/v2/V2App.tsx', root), 'utf8'),
   readFile(new URL('src/v2/integration/V2IntegratedApp.tsx', root), 'utf8'),
   readFile(new URL('src/v2/integration/V2BusinessShareIntegration.tsx', root), 'utf8'),
   readFile(new URL('src/v2/integration/V2BusinessReviewsIntegration.tsx', root), 'utf8'),
-  readFile(new URL('src/main.tsx', root), 'utf8')
+  readFile(new URL('src/main.tsx', root), 'utf8'),
+  readFile(new URL('src/api/adapter.ts', root), 'utf8'),
+  readFile(new URL('src/v2/flows/types.ts', root), 'utf8')
 ]);
+
+// #375 F4: the V2App shell is retired. The live 25A registration surface is the
+// integrated shell (v2-registration-dialog, four steps), the shared
+// visual-slot contract lives in src/v2/flows/types.ts, and the canonical
+// application authorities stay on the live adapter.
+assert.ok(!existsSync(new URL('src/v2/V2App.tsx', root)),
+  'retired V2App shell must not be reintroduced');
+assert.ok(!existsSync(new URL('src/v2/visual/V2Gate1Onboarding.tsx', root)),
+  'orphan Gate1 onboarding archive must stay removed');
+assert.ok(!existsSync(new URL('src/v2/visual/V2Gate1LiveOnboarding.tsx', root)),
+  'orphan Gate1 live-onboarding archive must stay removed');
+assert.ok(!existsSync(new URL('src/v2/visual/V2Gate1ResidentHome.tsx', root)),
+  'orphan Gate1 resident-home archive must stay removed');
+assert.match(types, /export interface V2FlowVisualSlots/);
+assert.match(flows, /import type \{ V2FlowVisualSlots \} from '\.\/types';/,
+  'product-flow surfaces must consume the shared slot contract, not the retired shell');
 
 const CURRENT_008_REGISTRATION_AUTHORITY = {
   title: '25A_신청제보.html',
@@ -46,15 +64,6 @@ assert.match(flows, /운영 확인 · 공개하지 않음/,
 assert.match(flows, /동·호수\/증빙/,
   '25A address/proof must remain a private boundary');
 
-assert.match(app, /import \{[\s\S]*V2RegistrationFlow[\s\S]*\} from '\.\/flows\/V2ProductFlows';/,
-  'V2App must reuse the product-flow registration surface');
-assert.match(app, /<V2RegistrationFlow/,
-  'V2App must render the registration flow');
-assert.match(app, /dataAdapter\.createBusinessApplication\(input\)/,
-  '25A owner registration must submit via canonical application authority');
-assert.match(app, /dataAdapter\.resubmitBusinessApplication\(/,
-  '25A resubmit must stay on canonical application authority');
-
 assert.match(integrated, /v2-registration-dialog/,
   'integrated shell must keep the 25A registration dialog');
 assert.match(integrated, /STEP \{registrationStep\} \/ 4/,
@@ -67,6 +76,10 @@ assert.match(integrated, /이웃가게 추천 접수/,
   'integrated recommendation action must remain');
 assert.match(integrated, /대표 이미지/,
   'integrated 25A must keep the shop photo upload');
+assert.match(integrated, /dataAdapter\.createBusinessApplication\(\{/,
+  'integrated 25A owner registration must submit via canonical application authority');
+assert.match(adapter, /async resubmitBusinessApplication\(id: string, input: BusinessApplicationInput\): Promise<BusinessApplication>/,
+  'canonical application resubmit authority must remain on the live adapter');
 
 assert.match(share, /\.v2-integrated-shop-card\[data-shop-id\]/,
   '25A share must target integrated shop cards');
