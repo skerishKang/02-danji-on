@@ -1,12 +1,11 @@
 import assert from 'node:assert/strict';
-import {
-  handleResidentApplicationDocumentWithSql,
-  handleAdminApplicationDocumentWithSql
-} from '../src/resident-application-docs-v1.ts';
+// #375 F11 lane split: each lane handler is imported from its own module.
+import { handleResidentApplicationDocumentWithSql } from '../src/resident-application-docs-v1.ts';
+import { handleAdminApplicationDocumentWithSql } from '../src/admin-application-docs-v1.ts';
 
 // GAP-5 Phase-B runtime proof without Docker: the CENTRAL-required cases run
-// the reviewed resident-application-docs-v1 handlers against stubbed sql()
-// and a stubbed Drive (global fetch). No network, no database.
+// the reviewed resident/admin application-document lane handlers against
+// stubbed sql() and a stubbed Drive (global fetch). No network, no database.
 
 const APP_ID = '80000000-0000-4000-8000-000000000001';
 const DOC_ID = '81000000-0000-4000-8000-000000000001';
