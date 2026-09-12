@@ -55,6 +55,29 @@ assert(existsSync(join(DIST_DIR, 'legacy-b', 'index.html')), 'legacy-b exposes i
 assert(existsSync(join(DIST_DIR, 'pr378', 'site', 'index.html')), 'pr378 exposes site/index.html');
 assert(existsSync(join(DIST_DIR, 'v2-runtime', 'index.html')), 'v2-runtime mounted bundle copied to dist');
 
+// FINAL surface (#401): single sibling-facing presentation, registry-external.
+// Frames the one DESIGN_AUTHORITY bundle; carries no history/comparison cards.
+const finalDir = join(DIST_DIR, 'final');
+assert(existsSync(join(finalDir, 'index.html')), 'dist/final/index.html (FINAL surface) exists');
+assert(existsSync(join(finalDir, 'final.css')), 'dist/final/final.css exists');
+assert(existsSync(join(finalDir, 'final.js')), 'dist/final/final.js exists');
+const finalSourcePath = join(finalDir, 'FINAL_SOURCE.json');
+assert(existsSync(finalSourcePath), 'dist/final/FINAL_SOURCE.json provenance sidecar exists');
+const authority = registry.versions.find((v) => v.status === 'DESIGN_AUTHORITY');
+if (authority && existsSync(finalSourcePath)) {
+  const prov = JSON.parse(readFileSync(finalSourcePath, 'utf8'));
+  assert(prov.sha === authority.source.sha, 'FINAL provenance sha equals DESIGN_AUTHORITY source.sha');
+  assert(prov.authorityVersionId === authority.id, 'FINAL provenance anchors the DESIGN_AUTHORITY version');
+  assert(prov.environment === 'NON_PRODUCTION', 'FINAL surface is NON_PRODUCTION');
+}
+const finalShell = existsSync(join(finalDir, 'index.html'))
+  ? readFileSync(join(finalDir, 'index.html'), 'utf8')
+  : '';
+assert(/<iframe[^>]+src="\.\.\/v3-current\/index\.html"/.test(finalShell),
+  'FINAL frames the v3-current authority entry (no re-invented presentation)');
+assert(!/id="cards"|\.\/gateway\.js|레지스트리 로딩|COMPARISON_ONLY|DESIGN_AUTHORITY/.test(finalShell),
+  'FINAL surface carries no history/comparison cards or gateway registry chrome');
+
 if (failures > 0) {
   console.error(`build-output-contract: ${failures} failure(s)`);
   process.exit(1);
