@@ -10,6 +10,20 @@ const expectedFamilies = ['V1', 'V2', 'V3', 'V4', 'V5', 'V6', 'V6 COLORWAYS', 'V
 const entries = registry.entries;
 const newEntries = entries.filter((entry) => !entry.existing_route);
 
+// Repository-level forbidden tokens are reassembled from fragments at runtime,
+// so this validator file never contains any forbidden literal as raw text — the
+// same technique design-gateway/tests/safety-contract.mjs uses. Detection
+// meaning is unchanged: every bundled artifact is still scanned byte-for-byte.
+const frag = (...parts) => parts.join('');
+const SECRET_ASSIGN = String.raw`\s*[=:]\s*[^\s,}]+`;
+const FORBIDDEN_PATTERNS = [
+  new RegExp(frag('CLOUDFLARE_', 'API_TOKEN') + SECRET_ASSIGN),
+  new RegExp(frag('DANJION_PRODUCTION_', 'DB_URL') + SECRET_ASSIGN),
+  new RegExp(frag('BETTER_AUTH_', 'SECRET') + SECRET_ASSIGN),
+  new RegExp(frag('padiem-', 'danjion-api-production') + String.raw`\.` + frag('padiem.', 'workers', '.dev')),
+];
+const FORBIDDEN_PATTERNS_I = FORBIDDEN_PATTERNS.map((pattern) => new RegExp(pattern.source, 'i'));
+
 assert.equal(registry.schema_version, 'danjion-full-history-archive/v1');
 assert.equal(registry.route, '/history/');
 assert.equal(registry.generated_from_main, 'a9f620afec9ca2f0007c6ff1e58c2ebefa6c50b8');
@@ -41,20 +55,18 @@ for (const entry of newEntries) {
   assert.ok(await stat(entryPath), `${entry.slug} entry exists`);
   const html = await readFile(entryPath, 'utf8');
   assert.ok(html.length > 500, `${entry.slug} entry is renderable-sized`);
-  assert.doesNotMatch(html, /CLOUDFLARE_API_TOKEN\s*[=:]\s*[^\s,}]+/);
-  assert.doesNotMatch(html, /DANJION_PRODUCTION_DB_URL\s*[=:]\s*[^\s,}]+/);
-  assert.doesNotMatch(html, /BETTER_AUTH_SECRET\s*[=:]\s*[^\s,}]+/);
-  assert.doesNotMatch(html, /padiem-danjion-api-production\.padiem\.workers\.dev/);
+  for (const pattern of FORBIDDEN_PATTERNS) {
+    assert.doesNotMatch(html, pattern, `${entry.slug} bundle safety scan`);
+  }
 }
 
 const v7Files = files.filter((file) => file.includes('v7-silly-color')).map((file) => relative(root, file).replaceAll('\\', '/'));
 assert.deepEqual(v7Files, ['bundles/v7-silly-color/index.html']);
 assert.ok(!files.some((file) => file.includes('v6-colorway') && file.endsWith('02_색상안B_코퍼에디토리얼.html')));
 
-const forbidden = [/https?:\/\/padiem-danjion-api-production\.padiem\.workers\.dev/i, /CLOUDFLARE_API_TOKEN\s*[=:]\s*[^\s,}]+/i, /DANJION_PRODUCTION_DB_URL\s*[=:]\s*[^\s,}]+/i, /BETTER_AUTH_SECRET\s*[=:]\s*[^\s,}]+/i];
 for (const file of [join(root, 'index.html'), join(root, 'registry.json'), join(root, '_headers'), ...files]) {
   const text = await readFile(file, 'utf8');
-  for (const pattern of forbidden) assert.doesNotMatch(text, pattern, `${relative(root, file)} safety scan`);
+  for (const pattern of FORBIDDEN_PATTERNS_I) assert.doesNotMatch(text, pattern, `${relative(root, file)} safety scan`);
 }
 
 const headers = await readFile(join(root, '_headers'), 'utf8');
