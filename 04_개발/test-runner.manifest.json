@@ -22,6 +22,8 @@
         {"id":"test:authz-v2-migrations","npm":"test:authz-v2-migrations","kind":"contract"},
         {"id":"test:operational-authz-v2","npm":"test:operational-authz-v2","kind":"contract"},
         {"id":"test:admin-operational-rbac","npm":"test:admin-operational-rbac","kind":"contract"},
+        {"id":"test:padiem-authority","npm":"test:padiem-authority","kind":"contract"},
+        {"id":"test:admin-authority-contract","npm":"test:admin-authority-contract","kind":"contract"},
         {"id":"test:admin-review-privacy-rbac","npm":"test:admin-review-privacy-rbac","kind":"contract"},
         {"id":"test:admin-review-context-gallery","npm":"test:admin-review-context-gallery","kind":"contract"},
         {"id":"test:resident-verification-policy-hold","npm":"test:resident-verification-policy-hold","kind":"contract"},
