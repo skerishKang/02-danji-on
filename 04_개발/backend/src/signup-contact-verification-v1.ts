@@ -584,6 +584,15 @@ async function verifyCode(
   }
 }
 
+/** Real phone OTP delivery is available only when all three trusted bindings are
+ * present. This is the exact same condition startVerification enforces before it
+ * will issue a challenge; it is exposed read-only so the signup UX can fail
+ * closed honestly instead of presenting a working OTP path that can only 503.
+ * It never touches the database, generates an OTP, or reveals any secret value. */
+function verificationReady(env: SignupContactVerificationEnv): boolean {
+  return !(!env.PADIEM_CONTACT_VERIFICATION || !env.PADIEM_CONTACT_DELIVERY || !env.DANJION_CONTACT_REF_SECRET);
+}
+
 /** Public account-onboarding contact verification. This is deliberately outside
  * resident authorization: possession of a phone endpoint does not grant any
  * complex, household, resident, owner or legal-identity authority. */
@@ -592,8 +601,11 @@ export async function handleSignupContactVerificationRequest(
   env: SignupContactVerificationEnv,
   requestId: string
 ): Promise<Response | null> {
-  if (request.method !== 'POST') return null;
   const path = new URL(request.url).pathname;
+  if (request.method === 'GET' && path === '/auth/verification/readiness') {
+    return ok({ ready: verificationReady(env) }, requestId);
+  }
+  if (request.method !== 'POST') return null;
   if (path === '/auth/verification/start') return startVerification(request, env, requestId);
   if (path === '/auth/verification/verify') return verifyCode(request, env, requestId);
   return null;

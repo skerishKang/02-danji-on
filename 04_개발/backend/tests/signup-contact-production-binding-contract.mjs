@@ -22,4 +22,24 @@ assert.match(adapter, /CONTACT_VERIFICATION_NOT_CONFIGURED/, 'missing binding mu
 assert.doesNotMatch(adapter, /generate|randomInt|HMAC|SHA-256/i, 'DanjiOn adapter must not fork OTP generation or hashing');
 assert.match(signup, /PADIEM_CONTACT_DELIVERY/, 'delivery must remain a separate explicit trusted binding');
 
+/* --- #423: a read-only readiness probe lets the signup UX fail closed honestly --- */
+// The probe must expose the EXACT same three trusted-binding guard that startVerification
+// enforces before it will issue a challenge, so the UX cannot claim "ready" when a real
+// OTP send would only 503. It must return only the boolean, never an OTP, opaque ref, or secret.
+assert.match(
+  signup,
+  /function verificationReady\(env: SignupContactVerificationEnv\): boolean \{[\s\S]*?return !\(!env\.PADIEM_CONTACT_VERIFICATION \|\| !env\.PADIEM_CONTACT_DELIVERY \|\| !env\.DANJION_CONTACT_REF_SECRET\);/,
+  'readiness must gate on the same three trusted bindings as startVerification'
+);
+assert.match(
+  signup,
+  /if \(request\.method === 'GET' && path === '\/auth\/verification\/readiness'\) \{\s*return ok\(\{ ready: verificationReady\(env\) \}, requestId\);\s*\}/,
+  'GET readiness route must expose only the boolean ready flag'
+);
+assert.ok(
+  signup.indexOf('/auth/verification/readiness') < signup.indexOf("if (request.method !== 'POST') return null;"),
+  'readiness must be served before the POST-only gate'
+);
+assert.match(signup, /VERIFICATION_NOT_CONFIGURED/, 'start must still fail closed when any binding is missing');
+
 console.log('Signup contact production binding contract: PASS');
