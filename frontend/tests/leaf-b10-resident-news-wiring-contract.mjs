@@ -241,8 +241,8 @@ const list = wiringBlock(page10, 'resident-news-list-server-wiring-20260911');
   assert.ok(runtimeTag > -1 && runtimeTag < list.start, 'the shared session runtime must load before the list wiring');
   assert.ok(list.block.includes("import('./assets/resident-news-bridge.js')"), 'list wiring must load the bounded bridge module');
   assert.ok(list.block.includes('DANJION_RESIDENT_NEWS_COMPLEX_SLUG'), 'list wiring must pin the canonical complex slug');
-  assert.ok(list.block.includes("get('apiBase')") && /if\s*\(!apiBase\)\s*return;/.test(list.block),
-    'list wiring must early-return without an explicit apiBase (demo/static fallback preserved)');
+  assert.ok(list.block.includes('DanjionSession.danjionApiBase()') && /if\s*\(!apiBase\)\s*return;/.test(list.block),
+    'list wiring must derive apiBase from the canonical #419 resolver and early-return without it (demo/static fallback preserved)');
   assert.ok(list.block.includes('createResidentNewsBridge('), 'list wiring must build the bridge');
   assert.ok(list.block.includes('listPosts('), 'list wiring must read the resident-news-v1 feed');
   assert.ok(list.block.includes('DETAIL') && list.block.includes('?postId='), 'list wiring must carry the post id into the detail surface');
@@ -263,8 +263,8 @@ const detail = wiringBlock(page11, 'resident-news-detail-server-wiring-20260911'
   assert.ok(runtimeTag > -1 && runtimeTag < detail.start, 'the shared session runtime must load before the detail wiring');
   assert.ok(detail.block.includes("import('./assets/resident-news-bridge.js')"), 'detail wiring must load the bounded bridge module');
   assert.ok(detail.block.includes('DANJION_RESIDENT_NEWS_COMPLEX_SLUG'), 'detail wiring must pin the canonical complex slug');
-  assert.ok(detail.block.includes("get('apiBase')") && /if\s*\(!apiBase\)\s*return;/.test(detail.block),
-    'detail wiring must early-return without an explicit apiBase (demo/static fallback preserved)');
+  assert.ok(detail.block.includes('DanjionSession.danjionApiBase()') && /if\s*\(!apiBase\)\s*return;/.test(detail.block),
+    'detail wiring must derive apiBase from the canonical #419 resolver and early-return without it (demo/static fallback preserved)');
   assert.ok(detail.block.includes("get('postId')"), 'detail wiring must read the post id from the query');
   assert.ok(detail.block.includes('getPost('), 'detail wiring must read the resident-news-v1 item route');
   assert.ok(detail.block.includes('소식을 찾을 수 없습니다.'), 'detail wiring must fail closed with the canonical not-found copy');

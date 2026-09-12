@@ -1,8 +1,23 @@
 (function (global) {
   'use strict';
 
-  function danjionApiBase() {
-    return (new URLSearchParams(location.search).get('apiBase') || '').replace(/\/+$/, '');
+  // Issue #419 [production promotion]: the canonical Pages hostname is the only
+  // environment that auto-binds to the production API. Every other origin
+  // (danjion-review.pages.dev, localhost, previews) stays fail-closed on the
+  // static/demo lane unless an explicit ?apiBase= is provided.
+  const PRODUCTION_PAGES_HOSTNAME = 'danjion.pages.dev';
+  const PRODUCTION_API_BASE = 'https://padiem-danjion-api-production.padiem.workers.dev';
+
+  function danjionApiBase(loc) {
+    const where = loc || (typeof location !== 'undefined' ? location : {});
+    let params;
+    try { params = new URLSearchParams(where.search || ''); } catch { params = new URLSearchParams(); }
+    if (params.has('apiBase')) {
+      return String(params.get('apiBase') || '').trim().replace(/\/+$/, '');
+    }
+    const hostname = String(where.hostname || '').toLowerCase();
+    if (hostname === PRODUCTION_PAGES_HOSTNAME) return PRODUCTION_API_BASE;
+    return '';
   }
 
   function joinUrl(base, path) {
@@ -46,6 +61,8 @@
     danjionApiBase,
     joinUrl,
     request,
-    createSessionFetch
+    createSessionFetch,
+    PRODUCTION_PAGES_HOSTNAME,
+    PRODUCTION_API_BASE
   });
 })(typeof window !== 'undefined' ? window : globalThis);

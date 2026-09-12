@@ -171,6 +171,7 @@ body{min-height:100vh;overflow-x:hidden}.request-underlay{position:fixed;inset:0
 </form>
 </main></div>
 <div aria-live="polite" class="toast" id="toast" role="status"></div>
+<script src="assets/danjion-session.js"></script>
 <script>
 const f=document.querySelector('#requestForm'),title=document.querySelector('#pageTitle'),lead=document.querySelector('#pageLead'),submit=document.querySelector('#submitBtn'),owner=document.querySelector('#ownerTab'),report=document.querySelector('#reportTab'),toast=document.querySelector('#toast');
 function syncDisabled(mode){
@@ -218,7 +219,7 @@ let __applicationReportComplexSlug='';
 let __ownerSubmissionKey=null;
 let __ownerSubmitting=false;
 let __reportSubmitting=false;
-function danjionApiBase(){return (new URLSearchParams(location.search).get('apiBase')||'').replace(/\/+$/,'')}
+function danjionApiBase(){return DanjionSession.danjionApiBase()}
 async function ensureApplicationReportBridge(){
   if(__applicationReportBridge)return __applicationReportBridge;
   const mod=await import('./assets/application-report-bridge.js');
@@ -341,7 +342,7 @@ toggleEtc(ownerRelation,ownerEtcWrap,ownerEtc);toggleEtc(reportRelation,reportEt
   const list=document.getElementById('myApplicationList');
   const note=document.getElementById('myApplicationNote');
   if(!section||!list)return;
-  const apiBase=(new URLSearchParams(location.search).get('apiBase')||'').replace(/\/+$/,'');
+  const apiBase=DanjionSession.danjionApiBase();
   // Static/demo lane: never claim server state, never reveal the panel.
   if(!apiBase)return;
   let mod;

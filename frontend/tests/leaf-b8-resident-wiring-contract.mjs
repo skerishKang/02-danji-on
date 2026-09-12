@@ -62,7 +62,7 @@ assert.ok(!f24.slice(clickStart, thenAt).includes('apply('),
 
 /* --- 25 1:1문의: submit + list through the inquiry bridge --- */
 before(f25, 'assets/inquiry-bridge.js', 'danjion-inquiry-server', 'f25');
-assert.ok(f25.includes("get('apiBase')"), 'f25 must gate on ?apiBase=');
+assert.ok(f25.includes('DanjionSession.danjionApiBase()'), 'f25 must gate on the canonical #419 resolver (explicit apiBase or production hostname)');
 assert.ok(f25.includes(`createInquiryBridge({apiBase:API_BASE,complexSlug:COMPLEX})`), 'f25 must build the inquiry bridge with the api base + slug');
 assert.ok(f25.includes(`COMPLEX='${CANON}'`), 'f25 must pin the canonical complex slug');
 assert.ok(f25.includes('bridge.submitGeneral(') && f25.includes('bridge.listMine('), 'f25 must submit and list via the bridge');
@@ -106,6 +106,18 @@ const API = 'https://api.test';
 assert.equal(loadBridge(residentJs, API).resident.serverConfig().enabled, true, 'serverConfig enabled when ?apiBase present');
 assert.equal(loadBridge(residentJs).resident.serverConfig().enabled, false, 'serverConfig disabled without ?apiBase');
 assert.equal(loadBridge(residentJs, API).resident.serverConfig().complexSlug, CANON, 'serverConfig pins canonical slug');
+
+/* --- #419: serverConfig delegates to the canonical DanjionSession resolver when loaded --- */
+{
+  const PRODUCTION = 'https://padiem-danjion-api-production.padiem.workers.dev';
+  const sandbox = { URLSearchParams, console, location: { search: '', hostname: 'danjion.pages.dev', origin: 'https://danjion.pages.dev' } };
+  vm.createContext(sandbox);
+  sandbox.DanjionSession = { danjionApiBase: () => PRODUCTION };
+  vm.runInContext(residentJs, sandbox);
+  const cfg = sandbox.DanjionResidentBridge.serverConfig();
+  assert.equal(cfg.enabled, true, 'serverConfig must enable through the canonical resolver on the production hostname');
+  assert.equal(cfg.apiBase, PRODUCTION, 'serverConfig must take the resolver apiBase verbatim, not re-read the query');
+}
 
 /* --- resident request shapes + fail-closed auth --- */
 const rEnv = loadBridge(residentJs, API);

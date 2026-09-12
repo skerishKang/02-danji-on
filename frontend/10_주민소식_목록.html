@@ -346,7 +346,7 @@ if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt
 <script src="assets/danjion-session.js"></script>
 <script id="resident-news-list-server-wiring-20260911">
 (function(){
-  const apiBase=(new URLSearchParams(location.search).get('apiBase')||'').replace(/\/+$/,'');
+  const apiBase=DanjionSession.danjionApiBase();
   if(!apiBase)return;
   const stories=document.querySelector('.stories');
   if(!stories)return;

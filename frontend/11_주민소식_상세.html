@@ -195,7 +195,7 @@ if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt
 <script id="resident-news-detail-server-wiring-20260911">
 (function(){
   const params=new URLSearchParams(location.search);
-  const apiBase=(params.get('apiBase')||'').replace(/\/+$/,'');
+  const apiBase=DanjionSession.danjionApiBase();
   if(!apiBase)return;
   const postId=(params.get('postId')||'').trim();
   const LIST='10_주민소식_목록.html';
