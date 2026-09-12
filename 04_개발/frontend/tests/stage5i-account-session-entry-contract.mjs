@@ -34,9 +34,11 @@ assert.match(html, /if\(serverMode\)\{const body=\{provider,callbackURL:location
 assert.match(html, /providerMap=\{'카카오':'kakao','네이버':'naver','Google':'google'\}/,
   'social providers must map to the existing adapter ids only');
 
-/* --- direct signup completion never mints an account session in server mode --- */
-assert.match(html, /else if\(button\.dataset\.finish!==undefined\)\{if\(serverMode\)\{showToast\('실제 가입은 서버 계정 가입 절차에서 완료됩니다[\s\S]*?return\}memberMode=true/,
-  'server-mode finish must fail closed with account-signup copy that does not conflate resident verification');
+/* --- #424 account-first: the account already exists when finish is reached --- */
+assert.match(html, /else if\(button\.dataset\.finish!==undefined\)\{memberMode=true;sessionStorage\.setItem\('danjionMember','1'\);sessionStorage\.setItem\('danjionResidentVerification','pending'\);sessionStorage\.removeItem\('danjionGuest'\);syncMemberState\(\);openChair\(\)\}/,
+  'finish must enter the app as a resident-unverified member in both modes (account was created at step 1; no OTP re-gate, no signup block)');
+assert.doesNotMatch(html, /danjionResidentVerified/,
+  'no entry flow may mint a resident-verified flag');
 
 /* --- boot reconciliation replaces fake flags with the real session result --- */
 assert.match(html, /if\(serverMode\)\{serverSessionCheck\(\)\.then\(\(real\)=>\{[\s\S]*?sessionStorage\.removeItem\('danjionMember'\);sessionStorage\.removeItem\('danjionSignedUp'\)\}memberMode=real;syncMemberState\(\)\}\)/,

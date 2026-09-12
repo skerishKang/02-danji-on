@@ -39,9 +39,10 @@ assert.match(server, /usernameNormalization:\s*normalizeKoreanPhone/);
 assert.match(server, /usernameValidator:/);
 assert.doesNotMatch(server, /phoneNumber\(/, 'phone plugin would couple this v1 path to phone verification/OTP semantics');
 assert.doesNotMatch(server, /sendOTP|sendVerificationOTP|verifyPhoneNumber/, 'Better Auth must not own the Padiem OTP algorithm');
-assert.match(server, /directEmailSignupBlocked/);
-assert.match(server, /\/api\/auth\/sign-up\/email/);
-assert.match(server, /PHONE_VERIFICATION_REQUIRED/);
+assert.doesNotMatch(server, /directEmailSignupBlocked|PHONE_VERIFICATION_REQUIRED/,
+  'direct Better Auth email signup must not be blocked by phone verification');
+assert.match(server, /return auth\.handler\(request\)/,
+  'direct Better Auth email signup must reach the standard Better Auth handler');
 assert.match(server, /disableImplicitSignUp:\s*true/g, 'new social users must require explicit signup intent');
 
 // Google/Naver/Kakao use explicit OAuth signup without an additional phone
@@ -64,24 +65,11 @@ assert.match(socialOnboarding, /s\.phone_verified_at is not null/);
 assert.match(socialOnboarding, /set consumed_at = now\(\), auth_user_id = \$\{authUserId\}/);
 assert.doesNotMatch(socialOnboarding, /otp_digest|delivery_code|submitted_code/i, 'account onboarding must never own OTP material');
 
-// Product bootstrap policy: existing product users remain compatible; approved
-// Google/Naver/Kakao accounts may bootstrap without a phone receipt; direct or
-// unknown Better Auth providers remain fail-closed until phone onboarding.
-assert.match(authResolver, /approvedSocialProviderAccount/);
-assert.match(authResolver, /danjion_auth\.account/);
-assert.match(authResolver, /provider_id in \('google', 'naver', 'kakao'\)/);
-assert.match(authResolver, /completedContactOnboarding/);
-assert.match(authResolver, /config\.authority === 'danjion'/);
-assert.match(authResolver, /AUTH_ACCOUNT_ONBOARDING_REQUIRED/);
-assert.match(authResolver, /signup_contact_receipts/);
+// Product bootstrap policy: any authenticated account may bootstrap a normal
+// product account; resident-only authority remains a separate verified-
+// household gate. Social onboarding and contact receipts never grant residency.
 assert.match(authResolver, /const existing = await actorBySubject/);
-assert.match(authResolver, /const socialAccount = await approvedSocialProviderAccount/);
-assert.match(authResolver, /if \(!socialAccount && !await completedContactOnboarding/);
-assert.ok(
-  authResolver.indexOf('const existing = await actorBySubject')
-    < authResolver.indexOf('const socialAccount = await approvedSocialProviderAccount'),
-  'existing product users must be accepted before the first-bootstrap provider/phone gate'
-);
+assert.doesNotMatch(authResolver, /AUTH_ACCOUNT_ONBOARDING_REQUIRED|completedContactOnboarding|approvedSocialProviderAccount/);
 
 assert.match(server, /jwt\(\{/);
 assert.match(authResolver, /\/api\/auth\/jwks/);
@@ -154,7 +142,8 @@ assert.doesNotMatch(verificationMigration, /\bverification_code\s+(?:text|varcha
 assert.match(verificationMigration, /identity_verified_at timestamptz/);
 assert.match(verificationMigration, /never resident or legal identity authority/i);
 
-// Final direct signup gate: exact receipt consumption precedes Better Auth.
+// The legacy receipt-gated endpoint remains available as a separate contact
+// capability, but is no longer the account creation path.
 assert.match(verifiedSignup, /\/auth\/signup/);
 assert.match(verifiedSignup, /consumeVerifiedReceipt/);
 assert.match(verifiedSignup, /r\.consumed_at is null/);

@@ -111,6 +111,22 @@ export async function signUpWithSocial(provider: SocialLoginProvider) {
   return result.data;
 }
 
+export async function signUpWithEmail(input: {
+  email: string;
+  name: string;
+  password: string;
+}) {
+  const result = await danjionAuthClient.signUp.email({
+    email: input.email.trim(),
+    name: input.name.trim(),
+    password: input.password,
+    callbackURL: emailVerificationCallbackURL()
+  });
+  assertAuthSuccess(result, '단지온 계정을 만들지 못했습니다.');
+  moveToVerificationLanding();
+  return result.data;
+}
+
 export async function getSocialOnboardingStatus() {
   return sessionAuthRequest<{
     authenticated: true;
@@ -173,57 +189,6 @@ export async function verifySignupPhoneCode(input: {
     legalIdentityVerified: false;
     residentVerified: false;
   }>('/auth/verification/verify', input, '휴대폰 인증을 완료하지 못했습니다.');
-}
-
-export async function completeVerifiedSignup(input: {
-  email: string;
-  name: string;
-  phone: string;
-  password: string;
-  signupSessionRef: string;
-  verificationReceiptRef: string;
-}) {
-  const phone = normalizePhoneCredential(input.phone);
-  if (!isSupportedPhoneCredential(phone)) throw new Error('지원하지 않는 휴대폰 번호 형식입니다.');
-  const data = await publicAuthPost<{
-    accepted: true;
-    emailVerificationRequired: true;
-    phoneVerified: true;
-    identityAssurance: 'contact_possession_only';
-    legalIdentityVerified: false;
-    residentVerified: false;
-  }>('/auth/signup', {
-    email: input.email.trim(),
-    name: input.name.trim(),
-    phone,
-    password: input.password,
-    signupSessionRef: input.signupSessionRef,
-    verificationReceiptRef: input.verificationReceiptRef
-  }, '단지온 계정을 만들지 못했습니다.');
-  moveToVerificationLanding();
-  return data;
-}
-
-/**
- * Legacy Gate1 visual compatibility only. These names used to call Better Auth
- * signup directly, which would now bypass the verified-phone product boundary.
- */
-export async function signUpWithPhone(_input: {
-  email: string;
-  name: string;
-  phone: string;
-  password: string;
-}): Promise<never> {
-  throw new Error('휴대폰 인증이 필요한 새 가입 화면에서 가입해 주세요.');
-}
-
-export async function signUpWithEmail(_input: {
-  email: string;
-  name: string;
-  password: string;
-  phone?: string;
-}): Promise<never> {
-  throw new Error('휴대폰 인증이 필요한 새 가입 화면에서 가입해 주세요.');
 }
 
 export async function signInWithPhone(phone: string, password: string) {

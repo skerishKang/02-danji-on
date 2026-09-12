@@ -13,6 +13,7 @@
     "test:contract": "node tests/contract.mjs",
     "test:auth": "tsx tests/auth-v1.test.mjs",
     "test:auth-better-contract": "node tests/auth-better-contract.mjs",
+    "test:account-first-auth": "node tests/account-first-auth-contract.mjs",
     "test:auth-email-recovery": "node tests/auth-email-recovery-contract.mjs",
     "test:auth-delete-boundary": "node tests/auth-delete-boundary-contract.mjs",
     "test:signup-contact-production-binding": "node tests/signup-contact-production-binding-contract.mjs",

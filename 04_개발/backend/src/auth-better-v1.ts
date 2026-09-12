@@ -147,14 +147,6 @@ export function createDanjionAuth(env: BetterAuthEnv) {
   });
 }
 
-function directEmailSignupBlocked(request: Request, path: string): Response | null {
-  const normalized = path.replace(/\/+$/, '');
-  if (request.method !== 'POST' || normalized !== '/api/auth/sign-up/email') return null;
-  return Response.json({
-    error: { code: 'PHONE_VERIFICATION_REQUIRED', message: 'Direct DanjiOn signup requires verified phone contact.' }
-  }, { status: 409, headers: { 'cache-control': 'no-store' } });
-}
-
 function requestId(request: Request): string {
   const incoming = request.headers.get('x-danjion-request-id')?.trim();
   return incoming && /^[A-Za-z0-9._:-]{1,80}$/.test(incoming) ? incoming : `req-${crypto.randomUUID()}`;
@@ -174,7 +166,5 @@ export async function handleBetterAuthRequest(request: Request, env: BetterAuthE
   }
 
   if (!path.startsWith('/api/auth/')) return null;
-  const blockedSignup = directEmailSignupBlocked(request, path);
-  if (blockedSignup) return blockedSignup;
   return auth.handler(request);
 }

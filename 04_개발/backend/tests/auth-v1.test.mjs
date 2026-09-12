@@ -175,7 +175,7 @@ async function main() {
         authUserId: SUBJECT,
         displayName: '테스트 사용자'
       });
-      assert.equal(queries.filter((query) => query.includes('from danjion_auth.account')).length, 1);
+      assert.equal(queries.filter((query) => query.includes('from danjion_auth.account')).length, 0);
       assert.equal(queries.filter((query) => query.includes('from signup_contact_receipts')).length, 0, `${providerId} must not require a phone receipt`);
       assert.equal(queries.filter((query) => query.includes('insert into app_users')).length, 1);
     }
@@ -186,10 +186,13 @@ async function main() {
         headers: { authorization: `Bearer ${await token()}` }
       });
       const result = await requireActor(request, DANJION_ENV, sql, 'req-direct-without-phone');
-      assert.equal(await errorCode(result), 'AUTH_ACCOUNT_ONBOARDING_REQUIRED');
-      assert.equal(queries.filter((query) => query.includes('from danjion_auth.account')).length, 1);
-      assert.equal(queries.filter((query) => query.includes('from signup_contact_receipts')).length, 1);
-      assert.equal(queries.filter((query) => query.includes('insert into app_users')).length, 0);
+      assert.deepEqual(result, {
+        id: APP_USER_ID,
+        authUserId: SUBJECT,
+        displayName: '테스트 사용자'
+      });
+      assert.equal(queries.filter((query) => query.includes('from signup_contact_receipts')).length, 0);
+      assert.equal(queries.filter((query) => query.includes('insert into app_users')).length, 1);
     }
 
     {
@@ -203,7 +206,6 @@ async function main() {
         authUserId: SUBJECT,
         displayName: '테스트 사용자'
       });
-      assert.equal(queries.filter((query) => query.includes('from signup_contact_receipts')).length, 1);
       assert.equal(queries.filter((query) => query.includes('insert into app_users')).length, 1);
     }
 

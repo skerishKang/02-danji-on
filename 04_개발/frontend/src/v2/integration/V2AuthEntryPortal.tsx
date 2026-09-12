@@ -1,21 +1,17 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  completeVerifiedSignup,
   getProductApiBearerToken,
   signInWithEmail,
   signInWithPhone,
   signInWithSocial,
+  signUpWithEmail,
   signUpWithSocial,
-  startSignupPhoneVerification,
-  verifySignupPhoneCode,
   type SocialLoginProvider
 } from '../../auth-client';
 
 type AccountMode = 'signup' | 'signin';
 type DirectMethod = 'email' | 'phone';
-type PhoneVerificationState = 'idle' | 'sent' | 'verified';
-
 const LIVE_AUTH = import.meta.env.VITE_AUTH_MODE === 'danjion';
 const VERIFICATION_PATH = '/verification.html';
 
@@ -34,22 +30,9 @@ export default function V2AuthEntryPortal() {
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
-  const [otpCode, setOtpCode] = useState('');
-  const [signupSessionRef, setSignupSessionRef] = useState('');
-  const [challengeId, setChallengeId] = useState('');
-  const [verificationReceiptRef, setVerificationReceiptRef] = useState('');
-  const [phoneVerificationState, setPhoneVerificationState] = useState<PhoneVerificationState>('idle');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [authenticated, setAuthenticated] = useState(false);
-
-  function resetPhoneVerification() {
-    setOtpCode('');
-    setSignupSessionRef('');
-    setChallengeId('');
-    setVerificationReceiptRef('');
-    setPhoneVerificationState('idle');
-  }
 
   useEffect(() => {
     const resolveHost = () => {
@@ -92,14 +75,12 @@ export default function V2AuthEntryPortal() {
   function openDialog(nextMode: AccountMode = 'signup') {
     setMode(nextMode);
     setError('');
-    if (nextMode === 'signup') resetPhoneVerification();
     setOpen(true);
   }
 
   function switchMode(nextMode: AccountMode) {
     setMode(nextMode);
     setError('');
-    resetPhoneVerification();
   }
 
   async function social(provider: SocialLoginProvider) {
@@ -114,61 +95,6 @@ export default function V2AuthEntryPortal() {
       else await signInWithSocial(provider);
     } catch (requestError) {
       setError(errorMessage(requestError));
-      setBusy(false);
-    }
-  }
-
-  async function sendVerificationCode() {
-    setError('');
-    if (!LIVE_AUTH) {
-      setError('개발 미리보기에서는 실제 인증번호를 전송하지 않습니다.');
-      return;
-    }
-    if (!email.trim() || !phone.trim()) {
-      setError('이메일과 휴대폰 번호를 먼저 입력해 주세요.');
-      return;
-    }
-    setBusy(true);
-    try {
-      const result = await startSignupPhoneVerification({
-        email,
-        phone,
-        signupSessionRef: signupSessionRef || undefined
-      });
-      setSignupSessionRef(result.signupSessionRef);
-      setChallengeId(result.challengeId);
-      setOtpCode('');
-      setVerificationReceiptRef('');
-      setPhoneVerificationState('sent');
-    } catch (requestError) {
-      setError(errorMessage(requestError));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function confirmVerificationCode() {
-    setError('');
-    if (!signupSessionRef || !challengeId) {
-      setError('먼저 인증번호를 받아 주세요.');
-      return;
-    }
-    if (!/^\d{6}$/.test(otpCode.trim())) {
-      setError('6자리 인증번호를 입력해 주세요.');
-      return;
-    }
-    setBusy(true);
-    try {
-      const result = await verifySignupPhoneCode({
-        signupSessionRef,
-        challengeId,
-        code: otpCode.trim()
-      });
-      setVerificationReceiptRef(result.verificationReceiptRef);
-      setPhoneVerificationState('verified');
-    } catch (requestError) {
-      setError(errorMessage(requestError));
-    } finally {
       setBusy(false);
     }
   }
@@ -189,14 +115,6 @@ export default function V2AuthEntryPortal() {
       }
       if (!email.trim()) {
         setError('계정 확인과 복구를 위해 이메일은 필수입니다.');
-        return;
-      }
-      if (!phone.trim()) {
-        setError('휴대폰 번호를 입력해 주세요.');
-        return;
-      }
-      if (!verificationReceiptRef || phoneVerificationState !== 'verified') {
-        setError('휴대폰 인증을 먼저 완료해 주세요.');
         return;
       }
       if (password.length < 8) {
@@ -221,13 +139,10 @@ export default function V2AuthEntryPortal() {
     setBusy(true);
     try {
       if (mode === 'signup') {
-        await completeVerifiedSignup({
+        await signUpWithEmail({
           email,
           name,
-          phone,
-          password,
-          signupSessionRef,
-          verificationReceiptRef
+          password
         });
         return;
       }
@@ -271,7 +186,7 @@ export default function V2AuthEntryPortal() {
             <div className="v2-onboarding-kicker">ACCOUNT</div>
             <h2 id="v2-auth-entry-title">{mode === 'signup' ? '단지온 계정을 만들어요.' : '다시 만나서 반가워요.'}</h2>
             <p>{mode === 'signup'
-              ? '이메일 직접가입은 이메일과 휴대폰 연락처를 확인합니다. Google·Naver·Kakao 가입은 추가 휴대폰 2차 인증 없이 OAuth로 진행합니다.'
+              ? '이메일로 먼저 단지온 계정을 만들 수 있습니다. Google·Naver·Kakao 가입도 주민 인증과는 별개이며, 가입 후 이메일을 확인하고 입주민 확인을 별도 진행합니다.'
               : '로그인하면 입주민 확인 상태를 확인하거나 신청할 수 있습니다.'}</p>
 
             <div className="v2-auth-mode" role="group" aria-label="가입 또는 로그인 선택">
@@ -291,22 +206,10 @@ export default function V2AuthEntryPortal() {
                 <label><span>이름 또는 닉네임</span><input value={name} onChange={(event) => setName(event.target.value)} autoComplete="name" placeholder="단지온에서 사용할 이름" /></label>
               )}
               {(mode === 'signup' || method === 'email') && (
-                <label><span>{mode === 'signup' ? '이메일 · 필수 확인/복구 수단' : '이메일'}</span><input type="email" value={email} onChange={(event) => { setEmail(event.target.value); if (mode === 'signup') resetPhoneVerification(); }} autoComplete="email" placeholder="name@example.com" /></label>
+                <label><span>{mode === 'signup' ? '이메일 · 필수 확인/복구 수단' : '이메일'}</span><input type="email" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="email" placeholder="name@example.com" /></label>
               )}
-              {(mode === 'signup' || method === 'phone') && (
-                <label><span>휴대폰 번호{mode === 'signup' ? ' · 이메일 가입 시 필수 인증' : ''}</span><input inputMode="tel" value={phone} onChange={(event) => { setPhone(event.target.value); if (mode === 'signup') resetPhoneVerification(); }} autoComplete="tel" placeholder="010-1234-5678" /></label>
-              )}
-
-              {mode === 'signup' && (
-                <>
-                  <button type="button" className="v2-onboarding-secondary" disabled={busy || !email.trim() || !phone.trim() || phoneVerificationState === 'verified'} onClick={() => void sendVerificationCode()}>
-                    {phoneVerificationState === 'sent' ? '인증번호 다시 받기' : phoneVerificationState === 'verified' ? '휴대폰 인증 완료' : '인증번호 받기'}
-                  </button>
-                  <label><span>인증번호 · 6자리</span><input inputMode="numeric" value={otpCode} onChange={(event) => setOtpCode(event.target.value.replace(/\D/g, '').slice(0, 6))} autoComplete="one-time-code" placeholder="000000" disabled={phoneVerificationState === 'idle' || phoneVerificationState === 'verified'} /></label>
-                  <button type="button" className="v2-onboarding-secondary" disabled={busy || phoneVerificationState !== 'sent' || otpCode.length !== 6} onClick={() => void confirmVerificationCode()}>
-                    인증 확인
-                  </button>
-                </>
+              {mode === 'signin' && method === 'phone' && (
+                <label><span>휴대폰 번호</span><input inputMode="tel" value={phone} onChange={(event) => setPhone(event.target.value)} autoComplete="tel" placeholder="010-1234-5678" /></label>
               )}
 
               <label><span>비밀번호</span><input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete={mode === 'signup' ? 'new-password' : 'current-password'} placeholder="8자 이상" /></label>
@@ -316,7 +219,7 @@ export default function V2AuthEntryPortal() {
 
             <div className="v2-onboarding-notice">
               {mode === 'signup'
-                ? '이메일 직접가입의 휴대폰 인증은 연락처 소유 확인일 뿐 법적 본인확인이나 입주민 인증이 아닙니다. Google·Naver·Kakao 소셜 가입에는 추가 휴대폰 2차 인증을 요구하지 않습니다.'
+                ? '계정 가입·이메일 확인·휴대폰 연락처 확인·입주민 인증은 서로 다른 단계입니다. 계정을 만들었다고 주민 권한이 생기지 않습니다.'
                 : '계정 로그인과 입주민 권한은 분리되어 있습니다. 로그인 후 입주민 확인 단계로 이어집니다.'}
             </div>
 
@@ -331,7 +234,7 @@ export default function V2AuthEntryPortal() {
 
           <div className="v2-onboarding-actions">
             <button type="button" className="v2-onboarding-secondary" onClick={() => setOpen(false)}>취소</button>
-            <button type="submit" className="v2-onboarding-primary" disabled={busy || (mode === 'signup' && phoneVerificationState !== 'verified')}>
+            <button type="submit" className="v2-onboarding-primary" disabled={busy}>
               {busy ? '처리 중…' : mode === 'signup' ? '가입하기' : '로그인'}
             </button>
           </div>
