@@ -1,0 +1,116 @@
+{
+  "$schema": "danjion-design-registry-v1",
+  "gateway": {
+    "name": "DanjiOn Design Gateway",
+    "environment": "NON_PRODUCTION",
+    "capturedFromMain": "f23c4e1f5622a2313c51c94d2ac54df568b2ea9a",
+    "authorityRule": "This gateway never grants or transfers production authority. Production Pages project 'danjion' is untouched by this repository area."
+  },
+  "versions": [
+    {
+      "id": "v2-runtime",
+      "name": "V2 React Runtime (comparison build)",
+      "status": "COMPARISON_ONLY",
+      "runtime": "react-v2",
+      "source": {
+        "path": "04_개발/frontend",
+        "ref": "kilo3/395-v2-runtime-preview",
+        "sha": "f23c4e1f5622a2313c51c94d2ac54df568b2ea9a",
+        "capturedAt": "2026-09-11"
+      },
+      "frozen": true,
+      "doNotMerge": false,
+      "bundle": {
+        "mode": "mounted",
+        "mountPath": "design-gateway/preview-bundles/v2-runtime",
+        "entry": "index.html",
+        "state": "READY"
+      },
+      "notes": "Comparison-only React V2 build produced by KILO3 (former PR #400), mounted from preview-bundles/v2-runtime with a fully relative asset base and mock/read-only data mode. No production secrets, no production API binding. Never promoted from this gateway."
+    },
+    {
+      "id": "v3-current",
+      "name": "V3 Static Design Authority",
+      "status": "DESIGN_AUTHORITY",
+      "runtime": "static-v3",
+      "source": {
+        "path": "frontend",
+        "ref": "main",
+        "sha": "f23c4e1f5622a2313c51c94d2ac54df568b2ea9a",
+        "capturedAt": "2026-09-11"
+      },
+      "frozen": true,
+      "doNotMerge": false,
+      "bundle": {
+        "mode": "assembled",
+        "sourceDir": "design-gateway/versions/v3-current",
+        "entry": "index.html",
+        "state": "READY"
+      },
+      "notes": "Static design/navigation authority per README_V3_PROMOTION_20260906. Consumed from KILO2's frozen package under design-gateway/versions/v3-current (read-only copy of frontend/); assembled at build time, never duplicated into an unmanaged fork."
+    },
+    {
+      "id": "legacy-a",
+      "name": "Legacy A — V5 responsive functional prototype",
+      "status": "COMPARISON_ONLY",
+      "runtime": "static-html",
+      "source": {
+        "path": "03_HTML결과물/05_실사사진중심_v5",
+        "ref": "main",
+        "sha": "f23c4e1f5622a2313c51c94d2ac54df568b2ea9a",
+        "capturedAt": "2026-09-11"
+      },
+      "frozen": true,
+      "doNotMerge": false,
+      "bundle": {
+        "mode": "assembled",
+        "sourceDir": "design-gateway/versions/legacy-a",
+        "entry": "index.html",
+        "state": "READY"
+      },
+      "notes": "V5 responsive functional prototype, packaged read-only by KILO2 under design-gateway/versions/legacy-a. One of the five retained comparison URLs; comparison only, not a design authority."
+    },
+    {
+      "id": "legacy-b",
+      "name": "Legacy B — V7 Silly Color System prototype",
+      "status": "COMPARISON_ONLY",
+      "runtime": "static-html",
+      "source": {
+        "path": "03_HTML결과물/08_실리나이스_다색기능_v7",
+        "ref": "main",
+        "sha": "f23c4e1f5622a2313c51c94d2ac54df568b2ea9a",
+        "capturedAt": "2026-09-11"
+      },
+      "frozen": true,
+      "doNotMerge": false,
+      "bundle": {
+        "mode": "assembled",
+        "sourceDir": "design-gateway/versions/legacy-b",
+        "entry": "index.html",
+        "state": "READY"
+      },
+      "notes": "V7 Silly Color System prototype, packaged read-only by KILO2 under design-gateway/versions/legacy-b. Comparison only; not a design authority."
+    },
+    {
+      "id": "pr378",
+      "name": "PR #378 — V3 preview (do-not-merge artifact)",
+      "status": "COMPARISON_ONLY",
+      "runtime": "static-html",
+      "source": {
+        "path": "design-gateway/versions/pr378",
+        "ref": "pr-378",
+        "sha": "b618cad4abb4d966181f3ab7fcac2e7c2ebcc7f3",
+        "capturedAt": "2026-09-11"
+      },
+      "frozen": true,
+      "doNotMerge": true,
+      "bundle": {
+        "mode": "assembled",
+        "sourceDir": "design-gateway/versions/pr378",
+        "entry": "site/index.html",
+        "state": "READY"
+      },
+      "notes": "Frozen comparison artifact of PR #378 (OPEN, DO-NOT-MERGE), consumed from KILO2's read-only package under design-gateway/versions/pr378; the snapshot is never mutated. The historical broken link (app.html -> index3.html) is preserved byte-for-byte and handled at the gateway wrapper/metadata layer, not by editing the snapshot."
+    }
+  ]
+}

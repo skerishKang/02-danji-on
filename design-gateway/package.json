@@ -1,0 +1,12 @@
+{
+  "name": "danjion-design-gateway",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "NON-PRODUCTION design version gateway (#395): registry-driven gallery with stable version subpaths. No dependencies, no network, no deploy.",
+  "scripts": {
+    "check": "node scripts/check.mjs",
+    "build": "node scripts/build.mjs",
+    "verify-build": "node tests/build-output-contract.mjs"
+  }
+}

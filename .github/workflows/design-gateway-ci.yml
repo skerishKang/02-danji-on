@@ -1,0 +1,42 @@
+name: Design Gateway CI
+
+# Issue #395: CI for the NON-PRODUCTION design version gateway.
+# Source contracts + deterministic build + dist layout verification.
+# This workflow MUST NOT deploy. Publishing the gateway to a dedicated
+# non-production Pages project is a separate, explicitly approved gate.
+
+on:
+  pull_request:
+    paths:
+      - 'design-gateway/**'
+      - '.github/workflows/design-gateway-ci.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'design-gateway/**'
+      - '.github/workflows/design-gateway-ci.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: danjion-design-gateway-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  design-gateway-check:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: design-gateway
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Registry + integration + safety contracts
+        run: node scripts/check.mjs
+      - name: Build non-production gateway artifact
+        run: node scripts/build.mjs
+      - name: Verify dist layout
+        run: node tests/build-output-contract.mjs

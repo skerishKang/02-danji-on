@@ -1,0 +1,3 @@
+# design-gateway/dist is a build artifact; never commit it.
+dist/
+node_modules/

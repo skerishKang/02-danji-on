@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>단지온 디자인 게이트웨이 — NON-PRODUCTION</title>
+  <link rel="stylesheet" href="./gateway.css" />
+</head>
+<body>
+  <header class="banner" role="banner">
+    <strong>비운영(Non-Production) 디자인 게이트웨이</strong>
+    <span>NON-PRODUCTION DESIGN GATEWAY — 비교·검토 전용. 운영 배포/권한과 무관하며, 어떤 프리뷰도 운영 권한을 승계하지 않습니다.</span>
+  </header>
+
+  <main>
+    <h1>단지온 디자인 버전 게이트웨이</h1>
+    <p class="lede">
+      누적된 디자인 버전들을 한 곳에서 정확한 출처(SHA/ref)와 권한 상태와 함께 확인합니다.
+      카드를 누르면 각 버전의 안정 서브경로로 이동합니다.
+    </p>
+    <section id="cards" class="cards" aria-live="polite">
+      <p class="muted">레지스트리 로딩 중…</p>
+    </section>
+  </main>
+
+  <footer>
+    <p>registry: <code>./registry/versions.json</code> · contract: <code>INTEGRATION_CONTRACT.md</code> · issue #395</p>
+  </footer>
+
+  <script src="./gateway.js"></script>
+</body>
+</html>
