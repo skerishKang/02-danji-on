@@ -2,7 +2,7 @@ name: DanjiOn Review Auto Deploy
 
 # Issue #413: fixed NON-PRODUCTION sibling review site.
 # This workflow is the only deployment path for danjion-review. It never
-# targets the production Pages project `danjion` or danjion.pages.dev.
+# targets the production Pages project or its canonical live hostname.
 on:
   push:
     branches: [main]

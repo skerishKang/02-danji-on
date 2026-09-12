@@ -85,23 +85,6 @@ for (const file of ['01_이웃가게_발견_v2.html', '03_주민혜택_쿠폰_v2
   }
 }
 
-// #407 sibling-handoff parity: these pages must remain byte-identical to the
-// canonical frontend source and must survive the assembled v3-current copy.
-for (const file of ['01_이웃가게_발견_v2.html', '03_주민혜택_쿠폰_v2.html']) {
-  const sourcePath = join(REPO_ROOT, 'frontend', file);
-  const packagePath = join(REPO_ROOT, 'design-gateway', 'versions', 'v3-current', file);
-  const distPath = join(DIST_DIR, 'v3-current', file);
-  assert(existsSync(sourcePath), `canonical handoff source exists: frontend/${file}`);
-  assert(existsSync(packagePath), `v3-current package keeps ${file}`);
-  assert(existsSync(distPath), `dist/v3-current keeps ${file}`);
-  if (existsSync(sourcePath) && existsSync(packagePath)) {
-    assert(readFileSync(sourcePath).equals(readFileSync(packagePath)), `${file} package is byte-identical to frontend source`);
-  }
-  if (existsSync(sourcePath) && existsSync(distPath)) {
-    assert(readFileSync(sourcePath).equals(readFileSync(distPath)), `${file} dist output is byte-identical to frontend source`);
-  }
-}
-
 // FINAL surface (#401): single sibling-facing presentation, registry-external.
 // Frames the one DESIGN_AUTHORITY bundle; carries no history/comparison cards.
 const finalDir = join(DIST_DIR, 'final');

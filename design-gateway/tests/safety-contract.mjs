@@ -103,7 +103,7 @@ assert(!/workflow_dispatch/.test(ci.split('jobs:')[0] || ''), 'gateway CI trigge
 const reviewDeploy = readFileSync(join(workflowsDir, 'danjion-review-auto-deploy.yml'), 'utf8');
 assert(/REVIEW_PROJECT:\s*danjion-review/.test(reviewDeploy), 'review deploy must target danjion-review');
 assert(!/PAGES_PROJECT:\s*danjion\b|--project-name\s+danjion\b/.test(reviewDeploy), 'review deploy must not target danjion');
-assert(!/danjion\.pages\.dev/.test(reviewDeploy), 'review deploy must not target production danjion.pages.dev');
+assert(!new RegExp(frag('danjion.', 'pages', '.dev')).test(reviewDeploy), 'review deploy must not target the production Pages hostname');
 
 // Registry: no absolute origins anywhere in published registry data.
 const registryText = readFileSync(join(GATEWAY_ROOT, 'registry', 'versions.json'), 'utf8');
