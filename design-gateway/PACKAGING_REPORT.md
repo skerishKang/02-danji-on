@@ -8,7 +8,7 @@ Mode: `STATIC_DESIGN_VERSION_PACKAGER`
 
 Four independently addressable static bundles were retained:
 
-1. `v3-current` — `DESIGN_AUTHORITY`; current static `frontend/` V3 entry and required static pages/assets, excluding V2 and comparison launcher variants.
+1. `v3-current` — `DESIGN_AUTHORITY`; current static `frontend/` V3 entry and required static pages/assets, retaining the two sibling-handoff V2 compatibility pages while excluding V2 comparison launchers.
 2. `legacy-a` — `COMPARISON_KEEP`; canonical V5 responsive functional prototype from `03_HTML결과물/05_실사사진중심_v5/01_단지온_v5_반응형기능기준.html`.
 3. `legacy-b` — `COMPARISON_KEEP`; V7 Silly Color System keyart from `03_HTML결과물/08_실리나이스_다색기능_v7/01_단지온_v7_실리나이스_다색기능.html`.
 4. `pr378` — `COMPARISON_KEEP`; frozen PR #378 `[최종-v3]/` tree at `b618cad4abb4d966181f3ab7fcac2e7c2ebcc7f3`, marked `DO_NOT_MERGE`.
@@ -19,7 +19,7 @@ The registry records for every retained version: `VERSION_ID`, display name, sou
 
 ## Candidate classification
 
-- `frontend/index2.html`, `app2.html`, V2 shop/benefit variants: `ARCHIVE_ONLY`.
+- `frontend/index2.html`, `app2.html`: `ARCHIVE_ONLY`; the V2 shop/benefit compatibility pages are retained in `v3-current` for the sibling handoff.
 - `frontend/00_APP_390_통합검토.html`, `00_주민혜택_AB비교.html`: `DUPLICATE_DROP` review launchers.
 - `03_HTML결과물` v1, v2, v3, v4, v6, and M1 families: `ARCHIVE_ONLY` unless represented by the minimum retained set.
 - V5 reference companion: `DUPLICATE_DROP`.

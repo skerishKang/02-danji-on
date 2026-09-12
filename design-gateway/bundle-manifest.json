@@ -283,6 +283,11 @@
       "sha256": "f4f8f0c9b674b0a68567b25977ae07b0eb0c9f86077441ef359912c908f6da52"
     },
     {
+      "path": "versions/v3-current/01_이웃가게_발견_v2.html",
+      "bytes": 106833,
+      "sha256": "aa7410119e8ec90eb99395d79f076d9e7bf5d82f947557faa2075b75bffe2153"
+    },
+    {
       "path": "versions/v3-current/01_이웃가게_발견_v3.html",
       "bytes": 117777,
       "sha256": "3ad6cde97ebfbcc057898d55c4dfa70fb34242b6b6a2b9369db1eff089193ad6"
@@ -296,6 +301,11 @@
       "path": "versions/v3-current/02_이웃가게_상세.html",
       "bytes": 57623,
       "sha256": "d545c22f3e8bc7841eed75099127a8247900699af7f04db7bd9c85e99ce47e72"
+    },
+    {
+      "path": "versions/v3-current/03_주민혜택_쿠폰_v2.html",
+      "bytes": 13043,
+      "sha256": "55dc89dcc89ee7ecf81631cb6009dd2650ebaec3af884a85d2d29df41c6e3ebc"
     },
     {
       "path": "versions/v3-current/03_주민혜택_쿠폰.html",

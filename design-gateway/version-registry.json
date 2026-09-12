@@ -13,7 +13,7 @@
       "source_ref": "origin/main",
       "source_sha": "f23c4e1f5622a2313c51c94d2ac54df568b2ea9a",
       "entry_file": "index.html",
-      "build_or_copy_method": "Frozen copy of frontend/*.html excluding explicit V2/AB comparison entries, plus frontend/assets/",
+      "build_or_copy_method": "Frozen copy of frontend/*.html plus frontend/assets/, retaining the sibling-handoff compatibility pages",
       "status": "DESIGN_AUTHORITY",
       "frozen": true,
       "mutable": false,
@@ -21,7 +21,7 @@
       "known_limitations": [
         "Static prototype contains demo/local fallback behavior and is not a production API contract.",
         "Some prototype image URLs are external design assets; a future gateway deployment must apply network policy before publishing.",
-        "The V3 bundle intentionally excludes index2/app2, V2 shop, benefit B, and comparison launcher pages."
+        "The V3 bundle excludes the V2 comparison launchers index2/app2, while retaining the sibling-handoff compatibility pages 01_이웃가게_발견_v2.html and 03_주민혜택_쿠폰_v2.html."
       ]
     },
     {
