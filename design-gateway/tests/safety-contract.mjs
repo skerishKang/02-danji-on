@@ -90,12 +90,20 @@ for (const wf of readdirSync(workflowsDir)) {
   const text = readFileSync(join(workflowsDir, wf), 'utf8');
   if (text.includes('design-gateway')) gatewayWorkflows.push(wf);
 }
-assert(gatewayWorkflows.length === 1 && gatewayWorkflows[0] === 'design-gateway-ci.yml',
-  `only design-gateway-ci.yml may reference the gateway (found: ${gatewayWorkflows.join(', ') || 'none'})`);
+assert(
+  gatewayWorkflows.length === 2 &&
+    gatewayWorkflows.includes('design-gateway-ci.yml') &&
+    gatewayWorkflows.includes('danjion-review-auto-deploy.yml'),
+  `only gateway CI and the isolated danjion-review deploy workflow may reference the gateway (found: ${gatewayWorkflows.join(', ') || 'none'})`
+);
 const ci = readFileSync(join(workflowsDir, 'design-gateway-ci.yml'), 'utf8');
 assert(!/pages deploy/i.test(ci), 'design-gateway CI must not contain a Pages deploy step');
 assert(!/CLOUDFLARE/.test(ci), 'design-gateway CI must not hold Cloudflare credentials');
 assert(!/workflow_dispatch/.test(ci.split('jobs:')[0] || ''), 'gateway CI triggers are PR/push path filters only');
+const reviewDeploy = readFileSync(join(workflowsDir, 'danjion-review-auto-deploy.yml'), 'utf8');
+assert(/REVIEW_PROJECT:\s*danjion-review/.test(reviewDeploy), 'review deploy must target danjion-review');
+assert(!/PAGES_PROJECT:\s*danjion\b|--project-name\s+danjion\b/.test(reviewDeploy), 'review deploy must not target danjion');
+assert(!new RegExp(frag('danjion.', 'pages', '.dev')).test(reviewDeploy), 'review deploy must not target the production Pages hostname');
 
 // Registry: no absolute origins anywhere in published registry data.
 const registryText = readFileSync(join(GATEWAY_ROOT, 'registry', 'versions.json'), 'utf8');

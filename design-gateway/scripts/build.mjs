@@ -105,6 +105,13 @@ const historyDir = join(DIST_DIR, 'history');
 cpSync(join(GATEWAY_ROOT, 'history'), historyDir, { recursive: true });
 summary.push({ id: 'history', mode: 'archive', state: 'READY', dist: '/history/' });
 
+// Sibling review entry (#413): keep the explicit review page available as a
+// stable child route. The review-only deployment workflow may promote this
+// already-built page to dist/index.html for the fixed danjion-review root.
+const siblingReviewDir = join(DIST_DIR, 'sibling-review');
+cpSync(join(GATEWAY_ROOT, 'gateway', 'sibling-review'), siblingReviewDir, { recursive: true });
+summary.push({ id: 'sibling-review', mode: 'entry', state: 'READY', dist: '/sibling-review/' });
+
 console.log('design-gateway build OK (non-production artifact only)');
 console.log(`registry: ${registry.versions.length} versions | capturedFromMain: ${registry.gateway.capturedFromMain.slice(0, 7)}`);
 for (const row of summary) {
