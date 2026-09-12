@@ -1,0 +1,109 @@
+name: DanjiOn Review Auto Deploy
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: danjion-review-pages
+  cancel-in-progress: true
+
+jobs:
+  deploy-review:
+    name: Deploy fixed sibling review site
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      REVIEW_PROJECT: danjion-review
+      REVIEW_BRANCH: main
+      REVIEW_URL: https://danjion-review.pages.dev
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Build and validate design gateway
+        shell: bash
+        run: |
+          set -euo pipefail
+          node design-gateway/scripts/check.mjs
+          node design-gateway/history/build-manifest.mjs
+          node design-gateway/history/validate-history.mjs
+          node design-gateway/scripts/build.mjs
+          node design-gateway/tests/build-output-contract.mjs
+
+      - name: Make sibling review the fixed root
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f design-gateway/dist/sibling-review/index.html
+          cp design-gateway/dist/sibling-review/index.html design-gateway/dist/index.html
+
+      - name: Validate review deployment authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${CLOUDFLARE_API_TOKEN:-}"
+          test -n "${CLOUDFLARE_ACCOUNT_ID:-}"
+          account_json="$(curl --silent --show-error --fail             -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}"             "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}")"
+          account_name="$(printf '%s' "$account_json" | jq -r '.result.name // empty')"
+          test "$account_name" = "Padiem"
+
+      - name: Ensure isolated review Pages project
+        shell: bash
+        run: |
+          set -euo pipefail
+          status="$(curl --silent --output /tmp/review-project.json --write-out '%{http_code}'             -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}"             "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/pages/projects/${REVIEW_PROJECT}")"
+
+          if [ "$status" = "404" ]; then
+            npx wrangler@4.114.0 pages project create "${REVIEW_PROJECT}" --production-branch "${REVIEW_BRANCH}"
+          elif [ "$status" = "200" ]; then
+            project_name="$(jq -r '.result.name // empty' /tmp/review-project.json)"
+            production_branch="$(jq -r '.result.production_branch // empty' /tmp/review-project.json)"
+            test "$project_name" = "${REVIEW_PROJECT}"
+            test "$production_branch" = "${REVIEW_BRANCH}"
+          else
+            cat /tmp/review-project.json
+            exit 1
+          fi
+
+      - name: Deploy review artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx wrangler@4.114.0 pages deploy design-gateway/dist             --project-name "${REVIEW_PROJECT}"             --branch "${REVIEW_BRANCH}"             --commit-hash "${GITHUB_SHA}"             --commit-message "DanjiOn review auto deploy"
+
+      - name: Smoke fixed review URLs
+        shell: bash
+        run: |
+          set -euo pipefail
+          for path in / /final/ /v3-current/ /history/ /sibling-review/; do
+            curl --silent --show-error --fail --retry 6 --retry-delay 3 --output /dev/null "${REVIEW_URL}${path}"
+          done
+          body="$(curl --silent --show-error --fail "${REVIEW_URL}/")"
+          printf '%s' "$body" | grep -q '단지온 최종 검수'
+          printf '%s' "$body" | grep -q '/final/'
+          printf '%s' "$body" | grep -q '/v3-current/'
+          printf '%s' "$body" | grep -q '/history/'
+
+      - name: Record review deployment
+        shell: bash
+        run: |
+          {
+            echo '## DanjiOn sibling review'
+            echo ''
+            echo '- Fixed URL: https://danjion-review.pages.dev/'
+            echo '- FINAL: /final/'
+            echo '- Current V3: /v3-current/'
+            echo '- History: /history/'
+            echo '- Environment: NON-PRODUCTION review only'
+          } >> "$GITHUB_STEP_SUMMARY"
