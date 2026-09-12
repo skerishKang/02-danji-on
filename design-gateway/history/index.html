@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>단지온 HISTORY / COMPARE</title>
+  <style>
+    :root{--ink:#172130;--muted:#687383;--paper:#f4f0e8;--card:#fffdf8;--line:#d9d2c5;--blue:#3157e8;--coral:#d65d45;--green:#377a61;--shadow:0 22px 70px rgba(33,39,48,.12)}
+    *{box-sizing:border-box}html{background:var(--paper);color:var(--ink);font-family:Arial,"Noto Sans KR",sans-serif}body{margin:0;min-width:320px;background:linear-gradient(180deg,#101b2d 0 285px,var(--paper) 285px);-webkit-font-smoothing:antialiased}a{color:inherit}
+    .wrap{width:min(1220px,calc(100% - 40px));margin:auto}.masthead{padding:42px 0 70px;color:#fff}.eyebrow{margin:0 0 16px;color:#f4b448;font-size:12px;font-weight:800;letter-spacing:.14em}.masthead h1{max-width:800px;margin:0;font-size:clamp(42px,7vw,86px);line-height:.98;letter-spacing:-.07em}.masthead p{max-width:650px;margin:25px 0 0;color:rgba(255,255,255,.7);font-size:16px;line-height:1.75}.masthead .note{margin-top:22px;color:rgba(255,255,255,.48);font-size:12px}.toolbar{display:flex;gap:8px;flex-wrap:wrap;margin:-22px 0 34px}.filter{border:1px solid rgba(255,255,255,.3);border-radius:999px;padding:10px 16px;background:rgba(255,255,255,.1);color:#fff;cursor:pointer;font:inherit;font-size:13px}.filter[aria-pressed=true],.filter:hover{background:#fff;color:var(--ink)}.timeline{position:relative;padding:0 0 80px}.timeline:before{content:"";position:absolute;left:17px;top:12px;bottom:0;width:1px;background:var(--line)}.group{position:relative;margin:0 0 42px;padding-left:58px}.group-marker{position:absolute;left:8px;top:4px;width:20px;height:20px;border:5px solid var(--paper);border-radius:50%;background:var(--blue);box-shadow:0 0 0 1px var(--blue)}.group h2{margin:0 0 16px;font-size:14px;letter-spacing:.12em;color:var(--coral)}.cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}.card{display:flex;min-height:264px;flex-direction:column;padding:22px;background:var(--card);border:1px solid var(--line);box-shadow:var(--shadow)}.card[hidden]{display:none}.card-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.family{color:var(--blue);font-size:11px;font-weight:900;letter-spacing:.08em}.stage{color:var(--muted);font-size:11px;text-align:right}.card h3{margin:18px 0 10px;font-size:23px;line-height:1.18;letter-spacing:-.055em}.card p{margin:0;color:#4d5967;font-size:13px;line-height:1.65}.meta{display:grid;gap:5px;margin:17px 0 18px;padding-top:14px;border-top:1px solid var(--line);color:var(--muted);font-size:11px;line-height:1.45}.meta b{color:var(--ink);font-weight:700}.badges{display:flex;gap:6px;flex-wrap:wrap;margin-top:auto}.badge{padding:5px 7px;border-radius:3px;background:#edf0ff;color:#2e4fc2;font-size:10px;font-weight:800;letter-spacing:.04em}.badge.history{background:#f1eee7;color:#685f53}.badge.frozen{background:#eaf3ee;color:#286247}.badge.danger{background:#fff0ed;color:#ad4937}.open{display:inline-flex;margin-top:16px;align-items:center;justify-content:center;min-height:42px;background:var(--ink);color:#fff;text-decoration:none;font-size:13px;font-weight:800}.open:hover{background:var(--blue)}footer{padding:28px 0 50px;border-top:1px solid var(--line);color:var(--muted);font-size:12px;line-height:1.7}
+    @media(max-width:900px){body{background:linear-gradient(180deg,#101b2d 0 310px,var(--paper) 310px)}.cards{grid-template-columns:repeat(2,minmax(0,1fr))}}
+    @media(max-width:600px){.wrap{width:min(100% - 28px,520px)}.masthead{padding:30px 0 64px}.masthead h1{font-size:52px}.toolbar{margin-top:-18px}.group{padding-left:42px}.timeline:before{left:10px}.group-marker{left:1px}.cards{grid-template-columns:1fr}.card{min-height:0}.stage{text-align:left}}
+  </style>
+</head>
+<body>
+  <header class="masthead wrap">
+    <p class="eyebrow">DANJION / HISTORY / COMPARE</p>
+    <h1>단지온은<br>이렇게 변해왔습니다.</h1>
+    <p>동생이 만든 단지온 디자인의 발전 과정을 연대와 family로 탐색합니다. 현재 권위본과 과거 실험은 모두 static, mock/read-only 비교 자료이며 운영 제품 권한을 갖지 않습니다.</p>
+    <p class="note">HISTORY ARCHIVE · NON-PRODUCTION · SOURCE PROVENANCE ON EVERY CARD</p>
+  </header>
+  <main class="wrap">
+    <nav id="filters" class="toolbar" aria-label="History family filters"></nav>
+    <section id="timeline" class="timeline" aria-live="polite"><p>Archive loading...</p></section>
+  </main>
+  <footer class="wrap"><strong>Safety boundary</strong><br>noindex · no production API write · no production credentials · no deployment · PR #378 remains FROZEN / DO_NOT_MERGE.</footer>
+  <script>
+    const registryPath = './registry.json';
+    const existing = new Set(['v3-current','legacy-a-v5','legacy-b-v7','pr378-frozen','react-v2-runtime']);
+    const familyOrder = ['V1','V2','V3','V4','V5','V6','V6 COLORWAYS','V7','M1','STATIC V2','REACT V2','CURRENT V3','CURRENT GATEWAY','PR #378'];
+    const esc = value => String(value).replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+    const routeFor = entry => entry.existing_route ? `..${entry.existing_route}` : `./${entry.bundle}/index.html`;
+    const badgeClass = entry => entry.do_not_merge ? 'danger' : entry.frozen ? 'frozen' : entry.status === 'HISTORY' ? 'history' : '';
+    function render(entries, active='ALL') {
+      const visible = active === 'ALL' ? entries : entries.filter(entry => entry.family === active);
+      const groups = familyOrder.filter(family => visible.some(entry => entry.family === family)).map(family => [family, visible.filter(entry => entry.family === family)]);
+      document.querySelector('#timeline').innerHTML = groups.map(([family, familyEntries]) => `<section class="group"><i class="group-marker" aria-hidden="true"></i><h2>${esc(family)}</h2><div class="cards">${familyEntries.map(entry => `<article class="card"><div class="card-head"><span class="family">${esc(entry.slug)}</span><span class="stage">${esc(entry.date)} · ${esc(entry.stage)}</span></div><h3>${esc(entry.name)}</h3><p>${esc(entry.difference)}</p><div class="meta"><span>SOURCE <b>${esc(entry.source_path)}</b></span><span>REF <b>${esc(entry.source_ref)}</b></span><span>SHA <b>${esc(entry.source_sha)}</b></span></div><div class="badges"><span class="badge ${badgeClass(entry)}">${esc(entry.status)}</span>${entry.frozen ? '<span class="badge frozen">FROZEN</span>' : ''}${entry.do_not_merge ? '<span class="badge danger">DO_NOT_MERGE</span>' : ''}</div><a class="open" href="${esc(routeFor(entry))}">${existing.has(entry.slug) ? '기존 비교 route 열기' : '이 단계 열기'} →</a></article>`).join('')}</div></section>`).join('') || '<p>No entries in this family.</p>';
+    }
+    fetch(registryPath, {cache:'no-store'}).then(response => { if(!response.ok) throw new Error(response.status); return response.json(); }).then(registry => {
+      const entries = registry.entries;
+      const filters = ['ALL', ...familyOrder.filter(family => entries.some(entry => entry.family === family))];
+      document.querySelector('#filters').innerHTML = filters.map(family => `<button class="filter" type="button" aria-pressed="${family === 'ALL'}" data-family="${esc(family)}">${family === 'ALL' ? '전체' : esc(family)}</button>`).join('');
+      document.querySelector('#filters').addEventListener('click', event => { const button = event.target.closest('[data-family]'); if(!button) return; document.querySelectorAll('.filter').forEach(item => item.setAttribute('aria-pressed', String(item === button))); render(entries, button.dataset.family); });
+      render(entries);
+    }).catch(error => { document.querySelector('#timeline').innerHTML = `<p>Archive registry를 불러오지 못했습니다: ${esc(error.message)}</p>`; });
+  </script>
+</body>
+</html>

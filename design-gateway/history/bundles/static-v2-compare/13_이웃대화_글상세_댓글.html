@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+
+<html lang="ko"><head>
+<meta charset="utf-8"/><meta content="width=device-width,initial-scale=1,viewport-fit=cover" name="viewport"/>
+<title>단지온 · 이웃대화 글 상세</title>
+<style>
+:root{--paper:#f6f2e9;--paper2:#fffdf8;--ink:#101317;--navy:#101d30;--coral:#ee6045;--amber:#f2b84b;--green:#255e49;--muted:#6d6a64;--line:#d8d0c3;--soft:#ece5d8}
+*{box-sizing:border-box}html{font-family:Pretendard,"Noto Sans KR",Arial,sans-serif;background:var(--paper);color:var(--ink)}body{margin:0;min-width:320px;background:var(--paper);padding-bottom:78px}button,a,textarea{font:inherit;color:inherit}button{cursor:pointer}a{text-decoration:none}
+.site-header{height:76px;border-bottom:1px solid var(--line);display:flex;align-items:center;position:sticky;top:0;z-index:20;background:rgba(246,242,233,.96)}.header-inner{width:min(1120px,calc(100% - 64px));margin:auto;display:flex;justify-content:space-between;align-items:center}.brand{font-size:25px;font-weight:900}.brand small{font-size:11px;color:#5f5c56;margin-left:8px;letter-spacing:.1em}.nav{display:flex;gap:36px}.nav a{font-weight:800}
+main{width:min(920px,calc(100% - 40px));margin:auto;padding-bottom:70px}.route{height:58px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:9px}.route a{font-weight:850}.route span{color:var(--muted);font-size:14px}
+.article{padding:42px 0 34px;border-bottom:1px solid var(--ink)}.type{color:var(--coral);font-size:13px;font-weight:900}.author{display:flex;align-items:center;gap:12px;margin:18px 0 22px}.avatar{width:44px;height:44px;border-radius:50%;background:var(--navy);color:#fff;display:grid;place-items:center;font-weight:900}.author b{display:block}.author small{color:var(--muted);font-size:13px}h1{font-size:38px;line-height:1.3;letter-spacing:-.045em;margin:0 0 19px}.body{font-size:18px;line-height:1.85;white-space:pre-line}.actions{display:flex;gap:10px;margin-top:28px}.actions button{min-height:46px;padding:0 16px;border:1px solid var(--line);background:var(--paper2);font-weight:850}.actions .liked{background:#fff0ec;border-color:#f3a696;color:var(--coral)}
+.comments{padding-top:32px}.comments h2{font-size:25px;margin:0 0 16px}.comment-list{list-style:none;padding:0;margin:0;border-top:1px solid var(--line)}.comment{padding:20px 0;border-bottom:1px solid var(--line)}.comment-head{display:flex;align-items:center;gap:8px}.comment-head b{font-size:15px}.comment-head span,.comment-head time{font-size:12px;color:var(--muted)}.comment p{font-size:16px;line-height:1.65;margin:9px 0 10px}.comment-tools{display:flex;gap:14px}.comment-tools button{border:0;background:none;padding:0;color:var(--muted);font-size:13px;font-weight:800}.replies{margin:12px 0 0 28px;padding-left:15px;border-left:2px solid var(--soft)}.reply{padding:9px 0}.reply b{font-size:14px}.reply p{margin:4px 0;font-size:14px}.reply-form{display:none;margin-top:10px}.reply-form.open{display:flex;gap:8px}.reply-form input{flex:1;min-width:0;height:40px;border:1px solid var(--line);background:#fff;padding:0 10px}.reply-form button{height:40px;border:0;background:var(--navy);color:#fff;padding:0 13px;font-weight:850}
+.composer{margin-top:28px;padding:20px;background:var(--paper2);border:1px solid var(--line)}.composer b{display:block;margin-bottom:10px}.composer textarea{width:100%;min-height:110px;border:1px solid var(--line);background:#fff;padding:13px;resize:vertical;font-size:16px}.composer-foot{display:flex;justify-content:space-between;align-items:center;margin-top:10px}.composer-foot small{color:var(--muted)}.composer-foot button{height:44px;border:0;background:var(--coral);color:#fff;padding:0 18px;font-weight:900}.mobile-bottom{display:none}
+@media(max-width:760px){.site-header{height:60px}.header-inner{width:100%;padding:0 20px}.brand{font-size:21px}.brand small,.nav{display:none}main{width:100%;padding:0 20px 30px}.route{height:52px;margin:0 -20px;padding:0 20px;background:var(--paper2)}.article{padding:28px 0 25px}h1{font-size:27px}.body{font-size:17px}.actions{position:sticky;bottom:68px;background:var(--paper);padding:9px 0;z-index:10}.comments{padding-top:25px}.composer{margin:20px -20px 0;border-left:0;border-right:0}.composer-foot{align-items:flex-end}.composer-foot small{max-width:58%}.mobile-bottom{position:fixed;display:grid;grid-template-columns:repeat(4,1fr);left:0;right:0;bottom:0;height:68px;background:rgba(255,253,248,.98);border-top:1px solid var(--line);z-index:30}.mobile-bottom a{display:grid;place-items:center;align-content:center;font-size:11px;font-weight:800;color:#706d67}.mobile-bottom a.active{color:var(--coral)}}
+
+/* 008 mobile bottom icon repair 20260904 */
+@media(max-width:760px){
+.mobile-bottom a{border:0;background:none;text-decoration:none;display:grid!important;place-items:center;align-content:center;gap:3px;color:#706d67;font-size:11px;font-weight:800;line-height:1.05}
+.mobile-bottom a.active{color:var(--coral,#ee6045)}
+.mobile-bottom svg{display:block!important;width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;overflow:visible}
+.mobile-bottom span{display:block}
+}
+</style><style id="front-audit-bottom-nav-standard-20260904">
+/* Frontend audit 1: all app content screens share one exact bottom navigation geometry. */
+@media (max-width:760px){
+  body{padding-bottom:68px!important}
+  .mobile-bottom{
+    position:fixed!important;display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;
+    left:0!important;right:0!important;bottom:0!important;width:100%!important;height:68px!important;
+    margin:0!important;padding:0!important;background:rgba(255,253,248,.98)!important;
+    border:0!important;border-top:1px solid #d8d0c3!important;box-shadow:none!important;z-index:90!important;
+  }
+  .mobile-bottom>button,.mobile-bottom>a{
+    appearance:none!important;-webkit-appearance:none!important;box-sizing:border-box!important;
+    width:auto!important;min-width:0!important;height:67px!important;margin:0!important;padding:0!important;
+    border:0!important;border-radius:0!important;background:transparent!important;text-decoration:none!important;
+    display:grid!important;grid-template-rows:22px 14px!important;align-content:center!important;justify-items:center!important;
+    place-items:initial!important;row-gap:3px!important;column-gap:0!important;
+    color:#706d67!important;font-family:inherit!important;font-size:12px!important;font-weight:800!important;
+    line-height:14px!important;letter-spacing:-.01em!important;text-align:center!important;
+  }
+  .mobile-bottom>button.active,.mobile-bottom>a.active{color:#ee6045!important}
+  .mobile-bottom svg{
+    display:block!important;width:22px!important;height:22px!important;margin:0!important;padding:0!important;
+    stroke:currentColor!important;fill:none!important;stroke-width:1.8!important;stroke-linecap:round!important;stroke-linejoin:round!important;
+    overflow:visible!important;
+  }
+  .mobile-bottom span{display:block!important;height:14px!important;margin:0!important;padding:0!important;line-height:14px!important;white-space:nowrap!important}
+  .toast{bottom:82px!important}
+}
+@media (min-width:761px){.mobile-bottom{display:none!important}}
+</style><style id="frontcheck-bottom-nav-optical-v4">
+/* Frontend audit 1 v4: optical-center every app bottom nav; hide browser scrollbar inside app viewport. */
+@media (max-width:760px){
+  html,body{scrollbar-width:none!important;-ms-overflow-style:none!important}
+  html::-webkit-scrollbar,body::-webkit-scrollbar{width:0!important;height:0!important;display:none!important}
+  html body .mobile-bottom{
+    position:fixed!important;left:0!important;right:0!important;bottom:0!important;
+    width:100%!important;height:68px!important;margin:0!important;padding:0!important;
+    display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;
+    background:rgba(255,253,248,.985)!important;border:0!important;border-top:1px solid #d8d0c3!important;
+    box-shadow:none!important;z-index:990!important;box-sizing:border-box!important;
+  }
+  html body .mobile-bottom>button,html body .mobile-bottom>a{
+    appearance:none!important;-webkit-appearance:none!important;
+    width:100%!important;min-width:0!important;height:67px!important;margin:0!important;padding:0!important;
+    border:0!important;border-radius:0!important;background:transparent!important;text-decoration:none!important;
+    display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;
+    gap:4px!important;color:#706d67!important;font-family:inherit!important;font-size:12px!important;font-weight:800!important;
+    line-height:14px!important;letter-spacing:-.01em!important;text-align:center!important;box-sizing:border-box!important;
+  }
+  html body .mobile-bottom>button.active,html body .mobile-bottom>a.active{color:#ee6045!important}
+  html body .mobile-bottom svg{
+    display:block!important;flex:0 0 22px!important;width:22px!important;height:22px!important;
+    margin:0 auto!important;padding:0!important;transform:none!important;
+    stroke:currentColor!important;fill:none!important;stroke-width:1.8!important;stroke-linecap:round!important;stroke-linejoin:round!important;
+    overflow:visible!important;box-sizing:content-box!important;
+  }
+  html body .mobile-bottom span{
+    display:block!important;flex:0 0 14px!important;width:100%!important;height:14px!important;margin:0!important;padding:0!important;
+    line-height:14px!important;text-align:center!important;white-space:nowrap!important;transform:none!important;
+  }
+}
+</style><link data-final-header-sync="20260904" href="assets/consistency.css" rel="stylesheet"/></head>
+<body data-danjion-page="13">
+<header class="site-header"><div class="header-inner"><a class="brand" href="index.html">단지온 <small>DANJION by PADIEM</small></a><nav class="nav"><a href="04_데일리홈.html">홈</a><a href="01_이웃가게_발견.html">이웃가게</a><a href="05_우리단지_첫화면.html">우리단지</a><a href="19_내정보_메인.html">내정보</a></nav><div class="identity">방림명지로드힐</div></div></header>
+<main><div class="route"><a href="12_이웃대화_첫화면.html" id="backLink">← 이웃대화</a><span>/ 글 상세</span></div>
+<article class="article"><span class="type" id="typeLabel"></span><div class="author"><span class="avatar" id="avatar"></span><div><b id="author"></b><small id="levelTime"></small></div></div><h1 id="title"></h1><div class="body" id="body"></div><div class="actions"><button id="likeBtn" type="button">♡ 공감 <span id="likeCount"></span></button><button id="focusComment" type="button">댓글 <span id="commentCount"></span></button></div></article>
+<section class="comments"><h2>댓글 <span id="commentTitleCount"></span></h2><ol class="comment-list" id="commentList"></ol>
+<form class="composer" id="commentForm"><b>댓글 쓰기</b><textarea id="commentText" maxlength="500" placeholder="따뜻한 인사나 도움이 되는 답변을 남겨보세요."></textarea><div class="composer-foot"><small>서로 존중하는 말로 이야기해 주세요.</small><button type="submit">댓글 등록</button></div></form></section>
+</main>
+<nav aria-label="모바일 주요 메뉴" class="mobile-bottom"><button aria-label="홈" data-route="04_데일리홈.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><path d="m3 10 9-7 9 7v10h-6v-6H9v6H3z"></path></svg><span>홈</span></button><button aria-label="이웃가게" data-route="01_이웃가게_발견.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><path d="M4 7h16l-1 13H5L4 7Z"></path><path d="M8 7V5a4 4 0 0 1 8 0v2"></path></svg><span>이웃가게</span></button><button aria-label="우리단지" class="active" data-route="05_우리단지_첫화면.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><path d="M4 21V9l8-6 8 6v12"></path><path d="M8 13h8M8 17h8"></path></svg><span>우리단지</span></button><button aria-label="내정보" data-route="19_내정보_메인.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><circle cx="12" cy="8" r="4"></circle><path d="M4 21a8 8 0 0 1 16 0"></path></svg><span>내정보</span></button></nav>
+<script>
+(()=>{
+const DATA={
+hello:{label:'가입인사',author:'초록문',level:'새 이웃',time:'18분 전',title:'안녕하세요. 오늘 단지온에 처음 가입했어요.',body:'이사 온 지는 조금 됐지만 이웃분들과 인사할 기회가 많지 않았어요.\n단지 소식도 확인하고 생활정보도 편하게 나누고 싶습니다. 잘 부탁드립니다.',likes:12,comments:[['산책메이트','인사하는 이웃','반가워요. 단지온에서 자주 뵈어요!'],['한울타리','참여하는 이웃','환영합니다. 궁금한 게 있으면 편하게 물어보세요.']]},
+story:{label:'단지이야기',author:'길고양이',level:'도움 주는 이웃',time:'41분 전',title:'오늘 분리수거장이 깨끗하게 정리되어 있네요.',body:'아침에 내려갔는데 종류별로 가지런히 정리되어 있어서 편하게 이용했습니다.\n이른 시간부터 정리해주신 분께 감사드려요.',likes:19,comments:[['맑은하루','참여하는 이웃','저도 오늘 깨끗해진 걸 보고 기분이 좋았어요.']]},
+question:{label:'궁금해요',author:'연블리',level:'참여하는 이웃',time:'1시간 전',title:'세탁기 청소 맡겨보신 분 계실까요?',body:'오래 사용해서 한 번 제대로 분해 청소를 하려고 해요.\n직접 이용해보신 곳 중 설명을 잘해준 곳이 있으면 알려주세요.',likes:4,comments:[['살림손','도움 주는 이웃','지난달에 이용한 곳이 전후 사진을 보내줘서 좋았어요.']]},
+together:{label:'같이해요',author:'봄날',level:'인사하는 이웃',time:'2시간 전',title:'평일 저녁에 단지 주변 같이 걸으실 분 계세요?',body:'저녁 8시쯤 가볍게 30분 정도 걸으려고 합니다.\n빠르게 걷지 않아도 괜찮고 이번 주 수요일부터 시작하면 좋겠어요.',likes:7,comments:[['저녁바람','인사하는 이웃','8시면 저도 가능해요. 수요일에 함께 걸어요.']]}
+};
+const qs=new URLSearchParams(location.search);let type=qs.get('type')||'hello';if(!DATA[type])type='hello';const d=DATA[type];
+const fromAll=qs.get('from')==='all';document.getElementById('backLink').href='12_이웃대화_첫화면.html?type='+type+(fromAll?'&view=all':'');
+typeLabel.textContent=d.label;avatar.textContent=d.author.slice(0,1);author.textContent=d.author;levelTime.textContent=d.level+' · '+d.time;title.textContent=d.title;body.textContent=d.body;likeCount.textContent=d.likes;
+let liked=false, comments=d.comments.map((x,i)=>({name:x[0],level:x[1],text:x[2],replies:i===0?[{name:'연블리',text:'답변 고맙습니다!'}]:[]}));
+function updateCounts(){commentCount.textContent=comments.length;commentTitleCount.textContent=comments.length}
+function renderComments(){commentList.innerHTML=comments.map((c,i)=>`<li class="comment"><div class="comment-head"><b>${c.name}</b><span>${c.level}</span><time>방금 전</time></div><p>${c.text}</p><div class="comment-tools"><button type="button" data-clike="${i}">♡ 공감 0</button><button type="button" data-reply="${i}">답글</button></div><div class="replies">${c.replies.map(r=>`<div class="reply"><b>↳ ${r.name}</b><p>${r.text}</p></div>`).join('')}</div><form class="reply-form" data-rform="${i}"><input maxlength="200" placeholder="${c.name}님에게 답글"><button type="submit">등록</button></form></li>`).join('');updateCounts()}
+likeBtn.addEventListener('click',()=>{liked=!liked;likeCount.textContent=d.likes+(liked?1:0);likeBtn.classList.toggle('liked',liked);likeBtn.firstChild.textContent=liked?'♥ 공감 ':'♡ 공감 '});
+focusComment.addEventListener('click',()=>{commentText.scrollIntoView({behavior:'smooth',block:'center'});setTimeout(()=>commentText.focus(),250)});
+commentList.addEventListener('click',e=>{const r=e.target.closest('[data-reply]');if(r){const form=document.querySelector(`[data-rform="${r.dataset.reply}"]`);form.classList.toggle('open');form.querySelector('input').focus();return}const l=e.target.closest('[data-clike]');if(l){const on=l.dataset.on==='1';l.dataset.on=on?'0':'1';l.textContent=(on?'♡ 공감 0':'♥ 공감 1')}});
+commentList.addEventListener('submit',e=>{const f=e.target.closest('.reply-form');if(!f)return;e.preventDefault();const input=f.querySelector('input'),v=input.value.trim();if(!v)return;comments[Number(f.dataset.rform)].replies.push({name:'연블리',text:v});renderComments()});
+commentForm.addEventListener('submit',e=>{e.preventDefault();const v=commentText.value.trim();if(!v)return;comments.push({name:'연블리',level:'참여하는 이웃',text:v,replies:[]});commentText.value='';renderComments();commentList.lastElementChild?.scrollIntoView({behavior:'smooth',block:'center'})});
+renderComments();
+})();
+</script></body></html>

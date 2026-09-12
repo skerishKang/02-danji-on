@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+
+<html lang="ko">
+<head>
+<meta charset="utf-8"/><meta content="width=device-width,initial-scale=1,viewport-fit=cover" name="viewport"/>
+<title>단지온 · 이웃대화</title>
+<style>
+:root{--paper:#f6f2e9;--paper2:#fffdf8;--ink:#101317;--navy:#101d30;--coral:#ee6045;--amber:#f2b84b;--green:#255e49;--muted:#6d6a64;--line:#d8d0c3;--soft:#ece5d8;--header:76px}
+*{box-sizing:border-box}html{font-family:Pretendard,"Noto Sans KR",Arial,sans-serif;background:var(--paper);color:var(--ink)}body{margin:0;min-width:320px;background:var(--paper);padding-bottom:78px}button,a{font:inherit;color:inherit}button{cursor:pointer}a{text-decoration:none}
+.site-header{height:var(--header);border-bottom:1px solid var(--line);background:rgba(246,242,233,.96);position:sticky;top:0;z-index:30;display:flex;align-items:center}.header-inner{width:min(1280px,calc(100% - 64px));margin:auto;display:flex;align-items:center;justify-content:space-between}.brand{font-size:25px;font-weight:900;letter-spacing:-.05em}.brand small{font-size:11px;letter-spacing:.11em;color:#5f5c56;margin-left:8px}.desktop-nav{display:flex;gap:42px;height:76px}.desktop-nav a{display:flex;align-items:center;font-weight:800;position:relative}.desktop-nav a.active:after{content:"";height:3px;background:var(--coral);position:absolute;left:0;right:0;bottom:0}.identity{font-size:14px;font-weight:780;color:#58554f}
+main{width:min(1280px,calc(100% - 64px));margin:auto;padding-bottom:80px}.route{height:58px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px}.route a{font-size:15px;font-weight:850}.route span{font-size:14px;color:var(--muted)}
+.intro{display:flex;align-items:end;justify-content:space-between;gap:32px;padding:42px 0 25px}.eyebrow{font-size:13px;font-weight:900;color:var(--coral);margin-bottom:10px}.eyebrow:before{content:"";display:inline-block;width:28px;height:2px;background:var(--coral);margin-right:10px;vertical-align:middle}h1{font-size:58px;line-height:1;margin:0;letter-spacing:-.055em}.intro p{font-size:17px;color:var(--muted);margin:14px 0 0}.write-main{height:54px;padding:0 22px;border:0;background:var(--navy);color:#fff;font-weight:900;font-size:16px;display:flex;align-items:center;gap:22px}.write-main b{font-size:21px}
+.topics{display:grid;grid-template-columns:repeat(4,1fr);border:1px solid var(--line);background:var(--paper2)}.topic{min-height:92px;padding:17px 20px;border:0;border-right:1px solid var(--line);background:transparent;text-align:left;position:relative}.topic:last-child{border-right:0}.topic .no{display:block;font-size:13px;font-weight:900;color:var(--coral);margin-bottom:9px}.topic b{font-size:19px}.topic small{display:block;color:var(--muted);font-size:13px;margin-top:5px}.topic.active:after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:4px;background:var(--coral)}.topic.active{background:#fffaf4}
+.board{margin-top:34px;border-top:2px solid var(--ink)}.board-head{min-height:70px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line)}.board-head h2{font-size:25px;margin:0}.board-tools{display:flex;align-items:center;gap:10px}.all-filter{height:40px;border:1px solid var(--line);background:var(--paper2);padding:0 14px;font-weight:800}.all-filter.active{background:var(--ink);color:#fff;border-color:var(--ink)}
+.post-row{display:grid;grid-template-columns:120px minmax(0,1fr) 150px;gap:22px;align-items:center;min-height:108px;border-bottom:1px solid var(--line);padding:17px 5px}.post-row:hover{background:rgba(255,253,248,.65)}.author{display:flex;align-items:center;gap:11px}.avatar{width:40px;height:40px;border-radius:50%;background:var(--navy);color:#fff;display:grid;place-items:center;font-weight:900}.author b{display:block;font-size:14px}.author small{display:block;font-size:12px;color:var(--muted);margin-top:3px}.post-title{min-width:0}.type{display:inline-block;font-size:12px;font-weight:900;color:var(--coral);margin-bottom:7px}.post-title a{display:block;font-size:20px;font-weight:900;letter-spacing:-.025em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.post-title a:hover{text-decoration:underline}.meta-actions{display:flex;justify-content:flex-end;gap:16px;color:var(--muted);font-size:13px;font-weight:800}.meta-actions span{white-space:nowrap}.mobile-write{display:none}.mobile-bottom{display:none}
+@media(max-width:760px){:root{--header:60px}.site-header{height:60px}.header-inner{width:100%;padding:0 20px}.brand{font-size:21px}.brand small,.desktop-nav,.identity{display:none}main{width:100%;padding:0 20px 35px}.route{height:52px;margin:0 -20px;padding:0 20px;background:var(--paper2)}.intro{display:block;padding:24px 0 19px}.eyebrow{font-size:12px}h1{font-size:42px}.intro p{font-size:15px;line-height:1.55}.write-main{display:none}.topics{margin:0 -20px;border-left:0;border-right:0;overflow:visible;grid-template-columns:repeat(2,minmax(0,1fr))}.topic{min-height:82px;padding:13px 15px;border-bottom:1px solid var(--line)}.topic:nth-child(2n){border-right:0}.topic:nth-child(n+3){border-bottom:0}.topic b{font-size:17px}.topic small{font-size:12px;line-height:1.35}.board{margin-top:24px}.board-head{min-height:58px}.board-head h2{font-size:22px}.post-row{grid-template-columns:1fr;gap:8px;min-height:116px;padding:16px 0}.author{grid-row:1}.post-title{grid-row:2}.post-title a{font-size:18px;white-space:normal;line-height:1.35}.meta-actions{grid-row:3;justify-content:flex-start;font-size:12px}.type{position:absolute;right:20px;margin-top:-33px}.mobile-write{display:grid;place-items:center;position:fixed;right:18px;bottom:86px;width:54px;height:54px;border-radius:50%;border:0;background:var(--coral);color:#fff;font-size:26px;font-weight:900;z-index:44;box-shadow:0 10px 28px rgba(0,0,0,.18)}.mobile-bottom{position:fixed;display:grid;grid-template-columns:repeat(4,1fr);left:0;right:0;bottom:0;height:68px;background:rgba(255,253,248,.98);border-top:1px solid var(--line);z-index:40}.mobile-bottom a{display:grid;place-items:center;align-content:center;gap:3px;color:#706d67;font-size:11px;font-weight:800}.mobile-bottom a.active{color:var(--coral)}}
+
+/* 008 mobile bottom icon repair 20260904 */
+@media(max-width:760px){
+.mobile-bottom a{border:0;background:none;text-decoration:none;display:grid!important;place-items:center;align-content:center;gap:3px;color:#706d67;font-size:11px;font-weight:800;line-height:1.05}
+.mobile-bottom a.active{color:var(--coral,#ee6045)}
+.mobile-bottom svg{display:block!important;width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;overflow:visible}
+.mobile-bottom span{display:block}
+}
+</style>
+<style id="front-audit-bottom-nav-standard-20260904">
+/* Frontend audit 1: all app content screens share one exact bottom navigation geometry. */
+@media (max-width:760px){
+  body{padding-bottom:68px!important}
+  .mobile-bottom{
+    position:fixed!important;display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;
+    left:0!important;right:0!important;bottom:0!important;width:100%!important;height:68px!important;
+    margin:0!important;padding:0!important;background:rgba(255,253,248,.98)!important;
+    border:0!important;border-top:1px solid #d8d0c3!important;box-shadow:none!important;z-index:90!important;
+  }
+  .mobile-bottom>button,.mobile-bottom>a{
+    appearance:none!important;-webkit-appearance:none!important;box-sizing:border-box!important;
+    width:auto!important;min-width:0!important;height:67px!important;margin:0!important;padding:0!important;
+    border:0!important;border-radius:0!important;background:transparent!important;text-decoration:none!important;
+    display:grid!important;grid-template-rows:22px 14px!important;align-content:center!important;justify-items:center!important;
+    place-items:initial!important;row-gap:3px!important;column-gap:0!important;
+    color:#706d67!important;font-family:inherit!important;font-size:12px!important;font-weight:800!important;
+    line-height:14px!important;letter-spacing:-.01em!important;text-align:center!important;
+  }
+  .mobile-bottom>button.active,.mobile-bottom>a.active{color:#ee6045!important}
+  .mobile-bottom svg{
+    display:block!important;width:22px!important;height:22px!important;margin:0!important;padding:0!important;
+    stroke:currentColor!important;fill:none!important;stroke-width:1.8!important;stroke-linecap:round!important;stroke-linejoin:round!important;
+    overflow:visible!important;
+  }
+  .mobile-bottom span{display:block!important;height:14px!important;margin:0!important;padding:0!important;line-height:14px!important;white-space:nowrap!important}
+  .toast{bottom:82px!important}
+}
+@media (min-width:761px){.mobile-bottom{display:none!important}}
+</style><style id="frontcheck-bottom-nav-optical-v4">
+/* Frontend audit 1 v4: optical-center every app bottom nav; hide browser scrollbar inside app viewport. */
+@media (max-width:760px){
+  html,body{scrollbar-width:none!important;-ms-overflow-style:none!important}
+  html::-webkit-scrollbar,body::-webkit-scrollbar{width:0!important;height:0!important;display:none!important}
+  html body .mobile-bottom{
+    position:fixed!important;left:0!important;right:0!important;bottom:0!important;
+    width:100%!important;height:68px!important;margin:0!important;padding:0!important;
+    display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;
+    background:rgba(255,253,248,.985)!important;border:0!important;border-top:1px solid #d8d0c3!important;
+    box-shadow:none!important;z-index:990!important;box-sizing:border-box!important;
+  }
+  html body .mobile-bottom>button,html body .mobile-bottom>a{
+    appearance:none!important;-webkit-appearance:none!important;
+    width:100%!important;min-width:0!important;height:67px!important;margin:0!important;padding:0!important;
+    border:0!important;border-radius:0!important;background:transparent!important;text-decoration:none!important;
+    display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;
+    gap:4px!important;color:#706d67!important;font-family:inherit!important;font-size:12px!important;font-weight:800!important;
+    line-height:14px!important;letter-spacing:-.01em!important;text-align:center!important;box-sizing:border-box!important;
+  }
+  html body .mobile-bottom>button.active,html body .mobile-bottom>a.active{color:#ee6045!important}
+  html body .mobile-bottom svg{
+    display:block!important;flex:0 0 22px!important;width:22px!important;height:22px!important;
+    margin:0 auto!important;padding:0!important;transform:none!important;
+    stroke:currentColor!important;fill:none!important;stroke-width:1.8!important;stroke-linecap:round!important;stroke-linejoin:round!important;
+    overflow:visible!important;box-sizing:content-box!important;
+  }
+  html body .mobile-bottom span{
+    display:block!important;flex:0 0 14px!important;width:100%!important;height:14px!important;margin:0!important;padding:0!important;
+    line-height:14px!important;text-align:center!important;white-space:nowrap!important;transform:none!important;
+  }
+}
+</style><link data-final-header-sync="20260904" href="assets/consistency.css" rel="stylesheet"/></head>
+<body data-danjion-page="12">
+<header class="site-header"><div class="header-inner"><a class="brand" href="index.html">단지온 <small>DANJION by PADIEM</small></a><nav class="desktop-nav"><a href="04_데일리홈.html">홈</a><a href="01_이웃가게_발견.html">이웃가게</a><a class="active" href="05_우리단지_첫화면.html">우리단지</a><a href="19_내정보_메인.html">내정보</a></nav><div class="identity">방림명지로드힐</div></div></header>
+<main>
+<div class="route"><a class="route-back" href="05_우리단지_첫화면.html">← 우리단지</a><span>/ 이웃대화</span></div>
+<section class="intro"><div><div class="eyebrow">우리 단지 주민이 직접 쓰고 대화하는 공간</div><h1>이웃대화</h1><p>카테고리를 고르면 해당 글만 보고, 글쓰기는 바로 그 카테고리로 시작합니다.</p></div><button class="write-main" id="writeMain" type="button">가입인사 글쓰기 <b>＋</b></button></section>
+<section aria-label="이웃대화 유형" class="topics">
+<button class="topic active" data-type="hello" type="button"><span class="no">01</span><b>가입인사</b><small>새 이웃과 반갑게 인사해요.</small></button>
+<button class="topic" data-type="story" type="button"><span class="no">02</span><b>단지이야기</b><small>정보와 일상을 나눠요.</small></button>
+<button class="topic" data-type="question" type="button"><span class="no">03</span><b>궁금해요</b><small>생활 속 궁금한 것을 물어요.</small></button>
+<button class="topic" data-type="together" type="button"><span class="no">04</span><b>같이해요</b><small>산책·취미·공동구매를 함께해요.</small></button>
+</section>
+<section class="board">
+<header class="board-head"><h2>지금 올라온 이야기</h2><div class="board-tools"><button class="all-filter" type="button">전체 보기</button></div></header>
+<div id="postList"></div>
+</section>
+</main>
+<button aria-label="현재 카테고리 글쓰기" class="mobile-write" id="mobileWrite" type="button">＋</button>
+<nav aria-label="모바일 주요 메뉴" class="mobile-bottom"><button aria-label="홈" data-route="04_데일리홈.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><path d="m3 10 9-7 9 7v10h-6v-6H9v6H3z"></path></svg><span>홈</span></button><button aria-label="이웃가게" data-route="01_이웃가게_발견.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><path d="M4 7h16l-1 13H5L4 7Z"></path><path d="M8 7V5a4 4 0 0 1 8 0v2"></path></svg><span>이웃가게</span></button><button aria-label="우리단지" class="active" data-route="05_우리단지_첫화면.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><path d="M4 21V9l8-6 8 6v12"></path><path d="M8 13h8M8 17h8"></path></svg><span>우리단지</span></button><button aria-label="내정보" data-route="19_내정보_메인.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><circle cx="12" cy="8" r="4"></circle><path d="M4 21a8 8 0 0 1 16 0"></path></svg><span>내정보</span></button></nav>
+<script>
+(()=>{
+const TYPES={
+ hello:{label:'가입인사',write:'14_가입인사_글쓰기.html'},
+ story:{label:'단지이야기',write:'15_단지이야기_글쓰기.html'},
+ question:{label:'궁금해요',write:'16_궁금해요_글쓰기.html'},
+ together:{label:'같이해요',write:'17_같이해요_글쓰기.html'}
+};
+const POSTS=[
+ {id:'hello1',type:'hello',author:'초록문',level:'새 이웃',time:'18분 전',title:'안녕하세요. 오늘 단지온에 처음 가입했어요.',likes:12,comments:4},
+ {id:'story1',type:'story',author:'길고양이',level:'도움 주는 이웃',time:'41분 전',title:'오늘 분리수거장이 깨끗하게 정리되어 있네요.',likes:19,comments:3},
+ {id:'question1',type:'question',author:'연블리',level:'참여하는 이웃',time:'1시간 전',title:'세탁기 청소 맡겨보신 분 계실까요?',likes:4,comments:4},
+ {id:'together1',type:'together',author:'봄날',level:'인사하는 이웃',time:'2시간 전',title:'평일 저녁에 단지 주변 같이 걸으실 분 계세요?',likes:7,comments:3}
+];
+const params=new URLSearchParams(location.search);let selected=params.get('type')||'hello';
+if(!TYPES[selected])selected='hello'; let showAll=params.get('view')==='all';
+const list=document.getElementById('postList'), writeMain=document.getElementById('writeMain'), mobileWrite=document.getElementById('mobileWrite'), allBtn=document.querySelector('.all-filter');
+function initials(name){return name.slice(0,1)}
+function writeTarget(){location.href=TYPES[selected].write}
+function render(){
+ document.querySelectorAll('.topic').forEach(b=>b.classList.toggle('active',b.dataset.type===selected));
+ writeMain.childNodes[0].nodeValue=TYPES[selected].label+' 글쓰기 ';
+ allBtn.classList.toggle('active',showAll);
+ const data=showAll?POSTS:POSTS.filter(p=>p.type===selected);
+ list.innerHTML=data.map(p=>`<article class="post-row" data-type="${p.type}">
+ <div class="author"><span class="avatar">${initials(p.author)}</span><div><b>${p.author}</b><small>${p.level} · ${p.time}</small></div></div>
+ <div class="post-title"><span class="type">${TYPES[p.type].label}</span><a href="13_이웃대화_글상세_댓글.html?type=${p.type}&post=${p.id}${showAll?'&from=all':''}">${p.title}</a></div>
+ <div class="meta-actions"><span>♡ 공감 ${p.likes}</span><span>댓글 ${p.comments}</span></div></article>`).join('');
+}
+document.querySelectorAll('.topic').forEach(b=>b.addEventListener('click',()=>{selected=b.dataset.type;showAll=false;try{history.replaceState(null,'','?type='+selected)}catch(e){}render()}));
+allBtn.addEventListener('click',()=>{showAll=!showAll;try{history.replaceState(null,'',showAll?'?view=all&type='+selected:'?type='+selected)}catch(e){}render()});
+writeMain.addEventListener('click',writeTarget);mobileWrite.addEventListener('click',writeTarget);
+render();
+})();
+</script>
+</body></html>

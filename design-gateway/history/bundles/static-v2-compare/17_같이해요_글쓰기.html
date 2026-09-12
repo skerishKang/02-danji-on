@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+
+<html lang="ko">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width,initial-scale=1,viewport-fit=cover" name="viewport"/>
+<title>단지온 · 같이해요 글쓰기</title>
+<style>
+:root{--paper:#fbfaf6;--ink:#111217;--muted:#74716a;--line:#ded8cc;--coral:#ed5a42;--navy:#101b2d;--amber:#e8a92f;--soft:#f1eee7}
+*{box-sizing:border-box}html{font-family:Pretendard,"Noto Sans KR",Arial,sans-serif;background:var(--paper);color:var(--ink);-webkit-text-size-adjust:100%}body{margin:0;min-width:320px;background:var(--paper);padding-bottom:96px;word-break:keep-all}button,input,textarea{font:inherit}button{cursor:pointer}
+.writebar{height:66px;position:sticky;top:0;z-index:20;background:rgba(251,250,246,.96);backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}.writebar-inner{width:min(760px,100%);height:100%;margin:auto;padding:0 20px;display:grid;grid-template-columns:54px 1fr 72px;align-items:center}.back{width:44px;height:44px;border:0;background:none;font-size:24px;text-align:left;padding:0;color:var(--ink)}.writebar strong{font-size:18px;text-align:center;letter-spacing:-.025em}.top-publish{height:40px;border:0;background:none;color:var(--coral);font-weight:900;font-size:15px}
+main{width:min(760px,100%);margin:auto;padding:28px 20px 34px}.category{display:inline-flex;align-items:center;min-height:34px;padding:0 12px;border-radius:999px;background:#eee9df;color:#4c4943;font-size:14px;font-weight:850}h1{margin:17px 0 8px;font-size:30px;line-height:1.18;letter-spacing:-.045em}.lead{margin:0 0 22px;color:var(--muted);font-size:16px;line-height:1.55}
+.type-tabs{display:grid;grid-template-columns:repeat(4,1fr);border:1px solid var(--line);margin:0 0 22px;background:#fff}.type-tab{min-height:58px;border:0;border-right:1px solid var(--line);background:#fff;font-weight:850;font-size:14px;padding:10px 8px}.type-tab:last-child{border-right:0}.type-tab.active{background:var(--navy);color:#fff;box-shadow:inset 0 -3px var(--coral)}.type-help{margin:-10px 0 22px;color:var(--muted);font-size:13px;line-height:1.5}
+.editor{border-top:1px solid var(--ink)}.field{padding:18px 0;border-bottom:1px solid var(--line)}.field label{display:flex;justify-content:space-between;gap:12px;font-size:14px;font-weight:900;margin-bottom:10px}.field label small{color:var(--muted);font-weight:700}.title-input,.dynamic-input{width:100%;height:54px;border:0;background:transparent;padding:0;font-size:18px;outline:none}.title-input{font-size:20px;font-weight:800}.title-input::placeholder,.dynamic-input::placeholder{color:#aaa59d;font-weight:650}.body-input{display:block;width:100%;min-height:220px;border:0;background:transparent;padding:4px 0 0;resize:vertical;font-size:18px;line-height:1.7;outline:none}.body-input::placeholder{color:#aaa59d}.dynamic{display:grid;grid-template-columns:1fr 1fr;column-gap:20px}.dynamic .field.full{grid-column:1/-1}.safety{margin:18px 0 0;padding:14px 16px;border-left:3px solid var(--amber);background:#fff8e9;color:#5c4a28;font-size:13px;line-height:1.55}.rule{padding:17px 0;color:var(--muted);font-size:14px;line-height:1.55}
+.publish-wrap{position:fixed;left:0;right:0;bottom:0;z-index:18;padding:12px max(20px,calc((100vw - 720px)/2));padding-bottom:calc(12px + env(safe-area-inset-bottom,0px));background:linear-gradient(180deg,rgba(251,250,246,0),var(--paper) 24%)}.publish{width:100%;height:56px;border:0;background:var(--coral);color:#fff;font-weight:900;font-size:17px}.toast{position:fixed;left:50%;bottom:90px;z-index:50;transform:translate(-50%,18px);opacity:0;pointer-events:none;background:var(--ink);color:#fff;padding:12px 16px;font-size:14px;transition:.2s}.toast.show{opacity:1;transform:translate(-50%,0)}
+@media(max-width:760px){.writebar{height:58px}.writebar-inner{padding:0 16px;grid-template-columns:48px 1fr 62px}.writebar strong{font-size:17px}main{padding:22px 20px 24px}h1{font-size:26px;margin-top:14px}.lead{font-size:15px;margin-bottom:18px}.type-tabs{grid-template-columns:1fr 1fr}.type-tab{min-height:52px;border-bottom:1px solid var(--line)}.type-tab:nth-child(2){border-right:0}.type-tab:nth-child(3),.type-tab:nth-child(4){border-bottom:0}.dynamic{display:block}.field{padding:16px 0}.title-input{font-size:18px}.body-input{min-height:220px;font-size:17px}.publish-wrap{padding-left:16px;padding-right:16px}}
+@media(prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
+
+/* APP persistent nav/back fix 20260904 */
+.mobile-bottom{display:none}
+@media(max-width:760px){
+  body{padding-bottom:170px}
+  .writebar{position:fixed!important;left:0;right:0;top:0;height:58px;z-index:80}
+  .writebar-inner{height:58px}
+  main{padding-top:80px!important;padding-bottom:170px!important}
+  .publish-wrap{bottom:68px!important;left:0;right:0;z-index:65!important;padding:10px 16px 12px!important;background:linear-gradient(180deg,rgba(251,250,246,0),var(--paper) 24%)}
+  .toast{bottom:148px!important}
+  .mobile-bottom{position:fixed;display:grid;grid-template-columns:repeat(4,1fr);left:0;right:0;bottom:0;height:68px;background:rgba(255,253,248,.98);border-top:1px solid var(--line);z-index:70}
+  .mobile-bottom a{display:grid;place-items:center;align-content:center;color:#706d67;font-size:11px;font-weight:800;text-decoration:none}
+  .mobile-bottom a.active{color:var(--coral)}
+}
+
+/* 008 mobile bottom icon repair 20260904 */
+@media(max-width:760px){
+.mobile-bottom a{border:0;background:none;text-decoration:none;display:grid!important;place-items:center;align-content:center;gap:3px;color:#706d67;font-size:11px;font-weight:800;line-height:1.05}
+.mobile-bottom a.active{color:var(--coral,#ee6045)}
+.mobile-bottom svg{display:block!important;width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;overflow:visible}
+.mobile-bottom span{display:block}
+}
+</style>
+<style id="front-audit-bottom-nav-standard-20260904">
+/* Frontend audit 1: all app content screens share one exact bottom navigation geometry. */
+@media (max-width:760px){
+  body{padding-bottom:68px!important}
+  .mobile-bottom{
+    position:fixed!important;display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;
+    left:0!important;right:0!important;bottom:0!important;width:100%!important;height:68px!important;
+    margin:0!important;padding:0!important;background:rgba(255,253,248,.98)!important;
+    border:0!important;border-top:1px solid #d8d0c3!important;box-shadow:none!important;z-index:90!important;
+  }
+  .mobile-bottom>button,.mobile-bottom>a{
+    appearance:none!important;-webkit-appearance:none!important;box-sizing:border-box!important;
+    width:auto!important;min-width:0!important;height:67px!important;margin:0!important;padding:0!important;
+    border:0!important;border-radius:0!important;background:transparent!important;text-decoration:none!important;
+    display:grid!important;grid-template-rows:22px 14px!important;align-content:center!important;justify-items:center!important;
+    place-items:initial!important;row-gap:3px!important;column-gap:0!important;
+    color:#706d67!important;font-family:inherit!important;font-size:12px!important;font-weight:800!important;
+    line-height:14px!important;letter-spacing:-.01em!important;text-align:center!important;
+  }
+  .mobile-bottom>button.active,.mobile-bottom>a.active{color:#ee6045!important}
+  .mobile-bottom svg{
+    display:block!important;width:22px!important;height:22px!important;margin:0!important;padding:0!important;
+    stroke:currentColor!important;fill:none!important;stroke-width:1.8!important;stroke-linecap:round!important;stroke-linejoin:round!important;
+    overflow:visible!important;
+  }
+  .mobile-bottom span{display:block!important;height:14px!important;margin:0!important;padding:0!important;line-height:14px!important;white-space:nowrap!important}
+  .toast{bottom:82px!important}
+}
+@media (min-width:761px){.mobile-bottom{display:none!important}}
+</style><style id="frontcheck-bottom-nav-optical-v4">
+/* Frontend audit 1 v4: optical-center every app bottom nav; hide browser scrollbar inside app viewport. */
+@media (max-width:760px){
+  html,body{scrollbar-width:none!important;-ms-overflow-style:none!important}
+  html::-webkit-scrollbar,body::-webkit-scrollbar{width:0!important;height:0!important;display:none!important}
+  html body .mobile-bottom{
+    position:fixed!important;left:0!important;right:0!important;bottom:0!important;
+    width:100%!important;height:68px!important;margin:0!important;padding:0!important;
+    display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;
+    background:rgba(255,253,248,.985)!important;border:0!important;border-top:1px solid #d8d0c3!important;
+    box-shadow:none!important;z-index:990!important;box-sizing:border-box!important;
+  }
+  html body .mobile-bottom>button,html body .mobile-bottom>a{
+    appearance:none!important;-webkit-appearance:none!important;
+    width:100%!important;min-width:0!important;height:67px!important;margin:0!important;padding:0!important;
+    border:0!important;border-radius:0!important;background:transparent!important;text-decoration:none!important;
+    display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;
+    gap:4px!important;color:#706d67!important;font-family:inherit!important;font-size:12px!important;font-weight:800!important;
+    line-height:14px!important;letter-spacing:-.01em!important;text-align:center!important;box-sizing:border-box!important;
+  }
+  html body .mobile-bottom>button.active,html body .mobile-bottom>a.active{color:#ee6045!important}
+  html body .mobile-bottom svg{
+    display:block!important;flex:0 0 22px!important;width:22px!important;height:22px!important;
+    margin:0 auto!important;padding:0!important;transform:none!important;
+    stroke:currentColor!important;fill:none!important;stroke-width:1.8!important;stroke-linecap:round!important;stroke-linejoin:round!important;
+    overflow:visible!important;box-sizing:content-box!important;
+  }
+  html body .mobile-bottom span{
+    display:block!important;flex:0 0 14px!important;width:100%!important;height:14px!important;margin:0!important;padding:0!important;
+    line-height:14px!important;text-align:center!important;white-space:nowrap!important;transform:none!important;
+  }
+}
+</style><style id="frontcheck-close-task-v1">
+.writebar .close-task{display:grid!important;place-items:center!important;width:44px!important;height:44px!important;padding:0!important;font-size:28px!important;line-height:1!important;font-weight:500!important;text-align:center!important}
+</style></head>
+<body data-danjion-page="17">
+<header class="writebar"><div class="writebar-inner"><button aria-label="글쓰기 닫기" class="back close-task" type="button">×</button><strong>같이해요 글쓰기</strong><button class="top-publish" data-publish="" type="button">게시</button></div></header>
+<main>
+<span class="category">같이해요</span><h1>함께할 일을 고르고 필요한 정보만 적어보세요.</h1><p class="lead">사용자님이 만든 네 가지 전용 폼을 탭으로 유지합니다. 탭을 바꾸면 필요한 항목만 바로 바뀝니다.</p>
+<nav aria-label="같이해요 유형" class="type-tabs"><button class="type-tab active" data-kind="walk" type="button">산책·운동</button><button class="type-tab" data-kind="hobby" type="button">취미활동</button><button class="type-tab" data-kind="parent" type="button">육아 같이해요</button><button class="type-tab" data-kind="group" type="button">공동구매</button></nav>
+<p class="type-help" id="typeHelp"></p>
+<form id="writeForm"><section class="editor"><div class="field"><label for="title">제목 <small>40자 이내</small></label><input autocomplete="off" class="title-input" id="title" maxlength="40" placeholder="무엇을 같이하고 싶은지 적어주세요."/></div><div class="field"><label for="body">자세한 내용 <small><span id="bodyCount">0</span>/1000</small></label><textarea class="body-input" id="body" maxlength="1000" placeholder="누가, 언제, 어디에서, 어떻게 함께하면 되는지 적어주세요."></textarea></div><div class="dynamic" id="dynamicFields"></div><p class="safety" id="safety"></p><p class="rule">공개 글에는 개인 연락처를 적지 마세요. 필요한 연락은 단지온 메시지를 이용합니다.</p></section></form>
+</main>
+<nav aria-label="모바일 주요 메뉴" class="mobile-bottom"><button aria-label="홈" data-route="04_데일리홈.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><path d="m3 10 9-7 9 7v10h-6v-6H9v6H3z"></path></svg><span>홈</span></button><button aria-label="이웃가게" data-route="01_이웃가게_발견.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><path d="M4 7h16l-1 13H5L4 7Z"></path><path d="M8 7V5a4 4 0 0 1 8 0v2"></path></svg><span>이웃가게</span></button><button aria-label="우리단지" class="active" data-route="05_우리단지_첫화면.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><path d="M4 21V9l8-6 8 6v12"></path><path d="M8 13h8M8 17h8"></path></svg><span>우리단지</span></button><button aria-label="내정보" data-route="19_내정보_메인.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><circle cx="12" cy="8" r="4"></circle><path d="M4 21a8 8 0 0 1 16 0"></path></svg><span>내정보</span></button></nav>
+<div class="publish-wrap"><button class="publish" data-publish="" type="button">같이해요 게시하기</button></div><div class="toast" id="toast" role="status"></div>
+<script>
+(function(){
+  try{history.scrollRestoration='manual'}catch(e){}; requestAnimationFrame(()=>window.scrollTo(0,0));
+ const COMMUNITY='12_이웃대화_첫화면.html?type=together';
+ const data={
+  walk:{title:'산책·운동',description:'가볍게 걷거나 운동할 이웃을 모집합니다.',safety:'처음 만나는 이웃과는 밝고 열린 장소에서 만나고, 개인 연락처는 메시지에서 필요한 경우에만 나누세요.',fields:[['date','날짜','date',''],['time','시간','time',''],['place','만나는 곳','text','예: 101동 앞 정자'],['people','모집 인원','number','예: 4']]},
+  hobby:{title:'취미활동',description:'관심사가 같은 이웃과 가볍게 취미를 시작합니다.',safety:'반복 모임이라면 주기와 회비·준비물·장소 대여비가 있다면 정확히 알려주세요.',fields:[['activity','활동 내용','text','예: 독서모임'],['date','첫 모임 날짜','date',''],['time','시간','time',''],['place','장소','text','예: 작은도서관'],['supply','준비물','text','예: 읽을 책 한 권']]},
+  parent:{title:'육아 같이해요',description:'보호자와 아이가 함께 참여하는 놀이와 만남을 제안합니다.',safety:'보호자 동반 모임만 가능합니다. 아이 맡기기·돌봄 중개·보호자 없는 만남은 등록할 수 없습니다.',fields:[['childCount','함께 오는 아이 수','number','예: 2'],['age','아이 연령대','text','예: 5~7세'],['date','날짜','date',''],['time','시간','time',''],['place','만나는 곳','text','예: 단지 놀이터'],['guardianCount','보호자 수','number','예: 2']]},
+  group:{title:'공동구매',description:'필요한 물품을 함께 주문할 참여자를 모집합니다.',safety:'주최자가 품목·비용·환불·수령방법을 정확히 안내해야 합니다. 단지온은 판매자나 결제 중개자가 아닙니다.',fields:[['item','품목·수량','text','예: 복숭아 4kg 한 상자'],['price','1인 예상 비용','text','예: 18,000원'],['deadline','모집 마감일','date',''],['pickupDate','수령일','date',''],['pickupTime','수령시간','time',''],['pickupPlace','수령장소','text','예: 101동 앞'],['payment','결제 방법','text','예: 주문 확정 후 안내'],['refund','취소·환불 안내','text','예: 주문 전까지 취소 가능']]}
+ };
+ const title=document.getElementById('title'),body=document.getElementById('body'),dynamic=document.getElementById('dynamicFields');let selected='walk';const key='danjionDraft:17:v2';let drafts={};
+ function reportRoute(){try{if(parent!==window)parent.postMessage({type:'danjion-route',file:'17_같이해요_글쓰기.html',href:location.href},'*')}catch(e){}}reportRoute();addEventListener('pageshow',reportRoute);
+ function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(window.__toast);window.__toast=setTimeout(()=>t.classList.remove('show'),1700)}
+ try{drafts=JSON.parse(localStorage.getItem(key)||'{}')||{};if(data[drafts.__selected])selected=drafts.__selected}catch(e){drafts={}}
+ function save(){const fields={};dynamic.querySelectorAll('input').forEach(i=>fields[i.name]=i.value);drafts[selected]={title:title.value,body:body.value,fields};drafts.__selected=selected;try{localStorage.setItem(key,JSON.stringify(drafts))}catch(e){}}
+ function fieldMarkup(f){const [id,label,type,ph]=f;return `<div class="field${f.length>4?' full':''}"><label for="dyn_${id}">${label}<small>필수</small></label><input class="dynamic-input" id="dyn_${id}" name="${id}" type="${type}" ${type==='number'?'min="1" inputmode="numeric"':''} placeholder="${ph||''}" required></div>`}
+ function render(){const item=data[selected];document.querySelectorAll('.type-tab').forEach(b=>{const on=b.dataset.kind===selected;b.classList.toggle('active',on);b.setAttribute('aria-pressed',String(on))});document.getElementById('typeHelp').textContent=item.description;document.getElementById('safety').textContent=item.safety;dynamic.innerHTML=item.fields.map(fieldMarkup).join('');const d=drafts[selected]||{};title.value=d.title||'';body.value=d.body||'';document.getElementById('bodyCount').textContent=body.value.length;dynamic.querySelectorAll('input').forEach(i=>{if(d.fields&&Object.prototype.hasOwnProperty.call(d.fields,i.name))i.value=d.fields[i.name];i.addEventListener('input',save);i.addEventListener('change',save)})}
+ document.querySelectorAll('.type-tab').forEach(b=>b.addEventListener('click',()=>{if(b.dataset.kind===selected)return;save();selected=b.dataset.kind;drafts.__selected=selected;render();save()}));
+ title.addEventListener('input',save);body.addEventListener('input',()=>{document.getElementById('bodyCount').textContent=body.value.length;save()});document.querySelector('.back').addEventListener('click',()=>{save();location.href=COMMUNITY});
+ function publish(){save();if(!title.value.trim()){toast('제목을 입력해주세요.');title.focus();return}if(body.value.trim().length<5){toast('자세한 내용을 조금 더 적어주세요.');body.focus();return}const missing=[...dynamic.querySelectorAll('input[required]')].find(i=>!i.value.trim());if(missing){toast(missing.previousElementSibling?.textContent?.replace('필수','').trim()+'을(를) 입력해주세요.');missing.focus();return}delete drafts[selected];try{localStorage.setItem(key,JSON.stringify(drafts))}catch(e){}toast(data[selected].title+' 글을 게시했습니다.');setTimeout(()=>location.href=COMMUNITY,650)}document.querySelectorAll('[data-publish]').forEach(b=>b.addEventListener('click',publish));render();
+})();
+</script>
+</body></html>
