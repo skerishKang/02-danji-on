@@ -1,0 +1,604 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>단지온 — 가까이 사는 이웃의 일</title>
+  <style>
+    :root{
+      --canvas:#F1EEE5;
+      --paper:#FBFAF5;
+      --ink:#11110F;
+      --muted:#625F57;
+      --line:#C9C3B7;
+      --line-dark:#9F988B;
+      --ultra:#2C43E8;
+      --ultra-dark:#1D2DA7;
+      --copper:#AE6844;
+      --copper-pale:#E7D4C6;
+      --signal:#D34D2F;
+      --verified:#315C48;
+      --serif:"Noto Serif CJK KR","NanumMyeongjo",Georgia,serif;
+      --sans:Pretendard,SUIT,"Noto Sans KR","Apple SD Gothic Neo","NanumGothic",Arial,sans-serif;
+      --mono:"NanumGothicCoding","SFMono-Regular",Consolas,monospace;
+      --max:1320px;
+    }
+    *{box-sizing:border-box}
+    html{scroll-behavior:smooth}
+    body{margin:0;background:var(--canvas);color:var(--ink);font-family:var(--sans);font-size:17px;line-height:1.6;-webkit-font-smoothing:antialiased}
+    button,input,select{font:inherit;color:inherit}
+    button,a{touch-action:manipulation}
+    a{color:inherit;text-decoration:none}
+    img,svg{display:block;max-width:100%}
+    button{background:none;border:0;padding:0;cursor:pointer}
+    :focus-visible{outline:3px solid var(--ultra);outline-offset:3px}
+    .shell{width:min(calc(100% - 64px),var(--max));margin:0 auto}
+    .grid12{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));column-gap:24px}
+    .eyebrow{font:600 12px/1.3 var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+    .serif{font-family:var(--serif)}
+    .muted{color:var(--muted)}
+    .line-top{border-top:1px solid var(--line)}
+    .line-bottom{border-bottom:1px solid var(--line)}
+    .icon{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+
+    /* Header */
+    .site-header{position:relative;z-index:20;border-bottom:1px solid var(--line);background:rgba(241,238,229,.96);backdrop-filter:blur(10px)}
+    .header-inner{height:92px;display:grid;grid-template-columns:260px 1fr auto;align-items:center;gap:24px}
+    .wordmark{display:inline-flex;flex-direction:column;align-items:flex-start;line-height:1}
+    .wordmark-ko{font-family:var(--serif);font-size:31px;font-weight:700;letter-spacing:-.055em}
+    .wordmark-en{margin-top:8px;font:600 10px/1 var(--mono);letter-spacing:.22em;color:var(--ultra)}
+    .complex-name{font-size:15px;color:var(--muted);white-space:nowrap}
+    .desktop-nav{display:flex;align-items:center;justify-content:flex-end;gap:32px;font-size:16px}
+    .nav-link{position:relative;padding:12px 0}
+    .nav-link::after{content:"";position:absolute;left:0;right:100%;bottom:5px;height:2px;background:var(--ultra);transition:right .2s ease}
+    .nav-link:hover::after,.nav-link.active::after{right:0}
+    .nav-action{display:inline-flex;align-items:center;gap:8px;min-height:48px}
+    .mobile-header-tools{display:none}
+    .mobile-complex{display:none}
+
+    /* Main / routes */
+    main{min-height:70vh}
+    .view{display:none;animation:viewIn .35s ease both}
+    .view.active{display:block}
+    @keyframes viewIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+    /* Home hero */
+    .hero{padding:68px 0 62px}
+    .hero-copy{grid-column:1 / span 7;display:flex;flex-direction:column;justify-content:space-between;min-height:620px;padding-right:26px}
+    .hero-kicker{display:flex;align-items:center;gap:12px;margin-bottom:38px}
+    .verify-dot{width:8px;height:8px;border-radius:50%;background:var(--verified)}
+    .hero-title{margin:0;font-family:var(--serif);font-weight:700;font-size:clamp(58px,6vw,92px);line-height:1.08;letter-spacing:-.06em;word-break:keep-all}
+    .hero-title em{font-style:normal;color:var(--ultra)}
+    .hero-bottom{display:grid;grid-template-columns:1fr 1fr;gap:28px;align-items:end;margin-top:60px}
+    .hero-summary{max-width:430px;margin:0;font-size:19px;line-height:1.65;word-break:keep-all}
+    .hero-actions{display:flex;flex-direction:column;align-items:flex-start;gap:13px}
+    .text-action{display:inline-flex;align-items:center;gap:18px;min-height:48px;border-bottom:1px solid var(--ink);font-weight:700;transition:color .18s,border-color .18s}
+    .text-action svg{transition:transform .18s}
+    .text-action:hover{color:var(--ultra);border-color:var(--ultra)}
+    .text-action:hover svg{transform:translateX(4px)}
+    .text-action.secondary{font-weight:500;color:var(--muted);border-color:var(--line-dark)}
+    .hero-object{grid-column:8 / span 5;position:relative;min-height:620px;background:var(--ultra);overflow:hidden;border-radius:2px}
+    .hero-object .asset-label{position:absolute;z-index:3;left:18px;top:18px;background:var(--paper);padding:7px 9px;font:600 10px/1 var(--mono);letter-spacing:.12em}
+    .object-meta{position:absolute;z-index:3;left:28px;right:28px;bottom:28px;color:white;border-top:1px solid rgba(255,255,255,.55);padding-top:18px}
+    .object-meta small{font:600 11px/1.2 var(--mono);letter-spacing:.12em;text-transform:uppercase}
+    .object-meta strong{display:block;margin-top:10px;font:700 28px/1.25 var(--serif);letter-spacing:-.035em}
+    .editorial-art{position:absolute;inset:0}
+    .editorial-art .bone{fill:#EEE7D7}.editorial-art .copper{fill:var(--copper)}.editorial-art .ink{fill:#151514}.editorial-art .paper{fill:#FBFAF5}
+    .editorial-art .stroke{fill:none;stroke:#FBFAF5;stroke-width:3}
+    .hero-object:hover .editorial-art{transform:scale(1.018);transition:transform .6s cubic-bezier(.2,.7,.2,1)}
+
+    /* Search band */
+    .search-band{border-top:1px solid var(--ink);border-bottom:1px solid var(--ink);background:var(--paper)}
+    .search-inner{min-height:158px;display:grid;grid-template-columns:220px 1fr auto;align-items:center;gap:30px}
+    .search-label{font-family:var(--serif);font-size:25px;font-weight:700;letter-spacing:-.04em}
+    .search-field-wrap{position:relative}
+    .search-input{width:100%;height:72px;border:0;border-bottom:2px solid var(--ink);background:transparent;padding:0 52px 0 0;font-family:var(--serif);font-size:34px;letter-spacing:-.04em;outline:none}
+    .search-input::placeholder{color:#858077;opacity:1}
+    .search-submit{width:58px;height:58px;border:1px solid var(--ink);display:grid;place-items:center;transition:background .2s,color .2s}
+    .search-submit:hover{background:var(--ink);color:var(--paper)}
+    .search-examples{grid-column:2 / 4;margin-top:-22px;font-size:14px;color:var(--muted)}
+
+    /* Categories */
+    .section{padding:108px 0}
+    .section-head{display:grid;grid-template-columns:1fr 2fr;gap:32px;align-items:end;margin-bottom:48px}
+    .section-title{margin:0;font:700 clamp(38px,4.2vw,64px)/1.14 var(--serif);letter-spacing:-.055em}
+    .section-intro{margin:0 0 8px auto;max-width:520px;font-size:18px;color:var(--muted);word-break:keep-all}
+    .category-list{border-top:1px solid var(--ink)}
+    .category-row{width:100%;display:grid;grid-template-columns:90px minmax(260px,1fr) 1.4fr 52px;align-items:center;gap:24px;min-height:98px;border-bottom:1px solid var(--line);text-align:left;transition:padding .2s,background .2s,color .2s}
+    .category-row:hover{padding-left:12px;background:var(--paper);color:var(--ultra)}
+    .category-num{font:600 13px/1 var(--mono);color:var(--muted)}
+    .category-name{font:700 27px/1.25 var(--serif);letter-spacing:-.035em}
+    .category-examples{font-size:16px;color:var(--muted)}
+    .category-arrow{display:flex;justify-content:flex-end}
+
+    /* Neighbors editorial grid */
+    .neighbors{background:var(--paper);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+    .neighbor-link{display:block;width:100%;text-align:left}
+    .neighbor-grid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:24px;align-items:start}
+    .feature-neighbor{grid-column:1 / span 7}
+    .side-neighbors{grid-column:9 / span 4;display:flex;flex-direction:column;gap:52px;padding-top:120px}
+    .work-visual{position:relative;overflow:hidden;background:#D7D1C3;border-radius:2px}
+    .feature-neighbor .work-visual{aspect-ratio:7/5}
+    .side-neighbor .work-visual{aspect-ratio:4/3}
+    .work-visual svg{width:100%;height:100%;transition:transform .55s cubic-bezier(.2,.7,.2,1)}
+    .neighbor-link:hover .work-visual svg{transform:scale(1.025)}
+    .visual-caption{position:absolute;left:12px;top:12px;background:rgba(251,250,245,.94);padding:6px 8px;font:600 10px/1 var(--mono);letter-spacing:.1em}
+    .neighbor-copy{display:grid;grid-template-columns:1fr auto;gap:20px;padding-top:22px;border-top:1px solid var(--ink);margin-top:18px}
+    .neighbor-relation{font:600 12px/1.35 var(--mono);letter-spacing:.08em;color:var(--verified)}
+    .neighbor-title{margin:10px 0 4px;font:700 34px/1.28 var(--serif);letter-spacing:-.04em;word-break:keep-all}
+    .side-neighbor .neighbor-title{font-size:25px}
+    .neighbor-name{color:var(--muted)}
+    .neighbor-index{font:600 12px/1 var(--mono);color:var(--muted)}
+    .text-neighbor-list{margin-top:88px;border-top:1px solid var(--ink)}
+    .text-neighbor{display:grid;grid-template-columns:90px 1.2fr 1fr auto;gap:24px;align-items:center;min-height:94px;border-bottom:1px solid var(--line)}
+    .text-neighbor strong{font:700 24px/1.3 var(--serif);letter-spacing:-.03em}
+    .text-neighbor .relation{font-size:14px;color:var(--verified)}
+    .all-link{margin-top:36px;display:inline-flex;min-height:52px;align-items:center;gap:16px;border-bottom:1px solid var(--ink);font-weight:700}
+
+    /* Benefit */
+    .benefit-band{background:var(--copper);color:#FFF9F2;border-bottom:1px solid var(--ink)}
+    .benefit-inner{min-height:330px;display:grid;grid-template-columns:240px 1fr auto;align-items:center;gap:44px}
+    .benefit-label{font:600 13px/1.4 var(--mono);letter-spacing:.16em}
+    .benefit-copy h2{margin:0;font:700 clamp(46px,5vw,76px)/1.08 var(--serif);letter-spacing:-.055em}
+    .benefit-copy p{margin:18px 0 0;font-size:19px}
+    .benefit-button{min-width:190px;min-height:58px;padding:0 24px;border:1px solid #FFF9F2;display:flex;align-items:center;justify-content:center;gap:14px;font-weight:700;transition:background .2s,color .2s}
+    .benefit-button:hover{background:#FFF9F2;color:var(--copper)}
+
+    /* Notice */
+    .notice-section{padding:86px 0 120px}
+    .notice-head{display:flex;align-items:end;justify-content:space-between;margin-bottom:26px}
+    .notice-title{margin:0;font:700 34px/1.2 var(--serif);letter-spacing:-.04em}
+    .notice-list{border-top:1px solid var(--ink)}
+    .notice-row{width:100%;display:grid;grid-template-columns:120px 1fr 150px 28px;gap:22px;align-items:center;min-height:76px;border-bottom:1px solid var(--line);text-align:left}
+    .notice-row:hover .notice-subject{text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:5px}
+    .notice-code{font:600 11px/1 var(--mono);letter-spacing:.11em;color:var(--ultra)}
+    .notice-subject{font-size:18px;font-weight:600}
+    .notice-meta{font-size:14px;color:var(--muted)}
+
+    /* Listing */
+    .listing-hero{padding:76px 0 58px;border-bottom:1px solid var(--ink)}
+    .listing-heading{grid-column:1 / span 8;margin:0;font:700 clamp(58px,7vw,104px)/1.02 var(--serif);letter-spacing:-.065em}
+    .listing-side{grid-column:10 / span 3;align-self:end;margin-bottom:10px;color:var(--muted)}
+    .filter-bar{position:sticky;top:0;z-index:12;background:rgba(241,238,229,.97);backdrop-filter:blur(9px);border-bottom:1px solid var(--line)}
+    .filter-inner{min-height:92px;display:grid;grid-template-columns:1fr auto;align-items:center;gap:24px}
+    .relation-tabs{display:flex;gap:26px;overflow:auto;scrollbar-width:none}
+    .relation-tabs::-webkit-scrollbar{display:none}
+    .filter-tab{position:relative;min-height:48px;white-space:nowrap;font-weight:600;color:var(--muted)}
+    .filter-tab.active{color:var(--ink)}
+    .filter-tab.active::after{content:"";position:absolute;left:0;right:0;bottom:3px;height:3px;background:var(--ultra)}
+    .filter-select{height:48px;border:1px solid var(--ink);border-radius:2px;background:var(--paper);padding:0 40px 0 14px}
+    .listing-content{padding:68px 0 120px}
+    .result-summary{display:flex;justify-content:space-between;align-items:end;margin-bottom:34px}
+    .result-summary strong{font:700 25px/1.3 var(--serif)}
+    .listing-grid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:64px 24px}
+    .service-card{grid-column:span 4;min-width:0}
+    .service-card.wide{grid-column:span 8}
+    .service-card.tall .service-image{aspect-ratio:3/4}
+    .service-card.wide .service-image{aspect-ratio:16/9}
+    .service-image{position:relative;aspect-ratio:4/3;overflow:hidden;background:#D8D1C3;border-radius:2px}
+    .service-image svg{width:100%;height:100%;transition:transform .5s ease}
+    .service-card:hover .service-image svg{transform:scale(1.025)}
+    .service-info{border-top:1px solid var(--ink);margin-top:15px;padding-top:15px}
+    .service-relation{font:600 11px/1.4 var(--mono);letter-spacing:.08em;color:var(--verified)}
+    .service-name{margin:9px 0 3px;font:700 27px/1.3 var(--serif);letter-spacing:-.035em}
+    .service-desc{margin:0;color:var(--muted)}
+    .service-meta{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:20px;padding-top:15px;border-top:1px solid var(--line);font-size:15px}
+    .service-meta span:last-child{color:var(--copper)}
+    .empty-state{grid-column:1/-1;padding:80px 0;border-top:1px solid var(--ink);font-family:var(--serif);font-size:32px}
+
+    /* Detail */
+    .detail-page{padding:58px 0 120px}
+    .detail-grid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:24px;align-items:start}
+    .detail-gallery{grid-column:1 / span 7}
+    .detail-main-image{aspect-ratio:7/6;background:var(--ultra);overflow:hidden}
+    .detail-main-image svg{width:100%;height:100%}
+    .gallery-thumbs{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:12px}
+    .gallery-thumb{aspect-ratio:4/3;border:1px solid transparent;background:#D7D1C3;overflow:hidden}
+    .gallery-thumb.active{border:3px solid var(--ultra)}
+    .gallery-thumb svg{width:100%;height:100%}
+    .detail-copy{grid-column:9 / span 4;position:sticky;top:28px}
+    .back-link{display:inline-flex;align-items:center;gap:10px;min-height:48px;margin-bottom:44px;border-bottom:1px solid var(--line-dark)}
+    .detail-relation{font:600 11px/1.4 var(--mono);letter-spacing:.09em;color:var(--verified)}
+    .detail-title{margin:13px 0 10px;word-break:keep-all;font:700 clamp(42px,4.5vw,66px)/1.05 var(--serif);letter-spacing:-.06em}
+    .detail-job{margin:0;font-size:20px;color:var(--muted)}
+    .detail-story{margin:34px 0;padding:30px 0;border-top:1px solid var(--ink);border-bottom:1px solid var(--line);font-size:18px;word-break:keep-all}
+    .detail-facts{margin:0;padding:0;list-style:none}
+    .detail-fact{display:grid;grid-template-columns:120px 1fr;gap:18px;padding:16px 0;border-bottom:1px solid var(--line)}
+    .detail-fact dt{font-size:14px;color:var(--muted)}
+    .detail-fact dd{margin:0;font-weight:600}
+    .detail-benefit{margin-top:28px;padding:22px 0;border-top:4px solid var(--copper);font-family:var(--serif);font-size:24px;letter-spacing:-.03em}
+    .detail-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:28px}
+    .primary-btn,.outline-btn{min-height:56px;display:flex;align-items:center;justify-content:center;padding:0 18px;border:1px solid var(--ink);border-radius:2px;font-weight:700}
+    .primary-btn{background:var(--ultra);border-color:var(--ultra);color:white}
+    .outline-btn:hover{background:var(--ink);color:var(--paper)}
+    .detail-note{margin-top:20px;font-size:14px;color:var(--muted)}
+
+    /* Footer / mobile nav */
+    .site-footer{border-top:1px solid var(--ink);padding:48px 0 100px;background:var(--paper)}
+    .footer-grid{display:grid;grid-template-columns:2fr 1fr 1fr;gap:28px}
+    .footer-title{font:700 24px/1.2 var(--serif)}
+    .footer-small{font-size:14px;color:var(--muted)}
+    .mobile-nav{display:none}
+    .toast{position:fixed;left:50%;bottom:28px;z-index:100;transform:translate(-50%,20px);opacity:0;background:var(--ink);color:white;padding:14px 18px;min-width:260px;text-align:center;transition:.2s;pointer-events:none}
+    .toast.show{opacity:1;transform:translate(-50%,0)}
+
+    /* Brand comparison dev mode */
+    .brand-dev-note{position:fixed;right:12px;bottom:12px;z-index:90;background:var(--ink);color:white;padding:7px 9px;font:600 10px/1 var(--mono);display:none}
+    body.brand-capture .brand-dev-note{display:block}
+
+    @media (max-width:980px){
+      .shell{width:min(calc(100% - 40px),var(--max))}
+      .header-inner{grid-template-columns:210px 1fr auto}
+      .complex-name{display:none}
+      .desktop-nav{gap:18px}
+      .hero-copy{grid-column:1 / span 7}.hero-object{grid-column:8 / span 5}
+      .hero-title{font-size:64px}.hero-copy,.hero-object{min-height:540px}
+      .hero-bottom{grid-template-columns:1fr}
+      .side-neighbors{grid-column:8 / span 5;padding-top:100px}
+      .feature-neighbor{grid-column:1 / span 7}
+      .service-card{grid-column:span 6}.service-card.wide{grid-column:span 12}
+      .detail-gallery{grid-column:1 / span 7}.detail-copy{grid-column:8 / span 5}
+    }
+
+    @media (max-width:720px){
+      body{font-size:16px;padding-bottom:76px}
+      .shell{width:calc(100% - 32px)}
+      .grid12{display:block}
+      .site-header{position:sticky;top:0}
+      .header-inner{height:78px;display:grid;grid-template-columns:1fr auto;gap:10px}
+      .wordmark-ko{font-size:25px}.wordmark-en{font-size:8px;margin-top:6px}
+      .desktop-nav,.complex-name{display:none}
+      .mobile-header-tools{display:flex;align-items:center;gap:14px}
+      .mobile-tool{display:flex;align-items:center;gap:6px;min-height:48px;font-size:14px}
+      .mobile-tool .icon{width:20px;height:20px}
+      .mobile-complex{display:block;grid-column:1/-1;margin-top:-14px;font-size:13px;color:var(--muted)}
+      .hero{padding:34px 0 40px}
+      .hero-copy{min-height:auto;padding:0}
+      .hero-kicker{margin-bottom:22px}
+      .hero-title{font-size:47px;line-height:1.12;letter-spacing:-.06em}
+      .hero-title br.desktop-only{display:none}
+      .hero-bottom{display:block;margin-top:30px}
+      .hero-summary{font-size:17px;line-height:1.6}
+      .hero-actions{margin-top:22px;gap:8px}
+      .hero-object{width:100%;min-height:300px;margin-top:32px}
+      .object-meta{left:20px;right:20px;bottom:20px}.object-meta strong{font-size:24px}
+      .search-inner{min-height:164px;display:block;padding:24px 0}
+      .search-label{font-size:18px;margin-bottom:10px}
+      .search-field-wrap{display:grid;grid-template-columns:1fr 52px;gap:8px}
+      .search-input{height:60px;font-size:25px;padding:0}
+      .search-submit{width:52px;height:52px;align-self:end}
+      .search-examples{margin:11px 0 0;font-size:13px}
+      .section{padding:76px 0}
+      .section-head{display:block;margin-bottom:30px}.section-title{font-size:42px}.section-intro{margin:18px 0 0;font-size:16px}
+      .category-row{grid-template-columns:44px 1fr 34px;gap:12px;min-height:92px}
+      .category-examples{grid-column:2;grid-row:2;margin-top:-20px;padding-bottom:16px;font-size:14px}
+      .category-name{font-size:23px}.category-arrow{grid-column:3;grid-row:1/3}.category-row:hover{padding-left:0}
+      .neighbor-grid{display:block}.side-neighbors{padding-top:64px;gap:54px}
+      .feature-neighbor .work-visual{aspect-ratio:5/4}.neighbor-title{font-size:29px}.side-neighbor .neighbor-title{font-size:25px}
+      .text-neighbor-list{margin-top:64px}
+      .text-neighbor{grid-template-columns:40px 1fr auto;gap:10px;min-height:90px}.text-neighbor strong{font-size:20px}.text-neighbor .relation{grid-column:2;grid-row:2;margin-top:-17px;padding-bottom:12px}.text-neighbor .muted{display:none}
+      .benefit-inner{min-height:auto;display:block;padding:62px 0}.benefit-copy{margin-top:22px}.benefit-copy h2{font-size:45px}.benefit-copy p{font-size:17px}.benefit-button{margin-top:32px;min-width:100%}
+      .notice-section{padding:70px 0 90px}.notice-head{align-items:center}.notice-title{font-size:30px}
+      .notice-row{grid-template-columns:86px 1fr 24px;gap:10px;min-height:86px}.notice-meta{grid-column:2;grid-row:2;margin-top:-22px;padding-bottom:10px}.notice-row .category-arrow{grid-column:3;grid-row:1/3}
+      .listing-hero{padding:42px 0 34px}.listing-heading{font-size:56px}.listing-side{margin-top:20px}
+      .filter-bar{top:78px}.filter-inner{min-height:116px;display:block;padding:12px 0}.relation-tabs{gap:20px}.filter-select{width:100%;margin-top:8px}
+      .listing-content{padding:44px 0 90px}.result-summary{align-items:center}.result-summary .eyebrow{display:none}
+      .listing-grid{display:block}.service-card{margin-bottom:58px}.service-card.wide .service-image,.service-image{aspect-ratio:4/3}.service-card.tall .service-image{aspect-ratio:4/3}
+      .service-name{font-size:26px}
+      .detail-page{padding:24px 0 90px}.detail-grid{display:flex;flex-direction:column}.detail-gallery{order:1;width:100%}.detail-copy{order:2;position:static;width:100%;margin-top:24px}.back-link{margin-bottom:24px}.detail-title{font-size:43px}.detail-story{font-size:17px}.detail-fact{grid-template-columns:100px 1fr}.detail-actions{position:sticky;bottom:84px;background:var(--canvas);padding:10px 0;z-index:6}
+      .footer-grid{grid-template-columns:1fr}.site-footer{padding-bottom:120px}
+      .mobile-nav{position:fixed;z-index:40;left:0;right:0;bottom:0;height:76px;display:grid;grid-template-columns:repeat(5,1fr);background:rgba(251,250,245,.98);border-top:1px solid var(--ink);backdrop-filter:blur(10px)}
+      .mobile-nav button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-size:12px;color:var(--muted)}
+      .mobile-nav button.active{color:var(--ultra);font-weight:700}.mobile-nav .icon{width:21px;height:21px}
+      .toast{bottom:92px;width:calc(100% - 32px)}
+    }
+  </style>
+</head>
+<body>
+  <header class="site-header">
+    <div class="shell header-inner">
+      <button class="wordmark" data-route="home" aria-label="홈으로 이동">
+        <span class="wordmark-ko" id="brandKo">단지온</span>
+        <span class="wordmark-en" id="brandEn">DANJION</span>
+      </button>
+      <div class="complex-name">방림명지로드힐 · 인증 입주민</div>
+      <nav class="desktop-nav" aria-label="주요 메뉴">
+        <button class="nav-link nav-action" data-route="listing"><svg class="icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4 4"/></svg>찾기</button>
+        <button class="nav-link" data-toast="주민 혜택 화면은 브랜드 승인 후 확장합니다.">주민 혜택</button>
+        <button class="nav-link" data-toast="단지 소식 화면은 브랜드 승인 후 확장합니다.">단지 소식</button>
+        <button class="nav-link nav-action" data-toast="내 정보 화면은 브랜드 승인 후 확장합니다."><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.5"/><path d="M5.5 20c.7-4 3-6 6.5-6s5.8 2 6.5 6"/></svg>내 정보</button>
+      </nav>
+      <div class="mobile-header-tools">
+        <button class="mobile-tool" data-route="listing"><svg class="icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4 4"/></svg><span>검색</span></button>
+        <button class="mobile-tool" data-toast="내 정보 화면은 브랜드 승인 후 확장합니다."><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.5"/><path d="M5.5 20c.7-4 3-6 6.5-6s5.8 2 6.5 6"/></svg><span>내 정보</span></button>
+      </div>
+      <div class="mobile-complex">방림명지로드힐 · 입주민 확인 완료</div>
+    </div>
+  </header>
+
+  <main>
+    <section class="view active" id="view-home" aria-label="홈">
+      <div class="hero">
+        <div class="shell grid12">
+          <div class="hero-copy">
+            <div>
+              <div class="hero-kicker"><span class="verify-dot"></span><span class="eyebrow">방림명지로드힐 주민의 일 · 01</span></div>
+              <h1 class="hero-title">같은 단지에<br class="desktop-only"> 이런 <em>이웃</em>이<br class="desktop-only"> 있었습니다.</h1>
+            </div>
+            <div class="hero-bottom">
+              <p class="hero-summary">에어컨을 분해하고, 보이지 않는 곳까지 씻어 다시 조립하는 사람. 가까이 사는 이웃의 일을 먼저 발견합니다.</p>
+              <div class="hero-actions">
+                <button class="text-action" data-detail="oncare">이 이웃의 일 보기 <svg class="icon" viewBox="0 0 24 24"><path d="M4 12h15M14 6l6 6-6 6"/></svg></button>
+                <button class="text-action secondary" data-toast="사업자 등록 화면은 브랜드 승인 후 확장합니다.">내 일도 알리기 <svg class="icon" viewBox="0 0 24 24"><path d="M4 12h15M14 6l6 6-6 6"/></svg></button>
+              </div>
+            </div>
+          </div>
+          <button class="hero-object" data-detail="oncare" aria-label="온케어 홈클리닝 상세 보기">
+            <span class="asset-label">임시 편집 그래픽</span>
+            <svg class="editorial-art" viewBox="0 0 600 760" preserveAspectRatio="xMidYMid slice" aria-label="에어컨 세척 작업을 추상화한 임시 그래픽">
+              <rect width="600" height="760" fill="#2C43E8"/>
+              <rect x="48" y="54" width="250" height="330" class="bone"/>
+              <rect x="334" y="140" width="210" height="460" class="ink"/>
+              <circle cx="175" cy="464" r="116" class="copper"/>
+              <rect x="112" y="242" width="380" height="90" class="paper"/>
+              <path d="M140 286h320M140 307h190" stroke="#11110F" stroke-width="13"/>
+              <path d="M97 618c72-89 151-90 237-8 58 55 111 48 169-21" class="stroke"/>
+              <path d="M420 40v680M402 86h36M402 126h36M402 166h36M402 206h36" stroke="#FBFAF5" stroke-width="2"/>
+              <text x="68" y="100" fill="#11110F" font-family="serif" font-size="25">CLEAN / REASSEMBLE</text>
+              <text x="68" y="355" fill="#11110F" font-family="monospace" font-size="14">BANGNIM · NEIGHBOR WORK 01</text>
+            </svg>
+            <span class="object-meta"><small>에어컨 분해세척 · 방문 서비스</small><strong>보이지 않는 곳까지<br>씻는 사람</strong></span>
+          </button>
+        </div>
+      </div>
+
+      <section class="search-band" aria-label="가게와 서비스 검색">
+        <div class="shell search-inner">
+          <div class="search-label">이웃의 일을 찾습니다</div>
+          <div class="search-field-wrap">
+            <input class="search-input" id="homeSearch" type="search" placeholder="무슨 일이 필요하세요?" aria-label="가게와 서비스 검색어" />
+          </div>
+          <button class="search-submit" id="homeSearchButton" aria-label="검색 실행"><svg class="icon" viewBox="0 0 24 24"><path d="M4 12h15M14 6l6 6-6 6"/></svg></button>
+          <div class="search-examples">반찬 · 과외 · 자동차 정비 · 에어컨 청소 · 세무 · 사진 촬영</div>
+        </div>
+      </section>
+
+      <section class="section" aria-labelledby="categoryTitle">
+        <div class="shell">
+          <div class="section-head">
+            <h2 class="section-title" id="categoryTitle">필요한 일을<br>분야로 찾기</h2>
+            <p class="section-intro">말이 조금 달라도 괜찮습니다. 익숙한 생활 분야를 누르면 같은 단지 주민의 가게와 서비스부터 보여드립니다.</p>
+          </div>
+          <div class="category-list">
+            <button class="category-row" data-category="food"><span class="category-num">01</span><span class="category-name">먹고 마시는 일</span><span class="category-examples">반찬 · 도시락 · 카페 · 농산물</span><span class="category-arrow"><svg class="icon" viewBox="0 0 24 24"><path d="M4 12h15M14 6l6 6-6 6"/></svg></span></button>
+            <button class="category-row" data-category="home"><span class="category-num">02</span><span class="category-name">집을 돌보는 일</span><span class="category-examples">에어컨 청소 · 수리 · 정리 · 자동차 정비</span><span class="category-arrow"><svg class="icon" viewBox="0 0 24 24"><path d="M4 12h15M14 6l6 6-6 6"/></svg></span></button>
+            <button class="category-row" data-category="learn"><span class="category-num">03</span><span class="category-name">배우고 가르치는 일</span><span class="category-examples">수학 과외 · 피아노 · 미술 · 글쓰기</span><span class="category-arrow"><svg class="icon" viewBox="0 0 24 24"><path d="M4 12h15M14 6l6 6-6 6"/></svg></span></button>
+            <button class="category-row" data-category="care"><span class="category-num">04</span><span class="category-name">몸과 마음을 돌보는 일</span><span class="category-examples">미용 · 운동 · 상담 · 반려동물 돌봄</span><span class="category-arrow"><svg class="icon" viewBox="0 0 24 24"><path d="M4 12h15M14 6l6 6-6 6"/></svg></span></button>
+            <button class="category-row" data-category="business"><span class="category-num">05</span><span class="category-name">사업을 돕는 일</span><span class="category-examples">세무 · 노무 · 문서지원 · 개발</span><span class="category-arrow"><svg class="icon" viewBox="0 0 24 24"><path d="M4 12h15M14 6l6 6-6 6"/></svg></span></button>
+            <button class="category-row" data-category="make"><span class="category-num">06</span><span class="category-name">만들고 기록하는 일</span><span class="category-examples">디자인 · 촬영 · 수제품 · 온라인 판매</span><span class="category-arrow"><svg class="icon" viewBox="0 0 24 24"><path d="M4 12h15M14 6l6 6-6 6"/></svg></span></button>
+          </div>
+        </div>
+      </section>
+
+      <section class="section neighbors" aria-labelledby="neighborTitle">
+        <div class="shell">
+          <div class="section-head">
+            <h2 class="section-title" id="neighborTitle">우리 단지<br>이웃의 일</h2>
+            <p class="section-intro">광고 문구보다 어떤 일을 하는 사람인지 먼저 소개합니다. 입주민 확인 정보는 공개 주소 없이 운영자가 따로 확인합니다.</p>
+          </div>
+          <div class="neighbor-grid">
+            <article class="feature-neighbor">
+              <button class="neighbor-link" data-detail="oncare">
+                <div class="work-visual">
+                  <span class="visual-caption">임시 편집 그래픽</span>
+                  <svg viewBox="0 0 900 640" aria-label="에어컨 세척 서비스를 나타내는 추상 그래픽">
+                    <rect width="900" height="640" fill="#D8D1C3"/><rect x="0" y="0" width="330" height="640" fill="#1A1A19"/><rect x="330" y="0" width="570" height="220" fill="#2C43E8"/><circle cx="640" cy="420" r="170" fill="#AE6844"/><rect x="240" y="260" width="460" height="130" fill="#FBFAF5"/><path d="M290 315h360M290 345h230" stroke="#11110F" stroke-width="18"/><path d="M160 525c150-150 340-130 520 30" fill="none" stroke="#FBFAF5" stroke-width="5"/>
+                  </svg>
+                </div>
+                <div class="neighbor-copy"><div><div class="neighbor-relation">방림명지로드힐 주민 · 확인 완료</div><h3 class="neighbor-title">에어컨을 분해하고 다시 조립하는 사람</h3><div class="neighbor-name">온케어 홈클리닝</div></div><div class="neighbor-index">01 / 06</div></div>
+              </button>
+            </article>
+            <div class="side-neighbors">
+              <article class="side-neighbor">
+                <button class="neighbor-link" data-detail="table">
+                  <div class="work-visual"><span class="visual-caption">임시 편집 그래픽</span><svg viewBox="0 0 600 450" aria-label="반찬 서비스를 나타내는 추상 그래픽"><rect width="600" height="450" fill="#E6DED0"/><circle cx="230" cy="230" r="160" fill="#AE6844"/><circle cx="230" cy="230" r="95" fill="#FBFAF5"/><rect x="400" y="40" width="120" height="350" fill="#11110F"/><path d="M70 72h270M70 100h180" stroke="#2C43E8" stroke-width="14"/></svg></div>
+                  <div class="neighbor-copy"><div><div class="neighbor-relation">방림명지로드힐 주민 · 확인 완료</div><h3 class="neighbor-title">매일 먹는 반찬을 조금 덜 짜게 만드는 사람</h3><div class="neighbor-name">정담찬방</div></div><div class="neighbor-index">02</div></div>
+                </button>
+              </article>
+              <article class="side-neighbor">
+                <button class="neighbor-link" data-detail="math">
+                  <div class="work-visual"><span class="visual-caption">임시 편집 그래픽</span><svg viewBox="0 0 600 450" aria-label="수학 과외를 나타내는 추상 그래픽"><rect width="600" height="450" fill="#2C43E8"/><rect x="62" y="64" width="345" height="300" fill="#FBFAF5"/><path d="M118 140h210M118 190h125M118 240h242" stroke="#11110F" stroke-width="15"/><circle cx="460" cy="304" r="90" fill="#AE6844"/><path d="M420 304h80M460 264v80" stroke="#FBFAF5" stroke-width="8"/></svg></div>
+                  <div class="neighbor-copy"><div><div class="neighbor-relation">방림명지로드힐 주민 · 확인 완료</div><h3 class="neighbor-title">수학을 답보다 과정으로 설명하는 사람</h3><div class="neighbor-name">한결수학</div></div><div class="neighbor-index">03</div></div>
+                </button>
+              </article>
+            </div>
+          </div>
+          <div class="text-neighbor-list">
+            <button class="text-neighbor" data-detail="tax"><span class="eyebrow">04</span><strong>처음 사업하는 사람의 세금을 풀어서 설명하는 사람</strong><span class="muted">도담 세무상담</span><span class="relation">우리 단지 주민</span></button>
+            <button class="text-neighbor" data-detail="photo"><span class="eyebrow">05</span><strong>가족의 평범한 하루를 사진으로 남기는 사람</strong><span class="muted">오후사진관</span><span class="relation">우리 단지 주민</span></button>
+            <button class="text-neighbor" data-detail="repair"><span class="eyebrow">06</span><strong>차에서 나는 작은 소리를 그냥 넘기지 않는 사람</strong><span class="muted">동네모터스</span><span class="relation">우리 단지 주민 가족</span></button>
+          </div>
+          <button class="all-link" data-route="listing">주민 가게와 서비스 모두 보기 <svg class="icon" viewBox="0 0 24 24"><path d="M4 12h15M14 6l6 6-6 6"/></svg></button>
+        </div>
+      </section>
+
+      <section class="benefit-band" aria-label="이번 주 주민 혜택">
+        <div class="shell benefit-inner">
+          <div class="benefit-label">THIS WEEK<br>FOR NEIGHBORS</div>
+          <div class="benefit-copy"><h2>에어컨 청소<br>출장비 무료</h2><p>두 가구가 함께 신청하면 한 가구당 1만원을 더 할인합니다.</p></div>
+          <button class="benefit-button" data-toast="주민 혜택 화면은 브랜드 승인 후 확장합니다.">주민 혜택 보기 <svg class="icon" viewBox="0 0 24 24"><path d="M4 12h15M14 6l6 6-6 6"/></svg></button>
+        </div>
+      </section>
+
+      <section class="notice-section">
+        <div class="shell">
+          <div class="notice-head"><h2 class="notice-title">단지 소식</h2><span class="eyebrow">최근 3건</span></div>
+          <div class="notice-list">
+            <button class="notice-row" data-toast="단지 소식 상세는 브랜드 승인 후 확장합니다."><span class="notice-code">NOTICE 01</span><span class="notice-subject">8월 6일 승강기 정기점검 안내</span><span class="notice-meta">관리사무소 · 8월 4일</span><span class="category-arrow"><svg class="icon" viewBox="0 0 24 24"><path d="M4 12h15M14 6l6 6-6 6"/></svg></span></button>
+            <button class="notice-row" data-toast="단지 소식 상세는 브랜드 승인 후 확장합니다."><span class="notice-code">NOTICE 02</span><span class="notice-subject">8월 입주자대표회의 활동 안내</span><span class="notice-meta">입주자대표회의 · 8월 3일</span><span class="category-arrow"><svg class="icon" viewBox="0 0 24 24"><path d="M4 12h15M14 6l6 6-6 6"/></svg></span></button>
+            <button class="notice-row" data-toast="단지 소식 상세는 브랜드 승인 후 확장합니다."><span class="notice-code">NOTICE 03</span><span class="notice-subject">주민 사업자 무료 등록을 시작합니다</span><span class="notice-meta">단지온 운영자 · 8월 1일</span><span class="category-arrow"><svg class="icon" viewBox="0 0 24 24"><path d="M4 12h15M14 6l6 6-6 6"/></svg></span></button>
+          </div>
+        </div>
+      </section>
+    </section>
+
+    <section class="view" id="view-listing" aria-label="가게와 서비스 목록">
+      <div class="listing-hero">
+        <div class="shell grid12">
+          <h1 class="listing-heading">가까운 이웃의<br>일을 찾습니다.</h1>
+          <p class="listing-side">방림명지로드힐 주민의 일을 먼저, 그다음 이웃 단지와 동네 제휴가게를 보여드립니다.</p>
+        </div>
+      </div>
+      <div class="filter-bar">
+        <div class="shell filter-inner">
+          <div class="relation-tabs" role="tablist" aria-label="주민 관계 필터">
+            <button class="filter-tab active" data-relation="all">전체</button>
+            <button class="filter-tab" data-relation="our">우리 단지 주민</button>
+            <button class="filter-tab" data-relation="neighbor">이웃 단지 주민</button>
+            <button class="filter-tab" data-relation="local">동네 제휴가게</button>
+          </div>
+          <select class="filter-select" id="categorySelect" aria-label="분야 선택">
+            <option value="all">모든 분야</option><option value="food">먹고 마시는 일</option><option value="home">집을 돌보는 일</option><option value="learn">배우고 가르치는 일</option><option value="care">몸과 마음을 돌보는 일</option><option value="business">사업을 돕는 일</option><option value="make">만들고 기록하는 일</option>
+          </select>
+        </div>
+      </div>
+      <div class="listing-content">
+        <div class="shell">
+          <div class="result-summary"><strong id="resultCount">12개의 가게와 서비스</strong><span class="eyebrow">주민 관계 순으로 정렬</span></div>
+          <div class="listing-grid" id="listingGrid"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="view" id="view-detail" aria-label="가게와 서비스 상세">
+      <div class="detail-page">
+        <div class="shell detail-grid">
+          <div class="detail-gallery">
+            <div class="detail-main-image" id="detailMainImage"></div>
+            <div class="gallery-thumbs" id="galleryThumbs"></div>
+          </div>
+          <article class="detail-copy">
+            <button class="back-link" data-route="listing"><svg class="icon" viewBox="0 0 24 24"><path d="M20 12H5M10 6l-6 6 6 6"/></svg>가게와 서비스 목록</button>
+            <div class="detail-relation" id="detailRelation"></div>
+            <h1 class="detail-title" id="detailTitle"></h1>
+            <p class="detail-job" id="detailJob"></p>
+            <p class="detail-story" id="detailStory"></p>
+            <dl class="detail-facts" id="detailFacts"></dl>
+            <div class="detail-benefit" id="detailBenefit"></div>
+            <div class="detail-actions"><button class="primary-btn" data-toast="시연용 화면으로 실제 연락은 전송되지 않습니다.">연락 방법 보기</button><button class="outline-btn" id="saveButton">찜하기</button></div>
+            <p class="detail-note">정확한 동·호수는 공개하지 않습니다. 주민 운영 여부는 단지온 운영자가 별도 확인한 합성 시연 정보입니다.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="shell footer-grid">
+      <div><div class="footer-title"><span id="footerBrand">단지온</span> · 방림명지로드힐</div><p class="footer-small">가까이 사는 이웃의 일을 먼저 발견하는 입주민 인증형 생활경제 서비스.</p></div>
+      <div><div class="eyebrow">1차 브랜드 시안</div><p class="footer-small">표시된 사업자·가격·혜택은 모두 합성 예시입니다.</p></div>
+      <div><div class="eyebrow">이미지 자산</div><p class="footer-small">외부 사진 미사용. 모든 시각물은 승인 전 임시 편집 그래픽입니다.</p></div>
+    </div>
+  </footer>
+
+  <nav class="mobile-nav" aria-label="모바일 하단 메뉴">
+    <button class="active" data-route="home"><svg class="icon" viewBox="0 0 24 24"><path d="M4 10.5 12 4l8 6.5V20H4z"/><path d="M9 20v-6h6v6"/></svg><span>홈</span></button>
+    <button data-route="listing"><svg class="icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4 4"/></svg><span>이웃 찾기</span></button>
+    <button data-toast="주민 혜택 화면은 브랜드 승인 후 확장합니다."><svg class="icon" viewBox="0 0 24 24"><path d="M4 7h16v13H4z"/><path d="M4 11h16M8 7c-1-3 3-4 4 0M16 7c1-3-3-4-4 0M12 7v13"/></svg><span>주민 혜택</span></button>
+    <button data-toast="단지 소식 화면은 브랜드 승인 후 확장합니다."><svg class="icon" viewBox="0 0 24 24"><path d="M5 4h14v16H5z"/><path d="M8 8h8M8 12h8M8 16h5"/></svg><span>단지 소식</span></button>
+    <button data-toast="내 정보 화면은 브랜드 승인 후 확장합니다."><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.5"/><path d="M5.5 20c.7-4 3-6 6.5-6s5.8 2 6.5 6"/></svg><span>내 정보</span></button>
+  </nav>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <div class="brand-dev-note">BRAND COMPARISON CAPTURE</div>
+
+  <script>
+    const brands={
+      danjion:{ko:'단지온',en:'DANJION',title:'단지온 — 가까이 사는 이웃의 일'},
+      danjisai:{ko:'단지사이',en:'BETWEEN NEIGHBORS',title:'단지사이 — 가까이 사는 이웃의 일'},
+      neighborwork:{ko:'이웃일',en:'NEIGHBOR WORKS',title:'이웃일 — 가까이 사는 이웃의 일'}
+    };
+    const params=new URLSearchParams(location.search);
+    const brandKey=params.get('brand')||'danjion';
+    const brand=brands[brandKey]||brands.danjion;
+    document.getElementById('brandKo').textContent=brand.ko;
+    document.getElementById('brandEn').textContent=brand.en;
+    document.getElementById('footerBrand').textContent=brand.ko;
+    document.title=brand.title;
+    if(params.get('capture')==='brand') document.body.classList.add('brand-capture');
+
+    const art={
+      blue:`<svg viewBox="0 0 800 600" aria-hidden="true"><rect width="800" height="600" fill="#2C43E8"/><rect x="60" y="60" width="310" height="410" fill="#F4EEE1"/><rect x="430" y="130" width="260" height="380" fill="#11110F"/><circle cx="350" cy="410" r="130" fill="#AE6844"/><rect x="180" y="220" width="420" height="100" fill="#FBFAF5"/><path d="M220 265h330M220 292h200" stroke="#11110F" stroke-width="16"/></svg>`,
+      copper:`<svg viewBox="0 0 800 600" aria-hidden="true"><rect width="800" height="600" fill="#E7DED0"/><circle cx="300" cy="310" r="220" fill="#AE6844"/><circle cx="300" cy="310" r="125" fill="#FBFAF5"/><rect x="540" y="50" width="150" height="500" fill="#11110F"/><path d="M70 90h400M70 125h240" stroke="#2C43E8" stroke-width="17"/></svg>`,
+      paper:`<svg viewBox="0 0 800 600" aria-hidden="true"><rect width="800" height="600" fill="#2C43E8"/><rect x="70" y="70" width="470" height="410" fill="#FBFAF5"/><path d="M135 165h280M135 225h180M135 285h330" stroke="#11110F" stroke-width="18"/><circle cx="620" cy="420" r="105" fill="#AE6844"/><path d="M570 420h100M620 370v100" stroke="#FBFAF5" stroke-width="10"/></svg>`,
+      ink:`<svg viewBox="0 0 800 600" aria-hidden="true"><rect width="800" height="600" fill="#151514"/><rect x="0" y="0" width="310" height="600" fill="#D8D1C3"/><circle cx="530" cy="310" r="190" fill="#2C43E8"/><rect x="110" y="180" width="520" height="120" fill="#FBFAF5"/><path d="M160 230h420M160 262h260" stroke="#11110F" stroke-width="17"/><rect x="650" y="40" width="80" height="520" fill="#AE6844"/></svg>`
+    };
+    const services=[
+      {id:'oncare',relation:'our',category:'home',name:'온케어 홈클리닝',desc:'에어컨을 분해하고 다시 조립하는 사람',job:'에어컨 분해세척 · 방문 서비스',price:'벽걸이 7만원부터',benefit:'주민 출장비 무료',story:'보이는 먼지만 닦지 않습니다. 부품을 하나씩 분리해 세척하고, 물기와 조립 상태까지 확인한 뒤 다시 작동시킵니다.',art:'blue',wide:true},
+      {id:'table',relation:'our',category:'food',name:'정담찬방',desc:'매일 먹는 반찬을 조금 덜 짜게 만드는 사람',job:'반찬 · 도시락',price:'반찬 4천원부터',benefit:'첫 주문 10% 할인',story:'매일 먹는 음식일수록 자극적이지 않아야 한다는 생각으로 반찬을 만듭니다. 당일 만든 반찬은 정해진 시간에만 소량 판매합니다.',art:'copper',tall:true},
+      {id:'math',relation:'our',category:'learn',name:'한결수학',desc:'수학을 답보다 과정으로 설명하는 사람',job:'중학생 수학 과외',price:'상담 후 안내',benefit:'첫 학습상담 무료',story:'문제를 빨리 푸는 것보다 왜 그렇게 풀어야 하는지 말로 설명할 수 있도록 돕습니다. 중학생 소수정예 수업을 운영합니다.',art:'paper'},
+      {id:'tax',relation:'our',category:'business',name:'도담 세무상담',desc:'처음 사업하는 사람의 세금을 풀어서 설명하는 사람',job:'세무 · 사업자 상담',price:'30분 상담 3만원',benefit:'주민 첫 상담 무료',story:'처음 사업자등록을 하는 분도 이해할 수 있는 말로 세금 일정과 준비서류를 설명합니다. 복잡한 업무는 정식 수임 전 범위를 먼저 안내합니다.',art:'ink'},
+      {id:'photo',relation:'our',category:'make',name:'오후사진관',desc:'가족의 평범한 하루를 사진으로 남기는 사람',job:'가족 · 행사 촬영',price:'1시간 12만원부터',benefit:'주민 인화 5장 제공',story:'과하게 포즈를 시키기보다 가족이 평소처럼 움직이는 시간을 기록합니다. 단지 안 야외 촬영과 소규모 행사 촬영이 가능합니다.',art:'blue'},
+      {id:'repair',relation:'our',category:'home',name:'동네모터스',desc:'차에서 나는 작은 소리를 그냥 넘기지 않는 사람',job:'자동차 점검 · 정비',price:'기본점검 2만원',benefit:'주민 기본점검 무료',story:'정비가 필요한 부분과 아직 지켜봐도 되는 부분을 나누어 설명합니다. 방문 전 차량 증상을 문자로 알려주면 점검 시간을 줄일 수 있습니다.',art:'copper'},
+      {id:'hair',relation:'neighbor',category:'care',name:'결 미용실',desc:'손질하기 쉬운 머리를 오래 고민하는 사람',job:'커트 · 두피관리',price:'커트 2만5천원',benefit:'이웃 단지 10% 할인',story:'집에서 다시 손질할 수 있는 머리를 기준으로 상담합니다.',art:'paper'},
+      {id:'pet',relation:'neighbor',category:'care',name:'곁 반려돌봄',desc:'낯선 곳보다 익숙한 집에서 돌보는 사람',job:'방문 펫시팅',price:'1회 2만원부터',benefit:'첫 만남 무료',story:'반려동물의 생활 습관을 먼저 듣고 익숙한 집에서 방문 돌봄을 진행합니다.',art:'ink'},
+      {id:'class',relation:'neighbor',category:'learn',name:'손끝공방',desc:'작은 재료로 천천히 완성하는 시간을 만드는 사람',job:'수제품 · 취미수업',price:'1회 3만5천원',benefit:'재료비 5천원 할인',story:'성인과 어린이를 위한 소규모 만들기 수업을 운영합니다.',art:'copper'},
+      {id:'cafe',relation:'local',category:'food',name:'모서리커피',desc:'동네의 느린 오후를 위해 커피를 내리는 곳',job:'카페 · 원두',price:'아메리카노 4천원',benefit:'주민 음료 500원 할인',story:'방림동 골목에서 직접 볶은 원두로 커피를 내립니다.',art:'ink'},
+      {id:'docs',relation:'local',category:'business',name:'바른문서지원',desc:'복잡한 제출서류를 순서대로 정리하는 곳',job:'문서작성 · 제출지원',price:'상담 후 안내',benefit:'주민 상담 20분 무료',story:'기관 제출용 문서와 준비 절차를 이해하기 쉬운 순서로 안내합니다.',art:'paper'},
+      {id:'farm',relation:'local',category:'food',name:'들녘꾸러미',desc:'제철 농산물을 필요한 만큼 묶어 보내는 농가',job:'농산물 · 온라인 판매',price:'꾸러미 2만8천원',benefit:'단지 공동배송 무료',story:'주 1회 제철 채소를 단지 공동배송으로 보냅니다.',art:'blue'}
+    ];
+    const relationLabel={our:'방림명지로드힐 주민 · 확인 완료',neighbor:'이웃 단지 주민 · 확인 완료',local:'우리 동네 제휴가게'};
+    let relationFilter='all',categoryFilter='all',currentDetail='oncare',saved=false;
+
+    function route(name){
+      document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active',v.id===`view-${name}`));
+      document.querySelectorAll('.mobile-nav button[data-route]').forEach(b=>b.classList.toggle('active',b.dataset.route===name));
+      document.querySelectorAll('.desktop-nav .nav-link').forEach(b=>b.classList.toggle('active',name==='listing'&&b.dataset.route==='listing'));
+      if(name==='listing') renderListing();
+      if(name==='detail') renderDetail(currentDetail);
+      window.scrollTo({top:0,behavior:'instant'});
+      history.replaceState(null,'',`#${name}`);
+    }
+    function showToast(message){const t=document.getElementById('toast');t.textContent=message;t.classList.add('show');clearTimeout(showToast.timer);showToast.timer=setTimeout(()=>t.classList.remove('show'),2500)}
+    function openDetail(id){currentDetail=id;route('detail')}
+    function renderListing(){
+      const list=services.filter(s=>(relationFilter==='all'||s.relation===relationFilter)&&(categoryFilter==='all'||s.category===categoryFilter));
+      document.getElementById('resultCount').textContent=`${list.length}개의 가게와 서비스`;
+      const grid=document.getElementById('listingGrid');
+      if(!list.length){grid.innerHTML='<div class="empty-state">조건에 맞는 이웃의 일이 아직 없습니다.</div>';return}
+      grid.innerHTML=list.map((s,i)=>`<article class="service-card ${s.wide&&i===0?'wide':''} ${s.tall?'tall':''}"><button class="neighbor-link" data-detail="${s.id}"><div class="service-image"><span class="visual-caption">임시 편집 그래픽</span>${art[s.art]}</div><div class="service-info"><div class="service-relation">${relationLabel[s.relation]}</div><h2 class="service-name">${s.name}</h2><p class="service-desc">${s.desc}</p><div class="service-meta"><span>${s.price}</span><span>${s.benefit}</span></div></div></button></article>`).join('');
+      grid.querySelectorAll('[data-detail]').forEach(b=>b.addEventListener('click',()=>openDetail(b.dataset.detail)));
+    }
+    function renderDetail(id){
+      const s=services.find(x=>x.id===id)||services[0];
+      currentDetail=s.id;
+      document.getElementById('detailRelation').textContent=relationLabel[s.relation];
+      document.getElementById('detailTitle').textContent=s.name;
+      document.getElementById('detailJob').textContent=s.job;
+      document.getElementById('detailStory').textContent=s.story;
+      document.getElementById('detailBenefit').textContent=s.benefit;
+      document.getElementById('detailFacts').innerHTML=`<div class="detail-fact"><dt>대표 가격</dt><dd>${s.price}</dd></div><div class="detail-fact"><dt>이용 방식</dt><dd>${s.job.includes('방문')?'예약 후 방문':'전화 또는 문자 상담 후 이용'}</dd></div><div class="detail-fact"><dt>서비스 지역</dt><dd>방림동과 인근 지역</dd></div><div class="detail-fact"><dt>가능 시간</dt><dd>평일 09:00–18:00 · 토요일 협의</dd></div>`;
+      const variants=[s.art,s.art==='blue'?'ink':'blue',s.art==='copper'?'paper':'copper'];
+      document.getElementById('detailMainImage').innerHTML=art[variants[0]];
+      document.getElementById('galleryThumbs').innerHTML=variants.map((a,i)=>`<button class="gallery-thumb ${i===0?'active':''}" data-art="${a}" aria-label="이미지 ${i+1}">${art[a]}</button>`).join('');
+      document.querySelectorAll('.gallery-thumb').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('.gallery-thumb').forEach(x=>x.classList.remove('active'));b.classList.add('active');document.getElementById('detailMainImage').innerHTML=art[b.dataset.art]}));
+      saved=false;document.getElementById('saveButton').textContent='찜하기';
+    }
+
+    document.addEventListener('click',e=>{
+      const routeBtn=e.target.closest('[data-route]');if(routeBtn){route(routeBtn.dataset.route);return}
+      const detailBtn=e.target.closest('[data-detail]');if(detailBtn){openDetail(detailBtn.dataset.detail);return}
+      const toastBtn=e.target.closest('[data-toast]');if(toastBtn){showToast(toastBtn.dataset.toast);return}
+      const cat=e.target.closest('[data-category]');if(cat){categoryFilter=cat.dataset.category;relationFilter='all';route('listing');document.getElementById('categorySelect').value=categoryFilter;document.querySelectorAll('.filter-tab').forEach(x=>x.classList.toggle('active',x.dataset.relation==='all'));renderListing()}
+    });
+    document.querySelectorAll('.filter-tab').forEach(b=>b.addEventListener('click',()=>{relationFilter=b.dataset.relation;document.querySelectorAll('.filter-tab').forEach(x=>x.classList.toggle('active',x===b));renderListing()}));
+    document.getElementById('categorySelect').addEventListener('change',e=>{categoryFilter=e.target.value;renderListing()});
+    function performSearch(){const q=document.getElementById('homeSearch').value.trim();route('listing');if(q){showToast(`“${q}” 검색 결과를 주민 관계 순으로 보여드립니다.`)}}
+    document.getElementById('homeSearchButton').addEventListener('click',performSearch);
+    document.getElementById('homeSearch').addEventListener('keydown',e=>{if(e.key==='Enter')performSearch()});
+    document.getElementById('saveButton').addEventListener('click',()=>{saved=!saved;document.getElementById('saveButton').textContent=saved?'찜한 이웃':'찜하기';showToast(saved?'찜한 가게에 저장했습니다.':'찜을 해제했습니다.')});
+    renderListing();renderDetail(currentDetail);
+    const initialHash=location.hash.replace('#','');if(['listing','detail'].includes(initialHash))route(initialHash);
+  </script>
+</body>
+</html>

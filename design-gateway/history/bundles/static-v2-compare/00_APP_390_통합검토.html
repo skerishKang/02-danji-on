@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>단지온 · APP 통합검토 · 프론트엔드 점검1기 008</title>
+<style>
+:root{--navy:#101b2d;--navy2:#091323;--paper:#f3efe6;--line:#d5cec0;--coral:#ed5a42;--amber:#f4b448;--blue:#314cf4}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;background:var(--navy2);color:#fff;font-family:Pretendard,"Noto Sans KR",Arial,sans-serif}
+button,select{font:inherit}
+header{position:sticky;top:0;z-index:20;background:rgba(16,27,45,.98);border-bottom:1px solid #334057;padding:12px 16px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+h1{font-size:17px;margin:0 10px 0 0;letter-spacing:-.02em}
+select,button{min-height:44px;border:1px solid #60708c;background:#132239;color:#fff;padding:0 12px;font-weight:800}
+button.primary{background:var(--coral);border-color:var(--coral)}
+button.ghost{background:transparent}
+.meta{margin-left:auto;display:grid;gap:2px;text-align:right;min-width:190px}.meta b{font-size:12px;color:#fff}.meta span{font-size:11px;color:#b9c2cf;max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.stage{min-height:calc(100svh - 70px);display:grid;place-items:start center;padding:22px 12px 36px;overflow:auto}
+.device{padding:10px;background:#202936;box-shadow:0 22px 70px rgba(0,0,0,.45);flex:none}
+.phone{width:390px;height:844px;background:#fff;overflow:hidden}
+.phone iframe{display:block;width:100%;height:100%;border:0;background:var(--paper)}
+.size-note{width:100%;text-align:center;color:#aeb9ca;font-size:11px;margin-top:10px}
+@media(max-width:560px){header{position:relative}.meta{display:none}.stage{padding:0;display:block}.device{padding:0;box-shadow:none;width:100vw}.phone{width:100vw!important;height:calc(100svh - 1px)!important}.size-note{display:none}}
+</style>
+</head>
+<body>
+<header>
+  <h1>단지온 · APP 통합검토 008</h1>
+  <button id="first" class="ghost">처음</button>
+  <button id="prev">← 이전</button>
+  <select id="screen" aria-label="검토 화면 선택"></select>
+  <button id="next">다음 →</button>
+  <select id="viewport" aria-label="앱 화면 크기">
+    <option value="390x844" selected>390 × 844</option>
+    <option value="360x800">360 × 800</option>
+    <option value="430x932">430 × 932</option>
+  </select>
+  <button class="primary" id="reload">다시보기</button>
+  <button id="reset">상태 초기화</button>
+  <div class="meta"><b id="currentLabel">29 · 로그인·가입 시작</b><span id="currentFile">index.html</span></div>
+</header>
+<main class="stage">
+  <div>
+    <div class="device"><div class="phone" id="phone"><iframe id="frame" src="index.html" title="단지온 앱 화면"></iframe></div></div>
+    <div class="size-note">검은 테두리는 기기 외곽이며, 흰색 콘텐츠 영역 자체가 선택한 정확한 viewport입니다.</div>
+  </div>
+</main>
+<script>
+const screens=[
+['29 · 로그인·가입 시작','index.html'],
+['04 · 홈','04_데일리홈.html'],
+['01 · 이웃가게 발견','01_이웃가게_발견.html'],
+['02 · 이웃가게 상세','02_이웃가게_상세.html'],
+['03 · 주민혜택·쿠폰','03_주민혜택_쿠폰.html'],
+['05 · 우리단지','05_우리단지_첫화면.html'],
+['06 · 단지온공지 목록','06_단지온공지_목록.html'],
+['07 · 단지온공지 상세','07_단지온공지_상세.html'],
+['08 · 아파트소식 목록','08_아파트소식_목록.html'],
+['09 · 회장인사 상세','09_회장인사_상세.html'],
+['10 · 주민소식 목록','10_주민소식_목록.html'],
+['11 · 주민소식 상세','11_주민소식_상세.html'],
+['12 · 이웃대화','12_이웃대화_첫화면.html'],
+['13 · 글상세·댓글','13_이웃대화_글상세_댓글.html'],
+['14 · 가입인사 글쓰기','14_가입인사_글쓰기.html'],
+['15 · 단지이야기 글쓰기','15_단지이야기_글쓰기.html'],
+['16 · 궁금해요 글쓰기','16_궁금해요_글쓰기.html'],
+['17 · 같이해요 글쓰기','17_같이해요_글쓰기.html'],
+['19 · 내정보','19_내정보_메인.html'],
+['20 · 메시지함','20_메시지함_목록.html'],
+['21 · 메시지 대화','21_메시지_대화상세.html'],
+['22 · 주민 공개프로필','22_주민_공개프로필.html'],
+['23 · 이웃온기','23_이웃온기.html'],
+['24 · 설정','24_설정.html'],
+['25 · 1:1 문의','25_1대1문의.html'],
+['25A · 신청·제보','25A_신청제보.html'],
+['26 · 우리집 연결','26_우리집연결.html'],
+['27 · 알림함','27_알림함.html'],
+['28 · 나의 활동','28_나의활동.html']
+];
+const sel=document.getElementById('screen');
+const frame=document.getElementById('frame');
+const phone=document.getElementById('phone');
+const viewport=document.getElementById('viewport');
+const currentLabel=document.getElementById('currentLabel');
+const currentFile=document.getElementById('currentFile');
+const REVIEW_SCROLL_PREFIX='danjion-review-scroll:';
+let restoringScroll=false;
+function reviewScrollKey(file){return REVIEW_SCROLL_PREFIX+(file||'index.html')}
+function saveFrameScroll(){
+  try{
+    const file=basename(frame.contentWindow.location.href)||basename(frame.src)||'index.html';
+    sessionStorage.setItem(reviewScrollKey(file),String(Math.round(frame.contentWindow.scrollY||0)));
+  }catch(e){}
+}
+function restoreFrameScroll(file){
+  try{
+    const raw=sessionStorage.getItem(reviewScrollKey(file));
+    if(raw===null)return;
+    const y=parseInt(raw,10)||0;
+    restoringScroll=true;
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{
+      try{frame.contentWindow.scrollTo(0,y)}catch(e){}
+      setTimeout(()=>{try{frame.contentWindow.scrollTo(0,y)}catch(e){} restoringScroll=false},80);
+    }));
+  }catch(e){}
+}
+function installFrameReviewHelpers(){
+  try{
+    const win=frame.contentWindow,doc=frame.contentDocument;
+    if(doc&&!doc.getElementById('danjion-review-app-scroll-style')){
+      const style=doc.createElement('style');
+      style.id='danjion-review-app-scroll-style';
+      style.textContent='@media(max-width:760px){html,body{scrollbar-width:none!important;-ms-overflow-style:none!important}html::-webkit-scrollbar,body::-webkit-scrollbar{width:0!important;height:0!important;display:none!important}}';
+      doc.head&&doc.head.append(style);
+    }
+    win.addEventListener('scroll',()=>{if(!restoringScroll)saveFrameScroll()},{passive:true});
+  }catch(e){}
+}
+screens.forEach(([label,url],i)=>{const o=document.createElement('option');o.value=i;o.textContent=label;sel.append(o)});
+function basename(value){try{return decodeURIComponent((value||'').split(/[?#]/)[0].split('/').pop()||'')}catch(e){return (value||'').split(/[?#]/)[0].split('/').pop()||''}}
+function syncFromFrame(){let file='';try{file=basename(frame.contentWindow.location.href)}catch(e){file=basename(frame.src)}if(!file)file='index.html';const idx=screens.findIndex(([,url])=>basename(url)===file);if(idx>=0){sel.value=idx;currentLabel.textContent=screens[idx][0]}else{currentLabel.textContent='내부 이동 화면'}currentFile.textContent=file}
+function go(i){saveFrameScroll();i=Math.max(0,Math.min(screens.length-1,i));sel.value=i;frame.src=screens[i][1];currentLabel.textContent=screens[i][0];currentFile.textContent=screens[i][1]}
+function applyViewport(){const [w,h]=viewport.value.split('x').map(Number);phone.style.width=w+'px';phone.style.height=h+'px'}
+sel.addEventListener('change',()=>go(+sel.value));
+first.addEventListener('click',()=>go(0));
+prev.addEventListener('click',()=>go(+sel.value-1));
+next.addEventListener('click',()=>go(+sel.value+1));
+reload.addEventListener('click',()=>{try{frame.contentWindow.location.reload()}catch(e){frame.src=frame.src}});
+reset.addEventListener('click',()=>{try{frame.contentWindow.sessionStorage.clear();frame.contentWindow.localStorage.removeItem('danjionFontScale')}catch(e){};try{sessionStorage.clear()}catch(e){};go(0)});
+viewport.addEventListener('change',applyViewport);
+frame.addEventListener('load',()=>{syncFromFrame();installFrameReviewHelpers();const file=basename(frame.contentWindow.location.href)||basename(frame.src)||'index.html';restoreFrameScroll(file);setTimeout(()=>{syncFromFrame();restoreFrameScroll(file)},60)});
+applyViewport();go(0);
+</script>
+</body>
+</html>

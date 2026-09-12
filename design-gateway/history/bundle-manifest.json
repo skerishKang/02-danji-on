@@ -1,0 +1,381 @@
+{
+  "schema_version": "danjion-history-bundle/v1",
+  "generated_from_main": "a9f620afec9ca2f0007c6ff1e58c2ebefa6c50b8",
+  "files": [
+    {
+      "path": "bundles/m1-living-neighbor-shop/assets/scene-food.webp",
+      "bytes": 40268,
+      "sha256": "262c29ef68d2d32650ead7c82ef238dff1c564038cbcccc9a30d03292dfd4c50"
+    },
+    {
+      "path": "bundles/m1-living-neighbor-shop/assets/scene-home-care.webp",
+      "bytes": 61310,
+      "sha256": "84bbd4da4220f01e92ffc5d63feebe401c306c94ed88e784d1ed0a034bd38266"
+    },
+    {
+      "path": "bundles/m1-living-neighbor-shop/assets/scene-learning.webp",
+      "bytes": 16280,
+      "sha256": "885dce551384661bc184e15e6ba02e1dce71f8adc7d2f87f7a5116b07b1b4f7f"
+    },
+    {
+      "path": "bundles/m1-living-neighbor-shop/assets/scene-photo.webp",
+      "bytes": 39192,
+      "sha256": "9a0ce2c3cf95ab89bf128b0c677608b474a3d0fa3689de141fa3847ee59e9eee"
+    },
+    {
+      "path": "bundles/m1-living-neighbor-shop/index.html",
+      "bytes": 55077,
+      "sha256": "e3816e79a600dc5c7ad1f363dcbea28473807d883a95c4d8d7ca23b856c9664b"
+    },
+    {
+      "path": "bundles/static-v2-compare/00_APP_390_통합검토.html",
+      "bytes": 8301,
+      "sha256": "f1a75e6fc096e19b9c8caf1e9ec00b59262b12fafeb9ead9bd06272ce4f63682"
+    },
+    {
+      "path": "bundles/static-v2-compare/01_이웃가게_발견_v2.html",
+      "bytes": 107000,
+      "sha256": "8af01c505d89a19f4f00e964428e999cb2141529baacc842ceba32441a423bce"
+    },
+    {
+      "path": "bundles/static-v2-compare/01_이웃가게_발견.html",
+      "bytes": 37805,
+      "sha256": "ffd7d930b4e93b53ab47ca6bdb0fb01d3e6b86a2b599d5ecf5f84799cced1d42"
+    },
+    {
+      "path": "bundles/static-v2-compare/02_이웃가게_상세.html",
+      "bytes": 57623,
+      "sha256": "d545c22f3e8bc7841eed75099127a8247900699af7f04db7bd9c85e99ce47e72"
+    },
+    {
+      "path": "bundles/static-v2-compare/03_주민혜택_쿠폰_v2.html",
+      "bytes": 12944,
+      "sha256": "35f52d2f5bd8b6b1308404a113b282f739c51b096f7d45b8ab4d8f7b4b1ef577"
+    },
+    {
+      "path": "bundles/static-v2-compare/03_주민혜택_쿠폰.html",
+      "bytes": 22316,
+      "sha256": "9921dd1ff94e79442fd6166960fab1768f80823df74372dd006d32ca2c60cef9"
+    },
+    {
+      "path": "bundles/static-v2-compare/04_데일리홈.html",
+      "bytes": 45265,
+      "sha256": "d4ed1038f68f4da8d54ba165c89bb94f5e099468d128d8903c09ca138b951af7"
+    },
+    {
+      "path": "bundles/static-v2-compare/05_우리단지_첫화면.html",
+      "bytes": 25851,
+      "sha256": "06b420ce6fa34ee08d951273848fdb6522b5119c93e411ad1107fbb52e5899b9"
+    },
+    {
+      "path": "bundles/static-v2-compare/06_단지온공지_목록.html",
+      "bytes": 30063,
+      "sha256": "640107b0e059c4b194835de91b44889faf799d170cdad1fda73633f788ba964f"
+    },
+    {
+      "path": "bundles/static-v2-compare/07_단지온공지_상세.html",
+      "bytes": 18014,
+      "sha256": "c9ae2c823681685434c18c439e10e2f94366e36a5a7dbc184a32d5ecb928062d"
+    },
+    {
+      "path": "bundles/static-v2-compare/08_아파트소식_목록.html",
+      "bytes": 29203,
+      "sha256": "ab6ac77e8bd68cfd47f7d703d43dc2a7bc5af0cdc6ef7e04ee80a9ccaa473ad6"
+    },
+    {
+      "path": "bundles/static-v2-compare/09_회장인사_상세.html",
+      "bytes": 26257,
+      "sha256": "7c80594293e81925b87602fb2e0f31dd53c89a43bef6b466d46ccf01d2055b31"
+    },
+    {
+      "path": "bundles/static-v2-compare/10_주민소식_목록.html",
+      "bytes": 42563,
+      "sha256": "3564cf4b5369de6ea308f2339c1ad3f39c7b09a964e1609ba0a6e74ec1861b73"
+    },
+    {
+      "path": "bundles/static-v2-compare/11_주민소식_상세.html",
+      "bytes": 26795,
+      "sha256": "f7c6986e54fc666e1114bc1644173f02103f90355a5cb32c978c10fedff50cdc"
+    },
+    {
+      "path": "bundles/static-v2-compare/12_이웃대화_첫화면.html",
+      "bytes": 17186,
+      "sha256": "58d6e7627a518d802ca78ecc3d3330bee4445e843a87a1673eb06d7b4e3538ff"
+    },
+    {
+      "path": "bundles/static-v2-compare/13_이웃대화_글상세_댓글.html",
+      "bytes": 17014,
+      "sha256": "cd3b9f212c53a7f0c8670235effc56d0b9b0dc400ba550972370f549c00a588e"
+    },
+    {
+      "path": "bundles/static-v2-compare/14_가입인사_글쓰기.html",
+      "bytes": 14219,
+      "sha256": "18819d53edb8a23e53b34c1b28dd232b45fd60d239a66fbebe2a4498194b1f1c"
+    },
+    {
+      "path": "bundles/static-v2-compare/15_단지이야기_글쓰기.html",
+      "bytes": 14255,
+      "sha256": "90e7f2b8beb00b208a5af39168161dc25f6f0bb2b3b3b3f8bbd06baf4561ee59"
+    },
+    {
+      "path": "bundles/static-v2-compare/16_궁금해요_글쓰기.html",
+      "bytes": 18245,
+      "sha256": "f27f1a1054cb0f9faed79d2e893938a9039fac7ce9a1c0f0abd68acc8bc15b79"
+    },
+    {
+      "path": "bundles/static-v2-compare/17_같이해요_글쓰기.html",
+      "bytes": 19260,
+      "sha256": "546f6171a76f9e36683fcc2dd305c7c5966468bd95b4461659f47daa6b918352"
+    },
+    {
+      "path": "bundles/static-v2-compare/18_공통앱셸.html",
+      "bytes": 132,
+      "sha256": "787294fb5efd87c36bfcfd076f2727138e008ae2cb00a112c13649e02ae0883d"
+    },
+    {
+      "path": "bundles/static-v2-compare/19_내정보_메인.html",
+      "bytes": 45902,
+      "sha256": "355dac62e631d343badd89a6c7248c7f54b7827090f91db7555c1fe5390827c2"
+    },
+    {
+      "path": "bundles/static-v2-compare/20_메시지함_목록.html",
+      "bytes": 31195,
+      "sha256": "15fbcda8531be76bbf4f03947a3c467fb115123c08a403b9e10d8d5587fe81c4"
+    },
+    {
+      "path": "bundles/static-v2-compare/21_메시지_대화상세.html",
+      "bytes": 41223,
+      "sha256": "6b202b2726263b4763a7983de79de07adaebe92a5eafdf2b966b9b41f396d5c0"
+    },
+    {
+      "path": "bundles/static-v2-compare/22_주민_공개프로필.html",
+      "bytes": 40549,
+      "sha256": "8b099996864fdeaf8b445dbbeac726a27fce9c5e391acab3d2aa2b6530c25a43"
+    },
+    {
+      "path": "bundles/static-v2-compare/23_이웃온기.html",
+      "bytes": 33781,
+      "sha256": "4e725a2e4ec46043b35a701436378e0c566161c24779d1b570a445eda766a3ae"
+    },
+    {
+      "path": "bundles/static-v2-compare/24_설정.html",
+      "bytes": 65951,
+      "sha256": "03b545571936bdbc999c01551ba69bfa05c94de1b13299bfbbebf59d1b5a4444"
+    },
+    {
+      "path": "bundles/static-v2-compare/25_1대1문의.html",
+      "bytes": 29673,
+      "sha256": "a00c3e0efaac76f5c0864557a0d522f6327b2ff4a62d4dd6225cf1dfcacacd77"
+    },
+    {
+      "path": "bundles/static-v2-compare/25A_신청제보.html",
+      "bytes": 36915,
+      "sha256": "66d4065b76e752cb708af4311ee183c349420ed5b5eacc47dbeb44271aaf026d"
+    },
+    {
+      "path": "bundles/static-v2-compare/26_우리집연결.html",
+      "bytes": 39571,
+      "sha256": "54a2dd9466871e9d12cad8e21b7305030ab9355c256338a9e88ab3f13388bfab"
+    },
+    {
+      "path": "bundles/static-v2-compare/27_알림함.html",
+      "bytes": 32230,
+      "sha256": "6d5eff30fd91db0f1918fc9361ba37e2d191637443a5b2dabec1a1e2822200e5"
+    },
+    {
+      "path": "bundles/static-v2-compare/28_나의활동.html",
+      "bytes": 66231,
+      "sha256": "bac0b938dd0892c1a4ecc60379af80c0dc4109238e7e97199899f193c3f8c6b5"
+    },
+    {
+      "path": "bundles/static-v2-compare/개인정보수집이용.JPG",
+      "bytes": 66858,
+      "sha256": "4aac3948b23b4a4a9db20b5a95807b0882c94af27fa847a1df90ab9171262c53"
+    },
+    {
+      "path": "bundles/static-v2-compare/단지온이용약관.JPG",
+      "bytes": 63676,
+      "sha256": "6dbe77cddc57d0e2dc89040479c15e30228511dba8b1879c7679f12548f98228"
+    },
+    {
+      "path": "bundles/static-v2-compare/새 텍스트 문서.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "bundles/static-v2-compare/서비스알림수신.JPG",
+      "bytes": 61178,
+      "sha256": "d1ada188e2de78adee4423c013afc8c4b2ebeafa5005ff191319a1184bacb277"
+    },
+    {
+      "path": "bundles/static-v2-compare/혜택이벤트알림.JPG",
+      "bytes": 55605,
+      "sha256": "2e10e80c44c51a9d132e993947a039edfaaf3afe57e482c8d58c782045e4a9ca"
+    },
+    {
+      "path": "bundles/static-v2-compare/app.html",
+      "bytes": 1032,
+      "sha256": "5c0bbf4c84b78d0687b0a6626bccbb2d17529bc467e588bb4cf464a0e2616606"
+    },
+    {
+      "path": "bundles/static-v2-compare/app2.html",
+      "bytes": 1032,
+      "sha256": "5c0bbf4c84b78d0687b0a6626bccbb2d17529bc467e588bb4cf464a0e2616606"
+    },
+    {
+      "path": "bundles/static-v2-compare/assets/bangnim-road-hill.png",
+      "bytes": 393216,
+      "sha256": "54cd45b866eba80e72e24cb728e1e75c88a108c74293855bc6699eb5d9307463"
+    },
+    {
+      "path": "bundles/static-v2-compare/assets/consistency.css",
+      "bytes": 35937,
+      "sha256": "869c31f8b760d5f695fed0e8b131379205ec055718742598bf7ec8d484a08a71"
+    },
+    {
+      "path": "bundles/static-v2-compare/assets/consistency.js",
+      "bytes": 21890,
+      "sha256": "83137b9bf2ab24d893b2a7e19c04f69789b518cefd0666956b4095dcfc63c775"
+    },
+    {
+      "path": "bundles/static-v2-compare/assets/home-florist.png",
+      "bytes": 2239153,
+      "sha256": "23920a339f77e0d24de692939a87911a5d69715d0091a3958c14020874927bd2"
+    },
+    {
+      "path": "bundles/static-v2-compare/assets/neighbors-8.png",
+      "bytes": 2245301,
+      "sha256": "e14a7b2f3bb93e5900b4ea6e2671831ca2e28e2193ace7a21b27f871c6b1481e"
+    },
+    {
+      "path": "bundles/static-v2-compare/assets/roadhill-evening.png",
+      "bytes": 2358137,
+      "sha256": "f2c23d2a2ce15217e38a8ac96feb6f8f11de75101e27ba678eabbbb24f478dc4"
+    },
+    {
+      "path": "bundles/static-v2-compare/assets/scene-beauty.webp",
+      "bytes": 23414,
+      "sha256": "05dd0a33bcd7f7b68b51e059d7d3a27f0ad367f80f74bdc104591249e4e06ad9"
+    },
+    {
+      "path": "bundles/static-v2-compare/assets/scene-car.webp",
+      "bytes": 38848,
+      "sha256": "c6f342c9c1420fd242bddc3b396a9aeec5b838595b5908b2cbd215f343d00620"
+    },
+    {
+      "path": "bundles/static-v2-compare/assets/scene-food.webp",
+      "bytes": 43662,
+      "sha256": "62945189df24e330089d26b2f947c88e616f10976764586ff7d27d9766c21564"
+    },
+    {
+      "path": "bundles/static-v2-compare/assets/scene-home-care.webp",
+      "bytes": 66422,
+      "sha256": "865a61477a9aa0ffbf00b12835d8e156a089dfe902957b080cf6464b51dfa41a"
+    },
+    {
+      "path": "bundles/static-v2-compare/assets/scene-learning.webp",
+      "bytes": 17810,
+      "sha256": "62b6985c1174c7cf9a0a25a358077b2287ef3ceec403bfe5d5ad22d70b45c4d8"
+    },
+    {
+      "path": "bundles/static-v2-compare/assets/scene-photo.webp",
+      "bytes": 42916,
+      "sha256": "25bd40d65593acae62e481de3ecbc4ac8a8e9a631745850ddee5a9e0a188d714"
+    },
+    {
+      "path": "bundles/static-v2-compare/assets/scene-professional.webp",
+      "bytes": 14446,
+      "sha256": "06398410f98bf3f59b9204071f825bcbba7270a1c4a622d2ca9828944df03fcf"
+    },
+    {
+      "path": "bundles/static-v2-compare/ChatGPT Image 2026년 9월 6일 오전 01_29_03.png",
+      "bytes": 1878304,
+      "sha256": "26ff8f61aa47f1429ed4e65a608f3faaa00a03956c4b13849f042a4e784c2b98"
+    },
+    {
+      "path": "bundles/static-v2-compare/index.html",
+      "bytes": 56479,
+      "sha256": "efc8326d9044eade0c8f06f536d473b2a14b55dbcd3d51418bd2483d783d6b54"
+    },
+    {
+      "path": "bundles/static-v2-compare/index2.html",
+      "bytes": 56479,
+      "sha256": "efc8326d9044eade0c8f06f536d473b2a14b55dbcd3d51418bd2483d783d6b54"
+    },
+    {
+      "path": "bundles/static-v2-compare/README_AB_이웃가게_비교_20260905.md",
+      "bytes": 1745,
+      "sha256": "6202eba7b962e761dcba0c4fcc06da3e54ba95cac1759587a6f5ee0a71cd976f"
+    },
+    {
+      "path": "bundles/static-v2-compare/README_BACKEND_HANDOFF_20260904.md",
+      "bytes": 9795,
+      "sha256": "882bcf8f1dcf1f9587956202c5a8f01f6f93cc0474b2511543ec1189cff97ecb"
+    },
+    {
+      "path": "bundles/static-v2-compare/README.md",
+      "bytes": 206,
+      "sha256": "470681bc3eee69d5bc4a1220bcb20f7eae58387c34165677fece7c474e4d71c5"
+    },
+    {
+      "path": "bundles/v1-community/index.html",
+      "bytes": 123499,
+      "sha256": "18aa25f5566c035f089efc33e2c61a0bb9b3e9e5c2f68d8b71bcb152d6937a42"
+    },
+    {
+      "path": "bundles/v2-neighbor-economy/index.html",
+      "bytes": 68806,
+      "sha256": "c381aae64e77f23d18f4281dd9c375fca14cf51d21396153ef5012b16187983b"
+    },
+    {
+      "path": "bundles/v3-editorial/index.html",
+      "bytes": 55058,
+      "sha256": "1810b72cf68027b2c4997c3eda10322f225c4e1805f9d7f42850312667a4eb96"
+    },
+    {
+      "path": "bundles/v4-refined/index.html",
+      "bytes": 57607,
+      "sha256": "a6f8a96a834d56e769a4853a6214b867ff929b0cae8f1c8e9402b368dc0feb50"
+    },
+    {
+      "path": "bundles/v5-functional/index.html",
+      "bytes": 1265276,
+      "sha256": "3cd5429b69c6b2cb145d1f5a5a725ced11357a27fac5e25fa0f4b71e3ec8b508"
+    },
+    {
+      "path": "bundles/v5-photo-reference/index.html",
+      "bytes": 64926,
+      "sha256": "3daf891fdb3d4e2a459f39447239d15dd1336e6c600117c91d4668093c2f1966"
+    },
+    {
+      "path": "bundles/v6-colorway-aubergine-apricot/index.html",
+      "bytes": 1832939,
+      "sha256": "1f9d11f79335ed9f0e9748b933de7ed463e00013fb1005af5d534b09ba4500a9"
+    },
+    {
+      "path": "bundles/v6-colorway-copper/index.html",
+      "bytes": 1832938,
+      "sha256": "7c657fff2066c599f2dea19de394c51b73a8356a71c86e2ce977e3a1820dfd6b"
+    },
+    {
+      "path": "bundles/v6-colorway-ultrablue/index.html",
+      "bytes": 1832939,
+      "sha256": "97f40296b70d09e14f2e6e7fee3556b3cf8c212a5065e3b8248a8bf3a8b696fb"
+    },
+    {
+      "path": "bundles/v6-motion/index.html",
+      "bytes": 561166,
+      "sha256": "feb7c053cfd8893cad72832c79f61e254c68e55b233918415316b4fed3eaf6cd"
+    },
+    {
+      "path": "bundles/v6-ultrablue/index.html",
+      "bytes": 1830174,
+      "sha256": "4ff3ddd0c83dcbce01e3a0ad9c93853eade8258be299f543c471b9457bf7bf07"
+    },
+    {
+      "path": "bundles/v7-silly-color/index.html",
+      "bytes": 607350,
+      "sha256": "af9294b1920c88269d54a84bfe08a4bed6638889970241baf502739fbacff709"
+    }
+  ]
+}
