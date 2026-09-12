@@ -6,6 +6,7 @@
  *   dist/index.html + gateway shell        (landing, cards from registry)
  *   dist/registry/versions.json            (registry snapshot)
  *   dist/<versionId>/...                   (one stable subpath per retained version)
+ *   dist/final/...                          (single sibling-facing FINAL surface, #401)
  *
  * Bundle sources:
  *   mode=assembled  -> copied from the canonical in-repo sourceDir (read-only)
@@ -13,8 +14,8 @@
  *                      (KILO2/KILO3 deliverables per INTEGRATION_CONTRACT)
  *   mounted PENDING -> skipped; the landing card shows PENDING status
  */
-import { cpSync, mkdirSync, rmSync, existsSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { cpSync, mkdirSync, rmSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { join, dirname } from 'node:path';
 import {
   loadAndValidateRegistry, GATEWAY_ROOT, REPO_ROOT, DIST_DIR, repoPath
 } from './registry-lib.mjs';
@@ -68,6 +69,34 @@ for (const version of registry.versions) {
   });
   summary.push({ id: version.id, mode: version.bundle.mode, state: version.bundle.state, dist: `/${version.id}/` });
 }
+
+// FINAL surface (#401): a single sibling-facing presentation, deliberately OUTSIDE
+// the version registry so it never appears as a comparison/history card on the root
+// landing. It frames the one DESIGN_AUTHORITY bundle (V3 current = frontend/) in a
+// thin shell and records that authority's provenance as a build-time sidecar derived
+// from the registry — never hardcoded, so provenance cannot drift from the authority.
+const authority = registry.versions.find((v) => v.status === 'DESIGN_AUTHORITY');
+if (!authority) fail('no DESIGN_AUTHORITY entry to anchor the FINAL surface');
+const finalDir = join(DIST_DIR, 'final');
+cpSync(join(GATEWAY_ROOT, 'final'), finalDir, { recursive: true });
+writeFileSync(
+  join(finalDir, 'FINAL_SOURCE.json'),
+  JSON.stringify({
+    surface: 'final',
+    issue: 401,
+    environment: registry.gateway.environment,
+    authorityVersionId: authority.id,
+    authorityName: authority.name,
+    runtime: authority.runtime,
+    path: authority.source.path,
+    ref: authority.source.ref,
+    sha: authority.source.sha,
+    capturedAt: authority.source.capturedAt,
+    authorityBasis: 'frontend/README_V3_PROMOTION_20260906.md',
+    presentation: '/final/index.html frames /' + authority.id + '/' + authority.bundle.entry
+  }, null, 2) + '\n'
+);
+summary.push({ id: 'final', mode: 'shell', state: 'READY', dist: `/final/ -> /${authority.id}/` });
 
 console.log('design-gateway build OK (non-production artifact only)');
 console.log(`registry: ${registry.versions.length} versions | capturedFromMain: ${registry.gateway.capturedFromMain.slice(0, 7)}`);
