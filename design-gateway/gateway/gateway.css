@@ -40,6 +40,33 @@ main { max-width: 1180px; margin: 0 auto; padding: 28px 20px 48px; }
 h1 { font-size: 26px; margin: 0 0 6px; }
 .lede { color: var(--muted); margin: 0 0 24px; max-width: 720px; }
 
+.choices {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  margin-top: 32px;
+}
+
+.choice {
+  display: flex;
+  min-height: 280px;
+  flex-direction: column;
+  gap: 14px;
+  padding: 28px;
+  color: var(--text);
+  text-decoration: none;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--panel);
+  transition: transform 160ms ease, border-color 160ms ease, background 160ms ease;
+}
+.choice:hover { transform: translateY(-3px); border-color: var(--accent); background: #1b2531; }
+.choice-kicker { color: var(--accent); font-size: 12px; font-weight: 800; letter-spacing: .12em; }
+.choice-final .choice-kicker { color: var(--authority); }
+.choice-title { margin-top: 12px; font-size: clamp(28px, 4vw, 42px); font-weight: 800; line-height: 1.05; letter-spacing: -.045em; }
+.choice-copy { max-width: 34rem; color: var(--muted); font-size: 15px; line-height: 1.7; }
+.choice-open { margin-top: auto; color: var(--text); font-size: 14px; font-weight: 800; }
+
 .cards {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
@@ -116,4 +143,9 @@ footer {
   padding: 0 20px 32px;
   color: var(--muted);
   font-size: 12px;
+}
+
+@media (max-width: 700px) {
+  .choices { grid-template-columns: 1fr; }
+  .choice { min-height: 220px; }
 }
