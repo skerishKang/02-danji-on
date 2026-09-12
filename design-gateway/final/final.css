@@ -1,0 +1,83 @@
+/* DanjiOn FINAL surface (#401) — single sibling-facing presentation.
+   Deliberately not the gateway dark theme: the authority content is light,
+   so the frame chrome stays neutral and thin. Fully relative, no origins. */
+:root {
+  --bar: 40px;
+  --ink: #101b2d;
+  --muted: #6b7280;
+  --line: #e5e1d6;
+  --final: #12a150;
+  --warn: #b42318;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  font-family: "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+  background: #fff;
+}
+
+.final-bar {
+  flex: 0 0 var(--bar);
+  height: var(--bar);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 14px;
+  background: #fff;
+  border-bottom: 1px solid var(--line);
+  color: var(--ink);
+}
+
+.final-badge {
+  display: inline-block;
+  padding: 3px 12px;
+  border-radius: 999px;
+  background: var(--final);
+  color: #fff;
+  font-weight: 800;
+  font-size: 12px;
+  letter-spacing: .09em;
+}
+
+.final-title {
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.final-tag {
+  color: var(--warn);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.final-meta {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 52vw;
+}
+
+.final-frame {
+  flex: 1 1 auto;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  display: block;
+}
+
+@media (max-width: 640px) {
+  .final-tag { display: none; }
+  .final-meta { max-width: 40vw; }
+}
