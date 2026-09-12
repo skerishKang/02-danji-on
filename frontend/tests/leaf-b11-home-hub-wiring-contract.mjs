@@ -45,8 +45,8 @@ assert.ok(bootAt > -1 && bridgeTagAt < bootAt, '04 bridge script must load befor
 assert.ok(wiringAt > bridgeTagAt, '04 authority wiring must come after the bridge tag');
 
 /* --- 04: apiBase gate + fail-closed demo fallback --- */
-assert.ok(f04.includes("const HOME_API_BASE=(new URLSearchParams(location.search).get('apiBase')||'').replace(/\\/+$/,'')"),
-  '04 must derive HOME_API_BASE from the apiBase query param with trailing-slash trim');
+assert.ok(f04.includes('const HOME_API_BASE=DanjionSession.danjionApiBase()'),
+  '04 must derive HOME_API_BASE from the canonical #419 resolver (explicit apiBase preview or production hostname, fail-closed otherwise)');
 assert.ok(/async function loadHomeAuthority\(\)\{\s*if\(!HOME_API_BASE\)return;/.test(f04),
   '04 must return before any fetch when apiBase is absent (demo/static fallback)');
 assert.ok(f04.includes("food:{i:1,name:'오늘의 반찬'"), '04 static demo scenes must remain for the no-apiBase lane');

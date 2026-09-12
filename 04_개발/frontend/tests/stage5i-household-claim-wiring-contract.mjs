@@ -249,7 +249,7 @@ assert.equal(bridge.DANJION_HOUSEHOLD_COMPLEX_SLUG, 'banglim-myeongji-roadhill')
   assert.ok(runtimeTag > -1 && runtimeTag < wiringStart, 'shared runtime must load before wiring');
   const wiring = pageSource.slice(wiringStart, pageSource.indexOf('</script>', wiringStart));
   assert.ok(wiring.includes("import('./assets/household-claim-bridge.js')"), 'wiring must load the bridge module');
-  assert.ok(wiring.includes("get('apiBase')") && /if\s*\(!apiBase\)\s*return;/.test(wiring), 'wiring must early-return without apiBase');
+  assert.ok(wiring.includes('DanjionSession.danjionApiBase()') && /if\s*\(!apiBase\)\s*return;/.test(wiring), 'wiring must early-return without apiBase (#419 hostname-gated resolver)');
   for (const banned of ['localStorage', 'sessionStorage', 'indexedDB', 'document.cookie']) {
     assert.ok(!wiring.includes(banned), `wiring must never persist via ${banned}`);
   }

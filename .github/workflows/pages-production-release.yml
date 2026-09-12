@@ -1,10 +1,18 @@
 name: Pages Production Release
 
+# Issue #419 [production promotion]: the canonical Cloudflare Pages production
+# artifact is the top-level frontend/ V3 static site (plain HTML/assets, no
+# bundler). The V2 React tree under 04_개발/ is no longer a deployable source.
+# The artifact resolves its API binding at runtime through the hostname-gated
+# DanjionSession resolver: only https://danjion.pages.dev auto-binds the
+# production API; every other origin stays fail-closed unless an explicit
+# ?apiBase= controlled preview is provided.
+
 on:
   workflow_dispatch:
     inputs:
       confirm_production:
-        description: 'Deploy the V2 DanjiOn live artifact to canonical Cloudflare Pages production'
+        description: 'Deploy the V3 top-level frontend artifact to canonical Cloudflare Pages production'
         required: true
         default: false
         type: boolean
@@ -18,25 +26,16 @@ concurrency:
 
 jobs:
   deploy-pages-production:
-    name: Guarded DanjiOn Pages production deploy
+    name: Guarded DanjiOn Pages production deploy (V3)
     if: inputs.confirm_production
     runs-on: ubuntu-latest
     environment: production
-    defaults:
-      run:
-        working-directory: 04_개발/frontend
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       API_BASE_URL: https://padiem-danjion-api-production.padiem.workers.dev
       AUTH_BASE_URL: https://padiem-danjion-api-production.padiem.workers.dev
-      VITE_UI_VARIANT: v2
-      VITE_DATA_MODE: api
-      VITE_AUTH_MODE: danjion
-      VITE_STORAGE_MODE: drive
-      VITE_API_BASE_URL: https://padiem-danjion-api-production.padiem.workers.dev
-      VITE_AUTH_BASE_URL: https://padiem-danjion-api-production.padiem.workers.dev
-      VITE_COMPLEX_SLUG: banglim-myeongji-roadhill
+      PRODUCTION_PAGES_HOSTNAME: danjion.pages.dev
       PAGES_PROJECT: danjion
       PAGES_PRODUCTION_BRANCH: main
       CANONICAL_PAGES_URL: https://danjion.pages.dev
@@ -48,11 +47,8 @@ jobs:
         with:
           node-version: '24'
 
-      - name: Install frontend dependencies
-        run: npm install --ignore-scripts
-
-      - name: Verify frontend source and live-profile contracts
-        run: npm run typecheck
+      - name: Verify V3 source through the top-level frontend contract gate
+        run: node frontend/tests/toplevel-frontend-contract-gate.mjs
 
       - name: Fail closed on missing Cloudflare deployment authority
         shell: bash
@@ -112,22 +108,38 @@ jobs:
           fi
           echo "Production API + Better Auth preflight: PASS"
 
-      - name: Build exact V2 live artifact
-        run: npm run build:live
-
-      - name: Verify built artifact is bound to production API and not dev auth
+      - name: Assemble the V3 static production artifact
         shell: bash
         run: |
           set -euo pipefail
-          if ! grep -R -q 'padiem-danjion-api-production.padiem.workers.dev' dist; then
-            echo "::error::Built artifact does not contain the canonical production API/Auth URL."
+          test -f frontend/index.html
+          test -f frontend/assets/danjion-session.js
+          rm -rf dist
+          mkdir -p dist
+          cp -R frontend/. dist/
+          # Repo tooling must never ship inside the Pages artifact.
+          rm -rf dist/tests
+          test -f dist/index.html
+          test ! -e dist/tests
+          echo "V3 artifact assembled from frontend/ (entry: index.html)"
+
+      - name: Verify V3 artifact is bound to the production API and not dev auth
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! grep -R -q 'padiem-danjion-api-production.padiem.workers.dev' dist/assets/danjion-session.js; then
+            echo "::error::V3 resolver does not carry the canonical production API binding."
+            exit 1
+          fi
+          if ! grep -R -q 'danjion.pages.dev' dist/assets/danjion-session.js; then
+            echo "::error::V3 resolver does not gate on the canonical Pages hostname."
             exit 1
           fi
           if grep -R -q 'x-danjion-dev-auth-user' dist; then
-            echo "::error::Built live artifact contains the development auth header."
+            echo "::error::Production artifact contains the development auth header."
             exit 1
           fi
-          echo "Built artifact authority scan: PASS"
+          echo "V3 artifact authority scan: PASS"
 
       - name: Deploy canonical Pages production
         shell: bash
@@ -155,11 +167,13 @@ jobs:
             echo ''
             echo '- Project: `danjion`'
             echo '- Production branch: `main`'
-            echo '- UI variant: `v2`'
-            echo '- Data/Auth/Storage: `api / danjion / drive`'
+            echo '- UI artifact: V3 top-level `frontend/` static site (entry: `index.html`)'
+            echo '- API binding: runtime hostname gate; only `danjion.pages.dev` auto-binds'
             echo '- API/Auth origin: `padiem-danjion-api-production.padiem.workers.dev`'
+            echo '- Controlled preview: explicit `?apiBase=` only'
             echo '- Production API/JWKS preflight: PASS'
+            echo '- V3 contract gate + artifact authority scan: PASS'
             echo '- Canonical Pages smoke: PASS'
             echo '- Real phone OTP delivery: separate HOLD #235'
-            echo '- Vite secrets: NONE'
+            echo '- Build-time secrets: NONE'
           } >> "$GITHUB_STEP_SUMMARY"

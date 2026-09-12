@@ -276,7 +276,7 @@ if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt
 </script>
 <script id="danjion-firstscreen-complex-wiring">
 (function(){
-const FIRST_API_BASE=(new URLSearchParams(location.search).get('apiBase')||'').replace(/\/+$/,'');
+const FIRST_API_BASE=(()=>{const p=new URLSearchParams(location.search);if(p.has('apiBase'))return String(p.get('apiBase')||'').trim().replace(/\/+$/,'');return String(location.hostname||'').toLowerCase()==='danjion.pages.dev'?'https://padiem-danjion-api-production.padiem.workers.dev':'';})();
 const FIRST_COMPLEX_SLUG='banglim-myeongji-roadhill';
 const DEMO_COMPLEX_NAME='방림명지로드힐';
 async function loadFirstScreenAuthority(){

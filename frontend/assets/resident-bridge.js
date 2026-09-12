@@ -44,7 +44,14 @@
   function serverConfig() {
     let apiBase = '';
     try {
-      apiBase = String(new URLSearchParams(location.search).get('apiBase') || '').trim().replace(/\/+$/, '');
+      // Issue #419: canonical resolution lives in DanjionSession (#324 lineage).
+      // Explicit ?apiBase= (controlled preview) wins; the production Pages
+      // hostname auto-binds; every other origin stays fail-closed.
+      if (globalThis.DanjionSession && typeof globalThis.DanjionSession.danjionApiBase === 'function') {
+        apiBase = String(globalThis.DanjionSession.danjionApiBase() || '');
+      } else {
+        apiBase = String(new URLSearchParams(location.search).get('apiBase') || '').trim().replace(/\/+$/, '');
+      }
     } catch (_) {
       apiBase = '';
     }

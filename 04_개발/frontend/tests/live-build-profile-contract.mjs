@@ -51,26 +51,23 @@ assert.match(envExample, /VITE_DATA_MODE=mock/);
 assert.match(envExample, /VITE_AUTH_MODE=dev/);
 assert.match(envExample, /VITE_STORAGE_MODE=mock/);
 
-// Canonical production Pages release contract for #239 / parent #222.
+// Canonical production Pages release contract. #419 promoted the top-level
+// frontend/ V3 static site to canonical production: the V2 React tree remains a
+// controlled preview source but must never own the production release lane again.
+// The V3 workflow guards (hostname gate, artifact assembly, contract gate) are
+// pinned by frontend/tests/production-api-binding-contract.mjs; the shared
+// deployment boundaries below stay locked here for both generations.
 assert.match(pagesWorkflow, /name: Pages Production Release/);
 assert.match(pagesWorkflow, /workflow_dispatch:/, 'Pages production must remain explicitly dispatched');
 assert.match(pagesWorkflow, /environment: production/, 'Pages mutation must use the GitHub production environment boundary');
-assert.match(pagesWorkflow, /VITE_UI_VARIANT:\s*v2/, 'canonical DanjiOn production must expose the integrated V2 surface');
-assert.match(pagesWorkflow, /VITE_DATA_MODE:\s*api/);
-assert.match(pagesWorkflow, /VITE_AUTH_MODE:\s*danjion/);
-assert.match(pagesWorkflow, /VITE_STORAGE_MODE:\s*drive/);
-assert.match(
-  pagesWorkflow,
-  /VITE_COMPLEX_SLUG:\s*banglim-myeongji-roadhill/,
-  'Pages production must build against the canonical Banglim complex slug from production seed 042'
-);
+assert.doesNotMatch(pagesWorkflow, /04_개발\/frontend/, 'the V2 React tree must not be the production deploy source (#419)');
+assert.doesNotMatch(pagesWorkflow, /VITE_UI_VARIANT/, 'production release must not inject a V2 UI variant (#419)');
+assert.doesNotMatch(pagesWorkflow, /npm run build:live/, 'production release must not run the V2 live build (#419)');
 assert.doesNotMatch(
   pagesWorkflow,
   /bangnim-myeongji-roadhill/,
   'Pages production must not use the stale bangnim slug typo'
 );
-assert.match(pagesWorkflow, /VITE_API_BASE_URL:\s*https:\/\/padiem-danjion-api-production\.padiem\.workers\.dev/);
-assert.match(pagesWorkflow, /VITE_AUTH_BASE_URL:\s*https:\/\/padiem-danjion-api-production\.padiem\.workers\.dev/);
 assert.match(pagesWorkflow, /PAGES_PROJECT:\s*danjion/);
 assert.match(pagesWorkflow, /PAGES_PRODUCTION_BRANCH:\s*main/);
 assert.match(pagesWorkflow, /CANONICAL_PAGES_URL:\s*https:\/\/danjion\.pages\.dev/);
@@ -86,13 +83,11 @@ assert.ok(
     < pagesWorkflow.indexOf('Deploy canonical Pages production'),
   'API/JWKS preflight must happen before Pages mutation'
 );
-assert.match(pagesWorkflow, /npm run build:live/);
 assert.match(pagesWorkflow, /wrangler@4\.114\.0 pages deploy dist/);
 assert.match(pagesWorkflow, /--project-name "\$PAGES_PROJECT"/);
 assert.match(pagesWorkflow, /--branch "\$PAGES_PRODUCTION_BRANCH"/);
 assert.match(pagesWorkflow, /--commit-hash "\$GITHUB_SHA"/);
 assert.match(pagesWorkflow, /x-danjion-dev-auth-user/, 'release scan must explicitly reject the dev-auth header from the built artifact');
-assert.doesNotMatch(pagesWorkflow, /VITE_[A-Z0-9_]+:\s*\$\{\{ secrets\./, 'Vite variables must never consume GitHub secrets');
 assert.doesNotMatch(pagesWorkflow, /PADIEM_CONTACT_DELIVERY|DANJION_PRODUCTION_DB_URL/, 'Pages release must not own backend phone delivery or database secrets');
 
-console.log('PASS live frontend build profile and guarded Pages production contract');
+console.log('PASS live frontend build profile and guarded Pages production contract (V3 promotion, #419)');

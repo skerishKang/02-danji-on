@@ -1082,6 +1082,7 @@
 <script src="assets/reviews-bridge.js"></script>
 <script src="assets/benefit-claim-bridge.js"></script>
 <script src="assets/inquiry-bridge.js"></script>
+<script src="assets/danjion-session.js"></script>
 <script id="frontend2-b-shop-runtime-20260905">
 (function(){
  try{sessionStorage.setItem('danjion:shopVariant','v3')}catch(e){}
@@ -1212,7 +1213,7 @@ grid.addEventListener('click',e=>{
  const key=initial.get('shop');if(key&&byKey[key])setTimeout(()=>openShop(key),60);
 
  /* === Stage 5-A: discovery API → 가게 목록만 실데이터 교체 (저장·후기·문의·신청은 기존 데모 동작 유지) === */
- const DISCOVERY_API_BASE=(new URLSearchParams(location.search).get('apiBase')||'').replace(/\/+$/,'');
+ const DISCOVERY_API_BASE=DanjionSession.danjionApiBase();
  const DISCOVERY_COMPLEX_SLUG='banglim-myeongji-roadhill';
  const RELATION_LABEL={'resident':'우리 주민 가게','resident_family':'주민 가족 가게','neighbor':'이웃단지 가게'};
   const CATEGORY_BY_SLUG={cafe:'cafe',food:'food',home:'home',learn:'learn',pro:'pro',car:'car'};
@@ -1401,7 +1402,7 @@ if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt
 <!-- DANJION LOCAL B(#278): application/report bridge runtime (ES module) -->
 <script type="module">
   import { createApplicationReportBridge, DANJION_COMPLEX_SLUG } from './assets/application-report-bridge.js';
-  const appReportApiBase = (new URLSearchParams(location.search).get('apiBase') || '').replace(/\/+$/, '');
+  const appReportApiBase = DanjionSession.danjionApiBase();
   window.DanjionApplicationReportBridge = { createApplicationReportBridge, DANJION_COMPLEX_SLUG };
   window.__applicationReportBridge = createApplicationReportBridge({ apiBase: appReportApiBase, complexSlug: DANJION_COMPLEX_SLUG });
   window.dispatchEvent(new Event('danjion:bridges-ready'));

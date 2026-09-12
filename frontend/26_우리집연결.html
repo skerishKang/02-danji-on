@@ -153,11 +153,12 @@ main{padding-top:24px!important}.page-head{padding-bottom:18px!important}.house-
 }catch(e){}})();
 </script>
 
+<script src="assets/danjion-session.js"></script>
 <script id="household-share-actions-20260904">
 (function(){
-  // Server mode (?apiBase=) hands the invite lane to the household bridge;
+  // Server mode (production hostname or ?apiBase=) hands the invite lane to the household bridge;
   // the demo code generator must not run alongside it.
-  if(new URLSearchParams(location.search).get('apiBase'))return;
+  if(DanjionSession.danjionApiBase())return;
   let code='8K4P';
   const codeEl=document.querySelector('.invite-code b');
   const expiryEl=document.querySelector('.invite-code span');
@@ -296,10 +297,9 @@ if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt
   if(back){back.textContent='← 설정';back.setAttribute('aria-label','설정으로 돌아가기');}
 })();
 </script>
-<script src="assets/danjion-session.js"></script>
 <script id="household-server-wiring-20260910">
 (function(){
-  const apiBase=(new URLSearchParams(location.search).get('apiBase')||'').replace(/\/+$/,'');
+  const apiBase=DanjionSession.danjionApiBase();
   if(!apiBase)return;
   document.querySelectorAll('main > section').forEach(s=>{if(!(s.id&&s.id.startsWith('household-'))&&!s.classList.contains('page-head'))s.hidden=true});
   const el=id=>document.getElementById(id);
