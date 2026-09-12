@@ -1,4 +1,4 @@
-# DanjiOn Design Gateway (#395) — NON-PRODUCTION
+# DanjiOn Design Gateway (#395 / #403) — NON-PRODUCTION
 
 단지온 디자인 버전들을 한 곳에서 비교·검토하기 위한 **비운영 전용 게이트웨이**.
 운영 Pages 프로젝트(`danjion`)와 운영 프론트엔드 권한(`04_개발/frontend`),
@@ -12,12 +12,14 @@ V3 스태틱 권한(`frontend/`)은 이 디렉터리의 어떤 변경으로도 �
 - Each retained design version lives at a **stable subpath** of the gateway:
 
   ```
-  /               landing (version cards)
-  /v2-runtime/    V2 React runtime comparison build   (STATUS=COMPARISON_ONLY)
-  /v3-current/    V3 static design authority          (STATUS=DESIGN_AUTHORITY)
-  /legacy-a/      V5 responsive functional prototype  (STATUS=COMPARISON_ONLY)
-  /legacy-b/      V7 silly-color prototype            (STATUS=COMPARISON_ONLY)
-  /pr378/         PR #378 frozen artifact             (STATUS=COMPARISON_ONLY, DO-NOT-MERGE)
+  /               two choices only: FINAL or HISTORY / COMPARE
+  /final/         one sibling-facing final presentation (#401 / PR #404)
+  /history/       19-candidate historical comparison archive (#402 / PR #405)
+  /v2-runtime/    retained route, linked from HISTORY
+  /v3-current/    retained route, consumed by FINAL and linked from HISTORY
+  /legacy-a/      retained route, linked from HISTORY
+  /legacy-b/      retained route, linked from HISTORY
+  /pr378/         retained frozen route, linked from HISTORY
   ```
 
 - The gateway grants **no** production authority: no entry carries `PRODUCTION`.
@@ -33,10 +35,12 @@ V3 스태틱 권한(`frontend/`)은 이 디렉터리의 어떤 변경으로도 �
 
 ```
 design-gateway/
-├─ registry/versions.json      # GATEWAY RUNTIME registry (danjion-design-registry-v1) — 5 versions, drives cards/build
+├─ registry/versions.json      # retained-route registry (5 routes), consumed by build/HISTORY
 ├─ version-registry.json       # KILO2 PACKAGING registry (danjion-static-design-version/v1) — 4 frozen packages, provenance
 ├─ versions/<id>/              # KILO2 frozen read-only packages (v3-current, legacy-a, legacy-b, pr378)
-├─ gateway/                    # landing shell (index.html, css, js, _headers)
+├─ gateway/                    # two-choice landing shell (index.html, css, js, _headers)
+├─ final/                      # KILO1/#401 single FINAL surface, consumed unchanged
+├─ history/                    # KILO2/#402 19-candidate HISTORY surface, consumed unchanged
 ├─ preview-bundles/<id>/       # mount points for KILO3 deliverables (v2-runtime)
 ├─ scripts/                    # registry-lib, build, check (node-only, zero deps)
 ├─ tests/                      # registry / integration / safety / build-output contracts
@@ -49,9 +53,11 @@ The gateway deliberately keeps **two** registries with different vocabularies,
 linked by matching version ids and `source.sha` provenance — a third is not
 created:
 
-- `registry/versions.json` — the **gateway runtime** registry (`danjion-design-registry-v1`,
-  5 entries). Single source of truth for what the landing page and `build.mjs`
-  emit. Statuses: `DESIGN_AUTHORITY` / `COMPARISON_ONLY` (no `PRODUCTION`).
+- `registry/versions.json` — the **retained-route** registry
+  (`danjion-design-registry-v1`, 5 entries). It is consumed by the build and
+  HISTORY links; the root landing has exactly two static choices and does not
+  render these entries as primary cards. Statuses: `DESIGN_AUTHORITY` /
+  `COMPARISON_ONLY` (no `PRODUCTION`).
 - `version-registry.json` — KILO2's **packaging/provenance** registry
   (`danjion-static-design-version/v1`, 4 frozen packages). Validates the read-only
   `versions/<id>/` packages. Statuses: `DESIGN_AUTHORITY` / `COMPARISON_KEEP`.
@@ -87,8 +93,8 @@ gateway ships and works before any external bundle exists.
 2. Static in-repo sources → `mode: assembled`. External/pre-built bundles →
    `mode: mounted` + deliver the bundle per `INTEGRATION_CONTRACT.md`.
 3. Run `node scripts/check.mjs && node scripts/build.mjs && node tests/build-output-contract.mjs`.
-4. PR review by the gateway integrator (KILO1). Bundle producers do **not**
-   edit the registry or gateway shell directly.
+4. PR review by the gateway integrator (KILO1/KILO3 for Phase 2C). Bundle
+   producers do **not** edit the root integration shell directly.
 
 ## Deployment gate (NOT part of this PR)
 

@@ -7,6 +7,7 @@
  *   dist/registry/versions.json            (registry snapshot)
  *   dist/<versionId>/...                   (one stable subpath per retained version)
  *   dist/final/...                          (single sibling-facing FINAL surface, #401)
+ *   dist/history/...                        (full HISTORY / COMPARE archive, #402)
  *
  * Bundle sources:
  *   mode=assembled  -> copied from the canonical in-repo sourceDir (read-only)
@@ -97,6 +98,12 @@ writeFileSync(
   }, null, 2) + '\n'
 );
 summary.push({ id: 'final', mode: 'shell', state: 'READY', dist: `/final/ -> /${authority.id}/` });
+
+// HISTORY surface (#402): consume the producer's complete archive unchanged.
+// This integration only mounts the existing producer output at /history/.
+const historyDir = join(DIST_DIR, 'history');
+cpSync(join(GATEWAY_ROOT, 'history'), historyDir, { recursive: true });
+summary.push({ id: 'history', mode: 'archive', state: 'READY', dist: '/history/' });
 
 console.log('design-gateway build OK (non-production artifact only)');
 console.log(`registry: ${registry.versions.length} versions | capturedFromMain: ${registry.gateway.capturedFromMain.slice(0, 7)}`);

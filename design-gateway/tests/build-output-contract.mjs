@@ -4,6 +4,8 @@
  * dist/ artifact layout matches the owner-approved gateway shape:
  *   /            landing
  *   /<version>/  one stable subpath per retained version (READY bundles only)
+ *   /final/      single sibling-facing FINAL surface
+ *   /history/    full HISTORY / COMPARE archive
  */
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -18,6 +20,15 @@ function assert(condition, message) {
 }
 
 const registry = loadAndValidateRegistry();
+
+const rootShellPath = join(DIST_DIR, 'index.html');
+const rootShell = existsSync(rootShellPath) ? readFileSync(rootShellPath, 'utf8') : '';
+const rootChoices = [...rootShell.matchAll(/<a\b[^>]*href="([^"]+)"[^>]*>/gi)].map((match) => match[1]);
+assert(rootChoices.length === 2, 'root exposes exactly two primary choices');
+assert(rootChoices.includes('./final/'), 'root FINAL choice links to ./final/');
+assert(rootChoices.includes('./history/'), 'root HISTORY choice links to ./history/');
+assert(!rootShell.includes('id="cards"'), 'root does not retain the legacy version-card container');
+assert(!rootShell.includes('./v2-runtime/'), 'root does not directly list retained version routes');
 
 assert(existsSync(join(DIST_DIR, 'index.html')), 'dist/index.html (landing) exists');
 assert(existsSync(join(DIST_DIR, 'gateway.js')), 'dist/gateway.js exists');
@@ -77,6 +88,26 @@ assert(/<iframe[^>]+src="\.\.\/v3-current\/index\.html"/.test(finalShell),
   'FINAL frames the v3-current authority entry (no re-invented presentation)');
 assert(!/id="cards"|\.\/gateway\.js|레지스트리 로딩|COMPARISON_ONLY|DESIGN_AUTHORITY/.test(finalShell),
   'FINAL surface carries no history/comparison cards or gateway registry chrome');
+
+// HISTORY surface (#402): producer output is mounted unchanged and retains its
+// own 19-entry registry plus existing-route links.
+const historyDir = join(DIST_DIR, 'history');
+assert(existsSync(join(historyDir, 'index.html')), 'dist/history/index.html exists');
+assert(existsSync(join(historyDir, 'registry.json')), 'dist/history/registry.json exists');
+assert(existsSync(join(historyDir, '_headers')), 'dist/history/_headers exists');
+if (existsSync(join(historyDir, 'registry.json'))) {
+  const historyRegistry = JSON.parse(readFileSync(join(historyDir, 'registry.json'), 'utf8'));
+  assert(historyRegistry.entries.length === 19, 'HISTORY keeps all 19 candidates');
+  assert(historyRegistry.entries.filter((entry) => !entry.existing_route).length === 14,
+    'HISTORY keeps all 14 new bundles');
+  assert(historyRegistry.entries.some((entry) => entry.slug === 'pr378-frozen' && entry.do_not_merge === true),
+    'HISTORY keeps PR #378 frozen / DO_NOT_MERGE');
+}
+const historyShell = existsSync(join(historyDir, 'index.html'))
+  ? readFileSync(join(historyDir, 'index.html'), 'utf8')
+  : '';
+assert(/<meta name="robots" content="noindex, nofollow">/.test(historyShell),
+  'HISTORY keeps noindex meta');
 
 if (failures > 0) {
   console.error(`build-output-contract: ${failures} failure(s)`);

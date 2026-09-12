@@ -4,28 +4,39 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="robots" content="noindex, nofollow" />
-  <title>단지온 디자인 게이트웨이 — NON-PRODUCTION</title>
+  <title>단지온 Preview — FINAL / HISTORY</title>
   <link rel="stylesheet" href="./gateway.css" />
 </head>
 <body>
   <header class="banner" role="banner">
-    <strong>비운영(Non-Production) 디자인 게이트웨이</strong>
-    <span>NON-PRODUCTION DESIGN GATEWAY — 비교·검토 전용. 운영 배포/권한과 무관하며, 어떤 프리뷰도 운영 권한을 승계하지 않습니다.</span>
+    <strong>비운영(Non-Production) Preview Gateway</strong>
+    <span>NON-PRODUCTION — 동생에게 보여줄 최종본과 디자인 발전 과정을 분리해 확인합니다. 운영 권한을 승계하지 않습니다.</span>
   </header>
 
   <main>
-    <h1>단지온 디자인 버전 게이트웨이</h1>
+    <h1>단지온 Preview</h1>
     <p class="lede">
-      누적된 디자인 버전들을 한 곳에서 정확한 출처(SHA/ref)와 권한 상태와 함께 확인합니다.
-      카드를 누르면 각 버전의 안정 서브경로로 이동합니다.
+      최종 결과와 과거 버전 비교를 섞지 않고 두 개의 목적지로 나눴습니다.
+      세부 버전은 HISTORY / COMPARE 안에서 확인합니다.
     </p>
-    <section id="cards" class="cards" aria-live="polite">
-      <p class="muted">레지스트리 로딩 중…</p>
+    <section class="choices" aria-label="Preview choices">
+      <a class="choice choice-final" href="./final/">
+        <span class="choice-kicker">FINAL</span>
+        <span class="choice-title">현재 최종 결과 보기</span>
+        <span class="choice-copy">동생에게 보여줄 단일 최종 프레젠테이션입니다.</span>
+        <span class="choice-open">FINAL 열기 →</span>
+      </a>
+      <a class="choice choice-history" href="./history/">
+        <span class="choice-kicker">HISTORY / COMPARE</span>
+        <span class="choice-title">발전 과정 비교하기</span>
+        <span class="choice-copy">V1부터 현재까지의 19개 역사 후보와 기존 비교 route를 탐색합니다.</span>
+        <span class="choice-open">HISTORY / COMPARE 열기 →</span>
+      </a>
     </section>
   </main>
 
   <footer>
-    <p>registry: <code>./registry/versions.json</code> · contract: <code>INTEGRATION_CONTRACT.md</code> · issue #395</p>
+    <p>FINAL: <code>./final/</code> · HISTORY: <code>./history/</code> · issue #403 · noindex / nofollow</p>
   </footer>
 
   <script src="./gateway.js"></script>
