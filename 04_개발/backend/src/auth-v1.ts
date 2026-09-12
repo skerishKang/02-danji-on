@@ -21,7 +21,7 @@ type ActorRecord = Actor & {
   accountStatus: 'active' | 'closed';
 };
 
-type ActorResolution = Actor | 'closed' | 'onboarding' | null;
+type ActorResolution = Actor | 'closed' | null;
 type Sql = NeonQueryFunction<false, false>;
 type RemoteJwks = ReturnType<typeof createRemoteJWKSet>;
 type AuthConfig = { issuer: string; audience: string; jwksUrl: string; authority: 'danjion' | 'neon' };
@@ -128,28 +128,6 @@ async function actorBySubject(sql: Sql, subject: string): Promise<Actor | 'close
   return record.accountStatus === 'closed' ? 'closed' : publicActor(record);
 }
 
-async function approvedSocialProviderAccount(sql: Sql, subject: string): Promise<boolean> {
-  const rows = await sql`
-    select provider_id
-    from danjion_auth.account
-    where user_id = ${subject}
-      and provider_id in ('google', 'naver', 'kakao')
-    limit 1
-  `;
-  return Boolean(rows[0]);
-}
-
-async function completedContactOnboarding(sql: Sql, subject: string): Promise<boolean> {
-  const rows = await sql`
-    select 1
-    from signup_contact_receipts
-    where auth_user_id = ${subject}
-      and consumed_at is not null
-    limit 1
-  `;
-  return Boolean(rows[0]);
-}
-
 async function devActor(request: Request, env: AuthEnv, sql: Sql): Promise<Actor | 'closed' | null> {
   if (env.APP_ENV === 'production' || env.DEV_AUTH_BYPASS !== 'true') return null;
   const subject = request.headers.get(DEV_AUTH_HEADER)?.trim();
@@ -169,25 +147,16 @@ function avatarFromClaims(payload: JWTPayload): string | null {
 
 async function resolveOrBootstrapActor(
   sql: Sql,
-  payload: JWTPayload,
-  requireContactOnboarding: boolean
+  payload: JWTPayload
 ): Promise<ActorResolution> {
   const subject = typeof payload.sub === 'string' ? payload.sub.trim() : '';
   if (!subject) return null;
 
-  // Existing product users keep their current product authority. New Google,
-  // Naver and Kakao OAuth accounts do not receive a second-factor phone gate.
-  // Credential/email accounts continue to require the verified-phone receipt;
-  // the future KakaoTalk delivery route for that direct path is tracked by #235.
+  // Account existence is intentionally separate from resident authority. Any
+  // authenticated Better Auth identity may bootstrap a normal product account;
+  // resident-only handlers still require a verified household membership.
   const existing = await actorBySubject(sql, subject);
   if (existing) return existing;
-
-  if (requireContactOnboarding) {
-    const socialAccount = await approvedSocialProviderAccount(sql, subject);
-    if (!socialAccount && !await completedContactOnboarding(sql, subject)) {
-      return 'onboarding';
-    }
-  }
 
   const displayName = displayNameFromClaims(payload);
   const avatarUrl = avatarFromClaims(payload);
@@ -253,16 +222,8 @@ export async function requireActor(
   if (payload.banned === true) return fail('AUTH_FORBIDDEN', 'Authenticated user is blocked', 403, requestId);
 
   try {
-    const actor = await resolveOrBootstrapActor(sql, payload, config.authority === 'danjion');
+    const actor = await resolveOrBootstrapActor(sql, payload);
     if (actor === 'closed') return fail('AUTH_ACCOUNT_CLOSED', 'DanjiOn product account is closed', 403, requestId);
-    if (actor === 'onboarding') {
-      return fail(
-        'AUTH_ACCOUNT_ONBOARDING_REQUIRED',
-        'Phone contact verification is required for direct email signup before using DanjiOn product features',
-        403,
-        requestId
-      );
-    }
     if (!actor) return fail('AUTH_IDENTITY_LINK_FAILED', 'Authenticated user could not be linked', 500, requestId);
     return actor;
   } catch (error) {

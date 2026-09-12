@@ -23,6 +23,7 @@ const EXPECTED_BACKEND_ORDER = [
   "test:contract",
   "test:auth",
   "test:auth-better-contract",
+  "test:account-first-auth",
   "test:auth-email-recovery",
   "test:auth-delete-boundary",
   "test:signup-contact-production-binding",

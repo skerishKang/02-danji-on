@@ -9,12 +9,8 @@ const authClient = await readFile(new URL('auth-client.ts', root), 'utf8');
 
 assert.match(main, /V2AuthEntryPortal/, 'V2 main must mount the actual account entry portal');
 assert.match(portal, /VITE_AUTH_MODE === 'danjion'/, 'live account mutations must be limited to Danjion auth mode');
-assert.match(portal, /startSignupPhoneVerification/, 'direct email signup must request the canonical phone verification flow');
-assert.match(portal, /verifySignupPhoneCode/, 'direct email signup must verify the six-digit code');
-assert.match(portal, /completeVerifiedSignup/, 'direct email signup must complete through the receipt-gated product endpoint');
-assert.match(portal, /verificationReceiptRef/, 'direct signup must retain the exact one-time verification receipt');
-assert.match(portal, /phoneVerificationState !== 'verified'/, 'direct email account creation remains disabled before phone verification');
-assert.doesNotMatch(portal, /signUpWithEmail|signUpWithPhone/, 'V2 must not call the direct Better Auth signup path');
+assert.match(portal, /signUpWithEmail/, 'direct email signup must use the standard Better Auth account path');
+assert.doesNotMatch(portal, /startSignupPhoneVerification|verifySignupPhoneCode|completeVerifiedSignup|verificationReceiptRef|phoneVerificationState/, 'phone OTP must not gate account creation');
 assert.match(portal, /signInWithEmail/, 'email sign-in must be available');
 assert.match(portal, /signInWithPhone/, 'phone sign-in must be available');
 assert.match(portal, /signInWithSocial/, 'existing social account sign-in must use the Better Auth adapter');
@@ -42,14 +38,13 @@ assert.match(integrated, /!danjionAuthMode\s*&&\s*import\.meta\.env\.DEV/, 'dev 
 assert.doesNotMatch(integrated, /x-danjion-dev-auth-user/, 'V2 Danjion readiness must not manufacture a dev identity');
 assert.doesNotMatch(integrated, /residentVerified\s*=\s*true|VERIFIED_RESIDENT/, 'V2 account-session readiness must not manufacture resident authority');
 
-assert.match(authClient, /\/auth\/verification\/start/, 'client must call product verification start for direct email signup');
-assert.match(authClient, /\/auth\/verification\/verify/, 'client must call product verification verify for direct email signup');
-assert.match(authClient, /\/auth\/signup/, 'client must call the verified direct-signup completion endpoint');
+assert.match(authClient, /danjionAuthClient\.signUp\.email/, 'client must use Better Auth email signup');
+assert.doesNotMatch(authClient, /export async function signUpWithPhone|completeVerifiedSignup/, 'account creation must not require phone receipt completion');
 assert.match(authClient, /requestSignUp:\s*true/, 'new social accounts require explicit Better Auth signup intent');
 assert.match(authClient, /newUserCallbackURL:\s*browserUrl\('\/'\)/, 'new social accounts must return directly after OAuth');
 assert.doesNotMatch(authClient, /account_onboarding=phone/, 'client must not create a social phone-second-factor callback');
 assert.doesNotMatch(authClient, /additionalData:[\s\S]*danjionSocialSignup/, 'browser receipt refs must not be promoted into OAuth state');
-assert.doesNotMatch(authClient, /danjionAuthClient\.signUp\.email/, 'browser must not invoke direct Better Auth signup');
+assert.match(authClient, /emailVerificationCallbackURL/, 'email signup must preserve email verification policy');
 assert.match(authClient, /moveToVerificationLanding\(\)/, 'verified direct accounts must keep the email verification landing');
 assert.match(authClient, /danjionAuthClient\.token\(\)/, 'product API bearer readiness must come from the Better Auth JWT plugin');
 

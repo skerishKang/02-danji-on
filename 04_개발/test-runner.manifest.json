@@ -12,6 +12,7 @@
         {"id":"test:contract","npm":"test:contract","kind":"contract"},
         {"id":"test:auth","npm":"test:auth","kind":"contract"},
         {"id":"test:auth-better-contract","npm":"test:auth-better-contract","kind":"contract"},
+        {"id":"test:account-first-auth","npm":"test:account-first-auth","kind":"contract"},
         {"id":"test:auth-email-recovery","npm":"test:auth-email-recovery","kind":"contract"},
         {"id":"test:auth-delete-boundary","npm":"test:auth-delete-boundary","kind":"contract"},
         {"id":"test:signup-contact-production-binding","npm":"test:signup-contact-production-binding","kind":"contract"},
