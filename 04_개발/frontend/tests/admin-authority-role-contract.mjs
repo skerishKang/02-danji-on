@@ -27,12 +27,16 @@ assert.equal((adminApi.match(/async fetchAuthority\(/g) || []).length, 2,
   'both the mock and api admin adapters must expose fetchAuthority');
 assert.match(adminApi, /export function normalizeAdminAuthority/,
   'authority responses must pass through fail-closed normalization');
-assert.match(adminApi, /record\.level === 'admin' \? 'admin' : 'operator'/,
-  'an unexpected authority level must fail closed to operator');
-assert.match(adminApi, /record\.wildcard === true/,
-  'wildcard must require a strict boolean true to widen capability');
+assert.match(adminApi, /record\.level === 'admin' && record\.wildcard === true/,
+  'a 최고관리자 grant must require BOTH admin level and wildcard to qualify');
+assert.match(adminApi, /level: superAdmin \? 'admin' : 'operator'/,
+  'any inconsistent or missing grant (admin w/o wildcard, wildcard w/o admin) must fail closed to operator');
+assert.match(adminApi, /wildcard: superAdmin/,
+  'a downgraded grant must force wildcard back to false');
 assert.match(adminApi, /export function hasSuperAdminCapability/,
   'the super-admin capability check must be centralized');
+assert.match(adminApi, /authority\.level === 'admin' && authority\.wildcard === true/,
+  'the privileged view must require BOTH admin level and wildcard, never either alone');
 assert.match(adminApi, /level: 'operator', label: OPERATOR_LABEL/,
   'the mock/preview adapter must stay at least privilege (operator)');
 assert.doesNotMatch(adminApi, /localStorage|sessionStorage|indexedDB/i,

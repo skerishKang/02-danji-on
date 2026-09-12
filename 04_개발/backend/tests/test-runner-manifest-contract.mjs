@@ -148,6 +148,7 @@ const EXPECTED_FRONTEND_ORDER = [
   "test:stage5m-reviewer-private-docs",
    "test:api-endpoint-registry-contract",
    "test:v2-runtime-preview-contract",
+   "test:admin-authority-role-contract",
  ];
 
 const EXPECTED_CI_ONLY = [
