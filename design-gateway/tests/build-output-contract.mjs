@@ -66,6 +66,7 @@ assert(existsSync(join(DIST_DIR, 'legacy-a', 'index.html')), 'legacy-a exposes i
 assert(existsSync(join(DIST_DIR, 'legacy-b', 'index.html')), 'legacy-b exposes index.html');
 assert(existsSync(join(DIST_DIR, 'pr378', 'site', 'index.html')), 'pr378 exposes site/index.html');
 assert(existsSync(join(DIST_DIR, 'v2-runtime', 'index.html')), 'v2-runtime mounted bundle copied to dist');
+assert(existsSync(join(DIST_DIR, 'sibling-review', 'index.html')), 'sibling-review entry copied to dist');
 
 // #407 sibling-handoff parity: these pages must remain byte-identical to the
 // canonical frontend source and must survive the assembled v3-current copy.
