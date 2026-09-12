@@ -2,9 +2,11 @@ import { useEffect, useState, type FormEvent } from 'react';
 import {
   adminAdapter,
   canReviewRecommendation,
+  hasSuperAdminCapability,
   recommendationApprovalBlockReason,
   type AdminApplication,
   type AdminApplicationStatus,
+  type AdminAuthority,
   type AdminBusiness,
   type AdminRecommendation,
   type AdminRecommendationReviewStatus,
@@ -13,8 +15,16 @@ import {
 } from './admin-api';
 import ResidentNewsReviewPanel from './ResidentNewsReviewPanel';
 
-type AdminTab = 'applications' | 'recommendations' | 'audit' | 'residentNews' | 'posts' | 'benefits';
+type AdminTab = 'applications' | 'recommendations' | 'audit' | 'residentNews' | 'posts' | 'benefits' | 'privileged';
 type ReviewStatus = Exclude<AdminApplicationStatus, 'draft'>;
+
+// #412: 최고관리 영역은 백엔드 권한 API(#411)가 실제 변경 엔드포인트를 제공하기
+// 전까지 열람 전용 자리표시자로 둔다. 운영 권한 뮤테이션을 임의로 만들지 않는다.
+const privilegedCapabilities = [
+  { id: 'users', title: '사용자 · 권한 관리', description: '관리자 계정과 운영 권한 부여를 관리합니다.' },
+  { id: 'audit', title: '전체 감사 기록', description: '단지 전체의 운영 감사 이력을 조회합니다.' },
+  { id: 'system', title: '민감정보 · 시스템 관리', description: '시스템 설정과 민감정보 접근을 관리합니다.' }
+];
 
 const statusLabels: Record<AdminApplicationStatus, string> = {
   draft: '작성 중',
@@ -60,6 +70,20 @@ export default function AdminApp() {
   const [message, setMessage] = useState('');
   const [postForm, setPostForm] = useState({ sourceName: '단지온 운영자', category: '주민 사업자 소식', title: '', body: '' });
   const [benefitForm, setBenefitForm] = useState({ businessId: '', title: '', description: '', conditions: '방림명지로드힐 인증 입주민 대상' });
+  const [authority, setAuthority] = useState<AdminAuthority | null>(null);
+  const [authorityResolved, setAuthorityResolved] = useState(false);
+
+  // Fail closed: authority is resolved from the backend grant only. A rejected
+  // or failed fetch leaves `authority` null, which hides every privileged view.
+  async function loadAuthority() {
+    try {
+      setAuthority(await adminAdapter.fetchAuthority());
+    } catch {
+      setAuthority(null);
+    } finally {
+      setAuthorityResolved(true);
+    }
+  }
 
   async function loadApplications(filter = statusFilter) {
     try {
@@ -99,6 +123,7 @@ export default function AdminApp() {
   }
 
   useEffect(() => {
+    void loadAuthority();
     void loadApplications('all');
     void loadBusinesses();
   }, []);
@@ -201,6 +226,15 @@ export default function AdminApp() {
     }
   }
 
+  const isSuperAdmin = hasSuperAdminCapability(authority);
+  const roleBadge = !authorityResolved
+    ? { text: '권한 확인 중', tone: 'pending' }
+    : authority && isSuperAdmin
+      ? { text: authority.label, tone: 'admin' }
+      : authority
+        ? { text: authority.label, tone: 'operator' }
+        : { text: '권한 확인 실패 · 접근 제한', tone: 'restricted' };
+
   return (
     <div className="admin-app">
       <header className="admin-header">
@@ -209,7 +243,13 @@ export default function AdminApp() {
           <h1>단지온 운영관리</h1>
           <p>방림명지로드힐 · 개발/검증용 운영 화면</p>
         </div>
-        <a href="/">주민 화면 보기</a>
+        <div className="admin-header-side">
+          <span className={`admin-role-badge ${roleBadge.tone}`} data-role={roleBadge.tone}>{roleBadge.text}</span>
+          <nav className="admin-header-links" aria-label="운영 화면 이동">
+            <a href="/verification-admin.html">입주민 인증</a>
+            <a href="/">주민 화면 보기</a>
+          </nav>
+        </div>
       </header>
 
       <nav className="admin-tabs" aria-label="운영관리 메뉴">
@@ -219,6 +259,9 @@ export default function AdminApp() {
         <button className={tab === 'residentNews' ? 'active' : ''} onClick={() => void openTab('residentNews')}>주민소식 검토</button>
         <button className={tab === 'posts' ? 'active' : ''} onClick={() => void openTab('posts')}>단지소식</button>
         <button className={tab === 'benefits' ? 'active' : ''} onClick={() => void openTab('benefits')}>주민혜택</button>
+        {isSuperAdmin && (
+          <button className={tab === 'privileged' ? 'active admin-tab-privileged' : 'admin-tab-privileged'} onClick={() => void openTab('privileged')}>최고관리</button>
+        )}
       </nav>
 
       {message && <button className="admin-message" onClick={() => setMessage('')}>{message}</button>}
@@ -366,6 +409,28 @@ export default function AdminApp() {
             <label className="full"><span>이용 조건</span><input value={benefitForm.conditions} onChange={(event) => setBenefitForm({ ...benefitForm, conditions: event.target.value })} /></label>
             <button className="admin-primary" disabled={busyId === 'benefit'}>{busyId === 'benefit' ? '등록 중...' : '주민혜택 등록'}</button>
           </form>
+        </main>
+      )}
+
+      {isSuperAdmin && tab === 'privileged' && (
+        <main className="admin-section narrow">
+          <div className="admin-section-heading">
+            <div>
+              <h2>최고관리</h2>
+              <p>전체 관리자 전용 영역입니다. 백엔드 권한 API가 실제 엔드포인트를 제공하기 전까지는 열람 전용으로 비활성화됩니다.</p>
+            </div>
+          </div>
+          <div className="privileged-list">
+            {privilegedCapabilities.map((capability) => (
+              <article key={capability.id} className="privileged-item" aria-disabled="true">
+                <div>
+                  <h3>{capability.title}</h3>
+                  <p>{capability.description}</p>
+                </div>
+                <span className="privileged-state">연동 대기</span>
+              </article>
+            ))}
+          </div>
         </main>
       )}
     </div>

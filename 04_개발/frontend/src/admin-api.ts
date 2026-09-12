@@ -92,6 +92,46 @@ export function recommendationApprovalBlockReason(
   return null;
 }
 
+// #412: role-aware admin console. The single source of truth for admin
+// authority is the fixed GET /api/v1/admin/authority grant resolved by the
+// backend (#411) from scope/wildcard operator grants. The client NEVER infers
+// a role from email, browser storage, query params, or request headers.
+export type AdminAuthorityLevel = 'admin' | 'operator';
+
+export interface AdminAuthority {
+  level: AdminAuthorityLevel;
+  label: '최고관리자' | '일반관리자';
+  scopes: string[];
+  wildcard: boolean;
+}
+
+const SUPER_ADMIN_LABEL = '최고관리자';
+const OPERATOR_LABEL = '일반관리자';
+
+// Fail-closed normalization. A 최고관리자 grant is valid ONLY when BOTH the
+// admin level and the wildcard flag agree. Every other combination — admin
+// without wildcard, wildcard without admin, or any malformed/missing field —
+// collapses to the least-privileged operator view with wildcard forced false,
+// so a partial or inconsistent grant can never widen privileged access.
+export function normalizeAdminAuthority(raw: unknown): AdminAuthority {
+  const record = raw && typeof raw === 'object' ? raw as Record<string, unknown> : {};
+  const superAdmin = record.level === 'admin' && record.wildcard === true;
+  const scopes = Array.isArray(record.scopes)
+    ? record.scopes.filter((scope): scope is string => typeof scope === 'string')
+    : [];
+  return {
+    level: superAdmin ? 'admin' : 'operator',
+    label: superAdmin ? SUPER_ADMIN_LABEL : OPERATOR_LABEL,
+    scopes,
+    wildcard: superAdmin
+  };
+}
+
+export function hasSuperAdminCapability(authority: AdminAuthority | null): boolean {
+  if (!authority) return false;
+  return authority.level === 'admin' && authority.wildcard === true;
+}
+
 const COMPLEX_SLUG = import.meta.env.VITE_COMPLEX_SLUG || 'bangnim-myeongji-roadhill';
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
 
@@ -226,6 +266,11 @@ class MockAdminAdapter {
     if (!business) throw new Error('혜택 대상 가게를 찾을 수 없습니다.');
     return createStoredMockBenefit({ ...input, businessName: business.name });
   }
+
+  async fetchAuthority(): Promise<AdminAuthority> {
+    // Preview/mock carries no real grant, so it stays at least privilege.
+    return normalizeAdminAuthority({ level: 'operator', label: OPERATOR_LABEL, scopes: [], wildcard: false });
+  }
 }
 
 class ApiAdminAdapter {
@@ -282,6 +327,10 @@ class ApiAdminAdapter {
       method: 'POST',
       body: JSON.stringify({ ...input, status: 'active' })
     });
+  }
+
+  async fetchAuthority(): Promise<AdminAuthority> {
+    return normalizeAdminAuthority(await apiRequest<unknown>('/api/v1/admin/authority'));
   }
 }
 

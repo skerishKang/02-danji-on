@@ -69,6 +69,7 @@
     "test:stage5l-greeting-wiring": "node tests/stage5l-greeting-wiring-contract.mjs",
     "test:stage5m-reviewer-private-docs": "node tests/stage5m-reviewer-private-docs-contract.mjs",
     "test:v3-persistence-wiring-contract": "node tests/v3-persistence-wiring-contract.mjs",
+    "test:admin-authority-role-contract": "node tests/admin-authority-role-contract.mjs",
     "test:e2e": "playwright test",
     "test:e2e:headed": "playwright test --headed"
   },
