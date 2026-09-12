@@ -4,53 +4,89 @@ import { readFile } from 'node:fs/promises';
 const html = await readFile(new URL('../../../frontend/index.html', import.meta.url), 'utf8');
 const pkg = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
 
-/* --- auth entry does not mislead about phone requirement --- */
-assert.doesNotMatch(html, /휴대전화번호는 필수로 받지 않습니다/,
-  'auth entry must not claim phone is not required when email signup uses phone OTP');
-assert.match(html, /이메일 가입 시 휴대전화번호로 인증합니다/,
-  'auth entry must indicate phone is used for email signup verification');
+/* --- #424 account-first: auth entry never presents phone OTP as a signup requirement --- */
+assert.doesNotMatch(html, /이메일 가입 시 휴대전화번호로 인증합니다/,
+  'auth entry must not claim phone OTP is required for email signup');
+assert.doesNotMatch(html, /휴대전화번호는 가입 인증에/,
+  'auth entry must not describe phone use for signup verification');
+assert.match(html, /이메일로 먼저 계정을 만들고, 주민 확인은 가입 후 별도로 진행합니다/,
+  'auth entry must state the account-first order with resident verification as a separate step');
 
-/* --- phone credential collected on the email signup form --- */
-assert.match(html, /name="phone" type="tel" inputmode="numeric"/,
-  'email signup form must collect the phone credential used for account verification');
-assert.match(html, /01\[016789\]\\d\{7,8\}/,
-  'phone gate must require the canonical Korean mobile form before calling the server');
+/* --- signup form collects the Better Auth account credential only (no phone) --- */
+assert.match(html, /<label>이름<input class="control" name="name" maxlength="24"/,
+  'email signup form must collect the account/display name');
+assert.match(html, /<label>비밀번호<input class="control" name="password" type="password" minlength="8"/,
+  'email signup form must collect the account password up front');
+assert.doesNotMatch(html, /name="phone"/,
+  'no signup form may collect a phone credential as an account prerequisite');
+assert.match(html, /<button class="primary" type="submit">계정 만들기<\/button>/,
+  'signup submit must offer account creation, never a phone OTP challenge');
+assert.match(html, /이 단계에서는 로그인 계정만 만듭니다/,
+  'signup copy must separate account creation from resident authority');
 
-/* --- emailVerify step does not reference email receipt (phone OTP now) --- */
-assert.doesNotMatch(html, /이메일로 받은 6자리 인증번호/,
-  'emailVerify must not claim code was received by email when using phone OTP');
-assert.match(html, /function emailVerify\(\)\{[^}]*인증번호를 입력해 주세요/,
-  'emailVerify heading/lead must prompt for the verification code');
+/* --- A: account creation uses the standard Better Auth email signup path --- */
+assert.match(html, /'\/api\/auth\/sign-up\/email'\),\{method:'POST',body:JSON\.stringify\(\{email,name,password\}\)\}\);/,
+  'email submit must POST the standard Better Auth sign-up email endpoint with email+name+password');
+assert.doesNotMatch(html, /\/auth\/verification\/start/,
+  'index3 must not gate signup behind phone verification start');
+assert.doesNotMatch(html, /\/auth\/verification\/verify/,
+  'index3 must not require a phone OTP verify step for account creation');
+assert.doesNotMatch(html, /verificationReceiptRef/,
+  'index3 must not require a verification receipt for account creation');
+assert.doesNotMatch(html, /signupSessionRef/,
+  'index3 must not carry a phone signup session through account creation');
+assert.doesNotMatch(html, /challengeId/,
+  'index3 must not carry a phone OTP challenge through account creation');
+assert.match(html, /if\(!r\.ok\)\{showToast\(r\.error&&r\.error\.message\?r\.error\.message:'계정을 만들지 못했습니다/,
+  'failed account creation must stay on the form with the server error (retry allowed, never a signup block)');
+assert.match(html, /signupPending=\{email,name\};showToast\('가입 이메일로 인증 메일을 보냈습니다\.'\);render\('terms'\)/,
+  'created accounts must stash only the account identity and continue to terms (email verification policy preserved)');
+assert.doesNotMatch(html, /signupUnavailable|blockEmailSignup|block-email-signup|emailSignupDisabled/,
+  'index3 must not import #426 signup-blocking behavior');
+assert.doesNotMatch(html, /function emailVerify\(\)/,
+  'the phone OTP verify view must not exist');
+assert.doesNotMatch(html, /data-form="verify"|data-form="password"|data-resend/,
+  'no OTP verify/password/resend surfaces may remain in the signup flow');
 
-/* --- A: verification start is wired to the product endpoint in server mode --- */
-assert.match(html, /const phone=event\.target\.elements\.phone\?event\.target\.elements\.phone\.value\.replace\(.{1,4}D\/g,''\):'';/,
-  'email submit must read the email and phone fields');
-assert.match(html, /'\/auth\/verification\/start'\),\{method:'POST',body:JSON\.stringify\(\{email,phone:mobile\}\)\}\);/,
-  'email submit must POST the canonical /auth/verification/start payload');
-assert.match(html, /if\(!\(r\.ok&&r\.data&&r\.data\.signupSessionRef&&r\.data\.challengeId\)\)\{showToast\(/,
-  'verification start must fail closed unless the server returns a real signup session and challenge');
-assert.match(html, /signupPending=\{email,phone:mobile,signupSessionRef:r\.data\.signupSessionRef,challengeId:r\.data\.challengeId\};render\('emailVerify'\)/,
-  'verified start must stash the signup session before the verify step');
+/* --- B: terms and resident steps keep their order with explicit authority separation --- */
+assert.match(html, /function terms\(\)\{setHead\('가입 · 2',/,
+  'terms must follow account creation as step 2');
+assert.match(html, /function residentCode\(\)\{setHead\('가입 · 3',/,
+  'resident code must follow terms as the separate resident-verification step');
+assert.match(html, /이 단계는 로그인 계정 만들기가 아니라 주민 확인 요청입니다/,
+  'resident code copy must state it is a resident-verification request, not account creation');
+assert.match(html, /function address\(\)\{setHead\('가입 · 4',/,
+  'address selection must follow the resident code step');
+assert.match(html, /function nickname\(\)\{setHead\('가입 · 5',/,
+  'nickname must close the flow as step 5');
 
-/* --- B: code verification is wired to the product endpoint in server mode --- */
-assert.match(html, /'\/auth\/verification\/verify'\),\{method:'POST',body:JSON\.stringify\(\{signupSessionRef:signupPending\.signupSessionRef,challengeId:signupPending\.challengeId,code:value\}\)\}\)/,
-  'verify submit must POST the canonical /auth/verification/verify payload');
-assert.match(html, /if\(!\(r\.ok&&r\.data&&r\.data\.verificationReceiptRef\)\)\{showToast\(/,
-  'verify must fail closed unless the server returns a one-time receipt');
-assert.match(html, /signupPending\.verificationReceiptRef=r\.data\.verificationReceiptRef;render\('password'\)/,
-  'verified code must stash the receipt before collecting the password');
-assert.doesNotMatch(html, /type==='verify'\)\{[\s\S]{0,400}memberMode=true/,
-  'verify must not mint member state locally');
+/* --- C: completion claims the account only; resident authority stays separate --- */
+assert.match(html, /<h3>계정을 만들었어요<\/h3>/,
+  'completion must claim the created account, never complex registration');
+assert.doesNotMatch(html, /단지 등록이 끝났어요/,
+  'completion must not claim resident/complex registration is done');
+assert.match(html, /가입 이메일의 인증 메일을 확인하면 로그인할 수 있습니다/,
+  'completion must preserve the email-verification policy (login after mailbox verification)');
+assert.match(html, /주민 전용 기능은 주민 확인이 끝난 뒤에 이용할 수 있습니다/,
+  'completion must keep resident-only features behind the separate resident verification');
 
-/* --- C: signup completion goes through the receipt-gated product endpoint --- */
-assert.match(html, /'\/auth\/signup'\),\{method:'POST',body:JSON\.stringify\(\{email:signupPending\.email,phone:signupPending\.phone,name,password:signupPending\.password,signupSessionRef:signupPending\.signupSessionRef,verificationReceiptRef:signupPending\.verificationReceiptRef\}\)\}\)/,
-  'nickname submit must POST the canonical /auth/signup receipt payload');
-assert.match(html, /if\(!\(r\.ok&&r\.data&&r\.data\.accepted\)\)\{showToast\(/,
-  'signup must fail closed unless the server accepts the receipt-gated signup');
-assert.match(html, /signupPending=null;render\('complete'\);return\}render\('complete'\)/,
-  'accepted signup must clear pending state and only then render completion');
-assert.doesNotMatch(html, /type==='nickname'\)\{if\(serverMode\)\{[\s\S]{0,600}sessionStorage\.setItem\('danjionMember/,
-  'server-mode signup must not mint member state or fake resident verification');
+/* --- D: nickname stores the neighbor display name locally; no receipt-gated endpoint --- */
+assert.match(html, /else if\(type==='nickname'\)\{const nickname=event\.target\.elements\.nickname\.value\.trim\(\);/,
+  'nickname submit must read the display name without a server gate');
+assert.doesNotMatch(html, /type==='nickname'\)\{[\s\S]{0,300}__session/,
+  'nickname submit must not call any server endpoint (account already exists)');
+assert.doesNotMatch(html, /'\/auth\/signup'/,
+  'the receipt-gated /auth/signup completion path must not exist');
+assert.match(html, /sessionStorage\.setItem\('danjionNickname',nickname\)/,
+  'nickname submit must persist the neighbor display name locally');
+assert.match(html, /signupPending=null;render\('complete'\)\}else if\(type==='login'\)/,
+  'nickname submit must clear pending state and render completion in both modes');
+
+/* --- E: finish enters the app as a resident-unverified member (never blocked, never verified) --- */
+assert.match(html, /else if\(button\.dataset\.finish!==undefined\)\{memberMode=true;sessionStorage\.setItem\('danjionMember','1'\);sessionStorage\.setItem\('danjionResidentVerification','pending'\);sessionStorage\.removeItem\('danjionGuest'\);syncMemberState\(\);openChair\(\)\}/,
+  'finish must enter the app as a resident-unverified member without re-gating on OTP');
+assert.doesNotMatch(html, /danjionResidentVerified/,
+  'no entry flow may mint a resident-verified flag');
 
 /* --- F: password recovery uses the real Better Auth reset route --- */
 assert.match(html, /'\/api\/auth\/forget-password'\),\{method:'POST',body:JSON\.stringify\(\{email,redirectTo:/,
@@ -58,33 +94,15 @@ assert.match(html, /'\/api\/auth\/forget-password'\),\{method:'POST',body:JSON\.
 assert.match(html, /showToast\(r\.ok\?'가입 이메일로 비밀번호 재설정 안내를 보냈습니다\.':'비밀번호 재설정 이메일을 보내지 못했습니다\./,
   'recovery must report the real server outcome instead of a hardcoded success');
 
-/* --- resend re-issues through the server with the existing signup session --- */
-assert.match(html, /JSON\.stringify\(\{email:signupPending\.email,phone:signupPending\.phone,signupSessionRef:signupPending\.signupSessionRef\}\)\}/,
-  'resend must re-call verification start with the stashed signup session ref');
-assert.match(html, /signupPending\.challengeId=r\.data\.challengeId;showToast\('인증번호를 다시 보냈습니다\.'\)/,
-  'resend must rotate the server-issued challenge id, not fabricate delivery');
-
-/* --- account auth never manufactures resident or Better Auth direct signup --- */
-assert.doesNotMatch(html, /\/api\/auth\/sign-up\/email/,
-  'index3 must never call the blocked direct Better Auth email signup');
-assert.doesNotMatch(html, /dataset\.finish!==undefined\)\{if\(serverMode\)\{showToast\('실제 가입은 서버 계정 가입 절차에서 완료됩니다\.'\);memberMode=true/,
-  'server-mode account auth must not mint resident verification state');
-
-/* --- demo (no apiBase) paths stay exactly as before --- */
-assert.match(html, /\}else\{render\('emailVerify'\)\}\}/,
-  'demo email submit must keep rendering the verify step');
-assert.match(html, /render\('password'\)\}else\{render\('password'\)\}\}/,
-  'demo verify submit must keep rendering the password step');
-assert.match(html, /render\('complete'\);return\}render\('complete'\)\}/,
-  'demo nickname submit must keep rendering completion');
+/* --- demo (no apiBase) paths: email demo stashes the pending account and continues --- */
+assert.match(html, /\}else\{signupPending=\{email,name\};render\('terms'\)\}\}/,
+  'demo email submit must stash the pending account and render terms');
 assert.match(html, /else\{showToast\('가입 이메일로 인증번호를 보냈습니다\.'\)\}\}/,
   'demo recovery must keep the prototype toast');
-assert.match(html, /else\{showToast\('인증번호를 다시 보냈습니다\.'\)\}/,
-  'demo resend must keep the prototype toast');
 
 /* --- pending signup state is cleared when the modal closes --- */
 assert.match(html, /function closeLayer\(\)\{layer\.hidden=true;document\.body\.style\.overflow='';history=\[\];signupPending=null\}/,
-  'closing the modal must drop the pending signup session and receipt');
+  'closing the modal must drop the pending signup state');
 
 /* --- contract runs in the authoritative manifest --- */
 const manifest = JSON.parse(await readFile(new URL('../../test-runner.manifest.json', import.meta.url), 'utf8'));
@@ -92,4 +110,4 @@ const runIds = manifest.scopes.frontend.run.map((s) => s.npm || s.id);
 assert.ok(runIds.includes('test:stage5j-index3-account-entry'),
   'stage5j contract must run in the manifest frontend suite');
 
-console.log('stage5j index3 account entry wiring contract: PASS');
+console.log('stage5j index3 account-first entry wiring contract: PASS');
