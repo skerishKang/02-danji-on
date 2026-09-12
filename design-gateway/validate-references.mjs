@@ -61,10 +61,6 @@ const allowedMissing = new Map([
     'versions/pr378/site/app.html|index3.html?variant=v3&amp;build=20260907',
     'PR #378 frozen historical navigation; preserve the source limitation byte-for-byte.',
   ],
-  [
-    'versions/v3-current/25_1대1문의.html|01_이웃가게_발견_v2.html?shop=',
-    'V2 comparison route intentionally archived outside the V3 retained bundle.',
-  ],
 ]);
 const missing = [];
 const allowed = [];

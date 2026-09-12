@@ -17,7 +17,7 @@ Mode: `STATIC_DESIGN_VERSION_PACKAGER`
 
 | Candidate | Classification | Reason |
 |---|---|---|
-| `frontend/index2.html`, `frontend/app2.html`, `frontend/01_이웃가게_발견_v2.html`, `frontend/03_주민혜택_쿠폰_v2.html` | `ARCHIVE_ONLY` | Explicit V2 comparison branch/history; V3 is the documented current static authority and these are already represented through the V2 runtime comparison |
+| `frontend/index2.html`, `frontend/app2.html` | `ARCHIVE_ONLY` | V2 comparison launchers remain outside the V3 package; the sibling-handoff compatibility pages are retained in `v3-current` |
 | `frontend/00_APP_390_통합검토.html`, `frontend/00_주민혜택_AB비교.html` | `DUPLICATE_DROP` | Review launchers, not independent product/design versions; their underlying variants are retained or classified separately |
 | `03_HTML결과물/01_통합커뮤니티_v1` | `ARCHIVE_ONLY` | Earlier broad concept, superseded by later information-architecture and authority references |
 | `03_HTML결과물/02_이웃생활경제_v2` | `ARCHIVE_ONLY` | Historical stage represented by current V2 comparison and later V3/static work |
