@@ -66,6 +66,14 @@ assert.match(workflow, /workers\/services\/\$\{VERIFICATION_WORKER\}/, 'private 
 assert.match(workflow, /wrangler secret list --env production --format json/, 'existing secret names must be read without exposing values');
 assert.match(workflow, /openssl rand -hex 32/, 'missing product-only secrets must be generated with cryptographic randomness');
 assert.match(workflow, /wrangler deploy --env production --secrets-file/, 'production deploy must upload secrets through the encrypted Worker secret path');
+assert.match(workflow, /OAuth providers provisioned \(names only\)/, '#422: provisioned social provider names must be reported without values');
+assert.match(workflow, /Verify social provider registration on production Worker/, '#422: post-deploy social provider registration readback must exist');
+assert.match(workflow, /PROVIDER_NOT_FOUND/, '#422: missing provider registration must fail closed, never stay silent');
+assert.ok(
+  workflow.indexOf('Verify social provider registration on production Worker') > workflow.indexOf('wrangler deploy --env production'),
+  '#422: social registration readback must run after the Worker deploy'
+);
+assert.doesNotMatch(workflow, /echo "\$response|echo \$\{?response/, '#422: social readback must never print provider response bodies (contain redirect targets)');
 assert.match(workflow, /Production health \+ Better Auth JWKS smoke: PASS/);
 assert.match(workflow, /Real phone OTP delivery: HOLD \/ Issue #235/);
 assert.doesNotMatch(workflow, /PADIEM_CONTACT_DELIVERY:/, 'bootstrap must not invent a real phone delivery binding');

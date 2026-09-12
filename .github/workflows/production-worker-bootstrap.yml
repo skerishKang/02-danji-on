@@ -273,6 +273,19 @@ jobs:
           add_optional_pair "$DANJION_KAKAO_CLIENT_ID" "$DANJION_KAKAO_CLIENT_SECRET" KAKAO_CLIENT_ID KAKAO_CLIENT_SECRET
           add_optional_pair "$DANJION_NAVER_CLIENT_ID" "$DANJION_NAVER_CLIENT_SECRET" NAVER_CLIENT_ID NAVER_CLIENT_SECRET
 
+          # Issue #422: never skip social providers silently. Report the provisioned
+          # provider names only; values are never printed.
+          oauth_provisioned=""
+          if [ -n "$DANJION_GOOGLE_CLIENT_ID" ]; then oauth_provisioned="${oauth_provisioned} google"; fi
+          if [ -n "$DANJION_KAKAO_CLIENT_ID" ]; then oauth_provisioned="${oauth_provisioned} kakao"; fi
+          if [ -n "$DANJION_NAVER_CLIENT_ID" ]; then oauth_provisioned="${oauth_provisioned} naver"; fi
+          if [ -z "$oauth_provisioned" ]; then
+            echo "::warning::No social OAuth credentials found in the GitHub production environment. Expected secret names: DANJION_GOOGLE_CLIENT_ID/DANJION_GOOGLE_CLIENT_SECRET, DANJION_KAKAO_CLIENT_ID/DANJION_KAKAO_CLIENT_SECRET, DANJION_NAVER_CLIENT_ID/DANJION_NAVER_CLIENT_SECRET. Social sign-in stays PROVIDER_NOT_FOUND until they are configured."
+          else
+            echo "OAuth providers provisioned (names only):${oauth_provisioned}"
+          fi
+          echo "DANJION_OAUTH_PROVIDERS=${oauth_provisioned# }" >> "$GITHUB_ENV"
+
           echo "path=${secrets_file}" >> "$GITHUB_OUTPUT"
           echo "Secret payload prepared. Secret values were not printed."
 
@@ -294,7 +307,42 @@ jobs:
               exit 1
             fi
           done
-          echo "Required Worker secret-name readback: PASS"
+           echo "Required Worker secret-name readback: PASS"
+
+      - name: Verify social provider registration on production Worker
+        shell: bash
+        run: |
+          set -euo pipefail
+          check_provider() {
+            local provider="$1"
+            local response
+            response="$(curl --silent --show-error --max-time 20 \
+              -X POST "${DANJION_PRODUCTION_API_URL}/api/auth/sign-in/social" \
+              -H 'Content-Type: application/json' \
+              -H 'Origin: https://danjion.pages.dev' \
+              --data "{\"provider\":\"${provider}\",\"callbackURL\":\"https://danjion.pages.dev/\"}")"
+            if [ -z "$response" ]; then
+              echo "::error::Social sign-in readback for '${provider}' returned an empty response."
+              exit 1
+            fi
+            if printf '%s' "$response" | grep -q 'PROVIDER_NOT_FOUND'; then
+              echo "::error::Provider '${provider}' has GitHub credentials but is not registered on the production Worker."
+              exit 1
+            fi
+            if ! printf '%s' "$response" | grep -q '"url"'; then
+              echo "::error::Provider '${provider}' sign-in readback did not produce an authorization URL."
+              exit 1
+            fi
+            echo "Social provider '${provider}' registration readback: PASS (redirect target not printed)"
+          }
+          if [ -z "${DANJION_OAUTH_PROVIDERS:-}" ]; then
+            echo "::warning::No social OAuth providers configured; skipping registration readback. /api/auth/sign-in/social stays PROVIDER_NOT_FOUND until DANJION_<PROVIDER>_CLIENT_ID/SECRET are added to the GitHub production environment (see 04_개발/docs/OAUTH_PRODUCTION_PROVISIONING_v1.md)."
+            exit 0
+          fi
+          for provider in ${DANJION_OAUTH_PROVIDERS}; do
+            check_provider "$provider"
+          done
+          echo "Social provider registration readback for [${DANJION_OAUTH_PROVIDERS}]: PASS"
 
       - name: Capture deployed artifact provenance
         id: provenance
@@ -374,7 +422,8 @@ jobs:
             echo '- Prohibited dev seeds excluded from apply set: `${{ steps.migration-gate.outputs.prohibited_excluded }}`'
             echo '- Production schema readback before deploy: PASS'
             echo '- Production DB health: PASS'
-            echo '- Better Auth JWKS: PASS'
+             echo '- Better Auth JWKS: PASS'
+             echo "- Social OAuth providers provisioned: \`${DANJION_OAUTH_PROVIDERS:-none}\` (names only)"
             echo '- Padiem contact-verification Service Binding: PRESENT'
             echo "- Deploy provenance: source \`${{ steps.provenance.outputs.source_sha }}\` → Worker Version \`${{ steps.provenance.outputs.worker_version_id }}\` → Deployment \`${{ steps.provenance.outputs.deployment_id }}\`"
             echo '- Deployed artifact provenance readback (deployments status + versions view): PASS'
