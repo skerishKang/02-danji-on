@@ -44,7 +44,7 @@
         }
         return { ok: false, reason: 'server-error', status: response.status, error };
       }
-      return { ok: true, status: response.status, data: payload?.data ?? null, requestId: payload?.requestId ?? null };
+      return { ok: true, status: response.status, data: payload?.data ?? null, raw: payload, requestId: payload?.requestId ?? null };
     } catch (error) {
       return { ok: false, reason: 'network-error', status: 0, error };
     }
