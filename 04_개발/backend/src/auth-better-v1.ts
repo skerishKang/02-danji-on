@@ -63,6 +63,36 @@ function emailVerificationRequired(env: BetterAuthEnv): boolean {
   return env.AUTH_REQUIRE_EMAIL_VERIFICATION?.trim().toLowerCase() !== 'false';
 }
 
+const SOCIAL_PROVIDER_IDS = new Set(['google', 'kakao', 'naver']);
+
+function trustedOriginRuleMatches(origin: string, rule: string): boolean {
+  if (origin === rule) return true;
+  const marker = '://*.';
+  const markerIndex = rule.indexOf(marker);
+  if (markerIndex < 1) return false;
+  const protocol = rule.slice(0, markerIndex);
+  const hostnameSuffix = rule.slice(markerIndex + marker.length);
+  if (!hostnameSuffix || hostnameSuffix.includes('/') || hostnameSuffix.includes(':')) return false;
+  try {
+    const candidate = new URL(origin);
+    return candidate.protocol === `${protocol}:`
+      && !candidate.port
+      && candidate.hostname.endsWith(`.${hostnameSuffix}`);
+  } catch {
+    return false;
+  }
+}
+
+function trustedSocialCallback(env: BetterAuthEnv, baseUrl: string, value: string): string | null {
+  try {
+    const callback = new URL(value);
+    const allowed = trustedOrigins(env, baseUrl).some((rule) => trustedOriginRuleMatches(callback.origin, rule));
+    return allowed ? callback.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
 function configuredSocialProviders(env: BetterAuthEnv) {
   const googleId = env.GOOGLE_CLIENT_ID?.trim();
   const googleSecret = env.GOOGLE_CLIENT_SECRET?.trim();
