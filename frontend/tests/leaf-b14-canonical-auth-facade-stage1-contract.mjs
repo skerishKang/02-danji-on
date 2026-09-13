@@ -16,6 +16,12 @@ assert.match(facade, /export const WORKER_API_BASE = 'https:\/\/padiem-danjion-a
   'facade must proxy to the canonical production Worker base');
 assert.match(facade, /export const EXPECTED_GOOGLE_REDIRECT_URI = `\$\{CANONICAL_PAGES_ORIGIN\}\/api\/auth\/callback\/google`;/,
   'Google redirect URI contract must be the canonical Pages callback path');
+assert.match(facade, /export const FACADE_REQUEST_MARKER_HEADER = 'x-danjion-auth-facade';/,
+  'facade must export the fixed internal request-marker header');
+assert.match(facade, /export const FACADE_REQUEST_MARKER_VALUE = 'canonical-pages-v1';/,
+  'facade must export the fixed internal request-marker value');
+assert.match(facade, /const FORGED_GUARDED_HEADERS = new Set\(\['origin', FACADE_REQUEST_MARKER_HEADER\]\);/,
+  'client-supplied Origin and marker must be forged-guarded before forwarding');
 
 /* --- auth-only routing with static-asset fallthrough --- */
 assert.match(facade, /pathname\.startsWith\(AUTH_PROXY_PREFIX\)\s*\|\|\s*pathname === SOCIAL_START_PATH/,
@@ -76,6 +82,9 @@ assert.match(session, /PRODUCTION_API_BASE/,
     'upstream URL must carry the Worker base, path and forwarded query');
   assert.equal(up.headers.get('cookie'), 'better-auth.session_token=abc', 'Cookie header must be forwarded');
   assert.equal(up.headers.get('x-forwarded-host'), 'danjion.pages.dev', 'canonical host must be forwarded');
+  assert.equal(up.headers.get('origin'), 'https://danjion.pages.dev', 'facade must pin the canonical Origin on the Worker request');
+  assert.equal(up.headers.get(mod.FACADE_REQUEST_MARKER_HEADER), mod.FACADE_REQUEST_MARKER_VALUE,
+    'facade must stamp the fixed internal request marker');
   assert.equal(up.headers.get('host'), null, 'hop-by-hop Host must not leak to the upstream fetch');
   assert.equal(res.status, 302, 'upstream status must pass through (no redirect following)');
   assert.equal(res.headers.get('location'), 'https://accounts.google.com/o/oauth2/v2/auth?state=xyz',
@@ -102,6 +111,21 @@ assert.match(session, /PRODUCTION_API_BASE/,
   assert.equal(calls.length, 1, 'POST /api/auth/sign-in/social must be proxied when invoked');
   assert.equal(await calls[0].text(), '{"provider":"google"}', 'request body must be forwarded');
   assert.equal(postRes.status, 302);
+
+  calls.length = 0;
+  await authFacadeFetch(makeContext('https://danjion.pages.dev/api/auth/get-session', {
+    headers: {
+      origin: 'https://evil-attacker.example',
+      [mod.FACADE_REQUEST_MARKER_HEADER]: 'attacker-controlled-v9',
+      cookie: 'a=b'
+    }
+  }), { fetchImpl });
+  assert.equal(calls.length, 1, 'forged authority headers must still proxy as a normal canonical request');
+  const forged = calls[0];
+  assert.equal(forged.headers.get('origin'), 'https://danjion.pages.dev',
+    'client-forged Origin must be rewritten to the canonical Pages origin (marker can never select an arbitrary origin)');
+  assert.equal(forged.headers.get(mod.FACADE_REQUEST_MARKER_HEADER), mod.FACADE_REQUEST_MARKER_VALUE,
+    'client-forged marker must be stripped and replaced by the fixed marker value');
 
   const fall = await authFacadeFetch(makeContext('https://danjion.pages.dev/index.html'), { fetchImpl });
   assert.equal(fall.status, 418, 'non-auth paths must fall through to ASSETS.fetch');

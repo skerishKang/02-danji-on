@@ -18,6 +18,13 @@ export const CANONICAL_PAGES_ORIGIN = 'https://danjion.pages.dev';
 export const WORKER_API_BASE = 'https://padiem-danjion-api-production.padiem.workers.dev';
 export const EXPECTED_GOOGLE_REDIRECT_URI = `${CANONICAL_PAGES_ORIGIN}/api/auth/callback/google`;
 
+// Fixed internal request marker: the Worker's bounded public-base resolver only
+// switches to the canonical Pages auth base when it sees this exact value plus
+// the exact canonical Origin — both written by the facade itself, never taken
+// from the client.
+export const FACADE_REQUEST_MARKER_HEADER = 'x-danjion-auth-facade';
+export const FACADE_REQUEST_MARKER_VALUE = 'canonical-pages-v1';
+
 export const AUTH_PROXY_PREFIX = '/api/auth/';
 export const SOCIAL_START_PATH = '/auth/social-start';
 
@@ -25,6 +32,10 @@ const HOP_BY_HOP = new Set([
   'host', 'connection', 'keep-alive', 'upgrade', 'transfer-encoding',
   'proxy-authenticate', 'proxy-authorization', 'te', 'trailer'
 ]);
+
+// Client-supplied authority signals must never reach the Worker through the
+// facade: Origin is re-pinned and the internal marker is stripped and rewritten.
+const FORGED_GUARDED_HEADERS = new Set(['origin', FACADE_REQUEST_MARKER_HEADER]);
 
 export function isAuthProxiedPath(pathname) {
   return pathname.startsWith(AUTH_PROXY_PREFIX) || pathname === SOCIAL_START_PATH;
@@ -48,8 +59,12 @@ export async function authFacadeFetch(context, deps = {}) {
 
   const headers = new Headers();
   for (const [name, value] of request.headers) {
-    if (!HOP_BY_HOP.has(name.toLowerCase())) headers.set(name, value);
+    const lower = name.toLowerCase();
+    if (HOP_BY_HOP.has(lower) || FORGED_GUARDED_HEADERS.has(lower)) continue;
+    headers.set(name, value);
   }
+  headers.set('origin', CANONICAL_PAGES_ORIGIN);
+  headers.set(FACADE_REQUEST_MARKER_HEADER, FACADE_REQUEST_MARKER_VALUE);
   headers.set('x-forwarded-host', url.host);
   headers.set('x-forwarded-proto', url.protocol.replace(':', ''));
 

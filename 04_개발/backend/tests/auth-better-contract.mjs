@@ -183,7 +183,7 @@ assert.match(server, /SOCIAL_START_PROVIDERS = new Set\(\['google', 'naver', 'ka
   '#448r2: social start must use an explicit google|naver|kakao provider allowlist');
 assert.match(server, /if \(!SOCIAL_START_PROVIDERS\.has\(provider\)\)/,
   '#448r2: non-allowlisted providers must be rejected before any auth work');
-assert.match(server, /trustedOrigins\(env, normalizeBaseUrl\(requireValue\(env\.DANJION_AUTH_BASE_URL/,
+assert.match(server, /trustedOrigins\(env, resolveAuthPublicBaseUrl\(env, request\)\)/,
   '#448r2: callback validation must reuse the existing trustedOrigins policy boundary');
 assert.match(server, /isTrustedCallbackOrigin\(callback\.origin, trusted\)/,
   '#448r2: callbackURL origin must be validated against the trusted origins list');
