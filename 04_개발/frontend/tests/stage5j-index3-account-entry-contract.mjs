@@ -27,7 +27,7 @@ assert.match(html, /button\.dataset\.residentNow!==undefined\)\{render\('residen
 assert.match(html, /button\.dataset\.residentLater!==undefined\)\{sessionStorage\.setItem\('danjionResidentVerification','pending'\);signupPending=null;render\('complete'\)\}/);
 
 /* resident code is optional for signup completion */
-assert.match(html, /주민코드 없이 계정 가입을 완료했습니다/);
+assert.match(html, /주민코드 없이 계정 생성은 완료되었습니다/);
 assert.match(html, /주민 확인은 나중에 계정 화면에서 진행할 수 있으며/);
 assert.doesNotMatch(html, /danjionResidentVerified/);
 
