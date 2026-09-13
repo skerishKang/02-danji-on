@@ -25,6 +25,7 @@ const repoRoot = join(backendRoot, '..', '..');
 
 const VERSION_ID = 'bbee1b59-fcab-4293-a875-4d1b44c6ff10';
 const DEPLOYMENT_ID = '3f2b7c11-9d4e-4a6b-8c2d-1e5f6a7b8c9d';
+const SOURCE_VERSION_ALT = '20000000-0000-0000-0000-000000000000';
 const SOURCE_SHA = '9f25800609fa831383f245403b3fbb7345ca05ac';
 const TREE_DIGEST = `sha256:${'ab'.repeat(32)}`;
 
@@ -46,6 +47,7 @@ assert.throws(() => parseDeployOutput(''), ProvenanceError, 'empty deploy output
 
 // --- deployments status identity -------------------------------------------
 
+// Legacy wrapped shape (pre-#429 contract) must keep working.
 const statusJson = JSON.stringify({
   deployment: {
     id: DEPLOYMENT_ID,
@@ -56,18 +58,103 @@ const statusJson = JSON.stringify({
 assert.deepEqual(
   extractDeploymentIdentity(statusJson),
   { deploymentId: DEPLOYMENT_ID, servedVersionIds: [VERSION_ID] },
-  'deployments status must yield deployment ID and served version IDs'
+  'wrapped legacy deployments status must yield deployment ID and served version IDs'
 );
+
+// Issue #429: Wrangler 4.114.0 prints the latest deployment object directly.
+// Fixture mirrors the real `wrangler deployments status --json` output shape
+// (packages/wrangler/src/versions/deployments/status.ts, wrangler@4.114.0).
+const realWranglerFixture = await readFile(
+  join(backendRoot, 'tests', 'fixtures', 'wrangler-4.114-deployments-status.json'),
+  'utf8'
+);
+assert.deepEqual(
+  extractDeploymentIdentity(realWranglerFixture),
+  { deploymentId: DEPLOYMENT_ID, servedVersionIds: [VERSION_ID] },
+  'real Wrangler 4.114.0 direct-shape fixture must yield deployment ID and served version IDs'
+);
+
+const directStatusJson = JSON.stringify({
+  annotations: { 'workers/triggered_by': 'upload' },
+  author_email: 'ci@padiem.invalid',
+  created_on: '2026-09-13T07:16:20.000000Z',
+  id: DEPLOYMENT_ID,
+  source: 'wrangler',
+  strategy: 'percentage',
+  versions: [
+    { version_id: VERSION_ID, percentage: 100 },
+  ],
+});
+assert.deepEqual(
+  extractDeploymentIdentity(directStatusJson),
+  { deploymentId: DEPLOYMENT_ID, servedVersionIds: [VERSION_ID] },
+  'current direct shape must yield deployment ID and served version IDs'
+);
+assert.deepEqual(
+  extractDeploymentIdentity({
+    id: DEPLOYMENT_ID,
+    versions: [{ version_id: VERSION_ID, percentage: 10 }, { version_id: SOURCE_VERSION_ALT, percentage: 90 }],
+  }),
+  { deploymentId: DEPLOYMENT_ID, servedVersionIds: [VERSION_ID, SOURCE_VERSION_ALT] },
+  'direct shape with multiple served versions must preserve every version ID'
+);
+
+// Both shapes present and agreeing is unambiguous; disagreeing fails closed.
+assert.deepEqual(
+  extractDeploymentIdentity({
+    ...JSON.parse(directStatusJson),
+    deployment: { id: DEPLOYMENT_ID, versions: [{ version_id: VERSION_ID }] },
+  }),
+  { deploymentId: DEPLOYMENT_ID, servedVersionIds: [VERSION_ID] },
+  'consistent wrapped+direct dual shape must not fail'
+);
+assert.throws(
+  () => extractDeploymentIdentity({
+    ...JSON.parse(directStatusJson),
+    deployment: { id: '44444444-4444-4444-4444-444444444444', versions: [{ version_id: VERSION_ID }] },
+  }),
+  err => err instanceof ProvenanceError && /contradictory/.test(err.message),
+  'contradictory wrapped vs direct identity must fail closed'
+);
+
 assert.throws(() => extractDeploymentIdentity('{}'), ProvenanceError, 'missing deployment must fail closed');
+assert.throws(() => extractDeploymentIdentity(null), ProvenanceError, 'null status must fail closed');
+assert.throws(() => extractDeploymentIdentity('null'), ProvenanceError, 'JSON null must fail closed');
+assert.throws(() => extractDeploymentIdentity('not json'), ProvenanceError, 'malformed JSON must fail closed');
+assert.throws(
+  () => extractDeploymentIdentity([{ id: DEPLOYMENT_ID, versions: [{ version_id: VERSION_ID }] }]),
+  ProvenanceError,
+  'array status must fail closed'
+);
 assert.throws(
   () => extractDeploymentIdentity({ deployment: { id: DEPLOYMENT_ID, versions: [] } }),
   ProvenanceError,
   'empty served version list must fail closed'
 );
 assert.throws(
+  () => extractDeploymentIdentity({ id: DEPLOYMENT_ID, versions: [] }),
+  ProvenanceError,
+  'empty served version list in direct shape must fail closed'
+);
+assert.throws(
   () => extractDeploymentIdentity({ deployment: { id: 'not-a-uuid', versions: [{ version_id: VERSION_ID }] } }),
   ProvenanceError,
   'malformed deployment id must fail closed'
+);
+assert.throws(
+  () => extractDeploymentIdentity({ id: 'not-a-uuid', versions: [{ version_id: VERSION_ID }] }),
+  ProvenanceError,
+  'malformed deployment id in direct shape must fail closed'
+);
+assert.throws(
+  () => extractDeploymentIdentity({ id: DEPLOYMENT_ID, versions: [{ version_id: 'missing-uuid' }] }),
+  ProvenanceError,
+  'malformed served version id in direct shape must fail closed'
+);
+assert.throws(
+  () => extractDeploymentIdentity({ source: 'wrangler', strategy: 'percentage' }),
+  ProvenanceError,
+  'identity-less direct-looking object must fail closed'
 );
 assert.equal(extractVersionViewId(JSON.stringify({ id: VERSION_ID, tag: 'x' })), VERSION_ID);
 assert.throws(() => extractVersionViewId('not json'), ProvenanceError, 'unparseable versions view must fail closed');
@@ -146,6 +233,20 @@ assert.throws(
   () => verifyPostDeployReadback({ ...goodReadback, versionViewJson: JSON.stringify({ id: DEPLOYMENT_ID }) }),
   ProvenanceError,
   'versions view mismatch must fail closed'
+);
+// Issue #429: the verify step reads a fresh `deployments status --json`, which
+// Wrangler 4.114.0 prints in the direct shape; readback must succeed there too.
+assert.deepEqual(
+  verifyPostDeployReadback({
+    ...goodReadback,
+    statusJson: realWranglerFixture,
+  }),
+  {
+    verified: true,
+    served_identity_matches_recorded_release: true,
+    method: 'wrangler deployments status + wrangler versions view readback',
+  },
+  'readback must verify against the real Wrangler direct status shape'
 );
 assert.throws(
   () => verifyPostDeployReadback({

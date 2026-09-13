@@ -38,7 +38,26 @@ export function parseDeployOutput(text) {
 }
 
 // Deterministic extraction from `wrangler deployments status --json`.
-// Required shape: { deployment: { id, versions: [{ version_id }, ...] } }.
+// Issue #429: Wrangler 4.114.0 prints the latest deployment object directly
+// (packages/wrangler/src/versions/deployments/status.ts emits
+// `JSON.stringify(latestDeployment)`), i.e. { id, versions: [{ version_id }, ...] }.
+// The legacy wrapped shape { deployment: { id, versions } } remains accepted for
+// backward compatibility. Anything else — null, arrays, malformed JSON, missing
+// identity, or contradictory wrapped/direct identities — fails closed.
+function readDeploymentIdentity(candidate, label) {
+  if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) {
+    throw new ProvenanceError(`deployments status ${label} deployment is not an object; failing closed`);
+  }
+  const deploymentId = requireUuid(candidate.id, `deployment_id (${label} shape)`);
+  if (!Array.isArray(candidate.versions) || candidate.versions.length === 0) {
+    throw new ProvenanceError(`deployments status ${label} deployment has no versions; failing closed`);
+  }
+  const servedVersionIds = candidate.versions.map((entry, index) =>
+    requireUuid(entry?.version_id, `served version_id[${index}] (${label} shape)`)
+  );
+  return { deploymentId, servedVersionIds };
+}
+
 export function extractDeploymentIdentity(statusJson) {
   let status;
   try {
@@ -46,18 +65,28 @@ export function extractDeploymentIdentity(statusJson) {
   } catch {
     throw new ProvenanceError('deployments status output is not valid JSON; failing closed');
   }
-  const deployment = status?.deployment;
-  if (!deployment || typeof deployment !== 'object') {
+  if (status === null || typeof status !== 'object' || Array.isArray(status)) {
+    throw new ProvenanceError('deployments status output is not a deployment object; failing closed');
+  }
+  const wrapped = status.deployment != null ? status.deployment : undefined;
+  const direct = 'id' in status || 'versions' in status ? status : undefined;
+  if (wrapped === undefined && direct === undefined) {
     throw new ProvenanceError('deployments status output has no current deployment; failing closed');
   }
-  const deploymentId = requireUuid(deployment.id, 'deployment_id');
-  if (!Array.isArray(deployment.versions) || deployment.versions.length === 0) {
-    throw new ProvenanceError('deployments status deployment has no versions; failing closed');
+  const identities = [];
+  if (wrapped !== undefined) identities.push(readDeploymentIdentity(wrapped, 'wrapped'));
+  if (direct !== undefined) identities.push(readDeploymentIdentity(direct, 'direct'));
+  if (identities.length === 2) {
+    const [first, second] = identities;
+    const sameVersions = first.servedVersionIds.length === second.servedVersionIds.length
+      && first.servedVersionIds.every((id, index) => id === second.servedVersionIds[index]);
+    if (first.deploymentId !== second.deploymentId || !sameVersions) {
+      throw new ProvenanceError(
+        'deployments status output has contradictory wrapped and direct deployment identities; failing closed'
+      );
+    }
   }
-  const servedVersionIds = deployment.versions.map((entry, index) =>
-    requireUuid(entry?.version_id, `served version_id[${index}]`)
-  );
-  return { deploymentId, servedVersionIds };
+  return identities[0];
 }
 
 // Deterministic extraction from `wrangler versions view <id> --json`.
