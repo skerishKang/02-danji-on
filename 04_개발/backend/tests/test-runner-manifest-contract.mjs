@@ -29,6 +29,7 @@ const EXPECTED_BACKEND_ORDER = [
   "test:signup-contact-production-binding",
   "test:production-bootstrap-safety",
   "test:production-db-secret-bootstrap",
+  "test:production-auth-readonly-diagnostic",
   "test:authz-v2",
   "test:authz-v2-schema",
   "test:authz-v2-migrations",

@@ -19,6 +19,7 @@
     "test:signup-contact-production-binding": "node tests/signup-contact-production-binding-contract.mjs",
     "test:production-bootstrap-safety": "node tests/production-bootstrap-safety-contract.mjs",
     "test:production-db-secret-bootstrap": "node tests/production-db-secret-bootstrap-contract.mjs",
+    "test:production-auth-readonly-diagnostic": "node tests/production-auth-readonly-diagnostic-contract.mjs",
     "test:authz-v2": "tsx tests/authorization-v2.test.mjs",
     "test:authz-v2-schema": "node tests/authorization-v2-schema-contract.mjs",
     "test:authz-v2-migrations": "node tests/authorization-v2-migration-contract.mjs",
