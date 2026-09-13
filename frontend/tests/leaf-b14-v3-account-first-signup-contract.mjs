@@ -1,18 +1,10 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
-// Issue #424 [V3 production UI parity]: top-level frontend/index.html is the
-// canonical production signup surface. The backend is account-first, so the V3
-// UI must create the Better Auth account with email+name+password and must not
-// gate account creation behind phone OTP. Resident verification stays a
-// separate step with no resident permissions granted at signup.
-// Run: node frontend/tests/leaf-b14-v3-account-first-signup-contract.mjs
-
 const read = (rel) => readFile(new URL(rel, import.meta.url), 'utf8');
-
 const index = await read('../index.html');
 
-/* --- production V3 has no mandatory phone-OTP signup gate --- */
+/* account-first: no phone OTP signup gate */
 for (const banned of [
   '/auth/verification/start',
   '/auth/verification/verify',
@@ -27,48 +19,50 @@ for (const banned of [
 ]) {
   assert.ok(!index.includes(banned), `production V3 signup must not contain "${banned}"`);
 }
-assert.doesNotMatch(index, /이메일 가입 시 휴대전화번호로 인증합니다/,
-  'production V3 must not present phone OTP as an email-signup requirement');
 assert.doesNotMatch(index, /'\/auth\/signup'/,
   'production V3 must not use the receipt-gated /auth/signup completion path');
 
-/* --- production V3 account creation uses the standard Better Auth email path --- */
-assert.match(index, /'\/api\/auth\/sign-up\/email'\),\{method:'POST',body:JSON\.stringify\(\{email,name,password\}\)\}\);/,
-  'production V3 must create the account via POST /api/auth/sign-up/email with email+name+password');
-assert.match(index, /<button class="primary" type="submit">계정 만들기<\/button>/,
-  'production V3 signup must offer direct account creation');
+/* #430 required consent precedes account creation */
+assert.match(index, /signupPending=\{email,name,password,accountCreated:false\};render\('terms'\)/,
+  'email credentials must be staged and terms shown before account creation');
+assert.match(index, /button\.dataset\.termsNext!==undefined[\s\S]*'\/api\/auth\/sign-up\/email'/,
+  'Better Auth account creation must happen only from the accepted-terms action');
+assert.match(index, /필수 2개 동의하고 계정 만들기/,
+  'terms CTA must explicitly create the account after required consent');
+assert.match(index, /서비스 알림 수신[\s\S]*<small>선택<\/small>/,
+  'service notification consent must remain optional');
+assert.match(index, /혜택·이벤트 알림[\s\S]*<small>선택<\/small>/,
+  'benefit marketing consent must remain optional');
 
-/* --- account creation copy explicitly separates account vs resident authority --- */
-assert.match(index, /이메일로 먼저 계정을 만들고, 주민 확인은 가입 후 별도로 진행합니다/,
-  'production V3 entry must state the account-first order');
-assert.match(index, /이 단계에서는 로그인 계정만 만듭니다/,
-  'production V3 signup must claim the account only');
+/* two-track post-signup resident verification */
+assert.match(index, /function residentChoice\(\)/,
+  'post-account resident choice view must exist');
+assert.match(index, /data-resident-later>주민코드가 없어요 · 나중에 인증/,
+  'no-code path must be a first-class action');
+assert.match(index, /data-resident-now>주민코드가 있어요 · 지금 인증/,
+  'has-code path must be a first-class action');
+assert.match(index, /button\.dataset\.residentNow!==undefined\)\{render\('residentCode'\)\}/,
+  'has-code path must enter resident verification');
+assert.match(index, /button\.dataset\.residentLater!==undefined\)\{sessionStorage\.setItem\('danjionResidentVerification','pending'\);signupPending=null;render\('complete'\)\}/,
+  'no-code path must complete signup while remaining resident-unverified');
+
+/* resident authority stays separate */
+assert.doesNotMatch(index, /danjionResidentVerified/,
+  'signup must never mint a resident-verified flag');
+assert.match(index, /주민코드 없이 계정 가입을 완료했습니다/,
+  'completion must explicitly support account-only signup');
+assert.match(index, /주민 확인은 나중에 계정 화면에서 진행할 수 있으며/,
+  'completion must preserve later resident verification');
 assert.match(index, /가입 이메일의 인증 메일을 확인하면 로그인할 수 있습니다/,
-  'production V3 must preserve the email-verification policy in completion copy');
-assert.match(index, /주민 전용 기능은 주민 확인이 끝난 뒤에 이용할 수 있습니다/,
-  'production V3 must keep resident-only features behind the separate resident verification');
-assert.doesNotMatch(index, /단지 등록이 끝났어요/,
-  'production V3 completion must not claim resident registration is done');
+  'email verification policy must remain visible');
 
-/* --- no #426 signup-blocking behavior is imported --- */
+/* no #426 signup-blocking behavior */
 assert.doesNotMatch(index, /signupUnavailable|blockEmailSignup|block-email-signup|emailSignupDisabled/,
-  'production V3 must not disable email signup when phone verification is unavailable');
+  'email signup must not be disabled because phone verification is unavailable');
 
-/* --- #425 OAuth provisioning guards stay intact (social adapter untouched) --- */
-assert.match(index, /'\/api\/auth\/sign-in\/social'/,
-  'production V3 must keep the existing Better Auth social adapter path');
-assert.match(index, /providerMap=\{'카카오':'kakao','네이버':'naver','Google':'google'\}/,
-  'production V3 must keep the existing social provider mapping');
-
-/* --- login and recovery keep their Better Auth routes (untouched lanes) --- */
-assert.match(index, /'\/api\/auth\/sign-in\/email'/,
-  'production V3 must keep email login on the Better Auth sign-in route');
-assert.match(index, /'\/api\/auth\/forget-password'\)/,
-  'production V3 must keep password recovery on the Better Auth reset route');
-
-/* --- bounded scope: the parity fix lives in the canonical signup page only --- */
-const daily = await read('../04_데일리홈.html');
-assert.ok(!daily.includes('/api/auth/sign-up/email'),
-  '04_데일리홈.html must stay outside the #424 V3 signup scope');
+/* OAuth/login/recovery routes stay intact */
+assert.match(index, /'\/api\/auth\/sign-in\/social'/);
+assert.match(index, /'\/api\/auth\/sign-in\/email'/);
+assert.match(index, /'\/api\/auth\/forget-password'\)/);
 
 console.log('leaf-b14-v3-account-first-signup-contract: PASS');

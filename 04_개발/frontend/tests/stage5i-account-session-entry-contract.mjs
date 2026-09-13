@@ -34,9 +34,11 @@ assert.match(html, /if\(serverMode\)\{const body=\{provider,callbackURL:location
 assert.match(html, /providerMap=\{'카카오':'kakao','네이버':'naver','Google':'google'\}/,
   'social providers must map to the existing adapter ids only');
 
-/* --- #424 account-first: the account already exists when finish is reached --- */
-assert.match(html, /else if\(button\.dataset\.finish!==undefined\)\{memberMode=true;sessionStorage\.setItem\('danjionMember','1'\);sessionStorage\.setItem\('danjionResidentVerification','pending'\);sessionStorage\.removeItem\('danjionGuest'\);syncMemberState\(\);openChair\(\)\}/,
-  'finish must enter the app as a resident-unverified member in both modes (account was created at step 1; no OTP re-gate, no signup block)');
+/* --- #430 account-first: completion never fabricates an authenticated member session --- */
+assert.match(html, /else if\(button\.dataset\.finish!==undefined\)\{closeLayer\(\);showToast\('가입 이메일의 인증 메일을 확인해 주세요\.'\)\}/,
+  'finish must close the signup modal and require mailbox verification instead of fabricating memberMode');
+assert.doesNotMatch(html, /button\.dataset\.finish!==undefined\)\{memberMode=true/,
+  'signup completion must not unlock member mode before a real authenticated session exists');
 assert.doesNotMatch(html, /danjionResidentVerified/,
   'no entry flow may mint a resident-verified flag');
 
