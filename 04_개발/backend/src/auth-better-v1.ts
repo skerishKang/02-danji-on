@@ -156,8 +156,90 @@ function requestId(request: Request): string {
   return incoming && /^[A-Za-z0-9._:-]{1,80}$/.test(incoming) ? incoming : `req-${crypto.randomUUID()}`;
 }
 
+/* --- #448 round 2: first-party social OAuth start -----------------------------
+ * The Pages frontend must never POST /api/auth/sign-in/social cross-site; the
+ * Better Auth state cookie would be dropped by the browser and the callback
+ * fails with state_mismatch. Instead the frontend navigates top-level to this
+ * Worker route, and the minimal no-store HTML below performs the sign-in POST
+ * same-origin on the workers.dev site, so the state cookie is issued, stored,
+ * and read back on the first-party site.
+ * ----------------------------------------------------------------------------- */
+const SOCIAL_START_PROVIDERS = new Set(['google', 'naver', 'kakao']);
+
+function socialStartFailure(message: string): Response {
+  return new Response(message, {
+    status: 400,
+    headers: {
+      'content-type': 'text/plain; charset=utf-8',
+      'cache-control': 'no-store',
+      'x-content-type-options': 'nosniff',
+      'referrer-policy': 'no-referrer'
+    }
+  });
+}
+
+function isTrustedCallbackOrigin(origin: string, patterns: string[]): boolean {
+  let candidate: URL;
+  try { candidate = new URL(origin); } catch { return false; }
+  if (candidate.protocol !== 'https:' && candidate.hostname !== 'localhost' && candidate.hostname !== '127.0.0.1') return false;
+  return patterns.some((pattern) => {
+    let expected: URL;
+    try { expected = new URL(pattern); } catch { return false; }
+    if (expected.protocol !== candidate.protocol) return false;
+    if (expected.hostname.startsWith('*.')) {
+      return candidate.hostname !== expected.hostname.slice(2) && candidate.hostname.endsWith(expected.hostname.slice(1));
+    }
+    return expected.hostname === candidate.hostname && expected.port === candidate.port;
+  });
+}
+
+function handleSocialStart(request: Request, env: BetterAuthEnv): Response {
+  const url = new URL(request.url);
+  const provider = url.searchParams.get('provider') ?? '';
+  const rawCallback = url.searchParams.get('callbackURL') ?? '';
+  const requestSignUp = url.searchParams.get('requestSignUp') === '1';
+  if (!SOCIAL_START_PROVIDERS.has(provider)) {
+    return socialStartFailure('지원하지 않는 소셜 로그인 제공자입니다.');
+  }
+  let callback: URL;
+  try { callback = new URL(rawCallback); } catch { return socialStartFailure('잘못된 복귀 주소입니다.'); }
+  callback.hash = '';
+  callback.search = '';
+  let trusted: string[];
+  try {
+    trusted = trustedOrigins(env, normalizeBaseUrl(requireValue(env.DANJION_AUTH_BASE_URL, 'DANJION_AUTH_BASE_URL')));
+  } catch {
+    return socialStartFailure('인증 서버 설정을 확인할 수 없습니다.');
+  }
+  if (!isTrustedCallbackOrigin(callback.origin, trusted)) {
+    return socialStartFailure('신뢰할 수 없는 복귀 주소입니다.');
+  }
+  const payload = JSON.stringify({
+    provider,
+    callbackURL: callback.toString(),
+    requestSignUp
+  }).replace(/</g, '\\u003c');
+  const nonce = crypto.randomUUID().replace(/-/g, '');
+  const html = `<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="robots" content="noindex"><title>단지온 인증 연결</title></head><body><p id="danjion-social-start-message">인증 서비스를 연결하는 중입니다…</p><script nonce="${nonce}">(async()=>{const fail=()=>{const el=document.getElementById('danjion-social-start-message');if(el)el.textContent='소셜 인증을 시작하지 못했습니다. 잠시 후 다시 시도해 주세요.';};try{const start=${payload};const body={provider:start.provider,callbackURL:start.callbackURL,newUserCallbackURL:start.callbackURL};if(start.requestSignUp)body.requestSignUp=true;const r=await fetch('/api/auth/sign-in/social',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body),credentials:'include'});const j=r.ok?await r.json().catch(()=>null):null;const redirect=j&&(j.url||j.data&&j.data.url);if(typeof redirect==='string'&&/^https:\\/\\//i.test(redirect)){location.replace(redirect);return}fail()}catch{fail()}})();</script></body></html>`;
+  return new Response(html, {
+    status: 200,
+    headers: {
+      'content-type': 'text/html; charset=utf-8',
+      'cache-control': 'no-store',
+      'x-content-type-options': 'nosniff',
+      'referrer-policy': 'no-referrer',
+      'content-security-policy': `default-src 'none'; script-src 'nonce-${nonce}'; connect-src 'self'; base-uri 'none'; form-action 'none'`
+    }
+  });
+}
+
 export async function handleBetterAuthRequest(request: Request, env: BetterAuthEnv): Promise<Response | null> {
   const path = new URL(request.url).pathname;
+
+  if (request.method === 'GET' && path === '/auth/social-start') {
+    return handleSocialStart(request, env);
+  }
+
   const auth = createDanjionAuth(env);
 
   if (path.startsWith('/auth/social-onboarding/')) {

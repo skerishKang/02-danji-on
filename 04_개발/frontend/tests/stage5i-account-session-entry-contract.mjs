@@ -28,9 +28,11 @@ assert.match(html, /else if\(type==='login'\)\{if\(serverMode\)\{const email=eve
 assert.doesNotMatch(html, /type==='login'\)\{if\(serverMode\)\{[^}]*\}else\{memberMode=true;sessionStorage\.setItem\('danjionMember','1'\);sessionStorage\.setItem\('danjionResidentVerification'/,
   'server-mode login must not mint resident verification state');
 
-/* --- social entry uses the existing Better Auth social adapter only --- */
-assert.match(html, /if\(serverMode\)\{const body=\{provider,callbackURL:location\.origin\+location\.pathname,newUserCallbackURL:location\.origin\+location\.pathname\};if\(mode==='signup'\)body\.requestSignUp=true;[\s\S]*?\/api\/auth\/sign-in\/social[\s\S]*?const redirectUrl=r\.ok&&\(r\.raw\?\.url\|\|r\.raw\?\.redirect\|\|r\.data\?\.url\|\|r\.data\?\.redirect\);if\(redirectUrl\)\{location\.href=redirectUrl;return\}showToast\('소셜 인증을 시작하지 못했습니다/,
-  'server-mode social must start the existing OAuth adapter and fail closed when no redirect is returned');
+/* --- #448 round 2: social entry starts first-party on the Worker, never cross-site --- */
+assert.match(html, /if\(serverMode\)\{const q=new URLSearchParams\(\{provider,callbackURL:location\.origin\+location\.pathname\}\);if\(mode==='signup'\)q\.set\('requestSignUp','1'\);location\.href=__session\.joinUrl\(__session\.danjionApiBase\(\),'\/auth\/social-start'\)\+'\?'\+q\.toString\(\);return\}/,
+  'server-mode social must navigate top-level to the first-party Worker /auth/social-start route (signup adds requestSignUp=1, login omits it)');
+assert.doesNotMatch(html, /\/api\/auth\/sign-in\/social/,
+  'frontend must never POST /api/auth/sign-in/social cross-site from Pages; the Worker start page owns the same-origin sign-in call');
 assert.match(html, /providerMap=\{'카카오':'kakao','네이버':'naver','Google':'google'\}/,
   'social providers must map to the existing adapter ids only');
 

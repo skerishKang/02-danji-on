@@ -40,7 +40,8 @@ assert.match(html, /function nickname\(\)\{setHead\('주민 확인 · 3'/);
 assert.match(html, /'\/api\/auth\/sign-up\/email'/);
 assert.doesNotMatch(html, /\/auth\/verification\/start|\/auth\/verification\/verify|verificationReceiptRef|signupSessionRef|challengeId/);
 assert.doesNotMatch(html, /signupUnavailable|blockEmailSignup|emailSignupDisabled/);
-assert.match(html, /'\/api\/auth\/sign-in\/social'/);
+assert.match(html, /'\/auth\/social-start'/, '#448r2: social entry must start first-party via the Worker /auth/social-start route');
+assert.doesNotMatch(html, /\/api\/auth\/sign-in\/social/, '#448r2: no cross-site social POST may remain in index.html');
 assert.match(html, /'\/api\/auth\/sign-in\/email'/);
 assert.match(html, /'\/api\/auth\/forget-password'\)/);
 
