@@ -29,7 +29,7 @@ assert.doesNotMatch(html, /type==='login'\)\{if\(serverMode\)\{[^}]*\}else\{memb
   'server-mode login must not mint resident verification state');
 
 /* --- social entry uses the existing Better Auth social adapter only --- */
-assert.match(html, /if\(serverMode\)\{const body=\{provider,callbackURL:location\.origin\+location\.pathname,newUserCallbackURL:location\.origin\+location\.pathname\};if\(mode==='signup'\)body\.requestSignUp=true;[\s\S]*?\/api\/auth\/sign-in\/social[\s\S]*?const redirectUrl=r\.ok&&\(r\.data\?\.url\|\|r\.data\?\.redirect\);if\(redirectUrl\)\{location\.href=redirectUrl;return\}showToast\('소셜 인증을 시작하지 못했습니다/,
+assert.match(html, /if\(serverMode\)\{const body=\{provider,callbackURL:location\.origin\+location\.pathname,newUserCallbackURL:location\.origin\+location\.pathname\};if\(mode==='signup'\)body\.requestSignUp=true;[\s\S]*?\/api\/auth\/sign-in\/social[\s\S]*?const redirectUrl=r\.ok&&\(r\.raw\?\.url\|\|r\.raw\?\.redirect\|\|r\.data\?\.url\|\|r\.data\?\.redirect\);if\(redirectUrl\)\{location\.href=redirectUrl;return\}showToast\('소셜 인증을 시작하지 못했습니다/,
   'server-mode social must start the existing OAuth adapter and fail closed when no redirect is returned');
 assert.match(html, /providerMap=\{'카카오':'kakao','네이버':'naver','Google':'google'\}/,
   'social providers must map to the existing adapter ids only');
