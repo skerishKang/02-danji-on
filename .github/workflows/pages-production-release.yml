@@ -146,18 +146,89 @@ jobs:
         run: |
           set -euo pipefail
           commit_message="$(git log -1 --pretty=%s)"
+          # Production Direct Upload is intentionally unambiguous: do not pass
+          # --branch here. Cloudflare documents bare pages deploy as production,
+          # while branch-directed uploads may create preview/branch deployments.
           npx wrangler@4.114.0 pages deploy dist \
             --project-name "$PAGES_PROJECT" \
-            --branch "$PAGES_PRODUCTION_BRANCH" \
             --commit-hash "$GITHUB_SHA" \
             --commit-message "$commit_message"
 
-      - name: Verify canonical Pages URL
+      - name: Verify canonical deployment readback
         shell: bash
         run: |
           set -euo pipefail
-          curl --silent --show-error --fail --retry 5 --retry-delay 2 --output /dev/null "$CANONICAL_PAGES_URL/"
-          echo "Canonical DanjiOn Pages HTTP smoke: PASS"
+          auth_header="Authorization: Bearer ${CLOUDFLARE_API_TOKEN}"
+          project_json="$(curl --silent --show-error --fail \
+            -H "$auth_header" \
+            "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/pages/projects/${PAGES_PROJECT}")"
+
+          canonical_id="$(printf '%s' "$project_json" | jq -r '.result.canonical_deployment.id // empty')"
+          canonical_env="$(printf '%s' "$project_json" | jq -r '.result.canonical_deployment.environment // empty')"
+          canonical_commit="$(printf '%s' "$project_json" | jq -r '.result.canonical_deployment.source.config.commit_hash // empty')"
+
+          if [ -z "$canonical_id" ]; then
+            echo "::error::Pages project did not expose a canonical_deployment after production deploy."
+            exit 1
+          fi
+          if [ "$canonical_env" != "production" ]; then
+            echo "::error::Canonical Pages deployment is not production."
+            exit 1
+          fi
+          if [ -n "$canonical_commit" ] && [ "$canonical_commit" != "$GITHUB_SHA" ]; then
+            echo "::error::Canonical Pages deployment commit does not match the release SHA."
+            exit 1
+          fi
+
+          deployment_json="$(curl --silent --show-error --fail \
+            -H "$auth_header" \
+            "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/pages/projects/${PAGES_PROJECT}/deployments/${canonical_id}")"
+          deployment_env="$(printf '%s' "$deployment_json" | jq -r '.result.environment // empty')"
+          deployment_commit="$(printf '%s' "$deployment_json" | jq -r '.result.source.config.commit_hash // empty')"
+          if [ "$deployment_env" != "production" ]; then
+            echo "::error::Canonical deployment readback is not production."
+            exit 1
+          fi
+          if [ -n "$deployment_commit" ] && [ "$deployment_commit" != "$GITHUB_SHA" ]; then
+            echo "::error::Canonical deployment readback commit does not match the release SHA."
+            exit 1
+          fi
+          echo "Canonical Pages deployment API readback: PASS"
+
+      - name: Verify canonical Pages content
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected_sha="$(sha256sum dist/index.html | awk '{print $1}')"
+          actual_file="${RUNNER_TEMP}/canonical-index.html"
+          matched=0
+
+          for attempt in $(seq 1 18); do
+            curl --silent --show-error --fail \
+              --header 'Cache-Control: no-cache' \
+              "${CANONICAL_PAGES_URL}/?release=${GITHUB_SHA}-${attempt}" \
+              --output "$actual_file"
+
+            actual_sha="$(sha256sum "$actual_file" | awk '{print $1}')"
+            if [ "$actual_sha" = "$expected_sha" ]; then
+              matched=1
+              break
+            fi
+            sleep 5
+          done
+
+          if [ "$matched" -ne 1 ]; then
+            echo "::error::Canonical Pages content did not converge to the deployed V3 artifact."
+            exit 1
+          fi
+
+          grep -q '주민코드가 없어요 · 나중에 인증' "$actual_file"
+          grep -q '주민코드가 있어요 · 지금 인증' "$actual_file"
+          if grep -qE '/auth/verification/start|/auth/verification/verify|verificationReceiptRef|danjionResidentVerified' "$actual_file"; then
+            echo "::error::Canonical Pages content contains a forbidden stale signup marker."
+            exit 1
+          fi
+          echo "Canonical DanjiOn Pages content parity: PASS"
 
       - name: Record Pages release disposition
         shell: bash
@@ -173,7 +244,8 @@ jobs:
             echo '- Controlled preview: explicit `?apiBase=` only'
             echo '- Production API/JWKS preflight: PASS'
             echo '- V3 contract gate + artifact authority scan: PASS'
-            echo '- Canonical Pages smoke: PASS'
+            echo '- Canonical Pages deployment API readback: PASS'
+            echo '- Canonical Pages byte/content parity: PASS'
             echo '- Real phone OTP delivery: separate HOLD #235'
             echo '- Build-time secrets: NONE'
           } >> "$GITHUB_STEP_SUMMARY"
