@@ -18,9 +18,43 @@ assert.match(html, /const __session=window\.DanjionSession,serverMode=!!__sessio
   'serverMode must come from DanjionSession.danjionApiBase()');
 assert.doesNotMatch(html, /serverMode\s*=\s*true/, 'serverMode must not be hardcoded');
 
-/* --- session readiness probe uses the real Better Auth get-session route --- */
-assert.match(html, /async function serverSessionCheck\(\)\{if\(!serverMode\)return false;[\s\S]*?\/api\/auth\/get-session[\s\S]*?return !!\(r\.ok&&r\.data\)\}/,
-  'session check must call /api/auth/get-session and require a real payload');
+/* --- #444: session readiness parses the Better Auth NATIVE get-session shape --- */
+assert.match(html, /async function serverSessionCheck\(\)\{if\(!serverMode\)return false;[\s\S]*?\/api\/auth\/get-session[\s\S]*?return __session\.nativeSessionReady\(r\)\}/,
+  '#444: session check must call /api/auth/get-session and judge readiness via nativeSessionReady');
+{
+  const checkFn = html.match(/async function serverSessionCheck\(\)\{[^}]*\}/);
+  assert.ok(checkFn, 'serverSessionCheck body must be statically analyzable');
+  assert.doesNotMatch(checkFn[0], /r\.data/,
+    '#444: serverSessionCheck must not depend on the DanjiOn {data} envelope — Better Auth answers natively');
+}
+assert.match(session, /function nativeSessionReady\(result\)\s*\{\s*return !!\(result && result\.ok && result\.raw && typeof result\.raw === 'object' && result\.raw\.session && result\.raw\.user\);\s*\}/,
+  'nativeSessionReady must require ok + native raw.session + raw.user');
+assert.match(session, /createSessionFetch,\s*nativeSessionReady,/, 'the frozen runtime must export nativeSessionReady');
+
+/* --- executable unit contract: load the real runtime and probe native responses --- */
+{
+  const vm = await import('node:vm');
+  const context = { URLSearchParams, console };
+  context.globalThis = context;
+  vm.runInNewContext(session, context, { filename: 'danjion-session.js' });
+  const Session = context.DanjionSession;
+  assert.equal(typeof Session.nativeSessionReady, 'function');
+  const response = (status, body) => ({ status, ok: status >= 200 && status < 300, async json() { return body; } });
+  const probe = async (body, status = 200) => {
+    const r = await Session.createSessionFetch('https://api.example.test')(async () => response(status, body), '/api/auth/get-session');
+    return Session.nativeSessionReady(r);
+  };
+  assert.equal(await probe({ session: { token: 's1' }, user: { id: 'u1' } }), true,
+    'native authenticated {session,user} must be ready');
+  assert.equal(await probe(null), false,
+    'native null (unauthenticated) must not be ready');
+  assert.equal(await probe({ session: { token: 's1' } }), false, 'session without user must not be ready');
+  assert.equal(await probe({ user: { id: 'u1' } }), false, 'user without session must not be ready');
+  assert.equal(await probe({ data: { session: { token: 's1' }, user: { id: 'u1' } } }), false,
+    'a DanjiOn {data}-enveloped payload must not be mistaken for a native session');
+  assert.equal(await probe({ session: { token: 's1' }, user: { id: 'u1' } }, 401), false, 'non-ok status must not be ready');
+  assert.equal(await probe({ message: 'boom' }, 500), false, 'server error must not be ready');
+}
 
 /* --- email login recognizes the server session before unlocking member mode --- */
 assert.match(html, /else if\(type==='login'\)\{if\(serverMode\)\{const email=event\.target\.elements\.email\.value\.trim\(\),password=event\.target\.elements\.password\.value;[\s\S]*?\/api\/auth\/sign-in\/email[\s\S]*?const real=await serverSessionCheck\(\);if\(real\)\{memberMode=true;[\s\S]*?\}else\{showToast\('이메일 또는 비밀번호를 확인해 주세요\.'\)\}\}else\{memberMode=true;sessionStorage\.setItem\('danjionMember','1'\)/,
