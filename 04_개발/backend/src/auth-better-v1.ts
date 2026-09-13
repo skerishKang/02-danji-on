@@ -101,7 +101,11 @@ export function createDanjionAuth(env: BetterAuthEnv) {
     secret,
     trustedOrigins: trustedOrigins(env, baseURL),
     database: drizzleAdapter(db, { provider: 'pg', schema: betterAuthSchema, schemaName: 'danjion_auth' }),
-    advanced: { ipAddress: { ipAddressHeaders: ['cf-connecting-ip'] } },
+    advanced: {
+      ipAddress: { ipAddressHeaders: ['cf-connecting-ip'] },
+      useSecureCookies: true,
+      defaultCookieAttributes: { httpOnly: true, secure: true, sameSite: 'none' },
+    },
     rateLimit: { storage: 'database', modelName: 'rateLimit' },
     user: {
       deleteUser: {

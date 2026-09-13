@@ -160,4 +160,18 @@ assert.match(verifiedSignup, /legalIdentityVerified:\s*false/);
 assert.match(verifiedSignup, /residentVerified:\s*false/);
 assert.doesNotMatch(verifiedSignup, /phoneVerified:\s*true[\s\S]*VERIFIED_RESIDENT/);
 
+// #448: cross-site OAuth cookie hardening (pages.dev frontend ↔ workers.dev auth).
+// Secure/httpOnly/SameSite=none keep the Better Auth state cookie usable across sites
+// without weakening any CSRF/state/origin validation.
+assert.match(server, /useSecureCookies:\s*true/, '#448: production auth cookies must be Secure');
+assert.match(
+  server,
+  /defaultCookieAttributes:\s*\{\s*httpOnly:\s*true,\s*secure:\s*true,\s*sameSite:\s*'none'\s*\}/,
+  "#448: default cookie attributes must be httpOnly+secure with SameSite='none' for the cross-site OAuth flow"
+);
+assert.match(server, /ipAddressHeaders:\s*\[\s*'cf-connecting-ip'\s*\]/, '#448: existing cf-connecting-ip advanced setting must be preserved');
+assert.doesNotMatch(server, /skipStateCookieCheck/, '#448: Better Auth state cookie check must never be skipped');
+assert.doesNotMatch(server, /disableCSRFCheck\s*:\s*true/, '#448: CSRF check must never be disabled');
+assert.doesNotMatch(server, /disableOriginCheck\s*:\s*true/, '#448: origin check must never be disabled');
+
 console.log('PASS Danjion Better Auth direct-phone and social-no-second-factor contract');
