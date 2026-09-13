@@ -49,12 +49,22 @@ assert.match(index, /button\.dataset\.residentLater!==undefined\)\{sessionStorag
 /* resident authority stays separate */
 assert.doesNotMatch(index, /danjionResidentVerified/,
   'signup must never mint a resident-verified flag');
-assert.match(index, /주민코드 없이 계정 가입을 완료했습니다/,
+assert.match(index, /주민코드 없이 계정 생성은 완료되었습니다/,
   'completion must explicitly support account-only signup');
 assert.match(index, /주민 확인은 나중에 계정 화면에서 진행할 수 있으며/,
   'completion must preserve later resident verification');
-assert.match(index, /가입 이메일의 인증 메일을 확인하면 로그인할 수 있습니다/,
-  'email verification policy must remain visible');
+assert.match(index, /가입 마지막 단계','이메일 인증을 완료해 주세요/,
+  'completion header must make email verification the final required account step');
+assert.match(index, /하지만 아직 로그인할 수 없습니다/,
+  'completion must state that account creation alone does not unlock login');
+assert.match(index, /로그인을 하려면 이메일 인증이 필요합니다/,
+  'completion must explicitly state the email-verification requirement');
+assert.match(index, /단지온에서 보낸 인증메일을 여세요/,
+  'completion must tell the user which message to open');
+assert.match(index, /이메일 인증하기/,
+  'completion must identify the verification action inside the email');
+assert.match(index, /스팸함·프로모션함도 확인해 주세요/,
+  'completion must include a practical missing-mail fallback');
 
 /* no #426 signup-blocking behavior */
 assert.doesNotMatch(index, /signupUnavailable|blockEmailSignup|block-email-signup|emailSignupDisabled/,
