@@ -174,4 +174,30 @@ assert.doesNotMatch(server, /skipStateCookieCheck/, '#448: Better Auth state coo
 assert.doesNotMatch(server, /disableCSRFCheck\s*:\s*true/, '#448: CSRF check must never be disabled');
 assert.doesNotMatch(server, /disableOriginCheck\s*:\s*true/, '#448: origin check must never be disabled');
 
+// #448 round 2: first-party social OAuth start. The Pages frontend navigates top-level
+// to GET /auth/social-start on the Worker; the served no-store page issues the
+// same-origin /api/auth/sign-in/social POST so the state cookie lives on the Worker site.
+assert.match(server, /request\.method === 'GET' && path === '\/auth\/social-start'/,
+  '#448r2: auth-better-v1 must own the GET /auth/social-start first-party start route');
+assert.match(server, /SOCIAL_START_PROVIDERS = new Set\(\['google', 'naver', 'kakao'\]\)/,
+  '#448r2: social start must use an explicit google|naver|kakao provider allowlist');
+assert.match(server, /if \(!SOCIAL_START_PROVIDERS\.has\(provider\)\)/,
+  '#448r2: non-allowlisted providers must be rejected before any auth work');
+assert.match(server, /trustedOrigins\(env, normalizeBaseUrl\(requireValue\(env\.DANJION_AUTH_BASE_URL/,
+  '#448r2: callback validation must reuse the existing trustedOrigins policy boundary');
+assert.match(server, /isTrustedCallbackOrigin\(callback\.origin, trusted\)/,
+  '#448r2: callbackURL origin must be validated against the trusted origins list');
+assert.match(server, /callback\.hash = '';\s*callback\.search = ''/,
+  '#448r2: callbackURL must be normalized to a bare trusted page URL');
+assert.match(server, /new Response\(html, \{[\s\S]*'cache-control': 'no-store'[\s\S]*'x-content-type-options': 'nosniff'[\s\S]*'referrer-policy': 'no-referrer'[\s\S]*content-security-policy': `default-src 'none'; script-src 'nonce-\$\{nonce\}'; connect-src 'self'/,
+  '#448r2: start page must be no-store with nosniff, no-referrer, and a nonce-only CSP allowing same-origin connect');
+assert.match(server, /fetch\('\/api\/auth\/sign-in\/social',\{method:'POST'[\s\S]*credentials:'include'\}/,
+  '#448r2: the start page must POST sign-in/social same-origin with credentials included');
+assert.match(server, /location\.replace\(redirect\)/,
+  '#448r2: navigation must follow only the HTTPS redirect returned by Better Auth');
+assert.doesNotMatch(server, /location\.(href|replace|assign)\(start\.callbackURL\)|location\.(href|replace|assign)\(callback/,
+  '#448r2: the Worker page must never redirect straight to a caller-supplied callback URL');
+assert.match(server, /\.replace\(\/<\/g, '\\\\u003c'\)/,
+  '#448r2: embedded start payload must escape angle brackets to keep the inline script inert');
+
 console.log('PASS Danjion Better Auth direct-phone and social-no-second-factor contract');
