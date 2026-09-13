@@ -69,7 +69,22 @@ assert.ok(Session && typeof Session.createSessionFetch === 'function');
   };
   const result = await Session.request(fetchImpl, 'https://api.example.test/api/v1/me', { method: 'GET' });
   assert.equal(result.ok, true);
+  assert.deepEqual(result.data, { id: 'x' });
+  assert.deepEqual(result.raw, { data: { id: 'x' } });
   assert.equal(calls[0].init.credentials, 'include');
+}
+
+/* --- request: preserves Better Auth top-level success payloads for OAuth redirects --- */
+{
+  const fetchImpl = async () => response(200, { url: 'https://accounts.example.test/oauth', redirect: true });
+  const result = await Session.request(fetchImpl, 'https://api.example.test/api/auth/sign-in/social', {
+    method: 'POST',
+    body: JSON.stringify({ provider: 'google' })
+  });
+  assert.equal(result.ok, true);
+  assert.equal(result.data, null, 'top-level Better Auth responses must not be misrepresented as wrapped data');
+  assert.equal(result.raw?.url, 'https://accounts.example.test/oauth');
+  assert.equal(result.raw?.redirect, true);
 }
 
 {
