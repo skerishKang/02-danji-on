@@ -1,0 +1,16 @@
+{
+  "annotations": {
+    "workers/triggered_by": "upload"
+  },
+  "author_email": "ci@padiem.invalid",
+  "created_on": "2026-09-13T07:16:20.000000Z",
+  "id": "3f2b7c11-9d4e-4a6b-8c2d-1e5f6a7b8c9d",
+  "source": "wrangler",
+  "strategy": "percentage",
+  "versions": [
+    {
+      "percentage": 100,
+      "version_id": "bbee1b59-fcab-4293-a875-4d1b44c6ff10"
+    }
+  ]
+}
