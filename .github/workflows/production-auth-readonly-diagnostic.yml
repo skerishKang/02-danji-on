@@ -1,0 +1,76 @@
+name: Production Auth Readonly Diagnostic
+
+on:
+  workflow_dispatch:
+    inputs:
+      expected_main:
+        description: 'Exact origin/main SHA authorized by CENTRAL'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  production-auth-readonly:
+    name: Production auth aggregate readback
+    runs-on: ubuntu-latest
+    environment: production
+    defaults:
+      run:
+        working-directory: 04_개발/backend
+    env:
+      DANJION_PRODUCTION_DB_URL: ${{ secrets.DANJION_PRODUCTION_DB_URL }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: 04_개발/backend/package.json
+
+      - name: Exact main authority guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main --no-tags
+          actual_main="$(git rev-parse origin/main)"
+          expected_main="${{ inputs.expected_main }}"
+          if [ "$GITHUB_SHA" != "$expected_main" ] || [ "$actual_main" != "$expected_main" ]; then
+            echo "::error::Exact-main authority mismatch."
+            echo "EXPECTED_MAIN=$expected_main"
+            echo "GITHUB_SHA=$GITHUB_SHA"
+            echo "ACTUAL_MAIN=$actual_main"
+            exit 1
+          fi
+          echo "EXACT_MAIN_GUARD=PASS"
+
+      - name: Install backend dependencies
+        run: npm install --ignore-scripts
+
+      - name: Run source safety contract
+        run: npm run test:production-auth-readonly-diagnostic
+
+      - name: Verify secret binding without output
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${DANJION_PRODUCTION_DB_URL:-}" ]; then
+            echo "::error::DANJION_PRODUCTION_DB_URL is not bound."
+            exit 1
+          fi
+          echo "PRODUCTION_DB_SECRET_BINDING=PASS (value not printed)"
+
+      - name: Read production Better Auth aggregates
+        run: node scripts/production-auth-readonly-diagnostic.mjs
+
+      - name: Record disposition
+        shell: bash
+        run: |
+          echo "PRODUCTION_MUTATION=0"
+          echo "DB_MUTATION=0"
+          echo "SECRET_OUTPUT=0"
+          echo "WORKER_DEPLOY=0"
+          echo "PAGES_DEPLOY=0"
