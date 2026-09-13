@@ -57,11 +57,18 @@
     };
   }
 
+  // #444: Better Auth /api/auth/get-session answers natively — { session, user }
+  // when authenticated, null when not — never the DanjiOn { data } envelope.
+  function nativeSessionReady(result) {
+    return !!(result && result.ok && result.raw && typeof result.raw === 'object' && result.raw.session && result.raw.user);
+  }
+
   global.DanjionSession = Object.freeze({
     danjionApiBase,
     joinUrl,
     request,
     createSessionFetch,
+    nativeSessionReady,
     PRODUCTION_PAGES_HOSTNAME,
     PRODUCTION_API_BASE
   });
