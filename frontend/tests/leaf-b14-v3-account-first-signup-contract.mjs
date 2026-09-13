@@ -71,7 +71,8 @@ assert.doesNotMatch(index, /signupUnavailable|blockEmailSignup|block-email-signu
   'email signup must not be disabled because phone verification is unavailable');
 
 /* OAuth/login/recovery routes stay intact */
-assert.match(index, /'\/api\/auth\/sign-in\/social'/);
+assert.match(index, /'\/auth\/social-start'/, '#448r2: social entry must start first-party via the Worker /auth/social-start route');
+assert.doesNotMatch(index, /\/api\/auth\/sign-in\/social/, '#448r2: no cross-site social POST may remain in the production entry');
 assert.match(index, /'\/api\/auth\/sign-in\/email'/);
 assert.match(index, /'\/api\/auth\/forget-password'\)/);
 
