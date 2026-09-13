@@ -85,8 +85,22 @@ assert.ok(
 );
 assert.match(pagesWorkflow, /wrangler@4\.114\.0 pages deploy dist/);
 assert.match(pagesWorkflow, /--project-name "\$PAGES_PROJECT"/);
-assert.match(pagesWorkflow, /--branch "\$PAGES_PRODUCTION_BRANCH"/);
+// #432: branch-directed Pages uploads can create preview/branch deployments that
+// never promote the canonical production alias. The release lane is now a bare
+// production deploy locked by a deployment-API readback plus canonical content
+// byte-parity, so the old --branch pin is replaced with stronger gates.
+const deployCommand = (() => {
+  const start = pagesWorkflow.indexOf('pages deploy dist');
+  const rest = pagesWorkflow.slice(start);
+  const end = rest.indexOf('- name:');
+  return end === -1 ? rest : rest.slice(0, end);
+})();
+assert.doesNotMatch(deployCommand, /--branch/, 'Pages production deploy must stay branch-free (#432)');
 assert.match(pagesWorkflow, /--commit-hash "\$GITHUB_SHA"/);
+assert.match(pagesWorkflow, /Verify canonical deployment readback/,
+  'canonical deployment must be read back as production before the release can pass');
+assert.match(pagesWorkflow, /did not converge to the deployed V3 artifact/,
+  'canonical Pages content must be byte-parity verified after deploy');
 assert.match(pagesWorkflow, /x-danjion-dev-auth-user/, 'release scan must explicitly reject the dev-auth header from the built artifact');
 assert.doesNotMatch(pagesWorkflow, /PADIEM_CONTACT_DELIVERY|DANJION_PRODUCTION_DB_URL/, 'Pages release must not own backend phone delivery or database secrets');
 
