@@ -33,4 +33,12 @@ assert.match(workflow, /verificationReceiptRef\|danjionResidentVerified/,
 assert.doesNotMatch(workflow, /Canonical DanjiOn Pages HTTP smoke: PASS/,
   'workflow must not report HTTP-200-only canonical success');
 
+/* #444 stage-1: the root Pages Functions auth facade must exist where the deploy runs. */
+assert.match(workflow, /test -f functions\/_lib\/auth-facade\.js/,
+  'assembly must require the shared auth facade module at the repository root');
+assert.match(workflow, /test -f 'functions\/api\/auth\/\[\[path\]\]\.js'/,
+  'assembly must require the /api/auth/* facade route at the repository root');
+assert.match(workflow, /test -f functions\/auth\/social-start\.js/,
+  'assembly must require the /auth/social-start facade route at the repository root');
+
 console.log('leaf-b14-pages-production-release-contract: PASS');

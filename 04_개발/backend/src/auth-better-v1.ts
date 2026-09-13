@@ -59,6 +59,24 @@ function trustedOrigins(env: BetterAuthEnv, baseUrl: string): string[] {
   return Array.from(new Set([baseOrigin, ...values]));
 }
 
+/* #444 stage-1: the Pages auth facade rewrites both of these headers itself and
+ * strips any client-supplied copies before forwarding. The per-request public
+ * base may switch to the canonical Pages origin ONLY when the request carries
+ * this exact marker value AND the exact canonical Origin; every other request
+ * (direct Worker traffic, forged headers) keeps the env-configured Worker base.
+ */
+export const AUTH_FACADE_MARKER_HEADER = 'x-danjion-auth-facade';
+export const AUTH_FACADE_MARKER_VALUE = 'canonical-pages-v1';
+export const CANONICAL_PAGES_AUTH_BASE_URL = 'https://danjion.pages.dev';
+
+export function resolveAuthPublicBaseUrl(env: BetterAuthEnv, request?: Request): string {
+  const envBase = normalizeBaseUrl(requireValue(env.DANJION_AUTH_BASE_URL, 'DANJION_AUTH_BASE_URL'));
+  if (!request) return envBase;
+  if (request.headers.get(AUTH_FACADE_MARKER_HEADER) !== AUTH_FACADE_MARKER_VALUE) return envBase;
+  if (request.headers.get('origin') !== new URL(CANONICAL_PAGES_AUTH_BASE_URL).origin) return envBase;
+  return CANONICAL_PAGES_AUTH_BASE_URL;
+}
+
 function emailVerificationRequired(env: BetterAuthEnv): boolean {
   return env.AUTH_REQUIRE_EMAIL_VERIFICATION?.trim().toLowerCase() !== 'false';
 }
@@ -88,8 +106,8 @@ async function requireClosedProductAccount(env: BetterAuthEnv, authUserId: strin
   }
 }
 
-export function createDanjionAuth(env: BetterAuthEnv) {
-  const baseURL = normalizeBaseUrl(requireValue(env.DANJION_AUTH_BASE_URL, 'DANJION_AUTH_BASE_URL'));
+export function createDanjionAuth(env: BetterAuthEnv, publicBase = resolveAuthPublicBaseUrl(env)) {
+  const baseURL = normalizeBaseUrl(publicBase);
   const secret = requireValue(env.BETTER_AUTH_SECRET, 'BETTER_AUTH_SECRET');
   if (secret.length < 32) throw new Error('BETTER_AUTH_SECRET must be at least 32 characters');
   const db = drizzle(env.DATABASE_URL, { schema: betterAuthSchema });
@@ -207,7 +225,7 @@ function handleSocialStart(request: Request, env: BetterAuthEnv): Response {
   callback.search = '';
   let trusted: string[];
   try {
-    trusted = trustedOrigins(env, normalizeBaseUrl(requireValue(env.DANJION_AUTH_BASE_URL, 'DANJION_AUTH_BASE_URL')));
+    trusted = trustedOrigins(env, resolveAuthPublicBaseUrl(env, request));
   } catch {
     return socialStartFailure('인증 서버 설정을 확인할 수 없습니다.');
   }
@@ -240,7 +258,7 @@ export async function handleBetterAuthRequest(request: Request, env: BetterAuthE
     return handleSocialStart(request, env);
   }
 
-  const auth = createDanjionAuth(env);
+  const auth = createDanjionAuth(env, resolveAuthPublicBaseUrl(env, request));
 
   if (path.startsWith('/auth/social-onboarding/')) {
     return handleSocialOnboardingRequest(

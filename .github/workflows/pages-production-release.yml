@@ -114,6 +114,12 @@ jobs:
           set -euo pipefail
           test -f frontend/index.html
           test -f frontend/assets/danjion-session.js
+          # #444 stage-1: the Pages Functions auth facade lives at the repository
+          # root, which is where `wrangler pages deploy dist` runs below, so the
+          # deploy bundles ./functions automatically. Fail closed if it is missing.
+          test -f functions/_lib/auth-facade.js
+          test -f 'functions/api/auth/[[path]].js'
+          test -f functions/auth/social-start.js
           rm -rf dist
           mkdir -p dist
           cp -R frontend/. dist/
