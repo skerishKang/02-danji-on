@@ -28,13 +28,19 @@ assert.match(html, /else if\(type==='login'\)\{if\(serverMode\)\{const email=eve
 assert.doesNotMatch(html, /type==='login'\)\{if\(serverMode\)\{[^}]*\}else\{memberMode=true;sessionStorage\.setItem\('danjionMember','1'\);sessionStorage\.setItem\('danjionResidentVerification'/,
   'server-mode login must not mint resident verification state');
 
-/* --- #448 round 2: social entry starts first-party on the Worker, never cross-site --- */
-assert.match(html, /if\(serverMode\)\{const q=new URLSearchParams\(\{provider,callbackURL:location\.origin\+location\.pathname\}\);if\(mode==='signup'\)q\.set\('requestSignUp','1'\);location\.href=__session\.joinUrl\(__session\.danjionApiBase\(\),'\/auth\/social-start'\)\+'\?'\+q\.toString\(\);return\}/,
-  'server-mode social must navigate top-level to the first-party Worker /auth/social-start route (signup adds requestSignUp=1, login omits it)');
+/* --- #448 round 2 / #444: social entry starts first-party with unified continue intent --- */
+assert.match(html, /if\(serverMode\)\{const q=new URLSearchParams\(\{provider,callbackURL:location\.origin\+location\.pathname\}\);q\.set\('requestSignUp','1'\);location\.href=__session\.joinUrl\(__session\.danjionApiBase\(\),'\/auth\/social-start'\)\+'\?'\+q\.toString\(\);return\}/,
+  '#444: server-mode social must navigate top-level to /auth/social-start and always include requestSignUp=1 in both login and signup modes');
+assert.doesNotMatch(html, /if\(mode==='signup'\)q\.set\('requestSignUp'/,
+  '#444: requestSignUp must no longer depend on the login/signup UI mode');
 assert.doesNotMatch(html, /\/api\/auth\/sign-in\/social/,
   'frontend must never POST /api/auth/sign-in/social cross-site from Pages; the Worker start page owns the same-origin sign-in call');
 assert.match(html, /providerMap=\{'카카오':'kakao','네이버':'naver','Google':'google'\}/,
   'social providers must map to the existing adapter ids only');
+assert.match(html, /카카오로 계속하기[\s\S]*네이버로 계속하기[\s\S]*Google로 계속하기/,
+  '#444: social buttons must use neutral continue copy for kakao/naver/google');
+assert.match(html, /<span>이메일로 \$\{action\}<\/span>/,
+  '#444: email login/signup copy must remain mode-specific (only social is unified)');
 
 /* --- #430 account-first: completion never fabricates an authenticated member session --- */
 assert.match(html, /else if\(button\.dataset\.finish!==undefined\)\{closeLayer\(\);showToast\('가입 이메일의 인증 메일을 확인해 주세요\.'\)\}/,
