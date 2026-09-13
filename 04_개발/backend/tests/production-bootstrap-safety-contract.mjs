@@ -105,4 +105,40 @@ assert.match(productionSmoke, /nonexistent owner private document is non-disclos
 assert.doesNotMatch(productionSmoke, /method:\s*['"](?:POST|PUT|PATCH|DELETE)['"]/i, 'production smoke must be read-only');
 assert.doesNotMatch(productionSmoke, /authorization\s*:/i, 'production smoke must not embed or request a production user token');
 
+assert.doesNotMatch(workflow, /hashFiles/, '#438: hashFiles() cannot see RUNNER_TEMP (outside GITHUB_WORKSPACE); the upload gate must not use it');
+assert.match(
+  workflow,
+  /id: upload-provenance\s*\n\s*if: always\(\) && steps\.provenance\.outcome == 'success'/,
+  '#438: provenance artifact upload must be gated on provenance capture success and run even after later failures'
+);
+assert.match(workflow, /if-no-files-found: error/, '#438: capture success with an absent evidence file must fail closed at upload time');
+assert.ok(
+  workflow.indexOf('Capture deployed artifact provenance') < workflow.indexOf('Upload deploy provenance evidence'),
+  '#438: upload must run after the provenance capture step'
+);
+const uploadGateBlock = workflow.slice(
+  workflow.indexOf('name: Upload deploy provenance evidence'),
+  workflow.indexOf('name: Production health')
+);
+assert.doesNotMatch(
+  uploadGateBlock,
+  /readback/,
+  '#438: upload must not wait on readback success; captured evidence stays available when readback fails'
+);
+assert.match(
+  workflow,
+  /steps\.upload-provenance\.outcome == 'success' && format\('`danjion-deploy-provenance-\{0\}` \(uploaded\)', github\.sha\)/,
+  '#438: disposition may claim the provenance artifact only when the upload step actually succeeded'
+);
+assert.match(
+  workflow,
+  /NOT AVAILABLE \(upload step did not succeed\)/,
+  '#438: disposition must state truthfully when no artifact was uploaded'
+);
+assert.match(
+  workflow,
+  /\(github\.event_name == 'workflow_dispatch' && inputs\.confirm_production\)/,
+  '#438: production deploy authority gate must remain unchanged'
+);
+
 console.log('Production bootstrap safety contract: PASS');

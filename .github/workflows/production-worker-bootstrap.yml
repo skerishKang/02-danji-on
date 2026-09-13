@@ -381,7 +381,8 @@ jobs:
             --version-view-file "$version_view"
 
       - name: Upload deploy provenance evidence
-        if: always() && hashFiles(format('{0}/danjion-deploy-provenance.json', runner.temp)) != ''
+        id: upload-provenance
+        if: always() && steps.provenance.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
           name: danjion-deploy-provenance-${{ github.sha }}
@@ -427,7 +428,7 @@ jobs:
             echo '- Padiem contact-verification Service Binding: PRESENT'
             echo "- Deploy provenance: source \`${{ steps.provenance.outputs.source_sha }}\` → Worker Version \`${{ steps.provenance.outputs.worker_version_id }}\` → Deployment \`${{ steps.provenance.outputs.deployment_id }}\`"
             echo '- Deployed artifact provenance readback (deployments status + versions view): PASS'
-            echo '- Provenance evidence artifact: `danjion-deploy-provenance-${{ github.sha }}`'
+            echo "- Provenance evidence artifact: ${{ steps.upload-provenance.outcome == 'success' && format('`danjion-deploy-provenance-{0}` (uploaded)', github.sha) || '`NOT AVAILABLE (upload step did not succeed)`' }}"
             echo '- Real phone OTP delivery: HOLD / Issue #235'
             echo '- Secret values: NOT OUTPUT'
           } >> "$GITHUB_STEP_SUMMARY"
