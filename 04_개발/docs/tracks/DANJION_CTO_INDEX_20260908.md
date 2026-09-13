@@ -2,6 +2,10 @@
 
 Use this index when resuming DanjiOn work.
 
+## Standing operating policy
+
+- `OWNER_CENTRAL_AGENT_OPERATING_POLICY_20260914.md` — mandatory execution order: CENTRAL first, authorized local agent second, Owner manual action only as a last resort. Do not use the Owner as the routine terminal / deploy / CI operator.
+
 ## Start here
 
 1. `CURRENT_DANJION_STATUS_20260908.md`
