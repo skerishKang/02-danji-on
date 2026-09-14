@@ -100,6 +100,81 @@
     return !!(result && result.ok && result.raw && typeof result.raw === 'object' && result.raw.session && result.raw.user);
   }
 
+  function clearLocalAuthMarkers() {
+    try {
+      ['danjionMember','danjionSignedUp','danjionAuthPending','danjionGuest','danjionPrototypeProvider']
+        .forEach((key) => sessionStorage.removeItem(key));
+    } catch {}
+  }
+
+  function accountStripEligible(loc) {
+    const where = loc || (typeof location !== 'undefined' ? location : {});
+    const file = String(where.pathname || '').split('/').pop() || '';
+    if (String(where.pathname || '').includes('/admin/')) return false;
+    return !['', 'index.html', 'index2.html', 'app.html', 'app2.html'].includes(file);
+  }
+
+  async function initAccountStrip(options = {}) {
+    if (typeof document === 'undefined' || typeof fetch === 'undefined') return null;
+    const loc = options.location || location;
+    if (!accountStripEligible(loc)) return null;
+    if (document.querySelector('.danjion-account-session')) return null;
+
+    const authBase = danjionAuthBase(loc);
+    const session = await request(fetch, joinUrl(authBase, '/api/auth/get-session'));
+    if (!nativeSessionReady(session)) return null;
+
+    const email = String(session.raw.user?.email || '').trim();
+    if (!email) return null;
+
+    if (!document.getElementById('danjion-account-session-style')) {
+      const style = document.createElement('style');
+      style.id = 'danjion-account-session-style';
+      style.textContent = '.danjion-account-session{position:fixed;top:68px;right:14px;z-index:190;display:flex;align-items:center;gap:8px;max-width:min(520px,calc(100vw - 28px));padding:8px 10px;background:rgba(255,253,248,.97);border:1px solid rgba(16,29,48,.18);box-shadow:0 8px 26px rgba(16,29,48,.12);backdrop-filter:blur(10px);font:800 12px/1.2 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#101d30}.danjion-account-session__email{max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.danjion-account-session__logout{border:1px solid rgba(16,29,48,.25);background:#fffdf8;color:#101d30;padding:6px 9px;font:800 12px/1 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;cursor:pointer}.danjion-account-session__logout:hover{background:#f1ece2}@media(max-width:760px){.danjion-account-session{top:auto;right:10px;left:10px;bottom:76px;justify-content:space-between}.danjion-account-session__email{max-width:65vw}}';
+      document.head.appendChild(style);
+    }
+
+    const shell = document.createElement('div');
+    shell.className = 'danjion-account-session';
+    shell.setAttribute('role', 'region');
+    shell.setAttribute('aria-label', '현재 로그인 계정');
+
+    const emailNode = document.createElement('span');
+    emailNode.className = 'danjion-account-session__email';
+    emailNode.textContent = '현재 계정 · ' + email;
+    emailNode.title = email;
+
+    const logout = document.createElement('button');
+    logout.type = 'button';
+    logout.className = 'danjion-account-session__logout';
+    logout.textContent = '로그아웃';
+    logout.addEventListener('click', async () => {
+      logout.disabled = true;
+      logout.textContent = '로그아웃 중';
+      const result = await request(fetch, joinUrl(authBase, '/api/auth/sign-out'), {
+        method: 'POST',
+        body: JSON.stringify({})
+      });
+      if (!result.ok) {
+        logout.disabled = false;
+        logout.textContent = '로그아웃';
+        return;
+      }
+      clearLocalAuthMarkers();
+      location.href = 'index.html?intro=1';
+    });
+
+    shell.append(emailNode, logout);
+    document.body.appendChild(shell);
+    return { email };
+  }
+
+  if (typeof document !== 'undefined') {
+    const bootAccountStrip = () => { initAccountStrip().catch(() => {}); };
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bootAccountStrip, { once: true });
+    else bootAccountStrip();
+  }
+
   global.DanjionSession = Object.freeze({
     danjionApiBase,
     danjionAuthBase,
@@ -107,6 +182,8 @@
     request,
     createSessionFetch,
     nativeSessionReady,
+    accountStripEligible,
+    initAccountStrip,
     PRODUCTION_PAGES_HOSTNAME,
     CANONICAL_PAGES_API_BASE,
     PRODUCTION_API_BASE
