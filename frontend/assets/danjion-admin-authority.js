@@ -30,24 +30,28 @@
     return Array.isArray(value) && value.every((item) => typeof item === 'string');
   }
 
-  // Strict fail-closed validation at the administrator-entry boundary. An HTTP
-  // 200 answer opens the admin surface in exactly two shapes:
-  //   SUPER      — level 'admin', wildcard strictly true, valid string[] scopes
-  //   OPERATIONAL— level 'operator', wildcard strictly false, valid string[]
-  //                scopes without the wildcard scope '*'
+  // Strict fail-closed validation at the administrator-entry boundary, mirroring
+  // the canonical backend invariants (padiem-authority-v1: wildcard =
+  // scopes.includes('*'); level = wildcard ? 'admin' : scopes.length ? 'operator'
+  // : 'none'). An HTTP 200 answer opens the admin surface in exactly two shapes:
+  //   SUPER      — level 'admin', wildcard strictly true, string[] scopes that
+  //                INCLUDE the wildcard scope '*'
+  //   OPERATIONAL— level 'operator', wildcard strictly false, non-empty string[]
+  //                scopes WITHOUT the wildcard scope '*'
   // Every other payload (null/empty data, unknown or missing level, non-boolean
-  // wildcard, malformed scopes, admin-without-wildcard, operator-carrying-'*')
-  // resolves the rejected 'invalid' state — least privilege is NOT applied as a
-  // fallback, because collapsing a malformed grant answer to a usable operator
-  // view would open /admin/ on a payload the server never sanctioned.
+  // wildcard, malformed scopes, admin-without-wildcard, admin-without-'*',
+  // operator with empty scopes, operator-carrying-'*') resolves the rejected
+  // 'invalid' state — least privilege is NOT applied as a fallback, because
+  // collapsing a malformed grant answer to a usable operator view would open
+  // /admin/ on a payload the server never sanctioned.
   function normalizeAuthority(raw) {
     const record = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : null;
     if (!record) return { state: 'invalid', label: '', scopes: [], wildcard: false };
     const scopes = record.scopes;
-    if (record.level === 'admin' && record.wildcard === true && isStringArray(scopes)) {
+    if (record.level === 'admin' && record.wildcard === true && isStringArray(scopes) && scopes.includes('*')) {
       return { state: 'admin', label: SUPER_LABEL, scopes: scopes.slice(), wildcard: true };
     }
-    if (record.level === 'operator' && record.wildcard === false && isStringArray(scopes) && !scopes.includes('*')) {
+    if (record.level === 'operator' && record.wildcard === false && isStringArray(scopes) && scopes.length > 0 && !scopes.includes('*')) {
       return { state: 'operator', label: OPERATOR_LABEL, scopes: scopes.slice(), wildcard: false };
     }
     return { state: 'invalid', label: '', scopes: [], wildcard: false };

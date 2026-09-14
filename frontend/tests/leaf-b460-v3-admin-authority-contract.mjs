@@ -57,6 +57,10 @@ const loadAdminContext = (location) => {
     'wildcard true on an operator level is inconsistent and must be REJECTED');
   assert.equal(A.normalizeAuthority({ level: 'operator', wildcard: false, scopes: ['*'] }).state, 'invalid',
     'an operator grant carrying the wildcard scope must be REJECTED');
+  assert.equal(A.normalizeAuthority({ level: 'admin', label: SUPER_LABEL, wildcard: true, scopes: [] }).state, 'invalid',
+    'admin+wildcard without the * scope is a shape the canonical backend cannot emit and must be REJECTED');
+  assert.equal(A.normalizeAuthority({ level: 'operator', label: OPERATOR_LABEL, wildcard: false, scopes: [] }).state, 'invalid',
+    'empty operator scopes are a shape the canonical backend cannot emit (it resolves level none) and must be REJECTED');
   assert.equal(A.normalizeAuthority({ level: 'manager', wildcard: false, scopes: [] }).state, 'invalid',
     'unknown levels must be REJECTED');
   assert.equal(A.normalizeAuthority({ wildcard: false, scopes: [] }).state, 'invalid',
