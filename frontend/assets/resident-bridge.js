@@ -137,7 +137,7 @@
       const result = await requestJson(fetchImpl, `${apiBase}/api/v1/me/summary${query}`, { method: 'GET' });
       return result.ok
         ? { ok: true, mode: 'server', status: result.status, summary: result.data }
-        : { ok: false, mode: authMode(result), status: result.status, error: result.error };
+        : { ok: false, mode: authMode(result), status: result.status, error: result.error, bridgeDisposition: result.bridgeDisposition };
     }
 
     async function consents() {
