@@ -17,16 +17,23 @@
   const pageNumber=()=>{const file=(decoded.split('/').pop()||'').split('?')[0];if(file==='index.html'||file==='')return 29;const m=file.match(/^(\d{2})(?:A)?_/);return m?Number(m[1]):0};
   const clean=value=>(value||'').replace(/\s+/g,' ').trim();
   document.addEventListener('click',event=>{
-    if(!isShopVariantB())return;
-    const el=event.target.closest('button,a,[role="button"],[data-route]');
+    const el=event.target.closest('button,a,[role="button"],[data-route],.wordmark,[data-brand-home]');
     if(!el)return;
+    const number=pageNumber();
+
+    // Service brand authority: never bounce through the authenticated intro.
+    // The public intro (page 29) keeps its own brand behavior.
+    if(number!==29 && (el.classList.contains('brand') || el.classList.contains('wordmark') || el.matches('[data-brand-home]'))){
+      event.preventDefault();event.stopImmediatePropagation();
+      location.href='04_데일리홈.html';
+      return;
+    }
+
+    if(!isShopVariantB())return;
     const text=clean(el.textContent);
     const raw=decodeURIComponent(el.getAttribute('data-route')||el.getAttribute('href')||'');
-    const number=pageNumber();
     let target='';
-    if(el.classList.contains('brand')){
-      target='04_데일리홈.html';
-    }else if(text==='이웃가게'||/01_이웃가게_발견\.html/.test(raw)){
+    if(text==='이웃가게'||/01_이웃가게_발견\.html/.test(raw)){
       target=shopV2File;
     }else if(number===4 && (el.id==='detailBtn'||/이 이웃의 일 보기/.test(text))){
       const key=el.dataset.shopKey||'food';
@@ -63,6 +70,54 @@
     });
   };
   const normalizeCopy=()=>[['시연용 쿠폰 화면','주민 혜택 쿠폰'],['기존 승인 이미지로 구성한 시연 예시','주민이 함께 준비한 재능나눔 모임'],['디자인 검토용 화면으로 실제 접수·메일 전송은 되지 않습니다.','제보 내용은 운영진 확인 후 주민소식에 게시됩니다.'],['이 페이지는 목록 디자인만 다룹니다.','필요한 대화를 골라 내용을 확인하세요.'],['대화 상세와 답장 화면은 다음 한 페이지로 별도 제작합니다.','대화를 누르면 이전 메시지를 확인하고 답장할 수 있습니다.']].forEach(([a,b])=>replaceText(a,b));
+
+  const clearLocalAuthMarkers=()=>{try{['danjionMember','danjionSignedUp','danjionAuthPending','danjionGuest','danjionPrototypeProvider'].forEach(key=>sessionStorage.removeItem(key))}catch(e){}};
+
+  const initAccountSessionStrip=async number=>{
+    if(number===29 || document.querySelector('.danjion-account-session'))return;
+    let response;
+    try{
+      response=await fetch('/api/auth/get-session',{method:'GET',credentials:'include',headers:{accept:'application/json'}});
+    }catch(e){return}
+    if(!response.ok)return;
+    let payload=null;
+    try{payload=await response.json()}catch(e){return}
+    const email=payload&&payload.session&&payload.user?String(payload.user.email||'').trim():'';
+    if(!email)return;
+
+    if(!document.querySelector('#danjion-account-session-style')){
+      const style=document.createElement('style');
+      style.id='danjion-account-session-style';
+      style.textContent='.danjion-account-session{position:fixed;top:68px;right:14px;z-index:190;display:flex;align-items:center;gap:8px;max-width:min(520px,calc(100vw - 28px));padding:8px 10px;background:rgba(255,253,248,.97);border:1px solid rgba(16,29,48,.18);box-shadow:0 8px 26px rgba(16,29,48,.12);backdrop-filter:blur(10px);font:800 12px/1.2 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#101d30}.danjion-account-session__email{max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.danjion-account-session__logout{border:1px solid rgba(16,29,48,.25);background:#fffdf8;color:#101d30;padding:6px 9px;font:800 12px/1 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;cursor:pointer}.danjion-account-session__logout:hover{background:#f1ece2}@media(max-width:760px){.danjion-account-session{top:auto;right:10px;left:10px;bottom:76px;justify-content:space-between}.danjion-account-session__email{max-width:65vw}}';
+      document.head.appendChild(style);
+    }
+
+    const shell=document.createElement('div');
+    shell.className='danjion-account-session';
+    shell.setAttribute('role','region');
+    shell.setAttribute('aria-label','현재 로그인 계정');
+    const emailNode=document.createElement('span');
+    emailNode.className='danjion-account-session__email';
+    emailNode.textContent='현재 계정 · '+email;
+    emailNode.title=email;
+    const logout=document.createElement('button');
+    logout.type='button';
+    logout.className='danjion-account-session__logout';
+    logout.textContent='로그아웃';
+    logout.addEventListener('click',async()=>{
+      logout.disabled=true;logout.textContent='로그아웃 중';
+      let ok=false;
+      try{
+        const r=await fetch('/api/auth/sign-out',{method:'POST',credentials:'include',headers:{'content-type':'application/json'},body:'{}'});
+        ok=r.ok;
+      }catch(e){}
+      if(!ok){logout.disabled=false;logout.textContent='로그아웃';return}
+      clearLocalAuthMarkers();
+      location.href='index.html?intro=1';
+    });
+    shell.append(emailNode,logout);
+    document.body.appendChild(shell);
+  };
   const removeAll=selector=>document.querySelectorAll(selector).forEach(node=>node.remove());
   const removeTextBlocks=(pattern,selector='p,section,article,aside,div')=>[...document.querySelectorAll(selector)].filter(node=>pattern.test(clean(node.textContent))&&!node.querySelector('h1')).forEach(node=>node.remove());
   const simpleBack=(label,target)=>{if(document.querySelector('.danjion-simple-back'))return;const main=document.querySelector('main');if(!main)return;const bar=document.createElement('div');bar.className='danjion-simple-back';bar.innerHTML='<button type="button">← '+label+'</button>';setRoute(bar.querySelector('button'),target);main.prepend(bar)};
@@ -99,6 +154,6 @@
     if(number===28){document.querySelectorAll('.activity-layout>.side').forEach(node=>node.remove());const markFamilyRows=()=>document.querySelectorAll('.activity-row').forEach(row=>{if(!/바른 자동차정비/.test(clean(row.textContent)))return;row.dataset.type='주민 가족 가게';const label=row.querySelector('.activity-type b');if(label)label.textContent='주민 가족 가게'});const ensureFamilyFilter=()=>{const sub=document.querySelector('.subfilters');if(!sub||!/우리 주민 가게/.test(clean(sub.textContent))||/주민 가족 가게/.test(clean(sub.textContent)))return;const resident=[...sub.querySelectorAll('button')].find(node=>/우리 주민 가게/.test(clean(node.textContent)));if(!resident)return;const family=resident.cloneNode(true);family.textContent='주민 가족 가게';family.classList.remove('active');family.addEventListener('click',()=>{sub.querySelectorAll('button').forEach(item=>item.classList.remove('active'));family.classList.add('active');markFamilyRows();let visible=0;document.querySelectorAll('.activity-row').forEach(row=>{const isFamily=row.dataset.type==='주민 가족 가게';row.hidden=!isFamily;if(isFamily)visible++});const empty=document.querySelector('.empty');if(empty)empty.style.display=visible?'none':'grid'});resident.after(family);markFamilyRows()};ensureFamilyFilter();const sub=document.querySelector('.subfilters');if(sub)new MutationObserver(ensureFamilyFilter).observe(sub,{childList:true});document.querySelectorAll('[data-action="view"]').forEach(node=>setRoute(node,route(13)));document.querySelectorAll('[data-action="edit"]').forEach(node=>setRoute(node,route(15)))}
     if(number===29){document.querySelectorAll('.greeting-body').forEach(body=>{const resolve=body.querySelector('.resolve-line');if(resolve&&!body.querySelector('.delay-line')){const delay=document.createElement('p');delay.className='delay-line';delay.innerHTML='<strong>1년이 지난 동안 여러 일이 있었고, 그만큼 주민이 더 일찍 누릴 수 있었던 생활 편의와 혜택도 늦어졌습니다.</strong>';resolve.before(delay)}if(resolve)resolve.textContent='이제 더 미루지 않겠습니다.'});withText(/회장인사 전문/,route(9));withText(/^단지온 시작하기/,route(4))}
   };
-  const init=()=>{const number=pageNumber()||Number(document.body.dataset.danjionPage)||0;document.body.dataset.danjionPage=String(number);normalizeCopy();rewriteLinks();ensureIntroNav(number);controls().forEach(control=>{const label=clean(control.textContent);if(TOP[label]&&!control.matches('.active,[aria-current="page"]'))setRoute(control,route(TOP[label]));if(label==='인트로')setRoute(control,'index.html?intro=1')});if(number!==29)document.querySelectorAll('.brand,.wordmark,[data-brand-home]').forEach(brand=>setRoute(brand,route(4)));addBack(number);pageRoutes(number);document.addEventListener('click',event=>{const locationControl=event.target.closest('[data-store-location]');if(locationControl){event.preventDefault();event.stopImmediatePropagation();const map=document.querySelector('#storeLocation,.map-card');if(map){let inline=document.querySelector('.danjion-inline-map');if(!inline){inline=document.createElement('section');inline.className='danjion-inline-map';inline.innerHTML='<div class="map-grid" aria-hidden="true"><i></i><i></i><i></i><i></i><strong>●</strong></div><div><b>로드힐 꽃작업실</b><span>광주 남구 방림동 · 정확한 주소는 예약 확정 후 안내</span></div>';map.after(inline)}inline.hidden=false;inline.scrollIntoView({behavior:'smooth',block:'center'})}return}const inquiryControl=event.target.closest('[data-store-inquiry]');if(inquiryControl){event.preventDefault();event.stopImmediatePropagation();openStoreInquiry();return}const backControl=event.target.closest('[data-back]');if(backControl){event.preventDefault();event.stopImmediatePropagation();location.href=backControl.dataset.fallback||route(4);return}const routeControl=event.target.closest('[data-route]');if(routeControl){const target=routeControl.dataset.route;if(target&&target.startsWith('#'))return;event.preventDefault();event.stopImmediatePropagation();location.href=target}},true)};
+  const init=()=>{const number=pageNumber()||Number(document.body.dataset.danjionPage)||0;document.body.dataset.danjionPage=String(number);normalizeCopy();rewriteLinks();ensureIntroNav(number);controls().forEach(control=>{const label=clean(control.textContent);if(TOP[label]&&!control.matches('.active,[aria-current="page"]'))setRoute(control,route(TOP[label]));if(label==='인트로')setRoute(control,'index.html?intro=1')});if(number!==29)document.querySelectorAll('.brand,.wordmark,[data-brand-home]').forEach(brand=>setRoute(brand,route(4)));void initAccountSessionStrip(number);addBack(number);pageRoutes(number);document.addEventListener('click',event=>{const locationControl=event.target.closest('[data-store-location]');if(locationControl){event.preventDefault();event.stopImmediatePropagation();const map=document.querySelector('#storeLocation,.map-card');if(map){let inline=document.querySelector('.danjion-inline-map');if(!inline){inline=document.createElement('section');inline.className='danjion-inline-map';inline.innerHTML='<div class="map-grid" aria-hidden="true"><i></i><i></i><i></i><i></i><strong>●</strong></div><div><b>로드힐 꽃작업실</b><span>광주 남구 방림동 · 정확한 주소는 예약 확정 후 안내</span></div>';map.after(inline)}inline.hidden=false;inline.scrollIntoView({behavior:'smooth',block:'center'})}return}const inquiryControl=event.target.closest('[data-store-inquiry]');if(inquiryControl){event.preventDefault();event.stopImmediatePropagation();openStoreInquiry();return}const backControl=event.target.closest('[data-back]');if(backControl){event.preventDefault();event.stopImmediatePropagation();location.href=backControl.dataset.fallback||route(4);return}const routeControl=event.target.closest('[data-route]');if(routeControl){const target=routeControl.dataset.route;if(target&&target.startsWith('#'))return;event.preventDefault();event.stopImmediatePropagation();location.href=target}},true)};
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
 })();
