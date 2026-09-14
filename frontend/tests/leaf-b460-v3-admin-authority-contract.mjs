@@ -200,7 +200,7 @@ const loadAdminContext = (location) => {
   assert.ok(adminPage.includes('hasAdminSurface(grant))renderConsole(grant)'), 'the console must render only for a granted surface');
   assert.ok(adminPage.includes('showRestricted(grant.state)'), 'ungmitted states must route to the restricted view');
   assert.ok(adminPage.includes('badge.className'), 'the role badge must render the server-resolved tier label');
-  assert.ok(adminPage.includes('현재 권한: '+ 'grant.label'), 'the main content must prominently repeat the server-resolved role');
+  assert.ok(adminPage.includes("'현재 권한: '+grant.label"), 'the main content must prominently repeat the server-resolved role');
   assert.ok(adminPage.includes("운영 범위: '+grant.scopes.join"), 'operational administrators must see their bounded scope summary');
   assert.ok(adminPage.includes("section.title+' · 정책 대기'"), 'policy-held verification must render as an explicit disabled tab');
   assert.ok(adminPage.includes("outcome.state==='network-error'"), 'network/CORS failures must be distinguishable from server failures');
