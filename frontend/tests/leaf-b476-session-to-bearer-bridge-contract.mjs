@@ -23,7 +23,7 @@ assert.ok(facade.includes("'authorization'"),
   'client Authorization must be in the guarded-header set');
 assert.ok(facade.includes("if (HOP_BY_HOP.has(lower) || GUARDED_HEADERS.has(lower)) continue;"),
   'guarded browser headers must be stripped before Worker forwarding');
-assert.ok(facade.includes("if (bearer) headers.set('authorization', `Bearer ${bearer}`)"),
+assert.ok(facade.includes("if (bridge.bearer) headers.set('authorization', `Bearer ${bridge.bearer}`)"),
   'only a validated server-issued JWT may become Worker bearer authority');
 assert.ok(facade.includes("payload.session && payload.user"),
   'session bridge must require a real Better Auth session payload');
@@ -41,9 +41,9 @@ assert.ok(facade.includes("tokenPayload.token"),
   'fallback must consume the JWT response body, not expose it to the browser');
 assert.ok(facade.includes("looksLikeJwt"),
   'both JWT paths must be shape-checked before forwarding');
-assert.ok(facade.includes("if (!sessionResponse.ok) return null"),
-  'failed session resolution must not produce authority');
-assert.ok(facade.includes("if (!cookie.trim()) return null"),
+assert.ok(facade.includes("if (!sessionResponse.ok) return { bearer: null, disposition: 'session-failed' }"),
+  'failed session resolution must fail closed with a bounded diagnostic');
+assert.ok(facade.includes("if (!cookie.trim()) return { bearer: null, disposition: 'no-cookie' }"),
   'guest/public requests must not require a token exchange');
 assert.ok(!facade.includes('x-danjion-dev-auth-user'),
   'production app facade must never carry development auth');
@@ -53,5 +53,12 @@ assert.ok(!facade.includes("outHeaders.set('authorization'"),
   'server-only bearer authority must never be exposed to the browser');
 assert.ok(!facade.includes("outHeaders.set('set-auth-jwt'"),
   'exchanged JWT must never be surfaced in the browser response');
+assert.ok(facade.includes("outHeaders.set('x-danjion-auth-bridge', bridge.disposition)"),
+  'browser may receive only the bounded bridge disposition, never credentials');
+for (const disposition of ['no-cookie','session-failed','session-invalid','direct-jwt','no-session-token','token-failed','token-invalid','fallback-jwt']) {
+  assert.ok(facade.includes(`disposition: '${disposition}'`), `missing closed diagnostic disposition: ${disposition}`);
+}
+assert.ok(!facade.includes("outHeaders.set('cookie'"), 'diagnostic must never expose Cookie');
+assert.ok(!facade.includes("outHeaders.set('x-danjion-session-token'"), 'diagnostic must never expose session token');
 
 console.log('leaf-b476-session-to-bearer-bridge-contract: PASS');
