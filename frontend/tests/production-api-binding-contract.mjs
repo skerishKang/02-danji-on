@@ -110,6 +110,10 @@ assert.ok(convertedPages >= 13, `expected every V3 server-mode page to resolve a
   assert.ok(!f05.includes('DanjionSession'), '05 must stay free of the DanjionSession token (OPTION B remains in force)');
   assert.ok(f05.includes(`'${PRODUCTION_HOST}'`) && f05.includes(PRODUCTION_API_BASE),
     '05 must carry the same #419 hostname gate inline (public fetch only)');
+  assert.ok(
+    f05.includes("const FIRST_API_BASE=String(location.hostname||'').toLowerCase()==='danjion.pages.dev'?'https://padiem-danjion-api-production.padiem.workers.dev':"),
+    '05 canonical production API base must be selected before reading any query override'
+  );
 }
 
 /* ================= production workflow contract (V3 promotion) ================= */
