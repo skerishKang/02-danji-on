@@ -44,11 +44,11 @@ for (const forbidden of ['createElement', 'innerHTML', 'insertAdjacentHTML', 'ap
 assert.ok(wiring.includes('textContent='), 'wiring must update slots via textContent only');
 assert.ok(/forEach\(el=>\{el\.textContent=name\}\)/.test(wiring), 'wiring must render the server name exactly once per slot (no duplicate render path)');
 
-/* --- apiBase gate + fail-closed demo fallback (same contract as #347, #419 hostname gate) --- */
-assert.ok(wiring.includes("const FIRST_API_BASE=(()=>{const p=new URLSearchParams(location.search);if(p.has('apiBase'))"),
-  'wiring must derive FIRST_API_BASE from an explicit apiBase query param first (#419 controlled preview)');
-assert.ok(wiring.includes("location.hostname||'').toLowerCase()==='danjion.pages.dev'?'https://padiem-danjion-api-production.padiem.workers.dev':''"),
-  'wiring must auto-bind the production API only on the canonical Pages hostname and stay fail-closed elsewhere (#419)');
+/* --- apiBase gate + fail-closed demo fallback (#419 + #444 security hardening) --- */
+assert.ok(wiring.includes("const FIRST_API_BASE=String(location.hostname||'').toLowerCase()==='danjion.pages.dev'?'https://padiem-danjion-api-production.padiem.workers.dev':"),
+  'wiring must bind canonical production before reading any controlled-preview apiBase override');
+assert.ok(wiring.includes("(()=>{const p=new URLSearchParams(location.search);if(p.has('apiBase'))"),
+  'outside canonical production, explicit apiBase must remain available for controlled preview');
 assert.ok(/async function loadFirstScreenAuthority\(\)\{\s*if\(!FIRST_API_BASE\)return;/.test(wiring),
   'wiring must return before any fetch when apiBase is absent (demo/static fallback)');
 assert.ok(wiring.includes('keeping demo name'), 'wiring must log and keep the demo name when the authority fails or is empty');
@@ -129,6 +129,21 @@ const okFetch = (body, calls) => async (url, opts) => {
     assert.equal(calls.length, 0, `${hostname} must issue zero fetches without an explicit apiBase`);
     assert.equal(dom.identity.textContent, DEMO_NAME, `${hostname} must keep the demo authority`);
   }
+}
+
+/* case 1d: #444 canonical production ignores a crafted apiBase override */
+{
+  const dom = makeDom();
+  const calls = [];
+  await runWiring({
+    apiBase: 'https://untrusted.example/collect',
+    hostname: 'danjion.pages.dev',
+    fetchImpl: okFetch({ data: { name: '방림명지로드힐' } }, calls),
+    dom
+  });
+  assert.equal(calls.length, 1, 'canonical production must still perform exactly one authority read');
+  assert.ok(calls[0].url.startsWith('https://padiem-danjion-api-production.padiem.workers.dev/api/v1/complexes/'),
+    'canonical production must ignore a query override and stay on the production API');
 }
 
 /* case 2: server authority name → slots updated once, suffix preserved, public GET shape */

@@ -65,6 +65,16 @@ const loadSession = (location) => {
   assert.equal(s.danjionAuthBase(), '', 'the empty ?apiBase= escape hatch must stay fail-closed on auth too');
 }
 {
+  const crafted = `?apiBase=${encodeURIComponent('https://attacker.example/collect')}`;
+  const s = loadSession({ search: crafted, hostname: PRODUCTION_HOST });
+  assert.equal(s.danjionAuthBase(), '',
+    'canonical production auth must ignore a crafted ?apiBase= and remain same-origin');
+  assert.equal(s.danjionApiBase(), WORKER_API_BASE,
+    'canonical production general API must ignore a crafted ?apiBase= and remain Worker-bound');
+  assert.equal(s.joinUrl(s.danjionAuthBase(), '/api/auth/sign-in/email'), '/api/auth/sign-in/email',
+    'crafted production links must never redirect credential-bearing auth traffic off-origin');
+}
+{
   const s = loadSession({ search: `?apiBase=${encodeURIComponent('https://preview.test/api//')}`, hostname: 'danjion-review.pages.dev' });
   assert.equal(s.danjionAuthBase(), 'https://preview.test/api',
     'explicit ?apiBase= (controlled preview) must keep routing auth to the operator-configured base');
