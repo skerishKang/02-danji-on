@@ -62,7 +62,7 @@
       const profile=document.querySelector('[data-member="profile"]');
       if(profile) profile.textContent=sessionUserName?sessionUserName+'님 · 내정보':'내정보';
     }
-    async function danjionSignOut(){if(serverMode){const r=await __session.request(fetch,__session.joinUrl(__session.danjionAuthBase(),'/api/auth/sign-out'),{method:'POST'});if(!r.ok){showToast('로그아웃에 실패했습니다. 잠시 후 다시 시도해 주세요.');return}}finishDanjionLogout();showToast('로그아웃되었습니다.')}
+    async function danjionSignOut(){if(serverMode){const r=await __session.request(fetch,__session.joinUrl(__session.danjionAuthBase(),'/api/auth/sign-out'),{method:'POST',body:JSON.stringify({})});if(!r.ok){showToast('로그아웃에 실패했습니다. 잠시 후 다시 시도해 주세요.');return}}finishDanjionLogout();showToast('로그아웃되었습니다.')}
     function finishDanjionLogout(){['danjionMember','danjionSignedUp','danjionAuthPending','danjionGuest','danjionPrototypeProvider'].forEach(key=>sessionStorage.removeItem(key));sessionUserName='';memberMode=false;syncMemberState()}
     for(let floor=1;floor<=24;floor++)for(let line=1;line<=4;line++)units.push(`${floor*100+line}호`);
     const WEB_LIGHT_MAP=[[386,205,18,20,0],[416,214,24,18,0],[455,239,18,20,0],[482,239,20,20,0],[530,278,24,22,1],[560,304,20,22,1],[590,330,24,22,1],[492,366,22,24,1],[447,420,26,22,2],[475,452,20,22,2],[520,476,26,24,2],[562,506,22,24,2],[596,536,26,24,3],[626,563,22,24,3],[620,596,28,24,3],[758,610,22,22,3],[782,210,20,20,4],[812,228,26,20,4],[886,200,22,22,4],[918,202,24,22,4],[976,257,24,22,5],[1010,294,22,22,5],[1042,326,26,24,5],[892,392,24,24,5],[930,433,26,24,6],[958,468,22,24,6],[998,495,28,24,6],[1028,520,24,24,6],[872,558,26,24,7],[914,582,24,22,7],[966,608,28,24,7],[1010,625,24,22,7]];

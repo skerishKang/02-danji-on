@@ -152,8 +152,10 @@ assert.ok(!index.includes(`danjionApiBase(),'/api/auth/sign-out'`),
   'sign-out must never bind the Worker API base directly');
 assert.ok(!index.includes('padiem-danjion-api-production'),
   'the landing entry must not hardcode the Worker origin');
-assert.match(index, /const r=await __session\.request\(fetch,__session\.joinUrl\(__session\.danjionAuthBase\(\),'\/api\/auth\/sign-out'\),\{method:'POST'\}\);if\(!r\.ok\)\{showToast\('로그아웃에 실패했습니다[^)]*\);\s*return\}\}finishDanjionLogout\(\)/,
+assert.match(index, /const r=await __session\.request\(fetch,__session\.joinUrl\(__session\.danjionAuthBase\(\),'\/api\/auth\/sign-out'\),\{method:'POST',body:JSON\.stringify\(\{\}\)\}\);if\(!r\.ok\)\{showToast\('로그아웃에 실패했습니다[^)]*\);\s*return\}\}finishDanjionLogout\(\)/,
   'a failed sign-out must keep the signed-in state; only success clears it');
+assert.ok(index.includes(`danjionAuthBase(),'/api/auth/sign-out'),{method:'POST',body:JSON.stringify({})}`),
+  'sign-out must be a POST carrying the Better Auth empty JSON object body');
 assert.ok(index.includes(`['danjionMember','danjionSignedUp','danjionAuthPending','danjionGuest','danjionPrototypeProvider'].forEach(key=>sessionStorage.removeItem(key));sessionUserName='';memberMode=false;syncMemberState()`),
   'logout must clear member markers, the pending toast marker, and the captured name, then resync the landing');
 assert.ok(index.includes(`showToast('로그아웃되었습니다.')`), 'logout success must be announced');
