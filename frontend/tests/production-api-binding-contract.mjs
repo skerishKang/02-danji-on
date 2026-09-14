@@ -3,13 +3,13 @@ import { readdirSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import vm from 'node:vm';
 
-// Issue #419 [production promotion]: the top-level frontend/ V3 static site is the
-// canonical Pages production artifact, and the production API binding is hostname-gated:
-//   - explicit ?apiBase= (controlled preview) always wins, including ?apiBase= empty as
-//     the fail-closed escape hatch on the production hostname;
-//   - danjion.pages.dev auto-binds https://padiem-danjion-api-production.padiem.workers.dev;
-//   - every other origin (danjion-review.pages.dev, localhost, previews) resolves to ''
-//     and stays on the static/demo lane.
+// Issue #419 [production promotion] + #444 security hardening: the top-level
+// frontend/ V3 static site is the canonical Pages production artifact.
+//   - danjion.pages.dev is immutable: query parameters cannot override its API base;
+//   - explicit ?apiBase= remains available only outside canonical production for
+//     controlled preview/local operation;
+//   - every other origin without an explicit override resolves to '' and stays
+//     on the static/demo lane.
 // Run: node frontend/tests/production-api-binding-contract.mjs
 
 const read = (rel) => readFile(new URL(rel, import.meta.url), 'utf8');
@@ -52,7 +52,14 @@ const loadSession = (location) => {
 }
 {
   const s = loadSession({ search: '?apiBase=', hostname: PRODUCTION_HOST });
-  assert.equal(s.danjionApiBase(), '', 'an explicit empty ?apiBase= must force the demo lane even on the production hostname (escape hatch)');
+  assert.equal(s.danjionApiBase(), PRODUCTION_API_BASE,
+    'canonical production must ignore an explicit empty ?apiBase= override');
+}
+{
+  const crafted = `?apiBase=${encodeURIComponent('https://untrusted.example/collect')}`;
+  const s = loadSession({ search: crafted, hostname: PRODUCTION_HOST });
+  assert.equal(s.danjionApiBase(), PRODUCTION_API_BASE,
+    'canonical production must ignore a crafted external ?apiBase= override');
 }
 {
   const s = loadSession({ search: '?utm=other', hostname: 'localhost' });
