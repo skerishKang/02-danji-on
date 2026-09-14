@@ -100,6 +100,118 @@
     return !!(result && result.ok && result.raw && typeof result.raw === 'object' && result.raw.session && result.raw.user);
   }
 
+  function accountRoleLabel(authorityResult) {
+    const a = authorityResult && authorityResult.ok ? authorityResult.data : null;
+    if (a && a.level === 'admin' && a.wildcard === true) return '최고관리자';
+    if (a && a.level === 'operator' && a.wildcard === false) return '운영관리자';
+    return '일반회원';
+  }
+
+  function accountShellPathEligible(loc) {
+    const where = loc || (typeof location !== 'undefined' ? location : {});
+    const path = String(where.pathname || '');
+    const file = path.split('/').pop() || '';
+    if (path.includes('/admin/')) return false;
+    return !['', 'index.html', 'index2.html', 'app.html', 'app2.html'].includes(file);
+  }
+
+  async function initAccountShell(options = {}) {
+    if (typeof document === 'undefined' || typeof fetch === 'undefined') return null;
+    const loc = options.location || location;
+    if (!accountShellPathEligible(loc)) return null;
+    const apiBase = danjionApiBase(loc);
+    if (!apiBase) return null;
+
+    const authBase = danjionAuthBase(loc);
+    const session = await request(fetch, joinUrl(authBase, '/api/auth/get-session'));
+    if (!nativeSessionReady(session)) return null;
+
+    const user = session.raw.user || {};
+    const email = String(user.email || '').trim() || '로그인 계정';
+    const authority = await request(fetch, joinUrl(apiBase, '/api/v1/admin/authority'));
+    const role = accountRoleLabel(authority);
+    const adminAllowed = !!(
+      authority && authority.ok && authority.data &&
+      ((authority.data.level === 'admin' && authority.data.wildcard === true) ||
+       (authority.data.level === 'operator' && authority.data.wildcard === false))
+    );
+
+    if (!document.getElementById('danjion-account-shell-style')) {
+      const style = document.createElement('style');
+      style.id = 'danjion-account-shell-style';
+      style.textContent = `
+        .danjion-account-shell{position:fixed;top:84px;right:16px;z-index:180;display:flex;align-items:center;gap:8px;max-width:min(620px,calc(100vw - 32px));padding:8px 10px;background:rgba(255,253,248,.97);border:1px solid rgba(16,29,48,.18);box-shadow:0 8px 28px rgba(16,29,48,.12);backdrop-filter:blur(10px);font:700 12px/1.25 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#101d30}
+        .danjion-account-shell__who{display:flex;align-items:center;gap:6px;min-width:0}
+        .danjion-account-shell__email{max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+        .danjion-account-shell__role{padding:3px 7px;border-radius:999px;background:#101d30;color:#fff;white-space:nowrap}
+        .danjion-account-shell a,.danjion-account-shell button{border:1px solid rgba(16,29,48,.25);background:#fffdf8;color:#101d30;padding:6px 9px;font:800 12px/1 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;text-decoration:none;cursor:pointer}
+        .danjion-account-shell button:hover,.danjion-account-shell a:hover{background:#f1ece2}
+        @media(max-width:760px){.danjion-account-shell{top:auto;right:10px;left:10px;bottom:76px;justify-content:center;flex-wrap:wrap}.danjion-account-shell__email{max-width:46vw}}
+      `;
+      document.head.appendChild(style);
+    }
+
+    let shell = document.querySelector('.danjion-account-shell');
+    if (!shell) {
+      shell = document.createElement('div');
+      shell.className = 'danjion-account-shell';
+      shell.setAttribute('role', 'region');
+      shell.setAttribute('aria-label', '현재 로그인 계정');
+      document.body.appendChild(shell);
+    }
+
+    shell.innerHTML = '';
+    const who = document.createElement('div');
+    who.className = 'danjion-account-shell__who';
+    const emailNode = document.createElement('span');
+    emailNode.className = 'danjion-account-shell__email';
+    emailNode.textContent = email;
+    emailNode.title = email;
+    const roleNode = document.createElement('span');
+    roleNode.className = 'danjion-account-shell__role';
+    roleNode.textContent = role;
+    who.append(emailNode, roleNode);
+    shell.appendChild(who);
+
+    if (adminAllowed) {
+      const admin = document.createElement('a');
+      admin.href = '/admin/';
+      admin.textContent = '관리자 콘솔';
+      shell.appendChild(admin);
+    }
+
+    const logout = document.createElement('button');
+    logout.type = 'button';
+    logout.textContent = '로그아웃';
+    logout.addEventListener('click', async () => {
+      logout.disabled = true;
+      logout.textContent = '로그아웃 중';
+      const result = await request(fetch, joinUrl(authBase, '/api/auth/sign-out'), {
+        method: 'POST',
+        body: JSON.stringify({})
+      });
+      if (!result.ok) {
+        logout.disabled = false;
+        logout.textContent = '로그아웃';
+        return;
+      }
+      try {
+        ['danjionMember','danjionSignedUp','danjionAuthPending','danjionGuest','danjionPrototypeProvider']
+          .forEach(key => sessionStorage.removeItem(key));
+      } catch {}
+      location.href = 'index.html';
+    });
+    shell.appendChild(logout);
+
+    return { email, role, adminAllowed };
+  }
+
+  if (typeof document !== 'undefined') {
+    const boot = () => { initAccountShell().catch(() => {}); };
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once: true });
+    else boot();
+  }
+
   global.DanjionSession = Object.freeze({
     danjionApiBase,
     danjionAuthBase,
@@ -107,6 +219,9 @@
     request,
     createSessionFetch,
     nativeSessionReady,
+    accountRoleLabel,
+    accountShellPathEligible,
+    initAccountShell,
     PRODUCTION_PAGES_HOSTNAME,
     CANONICAL_PAGES_API_BASE,
     PRODUCTION_API_BASE
