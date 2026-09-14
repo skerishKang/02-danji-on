@@ -120,8 +120,6 @@ assert.ok(index.includes('<button class="signup" data-auth="signup" data-guest-o
 assert.ok(index.includes('<button class="member-profile" data-member="profile" hidden>내정보</button>')
   && index.includes('<button class="member-logout" data-member="logout" hidden>로그아웃</button>'),
   'header must carry hidden signed-in 내정보/로그아웃 controls');
-assert.ok(index.includes('document.querySelectorAll(\'[data-guest-only]\').forEach(el=>el.hidden=memberMode)'),
-  'syncMemberState must hide guest-only controls when signed in');
 assert.ok(index.includes("let memberMode=serverMode?false:(sessionStorage.getItem('danjionMember')==='1'||sessionStorage.getItem('danjionSignedUp')==='1'),sessionResolved=!serverMode"),
   'production server mode must not bootstrap member state from stale sessionStorage markers');
 assert.ok(index.includes("document.querySelectorAll('[data-guest-only]').forEach(el=>el.hidden=!sessionResolved||memberMode)"),
