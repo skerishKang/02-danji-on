@@ -374,8 +374,9 @@ if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt
     stories.append(card);
   }
   function render(posts){
+    if(!posts.length)return;
     stories.textContent='';
-    if(!posts.length){notice('아직 게시된 주민소식이 없습니다.');return}
+    if(filters)filters.hidden=true;
     for(const post of posts){
       const card=document.createElement('article');
       card.className='story compact';
@@ -416,24 +417,15 @@ if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt
     try{
       const b=await ensureBridge();
       const result=await b.listPosts();
-      if(result.ok){render(result.posts);return}
-      if(result.reason==='auth-required'){
-        notice('로그인이 필요합니다. 단지온 계정 가입·로그인 후 다시 이용해 주세요.');
-        return;
-      }
-      if(result.reason==='network-error'){
-        notice('주민소식을 불러오지 못했습니다. 네트워크 상태를 확인해 주세요.');
-        return;
-      }
-      notice('주민소식을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.');
+      if(result.ok){if(result.posts.length)render(result.posts);return}
+      console.warn('[danjion] resident-news fallback preserved:', result.reason || 'server-error');
     }catch(_){
-      notice('주민소식을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.');
+      console.warn('[danjion] resident-news fallback preserved: load failed');
     }
   }
-  // The authority exposes no category facet, so the demo filter chips stand down
-  // instead of pretending to filter server rows.
-  if(filters)filters.hidden=true;
-  notice('주민소식을 불러오는 중입니다.');
+  // #465: keep the built-in resident-news cards and their filters visible while
+  // the server collection is empty/unavailable. Real server rows take ownership
+  // only after at least one published post exists.
   void load();
 })();
 </script>
