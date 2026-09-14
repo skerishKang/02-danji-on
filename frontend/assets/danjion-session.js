@@ -118,35 +118,72 @@
     if (typeof document === 'undefined' || typeof fetch === 'undefined') return null;
     const loc = options.location || location;
     if (!accountStripEligible(loc)) return null;
-    if (document.querySelector('.danjion-account-session')) return null;
+    if (document.querySelector('.danjion-account-menu')) return null;
 
     const authBase = danjionAuthBase(loc);
     const session = await request(fetch, joinUrl(authBase, '/api/auth/get-session'));
     if (!nativeSessionReady(session)) return null;
 
     const email = String(session.raw.user?.email || '').trim();
+    const name = String(session.raw.user?.name || '').trim();
     if (!email) return null;
 
-    if (!document.getElementById('danjion-account-session-style')) {
+    const host = document.querySelector('.identity') || document.querySelector('[data-account-host]');
+    if (!host) return null;
+    host.classList.add('danjion-account-host');
+    host.textContent = '';
+
+    if (!document.getElementById('danjion-account-menu-style')) {
       const style = document.createElement('style');
-      style.id = 'danjion-account-session-style';
-      style.textContent = '.danjion-account-session{position:fixed;top:68px;right:14px;z-index:190;display:flex;align-items:center;gap:8px;max-width:min(520px,calc(100vw - 28px));padding:8px 10px;background:rgba(255,253,248,.97);border:1px solid rgba(16,29,48,.18);box-shadow:0 8px 26px rgba(16,29,48,.12);backdrop-filter:blur(10px);font:800 12px/1.2 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#101d30}.danjion-account-session__email{max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.danjion-account-session__logout{border:1px solid rgba(16,29,48,.25);background:#fffdf8;color:#101d30;padding:6px 9px;font:800 12px/1 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;cursor:pointer}.danjion-account-session__logout:hover{background:#f1ece2}@media(max-width:760px){.danjion-account-session{top:auto;right:10px;left:10px;bottom:76px;justify-content:space-between}.danjion-account-session__email{max-width:65vw}}';
+      style.id = 'danjion-account-menu-style';
+      style.textContent = '.danjion-account-host{position:relative!important;display:flex!important;align-items:center!important;justify-content:flex-end!important;max-width:none!important;overflow:visible!important;white-space:normal!important}.danjion-account-trigger{display:flex;align-items:center;gap:9px;border:0;background:transparent;color:inherit;padding:7px 4px;cursor:pointer;font:inherit}.danjion-account-avatar{width:31px;height:31px;border-radius:50%;display:grid;place-items:center;background:#101d30;color:#fff;font-size:13px;font-weight:900}.danjion-account-label{display:grid;gap:2px;text-align:left;min-width:0}.danjion-account-label b{font-size:12px;line-height:1.1;max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.danjion-account-label span{font-size:10px;line-height:1.1;opacity:.58}.danjion-account-caret{font-size:10px;opacity:.55}.danjion-account-menu{position:absolute;top:calc(100% + 10px);right:0;width:260px;background:#fffdf8;border:1px solid rgba(16,29,48,.14);box-shadow:0 18px 40px rgba(16,29,48,.15);padding:10px;z-index:220}.danjion-account-menu[hidden]{display:none}.danjion-account-email{padding:10px 10px 12px;border-bottom:1px solid rgba(16,29,48,.1);font-size:12px;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.danjion-account-actions{display:grid;padding-top:6px}.danjion-account-actions a,.danjion-account-actions button{display:flex;align-items:center;width:100%;min-height:38px;border:0;background:transparent;color:#101d30;padding:0 10px;text-align:left;text-decoration:none;font:800 12px/1 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;cursor:pointer}.danjion-account-actions a:hover,.danjion-account-actions button:hover{background:#f1ece2}.danjion-account-actions .danger{color:#a53628;border-top:1px solid rgba(16,29,48,.08);margin-top:4px;padding-top:4px}@media(max-width:760px){.danjion-account-host{margin-left:auto!important}.danjion-account-label{display:none}.danjion-account-trigger{padding:4px}.danjion-account-menu{position:fixed;top:66px;right:10px;left:auto;width:min(280px,calc(100vw - 20px))}}';
       document.head.appendChild(style);
     }
 
-    const shell = document.createElement('div');
-    shell.className = 'danjion-account-session';
-    shell.setAttribute('role', 'region');
-    shell.setAttribute('aria-label', '현재 로그인 계정');
+    const trigger = document.createElement('button');
+    trigger.type = 'button';
+    trigger.className = 'danjion-account-trigger';
+    trigger.setAttribute('aria-haspopup', 'menu');
+    trigger.setAttribute('aria-expanded', 'false');
 
-    const emailNode = document.createElement('span');
-    emailNode.className = 'danjion-account-session__email';
-    emailNode.textContent = '현재 계정 · ' + email;
+    const avatar = document.createElement('span');
+    avatar.className = 'danjion-account-avatar';
+    avatar.textContent = (name || email).slice(0,1).toUpperCase();
+
+    const label = document.createElement('span');
+    label.className = 'danjion-account-label';
+    const labelMain = document.createElement('b');
+    labelMain.textContent = name || email.split('@')[0];
+    const labelSub = document.createElement('span');
+    labelSub.textContent = '계정';
+    label.append(labelMain, labelSub);
+
+    const caret = document.createElement('span');
+    caret.className = 'danjion-account-caret';
+    caret.textContent = '▾';
+    trigger.append(avatar, label, caret);
+
+    const menu = document.createElement('div');
+    menu.className = 'danjion-account-menu';
+    menu.hidden = true;
+    menu.setAttribute('role', 'menu');
+
+    const emailNode = document.createElement('div');
+    emailNode.className = 'danjion-account-email';
+    emailNode.textContent = email;
     emailNode.title = email;
 
+    const actions = document.createElement('div');
+    actions.className = 'danjion-account-actions';
+    const my = document.createElement('a');
+    my.href = '19_내정보_메인.html';
+    my.textContent = '내정보';
+    const settings = document.createElement('a');
+    settings.href = '24_설정.html';
+    settings.textContent = '설정';
     const logout = document.createElement('button');
     logout.type = 'button';
-    logout.className = 'danjion-account-session__logout';
+    logout.className = 'danger';
     logout.textContent = '로그아웃';
     logout.addEventListener('click', async () => {
       logout.disabled = true;
@@ -163,9 +200,22 @@
       clearLocalAuthMarkers();
       location.href = 'index.html?intro=1';
     });
+    actions.append(my, settings, logout);
+    menu.append(emailNode, actions);
 
-    shell.append(emailNode, logout);
-    document.body.appendChild(shell);
+    trigger.addEventListener('click', (event) => {
+      event.stopPropagation();
+      menu.hidden = !menu.hidden;
+      trigger.setAttribute('aria-expanded', String(!menu.hidden));
+    });
+    document.addEventListener('click', (event) => {
+      if (!host.contains(event.target)) {
+        menu.hidden = true;
+        trigger.setAttribute('aria-expanded', 'false');
+      }
+    });
+
+    host.append(trigger, menu);
     return { email };
   }
 
