@@ -143,7 +143,7 @@ const loadAdminContext = (location) => {
   assert.equal(C.COMPLEX_SLUG, CANONICAL_SLUG, 'the console must pin the canonical top-level complex slug');
 
   const operatorViews = C.consoleSections({ state: 'operator', wildcard: false, scopes: ['business.review'] });
-  assert.deepEqual(operatorViews.operational.map((s) => s.id), ['applications', 'reports', 'reviewHistory'],
+  assert.deepEqual(Array.from(operatorViews.operational, (s) => String(s.id)), ['applications', 'reports', 'reviewHistory'],
     'a bounded grant must expose only the operational sections mapped to its own server scopes');
   assert.equal(operatorViews.held.length, 1, 'policy-held resident verification must remain separately visible as held');
   assert.equal(operatorViews.privileged.length, 0, 'a bounded grant must never render the privileged area');
