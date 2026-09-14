@@ -44,13 +44,17 @@ assert.match(facade, /redirect: 'manual'/, 'upstream redirects must not be follo
 assert.match(facade, /upstream\.search = url\.search;/, 'query strings must be forwarded');
 assert.match(facade, /headers\.set\('x-forwarded-host', url\.host\);/, 'the canonical host must be forwarded for redirect-URI derivation');
 
-/* --- Stage 1 dormancy: the frontend still binds the Worker base directly --- */
-assert.match(html, /location\.href=__session\.joinUrl\(__session\.danjionApiBase\(\),'\/auth\/social-start'\)/,
-  'frontend must keep the direct Worker social-start binding until the cutover stage');
-assert.doesNotMatch(html, /location\.href='\/auth\/social-start'/,
-  'frontend must not be cut over to the same-origin facade in Stage 1');
+/* --- Stage 2 cutover: browser auth traffic binds the same-origin facade --- */
+assert.match(html, /location\.href=__session\.joinUrl\(__session\.danjionAuthBase\(\),'\/auth\/social-start'\)/,
+  '#444 Stage 2: frontend social-start must bind the auth base (same-origin facade on canonical Pages)');
+assert.doesNotMatch(html, /__session\.danjionApiBase\(\),'\/auth\/social-start'/,
+  '#444 Stage 2: no Worker-absolute social-start binding may remain in the entry');
+assert.doesNotMatch(html, /__session\.danjionApiBase\(\),'\/api\/auth/,
+  '#444 Stage 2: no browser auth endpoint may keep the direct Worker API base');
+assert.match(html, /createSessionFetch\(__session\.danjionAuthBase\(\)\)/,
+  '#444 Stage 2: session check must run against the auth base');
 assert.match(session, /PRODUCTION_API_BASE/,
-  'DanjionSession must keep exporting the direct production Worker base');
+  'DanjionSession must keep exporting the direct production Worker base for general API traffic');
 
 /* --- executable contract: run the real facade module against fake upstream/assets --- */
 {

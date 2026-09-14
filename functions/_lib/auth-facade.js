@@ -1,10 +1,11 @@
-// Issue #444 Stage 1: dormant canonical same-origin auth facade (Cloudflare Pages Function).
+// Issue #444 Stage 1: canonical same-origin auth facade (Cloudflare Pages Function).
 //
 // The facade proxies ONLY Better Auth / api-auth traffic from the canonical Pages
-// origin to the production Worker, so a later frontend cutover can observe the
-// session cookie first-party (PAGES_TO_WORKER_SESSION_OBSERVABILITY). In Stage 1
-// the frontend still resolves the Worker base directly via DanjionSession;
-// nothing in frontend/ links to these routes yet, so the facade stays dormant.
+// origin to the production Worker, so the frontend observes the session cookie
+// first-party (PAGES_TO_WORKER_SESSION_OBSERVABILITY). As of Stage 2 the live
+// frontend (frontend/assets/danjion-session.js danjionAuthBase) binds browser
+// auth traffic to these routes on the canonical Pages origin; general
+// application API traffic still resolves the Worker base directly.
 //
 // Fail-closed guarantees:
 //   * only https://danjion.pages.dev may invoke the proxy (preview/localhost 404);
