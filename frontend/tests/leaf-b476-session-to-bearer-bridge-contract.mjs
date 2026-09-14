@@ -28,9 +28,19 @@ assert.ok(facade.includes("if (bearer) headers.set('authorization', `Bearer ${be
 assert.ok(facade.includes("payload.session && payload.user"),
   'session bridge must require a real Better Auth session payload');
 assert.ok(facade.includes("sessionResponse.headers.get('set-auth-jwt')"),
-  'Worker bearer must come from Better Auth set-auth-jwt');
+  'primary Worker bearer path must use Better Auth set-auth-jwt');
+assert.ok(facade.includes("AUTH_TOKEN_PATH = '/api/auth/token'"),
+  'fallback must use the Better Auth JWT token endpoint');
+assert.ok(facade.includes("betterAuthSessionToken(cookie)"),
+  'fallback may extract only the first-party Better Auth session token server-side');
+assert.ok(facade.includes("tokenHeaders.set('authorization', `Bearer ${sessionToken}`)"),
+  'fallback must present the opaque session token only to Better Auth /token server-side');
+assert.ok(facade.includes("new URL(AUTH_TOKEN_PATH, WORKER_API_BASE)"),
+  'fallback token exchange must stay pinned to the fixed production Worker');
+assert.ok(facade.includes("tokenPayload.token"),
+  'fallback must consume the JWT response body, not expose it to the browser');
 assert.ok(facade.includes("looksLikeJwt"),
-  'JWT header must be shape-checked before forwarding');
+  'both JWT paths must be shape-checked before forwarding');
 assert.ok(facade.includes("if (!sessionResponse.ok) return null"),
   'failed session resolution must not produce authority');
 assert.ok(facade.includes("if (!cookie.trim()) return null"),
@@ -39,5 +49,9 @@ assert.ok(!facade.includes('x-danjion-dev-auth-user'),
   'production app facade must never carry development auth');
 assert.ok(!facade.includes("headers.set('authorization', request.headers.get"),
   'client-provided Authorization must never be copied into Worker authority');
+assert.ok(!facade.includes("outHeaders.set('authorization'"),
+  'server-only bearer authority must never be exposed to the browser');
+assert.ok(!facade.includes("outHeaders.set('set-auth-jwt'"),
+  'exchanged JWT must never be surfaced in the browser response');
 
 console.log('leaf-b476-session-to-bearer-bridge-contract: PASS');

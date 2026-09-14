@@ -27,11 +27,26 @@ const HOP_BY_HOP = new Set([
 
 const GUARDED_HEADERS = new Set(['origin', 'x-forwarded-host', 'x-forwarded-proto', 'authorization']);
 const AUTH_SESSION_PATH = '/api/auth/get-session';
+const AUTH_TOKEN_PATH = '/api/auth/token';
 const AUTH_FACADE_MARKER_HEADER = 'x-danjion-auth-facade';
 const AUTH_FACADE_MARKER_VALUE = 'canonical-pages-v1';
 
 function looksLikeJwt(value) {
   return typeof value === 'string' && value.split('.').length === 3 && value.length > 32;
+}
+
+function betterAuthSessionToken(cookieHeader) {
+  const matches = [];
+  for (const part of String(cookieHeader || '').split(';')) {
+    const eq = part.indexOf('=');
+    if (eq <= 0) continue;
+    const name = part.slice(0, eq).trim();
+    if (!/^(?:__Secure-|__Host-)?better-auth\.session_token$/.test(name)) continue;
+    let value = part.slice(eq + 1).trim();
+    try { value = decodeURIComponent(value); } catch {}
+    if (value && !/\s/.test(value) && value.length >= 20 && value.length <= 1024) matches.push(value);
+  }
+  return matches.length === 1 ? matches[0] : null;
 }
 
 async function bearerFromSessionCookie(fetchImpl, request, url) {
@@ -60,8 +75,29 @@ async function bearerFromSessionCookie(fetchImpl, request, url) {
   );
   if (!sessionReady) return null;
 
-  const token = sessionResponse.headers.get('set-auth-jwt');
-  return looksLikeJwt(token) ? token : null;
+  const directJwt = sessionResponse.headers.get('set-auth-jwt');
+  if (looksLikeJwt(directJwt)) return directJwt;
+
+  // Better Auth's JWT /token endpoint accepts the opaque session token through
+  // the Bearer plugin. Extract it only inside this server-side Pages Function;
+  // neither the opaque session token nor the resulting JWT is returned to the
+  // browser. This fallback is used only when a real get-session succeeded but
+  // its set-auth-jwt header was absent or unusable.
+  const sessionToken = betterAuthSessionToken(cookie);
+  if (!sessionToken) return null;
+
+  const tokenHeaders = new Headers(headers);
+  tokenHeaders.set('authorization', `Bearer ${sessionToken}`);
+  const tokenResponse = await fetchImpl(new Request(
+    new URL(AUTH_TOKEN_PATH, WORKER_API_BASE).toString(),
+    { method: 'GET', headers: tokenHeaders, redirect: 'manual' }
+  ));
+  if (!tokenResponse.ok) return null;
+
+  let tokenPayload = null;
+  try { tokenPayload = await tokenResponse.json(); } catch {}
+  const fallbackJwt = tokenPayload && typeof tokenPayload === 'object' ? tokenPayload.token : null;
+  return looksLikeJwt(fallbackJwt) ? fallbackJwt : null;
 }
 
 export function isAppProxiedPath(pathname) {
