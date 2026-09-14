@@ -179,16 +179,42 @@ async function resolveOrBootstrapActor(
   return actorBySubject(sql, subject);
 }
 
-async function verifyToken(token: string, config: AuthConfig): Promise<JWTPayload | null> {
+type JwtVerificationResult =
+  | { payload: JWTPayload; errorCode: null }
+  | { payload: null; errorCode:
+      | 'AUTH_JWT_SIGNATURE_INVALID'
+      | 'AUTH_JWT_ISSUER_INVALID'
+      | 'AUTH_JWT_AUDIENCE_INVALID'
+      | 'AUTH_JWT_EXPIRED'
+      | 'AUTH_JWT_ALG_INVALID'
+      | 'AUTH_INVALID' };
+
+function jwtVerificationErrorCode(error: unknown): Exclude<JwtVerificationResult['errorCode'], null> {
+  const code = typeof error === 'object' && error !== null && 'code' in error
+    ? String((error as { code?: unknown }).code ?? '')
+    : '';
+  const claim = typeof error === 'object' && error !== null && 'claim' in error
+    ? String((error as { claim?: unknown }).claim ?? '')
+    : '';
+
+  if (code === 'ERR_JWS_SIGNATURE_VERIFICATION_FAILED') return 'AUTH_JWT_SIGNATURE_INVALID';
+  if (code === 'ERR_JWT_EXPIRED') return 'AUTH_JWT_EXPIRED';
+  if (code === 'ERR_JOSE_ALG_NOT_ALLOWED') return 'AUTH_JWT_ALG_INVALID';
+  if (code === 'ERR_JWT_CLAIM_VALIDATION_FAILED' && claim === 'iss') return 'AUTH_JWT_ISSUER_INVALID';
+  if (code === 'ERR_JWT_CLAIM_VALIDATION_FAILED' && claim === 'aud') return 'AUTH_JWT_AUDIENCE_INVALID';
+  return 'AUTH_INVALID';
+}
+
+async function verifyToken(token: string, config: AuthConfig): Promise<JwtVerificationResult> {
   try {
     const { payload } = await jwtVerify(token, remoteJwks(config.jwksUrl), {
       issuer: config.issuer,
       audience: config.audience,
       algorithms: ['EdDSA']
     });
-    return payload;
-  } catch {
-    return null;
+    return { payload, errorCode: null };
+  } catch (error) {
+    return { payload: null, errorCode: jwtVerificationErrorCode(error) };
   }
 }
 
@@ -211,13 +237,16 @@ export async function requireActor(
   const config = authConfig(env);
   if (!config) return fail('AUTH_NOT_CONFIGURED', 'Authentication verification is not configured', 503, requestId);
 
-  const payload = await verifyToken(token, config);
-  if (!payload) return fail('AUTH_INVALID', 'Invalid or expired authentication token', 401, requestId);
+  const verification = await verifyToken(token, config);
+  if (!verification.payload) {
+    return fail(verification.errorCode, 'Invalid or expired authentication token', 401, requestId);
+  }
+  const payload = verification.payload;
 
   const subject = typeof payload.sub === 'string' ? payload.sub.trim() : '';
-  if (!subject) return fail('AUTH_INVALID', 'Authenticated subject is missing', 401, requestId);
+  if (!subject) return fail('AUTH_JWT_SUBJECT_MISSING', 'Authenticated subject is missing', 401, requestId);
   if (typeof payload.id === 'string' && payload.id.trim() && payload.id.trim() !== subject) {
-    return fail('AUTH_INVALID', 'Authenticated subject is inconsistent', 401, requestId);
+    return fail('AUTH_JWT_SUBJECT_INCONSISTENT', 'Authenticated subject is inconsistent', 401, requestId);
   }
   if (payload.banned === true) return fail('AUTH_FORBIDDEN', 'Authenticated user is blocked', 403, requestId);
 
