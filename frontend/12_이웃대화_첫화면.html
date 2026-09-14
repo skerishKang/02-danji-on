@@ -171,16 +171,17 @@ render();
   const selected=topicEl?topicEl.dataset.type:'hello';
   const showAll=Boolean(document.querySelector('.all-filter.active'));
   if(!showAll&&!KIND[selected]){
-   list.innerHTML=notice('가입인사 카테고리는 아직 서버 연동이 준비되지 않았습니다. 데모 화면으로만 제공합니다.');
+   // #465: 가입인사는 아직 server kind가 없으므로 기존 built-in posts를 유지합니다.
    return;
   }
   const result=showAll?await bridge.listPosts(null,{limit:50}):await bridge.listPosts(KIND[selected]);
   if(result.mode!=='server'){
-   list.innerHTML=notice(result.mode==='auth-required'?'로그인이 만료되었습니다. 다시 로그인한 뒤 이용해 주세요.':'서버 연결에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+   console.warn('[danjion] community fallback preserved:', result.mode);
    return;
   }
   const posts=showAll?result.posts.filter(p=>LABEL[p.kind]):result.posts;
-  list.innerHTML=posts.length?posts.map(row).join(''):notice('아직 등록된 글이 없습니다.');
+  if(!posts.length)return;
+  list.innerHTML=posts.map(row).join('');
  }
  document.querySelectorAll('.topic,.all-filter').forEach(b=>b.addEventListener('click',()=>{setTimeout(loadServer,0)}));
  document.addEventListener('click',ev=>{
