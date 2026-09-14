@@ -25,6 +25,29 @@
     return `${root}${path}`;
   }
 
+  // Issue #444 Stage 2 [frontend cutover]: browser Better Auth traffic
+  // (social-start, get-session, sign-in/sign-up email, forget-password and every
+  // other /api/auth/* call) binds the canonical Pages same-origin facade
+  // (functions/_lib/auth-facade.js) instead of the Worker absolute base:
+  //   * danjion.pages.dev with no override resolves to '' so auth requests are
+  //     same-origin relative URLs served by the Pages Function facade;
+  //   * an explicit ?apiBase= keeps its #419 controlled-preview meaning and
+  //     routes auth through the operator-configured base unchanged;
+  //   * every other origin (previews, localhost, spoofed suffixes) resolves to
+  //     '' with serverMode off — the demo lane never emits auth traffic, and the
+  //     facade itself fail-closes (404) for any non-canonical origin.
+  // danjionApiBase() itself is untouched: general application API traffic
+  // remains bound to the production Worker.
+  function danjionAuthBase(loc) {
+    const where = loc || (typeof location !== 'undefined' ? location : {});
+    let params;
+    try { params = new URLSearchParams(where.search || ''); } catch { params = new URLSearchParams(); }
+    if (params.has('apiBase')) {
+      return String(params.get('apiBase') || '').trim().replace(/\/+$/, '');
+    }
+    return '';
+  }
+
   async function request(fetchImpl, url, init = {}) {
     try {
       const response = await fetchImpl(url, {
@@ -65,6 +88,7 @@
 
   global.DanjionSession = Object.freeze({
     danjionApiBase,
+    danjionAuthBase,
     joinUrl,
     request,
     createSessionFetch,
