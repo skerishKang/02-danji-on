@@ -122,7 +122,7 @@ function renderStories(posts) {
       <span class="arrow">→</span>
     </button>
   `).join('');
-  if (newsList) {
+  if (newsList && news.length > 0) {
     newsList.innerHTML = rows;
   }
 }
@@ -130,10 +130,12 @@ function renderStories(posts) {
 async function loadPosts() {
   const result = await bridge.listPosts('apartment_news');
   if (result.ok) {
-    renderStories(result.data);
-  } else {
-    console.error('Failed to load posts:', result.error);
+    if (Array.isArray(result.data) && result.data.length > 0) renderStories(result.data);
+    return;
   }
+  console.error('Failed to load posts:', result.error);
+  // #465: preserve the built-in apartment-news feature and rows until the
+  // server has real content. Partial server content only replaces its own slot.
 }
 
 const stories = {
