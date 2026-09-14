@@ -71,6 +71,8 @@ assert.doesNotMatch(socialOnboarding, /otp_digest|delivery_code|submitted_code/i
 assert.match(authResolver, /const existing = await actorBySubject/);
 assert.doesNotMatch(authResolver, /AUTH_ACCOUNT_ONBOARDING_REQUIRED|completedContactOnboarding|approvedSocialProviderAccount/);
 
+assert.match(server, /bearer\(\)/,
+  'Better Auth bearer plugin must be enabled so the server-only Pages fallback can exchange the opaque session token at /api/auth/token');
 assert.match(server, /jwt\(\{/);
 assert.match(server, /const jwtAuthority = normalizeBaseUrl\(requireValue\(env\.DANJION_AUTH_BASE_URL, 'DANJION_AUTH_BASE_URL'\)\)/,
   'JWT authority must stay pinned to the Worker auth base even when publicBase switches to canonical Pages');
