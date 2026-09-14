@@ -122,8 +122,12 @@ assert.ok(index.includes('<button class="member-profile" data-member="profile" h
   'header must carry hidden signed-in 내정보/로그아웃 controls');
 assert.ok(index.includes('document.querySelectorAll(\'[data-guest-only]\').forEach(el=>el.hidden=memberMode)'),
   'syncMemberState must hide guest-only controls when signed in');
-assert.ok(index.includes('document.querySelectorAll(\'[data-member]\').forEach(el=>el.hidden=!memberMode)'),
-  'syncMemberState must show member controls only when signed in');
+assert.ok(index.includes("let memberMode=serverMode?false:(sessionStorage.getItem('danjionMember')==='1'||sessionStorage.getItem('danjionSignedUp')==='1'),sessionResolved=!serverMode"),
+  'production server mode must not bootstrap member state from stale sessionStorage markers');
+assert.ok(index.includes("document.querySelectorAll('[data-guest-only]').forEach(el=>el.hidden=!sessionResolved||memberMode)"),
+  'guest controls must stay hidden until the production session verdict is resolved');
+assert.ok(index.includes("document.querySelectorAll('[data-member]').forEach(el=>el.hidden=!sessionResolved||!memberMode)"),
+  'member controls must stay hidden until the production session verdict is resolved');
 assert.ok(index.includes('data-home-cta data-auth="signup"'),
   'hero CTA must be the auth-aware home CTA');
 assert.ok(index.includes(`homeCta.textContent=memberMode?'단지온 홈으로':'가입하고 시작하기 →'`),
@@ -156,8 +160,8 @@ assert.match(index, /const r=await __session\.request\(fetch,__session\.joinUrl\
   'a failed sign-out must keep the signed-in state; only success clears it');
 assert.ok(index.includes(`danjionAuthBase(),'/api/auth/sign-out'),{method:'POST',body:JSON.stringify({})}`),
   'sign-out must be a POST carrying the Better Auth empty JSON object body');
-assert.ok(index.includes(`['danjionMember','danjionSignedUp','danjionAuthPending','danjionGuest','danjionPrototypeProvider'].forEach(key=>sessionStorage.removeItem(key));sessionUserName='';memberMode=false;syncMemberState()`),
-  'logout must clear member markers, the pending toast marker, and the captured name, then resync the landing');
+assert.ok(index.includes(`['danjionMember','danjionSignedUp','danjionAuthPending','danjionGuest','danjionPrototypeProvider'].forEach(key=>sessionStorage.removeItem(key));sessionUserName='';memberMode=false;sessionResolved=true;syncMemberState()`),
+  'logout must clear member markers, resolve the guest state, and resync the landing');
 assert.ok(index.includes(`showToast('로그아웃되었습니다.')`), 'logout success must be announced');
 
 /* ================= 4. one-time login-success toast after the OAuth round trip ================= */
@@ -167,6 +171,8 @@ assert.match(index, /if\(sessionStorage\.getItem\('danjionAuthPending'\)==='1'\)
   'the confirmed session must consume the marker once and toast 로그인되었습니다.');
 assert.match(index, /sessionStorage\.removeItem\('danjionMember'\);sessionStorage\.removeItem\('danjionSignedUp'\);sessionStorage\.removeItem\('danjionAuthPending'\)/,
   'a rejected session check must drop the stale pending marker too');
+assert.match(index, /memberMode=real;sessionResolved=true;syncMemberState\(\)/,
+  'the startup auth UI must become visible only after the server session verdict resolves');
 assert.ok(index.includes(`sessionStorage.removeItem('danjionAuthPending');syncMemberState();showToast('로그인되었습니다.');openChair()`),
   'direct email login must also announce success once');
 
