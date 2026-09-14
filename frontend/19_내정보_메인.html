@@ -437,8 +437,14 @@ if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt
     if(residentRequired){
       setTxt(n.household,'주민인증 필요');
       toast('주민인증이 필요합니다.');
-    }else if(auth)toast('로그인 후 다시 시도해 주세요.');
-    else if(forbidden)toast('이 기능을 이용할 권한이 없습니다.');
+    }else if(auth){
+      var ar=(pr&&!pr.ok&&pr.mode==='auth-required')?pr:sr;
+      var bridgeCode=String(ar&&ar.bridgeDisposition||'unknown');
+      if(!/^[a-z-]{1,32}$/.test(bridgeCode))bridgeCode='unknown';
+      var workerCode=String(ar&&ar.error||'UNKNOWN');
+      if(!/^[A-Z0-9_]{1,64}$/.test(workerCode))workerCode='UNKNOWN';
+      toast('로그인 연결 오류 · '+bridgeCode+' · '+workerCode);
+    }else if(forbidden)toast('이 기능을 이용할 권한이 없습니다.');
     else if(err)toast('잠시 후 다시 시도해 주세요.');
   });
   function renderResidentState(text,flags){

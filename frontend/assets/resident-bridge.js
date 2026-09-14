@@ -21,10 +21,11 @@
     } catch (_) {
       payload = null;
     }
+    const bridgeDisposition = response.headers?.get?.('x-danjion-auth-bridge') || null;
     if (!response.ok) {
-      return { ok: false, status: response.status, error: payload?.error?.code || `HTTP_${response.status}`, payload };
+      return { ok: false, status: response.status, error: payload?.error?.code || `HTTP_${response.status}`, payload, bridgeDisposition };
     }
-    return { ok: true, status: response.status, data: payload?.data ?? null, payload };
+    return { ok: true, status: response.status, data: payload?.data ?? null, payload, bridgeDisposition };
   }
 
   function authMode(result) {
@@ -71,7 +72,7 @@
       const result = await requestJson(fetchImpl, `${apiBase}/api/v1/me/profile${query}`, { method: 'GET' });
       return result.ok
         ? { ok: true, mode: 'server', status: result.status, profile: result.data }
-        : { ok: false, mode: authMode(result), status: result.status, error: result.error };
+        : { ok: false, mode: authMode(result), status: result.status, error: result.error, bridgeDisposition: result.bridgeDisposition };
     }
 
     async function publicProfile(userId) {
@@ -136,7 +137,7 @@
       const result = await requestJson(fetchImpl, `${apiBase}/api/v1/me/summary${query}`, { method: 'GET' });
       return result.ok
         ? { ok: true, mode: 'server', status: result.status, summary: result.data }
-        : { ok: false, mode: authMode(result), status: result.status, error: result.error };
+        : { ok: false, mode: authMode(result), status: result.status, error: result.error, bridgeDisposition: result.bridgeDisposition };
     }
 
     async function consents() {
