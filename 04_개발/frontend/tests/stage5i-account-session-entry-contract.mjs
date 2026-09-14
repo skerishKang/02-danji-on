@@ -63,8 +63,8 @@ assert.doesNotMatch(html, /type==='login'\)\{if\(serverMode\)\{[^}]*\}else\{memb
   'server-mode login must not mint resident verification state');
 
 /* --- #448 round 2 / #444: social entry starts first-party with unified continue intent --- */
-assert.match(html, /if\(serverMode\)\{const q=new URLSearchParams\(\{provider,callbackURL:location\.origin\+location\.pathname\}\);q\.set\('requestSignUp','1'\);location\.href=__session\.joinUrl\(__session\.danjionApiBase\(\),'\/auth\/social-start'\)\+'\?'\+q\.toString\(\);return\}/,
-  '#444: server-mode social must navigate top-level to /auth/social-start and always include requestSignUp=1 in both login and signup modes');
+assert.match(html, /if\(serverMode\)\{const q=new URLSearchParams\(\{provider,callbackURL:location\.origin\+location\.pathname\}\);q\.set\('requestSignUp','1'\);[\s\S]*?location\.href=__session\.joinUrl\(__session\.danjionAuthBase\(\),'\/auth\/social-start'\)\+'\?'\+q\.toString\(\);return\}/,
+  '#444/#451: server-mode social must navigate top-level through the canonical auth facade and always include requestSignUp=1');
 assert.doesNotMatch(html, /if\(mode==='signup'\)q\.set\('requestSignUp'/,
   '#444: requestSignUp must no longer depend on the login/signup UI mode');
 assert.doesNotMatch(html, /\/api\/auth\/sign-in\/social/,
@@ -100,3 +100,6 @@ assert.ok(runIds.includes('test:stage5i-account-session-entry'),
   'stage5i contract must run in the manifest frontend suite');
 
 console.log('stage5i account/session entry reconciliation contract: PASS');
+
+assert.doesNotMatch(html, /joinUrl\(__session\.danjionApiBase\(\),'\/auth\/social-start'\)/,
+  'social-start must never regress to the general application API base');
