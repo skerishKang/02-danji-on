@@ -189,7 +189,7 @@ type JwtVerificationResult =
       | 'AUTH_JWT_ALG_INVALID'
       | 'AUTH_INVALID' };
 
-function jwtVerificationErrorCode(error: unknown): JwtVerificationResult['errorCode'] {
+function jwtVerificationErrorCode(error: unknown): Exclude<JwtVerificationResult['errorCode'], null> {
   const code = typeof error === 'object' && error !== null && 'code' in error
     ? String((error as { code?: unknown }).code ?? '')
     : '';
