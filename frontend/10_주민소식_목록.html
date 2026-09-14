@@ -418,6 +418,14 @@ if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt
       const b=await ensureBridge();
       const result=await b.listPosts();
       if(result.ok){if(result.posts.length)render(result.posts);return}
+      if(result.reason==='auth-required'){
+        console.warn('[danjion] resident-news fallback preserved: auth-required');
+        return;
+      }
+      if(result.reason==='network-error'){
+        console.warn('[danjion] resident-news fallback preserved: network-error');
+        return;
+      }
       console.warn('[danjion] resident-news fallback preserved:', result.reason || 'server-error');
     }catch(_){
       console.warn('[danjion] resident-news fallback preserved: load failed');
@@ -426,6 +434,7 @@ if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt
   // #465: keep the built-in resident-news cards and their filters visible while
   // the server collection is empty/unavailable. Real server rows take ownership
   // only after at least one published post exists.
+  console.info('[danjion] 주민소식을 불러오는 중입니다. 기존 콘텐츠를 유지합니다.');
   void load();
 })();
 </script>
