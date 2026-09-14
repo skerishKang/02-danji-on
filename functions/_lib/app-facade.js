@@ -51,7 +51,7 @@ function betterAuthSessionToken(cookieHeader) {
 
 async function bearerFromSessionCookie(fetchImpl, request, url) {
   const cookie = request.headers.get('cookie') || '';
-  if (!cookie.trim()) return null;
+  if (!cookie.trim()) return { bearer: null, disposition: 'no-cookie' };
 
   const headers = new Headers();
   headers.set('cookie', cookie);
@@ -65,7 +65,7 @@ async function bearerFromSessionCookie(fetchImpl, request, url) {
     { method: 'GET', headers, redirect: 'manual' }
   ));
 
-  if (!sessionResponse.ok) return null;
+  if (!sessionResponse.ok) return { bearer: null, disposition: 'session-failed' };
 
   let payload = null;
   try { payload = await sessionResponse.clone().json(); } catch {}
@@ -73,10 +73,10 @@ async function bearerFromSessionCookie(fetchImpl, request, url) {
     payload && typeof payload === 'object' &&
     payload.session && payload.user
   );
-  if (!sessionReady) return null;
+  if (!sessionReady) return { bearer: null, disposition: 'session-invalid' };
 
   const directJwt = sessionResponse.headers.get('set-auth-jwt');
-  if (looksLikeJwt(directJwt)) return directJwt;
+  if (looksLikeJwt(directJwt)) return { bearer: directJwt, disposition: 'direct-jwt' };
 
   // Better Auth's JWT /token endpoint accepts the opaque session token through
   // the Bearer plugin. Extract it only inside this server-side Pages Function;
@@ -84,7 +84,7 @@ async function bearerFromSessionCookie(fetchImpl, request, url) {
   // browser. This fallback is used only when a real get-session succeeded but
   // its set-auth-jwt header was absent or unusable.
   const sessionToken = betterAuthSessionToken(cookie);
-  if (!sessionToken) return null;
+  if (!sessionToken) return { bearer: null, disposition: 'no-session-token' };
 
   const tokenHeaders = new Headers(headers);
   tokenHeaders.set('authorization', `Bearer ${sessionToken}`);
@@ -92,12 +92,14 @@ async function bearerFromSessionCookie(fetchImpl, request, url) {
     new URL(AUTH_TOKEN_PATH, WORKER_API_BASE).toString(),
     { method: 'GET', headers: tokenHeaders, redirect: 'manual' }
   ));
-  if (!tokenResponse.ok) return null;
+  if (!tokenResponse.ok) return { bearer: null, disposition: 'token-failed' };
 
   let tokenPayload = null;
   try { tokenPayload = await tokenResponse.json(); } catch {}
   const fallbackJwt = tokenPayload && typeof tokenPayload === 'object' ? tokenPayload.token : null;
-  return looksLikeJwt(fallbackJwt) ? fallbackJwt : null;
+  return looksLikeJwt(fallbackJwt)
+    ? { bearer: fallbackJwt, disposition: 'fallback-jwt' }
+    : { bearer: null, disposition: 'token-invalid' };
 }
 
 export function isAppProxiedPath(pathname) {
@@ -134,8 +136,8 @@ export async function appFacadeFetch(context, deps = {}) {
   // session can be exchanged for a JWKS-verifiable JWT, attach it only to the
   // fixed server-to-server Worker request. Client-supplied Authorization is
   // always stripped above and can never become Worker authority.
-  const bearer = await bearerFromSessionCookie(fetchImpl, request, url);
-  if (bearer) headers.set('authorization', `Bearer ${bearer}`);
+  const bridge = await bearerFromSessionCookie(fetchImpl, request, url);
+  if (bridge.bearer) headers.set('authorization', `Bearer ${bridge.bearer}`);
 
   const method = request.method.toUpperCase();
   const upstreamRequest = new Request(upstream.toString(), {
@@ -158,6 +160,7 @@ export async function appFacadeFetch(context, deps = {}) {
   // Session-cookie ownership remains with the existing Better Auth facade under
   // /api/auth/*; the JWT exists only on this server-to-server hop.
   outHeaders.set('x-danjion-app-facade', APP_FACADE_MARKER);
+  outHeaders.set('x-danjion-auth-bridge', bridge.disposition);
   outHeaders.set('cache-control', 'no-store');
 
   return new Response(upstreamResponse.body, {
