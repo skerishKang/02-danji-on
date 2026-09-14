@@ -20,8 +20,10 @@ assert.ok(!consistency.includes('/api/auth'),
 
 assert.ok(session.includes("'/api/auth/get-session'"),
   'session runtime must resolve the same-origin Better Auth session');
-assert.ok(session.includes("'현재 계정 · ' + email"),
-  'service account strip must visibly identify the current login email');
+assert.ok(session.includes("emailNode.textContent = email"),
+  'integrated account menu must visibly identify the current login email');
+assert.ok(session.includes("className = 'danjion-account-menu'"),
+  'account identity must live in the integrated header menu rather than a floating strip');
 assert.ok(session.includes("'/api/auth/sign-out'"),
   'global logout must call same-origin Better Auth sign-out');
 assert.ok(session.includes("location.href = 'index.html?intro=1'"),
