@@ -3,9 +3,14 @@ import { readFile } from 'node:fs/promises';
 import vm from 'node:vm';
 
 // Issue #460 [admin production]: the canonical V3 /admin/ surface is gated ONLY
-// by GET /api/v1/admin/authority (server-side padiem_operator_grants on the
-// canonical user). Wildcard grants render the 최고관리자 view, bounded grants the
-// 일반관리자 view, and every malformed or non-200 answer fails closed. No role
+// by GET /api/v1/admin/authority (server-side padiem_operator_grants of the
+// signed-in actor's own account). The four designated administrator principals
+// (Owner SUPER, Owner OPERATIONAL, Sibling SUPER, Sibling OPERATIONAL) are
+// SEPARATE canonical users with separate grants — nothing here may assume or
+// converge one principal into another. A wildcard SUPER answer renders the
+// 최고관리자 view, a valid OPERATIONAL answer the 일반관리자 view, and every
+// other answer — including malformed or empty HTTP 200 payloads — is rejected
+// (least privilege is NOT an operator fallback at the entry boundary). No role
 // may ever be inferred from email, login provider, browser storage, or query
 // parameters, and the console ships read-only: no write verb exists anywhere.
 // Run: node frontend/tests/leaf-b460-v3-admin-authority-contract.mjs
@@ -37,22 +42,38 @@ const loadAdminContext = (location) => {
   return ctx;
 };
 
-/* ================= 1. authority normalization is fail-closed ================= */
+/* ============ 1. authority validation is strict: malformed 200 is REJECTED === */
 {
   const ctx = loadAdminContext({ hostname: 'danjion.pages.dev', search: '' });
   const { DanjionAdminAuthority: A } = ctx;
   assert.equal(A.AUTHORITY_PATH, '/api/v1/admin/authority', 'authority must bind the canonical endpoint');
   assert.equal(A.normalizeAuthority({ level: 'admin', label: SUPER_LABEL, wildcard: true, scopes: ['*'] }).state, 'admin',
     'a wildcard admin grant resolves the 최고관리자 view');
-  assert.equal(A.normalizeAuthority({ level: 'admin', label: SUPER_LABEL, wildcard: false, scopes: ['business.review'] }).state, 'operator',
-    'level admin without the wildcard flag must collapse to the operator view');
-  assert.equal(A.normalizeAuthority({ level: 'operator', label: OPERATOR_LABEL, wildcard: true, scopes: [] }).state, 'operator',
-    'wildcard without level admin must collapse to the operator view');
-  const malformed = A.normalizeAuthority({ level: 'admin', wildcard: 'true', scopes: 'business.review' });
-  assert.equal(malformed.state, 'operator', 'string-typed wildcard/scopes must collapse to the operator view');
-  assert.equal(malformed.wildcard, false, 'collapsed grants must never keep a truthy wildcard flag');
-  assert.deepEqual([...malformed.scopes], [], 'non-array scopes must collapse to no scopes');
-  assert.equal(A.normalizeAuthority(null).state, 'operator', 'an empty 200 body must collapse to the least privilege');
+  assert.equal(A.normalizeAuthority({ level: 'operator', label: OPERATOR_LABEL, wildcard: false, scopes: ['business_application.review'] }).state, 'operator',
+    'a valid bounded operator grant resolves the 일반관리자 view');
+  assert.equal(A.normalizeAuthority({ level: 'admin', label: SUPER_LABEL, wildcard: false, scopes: ['business.review'] }).state, 'invalid',
+    'level admin without the wildcard flag must be REJECTED, not demoted to operator');
+  assert.equal(A.normalizeAuthority({ level: 'operator', label: OPERATOR_LABEL, wildcard: true, scopes: [] }).state, 'invalid',
+    'wildcard true on an operator level is inconsistent and must be REJECTED');
+  assert.equal(A.normalizeAuthority({ level: 'operator', wildcard: false, scopes: ['*'] }).state, 'invalid',
+    'an operator grant carrying the wildcard scope must be REJECTED');
+  assert.equal(A.normalizeAuthority({ level: 'manager', wildcard: false, scopes: [] }).state, 'invalid',
+    'unknown levels must be REJECTED');
+  assert.equal(A.normalizeAuthority({ wildcard: false, scopes: [] }).state, 'invalid',
+    'a missing level must be REJECTED');
+  const malformedWildcard = A.normalizeAuthority({ level: 'admin', wildcard: 'true', scopes: ['*'] });
+  assert.equal(malformedWildcard.state, 'invalid', 'string-typed wildcard must be REJECTED, not coerced');
+  assert.equal(malformedWildcard.wildcard, false, 'rejected authorities must never carry a truthy wildcard flag');
+  assert.equal(A.normalizeAuthority({ level: 'admin', wildcard: true, scopes: 'business.review' }).state, 'invalid',
+    'non-array scopes must be REJECTED');
+  assert.equal(A.normalizeAuthority({ level: 'admin', wildcard: true, scopes: ['*', 7] }).state, 'invalid',
+    'scopes arrays containing non-strings must be REJECTED');
+  assert.equal(A.normalizeAuthority(null).state, 'invalid', 'empty 200 data must be REJECTED');
+  assert.equal(A.normalizeAuthority({}).state, 'invalid', 'an empty object body must be REJECTED');
+  assert.equal(A.normalizeAuthority([{ level: 'admin', wildcard: true }]).state, 'invalid', 'array bodies must be REJECTED');
+  const rejected = A.normalizeAuthority(null);
+  assert.equal(rejected.label, '', 'a rejected authority must carry no tier label');
+  assert.equal(rejected.scopes.length, 0, 'a rejected authority must carry no scopes');
   assert.ok(A.SUPER_LABEL !== A.OPERATOR_LABEL, 'the two tiers must carry distinct server-pinned labels');
 }
 
@@ -66,6 +87,11 @@ const loadAdminContext = (location) => {
   assert.equal(A.classifyAuthority({ ok: false, status: 500 }).state, 'error', '5xx must fail closed');
   assert.equal(A.classifyAuthority({ ok: false, status: 0 }).state, 'error', 'network errors must fail closed');
   assert.equal(A.classifyAuthority(null).state, 'error', 'a missing outcome must fail closed');
+  assert.equal(A.classifyAuthority({ ok: true, data: { level: 'operator', wildcard: false, scopes: ['business_application.review'] } }).state, 'operator',
+    'a valid operator 200 must open the 일반관리자 surface');
+  assert.equal(A.classifyAuthority({ ok: true, data: null }).state, 'invalid', 'a 200 with null data must classify as invalid');
+  assert.equal(A.classifyAuthority({ ok: true, data: {} }).state, 'invalid', 'a 200 with an empty body must classify as invalid');
+  assert.equal(A.hasAdminSurface({ state: 'invalid' }), false, 'a malformed 200 must never open the admin surface');
   assert.equal(A.hasAdminSurface({ state: 'denied' }), false, 'a denied authority must not open the admin surface');
   assert.equal(A.hasAdminSurface({ state: 'signed-out' }), false);
   assert.equal(A.hasAdminSurface({ state: 'unbound' }), false);
@@ -97,6 +123,10 @@ const loadAdminContext = (location) => {
 
   const denied = await A.fetchAuthority(jsonResponse(403, { error: { code: 'PADIEM_GRANT_REQUIRED' } }), { apiBase: 'https://api.test' });
   assert.equal(denied.state, 'denied', 'an explicit 403 keeps the surface closed');
+
+  const emptyOk = await A.fetchAuthority(jsonResponse(200, { data: null }), { apiBase: 'https://api.test' });
+  assert.equal(emptyOk.state, 'invalid', 'an empty 200 must not reach the console as operator');
+  assert.equal(A.hasAdminSurface(emptyOk), false, 'an empty 200 must never open the admin surface end to end');
 
   const emptyBase = await A.fetchAuthority(jsonResponse(200, { data: { level: 'admin', wildcard: true } }), { apiBase: '' });
   assert.equal(emptyBase.state, 'unbound', 'an empty base must short-circuit before any fetch');
@@ -178,8 +208,33 @@ const loadAdminContext = (location) => {
     }
     assert.ok(!/innerHTML\s*=/.test(src), `${name} must build the DOM text-safe (no innerHTML assignment)`);
   }
-  assert.ok(!authoritySrc.includes("state: 'admin'") || authoritySrc.includes("record.level === 'admin' && record.wildcard === true"),
-    'the super view must require both the admin level and the wildcard flag');
+  assert.ok(authoritySrc.includes("state: 'invalid'"), 'the resolver must carry an explicit rejection state for malformed 200s');
+  assert.ok(!/state:\s*\w+\s*\?\s*'admin'\s*:\s*'operator'/.test(authoritySrc),
+    'the resolver must never ternary-demote an unknown payload to a usable operator view');
+}
+
+/* ============= 6b. four independent admin principals — no convergence prose = */
+{
+  const staleProse = [
+    ['not separate administrator ', 'identities'].join(''),
+    ['whichever ', 'linked'].join(''),
+    ['통합 ', '회원'].join(''),
+    ['하나의 ', '관리자'].join(''),
+    ['same server-side grant resolves the same ', 'authority'].join('')
+  ];
+  const sources = {
+    'danjion-admin-authority.js': authoritySrc,
+    'danjion-admin-console.js': consoleSrc,
+    'admin/index.html': adminPage,
+    'leaf-b460 test': await read('./leaf-b460-v3-admin-authority-contract.mjs')
+  };
+  for (const [name, src] of Object.entries(sources)) {
+    for (const prose of staleProse) {
+      assert.ok(!src.includes(prose), `${name} must not keep the superseded one-canonical-admin prose (${prose})`);
+    }
+  }
+  assert.ok(authoritySrc.includes('SEPARATE canonical users'), 'the authority resolver must state the four-principal separation policy');
+  assert.ok(authoritySrc.includes('converge'), 'the authority resolver must forbid silent principal convergence');
 }
 
 /* ================= 7. signed-in V3 entry point is authority-gated ========== */

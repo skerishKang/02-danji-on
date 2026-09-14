@@ -69,7 +69,8 @@
     const RESTRICTED_COPY={
       unbound:'이 환경에서는 관리자 콘솔을 사용할 수 없습니다.',
       'signed-out':'관리자 콘솔은 로그인 후 이용할 수 있습니다.',
-      denied:'접근 권한이 없습니다. 관리자 여부는 서버의 권한 기록(padiem_operator_grants)으로만 판정되며, 이메일·로그인 수단·브라우저 저장 정보로 추정하지 않습니다.',
+      denied:'접근 권한이 없습니다. 관리자 여부는 로그인 계정의 서버 권한 기록(padiem_operator_grants)으로만 판정되며, 이메일·로그인 수단·브라우저 저장 정보로 추정하지 않습니다.',
+      invalid:'권한 응답을 검증할 수 없어 접근을 차단했습니다. 잠시 후 다시 시도해 주세요.',
       error:'권한 확인에 실패했습니다. 잠시 후 다시 시도해 주세요.'
     };
     function el(tag,text,className){const node=document.createElement(tag);if(text!==undefined)node.textContent=text;if(className)node.className=className;return node}
@@ -127,7 +128,7 @@
       const apiBase=authority.resolveApiBase();
       const sections=consoleApi.consoleSections(grant);
       const lead=el('div',undefined,'admin-lead');
-      lead.append(el('h1','단지온 운영관리'),el('p','방림명지로드힐 · 권한은 로그인 수단이 아니라 단지온 통합 회원(서버 권한 기록)에 귀속됩니다.'));
+      lead.append(el('h1','단지온 운영관리'),el('p','방림명지로드힐 · 권한은 로그인 수단이 아니라 각 관리자 계정 고유의 서버 권한 기록(padiem_operator_grants)에 귀속됩니다.'));
       const tabs=el('nav',undefined,'admin-tabs');tabs.setAttribute('aria-label','운영관리 메뉴');
       const panel=el('section',undefined,'admin-panel');
       const note=el('p','이 화면은 조회 전용입니다. 상태 변경·승인 등의 쓰기 작업은 백엔드 쓰기가 별도 검토·승인된 뒤에 순차 활성화됩니다.','admin-note');

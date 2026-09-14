@@ -3,13 +3,15 @@
 
   // Issue #460 [admin production]: administrator authority is resolved ONLY from
   // GET /api/v1/admin/authority, which the backend derives exclusively from the
-  // canonical-user rows in padiem_operator_grants. Google/Naver/email/Kakao are
-  // login methods, not separate administrator identities: whichever linked
-  // method a canonical user signs in with, the same server-side grant resolves
-  // the same authority. This module NEVER infers a role from email, provider
-  // names, browser storage, or query parameters, and it can never mint, copy,
-  // or widen a grant — it is a read-only GET with the fail-closed normalization
-  // promoted from the #412 admin console discipline.
+  // padiem_operator_grants of the signed-in actor's own canonical account. The
+  // owner's final policy keeps the four designated administrator principals
+  // (Owner SUPER, Owner OPERATIONAL, Sibling SUPER, Sibling OPERATIONAL) as
+  // SEPARATE canonical users with separate grants: each principal is audited
+  // independently and nothing here may assume, link, or silently converge one
+  // principal into another. Login methods (Google/Naver/email/Kakao) are never
+  // an authority source, and this module can never mint, copy, or widen a
+  // grant — it is a read-only GET with strict two-shape validation: anything
+  // that is not an exactly-valid SUPER or OPERATIONAL answer is rejected.
   const AUTHORITY_PATH = '/api/v1/admin/authority';
   const SUPER_LABEL = '최고관리자';
   const OPERATOR_LABEL = '일반관리자';
@@ -24,26 +26,37 @@
     return String(session.danjionApiBase(loc) || '');
   }
 
-  // Fail-closed normalization: a 최고관리자 view is valid ONLY when the admin
-  // level and the wildcard flag agree. Every malformed or inconsistent payload
-  // collapses to the least-privileged operator view with wildcard forced false.
+  function isStringArray(value) {
+    return Array.isArray(value) && value.every((item) => typeof item === 'string');
+  }
+
+  // Strict fail-closed validation at the administrator-entry boundary. An HTTP
+  // 200 answer opens the admin surface in exactly two shapes:
+  //   SUPER      — level 'admin', wildcard strictly true, valid string[] scopes
+  //   OPERATIONAL— level 'operator', wildcard strictly false, valid string[]
+  //                scopes without the wildcard scope '*'
+  // Every other payload (null/empty data, unknown or missing level, non-boolean
+  // wildcard, malformed scopes, admin-without-wildcard, operator-carrying-'*')
+  // resolves the rejected 'invalid' state — least privilege is NOT applied as a
+  // fallback, because collapsing a malformed grant answer to a usable operator
+  // view would open /admin/ on a payload the server never sanctioned.
   function normalizeAuthority(raw) {
-    const record = raw && typeof raw === 'object' ? raw : {};
-    const superAdmin = record.level === 'admin' && record.wildcard === true;
-    const scopes = Array.isArray(record.scopes)
-      ? record.scopes.filter((scope) => typeof scope === 'string')
-      : [];
-    return {
-      state: superAdmin ? 'admin' : 'operator',
-      label: superAdmin ? SUPER_LABEL : OPERATOR_LABEL,
-      scopes,
-      wildcard: superAdmin
-    };
+    const record = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : null;
+    if (!record) return { state: 'invalid', label: '', scopes: [], wildcard: false };
+    const scopes = record.scopes;
+    if (record.level === 'admin' && record.wildcard === true && isStringArray(scopes)) {
+      return { state: 'admin', label: SUPER_LABEL, scopes: scopes.slice(), wildcard: true };
+    }
+    if (record.level === 'operator' && record.wildcard === false && isStringArray(scopes) && !scopes.includes('*')) {
+      return { state: 'operator', label: OPERATOR_LABEL, scopes: scopes.slice(), wildcard: false };
+    }
+    return { state: 'invalid', label: '', scopes: [], wildcard: false };
   }
 
   // Maps a DanjionSession.request outcome to an authority state. Anything that
-  // is not an explicit 200 grant answer (401/403/5xx/network/malformed) keeps
-  // the admin surface hidden — the entry point and the console both fail closed.
+  // is not an exactly-valid 200 grant answer (401/403/5xx/network/malformed)
+  // keeps the admin surface hidden — the entry point and the console both fail
+  // closed.
   function classifyAuthority(result) {
     if (!result || typeof result !== 'object') return { state: 'error' };
     if (result.ok) return normalizeAuthority(result.data);
