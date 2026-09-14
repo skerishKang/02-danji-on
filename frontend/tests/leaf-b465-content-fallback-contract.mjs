@@ -13,8 +13,10 @@ const community = await read('../12_이웃대화_첫화면.html');
 
 // 1) DanjiOn notices: only non-empty arrays may take over the static list.
 assert.ok(
-  notice.includes("result.ok && Array.isArray(result.data) && result.data.length > 0"),
-  'notice list must preserve built-in notices when server collection is empty'
+  notice.includes("if (result.ok) {") &&
+  notice.includes("Array.isArray(result.data) && result.data.length > 0") &&
+  notice.includes("renderPosts(result.data)"),
+  'notice list must render server rows only for a non-empty successful collection'
 );
 assert.ok(
   notice.includes('단지온 홈과 네 가지 메뉴 이용 안내'),
@@ -24,8 +26,10 @@ assert.ok(
 // 2) Apartment news: empty collection keeps the built-in feature and rows;
 // partial server data must not blank the recent-news slot.
 assert.ok(
-  apartment.includes("result.ok && Array.isArray(result.data) && result.data.length > 0"),
-  'apartment news must not render an empty server collection'
+  apartment.includes("if (result.ok) {") &&
+  apartment.includes("Array.isArray(result.data) && result.data.length > 0") &&
+  apartment.includes("renderStories(result.data)"),
+  'apartment news must render server rows only for a non-empty successful collection'
 );
 assert.ok(
   apartment.includes('if (newsList && news.length > 0)'),
