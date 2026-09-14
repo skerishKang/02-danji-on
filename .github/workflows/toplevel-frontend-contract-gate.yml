@@ -8,6 +8,13 @@ on:
   pull_request:
     paths:
       - 'frontend/**'
+      - 'functions/**'
+      - '.github/workflows/toplevel-frontend-contract-gate.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'frontend/**'
+      - 'functions/**'
       - '.github/workflows/toplevel-frontend-contract-gate.yml'
   workflow_dispatch:
 
