@@ -2,7 +2,7 @@ import { neon } from '@neondatabase/serverless';
 import { betterAuth } from 'better-auth';
 import { APIError } from 'better-auth/api';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
-import { jwt, username } from 'better-auth/plugins';
+import { bearer, jwt, username } from 'better-auth/plugins';
 import { drizzle } from 'drizzle-orm/neon-http';
 import { betterAuthSchema } from './auth-better-schema';
 import { sendDanjionAuthEmail, type AuthEmailEnv } from './auth-email-v1';
@@ -165,6 +165,10 @@ export function createDanjionAuth(env: BetterAuthEnv, publicBase = resolveAuthPu
         usernameValidator: (value) => KOREAN_MOBILE.test(value),
         validationOrder: { username: 'post-normalization' }
       }),
+      // Server-only Pages facade fallback: bearer() lets the JWT plugin /token
+      // endpoint accept the opaque Better Auth session token as Authorization.
+      // The browser never receives or constructs this Authorization header.
+      bearer(),
       // The public auth base may switch per request to canonical Pages for
       // callbacks/cookies, but application-service JWT authority must stay
       // stable and match auth-v1.ts verification.
