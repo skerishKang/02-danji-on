@@ -400,8 +400,14 @@ if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt
       setTxt(n.household,(s.household&&s.household.status==='verified')?'우리집 연결 완료':DASH);
     }
     var auth=(pr&&!pr.ok&&pr.mode==='auth-required')||(sr&&!sr.ok&&sr.mode==='auth-required');
+    var residentRequired=(pr&&!pr.ok&&pr.mode==='resident-verification-required')||(sr&&!sr.ok&&sr.mode==='resident-verification-required');
+    var forbidden=(pr&&!pr.ok&&pr.mode==='forbidden')||(sr&&!sr.ok&&sr.mode==='forbidden');
     var err=(pr&&!pr.ok&&pr.mode==='error')||(sr&&!sr.ok&&sr.mode==='error');
-    if(auth)toast('로그인 후 다시 시도해 주세요.');
+    if(residentRequired){
+      setTxt(n.household,'주민인증 필요');
+      toast('주민인증이 필요합니다.');
+    }else if(auth)toast('로그인 후 다시 시도해 주세요.');
+    else if(forbidden)toast('이 기능을 이용할 권한이 없습니다.');
     else if(err)toast('잠시 후 다시 시도해 주세요.');
   });
 })();
