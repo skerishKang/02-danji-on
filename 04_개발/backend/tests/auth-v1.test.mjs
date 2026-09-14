@@ -224,7 +224,87 @@ async function main() {
         headers: { authorization: `Bearer ${await token({}, 'https://wrong-issuer.example.test')}` }
       });
       const result = await requireActor(request, BASE_ENV, sql, 'req-wrong-issuer');
-      assert.equal(await errorCode(result), 'AUTH_INVALID');
+      assert.equal(await errorCode(result), 'AUTH_JWT_ISSUER_INVALID');
+    }
+
+    {
+      const badAudience = await new SignJWT({ id: SUBJECT, name: '테스트 사용자' })
+        .setProtectedHeader({ alg: 'EdDSA', kid: jwk.kid })
+        .setSubject(SUBJECT)
+        .setIssuer(ISSUER)
+        .setAudience('https://wrong-audience.example.test')
+        .setIssuedAt()
+        .setExpirationTime('5m')
+        .sign(privateKey);
+      const { sql } = mockSql();
+      const result = await requireActor(new Request('https://api.example.test/api/v1/me', {
+        headers: { authorization: `Bearer ${badAudience}` }
+      }), BASE_ENV, sql, 'req-wrong-audience');
+      assert.equal(await errorCode(result), 'AUTH_JWT_AUDIENCE_INVALID');
+    }
+
+    {
+      const expired = await new SignJWT({ id: SUBJECT, name: '테스트 사용자' })
+        .setProtectedHeader({ alg: 'EdDSA', kid: jwk.kid })
+        .setSubject(SUBJECT)
+        .setIssuer(ISSUER)
+        .setAudience(ISSUER)
+        .setIssuedAt(Math.floor(Date.now() / 1000) - 120)
+        .setExpirationTime(Math.floor(Date.now() / 1000) - 60)
+        .sign(privateKey);
+      const { sql } = mockSql();
+      const result = await requireActor(new Request('https://api.example.test/api/v1/me', {
+        headers: { authorization: `Bearer ${expired}` }
+      }), BASE_ENV, sql, 'req-expired');
+      assert.equal(await errorCode(result), 'AUTH_JWT_EXPIRED');
+    }
+
+    {
+      const other = await generateKeyPair('EdDSA');
+      const badSignature = await new SignJWT({ id: SUBJECT, name: '테스트 사용자' })
+        .setProtectedHeader({ alg: 'EdDSA', kid: jwk.kid })
+        .setSubject(SUBJECT)
+        .setIssuer(ISSUER)
+        .setAudience(ISSUER)
+        .setIssuedAt()
+        .setExpirationTime('5m')
+        .sign(other.privateKey);
+      const { sql } = mockSql();
+      const result = await requireActor(new Request('https://api.example.test/api/v1/me', {
+        headers: { authorization: `Bearer ${badSignature}` }
+      }), BASE_ENV, sql, 'req-signature');
+      assert.equal(await errorCode(result), 'AUTH_JWT_SIGNATURE_INVALID');
+    }
+
+    {
+      const missingSubject = await new SignJWT({ id: SUBJECT, name: '테스트 사용자' })
+        .setProtectedHeader({ alg: 'EdDSA', kid: jwk.kid })
+        .setIssuer(ISSUER)
+        .setAudience(ISSUER)
+        .setIssuedAt()
+        .setExpirationTime('5m')
+        .sign(privateKey);
+      const { sql } = mockSql();
+      const result = await requireActor(new Request('https://api.example.test/api/v1/me', {
+        headers: { authorization: `Bearer ${missingSubject}` }
+      }), BASE_ENV, sql, 'req-subject-missing');
+      assert.equal(await errorCode(result), 'AUTH_JWT_SUBJECT_MISSING');
+    }
+
+    {
+      const inconsistent = await new SignJWT({ id: SUBJECT, name: '테스트 사용자' })
+        .setProtectedHeader({ alg: 'EdDSA', kid: jwk.kid })
+        .setSubject('different-subject')
+        .setIssuer(ISSUER)
+        .setAudience(ISSUER)
+        .setIssuedAt()
+        .setExpirationTime('5m')
+        .sign(privateKey);
+      const { sql } = mockSql();
+      const result = await requireActor(new Request('https://api.example.test/api/v1/me', {
+        headers: { authorization: `Bearer ${inconsistent}` }
+      }), BASE_ENV, sql, 'req-subject-inconsistent');
+      assert.equal(await errorCode(result), 'AUTH_JWT_SUBJECT_INCONSISTENT');
     }
 
     console.log('PASS auth-v1 provider-aware account bootstrap contract');
