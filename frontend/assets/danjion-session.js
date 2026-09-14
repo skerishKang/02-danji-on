@@ -1,20 +1,22 @@
 (function (global) {
   'use strict';
 
-  // Issue #419 [production promotion]: the canonical Pages hostname is the only
-  // environment that auto-binds to the production API. Every other origin
-  // (danjion-review.pages.dev, localhost, previews) stays fail-closed on the
-  // static/demo lane unless an explicit ?apiBase= is provided.
+  // Issue #469: canonical Pages application API traffic is first-party too.
+  // Browser requests bind to the canonical Pages origin; a bounded Pages Function
+  // forwards /api/v1/* to the fixed production Worker with the first-party
+  // session cookie. Preview/local origins remain fail-closed unless an explicit
+  // ?apiBase= is supplied.
   const PRODUCTION_PAGES_HOSTNAME = 'danjion.pages.dev';
+  const CANONICAL_PAGES_API_BASE = 'https://danjion.pages.dev';
   const PRODUCTION_API_BASE = 'https://padiem-danjion-api-production.padiem.workers.dev';
 
   function danjionApiBase(loc) {
     const where = loc || (typeof location !== 'undefined' ? location : {});
     const hostname = String(where.hostname || '').toLowerCase();
 
-    // Security boundary: query parameters must never be able to redirect the
-    // canonical production site away from its fixed production API.
-    if (hostname === PRODUCTION_PAGES_HOSTNAME) return PRODUCTION_API_BASE;
+    // Security boundary: canonical production always stays same-origin. Query
+    // parameters can never redirect application API traffic off the Pages host.
+    if (hostname === PRODUCTION_PAGES_HOSTNAME) return CANONICAL_PAGES_API_BASE;
 
     let params;
     try { params = new URLSearchParams(where.search || ''); } catch { params = new URLSearchParams(); }
@@ -106,6 +108,7 @@
     createSessionFetch,
     nativeSessionReady,
     PRODUCTION_PAGES_HOSTNAME,
+    CANONICAL_PAGES_API_BASE,
     PRODUCTION_API_BASE
   });
 })(typeof window !== 'undefined' ? window : globalThis);

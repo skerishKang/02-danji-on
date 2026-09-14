@@ -16,6 +16,7 @@ const read = (rel) => readFile(new URL(rel, import.meta.url), 'utf8');
 
 const PRODUCTION_API_BASE = 'https://padiem-danjion-api-production.padiem.workers.dev';
 const PRODUCTION_HOST = 'danjion.pages.dev';
+const CANONICAL_PAGES_API_BASE = 'https://danjion.pages.dev';
 
 /* ================= resolver runtime contract (danjion-session.js) ================= */
 const sessionSource = await read('../assets/danjion-session.js');
@@ -28,7 +29,7 @@ const loadSession = (location) => {
 
 {
   const s = loadSession({ search: '', hostname: PRODUCTION_HOST });
-  assert.equal(s.danjionApiBase(), PRODUCTION_API_BASE, 'canonical Pages hostname must auto-bind the production API');
+  assert.equal(s.danjionApiBase(), CANONICAL_PAGES_API_BASE, 'canonical Pages hostname must bind application API traffic to the same-origin Pages facade');
   assert.equal(s.PRODUCTION_PAGES_HOSTNAME, PRODUCTION_HOST, 'session runtime must export the canonical hostname');
   assert.equal(s.PRODUCTION_API_BASE, PRODUCTION_API_BASE, 'session runtime must export the canonical production base');
 }
@@ -44,7 +45,7 @@ const loadSession = (location) => {
 }
 {
   const s = loadSession({ search: '', hostname: PRODUCTION_HOST.toUpperCase() });
-  assert.equal(s.danjionApiBase(), PRODUCTION_API_BASE, 'hostname comparison must be case-insensitive');
+  assert.equal(s.danjionApiBase(), CANONICAL_PAGES_API_BASE, 'hostname comparison must be case-insensitive');
 }
 {
   const s = loadSession({ search: `?apiBase=${encodeURIComponent('https://preview.test/api//')}`, hostname: 'danjion-review.pages.dev' });
@@ -52,14 +53,14 @@ const loadSession = (location) => {
 }
 {
   const s = loadSession({ search: '?apiBase=', hostname: PRODUCTION_HOST });
-  assert.equal(s.danjionApiBase(), PRODUCTION_API_BASE,
-    'canonical production must ignore an explicit empty ?apiBase= override');
+  assert.equal(s.danjionApiBase(), CANONICAL_PAGES_API_BASE,
+    'canonical production must ignore an explicit empty ?apiBase= override and stay same-origin');
 }
 {
   const crafted = `?apiBase=${encodeURIComponent('https://untrusted.example/collect')}`;
   const s = loadSession({ search: crafted, hostname: PRODUCTION_HOST });
-  assert.equal(s.danjionApiBase(), PRODUCTION_API_BASE,
-    'canonical production must ignore a crafted external ?apiBase= override');
+  assert.equal(s.danjionApiBase(), CANONICAL_PAGES_API_BASE,
+    'canonical production must ignore a crafted external ?apiBase= override and stay same-origin');
 }
 {
   const s = loadSession({ search: '?utm=other', hostname: 'localhost' });
@@ -71,7 +72,7 @@ const loadSession = (location) => {
 }
 {
   const s = loadSession({ search: '', hostname: 'demo.test' });
-  assert.equal(s.danjionApiBase({ search: '', hostname: PRODUCTION_HOST }), PRODUCTION_API_BASE, 'resolver must accept an injected location for harnesses');
+  assert.equal(s.danjionApiBase({ search: '', hostname: PRODUCTION_HOST }), CANONICAL_PAGES_API_BASE, 'resolver must accept an injected location for harnesses');
   assert.equal(s.danjionApiBase(), '', 'with no query and a non-canonical global location the injected demo host stays fail-closed');
 }
 

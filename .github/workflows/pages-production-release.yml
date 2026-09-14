@@ -120,6 +120,8 @@ jobs:
           test -f functions/_lib/auth-facade.js
           test -f 'functions/api/auth/[[path]].js'
           test -f functions/auth/social-start.js
+          test -f functions/_lib/app-facade.js
+          test -f 'functions/api/v1/[[path]].js'
           rm -rf dist
           mkdir -p dist
           cp -R frontend/. dist/

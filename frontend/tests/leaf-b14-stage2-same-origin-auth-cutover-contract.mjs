@@ -4,8 +4,9 @@ import { readFile } from 'node:fs/promises';
 import vm from 'node:vm';
 
 // Issue #444 Stage 2 [frontend cutover]: browser Better Auth traffic on the
-// canonical Pages origin binds the same-origin auth facade (functions/), while
-// general application API traffic stays on the production Worker.
+// canonical Pages origin binds same-origin facades for both Better Auth and
+// general application API traffic; the Pages Function layer forwards to the
+// fixed production Worker server-side.
 // Run: node frontend/tests/leaf-b14-stage2-same-origin-auth-cutover-contract.mjs
 
 const read = (rel) => readFile(new URL(rel, import.meta.url), 'utf8');
@@ -13,6 +14,7 @@ const read = (rel) => readFile(new URL(rel, import.meta.url), 'utf8');
 const PRODUCTION_HOST = 'danjion.pages.dev';
 const WORKER_API_BASE = 'https://padiem-danjion-api-production.padiem.workers.dev';
 const CANONICAL_PAGES_ORIGIN = 'https://danjion.pages.dev';
+const CANONICAL_PAGES_API_BASE = CANONICAL_PAGES_ORIGIN;
 
 const AUTH_ENDPOINTS = [
   '/auth/social-start',
@@ -42,8 +44,8 @@ const loadSession = (location) => {
     'canonical get-session must be a same-origin relative URL');
   assert.equal(s.joinUrl(s.danjionAuthBase(), '/auth/social-start'), '/auth/social-start',
     'canonical social-start must be a same-origin relative URL');
-  assert.equal(s.danjionApiBase(), WORKER_API_BASE,
-    'general application API base must stay bound to the production Worker');
+  assert.equal(s.danjionApiBase(), CANONICAL_PAGES_API_BASE,
+    'canonical application API base must be same-origin so the first-party session cookie is observable');
 }
 {
   const s = loadSession({ search: '', hostname: PRODUCTION_HOST.toUpperCase() });
@@ -69,8 +71,8 @@ const loadSession = (location) => {
   const s = loadSession({ search: crafted, hostname: PRODUCTION_HOST });
   assert.equal(s.danjionAuthBase(), '',
     'canonical production auth must ignore a crafted ?apiBase= and remain same-origin');
-  assert.equal(s.danjionApiBase(), WORKER_API_BASE,
-    'canonical production general API must ignore a crafted ?apiBase= and remain Worker-bound');
+  assert.equal(s.danjionApiBase(), CANONICAL_PAGES_API_BASE,
+    'canonical production general API must ignore a crafted ?apiBase= and remain same-origin');
   assert.equal(s.joinUrl(s.danjionAuthBase(), '/api/auth/sign-in/email'), '/api/auth/sign-in/email',
     'crafted production links must never redirect credential-bearing auth traffic off-origin');
 }
@@ -112,7 +114,7 @@ assert.ok(!index.includes('createSessionFetch(__session.danjionApiBase())'),
 assert.equal(index.match(/danjionApiBase\(\)/g).length, 1,
   'the only danjionApiBase() use left in the entry is the serverMode general-API gate');
 assert.match(index, /serverMode=!!__session&&__session\.danjionApiBase\(\)!==''/,
-  'serverMode must keep its #419 general-API binding semantics unchanged');
+  'serverMode must remain enabled when canonical production resolves the same-origin application API facade');
 
 const htmlPages = readdirSync(new URL('..', import.meta.url), { withFileTypes: true })
   .filter((e) => e.isFile() && e.name.toLowerCase().endsWith('.html'))
