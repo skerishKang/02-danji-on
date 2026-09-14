@@ -38,6 +38,8 @@ before(f19, 'assets/resident-bridge.js', 'danjion-myinfo-server', 'f19');
 assert.ok(f19.includes('serverConfig()'), 'f19 must gate on serverConfig()');
 assert.ok(f19.includes('.profile()') && f19.includes('.summary()'), 'f19 must fetch profile and summary');
 assert.ok(f19.includes('Promise.allSettled'), 'f19 must settle profile+summary independently');
+assert.ok(f19.includes('주민인증 필요') && f19.includes('주민인증이 필요합니다.'), 'f19 must distinguish resident verification from login-required state');
+assert.ok(f19.includes('이 기능을 이용할 권한이 없습니다.'), 'f19 must distinguish generic forbidden state from login-required state');
 assert.ok(f19.includes('—'), 'f19 must render an em-dash for unsourced stats (fail closed)');
 
 /* --- 22 공개프로필: userId-driven public profile --- */
@@ -134,10 +136,20 @@ await rb.activity('reactions', 50);
 assert.match(rEnv.calls.at(-1).url, /type=reactions/, 'reactions activity type is forwarded');
 assert.match(rEnv.calls.at(-1).url, /limit=50/, 'activity limit is forwarded');
 
+rEnv.setResp({ ok: false, status: 401, json: { error: { code: 'AUTH_REQUIRED' } } });
+const unauthResident = await rb.summary();
+assert.equal(unauthResident.ok, false, 'summary 401 failure is not ok');
+assert.equal(unauthResident.mode, 'auth-required', '401 maps to auth-required');
+
+rEnv.setResp({ ok: false, status: 403, json: { error: { code: 'RESIDENT_VERIFICATION_REQUIRED' } } });
+const residentRequired = await rb.summary();
+assert.equal(residentRequired.ok, false, 'resident verification 403 is not ok');
+assert.equal(residentRequired.mode, 'resident-verification-required', 'resident verification 403 must not masquerade as login failure');
+
 rEnv.setResp({ ok: false, status: 403, json: { error: { code: 'FORBIDDEN' } } });
 const denied = await rb.summary();
-assert.equal(denied.ok, false, 'summary failure is not ok');
-assert.equal(denied.mode, 'auth-required', '403 maps to auth-required (fail closed)');
+assert.equal(denied.ok, false, 'generic forbidden 403 is not ok');
+assert.equal(denied.mode, 'forbidden', 'generic 403 maps to forbidden, not auth-required');
 
 const badSetting = await rb.updateSetting('yes');
 assert.equal(badSetting.mode, 'client', 'non-boolean setting value is rejected client-side');

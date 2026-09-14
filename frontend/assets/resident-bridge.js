@@ -28,7 +28,10 @@
   }
 
   function authMode(result) {
-    return [401, 403].includes(result.status) ? 'auth-required' : 'error';
+    if (result.status === 401) return 'auth-required';
+    if (result.status === 403 && result.error === 'RESIDENT_VERIFICATION_REQUIRED') return 'resident-verification-required';
+    if (result.status === 403) return 'forbidden';
+    return 'error';
   }
 
   function activityType(value) {
