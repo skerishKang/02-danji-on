@@ -72,6 +72,12 @@ assert.match(authResolver, /const existing = await actorBySubject/);
 assert.doesNotMatch(authResolver, /AUTH_ACCOUNT_ONBOARDING_REQUIRED|completedContactOnboarding|approvedSocialProviderAccount/);
 
 assert.match(server, /jwt\(\{/);
+assert.match(server, /const jwtAuthority = normalizeBaseUrl\(requireValue\(env\.DANJION_AUTH_BASE_URL, 'DANJION_AUTH_BASE_URL'\)\)/,
+  'JWT authority must stay pinned to the Worker auth base even when publicBase switches to canonical Pages');
+assert.match(server, /jwt\(\{ jwt: \{ issuer: jwtAuthority, audience: jwtAuthority, expirationTime: '15m' \} \}\)/,
+  'JWT issuer/audience must match auth-v1 verifier authority');
+assert.doesNotMatch(server, /jwt\(\{ jwt: \{ issuer: baseURL, audience: baseURL/,
+  'per-request public base must never become application JWT authority');
 assert.match(authResolver, /\/api\/auth\/jwks/);
 assert.match(app, /handleBetterAuthRequest/);
 assert.match(app, /handleVerifiedSignupRequest/);
