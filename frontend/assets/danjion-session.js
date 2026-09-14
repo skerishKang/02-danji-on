@@ -10,13 +10,17 @@
 
   function danjionApiBase(loc) {
     const where = loc || (typeof location !== 'undefined' ? location : {});
+    const hostname = String(where.hostname || '').toLowerCase();
+
+    // Security boundary: query parameters must never be able to redirect the
+    // canonical production site away from its fixed production API.
+    if (hostname === PRODUCTION_PAGES_HOSTNAME) return PRODUCTION_API_BASE;
+
     let params;
     try { params = new URLSearchParams(where.search || ''); } catch { params = new URLSearchParams(); }
     if (params.has('apiBase')) {
       return String(params.get('apiBase') || '').trim().replace(/\/+$/, '');
     }
-    const hostname = String(where.hostname || '').toLowerCase();
-    if (hostname === PRODUCTION_PAGES_HOSTNAME) return PRODUCTION_API_BASE;
     return '';
   }
 
@@ -29,10 +33,12 @@
   // (social-start, get-session, sign-in/sign-up email, forget-password and every
   // other /api/auth/* call) binds the canonical Pages same-origin facade
   // (functions/_lib/auth-facade.js) instead of the Worker absolute base:
-  //   * danjion.pages.dev with no override resolves to '' so auth requests are
-  //     same-origin relative URLs served by the Pages Function facade;
-  //   * an explicit ?apiBase= keeps its #419 controlled-preview meaning and
-  //     routes auth through the operator-configured base unchanged;
+  //   * danjion.pages.dev always resolves to '' so auth requests are same-origin
+  //     relative URLs served by the Pages Function facade; query parameters can
+  //     never override the canonical production auth destination;
+  //   * outside canonical production, an explicit ?apiBase= keeps its #419
+  //     controlled-preview meaning and routes through the operator-configured
+  //     base unchanged;
   //   * every other origin (previews, localhost, spoofed suffixes) resolves to
   //     '' with serverMode off — the demo lane never emits auth traffic, and the
   //     facade itself fail-closes (404) for any non-canonical origin.
@@ -40,6 +46,12 @@
   // remains bound to the production Worker.
   function danjionAuthBase(loc) {
     const where = loc || (typeof location !== 'undefined' ? location : {});
+    const hostname = String(where.hostname || '').toLowerCase();
+
+    // Security boundary: production Better Auth must remain on the canonical
+    // same-origin Pages facade even if a crafted link supplies ?apiBase=.
+    if (hostname === PRODUCTION_PAGES_HOSTNAME) return '';
+
     let params;
     try { params = new URLSearchParams(where.search || ''); } catch { params = new URLSearchParams(); }
     if (params.has('apiBase')) {
