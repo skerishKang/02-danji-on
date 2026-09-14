@@ -10,8 +10,9 @@
 //   * /api/v1/* only;
 //   * fixed Worker upstream, never client-controlled;
 //   * no client-controlled auth, no dev bypass, no grant widening;
-//   * first-party session cookies may be exchanged server-side for the Better
-//     Auth JWT-plugin token required by the Worker's bearer-only auth boundary;
+//   * first-party session cookies may be resolved server-side through Better
+//     Auth get-session and its set-auth-jwt header for the Worker's bearer-only
+//     auth boundary;
 //   * Worker remains final authentication/authorization authority.
 
 export const APP_FACADE_MARKER = 'danjion-app-facade/v1';
@@ -25,7 +26,7 @@ const HOP_BY_HOP = new Set([
 ]);
 
 const GUARDED_HEADERS = new Set(['origin', 'x-forwarded-host', 'x-forwarded-proto', 'authorization']);
-const AUTH_TOKEN_PATH = '/api/auth/token';
+const AUTH_SESSION_PATH = '/api/auth/get-session';
 const AUTH_FACADE_MARKER_HEADER = 'x-danjion-auth-facade';
 const AUTH_FACADE_MARKER_VALUE = 'canonical-pages-v1';
 
@@ -44,15 +45,22 @@ async function bearerFromSessionCookie(fetchImpl, request, url) {
   headers.set('x-forwarded-host', url.host);
   headers.set('x-forwarded-proto', 'https');
 
-  const tokenResponse = await fetchImpl(new Request(
-    new URL(AUTH_TOKEN_PATH, WORKER_API_BASE).toString(),
+  const sessionResponse = await fetchImpl(new Request(
+    new URL(AUTH_SESSION_PATH, WORKER_API_BASE).toString(),
     { method: 'GET', headers, redirect: 'manual' }
   ));
 
-  if (!tokenResponse.ok) return null;
+  if (!sessionResponse.ok) return null;
+
   let payload = null;
-  try { payload = await tokenResponse.json(); } catch {}
-  const token = payload && typeof payload === 'object' ? payload.token : null;
+  try { payload = await sessionResponse.clone().json(); } catch {}
+  const sessionReady = !!(
+    payload && typeof payload === 'object' &&
+    payload.session && payload.user
+  );
+  if (!sessionReady) return null;
+
+  const token = sessionResponse.headers.get('set-auth-jwt');
   return looksLikeJwt(token) ? token : null;
 }
 

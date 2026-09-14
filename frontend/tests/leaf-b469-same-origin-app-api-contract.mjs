@@ -54,7 +54,7 @@ assert.ok(!facadeSrc.includes('x-danjion-dev-auth-user'),
   'app facade must never carry the development auth bypass header');
 assert.ok(facadeSrc.includes("'authorization'"),
   'app facade must treat browser Authorization as a guarded header');
-assert.ok(facadeSrc.includes("AUTH_TOKEN_PATH = '/api/auth/token'"),
+assert.ok(facadeSrc.includes("AUTH_SESSION_PATH = '/api/auth/get-session'"),
   'app facade must bridge the first-party session through the Better Auth JWT token endpoint');
 assert.ok(facadeSrc.includes("headers.set('authorization', `Bearer ${bearer}`)"),
   'only the server-issued JWT may become Worker Authorization');
