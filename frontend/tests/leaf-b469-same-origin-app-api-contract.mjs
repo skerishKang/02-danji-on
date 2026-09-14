@@ -52,8 +52,12 @@ assert.ok(facadeSrc.includes("headers.set('origin', CANONICAL_PAGES_ORIGIN)"),
   'upstream Origin must be server-pinned, not client-controlled');
 assert.ok(!facadeSrc.includes('x-danjion-dev-auth-user'),
   'app facade must never carry the development auth bypass header');
-assert.ok(!facadeSrc.includes('Authorization:'),
-  'app facade must not mint an authorization credential');
+assert.ok(facadeSrc.includes("'authorization'"),
+  'app facade must treat browser Authorization as a guarded header');
+assert.ok(facadeSrc.includes("AUTH_TOKEN_PATH = '/api/auth/token'"),
+  'app facade must bridge the first-party session through the Better Auth JWT token endpoint');
+assert.ok(facadeSrc.includes("headers.set('authorization', `Bearer ${bearer}`)"),
+  'only the server-issued JWT may become Worker Authorization');
 assert.ok(routeSrc.includes("appFacadeFetch"),
   'Pages /api/v1 catch-all route must delegate to the bounded facade');
 assert.ok(workflow.includes('functions/_lib/auth-facade.js'),
