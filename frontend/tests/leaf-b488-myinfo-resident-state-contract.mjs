@@ -52,6 +52,10 @@ assert.ok(/updateProfile\(\{[\s\S]*?\.then\(function\(r\)\{[\s\S]*?if\(r&&r\.ok&
 assert.ok(wiring.includes("mode==='resident-verification-required'"), 'PATCH 403 RESIDENT_VERIFICATION_REQUIRED must surface its own copy');
 assert.ok(wiring.includes("mode==='auth-required'"), 'PATCH 401 must surface login copy');
 assert.ok(wiring.includes("mode==='forbidden'"), 'PATCH generic 403 must surface forbidden copy');
+assert.ok(wiring.includes("로그인 연결 오류 · '+bridgeCode+' · '+workerCode"),
+  'My Info 401 diagnostic must surface only bounded bridge + Worker error codes');
+assert.ok(wiring.includes("/^[a-z-]{1,32}$/") && wiring.includes("/^[A-Z0-9_]{1,64}$/"),
+  'diagnostic values must be format-bounded before rendering');
 
 /* --- router safety: new controls must not impersonate routed rows --- */
 assert.ok(!/class="[^"]*card-link[^"]*"[^>]*id="mi-(resident|profile-edit|edit)/.test(f19), 'new controls must not use card-link');
