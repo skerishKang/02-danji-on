@@ -437,8 +437,10 @@ if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt
     if(residentRequired){
       setTxt(n.household,'주민인증 필요');
       toast('주민인증이 필요합니다.');
-    }else if(auth)toast('로그인 후 다시 시도해 주세요.');
-    else if(forbidden)toast('이 기능을 이용할 권한이 없습니다.');
+    }else if(auth){
+      var diag=(pr&&pr.bridgeDisposition)||(sr&&sr.bridgeDisposition)||'unknown';
+      toast('로그인 연결 오류 · '+diag);
+    }else if(forbidden)toast('이 기능을 이용할 권한이 없습니다.');
     else if(err)toast('잠시 후 다시 시도해 주세요.');
   });
   function renderResidentState(text,flags){
