@@ -21,7 +21,7 @@
     .admin-home-link{color:#fff;opacity:.85;font-size:13px;font-weight:700;text-decoration:none;border:1px solid rgba(255,255,255,.34);border-radius:999px;padding:8px 13px}
     main{max-width:1080px;margin:0 auto;padding:26px clamp(16px,4vw,34px) 80px}
     .admin-lead h1{font-size:clamp(24px,3.4vw,32px);letter-spacing:-.03em;margin:8px 0 6px}
-    .admin-lead p{margin:0;color:var(--muted);font-size:14px;line-height:1.6}
+    .admin-lead p{margin:0;color:var(--muted);font-size:14px;line-height:1.6}.admin-role-summary{margin-top:14px;padding:13px 15px;border:1px solid var(--line);border-radius:12px;background:var(--paper2);font-size:14px;font-weight:800}.admin-role-summary strong{font-size:16px}.admin-scope-copy{display:block;margin-top:5px;color:var(--muted);font-size:12px;font-weight:600}
     .admin-tabs{display:flex;flex-wrap:wrap;gap:8px;margin:20px 0 4px}
     .admin-tabs button{min-height:40px;padding:0 14px;border-radius:999px;border:1px solid var(--line);background:var(--paper2);color:var(--ink);font-size:13.5px;font-weight:800;cursor:pointer}
     .admin-tabs button.active{background:var(--navy);border-color:var(--navy);color:#fff}
@@ -104,8 +104,11 @@
       }
       if(outcome.state==='signed-out'){showRestricted('signed-out');return}
       if(outcome.state==='scope-denied'){statePanel(panel,'이 메뉴는 현재 계정의 서버 권한 범위에 포함되어 있지 않습니다.');return}
-      if(outcome.state==='policy-hold'){statePanel(panel,'이 영역은 정책 승인 보류 중입니다. 백엔드가 조회를 의도적으로 차단하고 있습니다.');return}
-      statePanel(panel,'목록을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.');
+      if(outcome.state==='policy-hold'){statePanel(panel,'정책 대기 중입니다. 입주민 인증 관리는 인증·개인정보 정책 승인 후 활성화됩니다.');return}
+      if(outcome.state==='network-error'){statePanel(panel,'API 연결에 실패했습니다. 로컬 화면에서 Production API를 호출 중이라면 로그인 세션 또는 브라우저 CORS/쿠키 조건을 확인해 주세요.');return}
+      const safeCode=outcome.code?' · '+outcome.code:'';
+      const safeStatus=outcome.status?'HTTP '+outcome.status:'서버 오류';
+      statePanel(panel,'목록 조회 실패 ('+safeStatus+safeCode+'). 잠시 후 다시 시도해 주세요.');
     }
     function renderPrivileged(panel){
       panel.replaceChildren(el('h2','최고관리'),el('p','전체 관리자(와일드카드 권한) 전용 영역입니다. 백엔드 권한 API가 실제 변경 엔드포인트를 제공하기 전까지 모든 쓰기 작업은 비활성화됩니다.'));
@@ -129,6 +132,11 @@
       const sections=consoleApi.consoleSections(grant);
       const lead=el('div',undefined,'admin-lead');
       lead.append(el('h1','단지온 운영관리'),el('p','방림명지로드힐 · 권한은 로그인 수단이 아니라 각 관리자 계정 고유의 서버 권한 기록(padiem_operator_grants)에 귀속됩니다.'));
+      const roleSummary=el('div',undefined,'admin-role-summary');
+      roleSummary.append(el('strong','현재 권한: '+grant.label));
+      const scopeText=isSuper?'모든 관리자 정보 접근 가능':('운영 범위: '+grant.scopes.join(', '));
+      roleSummary.append(el('span',scopeText,'admin-scope-copy'));
+      lead.append(roleSummary);
       const tabs=el('nav',undefined,'admin-tabs');tabs.setAttribute('aria-label','운영관리 메뉴');
       const panel=el('section',undefined,'admin-panel');
       const note=el('p','이 화면은 조회 전용입니다. 상태 변경·승인 등의 쓰기 작업은 백엔드 쓰기가 별도 검토·승인된 뒤에 순차 활성화됩니다.','admin-note');
@@ -138,9 +146,10 @@
         if(tab.section)renderSection(panel,tab.section,apiBase);else renderPrivileged(panel);
       };
       const tabsModel=sections.operational.map((section)=>({button:el('button',section.title),section}));
+      sections.held.forEach((section)=>{const button=el('button',section.title+' · 정책 대기');button.disabled=true;button.title='정책 승인 후 활성화';tabs.append(button)});
       if(sections.privileged.length)tabsModel.push({button:el('button','최고관리','privileged'),section:null});
       tabsModel.forEach((tab)=>{tab.button.addEventListener('click',()=>open(tab));tabs.append(tab.button)});
-      open(tabsModel[0]);
+      if(tabsModel.length)open(tabsModel[0]);else statePanel(panel,'현재 계정에 사용할 수 있는 운영 메뉴가 없습니다. 관리자 권한 범위를 확인해 주세요.');
     }
     authority.fetchAuthority(fetch).then((grant)=>{
       if(authority.hasAdminSurface(grant))renderConsole(grant);else showRestricted(grant.state);

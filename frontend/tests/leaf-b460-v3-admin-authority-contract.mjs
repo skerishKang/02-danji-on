@@ -142,8 +142,10 @@ const loadAdminContext = (location) => {
   const { DanjionAdminConsole: C, DanjionAdminAuthority: A } = ctx;
   assert.equal(C.COMPLEX_SLUG, CANONICAL_SLUG, 'the console must pin the canonical top-level complex slug');
 
-  const operatorViews = C.consoleSections({ state: 'operator', wildcard: false });
-  assert.equal(operatorViews.operational.length, C.OPERATIONAL_SECTIONS.length);
+  const operatorViews = C.consoleSections({ state: 'operator', wildcard: false, scopes: ['business.review'] });
+  assert.deepEqual(Array.from(operatorViews.operational, (s) => String(s.id)), ['applications', 'reports', 'reviewHistory'],
+    'a bounded grant must expose only the operational sections mapped to its own server scopes');
+  assert.equal(operatorViews.held.length, 1, 'policy-held resident verification must remain separately visible as held');
   assert.equal(operatorViews.privileged.length, 0, 'a bounded grant must never render the privileged area');
   const superViews = C.consoleSections(A.normalizeAuthority({ level: 'admin', wildcard: true, scopes: ['*'] }));
   assert.equal(superViews.privileged.length, 3, 'the wildcard grant unlocks the placeholder-only privileged area');
@@ -166,15 +168,19 @@ const loadAdminContext = (location) => {
   assert.deepEqual({ ...news.rows[0] }, { id: 2 }, 'operator queue envelopes must extract from submissions');
   assert.ok(calls.at(-1).includes('/api/v1/operator/complexes/'), 'resident-news must use the operator queue path');
 
+  const beforeHeldCalls = calls.length;
   const held = await C.loadSection(route(503, { error: { code: 'RESIDENT_VERIFICATION_POLICY_HOLD' } }), 'https://api.test', byId('verifications'));
   assert.equal(held.state, 'policy-hold', 'the verification policy hold must render as a server-side hold');
   assert.equal(held.code, 'RESIDENT_VERIFICATION_POLICY_HOLD');
+  assert.equal(calls.length, beforeHeldCalls, 'known policy-hold sections must not perform a misleading live fetch');
   const scopeDenied = await C.loadSection(route(403, { error: { code: 'PADIEM_GRANT_REQUIRED' } }), 'https://api.test', byId('reports'));
   assert.equal(scopeDenied.state, 'scope-denied', 'per-section access is decided by the server grant scope');
   const signedOut = await C.loadSection(route(401, {}), 'https://api.test', byId('posts'));
   assert.equal(signedOut.state, 'signed-out');
-  const broken = await C.loadSection(route(500, {}), 'https://api.test', byId('benefits'));
+  const broken = await C.loadSection(route(500, { error: { code: 'DB_READ_FAILED' } }), 'https://api.test', byId('benefits'));
   assert.equal(broken.state, 'error', '5xx sections must render a neutral error, never stale rows');
+  assert.equal(broken.status, 500, 'safe HTTP status must be preserved for actionable diagnostics');
+  assert.equal(broken.code, 'DB_READ_FAILED', 'safe backend error code must be preserved for diagnostics');
 
   assert.equal(C.extractRows({ unexpected: 'shape' }).length, 0, 'unknown payload shapes extract zero rows');
   assert.equal(C.rowTitle({ business_name: '방림정육점' }), '방림정육점', 'snake_case rows must render');
@@ -194,6 +200,11 @@ const loadAdminContext = (location) => {
   assert.ok(adminPage.includes('hasAdminSurface(grant))renderConsole(grant)'), 'the console must render only for a granted surface');
   assert.ok(adminPage.includes('showRestricted(grant.state)'), 'ungmitted states must route to the restricted view');
   assert.ok(adminPage.includes('badge.className'), 'the role badge must render the server-resolved tier label');
+  assert.ok(adminPage.includes("'현재 권한: '+grant.label"), 'the main content must prominently repeat the server-resolved role');
+  assert.ok(adminPage.includes("운영 범위: '+grant.scopes.join"), 'operational administrators must see their bounded scope summary');
+  assert.ok(adminPage.includes("section.title+' · 정책 대기'"), 'policy-held verification must render as an explicit disabled tab');
+  assert.ok(adminPage.includes("outcome.state==='network-error'"), 'network/CORS failures must be distinguishable from server failures');
+  assert.ok(adminPage.includes("'목록 조회 실패 ('+safeStatus+safeCode"), 'safe HTTP status/code diagnostics must be visible');
   assert.ok(adminPage.includes('button.disabled=true'), 'every privileged write control must ship disabled');
   assert.ok(adminPage.includes('approve.disabled=true'), 'row write actions must stay disabled (view-only)');
   assert.ok(adminPage.includes("meta name=\"robots\" content=\"noindex\""), 'the admin console must not be indexed');
