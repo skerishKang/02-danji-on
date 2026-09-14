@@ -56,8 +56,8 @@ assert.ok(facadeSrc.includes("'authorization'"),
   'app facade must treat browser Authorization as a guarded header');
 assert.ok(facadeSrc.includes("AUTH_SESSION_PATH = '/api/auth/get-session'"),
   'app facade must bridge the first-party session through the Better Auth JWT token endpoint');
-assert.ok(facadeSrc.includes("headers.set('authorization', `Bearer ${bearer}`)"),
-  'only the server-issued JWT may become Worker Authorization');
+assert.ok(facadeSrc.includes("if (bridge.bearer) headers.set('authorization', `Bearer ${bridge.bearer}`)"),
+  'only the validated server-side bridge JWT may become Worker Authorization');
 assert.ok(routeSrc.includes("appFacadeFetch"),
   'Pages /api/v1 catch-all route must delegate to the bounded facade');
 assert.ok(workflow.includes('functions/_lib/auth-facade.js'),
