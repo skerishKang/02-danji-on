@@ -183,10 +183,20 @@
 <section class="page-head"><div><div class="eyebrow">MY DANJION</div><h1>내정보</h1></div><div class="page-side"><div class="page-copy"><b>내 활동과 우리집, 메시지를 한곳에서 확인하세요.</b>자주 쓰는 정보는 이 화면에서 바로 확인할 수 있습니다.</div></div></section>
 <section class="profile-grid">
 <article class="profile-hero">
-<div class="profile-main"><div class="profile-top"><span class="avatar" id="mi-avatar">연</span><div class="profile-name"><small>방림명지로드힐 주민</small><div class="profile-title-line"><h2 id="mi-nickname">연블리님</h2><a class="level-chip" href="23_이웃온기.html" title="이웃 온기 레벨 보기">LV.3 · 참여하는 이웃</a><span class="resident-badge"><i></i><span id="mi-household">우리집 연결 완료</span></span></div><p id="mi-joined">2026년 8월 가입</p></div></div><div class="profile-stats"><div class="stat"><b id="mi-stat-posts">6</b><span>게시글</span></div><div class="stat"><b id="mi-stat-comments">18</b><span>댓글</span></div><div class="stat"><b id="mi-stat-reactions">27</b><span>받은 공감</span></div></div></div>
+<div class="profile-main"><div class="profile-top"><span class="avatar" id="mi-avatar">연</span><div class="profile-name"><small>방림명지로드힐 주민</small><div class="profile-title-line"><h2 id="mi-nickname">연블리님</h2><a class="level-chip" href="23_이웃온기.html" title="이웃 온기 레벨 보기">LV.3 · 참여하는 이웃</a><span class="resident-badge"><i></i><span id="mi-household">우리집 연결 완료</span></span></div><p id="mi-joined">2026년 8월 가입</p><div class="resident-state-row" id="mi-resident-row" hidden><span class="rs-dot" aria-hidden="true"></span><b id="mi-resident-state">—</b><a class="rs-cta" id="mi-resident-cta" href="26_우리집연결.html" hidden>주민인증 시작하기 →</a><button class="profile-edit-entry" id="mi-profile-edit" type="button" hidden>내정보 수정</button></div></div></div><div class="profile-stats"><div class="stat"><b id="mi-stat-posts">6</b><span>게시글</span></div><div class="stat"><b id="mi-stat-comments">18</b><span>댓글</span></div><div class="stat"><b id="mi-stat-reactions">27</b><span>받은 공감</span></div></div></div>
 <div class="level-card" onclick="location.href='23_이웃온기.html'" role="link" tabindex="0"><span class="level-label">이웃 온기</span><strong>LV.3 · 참여하는 이웃</strong><div aria-label="이웃 온기 5단계 중 3단계" class="level-track"><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i></div><span class="level-next">다음 온기 · 도움 주는 이웃</span><span class="level-more">레벨 자세히 보기 ›</span></div>
 </article>
 <div class="side-stack"><article class="side-card message"><span class="card-kicker">1:1 MESSAGE</span><h3>새 메시지가 있어요.<span class="unread" id="mi-unread">2</span></h3><button class="card-link" onclick="location.href='20_메시지함_목록.html'" type="button"><span>메시지함 보기</span><span>→</span></button></article><article class="side-card"><span class="card-kicker">MY HOUSEHOLD</span><h3>우리집 연결</h3><button class="card-link" onclick="location.href='26_우리집연결.html'" type="button"><span>연결 상태 보기</span><span>→</span></button></article></div>
+</section>
+<section class="panel profile-edit-panel" id="mi-profile-edit-panel" hidden aria-label="내정보 수정">
+<header class="panel-head"><div><small>PROFILE EDIT</small><h2>내정보 수정</h2></div><span>닉네임과 한 줄 소개는 서버 검증 후 저장됩니다.</span></header>
+<div class="edit-body">
+<label class="edit-field">닉네임<input id="mi-edit-nickname" maxlength="40" autocomplete="nickname" type="text"/>
+</label>
+<label class="edit-field">한 줄 소개<textarea id="mi-edit-bio" maxlength="300" rows="3"></textarea></label>
+<p class="edit-status" id="mi-edit-status" role="status"></p>
+<div class="edit-actions"><button class="edit-save" id="mi-edit-save" type="button">저장</button><button class="edit-cancel" id="mi-edit-cancel" type="button">취소</button></div>
+</div>
 </section>
 <section class="content-grid compact-dashboard">
 <article class="panel"><header class="panel-head"><div><small>MY ACTIVITY</small><h2>나의 활동</h2></div></header><div class="menu-list"><button class="menu-row" data-demo="내가 쓴 글 목록은 다음 상세 페이지에서 만듭니다." type="button"><span class="menu-icon">글</span><span><b>내가 쓴 글</b><p>가입인사·단지이야기·궁금해요·같이해요</p></span><span class="menu-value"><strong id="mi-menu-posts">6</strong><i>→</i></span></button><button class="menu-row" data-demo="내 댓글 목록은 다음 상세 페이지에서 만듭니다." type="button"><span class="menu-icon">댓</span><span><b>내 댓글과 답글</b><p>내가 남긴 댓글과 이웃의 답글</p></span><span class="menu-value"><strong id="mi-menu-comments">18</strong><i>→</i></span></button><button class="menu-row" data-demo="공감 활동 목록은 다음 상세 페이지에서 만듭니다." type="button"><span class="menu-icon">♡</span><span><b>공감한 글</b><p>다시 보고 싶은 이웃의 이야기</p></span><span class="menu-value"><strong id="mi-menu-reactions">12</strong><i>→</i></span></button><button class="menu-row" data-demo="저장한 이웃가게는 다음 상세 페이지에서 만듭니다." type="button"><span class="menu-icon">저</span><span><b>저장한 이웃가게</b><p>관심 있게 본 가게와 서비스</p></span><span class="menu-value"><strong id="mi-menu-saved">4</strong><i>→</i></span></button><button class="menu-row" data-demo="받은 혜택함은 다음 상세 페이지에서 만듭니다." type="button"><span class="menu-icon">혜</span><span><b>받은 혜택</b><p>사용 전 쿠폰과 이용한 주민혜택</p></span><span class="menu-value"><strong id="mi-menu-benefits">1</strong><i>→</i></span></button></div></article>
@@ -363,6 +373,25 @@ if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt
 .level-card{cursor:pointer}
 .level-more{margin-top:auto;padding-top:12px;font-size:12px;color:var(--amber);font-weight:900}
 </style>
+<style id="myinfo-resident-state-488">
+.resident-state-row{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin-top:14px;font-size:15px;font-weight:850;color:rgba(255,255,255,.9)}
+.resident-state-row .rs-dot{width:9px;height:9px;border-radius:50%;background:#64c195;flex:none}
+.resident-state-row.is-pending .rs-dot{background:var(--amber)}
+.resident-state-row.is-required .rs-dot,.resident-state-row.is-unknown .rs-dot{background:#e0664f}
+.rs-cta{color:var(--amber);font-size:14px;font-weight:900;text-decoration:underline}
+.profile-edit-entry{appearance:none;border:1px solid rgba(255,255,255,.4);background:transparent;color:#fff;font-size:14px;font-weight:850;padding:7px 12px;border-radius:999px;cursor:pointer}
+.profile-edit-entry:hover{border-color:var(--amber);color:var(--amber)}
+.edit-body{padding:18px 22px 22px;display:grid;gap:14px}
+.edit-field{display:grid;gap:7px;font-size:14px;font-weight:850;color:var(--muted)}
+.edit-field input,.edit-field textarea{font:inherit;font-weight:600;color:#101317;padding:11px 12px;border:1px solid var(--line);border-radius:10px;background:#fff;max-width:520px}
+.edit-field textarea{resize:vertical;min-height:74px}
+.edit-status{margin:0;font-size:14px;font-weight:850;color:#c0392b;min-height:20px}
+.edit-actions{display:flex;gap:10px}
+.edit-save{border:0;background:var(--coral);color:#fff;font-size:15px;font-weight:900;padding:11px 20px;border-radius:999px;cursor:pointer}
+.edit-save:disabled{opacity:.55;cursor:default}
+.edit-cancel{border:1px solid var(--line);background:#fff;color:var(--muted);font-size:15px;font-weight:850;padding:11px 18px;border-radius:999px;cursor:pointer}
+@media(max-width:760px){.edit-body{padding:16px 20px 20px}}
+</style>
 <script src="assets/danjion-session.js"></script><script src="assets/resident-bridge.js"></script>
 <script id="danjion-myinfo-server-wiring">
 (function(){
@@ -382,11 +411,13 @@ if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt
   var n={avatar:$('mi-avatar'),nickname:$('mi-nickname'),joined:$('mi-joined'),household:$('mi-household'),unread:$('mi-unread'),sp:$('mi-stat-posts'),sc:$('mi-stat-comments'),sr:$('mi-stat-reactions'),mp:$('mi-menu-posts'),mc:$('mi-menu-comments'),mr:$('mi-menu-reactions'),ms:$('mi-menu-saved'),mb:$('mi-menu-benefits')};
   ['avatar','nickname','joined','household','unread','sp','sc','sr','mp','mc','mr','ms','mb'].forEach(function(k){setTxt(n[k],DASH);});
   var bridge=B.createResidentBridge({apiBase:cfg.apiBase,complexSlug:cfg.complexSlug});
+  var serverProfile=null;
   function toast(t){if(typeof window.showToast==='function')window.showToast(t);}
   Promise.allSettled([bridge.profile(),bridge.summary()]).then(function(res){
     var pr=res[0].value,sr=res[1].value;
     if(pr&&pr.ok&&pr.profile){
       var p=pr.profile,nick=String(p.nickname||'').trim();
+      serverProfile=p;
       setTxt(n.nickname,nick?nick+'님':DASH);
       setTxt(n.avatar,nick?nick.charAt(0):DASH);
       setTxt(n.joined,fmtJoined(p.joinedMonth));
@@ -410,6 +441,80 @@ if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt
     else if(forbidden)toast('이 기능을 이용할 권한이 없습니다.');
     else if(err)toast('잠시 후 다시 시도해 주세요.');
   });
+  function renderResidentState(text,flags){
+    var row=$('mi-resident-row'),state=$('mi-resident-state'),cta=$('mi-resident-cta'),edit=$('mi-profile-edit');
+    if(!row||!state)return;
+    if(!text){row.hidden=true;return;}
+    row.hidden=false;state.textContent=text;
+    row.className='resident-state-row'+(flags&&flags.kind?' is-'+flags.kind:'');
+    if(cta)cta.hidden=!(flags&&flags.cta);
+    if(edit)edit.hidden=!(flags&&flags.edit);
+  }
+  function loadResidentState(){
+    var p=null;
+    try{p=import('./assets/household-claim-bridge.js');}catch(_){return;}
+    if(!p||typeof p.then!=='function')return;
+    p.then(function(mod){
+      if(!mod||typeof mod.createHouseholdClaimBridge!=='function')return null;
+      return mod.createHouseholdClaimBridge({apiBase:cfg.apiBase,complexSlug:cfg.complexSlug}).getSnapshot();
+    }).then(function(result){
+      if(!result)return;
+      if(result.ok&&result.data&&result.data.myMembership){
+        var m=result.data.myMembership;
+        if(m.status==='verified'||m.residentVerified)renderResidentState('주민인증 완료',{kind:'verified',edit:true});
+        else if(m.status==='pending')renderResidentState('주민인증 심사 대기 중',{kind:'pending'});
+        else renderResidentState(null);
+      }else if(!result.ok&&result.status===403&&result.error&&result.error.code==='HOUSEHOLD_ASSOCIATION_REQUIRED'){
+        renderResidentState('주민인증 필요',{kind:'required',cta:true});
+      }else if(!result.ok&&result.status===401){
+        renderResidentState(null);
+      }else{
+        renderResidentState('—',{kind:'unknown'});
+      }
+    }).catch(function(){renderResidentState('—',{kind:'unknown'});});
+  }
+  function openEditPanel(){
+    var panel=$('mi-profile-edit-panel');if(!panel)return;
+    var nick=$('mi-edit-nickname'),bio=$('mi-edit-bio'),p=serverProfile||{};
+    if(nick)nick.value=String(p.nickname||'');
+    if(bio)bio.value=String(p.publicBio||'');
+    setTxt($('mi-edit-status'),'');
+    panel.hidden=false;
+    if(nick)nick.focus();
+  }
+  function saveProfileEdit(){
+    var btn=$('mi-edit-save'),status=$('mi-edit-status'),nick=$('mi-edit-nickname'),bio=$('mi-edit-bio');
+    if(!nick||!bio)return;
+    if(btn)btn.disabled=true;
+    if(status)setTxt(status,'');
+    bridge.updateProfile({nickname:nick.value,publicBio:bio.value}).then(function(r){
+      if(btn)btn.disabled=false;
+      if(r&&r.ok&&r.profile){
+        serverProfile=r.profile;
+        var nm=String(r.profile.nickname||'').trim();
+        setTxt(n.nickname,nm?nm+'님':DASH);
+        setTxt(n.avatar,nm?nm.charAt(0):DASH);
+        var panel=$('mi-profile-edit-panel');if(panel)panel.hidden=true;
+        toast('내정보가 저장되었습니다.');
+        return;
+      }
+      var mode=r?r.mode:'error';
+      if(mode==='client'&&r.error==='PROFILE_PATCH_EMPTY')setTxt(status,'변경할 내용을 입력해 주세요.');
+      else if(mode==='resident-verification-required')setTxt(status,'주민인증이 필요합니다.');
+      else if(mode==='auth-required')setTxt(status,'로그인 후 다시 시도해 주세요.');
+      else if(mode==='forbidden')setTxt(status,'이 기능을 이용할 권한이 없습니다.');
+      else setTxt(status,'저장에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+    },function(){
+      if(btn)btn.disabled=false;
+      setTxt(status,'저장에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+    });
+  }
+  (function bindProfileEdit(){
+    var edit=$('mi-profile-edit');if(edit)edit.addEventListener('click',openEditPanel);
+    var cancel=$('mi-edit-cancel');if(cancel)cancel.addEventListener('click',function(){var panel=$('mi-profile-edit-panel');if(panel)panel.hidden=true;});
+    var save=$('mi-edit-save');if(save)save.addEventListener('click',saveProfileEdit);
+  })();
+  loadResidentState();
 })();
 </script>
 </body>
