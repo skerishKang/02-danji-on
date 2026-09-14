@@ -9,7 +9,9 @@
 //   * canonical Pages origin only;
 //   * /api/v1/* only;
 //   * fixed Worker upstream, never client-controlled;
-//   * no auth minting, no dev bypass, no grant widening;
+//   * no client-controlled auth, no dev bypass, no grant widening;
+//   * first-party session cookies may be exchanged server-side for the Better
+//     Auth JWT-plugin token required by the Worker's bearer-only auth boundary;
 //   * Worker remains final authentication/authorization authority.
 
 export const APP_FACADE_MARKER = 'danjion-app-facade/v1';
@@ -22,7 +24,37 @@ const HOP_BY_HOP = new Set([
   'proxy-authenticate', 'proxy-authorization', 'te', 'trailer'
 ]);
 
-const GUARDED_HEADERS = new Set(['origin', 'x-forwarded-host', 'x-forwarded-proto']);
+const GUARDED_HEADERS = new Set(['origin', 'x-forwarded-host', 'x-forwarded-proto', 'authorization']);
+const AUTH_TOKEN_PATH = '/api/auth/token';
+const AUTH_FACADE_MARKER_HEADER = 'x-danjion-auth-facade';
+const AUTH_FACADE_MARKER_VALUE = 'canonical-pages-v1';
+
+function looksLikeJwt(value) {
+  return typeof value === 'string' && value.split('.').length === 3 && value.length > 32;
+}
+
+async function bearerFromSessionCookie(fetchImpl, request, url) {
+  const cookie = request.headers.get('cookie') || '';
+  if (!cookie.trim()) return null;
+
+  const headers = new Headers();
+  headers.set('cookie', cookie);
+  headers.set('origin', CANONICAL_PAGES_ORIGIN);
+  headers.set(AUTH_FACADE_MARKER_HEADER, AUTH_FACADE_MARKER_VALUE);
+  headers.set('x-forwarded-host', url.host);
+  headers.set('x-forwarded-proto', 'https');
+
+  const tokenResponse = await fetchImpl(new Request(
+    new URL(AUTH_TOKEN_PATH, WORKER_API_BASE).toString(),
+    { method: 'GET', headers, redirect: 'manual' }
+  ));
+
+  if (!tokenResponse.ok) return null;
+  let payload = null;
+  try { payload = await tokenResponse.json(); } catch {}
+  const token = payload && typeof payload === 'object' ? payload.token : null;
+  return looksLikeJwt(token) ? token : null;
+}
 
 export function isAppProxiedPath(pathname) {
   return pathname.startsWith(APP_PROXY_PREFIX);
@@ -54,6 +86,13 @@ export async function appFacadeFetch(context, deps = {}) {
   headers.set('x-forwarded-host', url.host);
   headers.set('x-forwarded-proto', 'https');
 
+  // The browser owns only the first-party Better Auth session cookie. If that
+  // session can be exchanged for a JWKS-verifiable JWT, attach it only to the
+  // fixed server-to-server Worker request. Client-supplied Authorization is
+  // always stripped above and can never become Worker authority.
+  const bearer = await bearerFromSessionCookie(fetchImpl, request, url);
+  if (bearer) headers.set('authorization', `Bearer ${bearer}`);
+
   const method = request.method.toUpperCase();
   const upstreamRequest = new Request(upstream.toString(), {
     method,
@@ -71,8 +110,9 @@ export async function appFacadeFetch(context, deps = {}) {
     outHeaders.set(name, value);
   }
 
-  // A protected application API must not mint browser auth state. Session-cookie
-  // ownership remains with the existing Better Auth facade under /api/auth/*.
+  // Application APIs never mint browser auth state or expose the exchanged JWT.
+  // Session-cookie ownership remains with the existing Better Auth facade under
+  // /api/auth/*; the JWT exists only on this server-to-server hop.
   outHeaders.set('x-danjion-app-facade', APP_FACADE_MARKER);
   outHeaders.set('cache-control', 'no-store');
 
