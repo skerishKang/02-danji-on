@@ -1,14 +1,26 @@
-# DanjiOn Full HISTORY / COMPARE Archive
+# DanjiOn HISTORY / COMPARE
 
-This directory is KILO2's content/package handoff for issue #402. It is not the
-root gateway implementation owned by KILO1 and it does not alter the production
-Pages project.
+This route is a curated, non-production comparison surface.
 
-- Gallery route: `/history/`
+## Audience model
+
+The page is organized for a human reviewer first, not as a raw repository archive.
+
+- Top level: starting point → development process → current authority
+- Main journey: six meaningful stages
+- Secondary experiments: collapsed under each stage
+- SOURCE / REF / SHA: hidden under developer-details disclosure
+- Current final presentation: linked separately through `../final/`
+
+The underlying registry and historical bundles remain intact. No historical artifact is deleted or rewritten by this curation layer.
+
+## Safety
+
+- Route: `/history/`
 - Registry: `registry.json`
-- New historical bundles: `bundles/<slug>/index.html`
-- Existing gateway routes are linked, not copied: `/v3-current/`, `/legacy-a/`,
-  `/legacy-b/`, `/v2-runtime/`, and `/pr378/`.
-- Every route is static, mock/read-only, and noindex.
-- PR #378 remains frozen and `DO_NOT_MERGE`; this archive does not modify or
-  duplicate its snapshot.
+- Historical bundles remain static/mock/read-only
+- Existing routes are linked, not copied
+- PR #378 remains frozen / DO_NOT_MERGE
+- noindex
+- no production API writes
+- no production credentials
