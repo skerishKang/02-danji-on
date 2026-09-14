@@ -219,11 +219,13 @@ function renderPosts(posts) {
 
 async function loadPosts() {
   const result = await bridge.listPosts('danjion_notice');
-  if (result.ok) {
+  if (result.ok && Array.isArray(result.data) && result.data.length > 0) {
     renderPosts(result.data);
-  } else {
-    console.error('Failed to load posts:', result.error);
+    return;
   }
+  if (!result.ok) console.error('Failed to load posts:', result.error);
+  // #465: an empty/failed server collection must not erase the built-in
+  // onboarding notices. Keep the static content until real posts exist.
 }
 
 function noticeFilterItems() {
