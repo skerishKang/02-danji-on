@@ -108,6 +108,7 @@ async function requireClosedProductAccount(env: BetterAuthEnv, authUserId: strin
 
 export function createDanjionAuth(env: BetterAuthEnv, publicBase = resolveAuthPublicBaseUrl(env)) {
   const baseURL = normalizeBaseUrl(publicBase);
+  const jwtAuthority = normalizeBaseUrl(requireValue(env.DANJION_AUTH_BASE_URL, 'DANJION_AUTH_BASE_URL'));
   const secret = requireValue(env.BETTER_AUTH_SECRET, 'BETTER_AUTH_SECRET');
   if (secret.length < 32) throw new Error('BETTER_AUTH_SECRET must be at least 32 characters');
   const db = drizzle(env.DATABASE_URL, { schema: betterAuthSchema });
@@ -164,7 +165,10 @@ export function createDanjionAuth(env: BetterAuthEnv, publicBase = resolveAuthPu
         usernameValidator: (value) => KOREAN_MOBILE.test(value),
         validationOrder: { username: 'post-normalization' }
       }),
-      jwt({ jwt: { issuer: baseURL, audience: baseURL, expirationTime: '15m' } })
+      // The public auth base may switch per request to canonical Pages for
+      // callbacks/cookies, but application-service JWT authority must stay
+      // stable and match auth-v1.ts verification.
+      jwt({ jwt: { issuer: jwtAuthority, audience: jwtAuthority, expirationTime: '15m' } })
     ]
   });
 }

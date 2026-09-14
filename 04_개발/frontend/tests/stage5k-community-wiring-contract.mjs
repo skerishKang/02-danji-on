@@ -224,7 +224,8 @@ for (const [name, page, id] of WIRING) {
   assert.match(w12, /story:'resident_story',question:'question',together:'together'/, '12 maps chips onto the v1 kinds only');
   assert.match(w12, /bridge\.listPosts\(null,\{limit:50\}\)/, '12 전체보기 reads the v1 feed');
   assert.match(w12, /result\.posts\.filter\(p=>LABEL\[p\.kind\]\)/, '12 hides kinds outside the shared UI mapping');
-  assert.match(w12, /가입인사 카테고리는 아직 서버 연동이 준비되지 않았습니다/, '12 keeps 가입인사 fail-closed (page 14 HOLD)');
+  assert.match(w12, /가입인사는 아직 server kind가 없으므로 기존 built-in posts를 유지합니다/, '12 keeps 가입인사 fail-closed by preserving built-in posts while page 14 remains HOLD');
+  assert.match(w12, /if\(!showAll&&!KIND\[selected\]\)\{[\s\S]*?return;[\s\S]*?\}/, '12 must return before any server read for the unsupported 가입인사 kind');
   assert.match(w12, /13_이웃대화_글상세_댓글\.html\?apiBase=\$\{encodeURIComponent\(apiBase\)\}&post=\$\{encodeURIComponent\(p\.id\)\}/, '12 links details with apiBase + server post id');
   assert.match(w12, /WRITE\[selected\]\+'\?apiBase='/, '12 hands apiBase to the write pages');
   assert.ok(page12.indexOf('danjion-community-list-live-wiring-329') < page12.indexOf('danjion-direct-router-v5'), '12 wiring stays ahead of the router');

@@ -63,8 +63,8 @@ assert.doesNotMatch(html, /type==='login'\)\{if\(serverMode\)\{[^}]*\}else\{memb
   'server-mode login must not mint resident verification state');
 
 /* --- #448 round 2 / #444: social entry starts first-party with unified continue intent --- */
-assert.match(html, /if\(serverMode\)\{const q=new URLSearchParams\(\{provider,callbackURL:location\.origin\+location\.pathname\}\);q\.set\('requestSignUp','1'\);location\.href=__session\.joinUrl\(__session\.danjionApiBase\(\),'\/auth\/social-start'\)\+'\?'\+q\.toString\(\);return\}/,
-  '#444: server-mode social must navigate top-level to /auth/social-start and always include requestSignUp=1 in both login and signup modes');
+assert.match(html, /if\(serverMode\)\{const q=new URLSearchParams\(\{provider,callbackURL:location\.origin\+location\.pathname\}\);q\.set\('requestSignUp','1'\);[\s\S]*?location\.href=__session\.joinUrl\(__session\.danjionAuthBase\(\),'\/auth\/social-start'\)\+'\?'\+q\.toString\(\);return\}/,
+  '#444/#451: server-mode social must navigate top-level through the canonical auth facade and always include requestSignUp=1');
 assert.doesNotMatch(html, /if\(mode==='signup'\)q\.set\('requestSignUp'/,
   '#444: requestSignUp must no longer depend on the login/signup UI mode');
 assert.doesNotMatch(html, /\/api\/auth\/sign-in\/social/,
@@ -77,15 +77,15 @@ assert.match(html, /<span>이메일로 \$\{action\}<\/span>/,
   '#444: email login/signup copy must remain mode-specific (only social is unified)');
 
 /* --- #430 account-first: completion never fabricates an authenticated member session --- */
-assert.match(html, /else if\(button\.dataset\.finish!==undefined\)\{closeLayer\(\);showToast\('가입 이메일의 인증 메일을 확인해 주세요\.'\)\}/,
-  'finish must close the signup modal and require mailbox verification instead of fabricating memberMode');
+assert.match(html, /else if\(button\.dataset\.finish!==undefined\)\{authModal\.close\(\);showToast\('가입 이메일의 인증 메일을 확인해 주세요\.'\)\}/,
+  'finish must close the auth modal through the history-aware controller and require mailbox verification instead of fabricating memberMode');
 assert.doesNotMatch(html, /button\.dataset\.finish!==undefined\)\{memberMode=true/,
   'signup completion must not unlock member mode before a real authenticated session exists');
 assert.doesNotMatch(html, /danjionResidentVerified/,
   'no entry flow may mint a resident-verified flag');
 
 /* --- boot reconciliation replaces fake flags with the real session result --- */
-assert.match(html, /if\(serverMode\)\{serverSessionCheck\(\)\.then\(\(real\)=>\{[\s\S]*?sessionStorage\.removeItem\('danjionMember'\);sessionStorage\.removeItem\('danjionSignedUp'\)\}memberMode=real;syncMemberState\(\)\}\)/,
+assert.match(html, /if\(serverMode\)\{serverSessionCheck\(\)\.then\(\(real\)=>\{[\s\S]*?sessionStorage\.removeItem\('danjionMember'\);sessionStorage\.removeItem\('danjionSignedUp'\);sessionStorage\.removeItem\('danjionAuthPending'\)\}memberMode=real;sessionResolved=true;syncMemberState\(\);const explicitIntro=new URLSearchParams\(location\.search\)\.get\('intro'\)==='1';if\(real&&!explicitIntro\)\{location\.replace\('04_데일리홈\.html'\);return\}if\(real\)refreshAdminEntry\(\)\}\)/,
   'boot must reconcile memberMode against the real session and drop fake member flags');
 
 /* --- demo mode keeps the historical prototype flow untouched --- */
@@ -100,3 +100,6 @@ assert.ok(runIds.includes('test:stage5i-account-session-entry'),
   'stage5i contract must run in the manifest frontend suite');
 
 console.log('stage5i account/session entry reconciliation contract: PASS');
+
+assert.doesNotMatch(html, /joinUrl\(__session\.danjionApiBase\(\),'\/auth\/social-start'\)/,
+  'social-start must never regress to the general application API base');
