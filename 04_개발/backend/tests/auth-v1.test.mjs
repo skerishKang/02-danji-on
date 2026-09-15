@@ -5,6 +5,7 @@ import { requireActor, jwtVerificationErrorCode } from '../src/auth-v1.ts';
 const ISSUER = 'https://auth.example.test';
 const JWKS_URL = `${ISSUER}/neondb/auth/.well-known/jwks.json`;
 const AMBIGUOUS_JWKS_URL = `${ISSUER}/neondb/auth/.well-known/jwks-duplicate-kid.json`;
+const DANJION_OVERRIDE_JWKS_URL = `${ISSUER}/danjion-override/jwks.json`;
 const SUBJECT = '860dc360-609f-4b7d-9e70-ec93fe6414d3';
 const APP_USER_ID = '11111111-1111-4111-8111-111111111111';
 const BASE_ENV = {
@@ -21,13 +22,25 @@ const DANJION_ENV = {
   DANJION_AUTH_BASE_URL: ISSUER,
   DANJION_AUTH_JWKS_URL: JWKS_URL
 };
+// No DANJION_AUTH_JWKS_URL override: this is the production default and must
+// verify against the local danjion_auth.jwks rows with ZERO HTTP fetches.
+const DANJION_LOCAL_ENV = {
+  DATABASE_URL: BASE_ENV.DATABASE_URL,
+  APP_ENV: 'production',
+  DEV_AUTH_BYPASS: 'false',
+  DANJION_AUTH_BASE_URL: ISSUER
+};
 
-function mockSql(existing = null, { providerId = null, phoneOnboarding = false } = {}) {
+function mockSql(existing = null, { providerId = null, phoneOnboarding = false, jwks = null } = {}) {
   let linked = existing;
   const queries = [];
   const sql = async (strings, ...values) => {
     const text = strings.join('?');
     queries.push(text);
+    if (text.includes('from danjion_auth.jwks')) {
+      if (jwks === null) throw new Error(`Unexpected JWKS SQL in auth unit test: ${text}`);
+      return jwks;
+    }
     if (text.includes('select id, auth_user_id, display_name')) {
       return linked ? [linked] : [];
     }
@@ -69,6 +82,9 @@ async function main() {
     if (url === AMBIGUOUS_JWKS_URL) {
       return Response.json({ keys: [jwk, { ...jwk }] }, { status: 200 });
     }
+    if (url === DANJION_OVERRIDE_JWKS_URL) {
+      return Response.json({ keys: [jwk] }, { status: 200 });
+    }
     assert.equal(url, JWKS_URL);
     return Response.json({ keys: [jwk] }, { status: 200 });
   };
@@ -85,6 +101,23 @@ async function main() {
     .setIssuedAt()
     .setExpirationTime('5m')
     .sign(privateKey);
+
+  const jwksRow = (overrides = {}) => ({
+    id: 'danjion-test-key',
+    public_key: JSON.stringify({ kty: 'OKP', crv: 'Ed25519', x: jwk.x }),
+    alg: 'EdDSA',
+    crv: 'Ed25519',
+    expires_at: null,
+    ...overrides
+  });
+  const localRequireActor = async (requestId, tokenValue, jwks) => {
+    const { sql, queries } = mockSql(null, { jwks });
+    const request = new Request('https://api.example.test/api/v1/me', {
+      headers: { authorization: `Bearer ${tokenValue}` }
+    });
+    const result = await requireActor(request, DANJION_LOCAL_ENV, sql, requestId);
+    return { sql, queries, result };
+  };
 
   try {
     {
@@ -333,6 +366,179 @@ async function main() {
         headers: { authorization: `Bearer ${await token()}` }
       }), { ...BASE_ENV, NEON_AUTH_JWKS_URL: AMBIGUOUS_JWKS_URL }, sql, 'req-key-ambiguous');
       assert.equal(await errorCode(result), 'AUTH_JWT_KEY_AMBIGUOUS');
+    }
+
+    {
+      // DanjiOn default authority: verify from local danjion_auth.jwks rows
+      // with ZERO JWKS HTTP fetches (global fetch throws if invoked at all).
+      const { queries, result } = await (async () => {
+        const { sql, queries } = mockSql(null, { jwks: [jwksRow()] });
+        const request = new Request('https://api.example.test/api/v1/me', {
+          headers: { authorization: `Bearer ${await token()}` }
+        });
+        const outerFetch = globalThis.fetch;
+        globalThis.fetch = async () => {
+          throw new Error('DanjiOn local JWKS verification must not perform any HTTP fetch');
+        };
+        try {
+          const result = await requireActor(request, DANJION_LOCAL_ENV, sql, 'req-local-jwks');
+          return { queries, result };
+        } finally {
+          globalThis.fetch = outerFetch;
+        }
+      })();
+      assert.deepEqual(result, {
+        id: APP_USER_ID,
+        authUserId: SUBJECT,
+        displayName: '테스트 사용자'
+      });
+      const jwksQueries = queries.filter((query) => query.includes('from danjion_auth.jwks'));
+      assert.equal(jwksQueries.length, 1, 'local JWKS must read the jwks table exactly once');
+      assert.ok(!jwksQueries[0].includes('private_key'), 'JWKS verification query must never select private_key');
+      for (const column of ['id', 'public_key', 'alg', 'crv', 'expires_at']) {
+        assert.ok(jwksQueries[0].includes(column), `JWKS verification query must select ${column}`);
+      }
+      assert.ok(jwksQueries[0].includes('select'), 'JWKS verification must use a read-only select');
+    }
+
+    {
+      // Explicit DANJION_AUTH_JWKS_URL keeps the legacy remote-fetch contract.
+      let fetchCalls = 0;
+      const outerFetch = globalThis.fetch;
+      globalThis.fetch = async (input) => {
+        fetchCalls += 1;
+        return outerFetch(input);
+      };
+      const { sql } = mockSql();
+      let result;
+      try {
+        result = await requireActor(new Request('https://api.example.test/api/v1/me', {
+          headers: { authorization: `Bearer ${await token()}` }
+        }), { ...DANJION_LOCAL_ENV, DANJION_AUTH_JWKS_URL: DANJION_OVERRIDE_JWKS_URL }, sql, 'req-danjion-override-remote');
+      } finally {
+        globalThis.fetch = outerFetch;
+      }
+      assert.deepEqual(result, {
+        id: APP_USER_ID,
+        authUserId: SUBJECT,
+        displayName: '테스트 사용자'
+      });
+      assert.ok(fetchCalls >= 1, 'explicit JWKS URL override must still fetch remotely');
+    }
+
+    {
+      const unknownKid = await new SignJWT({ id: SUBJECT, name: '테스트 사용자' })
+        .setProtectedHeader({ alg: 'EdDSA', kid: 'kid-not-in-jwks' })
+        .setSubject(SUBJECT)
+        .setIssuer(ISSUER)
+        .setAudience(ISSUER)
+        .setIssuedAt()
+        .setExpirationTime('5m')
+        .sign(privateKey);
+      const { result } = await localRequireActor('req-local-unknown-kid', unknownKid, [jwksRow()]);
+      assert.equal(await errorCode(result), 'AUTH_JWT_KEY_NOT_FOUND');
+    }
+
+    {
+      const other = await generateKeyPair('EdDSA');
+      const badSignature = await new SignJWT({ id: SUBJECT, name: '테스트 사용자' })
+        .setProtectedHeader({ alg: 'EdDSA', kid: 'danjion-test-key' })
+        .setSubject(SUBJECT)
+        .setIssuer(ISSUER)
+        .setAudience(ISSUER)
+        .setIssuedAt()
+        .setExpirationTime('5m')
+        .sign(other.privateKey);
+      const { result } = await localRequireActor('req-local-bad-signature', badSignature, [jwksRow()]);
+      assert.equal(await errorCode(result), 'AUTH_JWT_SIGNATURE_INVALID');
+    }
+
+    {
+      const wrongIssuer = await token({}, 'https://wrong-issuer.example.test');
+      const { result } = await localRequireActor('req-local-wrong-issuer', wrongIssuer, [jwksRow()]);
+      assert.equal(await errorCode(result), 'AUTH_JWT_ISSUER_INVALID');
+    }
+
+    {
+      const wrongAudience = await new SignJWT({ id: SUBJECT, name: '테스트 사용자' })
+        .setProtectedHeader({ alg: 'EdDSA', kid: 'danjion-test-key' })
+        .setSubject(SUBJECT)
+        .setIssuer(ISSUER)
+        .setAudience('https://wrong-audience.example.test')
+        .setIssuedAt()
+        .setExpirationTime('5m')
+        .sign(privateKey);
+      const { result } = await localRequireActor('req-local-wrong-audience', wrongAudience, [jwksRow()]);
+      assert.equal(await errorCode(result), 'AUTH_JWT_AUDIENCE_INVALID');
+    }
+
+    {
+      const expired = await new SignJWT({ id: SUBJECT, name: '테스트 사용자' })
+        .setProtectedHeader({ alg: 'EdDSA', kid: 'danjion-test-key' })
+        .setSubject(SUBJECT)
+        .setIssuer(ISSUER)
+        .setAudience(ISSUER)
+        .setIssuedAt(Math.floor(Date.now() / 1000) - 120)
+        .setExpirationTime(Math.floor(Date.now() / 1000) - 60)
+        .sign(privateKey);
+      const { result } = await localRequireActor('req-local-expired', expired, [jwksRow()]);
+      assert.equal(await errorCode(result), 'AUTH_JWT_EXPIRED');
+    }
+
+    {
+      // Malformed stored public_key must fail closed as JWKS_INVALID,
+      // with no fallback acceptance even for an otherwise valid token.
+      const validToken = await token();
+      for (const [requestId, publicKey] of [
+        ['req-local-public-key-not-json', '{not valid json'],
+        ['req-local-public-key-not-object', 'null']
+      ]) {
+        const { result } = await localRequireActor(requestId, validToken, [jwksRow({ public_key: publicKey })]);
+        assert.equal(await errorCode(result), 'AUTH_JWT_JWKS_INVALID');
+      }
+    }
+
+    {
+      // No usable public keys fails closed. An empty local JWK Set makes jose
+      // resolve no key for any token, which classifies precisely as
+      // AUTH_JWT_KEY_NOT_FOUND (ERR_JWKS_NO_MATCHING_KEY) — the existing
+      // fail-closed code for "no verification key available".
+      const { result } = await localRequireActor('req-local-no-keys', await token(), []);
+      assert.equal(await errorCode(result), 'AUTH_JWT_KEY_NOT_FOUND');
+    }
+
+    {
+      // Better Auth 1.7.1 default grace: expires_at + 30 days > now.
+      const dayMs = 24 * 3600 * 1000;
+      const insideGrace = await localRequireActor(
+        'req-local-inside-grace',
+        await token(),
+        [jwksRow({ expires_at: new Date(Date.now() - 29 * dayMs) })]
+      );
+      assert.deepEqual(insideGrace.result, {
+        id: APP_USER_ID,
+        authUserId: SUBJECT,
+        displayName: '테스트 사용자'
+      });
+      const outsideGrace = await localRequireActor(
+        'req-local-outside-grace',
+        await token(),
+        [jwksRow({ expires_at: new Date(Date.now() - 31 * dayMs) })]
+      );
+      assert.equal(await errorCode(outsideGrace.result), 'AUTH_JWT_KEY_NOT_FOUND');
+    }
+
+    {
+      // Neon legacy authority keeps the existing remote JWKS behavior.
+      const { sql } = mockSql();
+      const result = await requireActor(new Request('https://api.example.test/api/v1/me', {
+        headers: { authorization: `Bearer ${await token()}` }
+      }), BASE_ENV, sql, 'req-neon-remote-unchanged');
+      assert.deepEqual(result, {
+        id: APP_USER_ID,
+        authUserId: SUBJECT,
+        displayName: '테스트 사용자'
+      });
     }
 
     {
