@@ -468,7 +468,7 @@ if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt
     row.className='email-state-row'+(credentialOnly&&!verified?' is-required':'');
     if(social){
       state.textContent=(authKind.socialLabel||'소셜')+' 로그인 계정';
-      if(address)address.textContent=email?'연결 이메일 '+email:'';
+      if(address)address.textContent='';
       if(resend)resend.hidden=true;
       return;
     }
