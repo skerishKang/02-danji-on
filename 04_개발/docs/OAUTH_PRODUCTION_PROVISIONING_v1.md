@@ -21,16 +21,42 @@ As of 2026-09-12 the GitHub repository secrets are only `CLOUDFLARE_API_TOKEN`,
 secret exists anywhere, so `add_optional_pair` in `production-worker-bootstrap.yml`
 skipped every provider silently and the deployed Worker has an empty `socialProviders` map.
 
+**Status update (2026-09-15, names only):** the `production` environment now holds
+`DANJION_GOOGLE_CLIENT_ID/SECRET` and `DANJION_NAVER_CLIENT_ID/SECRET`;
+`DANJION_KAKAO_CLIENT_ID/SECRET` are the remaining pair to provision. Values never enter git,
+issues, PRs, or chat — they are set interactively via `gh secret set`.
+
 better-auth is pinned at `1.7.1`, which ships built-in `naver` support; the Worker code,
 `DANJION_AUTH_BASE_URL`, and `AUTH_TRUSTED_ORIGINS` (`https://danjion.pages.dev`) are already
 correct. Nothing in the repository needs a code change to make Naver work.
 
 ## Owner provisioning procedure (values stay out of git)
 
-1. Register the OAuth apps with these exact redirect/callback URIs (Better Auth canonical form):
-   - `https://padiem-danjion-api-production.padiem.workers.dev/api/auth/callback/google`
-   - `https://padiem-danjion-api-production.padiem.workers.dev/api/auth/callback/kakao`
-   - `https://padiem-danjion-api-production.padiem.workers.dev/api/auth/callback/naver`
+### Callback authority (updated 2026-09-15 — Stage 2 Pages auth facade)
+
+Browser OAuth now runs through the Pages auth facade (`functions/_lib/auth-facade.js`;
+contract: `frontend/tests/leaf-b14-stage2-same-origin-auth-cutover-contract.mjs`). The facade
+proxies `/api/auth/*` and `/auth/social-start` from the canonical Pages origin to the Worker,
+and the Worker's bounded public-base resolver mints provider callback URLs on
+`https://danjion.pages.dev` for facade-originated requests. Provider apps must be registered
+against the **canonical browser callback**:
+
+```
+CANONICAL_BROWSER_CALLBACK (register these in the provider consoles):
+  https://danjion.pages.dev/api/auth/callback/google
+  https://danjion.pages.dev/api/auth/callback/kakao
+  https://danjion.pages.dev/api/auth/callback/naver
+
+DIRECT_WORKER_BASE (internal/diagnostic traffic only — NOT the browser callback):
+  https://padiem-danjion-api-production.padiem.workers.dev
+```
+
+The workers.dev callback URIs in the original 2026-09-12 text below are **stale for browser
+OAuth**. They remain correct only for direct-Worker requests, which the public-base resolver
+intentionally keeps on the Worker base (see `auth-facade-public-base-contract.mjs`).
+
+1. Register the OAuth apps with the canonical browser callback URIs above — exact match,
+   including `https`, host, and full path (Better Auth canonical form).
 2. Naver Developer Console specifics (why Naver feels the strictest):
    - The Callback URI must match **exactly**, including `https`, host, and full path —
      no wildcards, no trailing-slash variance.
@@ -39,7 +65,11 @@ correct. Nothing in the repository needs a code change to make Naver work.
    - Scopes: `profile` (nickname) and `email` are required for account linking.
      Naver returns unverified-email fields for some accounts; DanjiOn links identities by email.
    - Kakao requires the Redirect URI registered in Kakao Developers (Kakao Login > Redirect URI)
-     and is likewise exact-match. Google authorized redirect URI must equal the callback URL above.
+     and is likewise exact-match. Use the canonical Pages callback
+     `https://danjion.pages.dev/api/auth/callback/kakao`. Kakao treats the Client Secret as an
+     app option: when it is enabled both `KAKAO_CLIENT_ID` and `KAKAO_CLIENT_SECRET` must be
+     provisioned, because `configuredSocialProviders()` registers the provider only for a
+     complete pair. Google authorized redirect URI must equal the canonical callback URL.
 3. Create the six GitHub secrets in the **production environment** (or repo level) with the
    exact names from the table. Never paste values into issues, PRs, or chat.
 4. Re-run `Production Worker Bootstrap` (`workflow_dispatch`, `confirm_production=true`).
