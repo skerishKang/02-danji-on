@@ -88,7 +88,10 @@
     height:3px!important;
     background:var(--coral,var(--accent,#ee6045))!important;
   }
-  .danjion-service-header .header-actions{\n    display:flex!important;align-items:center!important;justify-content:flex-end!important;gap:10px!important;justify-self:end!important;min-width:0!important;\n  }\n  .danjion-service-header .identity{
+  .danjion-service-header .header-actions{
+    display:flex!important;align-items:center!important;justify-content:flex-end!important;gap:10px!important;justify-self:end!important;min-width:0!important;
+  }
+  .danjion-service-header .identity{
     min-width:0!important;
     max-width:none!important;
     width:auto!important;
@@ -119,7 +122,7 @@
   .danjion-service-header .danjion-account-label b{
     max-width:150px!important;
   }
-  .danjion-service-header .mobile-head{
+  .danjion-service-header .mobile-head,.danjion-service-header .mobile-title{
     display:none!important;
   }
 }
@@ -134,7 +137,7 @@
   .danjion-service-header .desktop-nav{
     gap:clamp(12px,2.2vw,24px)!important;
   }
-  .danjion-service-header .desktop-nav button{
+  .danjion-service-header .desktop-nav button,.danjion-service-header .desktop-nav a{
     font-size:14px!important;
   }
   .danjion-service-header .danjion-admin-quick-entry{
