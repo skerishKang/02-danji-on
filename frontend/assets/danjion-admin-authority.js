@@ -14,7 +14,7 @@
   // that is not an exactly-valid SUPER or OPERATIONAL answer is rejected.
   const AUTHORITY_PATH = '/api/v1/admin/authority';
   const SUPER_LABEL = '최고관리자';
-  const OPERATOR_LABEL = '일반관리자';
+  const OPERATOR_LABEL = '운영관리자';
 
   // General application API traffic (authority included) binds the Worker base
   // from DanjionSession (#419 gate): canonical Pages production auto-binds,
