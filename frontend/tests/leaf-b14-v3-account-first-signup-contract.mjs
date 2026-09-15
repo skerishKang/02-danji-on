@@ -61,7 +61,7 @@ assert.match(index, /로그인을 하려면 이메일 인증이 필요합니다/
   'completion must explicitly state the email-verification requirement');
 assert.match(index, /\[단지온\] 이메일 주소를 확인해 주세요/,
   'completion must identify the exact verification-email subject');
-assert.match(index, /이메일 인증하기/,
+assert.match(index, /이메일 확인하기/,
   'completion must identify the verification action inside the email');
 assert.match(index, /스팸함·프로모션함도 확인해 주세요/,
   'completion must include a practical missing-mail fallback');
