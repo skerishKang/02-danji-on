@@ -131,6 +131,20 @@ renderComments();
  const foot=document.querySelector('.composer-foot small'),interactionStatus=document.getElementById('interactionStatus');
  const HINT='서로 존중하는 말로 이야기해 주세요.';
  let post=null,liked=false,count=0,busy=false,flashTimer=null,loadFailure='';
+ function enterServerLoadingState(){
+  document.getElementById('typeLabel').textContent='';
+  document.getElementById('avatar').textContent='';
+  document.getElementById('author').textContent='';
+  document.getElementById('levelTime').textContent='';
+  document.getElementById('title').textContent='게시물을 불러오는 중입니다.';
+  document.getElementById('body').textContent='';
+  likeCount.textContent='';
+  likeBtn.classList.remove('liked');
+  commentCount.textContent='0';
+  commentTitleCount.textContent='0';
+  commentList.innerHTML='<li class="comment"><p>댓글을 불러오는 중입니다.</p></li>';
+ }
+ enterServerLoadingState();
  function esc(value){return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
  function timeAgo(iso){
   const t=Date.parse(iso||''); if(!Number.isFinite(t))return '';
