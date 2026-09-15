@@ -46,25 +46,23 @@ assert.match(index, /button\.dataset\.residentNow!==undefined\)\{render\('reside
 assert.match(index, /button\.dataset\.residentLater!==undefined\)\{sessionStorage\.setItem\('danjionResidentVerification','pending'\);signupPending=null;render\('complete'\)\}/,
   'no-code path must complete signup while remaining resident-unverified');
 
-/* resident authority stays separate */
+/* resident authority stays separate + demo verification hold */
 assert.doesNotMatch(index, /danjionResidentVerified/,
   'signup must never mint a resident-verified flag');
 assert.match(index, /주민코드 없이 계정 생성은 완료되었습니다/,
   'completion must explicitly support account-only signup');
 assert.match(index, /주민 확인은 나중에 계정 화면에서 진행할 수 있으며/,
   'completion must preserve later resident verification');
-assert.match(index, /가입 마지막 단계','이메일 인증을 완료해 주세요/,
-  'completion header must make email verification the final required account step');
-assert.match(index, /하지만 아직 로그인할 수 없습니다/,
-  'completion must state that account creation alone does not unlock login');
-assert.match(index, /로그인을 하려면 이메일 인증이 필요합니다/,
-  'completion must explicitly state the email-verification requirement');
-assert.match(index, /\[단지온\] 이메일 주소를 확인해 주세요/,
-  'completion must identify the exact verification-email subject');
-assert.match(index, /이메일 확인하기/,
-  'completion must identify the verification action inside the email');
-assert.match(index, /스팸함·프로모션함도 확인해 주세요/,
-  'completion must include a practical missing-mail fallback');
+assert.match(index, /가입 완료','계정이 만들어졌습니다/,
+  'demo signup completion must finish without an email-verification gate');
+assert.match(index, /이메일 인증 없이 바로 로그인할 수 있습니다/,
+  'demo signup must state the temporary no-verification behavior');
+assert.match(index, /data-finish>단지온 시작하기/,
+  'completion CTA must continue directly instead of asking for verification mail');
+assert.doesNotMatch(index, /로그인을 하려면 이메일 인증이 필요합니다/,
+  'demo flow must not present email verification as required');
+assert.doesNotMatch(index, /인증메일을 확인하겠습니다/,
+  'demo flow must not strand users on a verification-mail CTA');
 
 /* no #426 signup-blocking behavior */
 assert.doesNotMatch(index, /signupUnavailable|blockEmailSignup|block-email-signup|emailSignupDisabled/,
