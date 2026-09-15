@@ -181,10 +181,19 @@ renderComments();
   return '<li class="comment" data-server-comment="'+id+'"><div class="comment-head"><b>'+esc(c.author.nickname)+'</b><time>'+esc(timeAgo(c.publishedAt||c.createdAt))+'</time></div><p>'+esc(c.body)+'</p><div class="comment-tools">'+pending+'<button type="button" data-server-reply="'+id+'">답글</button></div><div class="replies" data-server-replies="'+id+'"></div><form class="server-reply-form" data-server-reply-form="'+id+'"><input maxlength="300" placeholder="'+esc(c.author.nickname)+'님에게 답글"><button type="submit">등록</button></form></li>';
  }
  async function loadReplies(commentId){
-  const result=await bridge.listReplies(postId,commentId);
-  if(result.mode!=='server')return;
   const host=commentList.querySelector('[data-server-replies="'+commentId+'"]');
   if(!host)return;
+  const result=await bridge.listReplies(postId,commentId);
+  if(result.mode!=='server'){
+   host.replaceChildren();
+   const row=document.createElement('div');
+   row.className='reply';
+   const message=document.createElement('p');
+   message.textContent=failMessage(result);
+   row.append(message);
+   host.append(row);
+   return;
+  }
   host.innerHTML=result.replies.map(r=>'<div class="reply"><b>↳ '+esc(r.author.nickname)+'</b><p>'+esc(r.body)+'</p></div>').join('');
  }
  async function loadPost(){
