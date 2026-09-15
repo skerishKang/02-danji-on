@@ -277,7 +277,7 @@ async function loadFirstScreenAuthority(){
   const json=await r.json();
   const name=String(json&&json.data&&json.data.name||'').trim();
   if(!name){console.info('[danjion] firstscreen complex authority empty, keeping demo name');return}
-  document.querySelectorAll('.identity,.mobile-head').forEach(el=>{el.textContent=name});
+  document.querySelectorAll('.mobile-head').forEach(el=>{el.textContent=name});
   document.querySelectorAll('.eyebrow').forEach(el=>{const s=String(el.textContent||'');if(s.startsWith(DEMO_COMPLEX_NAME))el.textContent=name+s.slice(DEMO_COMPLEX_NAME.length)});
  }catch(e){console.info('[danjion] firstscreen complex authority unavailable, keeping demo name:',String(e&&e.message||e))}
 }
