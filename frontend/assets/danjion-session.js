@@ -117,6 +117,29 @@
     return request(fetchImpl, joinUrl(authBase, '/api/auth/get-session'));
   }
 
+  // Canonical credential-account verification helper. This stays inside the
+  // sanctioned auth runtime so non-entry pages never duplicate Better Auth
+  // endpoint literals or bypass the same-origin Pages facade.
+  function emailVerificationCallbackURL(loc) {
+    const where = loc || (typeof location !== 'undefined' ? location : {});
+    const origin = String(where.origin || '');
+    if (!origin) return '/19_내정보_메인.html?emailVerified=1';
+    return new URL('/19_내정보_메인.html?emailVerified=1', origin).toString();
+  }
+
+  function sendVerificationEmail(fetchImpl, email, loc) {
+    const normalized = String(email || '').trim();
+    if (!normalized) return Promise.resolve({ ok: false, reason: 'client-error', status: 0, error: { code: 'EMAIL_REQUIRED' } });
+    const authBase = danjionAuthBase(loc);
+    return request(fetchImpl, joinUrl(authBase, '/api/auth/send-verification-email'), {
+      method: 'POST',
+      body: JSON.stringify({
+        email: normalized,
+        callbackURL: emailVerificationCallbackURL(loc)
+      })
+    });
+  }
+
   function accountStripEligible(loc) {
     const where = loc || (typeof location !== 'undefined' ? location : {});
     const file = String(where.pathname || '').split('/').pop() || '';
@@ -136,6 +159,7 @@
 
     const email = String(session.raw.user?.email || '').trim();
     const name = String(session.raw.user?.name || '').trim();
+    const emailVerified = session.raw.user?.emailVerified === true;
     if (!email) return null;
 
     const host = document.querySelector('.identity') || document.querySelector('[data-account-host]');
@@ -146,7 +170,7 @@
     if (!document.getElementById('danjion-account-menu-style')) {
       const style = document.createElement('style');
       style.id = 'danjion-account-menu-style';
-      style.textContent = '.danjion-account-host{position:relative!important;display:flex!important;align-items:center!important;justify-content:flex-end!important;max-width:none!important;overflow:visible!important;white-space:normal!important}.danjion-account-trigger{display:flex;align-items:center;gap:9px;border:0;background:transparent;color:inherit;padding:7px 4px;cursor:pointer;font:inherit}.danjion-account-avatar{width:31px;height:31px;border-radius:50%;display:grid;place-items:center;background:#101d30;color:#fff;font-size:13px;font-weight:900}.danjion-account-label{display:grid;gap:2px;text-align:left;min-width:0}.danjion-account-label b{font-size:12px;line-height:1.1;max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.danjion-account-label span{font-size:10px;line-height:1.1;opacity:.58}.danjion-account-caret{font-size:10px;opacity:.55}.danjion-account-menu{position:absolute;top:calc(100% + 10px);right:0;width:260px;background:#fffdf8;border:1px solid rgba(16,29,48,.14);box-shadow:0 18px 40px rgba(16,29,48,.15);padding:10px;z-index:220}.danjion-account-menu[hidden]{display:none}.danjion-account-email{padding:10px 10px 12px;border-bottom:1px solid rgba(16,29,48,.1);font-size:12px;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.danjion-account-actions{display:grid;padding-top:6px}.danjion-account-actions a,.danjion-account-actions button{display:flex;align-items:center;width:100%;min-height:38px;border:0;background:transparent;color:#101d30;padding:0 10px;text-align:left;text-decoration:none;font:800 12px/1 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;cursor:pointer}.danjion-account-actions a:hover,.danjion-account-actions button:hover{background:#f1ece2}.danjion-account-actions .danger{color:#a53628;border-top:1px solid rgba(16,29,48,.08);margin-top:4px;padding-top:4px}@media(max-width:760px){.danjion-account-host{margin-left:auto!important}.danjion-account-label{display:none}.danjion-account-trigger{padding:4px}.danjion-account-menu{position:fixed;top:66px;right:10px;left:auto;width:min(280px,calc(100vw - 20px))}}';
+      style.textContent = '.danjion-account-host{position:relative!important;display:flex!important;align-items:center!important;justify-content:flex-end!important;max-width:none!important;overflow:visible!important;white-space:normal!important}.danjion-account-trigger{display:flex;align-items:center;gap:9px;border:0;background:transparent;color:inherit;padding:7px 4px;cursor:pointer;font:inherit}.danjion-account-avatar{width:31px;height:31px;border-radius:50%;display:grid;place-items:center;background:#101d30;color:#fff;font-size:13px;font-weight:900}.danjion-account-label{display:grid;gap:2px;text-align:left;min-width:0}.danjion-account-label b{font-size:12px;line-height:1.1;max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.danjion-account-label span{font-size:10px;line-height:1.1;opacity:.58}.danjion-account-label span.is-warning{color:#b9382a;opacity:1;font-weight:900}.danjion-account-caret{font-size:10px;opacity:.55}.danjion-account-menu{position:absolute;top:calc(100% + 10px);right:0;width:260px;background:#fffdf8;border:1px solid rgba(16,29,48,.14);box-shadow:0 18px 40px rgba(16,29,48,.15);padding:10px;z-index:220}.danjion-account-menu[hidden]{display:none}.danjion-account-email{padding:10px 10px 12px;border-bottom:1px solid rgba(16,29,48,.1);font-size:12px;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.danjion-account-actions{display:grid;padding-top:6px}.danjion-account-actions a,.danjion-account-actions button{display:flex;align-items:center;width:100%;min-height:38px;border:0;background:transparent;color:#101d30;padding:0 10px;text-align:left;text-decoration:none;font:800 12px/1 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;cursor:pointer}.danjion-account-actions a:hover,.danjion-account-actions button:hover{background:#f1ece2}.danjion-account-actions .danger{color:#a53628;border-top:1px solid rgba(16,29,48,.08);margin-top:4px;padding-top:4px}@media(max-width:760px){.danjion-account-host{margin-left:auto!important}.danjion-account-label{display:none}.danjion-account-trigger{padding:4px}.danjion-account-menu{position:fixed;top:66px;right:10px;left:auto;width:min(280px,calc(100vw - 20px))}}';
       document.head.appendChild(style);
     }
 
@@ -165,7 +189,8 @@
     const labelMain = document.createElement('b');
     labelMain.textContent = name || email.split('@')[0];
     const labelSub = document.createElement('span');
-    labelSub.textContent = '계정';
+    labelSub.textContent = emailVerified ? '계정' : '이메일 인증 필요';
+    if (!emailVerified) labelSub.classList.add('is-warning');
     label.append(labelMain, labelSub);
 
     const caret = document.createElement('span');
@@ -191,6 +216,28 @@
     const settings = document.createElement('a');
     settings.href = '24_설정.html';
     settings.textContent = '설정';
+    if (!emailVerified) {
+      const resend = document.createElement('button');
+      resend.type = 'button';
+      resend.textContent = '인증메일 다시 받기';
+      resend.addEventListener('click', async () => {
+        resend.disabled = true;
+        resend.textContent = '보내는 중';
+        const result = await sendVerificationEmail(fetch, email, loc);
+        if (result.ok) {
+          resend.textContent = '인증메일을 보냈습니다';
+          resend.title = '메일 제목: [단지온] 이메일 주소를 확인해 주세요';
+          return;
+        }
+        resend.disabled = false;
+        resend.textContent = '인증메일 다시 받기';
+        resend.title = '인증메일을 보내지 못했습니다. 잠시 후 다시 시도해 주세요.';
+      });
+      actions.append(my, settings, resend);
+    } else {
+      actions.append(my, settings);
+    }
+
     const logout = document.createElement('button');
     logout.type = 'button';
     logout.className = 'danger';
@@ -210,7 +257,7 @@
       clearLocalAuthMarkers();
       location.href = 'index.html?intro=1';
     });
-    actions.append(my, settings, logout);
+    actions.append(logout);
     menu.append(emailNode, actions);
 
     trigger.addEventListener('click', (event) => {
@@ -242,6 +289,8 @@
     request,
     createSessionFetch,
     fetchSession,
+    emailVerificationCallbackURL,
+    sendVerificationEmail,
     nativeSessionReady,
     accountStripEligible,
     initAccountStrip,
