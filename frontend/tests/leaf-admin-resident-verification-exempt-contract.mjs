@@ -132,25 +132,29 @@ const wiring = wiringRaw.replace(/^\s*<script[^>]*>\s*/, '');
   assert.ok(!exemptFn.includes('cta:true') && !exemptFn.includes('edit:true'), 'the exempt branch must not surface the CTA or edit entry');
 }
 
-/* ==== 8. exempt identity comes only from Better Auth get-session fields ==== */
+/* ==== 8. account identity comes only from Better Auth get-session fields === */
 {
-  const exemptFn = wiring.slice(wiring.indexOf('function loadExemptIdentity'), wiring.indexOf('resolveResidentExemption().then'));
-  assert.ok(exemptFn.includes('S.fetchSession'), 'the exempt identity must come from the sanctioned session runtime');
-  assert.ok(!exemptFn.includes('/api/'), 'the exempt branch must carry no endpoint literal of its own');
-  assert.ok(exemptFn.includes('S.nativeSessionReady'), 'the session answer must pass the canonical native-shape gate');
-  assert.ok(exemptFn.includes('user.name') && exemptFn.includes('user.createdAt'), 'only name and createdAt may be read');
-  assert.ok(!exemptFn.includes('user.email'), 'the contact address must never be rendered');
-  assert.ok(!exemptFn.includes('user.id'), 'the auth user id must never be rendered');
-  assert.ok(!exemptFn.includes('bridge.') && !exemptFn.includes('getSnapshot'), 'the exempt identity must stay off every resident surface');
+  const identityFn = wiring.slice(wiring.indexOf('function sessionIdentity'), wiring.indexOf('function bindEmailResend'));
+  const exemptFn = wiring.slice(wiring.indexOf('function loadExemptIdentity'), wiring.indexOf('function resolveResidentExemption'));
+  assert.ok(identityFn.includes('S.fetchSession'), 'account identity must come from the sanctioned session runtime');
+  assert.ok(!identityFn.includes('/api/'), 'the My Info account-state branch must carry no endpoint literal of its own');
+  assert.ok(identityFn.includes('S.nativeSessionReady'), 'the session answer must pass the canonical native-shape gate');
+  assert.ok(identityFn.includes('user.name') && identityFn.includes('user.createdAt'), 'name and createdAt may be presented from the signed-in session');
+  assert.ok(identityFn.includes('renderEmailState(user)'), 'the signed-in session may present its own email-verification state');
+  assert.ok(!identityFn.includes('user.id'), 'the auth user id must never be rendered');
+  assert.ok(!exemptFn.includes('bridge.') && !exemptFn.includes('getSnapshot'), 'the exempt branch must stay off every resident surface');
   for (const endpoint of ['/auth/social-start', '/api/auth/get-session', '/api/auth/sign-in/social',
     '/api/auth/sign-in/email', '/api/auth/sign-up/email', '/api/auth/forget-password']) {
     assert.ok(!f19.includes(endpoint), `leaf-b14 Stage 2: f19 must not carry auth endpoint traffic (${endpoint})`);
   }
   assert.match(sessionSrc, /function fetchSession\(fetchImpl, loc\)[\s\S]{0,160}danjionAuthBase\(loc\)[\s\S]{0,120}'\/api\/auth\/get-session'/,
     'fetchSession must bind get-session to the auth base resolver exactly like the account strip');
-  assert.ok(/Object\.freeze\(\{[\s\S]*?fetchSession,/.test(sessionSrc), 'fetchSession must be exported from DanjionSession');
-  const endpoints = new Set((wiring.match(/\/api\/[a-z0-9/_.-]+/gi) || []).filter((e) => exemptFn.includes(e)));
-  assert.deepEqual(Array.from(endpoints), [], 'the exempt branch reaches the network only through shared helpers');
+  assert.match(sessionSrc, /function sendVerificationEmail\(fetchImpl, email, loc\)[\s\S]{0,420}'\/api\/auth\/send-verification-email'/,
+    'verification resend must also stay in the sanctioned auth runtime');
+  assert.ok(/Object\.freeze\(\{[\s\S]*?fetchSession,[\s\S]*?sendVerificationEmail,/.test(sessionSrc),
+    'session and verification helpers must be exported from DanjionSession');
+  const endpoints = new Set((wiring.match(/\/api\/[a-z0-9/_.-]+/gi) || []).filter((e) => identityFn.includes(e) || exemptFn.includes(e)));
+  assert.deepEqual(Array.from(endpoints), [], 'account/exempt branches reach the network only through shared helpers');
 }
 
 /* ========= 9. the ordinary resident flow is unchanged (B488 invariants) ==== */
