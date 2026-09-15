@@ -68,6 +68,20 @@ assert(existsSync(join(DIST_DIR, 'pr378', 'site', 'index.html')), 'pr378 exposes
 assert(existsSync(join(DIST_DIR, 'v2-runtime', 'index.html')), 'v2-runtime mounted bundle copied to dist');
 assert(existsSync(join(DIST_DIR, 'sibling-review', 'index.html')), 'sibling-review entry copied to dist');
 
+// #558 state isolation: the frozen source package remains provenance material,
+// but the served /v3-current/ landing must not select a comparison variant just
+// by being visited. Explicit _v3 is still allowed to opt into comparison state.
+const v3Landing = readFileSync(join(DIST_DIR, 'v3-current', 'index.html'), 'utf8');
+assert(
+  !/sessionStorage\.setItem\(["']danjion:shopVariant["'],["']v3["']\)/.test(v3Landing),
+  'dist/v3-current landing must not inject the v3 shopVariant into sessionStorage'
+);
+const explicitV3 = readFileSync(join(DIST_DIR, 'v3-current', '01_이웃가게_발견_v3.html'), 'utf8');
+assert(
+  /sessionStorage\.setItem\(["']danjion:shopVariant["'],["']v3["']\)/.test(explicitV3),
+  'explicit v3 comparison route may retain its opt-in variant state'
+);
+
 // #407 sibling-handoff parity: these pages must remain byte-identical to the
 // canonical frontend source and must survive the assembled v3-current copy.
 for (const file of ['01_이웃가게_발견_v2.html', '03_주민혜택_쿠폰_v2.html']) {
