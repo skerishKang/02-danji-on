@@ -72,6 +72,14 @@ for (const file of [join(root, 'index.html'), join(root, 'registry.json'), join(
 const headers = await readFile(join(root, '_headers'), 'utf8');
 assert.match(headers, /X-Robots-Tag:\s*noindex,\s*nofollow/);
 assert.match(await readFile(join(root, 'index.html'), 'utf8'), /<meta name="robots" content="noindex, nofollow">/);
+const historyHtml = await readFile(join(root, 'index.html'), 'utf8');
+assert.match(historyHtml, /\.detail-item\{min-width:0;/, 'history cards must allow grid children to shrink');
+assert.match(historyHtml, /\.tech\{min-width:0;max-width:100%;[^}]*overflow-wrap:anywhere;[^}]*word-break:break-word/, 'history metadata block must wrap long values safely');
+assert.match(historyHtml, /\.tech-line\{display:grid;grid-template-columns:58px minmax\(0,1fr\)/, 'history metadata must use bounded label/value columns');
+assert.match(historyHtml, /class="tech-label">SOURCE<\/span><span class="tech-value"/, 'SOURCE must render as a dedicated label/value row');
+assert.match(historyHtml, /class="tech-label">REF<\/span><span class="tech-value"/, 'REF must render as a dedicated label/value row');
+assert.match(historyHtml, /class="tech-label">SHA<\/span><span class="tech-value"/, 'SHA must render as a dedicated label/value row');
+
 
 const manifest = [];
 for (const file of files) {
