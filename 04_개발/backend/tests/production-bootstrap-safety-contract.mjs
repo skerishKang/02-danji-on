@@ -127,8 +127,13 @@ assert.doesNotMatch(
 );
 assert.match(
   workflow,
-  /steps\.upload-provenance\.outcome == 'success' && format\('`danjion-deploy-provenance-\{0\}` \(uploaded\)', github\.sha\)/,
-  '#438: disposition may claim the provenance artifact only when the upload step actually succeeded'
+  /if \[ "\$\{\{ steps\.upload-provenance\.outcome \}\}" = "success" \]; then[\s\S]*?Provenance evidence artifact: \\\`danjion-deploy-provenance-\$\{\{ github\.sha \}\}\\\` \(uploaded\)/,
+  '#554: disposition may claim the provenance artifact only when upload succeeded and Markdown backticks are shell-escaped'
+);
+assert.doesNotMatch(
+  workflow,
+  /format\('\`danjion-deploy-provenance-\{0\}\` \(uploaded\)'/,
+  '#554: GitHub expression output must not inject raw Markdown backticks into a Bash double-quoted echo'
 );
 assert.match(
   workflow,
