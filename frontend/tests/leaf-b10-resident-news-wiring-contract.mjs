@@ -252,6 +252,18 @@ const list = wiringBlock(page10, 'resident-news-list-server-wiring-20260911');
   for (const banned of BANNED_STORAGE) {
     assert.ok(!list.block.includes(banned), `list wiring must never persist via ${banned}`);
   }
+  for (const category of ['모임·행사','생활 나눔','좋은 소식','정보 나눔']) {
+    assert.ok(page10.includes(`data-news-category="${category}"`), `fallback card must declare category ${category}`);
+    assert.ok(page10.includes(`data-news-filter="${category}"`), `filter button must declare category ${category}`);
+  }
+  assert.ok(page10.includes('data-news-filter="전체"') && page10.includes('aria-pressed="true"'),
+    'fallback filters must expose an explicit all state');
+  assert.ok(page10.includes("card.hidden=selected!=='전체'&&card.dataset.newsCategory!==selected"),
+    'fallback filter clicks must actually hide non-matching cards');
+  assert.ok(page10.includes("item.setAttribute('aria-pressed',String(active))"),
+    'fallback filter clicks must synchronize accessible pressed state');
+  assert.ok(list.block.includes('if(filters)filters.hidden=true'),
+    'server-rendered rows must continue hiding filters until the backend exposes an explicit category contract');
   assert.ok(page10.includes('id="danjion-direct-router-v5"'), 'the shared router must remain in place');
 }
 
