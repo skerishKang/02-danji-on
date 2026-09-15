@@ -163,6 +163,16 @@
     return localPart || '사용자';
   }
 
+  function maskEmailAddress(value) {
+    const email = String(value || '').trim();
+    const match = /^([^@\s]+)@([^@\s]+)$/.exec(email);
+    if (!match) return '';
+    const local = match[1];
+    const domain = match[2];
+    const visible = local.slice(0, Math.min(3, Math.max(1, local.length)));
+    return visible + '•••@' + domain;
+  }
+
   const ACCOUNT_SUPER_LABEL = '최고관리자';
   const ACCOUNT_OPERATOR_LABEL = '운영관리자';
   const ACCOUNT_MEMBER_LABEL = '일반회원';
@@ -383,6 +393,7 @@
     linkedProviderIds,
     accountAuthKind,
     visibleAccountIdentity,
+    maskEmailAddress,
     normalizeAccountAuthority,
     fetchAccountAuthority,
     emailVerificationCallbackURL,
