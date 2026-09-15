@@ -45,6 +45,8 @@ assert.ok(api.includes("family: 'resident_family'"), 'family must pre-resolve to
 assert.ok(api.includes("neighbor: 'neighbor'"), 'neighbor must pre-resolve to neighbor');
 assert.doesNotMatch(api, /nearby['"]?\s*:\s*['"]local/,
   'nearby -> local auto-resolve is FORBIDDEN');
+assert.doesNotMatch(api, /local['"]?\s*:\s*['"]local/,
+  'raw local must remain unresolved at resident intake; local is reserved for operator resolution/materialization');
 assert.match(api, /insert into shop_recommendations \([\s\S]*reported_relation_raw[\s\S]*resolved_relation_type[\s\S]*relation_detail[\s\S]*resolved_category_id[\s\S]*report_price[\s\S]*report_hours/s,
   'create insert must persist the full R-B report row');
 
