@@ -33,7 +33,14 @@ assert.equal(S.normalizeAccountAuthority({ ok: true, data: { level: 'admin', wil
 assert.ok(session.includes("joinUrl(apiBase, '/api/v1/admin/authority')"),
   'global account shell authority must come from the canonical server endpoint');
 assert.ok(session.includes("admin.href = '/admin/'") && session.includes('if (authority.canAdmin)'),
-  'admin console link must exist only behind the resolved server authority gate');
+  'dropdown admin console link must exist only behind the resolved server authority gate');
+assert.ok(session.includes("adminQuickEntry.className = 'danjion-admin-quick-entry'") &&
+          session.includes("adminQuickEntry.href = '/admin/'") &&
+          session.includes("if (adminQuickEntry) host.append(adminQuickEntry)"),
+  'valid admin/operator authority must render a persistent header-level admin console entry');
+assert.ok(!session.includes('skerish@naver.com') && !session.includes('padiemipu@gmail.com') &&
+          !session.includes('charliekant@gmail.com') && !session.includes('muphobia2@gmail.com'),
+  'persistent admin entry must not hardcode administrator addresses');
 assert.ok(session.includes("authorityNode.textContent = authority.label ? '권한 · ' + authority.label"),
   'the account menu must visibly separate authority from user identity');
 assert.ok(session.includes("authKind.hasSocial") && session.includes("소셜 로그인 계정"),
