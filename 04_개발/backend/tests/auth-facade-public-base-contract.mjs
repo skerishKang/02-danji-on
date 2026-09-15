@@ -13,15 +13,17 @@ const env = {
   DANJION_AUTH_BASE_URL: WORKER_BASE,
   BETTER_AUTH_SECRET: 'a'.repeat(48),
   GOOGLE_CLIENT_ID: 'fake-google-client.apps.googleusercontent.com',
-  GOOGLE_CLIENT_SECRET: 'fake-google-client-secret'
+  GOOGLE_CLIENT_SECRET: 'fake-google-client-secret',
+  KAKAO_CLIENT_ID: '00000000000000000000000000000000',
+  KAKAO_CLIENT_SECRET: 'fake-kakao-client-secret'
 };
 
-const makeSignInSocialRequest = (headers = {}, callbackURL = CANONICAL_PAGES_AUTH_BASE_URL) => new Request(
+const makeSignInSocialRequest = (headers = {}, callbackURL = CANONICAL_PAGES_AUTH_BASE_URL, provider = 'google') => new Request(
   `${WORKER_BASE}/api/auth/sign-in/social`,
   {
     method: 'POST',
     headers: { 'content-type': 'application/json', ...headers },
-    body: JSON.stringify({ provider: 'google', callbackURL })
+    body: JSON.stringify({ provider, callbackURL })
   }
 );
 
@@ -119,5 +121,29 @@ assert.equal(directAuthUrl.origin, 'https://accounts.google.com', 'direct mode m
 assert.equal(directAuthUrl.searchParams.get('redirect_uri'),
   `${WORKER_BASE}/api/auth/callback/google`,
   'direct Worker mode must keep the existing Worker callback base unchanged');
+
+/* --- kakao: the canonical Pages callback is provider-agnostic --- */
+const kakaoFacadeRequest = makeSignInSocialRequest({
+  [AUTH_FACADE_MARKER_HEADER]: AUTH_FACADE_MARKER_VALUE,
+  origin: CANONICAL_PAGES_AUTH_BASE_URL
+}, CANONICAL_PAGES_AUTH_BASE_URL, 'kakao');
+const kakaoFacadeAuthUrl = await readAuthUrl(
+  createDanjionAuth(env, resolveAuthPublicBaseUrl(env, kakaoFacadeRequest)),
+  kakaoFacadeRequest
+);
+assert.equal(kakaoFacadeAuthUrl.origin, 'https://kauth.kakao.com', 'facade mode must still reach Kakao');
+assert.equal(kakaoFacadeAuthUrl.searchParams.get('redirect_uri'),
+  'https://danjion.pages.dev/api/auth/callback/kakao',
+  'Kakao facade-mode callback base must be exactly the canonical Pages base');
+
+const kakaoDirectRequest = makeSignInSocialRequest({ origin: WORKER_BASE }, `${WORKER_BASE}/`, 'kakao');
+const kakaoDirectAuthUrl = await readAuthUrl(
+  createDanjionAuth(env, resolveAuthPublicBaseUrl(env, kakaoDirectRequest)),
+  kakaoDirectRequest
+);
+assert.equal(kakaoDirectAuthUrl.origin, 'https://kauth.kakao.com', 'direct mode must still reach Kakao');
+assert.equal(kakaoDirectAuthUrl.searchParams.get('redirect_uri'),
+  `${WORKER_BASE}/api/auth/callback/kakao`,
+  'direct Worker mode must keep the Kakao callback base unchanged');
 
 console.log('auth-facade-public-base-contract: PASS');
