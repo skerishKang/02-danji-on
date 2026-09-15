@@ -333,7 +333,7 @@ document.addEventListener('click',function(ev){
    if(el.matches('[data-guest-enter]')){ev.preventDefault();ev.stopImmediatePropagation();sessionStorage.setItem('danjionGuest','1');go(FILES.home);return;}
    if(el.matches('[data-top]')) return;
  }
- if(cls.contains('brand')){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.home);return;}
+ if(cls.contains('brand')){ev.preventDefault();ev.stopImmediatePropagation();go('index.html?intro=1');return;}
  const inMain=!!el.closest('.nav,.desktop-nav,.mobile-bottom,.topbar nav,.main-nav');
  if(inMain && ['홈','이웃가게','우리단지','내정보'].includes(text)){ev.preventDefault();ev.stopImmediatePropagation();main(text);return;}
  if(cls.contains('back')||cls.contains('route-back')||((/^←|^‹|^< /.test(text))&&!cls.contains('modal-back'))){ev.preventDefault();ev.stopImmediatePropagation();backFallback();return;}
