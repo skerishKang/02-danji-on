@@ -5,6 +5,8 @@ const root = new URL('../', import.meta.url);
 const files = {
   home: '04_데일리홈.html',
   shops: '01_이웃가게_발견.html',
+  shopsV2: '01_이웃가게_발견_v2.html',
+  shopsV3: '01_이웃가게_발견_v3.html',
   complex: '05_우리단지_첫화면.html',
   my: '19_내정보_메인.html'
 };
@@ -16,7 +18,7 @@ const css = await readFile(new URL('../assets/danjion-service-header.css', impor
 const session = await readFile(new URL('../assets/danjion-session.js', import.meta.url), 'utf8');
 
 const labels=['홈','인트로','이웃가게','우리단지','내정보'];
-const expectedActive={home:'홈',shops:'이웃가게',complex:'우리단지',my:'내정보'};
+const expectedActive={home:'홈',shops:'이웃가게',shopsV2:'이웃가게',shopsV3:'이웃가게',complex:'우리단지',my:'내정보'};
 
 for (const [key,html] of Object.entries(pages)) {
   assert.ok(html.includes('class="site-header topbar danjion-service-header"'),
@@ -68,5 +70,9 @@ assert.ok(session.includes("소셜 로그인 계정"),
   'social login-method detail must remain available in the account dropdown');
 assert.ok(session.includes("label.append(labelMain)"),
   'persistent account trigger must render the display name only');
+assert.ok(pages.shopsV2.includes('assets/danjion-session.js') && pages.shopsV3.includes('assets/danjion-session.js'),
+  'persisted shop variants must load the shared account/session runtime');
+assert.ok(pages.shopsV2.includes('assets/danjion-service-header.css') && pages.shopsV3.includes('assets/danjion-service-header.css'),
+  'persisted shop variants must load the canonical service-header stylesheet');
 
 console.log('PASS #520 canonical service header + simplified persistent account identity');
