@@ -8,7 +8,7 @@ import vm from 'node:vm';
 // (Owner SUPER, Owner OPERATIONAL, Sibling SUPER, Sibling OPERATIONAL) are
 // SEPARATE canonical users with separate grants — nothing here may assume or
 // converge one principal into another. A wildcard SUPER answer renders the
-// 최고관리자 view, a valid OPERATIONAL answer the 일반관리자 view, and every
+// 최고관리자 view, a valid OPERATIONAL answer the 운영관리자 view, and every
 // other answer — including malformed or empty HTTP 200 payloads — is rejected
 // (least privilege is NOT an operator fallback at the entry boundary). No role
 // may ever be inferred from email, login provider, browser storage, or query
@@ -19,7 +19,7 @@ const read = (rel) => readFile(new URL(rel, import.meta.url), 'utf8');
 
 const CANONICAL_SLUG = 'banglim-myeongji-roadhill';
 const SUPER_LABEL = '최고관리자';
-const OPERATOR_LABEL = '일반관리자';
+const OPERATOR_LABEL = '운영관리자';
 
 const sessionSrc = await read('../assets/danjion-session.js');
 const authoritySrc = await read('../assets/danjion-admin-authority.js');
@@ -50,7 +50,7 @@ const loadAdminContext = (location) => {
   assert.equal(A.normalizeAuthority({ level: 'admin', label: SUPER_LABEL, wildcard: true, scopes: ['*'] }).state, 'admin',
     'a wildcard admin grant resolves the 최고관리자 view');
   assert.equal(A.normalizeAuthority({ level: 'operator', label: OPERATOR_LABEL, wildcard: false, scopes: ['business_application.review'] }).state, 'operator',
-    'a valid bounded operator grant resolves the 일반관리자 view');
+    'a valid bounded operator grant resolves the 운영관리자 view');
   assert.equal(A.normalizeAuthority({ level: 'admin', label: SUPER_LABEL, wildcard: false, scopes: ['business.review'] }).state, 'invalid',
     'level admin without the wildcard flag must be REJECTED, not demoted to operator');
   assert.equal(A.normalizeAuthority({ level: 'operator', label: OPERATOR_LABEL, wildcard: true, scopes: [] }).state, 'invalid',
@@ -92,7 +92,7 @@ const loadAdminContext = (location) => {
   assert.equal(A.classifyAuthority({ ok: false, status: 0 }).state, 'error', 'network errors must fail closed');
   assert.equal(A.classifyAuthority(null).state, 'error', 'a missing outcome must fail closed');
   assert.equal(A.classifyAuthority({ ok: true, data: { level: 'operator', wildcard: false, scopes: ['business_application.review'] } }).state, 'operator',
-    'a valid operator 200 must open the 일반관리자 surface');
+    'a valid operator 200 must open the 운영관리자 surface');
   assert.equal(A.classifyAuthority({ ok: true, data: null }).state, 'invalid', 'a 200 with null data must classify as invalid');
   assert.equal(A.classifyAuthority({ ok: true, data: {} }).state, 'invalid', 'a 200 with an empty body must classify as invalid');
   assert.equal(A.hasAdminSurface({ state: 'invalid' }), false, 'a malformed 200 must never open the admin surface');
