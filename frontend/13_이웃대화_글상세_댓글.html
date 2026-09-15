@@ -87,7 +87,7 @@ main{width:min(920px,calc(100% - 40px));margin:auto;padding-bottom:70px}.route{h
 <main><div class="route"><a href="12_이웃대화_첫화면.html" id="backLink">← 이웃대화</a><span>/ 글 상세</span></div>
 <article class="article"><span class="type" id="typeLabel"></span><div class="author"><span class="avatar" id="avatar"></span><div><b id="author"></b><small id="levelTime"></small></div></div><h1 id="title"></h1><div class="body" id="body"></div><div class="actions"><button id="likeBtn" type="button">♡ 공감 <span id="likeCount"></span></button><button id="focusComment" type="button">댓글 <span id="commentCount"></span></button><span class="interaction-status" id="interactionStatus" role="status" aria-live="polite"></span></div></article>
 <section class="comments"><h2>댓글 <span id="commentTitleCount"></span></h2><ol class="comment-list" id="commentList"></ol>
-<form class="composer" id="commentForm"><b>댓글 쓰기</b><textarea id="commentText" maxlength="500" placeholder="따뜻한 인사나 도움이 되는 답변을 남겨보세요."></textarea><div class="composer-foot"><small>서로 존중하는 말로 이야기해 주세요.</small><button type="submit">댓글 등록</button></div></form></section>
+<form class="composer" id="commentForm"><b>댓글 쓰기</b><textarea id="commentText" maxlength="300" placeholder="따뜻한 인사나 도움이 되는 답변을 남겨보세요."></textarea><div class="composer-foot"><small>서로 존중하는 말로 이야기해 주세요.</small><button type="submit">댓글 등록</button></div></form></section>
 </main>
 <nav aria-label="모바일 주요 메뉴" class="mobile-bottom"><button aria-label="홈" data-route="04_데일리홈.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><path d="m3 10 9-7 9 7v10h-6v-6H9v6H3z"></path></svg><span>홈</span></button><button aria-label="이웃가게" data-route="01_이웃가게_발견.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><path d="M4 7h16l-1 13H5L4 7Z"></path><path d="M8 7V5a4 4 0 0 1 8 0v2"></path></svg><span>이웃가게</span></button><button aria-label="우리단지" class="active" data-route="05_우리단지_첫화면.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><path d="M4 21V9l8-6 8 6v12"></path><path d="M8 13h8M8 17h8"></path></svg><span>우리단지</span></button><button aria-label="내정보" data-route="19_내정보_메인.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><circle cx="12" cy="8" r="4"></circle><path d="M4 21a8 8 0 0 1 16 0"></path></svg><span>내정보</span></button></nav>
 <script>
@@ -131,6 +131,20 @@ renderComments();
  const foot=document.querySelector('.composer-foot small'),interactionStatus=document.getElementById('interactionStatus');
  const HINT='서로 존중하는 말로 이야기해 주세요.';
  let post=null,liked=false,count=0,busy=false,flashTimer=null,loadFailure='';
+ function enterServerLoadingState(){
+  document.getElementById('typeLabel').textContent='';
+  document.getElementById('avatar').textContent='';
+  document.getElementById('author').textContent='';
+  document.getElementById('levelTime').textContent='';
+  document.getElementById('title').textContent='게시물을 불러오는 중입니다.';
+  document.getElementById('body').textContent='';
+  likeCount.textContent='';
+  likeBtn.classList.remove('liked');
+  commentCount.textContent='0';
+  commentTitleCount.textContent='0';
+  commentList.innerHTML='<li class="comment"><p>댓글을 불러오는 중입니다.</p></li>';
+ }
+ enterServerLoadingState();
  function esc(value){return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
  function timeAgo(iso){
   const t=Date.parse(iso||''); if(!Number.isFinite(t))return '';
@@ -167,10 +181,19 @@ renderComments();
   return '<li class="comment" data-server-comment="'+id+'"><div class="comment-head"><b>'+esc(c.author.nickname)+'</b><time>'+esc(timeAgo(c.publishedAt||c.createdAt))+'</time></div><p>'+esc(c.body)+'</p><div class="comment-tools">'+pending+'<button type="button" data-server-reply="'+id+'">답글</button></div><div class="replies" data-server-replies="'+id+'"></div><form class="server-reply-form" data-server-reply-form="'+id+'"><input maxlength="300" placeholder="'+esc(c.author.nickname)+'님에게 답글"><button type="submit">등록</button></form></li>';
  }
  async function loadReplies(commentId){
-  const result=await bridge.listReplies(postId,commentId);
-  if(result.mode!=='server')return;
   const host=commentList.querySelector('[data-server-replies="'+commentId+'"]');
   if(!host)return;
+  const result=await bridge.listReplies(postId,commentId);
+  if(result.mode!=='server'){
+   host.replaceChildren();
+   const row=document.createElement('div');
+   row.className='reply';
+   const message=document.createElement('p');
+   message.textContent=failMessage(result);
+   row.append(message);
+   host.append(row);
+   return;
+  }
   host.innerHTML=result.replies.map(r=>'<div class="reply"><b>↳ '+esc(r.author.nickname)+'</b><p>'+esc(r.body)+'</p></div>').join('');
  }
  async function loadPost(){
@@ -199,8 +222,7 @@ renderComments();
   const result=await bridge.listComments(postId);
   if(result.mode!=='server'){
    const msg=failMessage(result);
-   commentCount.textContent=post?post.commentCount:0;
-   commentTitleCount.textContent=post?post.commentCount:0;
+   gatedCommentState(msg);
    flash(msg);
    return;
   }
