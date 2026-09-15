@@ -4,6 +4,19 @@
 <head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1" name="viewport"/>
+<script id="canonical-shop-popup-redirect-535">
+(()=>{
+  if(String(location.hostname||'').toLowerCase()!=='danjion.pages.dev')return;
+  const source=new URLSearchParams(location.search);
+  const target=new URLSearchParams();
+  const shop=source.get('shop');
+  const review=source.get('review');
+  if(shop)target.set('shop',shop);
+  if(review)target.set('review',review);
+  const query=target.toString();
+  location.replace('01_이웃가게_발견.html'+(query?'?'+query:''));
+})();
+</script>
 <title>단지온 · 이웃가게 상세 · STEP 02</title>
 <style>
     :root{
