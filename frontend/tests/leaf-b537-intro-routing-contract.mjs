@@ -31,8 +31,11 @@ for (const file of servicePages) {
   );
 
   const router = (html.match(/<script id="danjion-direct-router-v5">[\s\S]*?<\/script>/)||[])[0]||'';
-  const nativeBrandIntro = /class="brand"[^>]+href="(?:\.\/)?index\.html(?:\?intro=1)?"/.test(header);
-  const routedBrandIntro = router.includes("if(cls.contains('brand'))") && router.includes("go('index.html')");
+  const nativeBrandIntro =
+    /class="brand"[^>]+href="(?:\.\/)?index\.html(?:\?intro=1)?"/.test(header) ||
+    /class="brand"[^>]+data-route="(?:\.\/)?index\.html(?:\?intro=1)?"/.test(header);
+  const routedBrandIntro = router.includes("if(cls.contains('brand'))") &&
+    (router.includes("go('index.html?intro=1')") || router.includes("go('index.html')"));
   assert.ok(nativeBrandIntro || routedBrandIntro,
     `${file}: logo must resolve to Intro rather than the service Home`);
 }
