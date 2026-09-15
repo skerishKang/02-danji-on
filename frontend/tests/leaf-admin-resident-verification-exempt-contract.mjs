@@ -102,12 +102,12 @@ const wiring = wiringRaw.replace(/^\s*<script[^>]*>\s*/, '');
 
 /* ==== 6. the wiring resolves authority FIRST and gates every resident call = */
 {
-  assert.ok(/resolveResidentExemption\(\)\.then\(function\(exempt\)\{/.test(wiring),
-    'the wiring must resolve the exemption before loading any resident data');
-  assert.ok(/if\(exempt\)\{loadExemptIdentity\(\);return;\}/.test(wiring),
+  assert.ok(/Promise\.all\(\[sessionIdentity\(\),resolveResidentExemption\(\)\]\)\.then\(function\(values\)\{/.test(wiring),
+    'the wiring must resolve session identity and exemption before loading any resident data');
+  assert.ok(/if\(exempt\)\{loadExemptIdentity\(user\);return;\}/.test(wiring),
     'the exempt branch must return before any resident fetch is started');
-  const gateAt = wiring.indexOf('resolveResidentExemption().then');
-  assert.ok(gateAt > -1 && gateAt > wiring.indexOf('function loadResidentData'), 'the gate is the wiring entry point');
+  const gateAt = wiring.indexOf('Promise.all([sessionIdentity(),resolveResidentExemption()])');
+  assert.ok(gateAt > -1 && gateAt > wiring.indexOf('function loadResidentData'), 'the combined session/authority gate is the wiring entry point');
   const profileAt = wiring.indexOf('bridge.profile()');
   const summaryAt = wiring.indexOf('bridge.summary()');
   const snapshotAt = wiring.indexOf('.getSnapshot()');
@@ -126,7 +126,7 @@ const wiring = wiringRaw.replace(/^\s*<script[^>]*>\s*/, '');
   assert.ok(wiring.includes(`'${EXEMPT_COPY}'`), 'the exempt copy must ship exactly');
   assert.ok(new RegExp(`renderResidentState\\('${EXEMPT_COPY}',\\{kind:'exempt'\\}\\)`).test(wiring),
     'the exempt state must render with kind exempt and no cta/edit flags');
-  const exemptFn = wiring.slice(wiring.indexOf('function loadExemptIdentity'), wiring.indexOf('resolveResidentExemption().then'));
+  const exemptFn = wiring.slice(wiring.indexOf('function loadExemptIdentity'), wiring.indexOf('function resolveResidentExemption'));
   assert.ok(!exemptFn.includes('주민인증 완료'), 'the exempt branch must never render the verified copy');
   assert.ok(!exemptFn.includes('주민인증이 필요합니다'), 'the exempt branch must never toast the required copy');
   assert.ok(!exemptFn.includes('cta:true') && !exemptFn.includes('edit:true'), 'the exempt branch must not surface the CTA or edit entry');
