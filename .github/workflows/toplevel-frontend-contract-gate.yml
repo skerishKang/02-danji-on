@@ -34,6 +34,5 @@ jobs:
         with:
           node-version: '24'
           package-manager-cache: false
-          package-manager-cache: false
       - name: Run top-level frontend contract gate (no network, no production mutation)
         run: node frontend/tests/toplevel-frontend-contract-gate.mjs
