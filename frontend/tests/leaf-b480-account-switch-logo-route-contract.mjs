@@ -20,8 +20,8 @@ assert.ok(!consistency.includes('/api/auth'),
 
 assert.ok(session.includes("'/api/auth/get-session'"),
   'session runtime must resolve the same-origin Better Auth session');
-assert.ok(session.includes("emailNode.textContent = email"),
-  'integrated account menu must visibly identify the current login email');
+assert.ok(session.includes("emailNode.textContent = authKind.hasSocial ? '연결 이메일 · ' + email : email"),
+  'integrated account menu must visibly identify the current account email and label social-provider contact email');
 assert.ok(session.includes("className = 'danjion-account-menu'"),
   'account identity must live in the integrated header menu rather than a floating strip');
 assert.ok(session.includes("'/api/auth/sign-out'"),

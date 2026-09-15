@@ -104,7 +104,7 @@ const wiring = wiringRaw.replace(/^\s*<script[^>]*>\s*/, '');
 {
   assert.ok(/Promise\.all\(\[sessionIdentity\(\),resolveResidentExemption\(\)\]\)\.then\(function\(values\)\{/.test(wiring),
     'the wiring must resolve session identity and exemption before loading any resident data');
-  assert.ok(/if\(exempt\)\{loadExemptIdentity\(user\);return;\}/.test(wiring),
+  assert.ok(/if\(exempt\)\{loadExemptIdentity\(identity&&identity\.user\);return;\}/.test(wiring),
     'the exempt branch must return before any resident fetch is started');
   const gateAt = wiring.indexOf('Promise.all([sessionIdentity(),resolveResidentExemption()])');
   assert.ok(gateAt > -1 && gateAt > wiring.indexOf('function loadResidentData'), 'the combined session/authority gate is the wiring entry point');
@@ -140,7 +140,7 @@ const wiring = wiringRaw.replace(/^\s*<script[^>]*>\s*/, '');
   assert.ok(!identityFn.includes('/api/'), 'the My Info account-state branch must carry no endpoint literal of its own');
   assert.ok(identityFn.includes('S.nativeSessionReady'), 'the session answer must pass the canonical native-shape gate');
   assert.ok(identityFn.includes('user.name') && identityFn.includes('user.createdAt'), 'name and createdAt may be presented from the signed-in session');
-  assert.ok(identityFn.includes('renderEmailState(user)'), 'the signed-in session may present its own email-verification state');
+  assert.ok(identityFn.includes('renderEmailState(user,authKind)'), 'the signed-in session may present provider-aware account email state');
   assert.ok(!identityFn.includes('user.id'), 'the auth user id must never be rendered');
   assert.ok(!exemptFn.includes('bridge.') && !exemptFn.includes('getSnapshot'), 'the exempt branch must stay off every resident surface');
   for (const endpoint of ['/auth/social-start', '/api/auth/get-session', '/api/auth/sign-in/social',

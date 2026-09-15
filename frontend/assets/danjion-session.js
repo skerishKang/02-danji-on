@@ -117,6 +117,37 @@
     return request(fetchImpl, joinUrl(authBase, '/api/auth/get-session'));
   }
 
+  // Better Auth officially exposes listAccounts for the current session. Keep
+  // provider detection in this shared runtime so product pages never infer a
+  // login method from an email domain or duplicate auth endpoint literals.
+  function fetchLinkedAccounts(fetchImpl, loc) {
+    const authBase = danjionAuthBase(loc);
+    return request(fetchImpl, joinUrl(authBase, '/api/auth/list-accounts'));
+  }
+
+  function linkedProviderIds(result) {
+    if (!result || !result.ok) return [];
+    const rows = Array.isArray(result.raw)
+      ? result.raw
+      : Array.isArray(result.data)
+        ? result.data
+        : [];
+    return Array.from(new Set(rows
+      .map((row) => String(row && row.providerId || '').trim().toLowerCase())
+      .filter(Boolean))).sort();
+  }
+
+  function accountAuthKind(accountResult) {
+    const providers = linkedProviderIds(accountResult);
+    const socials = providers.filter((provider) => ['naver','google','kakao'].includes(provider));
+    const credentialOnly = providers.length === 1 && providers[0] === 'credential';
+    const socialLabel = socials.includes('naver') ? '네이버'
+      : socials.includes('google') ? 'Google'
+      : socials.includes('kakao') ? '카카오'
+      : '';
+    return Object.freeze({ providers, hasSocial: socials.length > 0, credentialOnly, socialLabel });
+  }
+
   // Canonical credential-account verification helper. This stays inside the
   // sanctioned auth runtime so non-entry pages never duplicate Better Auth
   // endpoint literals or bypass the same-origin Pages facade.
@@ -154,12 +185,16 @@
     if (document.querySelector('.danjion-account-menu')) return null;
 
     const authBase = danjionAuthBase(loc);
-    const session = await request(fetch, joinUrl(authBase, '/api/auth/get-session'));
+    const [session, accounts] = await Promise.all([
+      request(fetch, joinUrl(authBase, '/api/auth/get-session')),
+      fetchLinkedAccounts(fetch, loc)
+    ]);
     if (!nativeSessionReady(session)) return null;
 
     const email = String(session.raw.user?.email || '').trim();
     const name = String(session.raw.user?.name || '').trim();
     const emailVerified = session.raw.user?.emailVerified === true;
+    const authKind = accountAuthKind(accounts);
     if (!email) return null;
 
     const host = document.querySelector('.identity') || document.querySelector('[data-account-host]');
@@ -189,8 +224,12 @@
     const labelMain = document.createElement('b');
     labelMain.textContent = name || email.split('@')[0];
     const labelSub = document.createElement('span');
-    labelSub.textContent = emailVerified ? '계정' : '이메일 인증 필요';
-    if (!emailVerified) labelSub.classList.add('is-warning');
+    labelSub.textContent = authKind.hasSocial
+      ? (authKind.socialLabel ? authKind.socialLabel + ' 로그인' : '소셜 로그인')
+      : authKind.credentialOnly
+        ? (emailVerified ? '이메일 계정' : '이메일 인증 필요')
+        : '계정';
+    if (authKind.credentialOnly && !emailVerified) labelSub.classList.add('is-warning');
     label.append(labelMain, labelSub);
 
     const caret = document.createElement('span');
@@ -205,7 +244,7 @@
 
     const emailNode = document.createElement('div');
     emailNode.className = 'danjion-account-email';
-    emailNode.textContent = email;
+    emailNode.textContent = authKind.hasSocial ? '연결 이메일 · ' + email : email;
     emailNode.title = email;
 
     const actions = document.createElement('div');
@@ -216,7 +255,7 @@
     const settings = document.createElement('a');
     settings.href = '24_설정.html';
     settings.textContent = '설정';
-    if (!emailVerified) {
+    if (authKind.credentialOnly && !emailVerified) {
       const resend = document.createElement('button');
       resend.type = 'button';
       resend.textContent = '인증메일 다시 받기';
@@ -289,6 +328,9 @@
     request,
     createSessionFetch,
     fetchSession,
+    fetchLinkedAccounts,
+    linkedProviderIds,
+    accountAuthKind,
     emailVerificationCallbackURL,
     sendVerificationEmail,
     nativeSessionReady,

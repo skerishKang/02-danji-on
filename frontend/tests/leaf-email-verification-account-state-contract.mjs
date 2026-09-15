@@ -9,68 +9,52 @@ const [sessionSource, myInfo, index] = await Promise.all([
   read('../index.html')
 ]);
 
+assert.match(sessionSource, /function fetchLinkedAccounts\(fetchImpl, loc\)/);
+assert.match(sessionSource, /'\/api\/auth\/list-accounts'/);
+assert.match(sessionSource, /function accountAuthKind\(accountResult\)/);
+assert.match(sessionSource, /providerId/);
+assert.match(sessionSource, /credentialOnly/);
+assert.match(sessionSource, /socialLabel/);
 assert.match(sessionSource, /function sendVerificationEmail\(fetchImpl, email, loc\)/);
 assert.match(sessionSource, /'\/api\/auth\/send-verification-email'/);
-assert.match(sessionSource, /emailVerificationCallbackURL/);
-assert.match(sessionSource, /session\.raw\.user\?\.emailVerified === true/);
-assert.match(sessionSource, /이메일 인증 필요/);
-assert.match(sessionSource, /인증메일 다시 받기/);
+assert.match(sessionSource, /authKind\.credentialOnly && !emailVerified/);
+assert.match(sessionSource, /연결 이메일/);
+assert.match(sessionSource, /네이버/);
 
 assert.match(myInfo, /id="mi-email-row"/);
 assert.match(myInfo, /id="mi-email-state"/);
 assert.match(myInfo, /id="mi-email-resend"/);
-assert.match(myInfo, /user&&user\.emailVerified===false/);
-assert.match(myInfo, /이메일 인증 후 주민 상태 확인/);
-assert.match(myInfo, /메일 제목 “\[단지온\] 이메일 주소를 확인해 주세요”/);
-
-const unverifiedBlock = myInfo.match(/Promise\.all\(\[sessionIdentity\(\),resolveResidentExemption\(\)\]\)[\s\S]*?loadResidentState\(\);\n  \}\);/);
-assert.ok(unverifiedBlock, 'startup gate must be present');
-const text = unverifiedBlock[0];
-const guardIndex = text.indexOf('user&&user.emailVerified===false');
-const residentDataIndex = text.indexOf('loadResidentData()');
-assert.ok(guardIndex >= 0 && residentDataIndex > guardIndex, 'email-unverified gate must precede resident traffic');
+assert.match(myInfo, /function renderEmailState\(user,authKind\)/);
+assert.match(myInfo, /authKind\.socialLabel\|\|'소셜'/);
+assert.match(myInfo, /연결 이메일/);
+assert.match(myInfo, /EMAIL_VERIFICATION_NOT_APPLICABLE/);
+assert.doesNotMatch(myInfo, /if\(user&&user\.emailVerified===false\)/,
+  'emailVerified presentation must never suppress resident/admin server reads');
+assert.match(myInfo, /\.profile-hero\{min-height:360px!important/,
+  'desktop profile hero must leave enough room for account state plus stats');
 
 assert.match(index, /\[단지온\] 이메일 주소를 확인해 주세요/);
 assert.match(index, /이메일 확인하기/);
 
-const listeners = {};
-const fakeMenuHost = {
-  classList: { add(){} },
-  textContent: '',
-  contains(){ return false; },
-  append(){}
-};
-function el(tag){
-  return {
-    tag,
-    className:'',
-    textContent:'',
-    title:'',
-    hidden:false,
-    disabled:false,
-    classList:{ add(){} },
-    style:{},
-    setAttribute(){},
-    addEventListener(type,fn){ listeners[tag+':'+type]=fn; },
-    append(){}
-  };
-}
-const ctx = {
-  URL, URLSearchParams, Headers, Request, Response,
-  location:{hostname:'danjion.pages.dev',origin:'https://danjion.pages.dev',pathname:'/19_내정보_메인.html',search:'',href:'https://danjion.pages.dev/19_내정보_메인.html'},
-  sessionStorage:{removeItem(){}},
-  document:{
-    readyState:'loading',
-    addEventListener(){},
-    querySelector(sel){ return sel==='.identity'?fakeMenuHost:null; },
-    getElementById(){ return null; },
-    createElement:el,
-    head:{appendChild(){}}
-  }
-};
+const ctx = { URL, URLSearchParams };
 ctx.globalThis=ctx;ctx.window=ctx;
 vm.runInNewContext(sessionSource,ctx);
-assert.equal(typeof ctx.DanjionSession.sendVerificationEmail,'function');
-assert.equal(decodeURI(ctx.DanjionSession.emailVerificationCallbackURL(ctx.location)),'https://danjion.pages.dev/19_내정보_메인.html?emailVerified=1');
+
+const S=ctx.DanjionSession;
+assert.equal(typeof S.fetchLinkedAccounts,'function');
+assert.equal(typeof S.accountAuthKind,'function');
+assert.equal(S.accountAuthKind({ok:true,raw:[{providerId:'credential'}]}).credentialOnly,true);
+assert.equal(S.accountAuthKind({ok:true,raw:[{providerId:'credential'}]}).hasSocial,false);
+const naver=S.accountAuthKind({ok:true,raw:[{providerId:'naver'}]});
+assert.equal(naver.hasSocial,true);
+assert.equal(naver.credentialOnly,false);
+assert.equal(naver.socialLabel,'네이버');
+const google=S.accountAuthKind({ok:true,raw:[{providerId:'google'}]});
+assert.equal(google.hasSocial,true);
+assert.equal(google.socialLabel,'Google');
+const mixed=S.accountAuthKind({ok:true,raw:[{providerId:'credential'},{providerId:'naver'}]});
+assert.equal(mixed.hasSocial,true);
+assert.equal(mixed.credentialOnly,false);
+assert.deepEqual(Array.from(mixed.providers),['credential','naver']);
 
 console.log('leaf-email-verification-account-state-contract: PASS');
