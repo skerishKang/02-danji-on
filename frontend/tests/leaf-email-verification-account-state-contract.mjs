@@ -18,7 +18,8 @@ assert.match(sessionSource, /socialLabel/);
 assert.match(sessionSource, /function sendVerificationEmail\(fetchImpl, email, loc\)/);
 assert.match(sessionSource, /'\/api\/auth\/send-verification-email'/);
 assert.match(sessionSource, /authKind\.credentialOnly && !emailVerified/);
-assert.match(sessionSource, /연결 이메일/);
+assert.doesNotMatch(sessionSource, /연결 이메일/,
+  'global account UI must not present provider-returned contact email as account identity');
 assert.match(sessionSource, /네이버/);
 
 assert.match(myInfo, /id="mi-email-row"/);

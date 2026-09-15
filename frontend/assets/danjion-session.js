@@ -215,14 +215,19 @@
     trigger.setAttribute('aria-haspopup', 'menu');
     trigger.setAttribute('aria-expanded', 'false');
 
+    const socialFallback = authKind.hasSocial
+      ? (authKind.socialLabel ? authKind.socialLabel + ' 사용자' : '소셜 사용자')
+      : '';
+    const visibleIdentity = name || socialFallback || email.split('@')[0];
+
     const avatar = document.createElement('span');
     avatar.className = 'danjion-account-avatar';
-    avatar.textContent = (name || email).slice(0,1).toUpperCase();
+    avatar.textContent = visibleIdentity.slice(0,1).toUpperCase();
 
     const label = document.createElement('span');
     label.className = 'danjion-account-label';
     const labelMain = document.createElement('b');
-    labelMain.textContent = name || email.split('@')[0];
+    labelMain.textContent = visibleIdentity;
     const labelSub = document.createElement('span');
     labelSub.textContent = authKind.hasSocial
       ? (authKind.socialLabel ? authKind.socialLabel + ' 로그인' : '소셜 로그인')
@@ -244,8 +249,10 @@
 
     const emailNode = document.createElement('div');
     emailNode.className = 'danjion-account-email';
-    emailNode.textContent = authKind.hasSocial ? '연결 이메일 · ' + email : email;
-    emailNode.title = email;
+    emailNode.textContent = authKind.hasSocial
+      ? (authKind.socialLabel ? authKind.socialLabel + ' 로그인 계정' : '소셜 로그인 계정')
+      : email;
+    emailNode.title = authKind.hasSocial ? '' : email;
 
     const actions = document.createElement('div');
     actions.className = 'danjion-account-actions';
