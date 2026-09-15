@@ -29,7 +29,7 @@ assert.match(html, /async function serverSessionCheck\(\)\{if\(!serverMode\)retu
 }
 assert.match(session, /function nativeSessionReady\(result\)\s*\{\s*return !!\(result && result\.ok && result\.raw && typeof result\.raw === 'object' && result\.raw\.session && result\.raw\.user\);\s*\}/,
   'nativeSessionReady must require ok + native raw.session + raw.user');
-assert.match(session, /createSessionFetch,\s*nativeSessionReady,/, 'the frozen runtime must export nativeSessionReady');
+assert.match(session, /createSessionFetch,[\s\S]*?nativeSessionReady,/, 'the frozen runtime must export nativeSessionReady');
 
 /* --- executable unit contract: load the real runtime and probe native responses --- */
 {
@@ -77,8 +77,8 @@ assert.match(html, /<span>이메일로 \$\{action\}<\/span>/,
   '#444: email login/signup copy must remain mode-specific (only social is unified)');
 
 /* --- #430 account-first: completion never fabricates an authenticated member session --- */
-assert.match(html, /else if\(button\.dataset\.finish!==undefined\)\{authModal\.close\(\);showToast\('가입 이메일의 인증 메일을 확인해 주세요\.'\)\}/,
-  'finish must close the auth modal through the history-aware controller and require mailbox verification instead of fabricating memberMode');
+assert.match(html, /else if\(button\.dataset\.finish!==undefined\)\{authModal\.close\(\);if\(serverMode\)\{const real=await serverSessionCheck\(\);if\(real\)\{memberMode=true;/,
+  'finish must close the modal sentinel and unlock only after a real post-signup session is confirmed');
 assert.doesNotMatch(html, /button\.dataset\.finish!==undefined\)\{memberMode=true/,
   'signup completion must not unlock member mode before a real authenticated session exists');
 assert.doesNotMatch(html, /danjionResidentVerified/,
