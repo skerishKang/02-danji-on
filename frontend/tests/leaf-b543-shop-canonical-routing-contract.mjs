@@ -37,6 +37,12 @@ assert.ok(consistency.includes("if(!isExplicitShopComparison)return null"),
 const home = await read('04_데일리홈.html');
 assert.ok(home.includes("go(FILES.shops+'?shop='+encodeURIComponent(k)+'&from=home')"),
   'Home shop CTA must open the canonical popup deep link');
+assert.ok(home.includes("q('#detailBtn').dataset.route='01_이웃가게_발견.html?shop='+encodeURIComponent(next)+'&from=home'"),
+  'Home live business scene detail CTA must use the canonical shop popup deep link');
+assert.equal(/\bisB\b/.test(home), false,
+  'Home canonical runtime must not depend on the removed comparison-variant isB flag');
+assert.equal(/\bshopsBFile\b/.test(home), false,
+  'Home canonical runtime must not depend on the removed comparison-variant shopsBFile path');
 
 const inquiry = await read('25_1대1문의.html');
 assert.ok(inquiry.includes("location.href=FILES.shops+'?shop='+encodeURIComponent(shop)"),
