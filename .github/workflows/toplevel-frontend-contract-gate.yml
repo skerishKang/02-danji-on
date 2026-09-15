@@ -29,9 +29,10 @@ jobs:
   toplevel-frontend-check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: '24'
+          package-manager-cache: false
       - name: Run top-level frontend contract gate (no network, no production mutation)
         run: node frontend/tests/toplevel-frontend-contract-gate.mjs
