@@ -259,6 +259,8 @@ const loadAdminContext = (location) => {
   assert.ok(sessionTagAt > -1 && sessionTagAt < authorityTagAt,
     'the entry must load the authority resolver after the session runtime');
   assert.ok(index.includes('data-admin-entry'), 'the header must carry the admin entry point');
+  assert.ok(index.includes('.public-actions .admin-entry[hidden]{display:none!important}'),
+    'the Intro CSS must never override the hidden admin entry for signed-out or ungranted users');
   assert.ok(index.includes('adminEntry.hidden=!sessionResolved||!memberMode||!adminAuthorized'),
     'the entry must stay hidden until the server grant resolves for a signed-in member');
   assert.ok(index.includes('adminAuthorized=window.DanjionAdminAuthority.hasAdminSurface(grant)'),
