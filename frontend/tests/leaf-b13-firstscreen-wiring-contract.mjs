@@ -208,7 +208,8 @@ const okFetch = (body, calls) => async (url, opts) => {
   const dom = makeDom();
   await runWiring({ apiBase: 'https://api.test', fetchImpl: okFetch({ data: { name: '테스트단지' } }, []), dom });
   await runWiring({ apiBase: 'https://api.test', fetchImpl: okFetch({ data: { name: '테스트단지' } }, []), dom });
-  assert.equal(dom.identity.textContent, '테스트단지', 're-run must not duplicate the rendered name');
+  assert.equal(dom.identity.textContent, DEMO_NAME, 're-run must never overwrite the authenticated desktop account host placeholder');
+  assert.equal(dom.mobileHead.textContent, '테스트단지', 're-run must keep the server complex name stable in the mobile label');
   assert.equal(dom.eyebrow.textContent, '테스트단지의 네 가지 소식 공간', 're-run must not touch an already-wired eyebrow');
 }
 
