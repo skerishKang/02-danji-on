@@ -148,6 +148,21 @@
     return Object.freeze({ providers, hasSocial: socials.length > 0, credentialOnly, socialLabel });
   }
 
+  const RESERVED_AUTHORITY_IDENTITY_LABELS = new Set(['최고관리자','일반관리자','운영관리자']);
+
+  function visibleAccountIdentity(user, authKind) {
+    const record = user && typeof user === 'object' ? user : {};
+    const rawName = String(record.name || '').trim();
+    const email = String(record.email || '').trim();
+    const safeName = rawName && !RESERVED_AUTHORITY_IDENTITY_LABELS.has(rawName) ? rawName : '';
+    if (safeName) return safeName;
+    if (authKind && authKind.hasSocial) {
+      return authKind.socialLabel ? authKind.socialLabel + ' 사용자' : '소셜 사용자';
+    }
+    const localPart = email.includes('@') ? email.split('@')[0].trim() : '';
+    return localPart || '사용자';
+  }
+
   // Canonical credential-account verification helper. This stays inside the
   // sanctioned auth runtime so non-entry pages never duplicate Better Auth
   // endpoint literals or bypass the same-origin Pages facade.
@@ -192,7 +207,6 @@
     if (!nativeSessionReady(session)) return null;
 
     const email = String(session.raw.user?.email || '').trim();
-    const name = String(session.raw.user?.name || '').trim();
     const emailVerified = session.raw.user?.emailVerified === true;
     const authKind = accountAuthKind(accounts);
     if (!email) return null;
@@ -215,10 +229,7 @@
     trigger.setAttribute('aria-haspopup', 'menu');
     trigger.setAttribute('aria-expanded', 'false');
 
-    const socialFallback = authKind.hasSocial
-      ? (authKind.socialLabel ? authKind.socialLabel + ' 사용자' : '소셜 사용자')
-      : '';
-    const visibleIdentity = name || socialFallback || email.split('@')[0];
+    const visibleIdentity = visibleAccountIdentity(session.raw.user, authKind);
 
     const avatar = document.createElement('span');
     avatar.className = 'danjion-account-avatar';
@@ -317,6 +328,7 @@
     fetchLinkedAccounts,
     linkedProviderIds,
     accountAuthKind,
+    visibleAccountIdentity,
     emailVerificationCallbackURL,
     sendVerificationEmail,
     nativeSessionReady,

@@ -136,8 +136,8 @@ assert.ok(index.includes(`el.textContent=memberMode?'단지온 홈으로':'단�
   'greeting/chair CTAs must switch to 단지온 홈으로 when signed in');
 assert.ok(index.includes(`profile.textContent=sessionUserName?sessionUserName+'님 · 내정보':'내정보'`),
   '내정보 must surface the session user name captured from get-session');
-assert.ok(index.includes('function captureSessionUser(r){sessionUserName=r&&r.raw&&r.raw.user&&r.raw.user.name'),
-  'session user name must be parsed from the native Better Auth payload');
+assert.ok(index.includes("typeof __session.visibleAccountIdentity==='function'?__session.visibleAccountIdentity(user,null).slice(0,24):''"),
+  'landing member identity must use the shared role-label-safe session identity helper');
 assert.ok(index.includes('captureSessionUser(r);return __session.nativeSessionReady(r)'),
   'serverSessionCheck must capture the user while keeping the nativeSessionReady verdict');
 assert.ok(index.includes(`if(button.dataset.member==='logout')danjionSignOut();else location.href='19_내정보_메인.html'`),

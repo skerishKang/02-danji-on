@@ -485,7 +485,7 @@ if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt
       var user=ready&&result.raw.user&&typeof result.raw.user==='object'?result.raw.user:null;
       var authKind=S&&typeof S.accountAuthKind==='function'?S.accountAuthKind(accounts):null;
       if(user){
-        var name=String(user.name||'').trim();
+        var name=S&&typeof S.visibleAccountIdentity==='function'?S.visibleAccountIdentity(user,authKind):'';
         setTxt(n.nickname,name?name+'님':DASH);
         setTxt(n.avatar,name?name.charAt(0):DASH);
         setTxt(n.joined,user.createdAt?fmtJoined(String(user.createdAt)):DASH);

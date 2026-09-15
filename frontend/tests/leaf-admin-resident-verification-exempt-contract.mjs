@@ -139,7 +139,7 @@ const wiring = wiringRaw.replace(/^\s*<script[^>]*>\s*/, '');
   assert.ok(identityFn.includes('S.fetchSession'), 'account identity must come from the sanctioned session runtime');
   assert.ok(!identityFn.includes('/api/'), 'the My Info account-state branch must carry no endpoint literal of its own');
   assert.ok(identityFn.includes('S.nativeSessionReady'), 'the session answer must pass the canonical native-shape gate');
-  assert.ok(identityFn.includes('user.name') && identityFn.includes('user.createdAt'), 'name and createdAt may be presented from the signed-in session');
+  assert.ok(identityFn.includes('S.visibleAccountIdentity') && identityFn.includes('user.createdAt'), 'visible identity must use the shared role-label-safe helper while createdAt stays session-sourced');
   assert.ok(identityFn.includes('renderEmailState(user,authKind)'), 'the signed-in session may present provider-aware account email state');
   assert.ok(!identityFn.includes('user.id'), 'the auth user id must never be rendered');
   assert.ok(!exemptFn.includes('bridge.') && !exemptFn.includes('getSnapshot'), 'the exempt branch must stay off every resident surface');
@@ -151,8 +151,8 @@ const wiring = wiringRaw.replace(/^\s*<script[^>]*>\s*/, '');
     'fetchSession must bind get-session to the auth base resolver exactly like the account strip');
   assert.match(sessionSrc, /function sendVerificationEmail\(fetchImpl, email, loc\)[\s\S]{0,420}'\/api\/auth\/send-verification-email'/,
     'verification resend must also stay in the sanctioned auth runtime');
-  assert.ok(/Object\.freeze\(\{[\s\S]*?fetchSession,[\s\S]*?sendVerificationEmail,/.test(sessionSrc),
-    'session and verification helpers must be exported from DanjionSession');
+  assert.ok(/Object\.freeze\(\{[\s\S]*?fetchSession,[\s\S]*?visibleAccountIdentity,[\s\S]*?sendVerificationEmail,/.test(sessionSrc),
+    'session, role-label-safe identity, and verification helpers must be exported from DanjionSession');
   const endpoints = new Set((wiring.match(/\/api\/[a-z0-9/_.-]+/gi) || []).filter((e) => identityFn.includes(e) || exemptFn.includes(e)));
   assert.deepEqual(Array.from(endpoints), [], 'account/exempt branches reach the network only through shared helpers');
 }
@@ -209,7 +209,7 @@ function makeHarness(authorityAnswer) {
       const u = String(url);
       calls.push(u);
       if (u.includes('/api/v1/admin/authority')) return authorityAnswer();
-      if (u.includes('/api/auth/get-session')) return response(200, { session: { id: 'sess-1' }, user: { name: '관리자표시', email: 'signed-in@example.invalid', emailVerified: true, createdAt: '2026-01-15T00:00:00Z' } });
+      if (u.includes('/api/auth/get-session')) return response(200, { session: { id: 'sess-1' }, user: { name: '최고관리자', email: 'signed-in@example.invalid', emailVerified: true, createdAt: '2026-01-15T00:00:00Z' } });
       if (u.includes('/api/v1/me/profile')) return response(200, { data: { nickname: '주민', joinedMonth: '2026-08' } });
       if (u.includes('/api/v1/me/summary')) return response(200, { data: { postCount: 1, commentCount: 2, receivedReactionCount: 3, savedBusinessCount: 4, unreadMessageCount: 0, household: { status: 'verified' } } });
       return response(404, { error: { code: 'NOT_FOUND' } });
@@ -242,7 +242,7 @@ const lookalikeScope = () => response(200, { data: { level: 'operator', wildcard
   assert.ok(h.nodes.get('mi-resident-row').className.includes('is-exempt'), 'state row must carry the exempt kind');
   assert.equal(h.nodes.get('mi-resident-cta').hidden, true, 'the resident CTA must stay hidden');
   assert.equal(h.nodes.get('mi-profile-edit').hidden, true, 'the profile edit entry must stay hidden');
-  assert.equal(h.nodes.get('mi-nickname').textContent, '관리자표시님', 'name renders from get-session only');
+  assert.equal(h.nodes.get('mi-nickname').textContent, 'signed-in님', 'reserved authority labels must never render as user identity; credential email local-part is the fallback');
   assert.equal(h.nodes.get('mi-joined').textContent, '2026년 1월 가입', 'joined month renders from createdAt');
   assert.equal(h.nodes.get('mi-household').textContent, '—', 'the household badge must never claim completion');
   assert.equal(h.nodes.get('mi-stat-posts').textContent, '—', 'non-resident activity stats stay em-dash');
