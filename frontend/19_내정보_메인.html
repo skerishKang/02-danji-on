@@ -472,9 +472,9 @@ if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt
       if(resend)resend.hidden=true;
       return;
     }
-    state.textContent=credentialOnly?(verified?'이메일 확인 완료':'이메일 인증 필요'):'계정 이메일';
-    if(address)address.textContent=email;
-    if(resend)resend.hidden=!(credentialOnly&&!verified&&email);
+    state.textContent=credentialOnly?'이메일 로그인 계정':'로그인 계정';
+    if(address)address.textContent='';
+    if(resend)resend.hidden=true;
   }
   function sessionIdentity(){
     var sp=S&&typeof S.fetchSession==='function'?S.fetchSession(fetch):Promise.resolve(null);
