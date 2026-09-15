@@ -209,7 +209,7 @@ function makeHarness(authorityAnswer) {
       const u = String(url);
       calls.push(u);
       if (u.includes('/api/v1/admin/authority')) return authorityAnswer();
-      if (u.includes('/api/auth/get-session')) return response(200, { session: { id: 'sess-1' }, user: { name: '관리자표시', createdAt: '2026-01-15T00:00:00Z' } });
+      if (u.includes('/api/auth/get-session')) return response(200, { session: { id: 'sess-1' }, user: { name: '관리자표시', email: 'signed-in@example.invalid', emailVerified: true, createdAt: '2026-01-15T00:00:00Z' } });
       if (u.includes('/api/v1/me/profile')) return response(200, { data: { nickname: '주민', joinedMonth: '2026-08' } });
       if (u.includes('/api/v1/me/summary')) return response(200, { data: { postCount: 1, commentCount: 2, receivedReactionCount: 3, savedBusinessCount: 4, unreadMessageCount: 0, household: { status: 'verified' } } });
       return response(404, { error: { code: 'NOT_FOUND' } });
@@ -264,7 +264,7 @@ for (const [label, answer, authorityHits] of [
   assert.ok(h.calls.some((u) => u.includes('/api/v1/me/profile')), `${label}: ordinary flow must still call bridge.profile()`);
   assert.ok(h.calls.some((u) => u.includes('/api/v1/me/summary')), `${label}: ordinary flow must still call bridge.summary()`);
   assert.notEqual(h.nodes.get('mi-resident-state').textContent, EXEMPT_COPY, `${label}: the exempt copy must never render`);
-  assert.ok(!h.calls.some((u) => u.includes('/api/auth/get-session')), `${label}: the wiring must not fetch get-session on the resident path`);
+  assert.equal(h.calls.filter((u) => u.includes('/api/auth/get-session')).length, 1, `${label}: account state must resolve exactly once before the resident path`);
 }
 
 console.log('leaf-admin-resident-verification-exempt-contract: PASS');
