@@ -163,6 +163,39 @@
     return localPart || '사용자';
   }
 
+  const ACCOUNT_SUPER_LABEL = '최고관리자';
+  const ACCOUNT_OPERATOR_LABEL = '운영관리자';
+  const ACCOUNT_MEMBER_LABEL = '일반회원';
+
+  function normalizeAccountAuthority(result) {
+    const closed = (state, label = '') => Object.freeze({ state, label, canAdmin: false, wildcard: false, scopes: [] });
+    if (!result || typeof result !== 'object') return closed('error', '권한 확인 불가');
+    if (!result.ok) {
+      if (result.status === 403) return closed('member', ACCOUNT_MEMBER_LABEL);
+      if (result.status === 401) return closed('signed-out');
+      return closed('error', '권한 확인 불가');
+    }
+    const raw = result.data && typeof result.data === 'object' && !Array.isArray(result.data) ? result.data : null;
+    const scopes = raw && Array.isArray(raw.scopes) && raw.scopes.every((scope) => typeof scope === 'string')
+      ? raw.scopes.slice()
+      : null;
+    if (raw && raw.level === 'admin' && raw.wildcard === true && scopes && scopes.includes('*')) {
+      return Object.freeze({ state: 'admin', label: ACCOUNT_SUPER_LABEL, canAdmin: true, wildcard: true, scopes });
+    }
+    if (raw && raw.level === 'operator' && raw.wildcard === false && scopes && scopes.length > 0 && !scopes.includes('*')) {
+      return Object.freeze({ state: 'operator', label: ACCOUNT_OPERATOR_LABEL, canAdmin: true, wildcard: false, scopes });
+    }
+    return closed('invalid', '권한 확인 불가');
+  }
+
+  async function fetchAccountAuthority(fetchImpl, loc) {
+    const apiBase = danjionApiBase(loc);
+    if (!apiBase) return Object.freeze({ state: 'unbound', label: '', canAdmin: false, wildcard: false, scopes: [] });
+    return normalizeAccountAuthority(
+      await request(fetchImpl || global.fetch, joinUrl(apiBase, '/api/v1/admin/authority'))
+    );
+  }
+
   // Canonical credential-account verification helper. This stays inside the
   // sanctioned auth runtime so non-entry pages never duplicate Better Auth
   // endpoint literals or bypass the same-origin Pages facade.
@@ -200,9 +233,10 @@
     if (document.querySelector('.danjion-account-menu')) return null;
 
     const authBase = danjionAuthBase(loc);
-    const [session, accounts] = await Promise.all([
+    const [session, accounts, authority] = await Promise.all([
       request(fetch, joinUrl(authBase, '/api/auth/get-session')),
-      fetchLinkedAccounts(fetch, loc)
+      fetchLinkedAccounts(fetch, loc),
+      fetchAccountAuthority(fetch, loc)
     ]);
     if (!nativeSessionReady(session)) return null;
 
@@ -219,7 +253,7 @@
     if (!document.getElementById('danjion-account-menu-style')) {
       const style = document.createElement('style');
       style.id = 'danjion-account-menu-style';
-      style.textContent = '.danjion-account-host{position:relative!important;display:flex!important;align-items:center!important;justify-content:flex-end!important;max-width:none!important;overflow:visible!important;white-space:normal!important}.danjion-account-trigger{display:flex;align-items:center;gap:9px;border:0;background:transparent;color:inherit;padding:7px 4px;cursor:pointer;font:inherit}.danjion-account-avatar{width:31px;height:31px;border-radius:50%;display:grid;place-items:center;background:#101d30;color:#fff;font-size:13px;font-weight:900}.danjion-account-label{display:grid;gap:2px;text-align:left;min-width:0}.danjion-account-label b{font-size:12px;line-height:1.1;max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.danjion-account-label span{font-size:10px;line-height:1.1;opacity:.58}.danjion-account-label span.is-warning{color:#b9382a;opacity:1;font-weight:900}.danjion-account-caret{font-size:10px;opacity:.55}.danjion-account-menu{position:absolute;top:calc(100% + 10px);right:0;width:260px;background:#fffdf8;border:1px solid rgba(16,29,48,.14);box-shadow:0 18px 40px rgba(16,29,48,.15);padding:10px;z-index:220}.danjion-account-menu[hidden]{display:none}.danjion-account-email{padding:10px 10px 12px;border-bottom:1px solid rgba(16,29,48,.1);font-size:12px;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.danjion-account-actions{display:grid;padding-top:6px}.danjion-account-actions a,.danjion-account-actions button{display:flex;align-items:center;width:100%;min-height:38px;border:0;background:transparent;color:#101d30;padding:0 10px;text-align:left;text-decoration:none;font:800 12px/1 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;cursor:pointer}.danjion-account-actions a:hover,.danjion-account-actions button:hover{background:#f1ece2}.danjion-account-actions .danger{color:#a53628;border-top:1px solid rgba(16,29,48,.08);margin-top:4px;padding-top:4px}@media(max-width:760px){.danjion-account-host{margin-left:auto!important}.danjion-account-label{display:none}.danjion-account-trigger{padding:4px}.danjion-account-menu{position:fixed;top:66px;right:10px;left:auto;width:min(280px,calc(100vw - 20px))}}';
+      style.textContent = '.danjion-account-host{position:relative!important;display:flex!important;align-items:center!important;justify-content:flex-end!important;max-width:none!important;overflow:visible!important;white-space:normal!important}.danjion-account-trigger{display:flex;align-items:center;gap:9px;border:0;background:transparent;color:inherit;padding:7px 4px;cursor:pointer;font:inherit}.danjion-account-avatar{width:31px;height:31px;border-radius:50%;display:grid;place-items:center;background:#101d30;color:#fff;font-size:13px;font-weight:900}.danjion-account-label{display:grid;gap:2px;text-align:left;min-width:0}.danjion-account-label b{font-size:12px;line-height:1.1;max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.danjion-account-label span{font-size:10px;line-height:1.1;opacity:.58}.danjion-account-label span.is-warning{color:#b9382a;opacity:1;font-weight:900}.danjion-account-caret{font-size:10px;opacity:.55}.danjion-account-menu{position:absolute;top:calc(100% + 10px);right:0;width:260px;background:#fffdf8;border:1px solid rgba(16,29,48,.14);box-shadow:0 18px 40px rgba(16,29,48,.15);padding:10px;z-index:220}.danjion-account-menu[hidden]{display:none}.danjion-account-email{padding:10px 10px 8px;font-size:12px;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.danjion-account-authority-row{padding:0 10px 10px;border-bottom:1px solid rgba(16,29,48,.1);font-size:11px;font-weight:900;color:#314cf4}.danjion-account-actions{display:grid;padding-top:6px}.danjion-account-actions a,.danjion-account-actions button{display:flex;align-items:center;width:100%;min-height:38px;border:0;background:transparent;color:#101d30;padding:0 10px;text-align:left;text-decoration:none;font:800 12px/1 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;cursor:pointer}.danjion-account-actions a:hover,.danjion-account-actions button:hover{background:#f1ece2}.danjion-account-actions .danger{color:#a53628;border-top:1px solid rgba(16,29,48,.08);margin-top:4px;padding-top:4px}@media(max-width:760px){.danjion-account-host{margin-left:auto!important}.danjion-account-label{display:none}.danjion-account-trigger{padding:4px}.danjion-account-menu{position:fixed;top:66px;right:10px;left:auto;width:min(280px,calc(100vw - 20px))}}';
       document.head.appendChild(style);
     }
 
@@ -240,11 +274,12 @@
     const labelMain = document.createElement('b');
     labelMain.textContent = visibleIdentity;
     const labelSub = document.createElement('span');
-    labelSub.textContent = authKind.hasSocial
+    const loginMethodLabel = authKind.hasSocial
       ? (authKind.socialLabel ? authKind.socialLabel + ' 로그인' : '소셜 로그인')
       : authKind.credentialOnly
         ? '이메일 로그인'
         : '계정';
+    labelSub.textContent = authority.label ? authority.label + ' · ' + loginMethodLabel : loginMethodLabel;
     label.append(labelMain, labelSub);
 
     const caret = document.createElement('span');
@@ -264,6 +299,10 @@
       : email;
     emailNode.title = authKind.hasSocial ? '' : email;
 
+    const authorityNode = document.createElement('div');
+    authorityNode.className = 'danjion-account-authority-row';
+    authorityNode.textContent = authority.label ? '권한 · ' + authority.label : '권한 · 확인 불가';
+
     const actions = document.createElement('div');
     actions.className = 'danjion-account-actions';
     const my = document.createElement('a');
@@ -273,6 +312,12 @@
     settings.href = '24_설정.html';
     settings.textContent = '설정';
     actions.append(my, settings);
+    if (authority.canAdmin) {
+      const admin = document.createElement('a');
+      admin.href = '/admin/';
+      admin.textContent = '관리자 콘솔';
+      actions.append(admin);
+    }
 
     const logout = document.createElement('button');
     logout.type = 'button';
@@ -294,7 +339,7 @@
       location.href = 'index.html?intro=1';
     });
     actions.append(logout);
-    menu.append(emailNode, actions);
+    menu.append(emailNode, authorityNode, actions);
 
     trigger.addEventListener('click', (event) => {
       event.stopPropagation();
@@ -309,7 +354,7 @@
     });
 
     host.append(trigger, menu);
-    return { email };
+    return { email, authority };
   }
 
   if (typeof document !== 'undefined') {
@@ -329,6 +374,8 @@
     linkedProviderIds,
     accountAuthKind,
     visibleAccountIdentity,
+    normalizeAccountAuthority,
+    fetchAccountAuthority,
     emailVerificationCallbackURL,
     sendVerificationEmail,
     nativeSessionReady,
