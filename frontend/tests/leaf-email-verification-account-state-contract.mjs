@@ -71,6 +71,6 @@ const ctx = {
 ctx.globalThis=ctx;ctx.window=ctx;
 vm.runInNewContext(sessionSource,ctx);
 assert.equal(typeof ctx.DanjionSession.sendVerificationEmail,'function');
-assert.equal(ctx.DanjionSession.emailVerificationCallbackURL(ctx.location),'https://danjion.pages.dev/19_내정보_메인.html?emailVerified=1');
+assert.equal(decodeURI(ctx.DanjionSession.emailVerificationCallbackURL(ctx.location)),'https://danjion.pages.dev/19_내정보_메인.html?emailVerified=1');
 
 console.log('leaf-email-verification-account-state-contract: PASS');
