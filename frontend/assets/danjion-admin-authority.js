@@ -87,15 +87,36 @@
     return !!authority && authority.state === 'admin' && authority.wildcard === true;
   }
 
+  // Resident-verification exemption is granted ONLY by the explicit bounded scope
+  // `resident.verification.exempt` carried on the actor's own valid PADIEM
+  // authority answer (an exactly-valid SUPER or OPERATIONAL shape). The wildcard
+  // '*' alone NEVER exempts: exemption must remain individually grantable and
+  // revocable per principal, independently of super-admin reach. Rejected or
+  // non-authoritative states (invalid/denied/signed-out/unbound/error) and any
+  // malformed scopes payload always resolve false — fail toward the ordinary
+  // resident flow, never toward an exemption.
+  const RESIDENT_VERIFICATION_EXEMPT_SCOPE = 'resident.verification.exempt';
+
+  function hasResidentVerificationExemption(authority) {
+    if (!authority) return false;
+    const validAdmin = authority.state === 'admin' && authority.wildcard === true;
+    const validOperator = authority.state === 'operator' && authority.wildcard === false;
+    return (validAdmin || validOperator)
+      && Array.isArray(authority.scopes)
+      && authority.scopes.includes(RESIDENT_VERIFICATION_EXEMPT_SCOPE);
+  }
+
   global.DanjionAdminAuthority = Object.freeze({
     AUTHORITY_PATH,
     SUPER_LABEL,
     OPERATOR_LABEL,
+    RESIDENT_VERIFICATION_EXEMPT_SCOPE,
     resolveApiBase,
     normalizeAuthority,
     classifyAuthority,
     fetchAuthority,
     hasAdminSurface,
-    isSuperAdminAuthority
+    isSuperAdminAuthority,
+    hasResidentVerificationExemption
   });
 })(typeof window !== 'undefined' ? window : globalThis);
