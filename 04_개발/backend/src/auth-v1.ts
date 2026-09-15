@@ -179,33 +179,53 @@ async function resolveOrBootstrapActor(
   return actorBySubject(sql, subject);
 }
 
+type JwtVerificationErrorCode =
+  | 'AUTH_JWT_SIGNATURE_INVALID'
+  | 'AUTH_JWT_ISSUER_INVALID'
+  | 'AUTH_JWT_AUDIENCE_INVALID'
+  | 'AUTH_JWT_EXPIRED'
+  | 'AUTH_JWT_ALG_INVALID'
+  | 'AUTH_JWT_KEY_NOT_FOUND'
+  | 'AUTH_JWT_KEY_AMBIGUOUS'
+  | 'AUTH_JWT_JWKS_TIMEOUT'
+  | 'AUTH_JWT_JWKS_INVALID'
+  | 'AUTH_JWT_MALFORMED'
+  | 'AUTH_JWT_NOT_YET_VALID'
+  | 'AUTH_JWT_CLAIM_INVALID'
+  | 'AUTH_INVALID';
+
 type JwtVerificationResult =
   | { payload: JWTPayload; errorCode: null }
-  | { payload: null; errorCode:
-      | 'AUTH_JWT_SIGNATURE_INVALID'
-      | 'AUTH_JWT_ISSUER_INVALID'
-      | 'AUTH_JWT_AUDIENCE_INVALID'
-      | 'AUTH_JWT_EXPIRED'
-      | 'AUTH_JWT_ALG_INVALID'
-      | 'AUTH_INVALID' };
+  | { payload: null; errorCode: JwtVerificationErrorCode };
 
-function jwtVerificationErrorCode(error: unknown): Exclude<JwtVerificationResult['errorCode'], null> {
-  const code = typeof error === 'object' && error !== null && 'code' in error
-    ? String((error as { code?: unknown }).code ?? '')
+function joseErrorField(error: unknown, field: 'code' | 'claim'): string {
+  return typeof error === 'object' && error !== null && field in error
+    ? String((error as Record<string, unknown>)[field] ?? '')
     : '';
-  const claim = typeof error === 'object' && error !== null && 'claim' in error
-    ? String((error as { claim?: unknown }).claim ?? '')
-    : '';
+}
+
+export function jwtVerificationErrorCode(error: unknown): JwtVerificationErrorCode {
+  const code = joseErrorField(error, 'code');
+  const claim = joseErrorField(error, 'claim');
 
   if (code === 'ERR_JWS_SIGNATURE_VERIFICATION_FAILED') return 'AUTH_JWT_SIGNATURE_INVALID';
   if (code === 'ERR_JWT_EXPIRED') return 'AUTH_JWT_EXPIRED';
   if (code === 'ERR_JOSE_ALG_NOT_ALLOWED') return 'AUTH_JWT_ALG_INVALID';
-  if (code === 'ERR_JWT_CLAIM_VALIDATION_FAILED' && claim === 'iss') return 'AUTH_JWT_ISSUER_INVALID';
-  if (code === 'ERR_JWT_CLAIM_VALIDATION_FAILED' && claim === 'aud') return 'AUTH_JWT_AUDIENCE_INVALID';
+  if (code === 'ERR_JWKS_NO_MATCHING_KEY') return 'AUTH_JWT_KEY_NOT_FOUND';
+  if (code === 'ERR_JWKS_MULTIPLE_MATCHING_KEYS') return 'AUTH_JWT_KEY_AMBIGUOUS';
+  if (code === 'ERR_JWKS_TIMEOUT') return 'AUTH_JWT_JWKS_TIMEOUT';
+  if (code === 'ERR_JWKS_INVALID' || code === 'ERR_JWK_INVALID') return 'AUTH_JWT_JWKS_INVALID';
+  if (code === 'ERR_JWT_INVALID' || code === 'ERR_JWS_INVALID') return 'AUTH_JWT_MALFORMED';
+  if (code === 'ERR_JWT_CLAIM_VALIDATION_FAILED') {
+    if (claim === 'iss') return 'AUTH_JWT_ISSUER_INVALID';
+    if (claim === 'aud') return 'AUTH_JWT_AUDIENCE_INVALID';
+    if (claim === 'nbf') return 'AUTH_JWT_NOT_YET_VALID';
+    if (claim) return 'AUTH_JWT_CLAIM_INVALID';
+  }
   return 'AUTH_INVALID';
 }
 
-async function verifyToken(token: string, config: AuthConfig): Promise<JwtVerificationResult> {
+async function verifyToken(token: string, config: AuthConfig, requestId: string): Promise<JwtVerificationResult> {
   try {
     const { payload } = await jwtVerify(token, remoteJwks(config.jwksUrl), {
       issuer: config.issuer,
@@ -214,6 +234,14 @@ async function verifyToken(token: string, config: AuthConfig): Promise<JwtVerifi
     });
     return { payload, errorCode: null };
   } catch (error) {
+    // Sanitized diagnostic only: request id plus JOSE error class fields.
+    // Never log the token, headers, cookies, claim payload, or key material.
+    console.warn('[DanjiOn JWT Verify]', JSON.stringify({
+      requestId,
+      errorName: error instanceof Error ? error.name : 'unknown',
+      errorCode: joseErrorField(error, 'code'),
+      errorClaim: joseErrorField(error, 'claim')
+    }));
     return { payload: null, errorCode: jwtVerificationErrorCode(error) };
   }
 }
@@ -237,7 +265,7 @@ export async function requireActor(
   const config = authConfig(env);
   if (!config) return fail('AUTH_NOT_CONFIGURED', 'Authentication verification is not configured', 503, requestId);
 
-  const verification = await verifyToken(token, config);
+  const verification = await verifyToken(token, config, requestId);
   if (!verification.payload) {
     return fail(verification.errorCode, 'Invalid or expired authentication token', 401, requestId);
   }
