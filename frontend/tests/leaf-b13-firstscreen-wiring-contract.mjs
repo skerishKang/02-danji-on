@@ -54,7 +54,10 @@ for (const forbidden of ['createElement', 'innerHTML', 'insertAdjacentHTML', 'ap
   assert.ok(!wiring.includes(forbidden), `wiring must not use ${forbidden} (no new visible UI allowed)`);
 }
 assert.ok(wiring.includes('textContent='), 'wiring must update slots via textContent only');
-assert.ok(/forEach\(el=>\{el\.textContent=name\}\)/.test(wiring), 'wiring must render the server name exactly once per slot (no duplicate render path)');
+assert.ok(/document\.querySelectorAll\('\.mobile-head'\)\.forEach\(el=>\{el\.textContent=name\}\)/.test(wiring),
+  'complex-name wiring may update the mobile complex label only');
+assert.ok(!wiring.includes("querySelectorAll('.identity,.mobile-head')"),
+  'complex-name wiring must never overwrite the authenticated desktop account host');
 
 /* --- apiBase gate + fail-closed demo fallback (#419 + #444 security hardening) --- */
 assert.ok(wiring.includes("const FIRST_API_BASE=String(location.hostname||'').toLowerCase()==='danjion.pages.dev'?'https://padiem-danjion-api-production.padiem.workers.dev':"),
@@ -91,7 +94,7 @@ const makeDom = () => {
   const identity = { textContent: DEMO_NAME };
   const mobileHead = { textContent: DEMO_NAME };
   const eyebrow = { textContent: `${DEMO_NAME}의 네 가지 소식 공간` };
-  const table = { '.identity,.mobile-head': [identity, mobileHead], '.eyebrow': [eyebrow] };
+  const table = { '.mobile-head': [mobileHead], '.eyebrow': [eyebrow] };
   const document = { readyState: 'complete', querySelectorAll: (sel) => table[sel] || [] };
   return { identity, mobileHead, eyebrow, document, slotCount: 3 };
 };
@@ -169,7 +172,7 @@ const okFetch = (body, calls) => async (url, opts) => {
   assert.equal(calls[0].url, 'https://api.test/api/v1/complexes/banglim-myeongji-roadhill', 'trailing slash must be trimmed and the canonical slug encoded');
   assert.equal(calls[0].opts.credentials, 'omit', 'authority read must stay anonymous');
   assert.ok(calls[0].opts.signal, 'authority read must be timeout-guarded');
-  assert.equal(dom.identity.textContent, '테스트단지');
+  assert.equal(dom.identity.textContent, DEMO_NAME, 'desktop account host placeholder must never be overwritten by complex-name wiring');
   assert.equal(dom.mobileHead.textContent, '테스트단지');
   assert.equal(dom.eyebrow.textContent, '테스트단지의 네 가지 소식 공간', 'eyebrow must replace only the demo name prefix');
   assert.equal(logs.length, 0, 'success path must stay silent');
