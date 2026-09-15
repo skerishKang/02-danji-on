@@ -35,7 +35,6 @@ jobs:
         with:
           node-version: '24'
           package-manager-cache: false
-          package-manager-cache: false
       - name: Registry + integration + safety contracts
         run: node scripts/check.mjs
       - name: Build non-production gateway artifact
