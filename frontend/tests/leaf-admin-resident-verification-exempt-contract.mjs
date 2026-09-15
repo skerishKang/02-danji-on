@@ -104,7 +104,7 @@ const wiring = wiringRaw.replace(/^\s*<script[^>]*>\s*/, '');
 {
   assert.ok(/Promise\.all\(\[sessionIdentity\(\),resolveResidentExemption\(\)\]\)\.then\(function\(values\)\{/.test(wiring),
     'the wiring must resolve session identity and exemption before loading any resident data');
-  assert.ok(/if\(exempt\)\{loadExemptIdentity\(user\);return;\}/.test(wiring),
+  assert.ok(/if\(exempt\)\{loadExemptIdentity\(identity&&identity\.user\);return;\}/.test(wiring),
     'the exempt branch must return before any resident fetch is started');
   const gateAt = wiring.indexOf('Promise.all([sessionIdentity(),resolveResidentExemption()])');
   assert.ok(gateAt > -1 && gateAt > wiring.indexOf('function loadResidentData'), 'the combined session/authority gate is the wiring entry point');
