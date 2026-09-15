@@ -65,7 +65,7 @@
     margin:0!important;
     padding:0!important;
   }
-  .danjion-service-header .desktop-nav button{
+  .danjion-service-header .desktop-nav button,.danjion-service-header .desktop-nav a{
     height:76px!important;
     border:0!important;
     background:none!important;
@@ -79,7 +79,7 @@
     position:relative!important;
     white-space:nowrap!important;
   }
-  .danjion-service-header .desktop-nav button.active::after{
+  .danjion-service-header .desktop-nav button.active::after,.danjion-service-header .desktop-nav a.active::after{
     content:""!important;
     position:absolute!important;
     left:0!important;
@@ -87,6 +87,9 @@
     bottom:0!important;
     height:3px!important;
     background:var(--coral,var(--accent,#ee6045))!important;
+  }
+  .danjion-service-header .header-actions{
+    display:flex!important;align-items:center!important;justify-content:flex-end!important;gap:10px!important;justify-self:end!important;min-width:0!important;
   }
   .danjion-service-header .identity{
     min-width:0!important;
@@ -119,7 +122,7 @@
   .danjion-service-header .danjion-account-label b{
     max-width:150px!important;
   }
-  .danjion-service-header .mobile-head{
+  .danjion-service-header .mobile-head,.danjion-service-header .mobile-title{
     display:none!important;
   }
 }
@@ -134,7 +137,7 @@
   .danjion-service-header .desktop-nav{
     gap:clamp(12px,2.2vw,24px)!important;
   }
-  .danjion-service-header .desktop-nav button{
+  .danjion-service-header .desktop-nav button,.danjion-service-header .desktop-nav a{
     font-size:14px!important;
   }
   .danjion-service-header .danjion-admin-quick-entry{
@@ -145,4 +148,9 @@
   .danjion-service-header .danjion-account-label b{
     max-width:100px!important;
   }
+}
+
+@media (max-width:760px){
+  body .danjion-service-header .identity.danjion-account-host{display:none!important}
+  .danjion-service-header .desktop-nav{display:none!important}
 }
