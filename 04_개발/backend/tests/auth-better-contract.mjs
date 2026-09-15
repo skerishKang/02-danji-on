@@ -44,6 +44,11 @@ assert.doesNotMatch(server, /directEmailSignupBlocked|PHONE_VERIFICATION_REQUIRE
 assert.match(server, /return auth\.handler\(request\)/,
   'direct Better Auth email signup must reach the standard Better Auth handler');
 assert.match(server, /disableImplicitSignUp:\s*true/g, 'new social users must require explicit signup intent');
+assert.match(server, /sendOnSignUp:\s*requireEmailVerification/,
+  'verification email delivery must follow the rollout flag instead of firing unconditionally');
+assert.match(server, /sendOnSignIn:\s*requireEmailVerification/);
+assert.match(server, /accountLinking:\s*\{[\s\S]*enabled:\s*false[\s\S]*disableImplicitLinking:\s*true/,
+  'demo stabilization must keep explicit and implicit social-account linking disabled');
 
 // Google/Naver/Kakao use explicit OAuth signup without an additional phone
 // second factor. The compatibility status endpoint must distinguish account
@@ -128,7 +133,7 @@ assert.equal(
   'https://danjion.pages.dev,https://*.danjion.pages.dev',
   'Better Auth trusted origins must match the production frontend boundary'
 );
-assert.equal(production?.vars?.AUTH_REQUIRE_EMAIL_VERIFICATION, 'true', 'production direct accounts must require email verification');
+assert.equal(production?.vars?.AUTH_REQUIRE_EMAIL_VERIFICATION, 'false', 'demo stabilization must keep Production email verification dormant');
 assert.equal(production?.vars?.DEV_AUTH_BYPASS, 'false', 'production must never enable the dev auth bypass');
 
 // Padiem contact-verification reuse boundary. DanjiOn persists product state but

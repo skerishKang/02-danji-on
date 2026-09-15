@@ -135,14 +135,27 @@ export function createDanjionAuth(env: BetterAuthEnv, publicBase = resolveAuthPu
         beforeDelete: async (user) => { await requireClosedProductAccount(env, user.id); }
       }
     },
+    // Demo stabilization: the email-verification rollout is intentionally
+    // dormant while Production transactional delivery is deferred. The handler
+    // remains implemented for the post-demo re-enable issue, but no signup/signin
+    // path sends a verification message while the production flag is false.
     emailVerification: {
       sendVerificationEmail: async ({ user, url }) => {
         await sendDanjionAuthEmail(env, { kind: 'verify-email', to: user.email, userName: user.name, actionUrl: url });
       },
-      sendOnSignUp: true,
+      sendOnSignUp: requireEmailVerification,
       sendOnSignIn: requireEmailVerification,
       autoSignInAfterVerification: false,
       expiresIn: 3600
+    },
+    account: {
+      // Demo stabilization: keep each login method independent for now.
+      // Explicit/implicit social-account linking returns only after the deferred
+      // convergence work proves conflict handling and the admin-backup exception.
+      accountLinking: {
+        enabled: false,
+        disableImplicitLinking: true
+      }
     },
     emailAndPassword: {
       enabled: true,
