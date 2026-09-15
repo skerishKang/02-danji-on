@@ -232,9 +232,8 @@
     labelSub.textContent = authKind.hasSocial
       ? (authKind.socialLabel ? authKind.socialLabel + ' 로그인' : '소셜 로그인')
       : authKind.credentialOnly
-        ? (emailVerified ? '이메일 계정' : '이메일 인증 필요')
+        ? '이메일 로그인'
         : '계정';
-    if (authKind.credentialOnly && !emailVerified) labelSub.classList.add('is-warning');
     label.append(labelMain, labelSub);
 
     const caret = document.createElement('span');
@@ -262,27 +261,7 @@
     const settings = document.createElement('a');
     settings.href = '24_설정.html';
     settings.textContent = '설정';
-    if (authKind.credentialOnly && !emailVerified) {
-      const resend = document.createElement('button');
-      resend.type = 'button';
-      resend.textContent = '인증메일 다시 받기';
-      resend.addEventListener('click', async () => {
-        resend.disabled = true;
-        resend.textContent = '보내는 중';
-        const result = await sendVerificationEmail(fetch, email, loc);
-        if (result.ok) {
-          resend.textContent = '인증메일을 보냈습니다';
-          resend.title = '메일 제목: [단지온] 이메일 주소를 확인해 주세요';
-          return;
-        }
-        resend.disabled = false;
-        resend.textContent = '인증메일 다시 받기';
-        resend.title = '인증메일을 보내지 못했습니다. 잠시 후 다시 시도해 주세요.';
-      });
-      actions.append(my, settings, resend);
-    } else {
-      actions.append(my, settings);
-    }
+    actions.append(my, settings);
 
     const logout = document.createElement('button');
     logout.type = 'button';
