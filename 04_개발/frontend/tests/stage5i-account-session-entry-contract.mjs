@@ -85,8 +85,8 @@ assert.doesNotMatch(html, /danjionResidentVerified/,
   'no entry flow may mint a resident-verified flag');
 
 /* --- boot reconciliation replaces fake flags with the real session result --- */
-assert.match(html, /if\(serverMode\)\{serverSessionCheck\(\)\.then\(\(real\)=>\{[\s\S]*?sessionStorage\.removeItem\('danjionMember'\);sessionStorage\.removeItem\('danjionSignedUp'\);sessionStorage\.removeItem\('danjionAuthPending'\)\}memberMode=real;sessionResolved=true;syncMemberState\(\);const explicitIntro=new URLSearchParams\(location\.search\)\.get\('intro'\)==='1';if\(real&&!explicitIntro\)\{location\.replace\('04_데일리홈\.html'\);return\}if\(real\)refreshAdminEntry\(\)\}\)/,
-  'boot must reconcile memberMode against the real session and drop fake member flags');
+assert.match(html, /if\(serverMode\)\{serverSessionCheck\(\)\.then\(\(real\)=>\{[\s\S]*?sessionStorage\.removeItem\('danjionMember'\);sessionStorage\.removeItem\('danjionSignedUp'\);sessionStorage\.removeItem\('danjionAuthPending'\)\}memberMode=real;sessionResolved=true;syncMemberState\(\);if\(real\)refreshAdminEntry\(\)\}\)/,
+  'boot must reconcile memberMode against the real session and drop fake member flags without forcing Intro away');
 
 /* --- demo mode keeps the historical prototype flow untouched --- */
 assert.match(html, /\}else\{showToast\(button\.dataset\.social\+' 인증은 백엔드 OAuth 연결 후 실제 동작합니다/,
