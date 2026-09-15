@@ -8,10 +8,14 @@ const home = await readFile(new URL('../04_데일리홈.html', import.meta.url),
 
 assert.ok(home.includes('<button class="brand" data-route="04_데일리홈.html"'),
   'home logo must route to the service home');
-assert.ok(home.includes('<button class="active" data-route="04_데일리홈.html" type="button">홈</button>'),
-  'Home must route to the service home');
+assert.ok(home.includes('<button aria-current="page" class="active" data-route="04_데일리홈.html" type="button">홈</button>'),
+  'Home must route to the service home and own the active-page marker');
 assert.ok(home.includes('<button data-route="index.html?intro=1" type="button">인트로</button>'),
   'desktop nav must expose an explicit Intro entry');
+assert.ok(home.includes('assets/danjion-service-header.css'),
+  'Home must load the canonical shared service-header stylesheet');
+assert.ok(home.includes('class="site-header topbar danjion-service-header"'),
+  'Home must participate in the canonical authenticated service header');
 assert.ok(home.includes('body[data-danjion-page="4"] .brand small{display:none!important}'),
   'home-specific compact logo rule may remain');
 assert.ok(!home.includes('body[data-danjion-page="4"] .brand small,body[data-danjion-page="4"] .nav{display:none!important}'),
