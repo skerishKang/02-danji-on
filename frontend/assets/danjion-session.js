@@ -283,6 +283,11 @@
     const labelMain = document.createElement('b');
     labelMain.textContent = visibleIdentity;
     label.append(labelMain);
+    const loginMethodLabel = authKind.hasSocial
+      ? (authKind.socialLabel ? authKind.socialLabel + ' 로그인' : '소셜 로그인')
+      : authKind.credentialOnly
+        ? '이메일 로그인'
+        : '계정';
 
     const caret = document.createElement('span');
     caret.className = 'danjion-account-caret';
@@ -293,6 +298,7 @@
     menu.className = 'danjion-account-menu';
     menu.hidden = true;
     menu.setAttribute('role', 'menu');
+    menu.setAttribute('aria-label', loginMethodLabel + ' 계정 메뉴');
 
     const emailNode = document.createElement('div');
     emailNode.className = 'danjion-account-email';
