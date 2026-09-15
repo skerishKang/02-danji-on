@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import vm from 'node:vm';
 
 const session = await readFile(new URL('../assets/danjion-session.js', import.meta.url), 'utf8');
 const my = await readFile(new URL('../19_내정보_메인.html', import.meta.url), 'utf8');
@@ -14,6 +15,29 @@ assert.ok(session.includes("my.href = '19_내정보_메인.html'"));
 assert.ok(session.includes("settings.href = '24_설정.html'"));
 assert.ok(session.includes("'/api/auth/sign-out'"));
 assert.ok(session.includes("location.href = 'index.html?intro=1'"));
+
+const ctx = {
+  location: { hostname: 'danjion.pages.dev', pathname: '/04_데일리홈.html', search: '' },
+  URL,
+  URLSearchParams,
+  console
+};
+vm.createContext(ctx);
+vm.runInContext(session, ctx);
+const S = ctx.DanjionSession;
+assert.equal(S.normalizeAccountAuthority({ ok: true, data: { level: 'admin', wildcard: true, scopes: ['*'] } }).label, '최고관리자');
+assert.equal(S.normalizeAccountAuthority({ ok: true, data: { level: 'operator', wildcard: false, scopes: ['business.review'] } }).label, '운영관리자');
+assert.equal(S.normalizeAccountAuthority({ ok: false, status: 403 }).label, '일반회원');
+assert.equal(S.normalizeAccountAuthority({ ok: true, data: { level: 'admin', wildcard: false, scopes: ['business.review'] } }).canAdmin, false,
+  'malformed authority must fail closed');
+assert.ok(session.includes("joinUrl(apiBase, '/api/v1/admin/authority')"),
+  'global account shell authority must come from the canonical server endpoint');
+assert.ok(session.includes("admin.href = '/admin/'") && session.includes('if (authority.canAdmin)'),
+  'admin console link must exist only behind the resolved server authority gate');
+assert.ok(session.includes("authorityNode.textContent = authority.label ? '권한 · ' + authority.label"),
+  'the account menu must visibly separate authority from user identity');
+assert.ok(session.includes("authKind.hasSocial") && session.includes("소셜 로그인 계정"),
+  'social login accounts must keep provider-aware privacy copy instead of exposing provider contact email');
 
 for (const label of ['홈','인트로','이웃가게','우리단지','내정보']) {
   assert.ok(my.includes(`>${label}<`), `My Info header must contain ${label}`);

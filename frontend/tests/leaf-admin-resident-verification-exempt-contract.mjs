@@ -224,7 +224,7 @@ function makeHarness(authorityAnswer) {
   return { calls, nodes, drain };
 }
 
-const operatorExempt = () => response(200, { data: { level: 'operator', label: '일반관리자', wildcard: false, scopes: [EXEMPT_SCOPE] } });
+const operatorExempt = () => response(200, { data: { level: 'operator', label: '운영관리자', wildcard: false, scopes: [EXEMPT_SCOPE] } });
 const bareSuper = () => response(200, { data: { level: 'admin', label: '최고관리자', wildcard: true, scopes: ['*'] } });
 const deniedGrant = () => response(403, { error: { code: 'ADMIN_AUTHORITY_REQUIRED' } });
 const malformed200 = () => response(200, { data: { level: 'operator', wildcard: false, scopes: ['*'] } });
