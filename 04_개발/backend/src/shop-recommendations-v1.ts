@@ -34,8 +34,7 @@ const COMPLEX_SLUG = /^[a-z0-9][a-z0-9-]{0,119}$/;
 const REPORT_RB_PRE_RESOLVE: Record<string, ReportRelation> = {
   family: 'resident_family',
   resident_family: 'resident_family',
-  neighbor: 'neighbor',
-  local: 'local'
+  neighbor: 'neighbor'
 };
 const REVIEW_STATES = new Set(['changes_requested', 'approved', 'rejected']);
 const MAX_BODY_BYTES = 32 * 1024;
