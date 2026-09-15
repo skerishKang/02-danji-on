@@ -1,5 +1,12 @@
 import type { NeonQueryFunction } from '@neondatabase/serverless';
-import { createRemoteJWKSet, jwtVerify, type JWTPayload } from 'jose';
+import {
+  createLocalJWKSet,
+  createRemoteJWKSet,
+  errors as joseErrors,
+  jwtVerify,
+  type JSONWebKeySet,
+  type JWTPayload
+} from 'jose';
 
 export interface AuthEnv {
   DATABASE_URL: string;
@@ -24,11 +31,22 @@ type ActorRecord = Actor & {
 type ActorResolution = Actor | 'closed' | null;
 type Sql = NeonQueryFunction<false, false>;
 type RemoteJwks = ReturnType<typeof createRemoteJWKSet>;
-type AuthConfig = { issuer: string; audience: string; jwksUrl: string; authority: 'danjion' | 'neon' };
+type LocalJwks = ReturnType<typeof createLocalJWKSet>;
+type JwksResolver = RemoteJwks | LocalJwks;
+type AuthConfig = {
+  issuer: string;
+  audience: string;
+  jwksUrl: string;
+  authority: 'danjion' | 'neon';
+  jwksSource: 'local' | 'remote';
+};
 
 const REQUEST_ID_HEADER = 'x-danjion-request-id';
 const DEV_AUTH_HEADER = 'x-danjion-dev-auth-user';
 const jwksCache = new Map<string, RemoteJwks>();
+// Better Auth 1.7.1 default JWKS grace period: expired keys stay verifiable
+// for 30 days (options.jwks.gracePeriod is unset in this app).
+const BETTER_AUTH_JWKS_GRACE_MS = 3600 * 24 * 30 * 1000;
 
 function json(data: unknown, status: number, requestId: string): Response {
   return Response.json(data, {
@@ -65,7 +83,16 @@ function danjionAuthConfig(env: AuthEnv): AuthConfig | null {
   const rawJwksUrl = env.DANJION_AUTH_JWKS_URL?.trim();
   const jwksUrl = secureUrl(rawJwksUrl || `${issuer}/api/auth/jwks`);
   if (!jwksUrl) return null;
-  return { issuer, audience: issuer, jwksUrl: jwksUrl.toString(), authority: 'danjion' };
+  return {
+    issuer,
+    audience: issuer,
+    jwksUrl: jwksUrl.toString(),
+    authority: 'danjion',
+    // Default DanjiOn authority verifies against the Better Auth public JWKS
+    // rows in this same database; an explicit DANJION_AUTH_JWKS_URL keeps the
+    // legacy remote-fetch contract as an external override.
+    jwksSource: rawJwksUrl ? 'remote' : 'local'
+  };
 }
 
 function neonAuthConfig(env: AuthEnv): AuthConfig | null {
@@ -77,7 +104,7 @@ function neonAuthConfig(env: AuthEnv): AuthConfig | null {
   const rawJwksUrl = env.NEON_AUTH_JWKS_URL?.trim();
   const jwksUrl = secureUrl(rawJwksUrl || `${rawBaseUrl.replace(/\/$/, '')}/.well-known/jwks.json`);
   if (!jwksUrl) return null;
-  return { issuer, audience: issuer, jwksUrl: jwksUrl.toString(), authority: 'neon' };
+  return { issuer, audience: issuer, jwksUrl: jwksUrl.toString(), authority: 'neon', jwksSource: 'remote' };
 }
 
 function authConfig(env: AuthEnv): AuthConfig | null {
@@ -90,6 +117,43 @@ function remoteJwks(jwksUrl: string): RemoteJwks {
   const created = createRemoteJWKSet(new URL(jwksUrl));
   jwksCache.set(jwksUrl, created);
   return created;
+}
+
+// Builds a jose local JWK Set from Better Auth public JWKS rows already stored
+// in this same database, removing the production self-fetch over HTTP. Only
+// public columns are selected; private_key is never read for verification.
+// JWK construction and 30-day grace filtering mirror Better Auth 1.7.1 /jwks.
+async function danjionLocalJwks(sql: Sql): Promise<LocalJwks> {
+  const rows = await sql`
+    select id, public_key, alg, crv, expires_at
+    from danjion_auth.jwks
+  `;
+  const now = Date.now();
+  const keys: JSONWebKeySet['keys'] = [];
+  for (const row of rows) {
+    if (row.expires_at != null) {
+      const expiresAt = row.expires_at instanceof Date
+        ? row.expires_at
+        : new Date(String(row.expires_at));
+      if (!(expiresAt.getTime() + BETTER_AUTH_JWKS_GRACE_MS > now)) continue;
+    }
+    let publicJwk: unknown;
+    try {
+      publicJwk = JSON.parse(String(row.public_key));
+    } catch {
+      throw new joseErrors.JWKSInvalid('Stored DanjiOn JWKS public key is not valid JSON');
+    }
+    if (typeof publicJwk !== 'object' || publicJwk === null || Array.isArray(publicJwk)) {
+      throw new joseErrors.JWKSInvalid('Stored DanjiOn JWKS public key is not a JSON object');
+    }
+    keys.push({
+      alg: row.alg == null ? 'EdDSA' : String(row.alg),
+      crv: row.crv == null ? undefined : String(row.crv),
+      ...(publicJwk as Record<string, unknown>),
+      kid: String(row.id)
+    });
+  }
+  return createLocalJWKSet({ keys });
 }
 
 function bearerToken(request: Request): string | null {
@@ -225,9 +289,17 @@ export function jwtVerificationErrorCode(error: unknown): JwtVerificationErrorCo
   return 'AUTH_INVALID';
 }
 
-async function verifyToken(token: string, config: AuthConfig, requestId: string): Promise<JwtVerificationResult> {
+async function verifyToken(
+  token: string,
+  config: AuthConfig,
+  requestId: string,
+  sql: Sql
+): Promise<JwtVerificationResult> {
   try {
-    const { payload } = await jwtVerify(token, remoteJwks(config.jwksUrl), {
+    const keyResolver: JwksResolver = config.jwksSource === 'local'
+      ? await danjionLocalJwks(sql)
+      : remoteJwks(config.jwksUrl);
+    const { payload } = await jwtVerify(token, keyResolver, {
       issuer: config.issuer,
       audience: config.audience,
       algorithms: ['EdDSA']
@@ -265,7 +337,7 @@ export async function requireActor(
   const config = authConfig(env);
   if (!config) return fail('AUTH_NOT_CONFIGURED', 'Authentication verification is not configured', 503, requestId);
 
-  const verification = await verifyToken(token, config, requestId);
+  const verification = await verifyToken(token, config, requestId, sql);
   if (!verification.payload) {
     return fail(verification.errorCode, 'Invalid or expired authentication token', 401, requestId);
   }
