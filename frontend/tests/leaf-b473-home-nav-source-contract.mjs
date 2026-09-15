@@ -6,8 +6,8 @@ import { readFile } from 'node:fs/promises';
 
 const home = await readFile(new URL('../04_데일리홈.html', import.meta.url), 'utf8');
 
-assert.ok(home.includes('<button class="brand" data-route="04_데일리홈.html"'),
-  'home logo must route to the service home');
+assert.ok(home.includes('<button class="brand" data-route="index.html?intro=1"'),
+  'home logo source must route to the stable Intro entry');
 assert.ok(home.includes('<button aria-current="page" class="active" data-route="04_데일리홈.html" type="button">홈</button>'),
   'Home must route to the service home and own the active-page marker');
 assert.ok(home.includes('<button data-route="index.html?intro=1" type="button">인트로</button>'),
@@ -20,9 +20,9 @@ assert.ok(home.includes('body[data-danjion-page="4"] .brand small{display:none!i
   'home-specific compact logo rule may remain');
 assert.ok(!home.includes('body[data-danjion-page="4"] .brand small,body[data-danjion-page="4"] .nav{display:none!important}'),
   'home navigation must not be hidden');
-assert.ok(home.includes("if(cls.contains('brand')){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.home);return;}"),
-  'direct router must align logo with Home');
-assert.ok(!home.includes("if(cls.contains('brand')){ev.preventDefault();ev.stopImmediatePropagation();go(B?'index2.html':'index.html');return;}"),
-  'direct router must not send the logo to the public landing');
+assert.ok(home.includes("if(cls.contains('brand')){ev.preventDefault();ev.stopImmediatePropagation();go('index.html?intro=1');return;}"),
+  'direct router must keep the logo on the stable Intro route');
+assert.ok(!home.includes("if(cls.contains('brand')){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.home);return;}"),
+  'direct router must not send the logo back to Home');
 
 console.log('leaf-b473-home-nav-source-contract: PASS');
