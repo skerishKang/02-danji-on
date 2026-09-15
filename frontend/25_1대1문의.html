@@ -61,7 +61,7 @@ function go(f){
   if(!f)return;
   location.href=f;
 }
-function main(label){const v2=String(location.hostname||'').toLowerCase()!=='danjion.pages.dev'&&new URLSearchParams(location.search).get('from')==='v2-shop';go({'홈':FILES.home,'이웃가게':v2?'01_이웃가게_발견_v2.html':FILES.shops,'우리단지':FILES.complex,'내정보':FILES.my}[label]);}
+function main(label){go({'홈':FILES.home,'이웃가게':FILES.shops,'우리단지':FILES.complex,'내정보':FILES.my}[label]);}
 function routeFrom(v){v=(v||'').split('#')[0]; if(!v)return null;
   const q=v.includes('?')?'?'+v.split('?').slice(1).join('?'):''; const p=v.split('?')[0];
   const arr=[["29_", "index.html"], ["04_", "04_데일리홈.html"], ["01_", "01_이웃가게_발견.html"], ["02_", "02_이웃가게_상세.html"], ["05_", "05_우리단지_첫화면.html"], ["06_", "06_단지온공지_목록.html"], ["07_", "07_단지온공지_상세.html"], ["08_", "08_아파트소식_목록.html"], ["09_", "09_회장인사_상세.html"], ["10_", "10_주민소식_목록.html"], ["11_", "11_주민소식_상세.html"], ["12_", "12_이웃대화_첫화면.html"], ["13_", "13_이웃대화_글상세_댓글.html"], ["14_", "14_가입인사_글쓰기.html"], ["15_", "15_단지이야기_글쓰기.html"], ["16_", "16_궁금해요_글쓰기.html"], ["17_", "17_같이해요_글쓰기.html"], ["19_", "19_내정보_메인.html"], ["20_", "20_메시지함_목록.html"], ["21_", "21_메시지_대화상세.html"], ["22_", "22_주민_공개프로필.html"], ["23_", "23_이웃온기.html"], ["24_", "24_설정.html"], ["25_", "25_1대1문의.html"], ["26_", "26_우리집연결.html"], ["27_", "27_알림함.html"], ["28_", "28_나의활동.html"]];
@@ -73,12 +73,7 @@ function backFallback(){
   const from=p.get('from');
   if(from==='v2-shop'||from==='shop'){
     const shop=p.get('shop')||'florist';
-    if(String(location.hostname||'').toLowerCase()==='danjion.pages.dev'){
-      location.href=FILES.shops+'?shop='+encodeURIComponent(shop);
-      return;
-    }
-    try{sessionStorage.setItem('danjion:shopVariant','v2')}catch(e){}
-    location.href='01_이웃가게_발견_v2.html?shop='+encodeURIComponent(shop);
+    location.href=FILES.shops+'?shop='+encodeURIComponent(shop);
     return;
   }
   if(from==='my-help'){location.href=FILES.my+'?restore=help';return;}
@@ -172,7 +167,6 @@ if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt
   const back=document.querySelector('.back,.route-back,[data-back],.danjion-simple-back button');
   if(!back)return;
   if(from==='v2-shop'||from==='shop'){
-    try{sessionStorage.setItem('danjion:shopVariant','v2')}catch(e){}
     const shop=new URLSearchParams(location.search).get('shop')||'florist';
     back.textContent='← 이웃가게';
     back.setAttribute('aria-label','이전 이웃가게 팝업으로 돌아가기');
