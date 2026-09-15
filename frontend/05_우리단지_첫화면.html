@@ -125,21 +125,10 @@ h1{font-size:clamp(46px,4.3vw,66px);line-height:1;letter-spacing:-.055em;margin:
     line-height:14px!important;text-align:center!important;white-space:nowrap!important;transform:none!important;
   }
 }
-</style><link data-final-header-sync="20260904" href="assets/consistency.css" rel="stylesheet"/></head>
+</style><link data-final-header-sync="20260904" href="assets/consistency.css" rel="stylesheet"/><link rel="stylesheet" href="assets/danjion-service-header.css">
+</head>
 <body data-danjion-page="5">
-<header class="site-header">
-<div class="header-inner">
-<button class="brand" data-route="index.html" type="button"><span class="wordmark">단지온</span><small>DANJION by PADIEM</small></button>
-<nav class="desktop-nav">
-<button data-route="04_데일리홈.html" type="button">홈</button>
-<button data-route="01_이웃가게_발견.html" type="button">이웃가게</button>
-<button class="active" type="button">우리단지</button>
-<button data-route="19_내정보_메인.html" type="button">내정보</button>
-</nav>
-<div class="identity">방림명지로드힐</div>
-<div class="mobile-head">방림명지로드힐</div>
-</div>
-</header>
+<header class="site-header topbar danjion-service-header"><div class="header-inner topbar-inner"><button class="brand" data-route="04_데일리홈.html" type="button"><span class="wordmark">단지온</span><small>DANJION by PADIEM</small></button><nav aria-label="주요 메뉴" class="desktop-nav nav"><button data-route="04_데일리홈.html" type="button">홈</button><button data-route="index.html?intro=1" type="button">인트로</button><button data-route="01_이웃가게_발견.html" type="button">이웃가게</button><button aria-current="page" class="active" data-route="05_우리단지_첫화면.html" type="button">우리단지</button><button data-route="19_내정보_메인.html" type="button">내정보</button></nav><div class="identity" data-account-host>방림명지로드힐</div><div class="mobile-head">방림명지로드힐</div></div></header>
 <main>
 <section class="intro">
 <div>
@@ -295,5 +284,6 @@ async function loadFirstScreenAuthority(){
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',loadFirstScreenAuthority,{once:true});else loadFirstScreenAuthority();
 })();
 </script>
+<script src="assets/danjion-session.js"></script>
 </body>
 </html>
