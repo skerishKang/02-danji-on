@@ -26,7 +26,8 @@ assert.match(myInfo, /id="mi-email-state"/);
 assert.match(myInfo, /id="mi-email-resend"/);
 assert.match(myInfo, /function renderEmailState\(user,authKind\)/);
 assert.match(myInfo, /authKind\.socialLabel\|\|'소셜'/);
-assert.match(myInfo, /연결 이메일/);
+assert.doesNotMatch(myInfo, /연결 이메일/,
+  'primary My Info card must not render a social account contact email');
 assert.match(myInfo, /EMAIL_VERIFICATION_NOT_APPLICABLE/);
 assert.doesNotMatch(myInfo, /if\(user&&user\.emailVerified===false\)/,
   'emailVerified presentation must never suppress resident/admin server reads');
