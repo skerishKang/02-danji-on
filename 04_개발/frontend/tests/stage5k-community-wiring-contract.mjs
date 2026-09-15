@@ -7,6 +7,7 @@ const sessionSource = await readFile(new URL('frontend/assets/danjion-session.js
 const bridgeSource = await readFile(new URL('frontend/assets/community-bridge.js', root), 'utf8');
 const page12 = await readFile(new URL('frontend/12_이웃대화_첫화면.html', root), 'utf8');
 const page13 = await readFile(new URL('frontend/13_이웃대화_글상세_댓글.html', root), 'utf8');
+const page14 = await readFile(new URL('frontend/14_가입인사_글쓰기.html', root), 'utf8');
 const page15 = await readFile(new URL('frontend/15_단지이야기_글쓰기.html', root), 'utf8');
 const page16 = await readFile(new URL('frontend/16_궁금해요_글쓰기.html', root), 'utf8');
 const page17 = await readFile(new URL('frontend/17_같이해요_글쓰기.html', root), 'utf8');
@@ -206,6 +207,7 @@ function wiringScript(page, id) {
 const WIRING = [
   ['12', page12, 'danjion-community-list-live-wiring-329'],
   ['13', page13, 'danjion-community-detail-live-wiring-329'],
+  ['14', page14, 'danjion-community-write-greeting-live-wiring-348'],
   ['15', page15, 'danjion-community-write-story-live-wiring-329'],
   ['16', page16, 'danjion-community-write-question-live-wiring-329'],
   ['17', page17, 'danjion-community-write-together-live-wiring-329']
@@ -221,11 +223,10 @@ for (const [name, page, id] of WIRING) {
 }
 {
   const w12 = wiringScript(page12, 'danjion-community-list-live-wiring-329');
-  assert.match(w12, /story:'resident_story',question:'question',together:'together'/, '12 maps chips onto the v1 kinds only');
+  assert.match(w12, /hello:'greeting',story:'resident_story',question:'question',together:'together'/, '12 maps chips onto canonical v1 kinds including greeting');
   assert.match(w12, /bridge\.listPosts\(null,\{limit:50\}\)/, '12 전체보기 reads the v1 feed');
   assert.match(w12, /result\.posts\.filter\(p=>LABEL\[p\.kind\]\)/, '12 hides kinds outside the shared UI mapping');
-  assert.match(w12, /가입인사는 아직 server kind가 없으므로 기존 built-in posts를 유지합니다/, '12 keeps 가입인사 fail-closed by preserving built-in posts while page 14 remains HOLD');
-  assert.match(w12, /if\(!showAll&&!KIND\[selected\]\)\{[\s\S]*?return;[\s\S]*?\}/, '12 must return before any server read for the unsupported 가입인사 kind');
+  assert.match(w12, /if\(!showAll&&!KIND\[selected\]\)\{[\s\S]*?return;[\s\S]*?\}/, '12 must fail closed before any server read for an unmapped future chip');
   assert.match(w12, /13_이웃대화_글상세_댓글\.html\?apiBase=\$\{encodeURIComponent\(apiBase\)\}&post=\$\{encodeURIComponent\(p\.id\)\}/, '12 links details with apiBase + server post id');
   assert.match(w12, /WRITE\[selected\]\+'\?apiBase='/, '12 hands apiBase to the write pages');
   assert.ok(page12.indexOf('danjion-community-list-live-wiring-329') < page12.indexOf('danjion-direct-router-v5'), '12 wiring stays ahead of the router');
@@ -242,7 +243,7 @@ for (const [name, page, id] of WIRING) {
   assert.match(w13, /게시 대기 중/, '13 shows pending_review comments truthfully');
   assert.match(w13, /12_이웃대화_첫화면\.html\?type=/, '13 back link carries apiBase');
 }
-for (const [name, page, id, kind, chip] of [['15', page15, 'danjion-community-write-story-live-wiring-329', 'resident_story', 'story'], ['16', page16, 'danjion-community-write-question-live-wiring-329', 'question', 'question'], ['17', page17, 'danjion-community-write-together-live-wiring-329', 'together', 'together']]) {
+for (const [name, page, id, kind, chip] of [['14', page14, 'danjion-community-write-greeting-live-wiring-348', 'greeting', 'hello'], ['15', page15, 'danjion-community-write-story-live-wiring-329', 'resident_story', 'story'], ['16', page16, 'danjion-community-write-question-live-wiring-329', 'question', 'question'], ['17', page17, 'danjion-community-write-together-live-wiring-329', 'together', 'together']]) {
   const wiring = wiringScript(page, id);
   assert.match(wiring, new RegExp(`kind:'${kind}'`), `${name} publishes only its v1 kind`);
   assert.match(wiring, /bridge\.createPost\(/);
@@ -262,6 +263,7 @@ for (const [name, page, id, kind, chip] of [['15', page15, 'danjion-community-wr
   assert.match(page12, /id="danjion-direct-router-v5"/, '12 router preserved');
   assert.match(page13, /const DATA=\{/, '13 demo detail data preserved');
   assert.match(page13, /commentForm\.addEventListener\('submit'/, '13 demo comment handler preserved');
+  assert.match(page14, /const key='danjionDraft:14'/, '14 demo greeting draft flow preserved');
   assert.match(page15, /const key='danjionDraft:15'/, '15 demo draft flow preserved');
   assert.match(page16, /궁금한 내용을 10자 이상 적어주세요\./, '16 demo validation preserved');
   assert.match(page17, /const data=\{/, '17 demo dynamic templates preserved');
