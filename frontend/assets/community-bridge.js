@@ -49,6 +49,15 @@
     };
   }
 
+  function normalizeReply(raw) {
+    const base = normalizeComment(raw);
+    if (!base) return null;
+    return {
+      ...base,
+      parentCommentId: String(raw.parentCommentId || '')
+    };
+  }
+
   function failureMode(result) {
     return result.reason === 'auth-required' ? 'auth-required' : 'error';
   }
@@ -142,6 +151,34 @@
         return { ok: true, mode: 'server', status: result.status, comment: normalizeComment(result.data) };
       },
 
+      async listReplies(postId, parentCommentId) {
+        const post = postPath(postId);
+        const parent = postPath(parentCommentId);
+        if (!serverOnly()) return { mode: 'static', postId: post.id, parentCommentId: parent.id, replies: [] };
+        if (!post.valid) return { mode: 'client', error: 'POST_ID_INVALID', postId: post.id, parentCommentId: parent.id, replies: [] };
+        if (!parent.valid) return { mode: 'client', error: 'COMMENT_ID_INVALID', postId: post.id, parentCommentId: parent.id, replies: [] };
+        const result = await request(`${base}/posts/${encodeURIComponent(post.id)}/comments/${encodeURIComponent(parent.id)}/replies`);
+        if (!result.ok) return { mode: failureMode(result), status: result.status, error: result.error, postId: post.id, parentCommentId: parent.id, replies: [] };
+        const rows = Array.isArray(result.data) ? result.data : [];
+        return { mode: 'server', status: result.status, postId: post.id, parentCommentId: parent.id, replies: rows.map(normalizeReply).filter(Boolean) };
+      },
+
+      async addReply(postId, parentCommentId, body) {
+        const post = postPath(postId);
+        const parent = postPath(parentCommentId);
+        if (!serverOnly()) return { ok: false, mode: 'static', error: 'SERVER_MODE_REQUIRED' };
+        if (!post.valid) return { ok: false, mode: 'client', error: 'POST_ID_INVALID' };
+        if (!parent.valid) return { ok: false, mode: 'client', error: 'COMMENT_ID_INVALID' };
+        const text = String(body || '').trim();
+        if (!text || text.length > MAX_COMMENT_CHARS) return { ok: false, mode: 'client', error: 'COMMENT_BODY_INVALID' };
+        const result = await request(`${base}/posts/${encodeURIComponent(post.id)}/comments/${encodeURIComponent(parent.id)}/replies`, {
+          method: 'POST',
+          body: JSON.stringify({ body: text })
+        });
+        if (!result.ok) return { ok: false, mode: failureMode(result), status: result.status, error: result.error };
+        return { ok: true, mode: 'server', status: result.status, reply: normalizeReply(result.data) };
+      },
+
       async setReaction(postId, active) {
         const { id, valid } = postPath(postId);
         if (!serverOnly()) return { ok: false, mode: 'static', error: 'SERVER_MODE_REQUIRED' };
@@ -159,6 +196,7 @@
     createCommunityBridge,
     normalizePost,
     normalizeComment,
+    normalizeReply,
     POST_KINDS,
     DEFAULT_COMPLEX_SLUG
   };
