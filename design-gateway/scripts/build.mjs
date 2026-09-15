@@ -68,6 +68,22 @@ for (const version of registry.versions) {
     recursive: true,
     filter: (src) => !src.endsWith('.gitkeep')
   });
+
+  // #558: preserve the frozen v3-current package bytes in-repo, but isolate
+  // the served gateway landing from its historical session selector. Explicit
+  // comparison pages (_v2/_v3) keep their own opt-in state; merely visiting
+  // /v3-current/ must not contaminate later canonical navigation in this origin.
+  if (version.id === 'v3-current') {
+    const entryPath = join(target, version.bundle.entry);
+    const entryText = readFileSync(entryPath, 'utf8');
+    const legacySelector = '<script>try{sessionStorage.setItem("danjion:shopVariant","v3")}catch(e){}</script>';
+    if (entryText.includes(legacySelector)) {
+      writeFileSync(entryPath, entryText.replace(legacySelector, ''));
+    } else if (/sessionStorage\.setItem\(["']danjion:shopVariant["']/.test(entryText)) {
+      fail('v3-current: unexpected shopVariant injection shape; isolation transform requires review');
+    }
+  }
+
   summary.push({ id: version.id, mode: version.bundle.mode, state: version.bundle.state, dist: `/${version.id}/` });
 }
 
