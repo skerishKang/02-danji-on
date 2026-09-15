@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 
 const read = (name) => readFile(new URL('../'+name, import.meta.url), 'utf8');
 const index = await read('index.html');
+const consistency = await read('assets/consistency.js');
 
 assert.equal(index.includes("const explicitIntro=new URLSearchParams(location.search).get('intro')==='1'"), false,
   'Intro must not depend on a query flag to avoid an authenticated auto-redirect');
@@ -39,5 +40,11 @@ for (const file of servicePages) {
   assert.ok(nativeBrandIntro || routedBrandIntro,
     `${file}: logo must resolve to Intro rather than the service Home`);
 }
+
+const sharedBrandBlock = (consistency.match(/if\(number!==29 && \(el\.classList\.contains\('brand'\)[\s\S]*?\n    \}/)||[])[0]||'';
+assert.ok(sharedBrandBlock.includes("location.href='index.html?intro=1'"),
+  'shared consistency runtime must route service logos to explicit Intro');
+assert.equal(sharedBrandBlock.includes("04_데일리홈.html"), false,
+  'shared consistency runtime must not override service logos back to Home');
 
 console.log('PASS #537 stable Intro / logo / Home routing contract');

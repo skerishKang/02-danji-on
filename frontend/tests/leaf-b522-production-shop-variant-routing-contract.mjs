@@ -8,20 +8,17 @@ const home = await text('../04_데일리홈.html');
 const complex = await text('../05_우리단지_첫화면.html');
 const my = await text('../19_내정보_메인.html');
 
-assert.ok(
-  home.includes("String(location.hostname||'').toLowerCase()!=='danjion.pages.dev'&&[\"v2\",\"v3\"].includes(sessionStorage.getItem(\"danjion:shopVariant\"))"),
-  'Home must ignore persisted design shop variants on canonical production'
-);
-for (const [name,html] of [['complex',complex],['my',my]]) {
-  assert.ok(
-    html.includes("label==='이웃가게'&&String(location.hostname||'').toLowerCase()!=='danjion.pages.dev'"),
-    `${name} must ignore persisted design shop variants on canonical production`
-  );
-}
-for (const html of [home,complex,my]) {
+for (const [name,html] of [['home',home],['complex',complex],['my',my]]) {
+  assert.equal(html.includes('danjion:shopVariant'), false,
+    `${name} must not depend on persisted comparison variant state`);
+  assert.equal(/01_이웃가게_발견_v[23]\.html/.test(html), false,
+    `${name} must not route canonical navigation into comparison files`);
   assert.ok(html.includes("'01_이웃가게_발견.html'") || html.includes('"01_이웃가게_발견.html"'),
-    'canonical shop route must remain available');
+    `${name} must retain the canonical shop route`);
 }
+
+assert.ok(home.includes("go(FILES.shops+'?shop='+encodeURIComponent(k)+'&from=home')"),
+  'Home detail CTA must deep-link to the canonical popup route');
 
 const frontendV2 = await read('../01_이웃가게_발견_v2.html');
 const packagedV2 = await read('../../design-gateway/versions/v3-current/01_이웃가게_발견_v2.html');
@@ -33,4 +30,4 @@ assert.ok(!complex.includes("querySelectorAll('.identity,.mobile-head')"),
 assert.ok(complex.includes("document.querySelectorAll('.mobile-head').forEach(el=>{el.textContent=name})"),
   'Complex public-name authority may update the mobile complex label only');
 
-console.log('PASS #522 production canonical shop routing + frozen comparison parity');
+console.log('PASS #522 canonical shop routing isolated from frozen comparison files');

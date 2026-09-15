@@ -2,8 +2,6 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
 const read = async (name) => readFile(new URL('../'+name, import.meta.url), 'utf8');
-const prodGuard = "String(location.hostname||'').toLowerCase()!=='danjion.pages.dev'";
-const canonicalHost = "String(location.hostname||'').toLowerCase()==='danjion.pages.dev'";
 
 for (const name of [
   '06_단지온공지_목록.html',
@@ -12,47 +10,32 @@ for (const name of [
   '12_이웃대화_첫화면.html'
 ]) {
   const html = await read(name);
-  assert.ok(
-    html.includes("label==='이웃가게'&&"+prodGuard+"&&"),
-    `${name}: comparison shop variant must be disabled on canonical production`
-  );
-  assert.ok(
-    html.includes("sessionStorage.getItem('danjion:shopVariant')"),
-    `${name}: preview/local comparison routing must remain available`
-  );
+  assert.equal(html.includes('danjion:shopVariant'), false,
+    `${name}: canonical navigation must not read comparison state`);
+  assert.equal(/01_이웃가게_발견_v[23]\.html/.test(html), false,
+    `${name}: canonical navigation must not re-enter comparison shop files`);
+  assert.ok(html.includes("'01_이웃가게_발견.html'") || html.includes('"01_이웃가게_발견.html"'),
+    `${name}: canonical shop route must remain available`);
 }
 
 const inquiry = await read('25_1대1문의.html');
-assert.ok(
-  inquiry.includes("const v2="+prodGuard+"&&new URLSearchParams(location.search).get('from')==='v2-shop'"),
-  'inquiry main-nav v2 return must be disabled on canonical production'
-);
-assert.ok(
-  inquiry.includes("if("+canonicalHost+"){\n      location.href=FILES.shops+'?shop='"),
-  'inquiry back route must canonicalize a v2/shop return to the production shop page'
-);
-assert.ok(
-  inquiry.includes("location.href='01_이웃가게_발견_v2.html?shop='"),
-  'inquiry preview/local comparison return must remain available'
-);
+assert.equal(inquiry.includes('danjion:shopVariant'), false,
+  'inquiry must not restore comparison state');
+assert.equal(/01_이웃가게_발견_v[23]\.html/.test(inquiry), false,
+  'inquiry must not return to comparison shop files');
+assert.ok(inquiry.includes("location.href=FILES.shops+'?shop='+encodeURIComponent(shop)"),
+  'inquiry shop return must preserve shop key on canonical popup route');
 
 const apply = await read('25A_신청제보.html');
-assert.ok(
-  apply.includes("const allowVariant="+prodGuard),
-  'apply variant bridge must be explicitly disabled on canonical production'
-);
-assert.ok(
-  apply.includes("B="+prodGuard+"&&['v2','v3'].includes"),
-  'apply direct router must not promote stored comparison variants on canonical production'
-);
-assert.ok(
-  apply.includes(canonicalHost+"?'01_이웃가게_발견.html'"),
-  'apply close fallback must always return to the canonical shop page on production'
-);
-assert.ok(
-  apply.includes("allowVariant&&params.get('return')==='v2'") &&
-  apply.includes("allowVariant&&params.get('return')==='v3'"),
-  'apply query-driven comparison variants must remain preview/local-only'
-);
+assert.equal(apply.includes('danjion:shopVariant'), false,
+  'application/report task must not depend on comparison state');
+assert.equal(/01_이웃가게_발견_v[23]\.html/.test(apply), false,
+  'application/report task must not route into comparison shop files');
+assert.equal(apply.includes('danjion-apply-variant-bridge-20260905'), false,
+  'old application comparison bridge must be removed');
+assert.ok(apply.includes("location.href='01_이웃가게_발견.html'"),
+  'application close control must return to canonical shops');
+assert.ok(apply.includes("location.href='index.html?intro=1'"),
+  'application brand must return to explicit Intro');
 
-console.log('PASS #529 canonical production cannot re-enter frozen shop comparison variants');
+console.log('PASS #529 canonical routes cannot re-enter frozen shop comparison variants');
