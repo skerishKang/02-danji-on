@@ -38,6 +38,10 @@ assert.ok(session.includes("adminQuickEntry.className = 'danjion-admin-quick-ent
           session.includes("adminQuickEntry.href = '/admin/'") &&
           session.includes("if (adminQuickEntry) host.append(adminQuickEntry)"),
   'valid admin/operator authority must render a persistent header-level admin console entry');
+assert.ok(session.includes('flex-direction:row!important') && session.includes('flex-wrap:nowrap!important'),
+  'persistent admin entry and account identity must stay on one horizontal row');
+assert.ok(session.includes('border-radius:0') && session.includes('border:1px solid var(--amber,#c58a2a)'),
+  'persistent admin entry must use the rectangular Intro-style outline treatment rather than a pill');
 assert.ok(!session.includes('skerish@naver.com') && !session.includes('padiemipu@gmail.com') &&
           !session.includes('charliekant@gmail.com') && !session.includes('muphobia2@gmail.com'),
   'persistent admin entry must not hardcode administrator addresses');
