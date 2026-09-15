@@ -377,7 +377,8 @@ if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt
 .resident-state-row{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin-top:14px;font-size:15px;font-weight:850;color:rgba(255,255,255,.9)}
 .resident-state-row .rs-dot{width:9px;height:9px;border-radius:50%;background:#64c195;flex:none}
 .resident-state-row.is-pending .rs-dot{background:var(--amber)}
-.resident-state-row.is-required .rs-dot,.resident-state-row.is-unknown .rs-dot{background:#e0664f}
+    .resident-state-row.is-required .rs-dot,.resident-state-row.is-unknown .rs-dot{background:#e0664f}
+    .resident-state-row.is-exempt .rs-dot{background:#64c195}
 .rs-cta{color:var(--amber);font-size:14px;font-weight:900;text-decoration:underline}
 .profile-edit-entry{appearance:none;border:1px solid rgba(255,255,255,.4);background:transparent;color:#fff;font-size:14px;font-weight:850;padding:7px 12px;border-radius:999px;cursor:pointer}
 .profile-edit-entry:hover{border-color:var(--amber);color:var(--amber)}
@@ -392,10 +393,10 @@ if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt
 .edit-cancel{border:1px solid var(--line);background:#fff;color:var(--muted);font-size:15px;font-weight:850;padding:11px 18px;border-radius:999px;cursor:pointer}
 @media(max-width:760px){.edit-body{padding:16px 20px 20px}}
 </style>
-<script src="assets/danjion-session.js"></script><script src="assets/resident-bridge.js"></script>
+<script src="assets/danjion-session.js"></script><script src="assets/resident-bridge.js"></script><script src="assets/danjion-admin-authority.js"></script>
 <script id="danjion-myinfo-server-wiring">
 (function(){
-  var B=globalThis.DanjionResidentBridge;
+  var B=globalThis.DanjionResidentBridge,S=globalThis.DanjionSession,AA=globalThis.DanjionAdminAuthority;
   if(!B||!B.serverConfig)return;
   var cfg=B.serverConfig();
   if(!cfg.enabled)return;
@@ -413,6 +414,7 @@ if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt
   var bridge=B.createResidentBridge({apiBase:cfg.apiBase,complexSlug:cfg.complexSlug});
   var serverProfile=null;
   function toast(t){if(typeof window.showToast==='function')window.showToast(t);}
+  function loadResidentData(){
   Promise.allSettled([bridge.profile(),bridge.summary()]).then(function(res){
     var pr=res[0].value,sr=res[1].value;
     if(pr&&pr.ok&&pr.profile){
@@ -444,9 +446,10 @@ if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt
       var workerCode=String(ar&&ar.error||'UNKNOWN');
       if(!/^[A-Z0-9_]{1,64}$/.test(workerCode))workerCode='UNKNOWN';
       toast('로그인 연결 오류 · '+bridgeCode+' · '+workerCode);
-    }else if(forbidden)toast('이 기능을 이용할 권한이 없습니다.');
+    }    else if(forbidden)toast('이 기능을 이용할 권한이 없습니다.');
     else if(err)toast('잠시 후 다시 시도해 주세요.');
   });
+  }
   function renderResidentState(text,flags){
     var row=$('mi-resident-row'),state=$('mi-resident-state'),cta=$('mi-resident-cta'),edit=$('mi-profile-edit');
     if(!row||!state)return;
@@ -520,7 +523,30 @@ if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt
     var cancel=$('mi-edit-cancel');if(cancel)cancel.addEventListener('click',function(){var panel=$('mi-profile-edit-panel');if(panel)panel.hidden=true;});
     var save=$('mi-edit-save');if(save)save.addEventListener('click',saveProfileEdit);
   })();
-  loadResidentState();
+  function loadExemptIdentity(){
+    var pending=S&&typeof S.fetchSession==='function'?S.fetchSession(fetch):Promise.resolve(null);
+    Promise.resolve(pending).then(function(result){
+      var ready=S&&typeof S.nativeSessionReady==='function'&&S.nativeSessionReady(result);
+      var user=ready&&result.raw.user&&typeof result.raw.user==='object'?result.raw.user:null;
+      var name=user?String(user.name||'').trim():'';
+      setTxt(n.nickname,name?name+'님':DASH);
+      setTxt(n.avatar,name?name.charAt(0):DASH);
+      setTxt(n.joined,user&&user.createdAt?fmtJoined(String(user.createdAt)):DASH);
+    });
+    setTxt(n.household,DASH);
+    renderResidentState('운영자 계정 · 주민인증 불필요',{kind:'exempt'});
+  }
+  function resolveResidentExemption(){
+    if(!AA||typeof AA.fetchAuthority!=='function'||typeof AA.hasResidentVerificationExemption!=='function')return Promise.resolve(false);
+    return Promise.resolve(AA.fetchAuthority(fetch)).then(function(authority){
+      return AA.hasResidentVerificationExemption(authority)===true;
+    },function(){return false;});
+  }
+  resolveResidentExemption().then(function(exempt){
+    if(exempt){loadExemptIdentity();return;}
+    loadResidentData();
+    loadResidentState();
+  });
 })();
 </script>
 </body>

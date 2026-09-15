@@ -107,6 +107,16 @@
     } catch {}
   }
 
+  // Admin resident-exemption My Info lane: non-entry pages must never carry
+  // Better Auth endpoint literals themselves (leaf-b14 Stage 2 invariant), so
+  // the get-session read is exposed through this sanctioned auth runtime and
+  // binds danjionAuthBase() exactly like the account strip does — canonical
+  // Pages stays same-origin relative and a crafted ?apiBase= can never move it.
+  function fetchSession(fetchImpl, loc) {
+    const authBase = danjionAuthBase(loc);
+    return request(fetchImpl, joinUrl(authBase, '/api/auth/get-session'));
+  }
+
   function accountStripEligible(loc) {
     const where = loc || (typeof location !== 'undefined' ? location : {});
     const file = String(where.pathname || '').split('/').pop() || '';
@@ -231,6 +241,7 @@
     joinUrl,
     request,
     createSessionFetch,
+    fetchSession,
     nativeSessionReady,
     accountStripEligible,
     initAccountStrip,
