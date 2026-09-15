@@ -222,8 +222,7 @@ renderComments();
   const result=await bridge.listComments(postId);
   if(result.mode!=='server'){
    const msg=failMessage(result);
-   commentCount.textContent=post?post.commentCount:0;
-   commentTitleCount.textContent=post?post.commentCount:0;
+   gatedCommentState(msg);
    flash(msg);
    return;
   }
