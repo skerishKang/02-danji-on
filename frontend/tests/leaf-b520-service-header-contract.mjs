@@ -60,6 +60,15 @@ assert.ok(css.includes('body .danjion-service-header .identity.danjion-account-h
   'shared CSS must override page-specific identity display rules with sufficient specificity');
 assert.ok(css.includes('flex-direction:row!important') && css.includes('flex-wrap:nowrap!important'),
   'admin quick entry and account identity must remain on one row');
+assert.ok(css.includes('@media (hover:hover) and (pointer:fine)'),
+  'desktop hover styling must be pointer-capability gated so touch/mobile is not hover-dependent');
+assert.ok(css.includes('.desktop-nav button:hover::after,.danjion-service-header .desktop-nav a:hover::after'),
+  'shared header must expose the same hover affordance for button and anchor nav items');
+assert.ok(css.includes('.desktop-nav button:focus-visible::after,.danjion-service-header .desktop-nav a:focus-visible::after'),
+  'shared header must expose keyboard focus affordance for button and anchor nav items');
+assert.ok(css.includes('.desktop-nav button.active::after,.danjion-service-header .desktop-nav a.active::after') &&
+  css.includes('transform:scaleX(1)!important'),
+  'active section underline must remain persistent while hover/focus are transient');
 assert.ok(!session.includes("authority.label + ' · ' + loginMethodLabel"),
   'always-visible account trigger must not expose authority/login-method metadata');
 assert.ok(session.includes("authorityNode.textContent = authority.label ? '권한 · ' + authority.label"),
