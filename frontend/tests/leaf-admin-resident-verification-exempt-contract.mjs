@@ -169,12 +169,13 @@ const wiring = wiringRaw.replace(/^\s*<script[^>]*>\s*/, '');
 
 /* =========== 10. no hardcoded account identifiers anywhere in the gate ===== */
 {
-  const exemptFn = wiring.slice(wiring.indexOf('function loadExemptIdentity'), wiring.indexOf('resolveResidentExemption().then'));
-  assert.ok(!/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/.test(wiring), 'no email literal may appear in the wiring');
+  const exemptFn = wiring.slice(wiring.indexOf('function loadExemptIdentity'), wiring.indexOf('function resolveResidentExemption'));
+  const decisionFn = wiring.slice(wiring.indexOf('function resolveResidentExemption'), wiring.indexOf('Promise.all([sessionIdentity(),resolveResidentExemption()])'));
+  assert.ok(!/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/.test(wiring), 'no hardcoded email literal may appear in the wiring');
   assert.ok(!/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i.test(exemptFn), 'no user id literal may appear in the exempt branch');
   assert.ok(!exemptFn.includes('name===') && !exemptFn.includes('.includes(name'), 'identity strings must never drive the exemption');
   assert.ok(!authoritySrc.includes('@'), 'the authority module must carry no address literal');
-  assert.ok(!/\buser\b|\bemail\b|\bname\b|createdAt|localStorage|sessionStorage|document\.cookie/.test(wiring.slice(wiring.indexOf('function resolveResidentExemption'), wiring.indexOf('resolveResidentExemption().then'))),
+  assert.ok(!/\buser\b|\bemail\b|\bname\b|createdAt|localStorage|sessionStorage|document\.cookie/.test(decisionFn),
     'the exemption decision may read nothing but the resolved authority');
 }
 
