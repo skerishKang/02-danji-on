@@ -1,0 +1,148 @@
+/* DanjiOn canonical authenticated-service header (#520).
+   Desktop only: mobile page shells/bottom-nav remain page-owned. */
+@media (min-width:761px){
+  .danjion-service-header{
+    height:76px!important;
+    min-height:76px!important;
+    border-bottom:1px solid var(--line,#d8d0c3)!important;
+    background:rgba(247,242,232,.96)!important;
+    display:flex!important;
+    align-items:center!important;
+    position:sticky!important;
+    top:0!important;
+    z-index:50!important;
+    backdrop-filter:blur(16px)!important;
+  }
+  .danjion-service-header .header-inner{
+    width:min(1440px,calc(100% - 80px))!important;
+    height:76px!important;
+    margin:auto!important;
+    padding:0!important;
+    display:grid!important;
+    grid-template-columns:auto minmax(0,1fr) auto!important;
+    align-items:center!important;
+    gap:28px!important;
+  }
+  .danjion-service-header .brand{
+    display:flex!important;
+    align-items:baseline!important;
+    gap:10px!important;
+    border:0!important;
+    background:none!important;
+    padding:0!important;
+    margin:0!important;
+    color:var(--ink,#101317)!important;
+    text-decoration:none!important;
+    font-family:inherit!important;
+    font-size:25px!important;
+    font-weight:900!important;
+    letter-spacing:-.05em!important;
+    line-height:1!important;
+    white-space:nowrap!important;
+    cursor:pointer!important;
+  }
+  .danjion-service-header .brand .wordmark{
+    font:inherit!important;
+    letter-spacing:inherit!important;
+  }
+  .danjion-service-header .brand small{
+    display:inline!important;
+    font-family:inherit!important;
+    font-size:11px!important;
+    line-height:1.2!important;
+    letter-spacing:.11em!important;
+    color:#5f5c56!important;
+    font-weight:850!important;
+    white-space:nowrap!important;
+  }
+  .danjion-service-header .desktop-nav{
+    display:flex!important;
+    align-items:center!important;
+    justify-content:center!important;
+    gap:40px!important;
+    height:76px!important;
+    min-width:0!important;
+    margin:0!important;
+    padding:0!important;
+  }
+  .danjion-service-header .desktop-nav button{
+    height:76px!important;
+    border:0!important;
+    background:none!important;
+    padding:0 2px!important;
+    margin:0!important;
+    color:var(--ink,#101317)!important;
+    font-family:inherit!important;
+    font-size:16px!important;
+    font-weight:800!important;
+    line-height:1!important;
+    position:relative!important;
+    white-space:nowrap!important;
+  }
+  .danjion-service-header .desktop-nav button.active::after{
+    content:""!important;
+    position:absolute!important;
+    left:0!important;
+    right:0!important;
+    bottom:0!important;
+    height:3px!important;
+    background:var(--coral,var(--accent,#ee6045))!important;
+  }
+  .danjion-service-header .identity{
+    min-width:0!important;
+    max-width:none!important;
+    width:auto!important;
+    justify-self:end!important;
+    font-family:inherit!important;
+    color:#58554f!important;
+    white-space:nowrap!important;
+    overflow:visible!important;
+  }
+  body .danjion-service-header .identity.danjion-account-host{
+    display:flex!important;
+    flex-direction:row!important;
+    flex-wrap:nowrap!important;
+    align-items:center!important;
+    justify-content:flex-end!important;
+    gap:10px!important;
+    max-width:none!important;
+    overflow:visible!important;
+    white-space:nowrap!important;
+  }
+  .danjion-service-header .danjion-account-trigger{
+    min-width:0!important;
+    flex:0 1 auto!important;
+  }
+  .danjion-service-header .danjion-account-label{
+    min-width:0!important;
+  }
+  .danjion-service-header .danjion-account-label b{
+    max-width:150px!important;
+  }
+  .danjion-service-header .mobile-head{
+    display:none!important;
+  }
+}
+@media (min-width:761px) and (max-width:1120px){
+  .danjion-service-header .header-inner{
+    width:calc(100% - 32px)!important;
+    gap:14px!important;
+  }
+  .danjion-service-header .brand small{
+    display:none!important;
+  }
+  .danjion-service-header .desktop-nav{
+    gap:clamp(12px,2.2vw,24px)!important;
+  }
+  .danjion-service-header .desktop-nav button{
+    font-size:14px!important;
+  }
+  .danjion-service-header .danjion-admin-quick-entry{
+    min-height:36px!important;
+    padding:0 10px!important;
+    font-size:11px!important;
+  }
+  .danjion-service-header .danjion-account-label b{
+    max-width:100px!important;
+  }
+}

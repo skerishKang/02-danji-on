@@ -49,6 +49,10 @@ assert.ok(session.includes("authorityNode.textContent = authority.label ? '권�
   'the account menu must visibly separate authority from user identity');
 assert.ok(session.includes("authKind.hasSocial") && session.includes("소셜 로그인 계정"),
   'social login accounts must keep provider-aware privacy copy instead of exposing provider contact email');
+assert.ok(!session.includes("authority.label + ' · ' + loginMethodLabel"),
+  'persistent header identity must not expose authority and login method');
+assert.ok(session.includes("label.append(labelMain)"),
+  'persistent header identity must contain display name only');
 
 for (const label of ['홈','인트로','이웃가게','우리단지','내정보']) {
   assert.ok(my.includes(`>${label}<`), `My Info header must contain ${label}`);

@@ -4,10 +4,11 @@ import vm from 'node:vm';
 import { createHash } from 'node:crypto';
 
 // Assignment #364 [Leaf B13]: 05_우리단지_첫화면 wired to the existing public complexes/:slug
-// authority ONLY (complex display name slots). sibling-final-v3 visible UI is locked by a
-// visible-DOM sha256: no new visible element, attribute, or copy may be added by this wiring.
-// CENTRAL #352 OPTION B stays in force: no channel-latest lines, no reveal logic, and the
-// DanjionSession string must never appear on page 05 (public fetch only).
+// authority ONLY (complex display name slots). The sibling-final-v3 content surface remains
+// hash-locked. Owner/CENTRAL #520 explicitly authorizes only the canonical authenticated
+// service-header shell + its shared stylesheet/runtime; the remainder of visible UI stays
+// byte-identical after that bounded normalization. The public complex-name wiring itself
+// remains anonymous/read-only and must not depend on DanjionSession.
 // Run: node frontend/tests/leaf-b13-firstscreen-wiring-contract.mjs
 
 const read = (rel) => readFile(new URL(rel, import.meta.url), 'utf8');
@@ -17,14 +18,25 @@ const CANON = 'banglim-myeongji-roadhill';
 const DEMO_NAME = '방림명지로드힐';
 const WIRING_ID = 'danjion-firstscreen-complex-wiring';
 
-/* --- sibling-final-v3 UI authority: visible DOM (scripts stripped) is hash-locked --- */
+/* --- sibling-final-v3 content authority: #520 permits only the canonical service header shell --- */
+const CANONICAL_HEADER = '<header class="site-header topbar danjion-service-header"><div class="header-inner topbar-inner"><button class="brand" data-route="04_데일리홈.html" type="button"><span class="wordmark">단지온</span><small>DANJION by PADIEM</small></button><nav aria-label="주요 메뉴" class="desktop-nav nav"><button data-route="04_데일리홈.html" type="button">홈</button><button data-route="index.html?intro=1" type="button">인트로</button><button data-route="01_이웃가게_발견.html" type="button">이웃가게</button><button aria-current="page" class="active" data-route="05_우리단지_첫화면.html" type="button">우리단지</button><button data-route="19_내정보_메인.html" type="button">내정보</button></nav><div class="identity" data-account-host>방림명지로드힐</div><div class="mobile-head">방림명지로드힐</div></div></header>';
+const LEGACY_HEADER = '<header class="site-header"><div class="header-inner"><button class="brand" data-route="index.html" type="button"><span class="wordmark">단지온</span><small>DANJION by PADIEM</small></button><nav class="desktop-nav"><button data-route="04_데일리홈.html" type="button">홈</button><button data-route="01_이웃가게_발견.html" type="button">이웃가게</button><button class="active" type="button">우리단지</button><button data-route="19_내정보_메인.html" type="button">내정보</button></nav><div class="identity">방림명지로드힐</div><div class="mobile-head">방림명지로드힐</div></div></header>';
+assert.ok(f05.includes(CANONICAL_HEADER), '#520 canonical service header must be exact on page 05');
+assert.ok(f05.includes('<link rel="stylesheet" href="assets/danjion-service-header.css">'),
+  '#520 shared service-header stylesheet must be loaded');
+assert.ok(f05.includes('<script src="assets/danjion-session.js"></script>'),
+  '#520 shared session/account runtime must be explicitly loaded');
+
+const normalize520 = (html) => html
+  .replace(CANONICAL_HEADER, LEGACY_HEADER)
+  .replace('<link rel="stylesheet" href="assets/danjion-service-header.css">\n', '');
 const visibleDom = (html) => html.replace(/<script\b[\s\S]*?<\/script>/gi, '').replace(/\r\n/g, '\n').replace(/>\s+</g, '><').trim();
-const visibleHash = (html) => createHash('sha256').update(visibleDom(html)).digest('hex');
+const visibleHash = (html) => createHash('sha256').update(visibleDom(normalize520(html))).digest('hex');
 assert.equal(visibleHash(f05), 'b5ca6eadeded279fbe83603fcd3acc1faf6b707b861a99b8e6ebe4553b85b1b8',
-  '05 visible DOM must remain byte-identical to the sibling-final-v3 authority after the README-canonical entry rename (data-route index3.html -> index.html); no other visible UI, attribute, or copy may change');
+  'outside the explicitly authorized #520 service-header shell, page 05 visible DOM must remain byte-identical to sibling-final-v3 authority');
 
 /* --- existing semantic demo copy stays in markup (server may overwrite at runtime only) --- */
-assert.ok(f05.includes(`<div class="identity">${DEMO_NAME}</div>`), '05 desktop identity slot must keep the demo complex name');
+assert.ok(f05.includes(`<div class="identity" data-account-host>${DEMO_NAME}</div>`), '05 desktop identity/account slot must keep the demo complex name');
 assert.ok(f05.includes(`<div class="mobile-head">${DEMO_NAME}</div>`), '05 mobile identity slot must keep the demo complex name');
 assert.ok(f05.includes(`<div class="eyebrow">${DEMO_NAME}의 네 가지 소식 공간</div>`), '05 eyebrow must keep the demo-prefixed copy');
 assert.ok(f05.includes('data-danjion-page="5"') && f05.includes('danjion-direct-router-v5'),
@@ -63,10 +75,12 @@ for (const forbidden of ['/posts', '/resident-news', '/businesses', '/community'
   assert.ok(!wiring.includes(forbidden), `wiring must not touch ${forbidden} (no post channels, no writes, no new routes)`);
 }
 
-/* --- CENTRAL #352 OPTION B re-lock: banned hub-reveal strings must stay absent on 05 --- */
-for (const banned of ['channel-latest', 'data-latest-for', 'HUB_API_BASE', 'danjion-hub-latest-wiring', 'DanjionSession']) {
+/* --- CENTRAL #352 OPTION B re-lock: hub reveal remains absent; #520 session shell is the only new runtime --- */
+for (const banned of ['channel-latest', 'data-latest-for', 'HUB_API_BASE', 'danjion-hub-latest-wiring']) {
   assert.ok(!f05.includes(banned), `05 must not contain "${banned}" (OPTION B remains in force)`);
 }
+assert.ok(!wiring.includes('DanjionSession'),
+  'the anonymous public complex-name wiring must remain independent from the authenticated session runtime');
 
 /* --- bounded scope: this wiring must not leak into other pages --- */
 const f04 = await read('../04_데일리홈.html');
