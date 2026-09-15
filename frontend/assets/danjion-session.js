@@ -376,10 +376,29 @@
     return { email, authority };
   }
 
+  function loadServiceFooterRuntime() {
+    if (typeof document === 'undefined') return false;
+    if (!document.querySelector('.danjion-service-header')) return false;
+    if (global.DanjionServiceFooter && typeof global.DanjionServiceFooter.mount === 'function') {
+      global.DanjionServiceFooter.mount();
+      return true;
+    }
+    if (document.querySelector('script[data-danjion-service-footer-runtime]')) return true;
+    const script = document.createElement('script');
+    script.src = 'assets/danjion-service-footer.js';
+    script.setAttribute('data-danjion-service-footer-runtime', '');
+    script.defer = true;
+    document.body.append(script);
+    return true;
+  }
+
   if (typeof document !== 'undefined') {
-    const bootAccountStrip = () => { initAccountStrip().catch(() => {}); };
-    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bootAccountStrip, { once: true });
-    else bootAccountStrip();
+    const bootServiceShell = () => {
+      initAccountStrip().catch(() => {});
+      loadServiceFooterRuntime();
+    };
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bootServiceShell, { once: true });
+    else bootServiceShell();
   }
 
   global.DanjionSession = Object.freeze({
@@ -401,6 +420,7 @@
     nativeSessionReady,
     accountStripEligible,
     initAccountStrip,
+    loadServiceFooterRuntime,
     PRODUCTION_PAGES_HOSTNAME,
     CANONICAL_PAGES_API_BASE,
     PRODUCTION_API_BASE
