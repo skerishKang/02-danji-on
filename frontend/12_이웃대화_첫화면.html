@@ -146,10 +146,10 @@ render();
  if(!apiBase)return;
  const bridge=DanjionCommunityBridge.createCommunityBridge({apiBase});
  const list=document.getElementById('postList');
- const KIND={story:'resident_story',question:'question',together:'together'};
- const LABEL={resident_story:'단지이야기',question:'궁금해요',together:'같이해요'};
- const CHIP={resident_story:'story',question:'question',together:'together'};
- const WRITE={story:'15_단지이야기_글쓰기.html',question:'16_궁금해요_글쓰기.html',together:'17_같이해요_글쓰기.html'};
+ const KIND={hello:'greeting',story:'resident_story',question:'question',together:'together'};
+ const LABEL={greeting:'가입인사',resident_story:'단지이야기',question:'궁금해요',together:'같이해요'};
+ const CHIP={greeting:'hello',resident_story:'story',question:'question',together:'together'};
+ const WRITE={hello:'14_가입인사_글쓰기.html',story:'15_단지이야기_글쓰기.html',question:'16_궁금해요_글쓰기.html',together:'17_같이해요_글쓰기.html'};
  function esc(value){return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
  function timeAgo(iso){
   const t=Date.parse(iso||''); if(!Number.isFinite(t))return '';
@@ -171,7 +171,6 @@ render();
   const selected=topicEl?topicEl.dataset.type:'hello';
   const showAll=Boolean(document.querySelector('.all-filter.active'));
   if(!showAll&&!KIND[selected]){
-   // #465: 가입인사는 아직 server kind가 없으므로 기존 built-in posts를 유지합니다.
    return;
   }
   const result=showAll?await bridge.listPosts(null,{limit:50}):await bridge.listPosts(KIND[selected]);
