@@ -102,12 +102,12 @@ const wiring = wiringRaw.replace(/^\s*<script[^>]*>\s*/, '');
 
 /* ==== 6. the wiring resolves authority FIRST and gates every resident call = */
 {
-  assert.ok(/resolveResidentExemption\(\)\.then\(function\(exempt\)\{/.test(wiring),
-    'the wiring must resolve the exemption before loading any resident data');
-  assert.ok(/if\(exempt\)\{loadExemptIdentity\(\);return;\}/.test(wiring),
+  assert.ok(/Promise\.all\(\[sessionIdentity\(\),resolveResidentExemption\(\)\]\)\.then\(function\(values\)\{/.test(wiring),
+    'the wiring must resolve session identity and exemption before loading any resident data');
+  assert.ok(/if\(exempt\)\{loadExemptIdentity\(user\);return;\}/.test(wiring),
     'the exempt branch must return before any resident fetch is started');
-  const gateAt = wiring.indexOf('resolveResidentExemption().then');
-  assert.ok(gateAt > -1 && gateAt > wiring.indexOf('function loadResidentData'), 'the gate is the wiring entry point');
+  const gateAt = wiring.indexOf('Promise.all([sessionIdentity(),resolveResidentExemption()])');
+  assert.ok(gateAt > -1 && gateAt > wiring.indexOf('function loadResidentData'), 'the combined session/authority gate is the wiring entry point');
   const profileAt = wiring.indexOf('bridge.profile()');
   const summaryAt = wiring.indexOf('bridge.summary()');
   const snapshotAt = wiring.indexOf('.getSnapshot()');
@@ -126,31 +126,35 @@ const wiring = wiringRaw.replace(/^\s*<script[^>]*>\s*/, '');
   assert.ok(wiring.includes(`'${EXEMPT_COPY}'`), 'the exempt copy must ship exactly');
   assert.ok(new RegExp(`renderResidentState\\('${EXEMPT_COPY}',\\{kind:'exempt'\\}\\)`).test(wiring),
     'the exempt state must render with kind exempt and no cta/edit flags');
-  const exemptFn = wiring.slice(wiring.indexOf('function loadExemptIdentity'), wiring.indexOf('resolveResidentExemption().then'));
+  const exemptFn = wiring.slice(wiring.indexOf('function loadExemptIdentity'), wiring.indexOf('function resolveResidentExemption'));
   assert.ok(!exemptFn.includes('주민인증 완료'), 'the exempt branch must never render the verified copy');
   assert.ok(!exemptFn.includes('주민인증이 필요합니다'), 'the exempt branch must never toast the required copy');
   assert.ok(!exemptFn.includes('cta:true') && !exemptFn.includes('edit:true'), 'the exempt branch must not surface the CTA or edit entry');
 }
 
-/* ==== 8. exempt identity comes only from Better Auth get-session fields ==== */
+/* ==== 8. account identity comes only from Better Auth get-session fields === */
 {
-  const exemptFn = wiring.slice(wiring.indexOf('function loadExemptIdentity'), wiring.indexOf('resolveResidentExemption().then'));
-  assert.ok(exemptFn.includes('S.fetchSession'), 'the exempt identity must come from the sanctioned session runtime');
-  assert.ok(!exemptFn.includes('/api/'), 'the exempt branch must carry no endpoint literal of its own');
-  assert.ok(exemptFn.includes('S.nativeSessionReady'), 'the session answer must pass the canonical native-shape gate');
-  assert.ok(exemptFn.includes('user.name') && exemptFn.includes('user.createdAt'), 'only name and createdAt may be read');
-  assert.ok(!exemptFn.includes('user.email'), 'the contact address must never be rendered');
-  assert.ok(!exemptFn.includes('user.id'), 'the auth user id must never be rendered');
-  assert.ok(!exemptFn.includes('bridge.') && !exemptFn.includes('getSnapshot'), 'the exempt identity must stay off every resident surface');
+  const identityFn = wiring.slice(wiring.indexOf('function sessionIdentity'), wiring.indexOf('function bindEmailResend'));
+  const exemptFn = wiring.slice(wiring.indexOf('function loadExemptIdentity'), wiring.indexOf('function resolveResidentExemption'));
+  assert.ok(identityFn.includes('S.fetchSession'), 'account identity must come from the sanctioned session runtime');
+  assert.ok(!identityFn.includes('/api/'), 'the My Info account-state branch must carry no endpoint literal of its own');
+  assert.ok(identityFn.includes('S.nativeSessionReady'), 'the session answer must pass the canonical native-shape gate');
+  assert.ok(identityFn.includes('user.name') && identityFn.includes('user.createdAt'), 'name and createdAt may be presented from the signed-in session');
+  assert.ok(identityFn.includes('renderEmailState(user)'), 'the signed-in session may present its own email-verification state');
+  assert.ok(!identityFn.includes('user.id'), 'the auth user id must never be rendered');
+  assert.ok(!exemptFn.includes('bridge.') && !exemptFn.includes('getSnapshot'), 'the exempt branch must stay off every resident surface');
   for (const endpoint of ['/auth/social-start', '/api/auth/get-session', '/api/auth/sign-in/social',
     '/api/auth/sign-in/email', '/api/auth/sign-up/email', '/api/auth/forget-password']) {
     assert.ok(!f19.includes(endpoint), `leaf-b14 Stage 2: f19 must not carry auth endpoint traffic (${endpoint})`);
   }
   assert.match(sessionSrc, /function fetchSession\(fetchImpl, loc\)[\s\S]{0,160}danjionAuthBase\(loc\)[\s\S]{0,120}'\/api\/auth\/get-session'/,
     'fetchSession must bind get-session to the auth base resolver exactly like the account strip');
-  assert.ok(/Object\.freeze\(\{[\s\S]*?fetchSession,/.test(sessionSrc), 'fetchSession must be exported from DanjionSession');
-  const endpoints = new Set((wiring.match(/\/api\/[a-z0-9/_.-]+/gi) || []).filter((e) => exemptFn.includes(e)));
-  assert.deepEqual(Array.from(endpoints), [], 'the exempt branch reaches the network only through shared helpers');
+  assert.match(sessionSrc, /function sendVerificationEmail\(fetchImpl, email, loc\)[\s\S]{0,420}'\/api\/auth\/send-verification-email'/,
+    'verification resend must also stay in the sanctioned auth runtime');
+  assert.ok(/Object\.freeze\(\{[\s\S]*?fetchSession,[\s\S]*?sendVerificationEmail,/.test(sessionSrc),
+    'session and verification helpers must be exported from DanjionSession');
+  const endpoints = new Set((wiring.match(/\/api\/[a-z0-9/_.-]+/gi) || []).filter((e) => identityFn.includes(e) || exemptFn.includes(e)));
+  assert.deepEqual(Array.from(endpoints), [], 'account/exempt branches reach the network only through shared helpers');
 }
 
 /* ========= 9. the ordinary resident flow is unchanged (B488 invariants) ==== */
@@ -165,12 +169,13 @@ const wiring = wiringRaw.replace(/^\s*<script[^>]*>\s*/, '');
 
 /* =========== 10. no hardcoded account identifiers anywhere in the gate ===== */
 {
-  const exemptFn = wiring.slice(wiring.indexOf('function loadExemptIdentity'), wiring.indexOf('resolveResidentExemption().then'));
-  assert.ok(!/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/.test(wiring), 'no email literal may appear in the wiring');
+  const exemptFn = wiring.slice(wiring.indexOf('function loadExemptIdentity'), wiring.indexOf('function resolveResidentExemption'));
+  const decisionFn = wiring.slice(wiring.indexOf('function resolveResidentExemption'), wiring.indexOf('Promise.all([sessionIdentity(),resolveResidentExemption()])'));
+  assert.ok(!/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/.test(wiring), 'no hardcoded email literal may appear in the wiring');
   assert.ok(!/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i.test(exemptFn), 'no user id literal may appear in the exempt branch');
   assert.ok(!exemptFn.includes('name===') && !exemptFn.includes('.includes(name'), 'identity strings must never drive the exemption');
   assert.ok(!authoritySrc.includes('@'), 'the authority module must carry no address literal');
-  assert.ok(!/\buser\b|\bemail\b|\bname\b|createdAt|localStorage|sessionStorage|document\.cookie/.test(wiring.slice(wiring.indexOf('function resolveResidentExemption'), wiring.indexOf('resolveResidentExemption().then'))),
+  assert.ok(!/\buser\b|\bemail\b|\bname\b|createdAt|localStorage|sessionStorage|document\.cookie/.test(decisionFn),
     'the exemption decision may read nothing but the resolved authority');
 }
 
@@ -204,7 +209,7 @@ function makeHarness(authorityAnswer) {
       const u = String(url);
       calls.push(u);
       if (u.includes('/api/v1/admin/authority')) return authorityAnswer();
-      if (u.includes('/api/auth/get-session')) return response(200, { session: { id: 'sess-1' }, user: { name: '관리자표시', createdAt: '2026-01-15T00:00:00Z' } });
+      if (u.includes('/api/auth/get-session')) return response(200, { session: { id: 'sess-1' }, user: { name: '관리자표시', email: 'signed-in@example.invalid', emailVerified: true, createdAt: '2026-01-15T00:00:00Z' } });
       if (u.includes('/api/v1/me/profile')) return response(200, { data: { nickname: '주민', joinedMonth: '2026-08' } });
       if (u.includes('/api/v1/me/summary')) return response(200, { data: { postCount: 1, commentCount: 2, receivedReactionCount: 3, savedBusinessCount: 4, unreadMessageCount: 0, household: { status: 'verified' } } });
       return response(404, { error: { code: 'NOT_FOUND' } });
@@ -259,7 +264,7 @@ for (const [label, answer, authorityHits] of [
   assert.ok(h.calls.some((u) => u.includes('/api/v1/me/profile')), `${label}: ordinary flow must still call bridge.profile()`);
   assert.ok(h.calls.some((u) => u.includes('/api/v1/me/summary')), `${label}: ordinary flow must still call bridge.summary()`);
   assert.notEqual(h.nodes.get('mi-resident-state').textContent, EXEMPT_COPY, `${label}: the exempt copy must never render`);
-  assert.ok(!h.calls.some((u) => u.includes('/api/auth/get-session')), `${label}: the wiring must not fetch get-session on the resident path`);
+  assert.equal(h.calls.filter((u) => u.includes('/api/auth/get-session')).length, 1, `${label}: account state must resolve exactly once before the resident path`);
 }
 
 console.log('leaf-admin-resident-verification-exempt-contract: PASS');

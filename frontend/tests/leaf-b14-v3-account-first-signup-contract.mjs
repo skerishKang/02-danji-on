@@ -59,9 +59,9 @@ assert.match(index, /하지만 아직 로그인할 수 없습니다/,
   'completion must state that account creation alone does not unlock login');
 assert.match(index, /로그인을 하려면 이메일 인증이 필요합니다/,
   'completion must explicitly state the email-verification requirement');
-assert.match(index, /단지온에서 보낸 인증메일을 여세요/,
-  'completion must tell the user which message to open');
-assert.match(index, /이메일 인증하기/,
+assert.match(index, /\[단지온\] 이메일 주소를 확인해 주세요/,
+  'completion must identify the exact verification-email subject');
+assert.match(index, /이메일 확인하기/,
   'completion must identify the verification action inside the email');
 assert.match(index, /스팸함·프로모션함도 확인해 주세요/,
   'completion must include a practical missing-mail fallback');

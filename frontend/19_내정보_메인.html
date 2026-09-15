@@ -183,7 +183,7 @@
 <section class="page-head"><div><div class="eyebrow">MY DANJION</div><h1>내정보</h1></div><div class="page-side"><div class="page-copy"><b>내 활동과 우리집, 메시지를 한곳에서 확인하세요.</b>자주 쓰는 정보는 이 화면에서 바로 확인할 수 있습니다.</div></div></section>
 <section class="profile-grid">
 <article class="profile-hero">
-<div class="profile-main"><div class="profile-top"><span class="avatar" id="mi-avatar">연</span><div class="profile-name"><small>방림명지로드힐 주민</small><div class="profile-title-line"><h2 id="mi-nickname">연블리님</h2><a class="level-chip" href="23_이웃온기.html" title="이웃 온기 레벨 보기">LV.3 · 참여하는 이웃</a><span class="resident-badge"><i></i><span id="mi-household">우리집 연결 완료</span></span></div><p id="mi-joined">2026년 8월 가입</p><div class="resident-state-row" id="mi-resident-row" hidden><span class="rs-dot" aria-hidden="true"></span><b id="mi-resident-state">—</b><a class="rs-cta" id="mi-resident-cta" href="26_우리집연결.html" hidden>주민인증 시작하기 →</a><button class="profile-edit-entry" id="mi-profile-edit" type="button" hidden>내정보 수정</button></div></div></div><div class="profile-stats"><div class="stat"><b id="mi-stat-posts">6</b><span>게시글</span></div><div class="stat"><b id="mi-stat-comments">18</b><span>댓글</span></div><div class="stat"><b id="mi-stat-reactions">27</b><span>받은 공감</span></div></div></div>
+<div class="profile-main"><div class="profile-top"><span class="avatar" id="mi-avatar">연</span><div class="profile-name"><small>방림명지로드힐 주민</small><div class="profile-title-line"><h2 id="mi-nickname">연블리님</h2><a class="level-chip" href="23_이웃온기.html" title="이웃 온기 레벨 보기">LV.3 · 참여하는 이웃</a><span class="resident-badge"><i></i><span id="mi-household">우리집 연결 완료</span></span></div><p id="mi-joined">2026년 8월 가입</p><div class="email-state-row" id="mi-email-row" hidden><span class="es-dot" aria-hidden="true"></span><b id="mi-email-state">—</b><span class="es-email" id="mi-email-address"></span><button class="email-resend" id="mi-email-resend" type="button" hidden>인증메일 다시 받기</button></div><div class="resident-state-row" id="mi-resident-row" hidden><span class="rs-dot" aria-hidden="true"></span><b id="mi-resident-state">—</b><a class="rs-cta" id="mi-resident-cta" href="26_우리집연결.html" hidden>주민인증 시작하기 →</a><button class="profile-edit-entry" id="mi-profile-edit" type="button" hidden>내정보 수정</button></div></div></div><div class="profile-stats"><div class="stat"><b id="mi-stat-posts">6</b><span>게시글</span></div><div class="stat"><b id="mi-stat-comments">18</b><span>댓글</span></div><div class="stat"><b id="mi-stat-reactions">27</b><span>받은 공감</span></div></div></div>
 <div class="level-card" onclick="location.href='23_이웃온기.html'" role="link" tabindex="0"><span class="level-label">이웃 온기</span><strong>LV.3 · 참여하는 이웃</strong><div aria-label="이웃 온기 5단계 중 3단계" class="level-track"><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i></div><span class="level-next">다음 온기 · 도움 주는 이웃</span><span class="level-more">레벨 자세히 보기 ›</span></div>
 </article>
 <div class="side-stack"><article class="side-card message"><span class="card-kicker">1:1 MESSAGE</span><h3>새 메시지가 있어요.<span class="unread" id="mi-unread">2</span></h3><button class="card-link" onclick="location.href='20_메시지함_목록.html'" type="button"><span>메시지함 보기</span><span>→</span></button></article><article class="side-card"><span class="card-kicker">MY HOUSEHOLD</span><h3>우리집 연결</h3><button class="card-link" onclick="location.href='26_우리집연결.html'" type="button"><span>연결 상태 보기</span><span>→</span></button></article></div>
@@ -379,6 +379,12 @@ if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt
 .resident-state-row.is-pending .rs-dot{background:var(--amber)}
     .resident-state-row.is-required .rs-dot,.resident-state-row.is-unknown .rs-dot{background:#e0664f}
     .resident-state-row.is-exempt .rs-dot{background:#64c195}
+.email-state-row{display:flex;align-items:center;flex-wrap:wrap;gap:9px;margin-top:10px;font-size:14px;font-weight:850;color:rgba(255,255,255,.9)}
+.email-state-row .es-dot{width:9px;height:9px;border-radius:50%;background:#64c195;flex:none}
+.email-state-row.is-required .es-dot{background:var(--amber)}
+.email-state-row .es-email{color:rgba(255,255,255,.7);font-weight:700;overflow-wrap:anywhere}
+.email-resend{border:0;background:transparent;color:var(--amber);font-size:14px;font-weight:900;text-decoration:underline;padding:0;cursor:pointer}
+.email-resend:disabled{opacity:.65;cursor:default}
 .rs-cta{color:var(--amber);font-size:14px;font-weight:900;text-decoration:underline}
 .profile-edit-entry{appearance:none;border:1px solid rgba(255,255,255,.4);background:transparent;color:#fff;font-size:14px;font-weight:850;padding:7px 12px;border-radius:999px;cursor:pointer}
 .profile-edit-entry:hover{border-color:var(--amber);color:var(--amber)}
@@ -450,6 +456,56 @@ if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt
     else if(err)toast('잠시 후 다시 시도해 주세요.');
   });
   }
+  function renderEmailState(user){
+    var row=$('mi-email-row'),state=$('mi-email-state'),address=$('mi-email-address'),resend=$('mi-email-resend');
+    if(!row||!state)return;
+    if(!user){row.hidden=true;return;}
+    var email=String(user.email||'').trim();
+    var verified=user.emailVerified===true;
+    row.hidden=false;
+    row.className='email-state-row'+(verified?'':' is-required');
+    state.textContent=verified?'이메일 확인 완료':'이메일 인증 필요';
+    if(address)address.textContent=email;
+    if(resend)resend.hidden=verified||!email;
+  }
+  function sessionIdentity(){
+    var pending=S&&typeof S.fetchSession==='function'?S.fetchSession(fetch):Promise.resolve(null);
+    return Promise.resolve(pending).then(function(result){
+      var ready=S&&typeof S.nativeSessionReady==='function'&&S.nativeSessionReady(result);
+      var user=ready&&result.raw.user&&typeof result.raw.user==='object'?result.raw.user:null;
+      if(user){
+        var name=String(user.name||'').trim();
+        setTxt(n.nickname,name?name+'님':DASH);
+        setTxt(n.avatar,name?name.charAt(0):DASH);
+        setTxt(n.joined,user.createdAt?fmtJoined(String(user.createdAt)):DASH);
+      }
+      renderEmailState(user);
+      return user;
+    },function(){renderEmailState(null);return null;});
+  }
+  function bindEmailResend(){
+    var resend=$('mi-email-resend');
+    if(!resend)return;
+    resend.addEventListener('click',function(){
+      if(!S||typeof S.fetchSession!=='function'||typeof S.sendVerificationEmail!=='function')return;
+      resend.disabled=true;setTxt(resend,'보내는 중…');
+      Promise.resolve(S.fetchSession(fetch)).then(function(result){
+        var ready=typeof S.nativeSessionReady==='function'&&S.nativeSessionReady(result);
+        var user=ready&&result.raw.user&&typeof result.raw.user==='object'?result.raw.user:null;
+        var email=user?String(user.email||'').trim():'';
+        if(!email)throw new Error('EMAIL_MISSING');
+        return S.sendVerificationEmail(fetch,email);
+      }).then(function(result){
+        if(!result||!result.ok)throw new Error('SEND_FAILED');
+        setTxt(resend,'인증메일을 보냈습니다');
+        toast('메일 제목 “[단지온] 이메일 주소를 확인해 주세요”를 확인해 주세요.');
+      }).catch(function(){
+        resend.disabled=false;setTxt(resend,'인증메일 다시 받기');
+        toast('인증메일을 보내지 못했습니다. 잠시 후 다시 시도해 주세요.');
+      });
+    });
+  }
+  bindEmailResend();
   function renderResidentState(text,flags){
     var row=$('mi-resident-row'),state=$('mi-resident-state'),cta=$('mi-resident-cta'),edit=$('mi-profile-edit');
     if(!row||!state)return;
@@ -523,16 +579,7 @@ if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt
     var cancel=$('mi-edit-cancel');if(cancel)cancel.addEventListener('click',function(){var panel=$('mi-profile-edit-panel');if(panel)panel.hidden=true;});
     var save=$('mi-edit-save');if(save)save.addEventListener('click',saveProfileEdit);
   })();
-  function loadExemptIdentity(){
-    var pending=S&&typeof S.fetchSession==='function'?S.fetchSession(fetch):Promise.resolve(null);
-    Promise.resolve(pending).then(function(result){
-      var ready=S&&typeof S.nativeSessionReady==='function'&&S.nativeSessionReady(result);
-      var user=ready&&result.raw.user&&typeof result.raw.user==='object'?result.raw.user:null;
-      var name=user?String(user.name||'').trim():'';
-      setTxt(n.nickname,name?name+'님':DASH);
-      setTxt(n.avatar,name?name.charAt(0):DASH);
-      setTxt(n.joined,user&&user.createdAt?fmtJoined(String(user.createdAt)):DASH);
-    });
+  function loadExemptIdentity(user){
     setTxt(n.household,DASH);
     renderResidentState('운영자 계정 · 주민인증 불필요',{kind:'exempt'});
   }
@@ -542,8 +589,14 @@ if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt
       return AA.hasResidentVerificationExemption(authority)===true;
     },function(){return false;});
   }
-  resolveResidentExemption().then(function(exempt){
-    if(exempt){loadExemptIdentity();return;}
+  Promise.all([sessionIdentity(),resolveResidentExemption()]).then(function(values){
+    var user=values[0],exempt=values[1];
+    if(exempt){loadExemptIdentity(user);return;}
+    if(user&&user.emailVerified===false){
+      setTxt(n.household,'이메일 인증 필요');
+      renderResidentState('이메일 인증 후 주민 상태 확인',{kind:'pending'});
+      return;
+    }
     loadResidentData();
     loadResidentState();
   });
