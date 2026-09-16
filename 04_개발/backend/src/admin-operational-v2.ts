@@ -543,6 +543,31 @@ export async function handleAdminOperationalRequest(
   }
 
   match = path.match(/^\/api\/v1\/admin\/complexes\/([^/]+)\/benefits$/);
+  if (match && request.method === 'GET') {
+    const complexSlug = decodeURIComponent(match[1]);
+    const operator = await authority(request, env, sql, requestId, complexSlug, POLICY.benefitManage);
+    if (operator instanceof Response) return operator;
+
+    const status = url.searchParams.get('status')?.trim() || 'all';
+    if (!['all','draft','active','expired','suspended'].includes(status)) {
+      return fail('VALIDATION_ERROR', 'Invalid benefit status filter', 400, requestId);
+    }
+    const rows = await sql`
+      select be.id, be.business_id, b.name as business_name,
+             be.title, be.description, be.conditions, be.starts_at, be.ends_at,
+             be.status, be.created_at, be.updated_at
+      from benefits be
+      join businesses b on b.id = be.business_id
+      where be.complex_id = ${operator.complexId}::uuid
+        and (${status} = 'all' or be.status = ${status})
+      order by
+        case be.status when 'draft' then 0 when 'active' then 1 when 'suspended' then 2 when 'expired' then 3 else 4 end,
+        be.created_at desc
+      limit 200
+    `;
+    return ok(rows, requestId);
+  }
+
   if (match && request.method === 'POST') {
     return createBenefit(request, env, sql, decodeURIComponent(match[1]), requestId);
   }
