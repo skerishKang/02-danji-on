@@ -186,7 +186,7 @@ export default function V2AuthEntryPortal() {
             <div className="v2-onboarding-kicker">ACCOUNT</div>
             <h2 id="v2-auth-entry-title">{mode === 'signup' ? '단지온 계정을 만들어요.' : '다시 만나서 반가워요.'}</h2>
             <p>{mode === 'signup'
-              ? '이메일로 먼저 단지온 계정을 만들 수 있습니다. Google·Naver·Kakao 가입도 주민 인증과는 별개이며, 가입 후 이메일을 확인하고 입주민 확인을 별도 진행합니다.'
+              ? '이메일로 먼저 단지온 계정을 만들 수 있습니다. Google·Kakao 가입도 주민 인증과는 별개이며, 가입 후 이메일을 확인하고 입주민 확인을 별도 진행합니다.'
               : '로그인하면 입주민 확인 상태를 확인하거나 신청할 수 있습니다.'}</p>
 
             <div className="v2-auth-mode" role="group" aria-label="가입 또는 로그인 선택">
@@ -225,7 +225,6 @@ export default function V2AuthEntryPortal() {
 
             <div className="v2-auth-social" aria-label={mode === 'signup' ? '소셜 계정으로 가입' : '소셜 계정으로 로그인'}>
               <button type="button" disabled={busy} onClick={() => void social('kakao')}>{mode === 'signup' ? 'Kakao로 가입' : 'Kakao'}</button>
-              <button type="button" disabled={busy} onClick={() => void social('naver')}>{mode === 'signup' ? 'Naver로 가입' : 'Naver'}</button>
               <button type="button" disabled={busy} onClick={() => void social('google')}>{mode === 'signup' ? 'Google로 가입' : 'Google'}</button>
             </div>
 
