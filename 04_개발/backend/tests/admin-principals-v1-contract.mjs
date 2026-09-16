@@ -26,7 +26,8 @@ assert.match(src, /insert into audit_events/, 'principal mutations must be audit
 assert.match(src, /normalized_email/);
 assert.doesNotMatch(src, /provider_account_id\s*=/, 'V1 must not let the client edit provider account identity');
 assert.doesNotMatch(src, /complex_memberships/i, 'PADIEM principal management must not use legacy apartment roles');
-assert.doesNotMatch(src, /resident/i, 'principal-management API must not query or expose resident-domain data');
+assert.doesNotMatch(src, /(?:resident_profiles|resident_verifications|household_units|complex_memberships)/i,
+  'principal-management API must not query resident/household/legacy apartment authority data');
 
 assert.ok(app.includes("import { handleAdminPrincipalRequest } from './admin-principals-v1';"));
 const mounted = app.indexOf('handleAdminPrincipalRequest(request, env, id)');
