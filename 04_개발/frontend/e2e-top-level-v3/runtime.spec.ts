@@ -191,3 +191,82 @@ test('My Info canonical top-level page renders signed-out without runtime errors
   await expect(page.locator('[data-account-host]').first()).toBeVisible();
   await guard.assertClean();
 });
+
+
+test('#583 desktop non-header interactions expose pointer and keyboard feedback', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const guard = await installGuard(page);
+
+  await page.goto(withApi('/04_%EB%8D%B0%EC%9D%BC%EB%A6%AC%ED%99%88.html'));
+  const brand = page.locator('.danjion-service-header .brand').first();
+  await expect(brand).toBeVisible();
+  await page.keyboard.press('Tab');
+  await expect(brand).toBeFocused();
+  const outlineWidth = await brand.evaluate(el => parseFloat(getComputedStyle(el).outlineWidth));
+  expect(outlineWidth).toBeGreaterThanOrEqual(3);
+
+  const inactiveScene = page.locator('.scene-tab:not(.active)').first();
+  const beforeHoverBorder = await inactiveScene.evaluate(el => getComputedStyle(el).borderTopColor);
+  await inactiveScene.hover();
+  await page.waitForTimeout(250);
+  const hoverBorder = await inactiveScene.evaluate(el => getComputedStyle(el).borderTopColor);
+  expect(hoverBorder).not.toBe(beforeHoverBorder);
+
+  await page.goto(withApi('/01_%EC%9D%B4%EC%9B%83%EA%B0%80%EA%B2%8C_%EB%B0%9C%EA%B2%AC.html'));
+  const card = page.locator('.b-shop-card[tabindex="0"]').first();
+  await expect(card).toBeVisible();
+  await card.focus();
+  await page.keyboard.press('Enter');
+  await expect(page.locator('#shopCompareModal')).toHaveClass(/open/);
+
+  await page.goto(withApi('/19_%EB%82%B4%EC%A0%95%EB%B3%B4_%EB%A9%94%EC%9D%B8.html'));
+  const levelCard = page.locator('.level-card[role="link"][tabindex="0"]');
+  await expect(levelCard).toBeVisible();
+  await levelCard.focus();
+  await page.keyboard.press(' ');
+  await page.waitForURL(/23_%EC%9D%B4%EC%9B%83%EC%98%A8%EA%B8%B0\.html/);
+
+  await guard.assertClean();
+});
+
+test('#583 mobile controls meet touch-target policy and Warmth toast clears bottom nav', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const guard = await installGuard(page);
+
+  const expectMinHit = async (selector: string, minWidth = 44, minHeight = 44) => {
+    const locator = page.locator(selector).first();
+    await expect(locator).toBeVisible();
+    const box = await locator.boundingBox();
+    expect(box, selector + ' must have a measurable hit box').not.toBeNull();
+    expect(box!.width, selector + ' width').toBeGreaterThanOrEqual(minWidth);
+    expect(box!.height, selector + ' height').toBeGreaterThanOrEqual(minHeight);
+  };
+
+  await page.goto(withApi('/04_%EB%8D%B0%EC%9D%BC%EB%A6%AC%ED%99%88.html'));
+  await expectMinHit('.danjion-service-header .brand');
+  await expectMinHit('#saveBtn');
+  await expectMinHit('.news-head button');
+
+  await page.goto(withApi('/01_%EC%9D%B4%EC%9B%83%EA%B0%80%EA%B2%8C_%EB%B0%9C%EA%B2%AC.html'));
+  await expectMinHit('.filter');
+  await expectMinHit('.b-save');
+
+  await page.goto(withApi('/19_%EB%82%B4%EC%A0%95%EB%B3%B4_%EB%A9%94%EC%9D%B8.html'));
+  await expectMinHit('.level-chip');
+
+  await page.goto('/23_%EC%9D%B4%EC%9B%83%EC%98%A8%EA%B8%B0.html');
+  await expectMinHit('.back');
+  await page.locator('.toast').evaluate((el: HTMLElement) => {
+    el.textContent = '모바일 토스트 여백 확인';
+    el.classList.add('show');
+  });
+  await page.waitForTimeout(300);
+  const toastBox = await page.locator('.toast').boundingBox();
+  const navBox = await page.locator('.mobile-bottom').boundingBox();
+  expect(toastBox).not.toBeNull();
+  expect(navBox).not.toBeNull();
+  const gap = navBox!.y - (toastBox!.y + toastBox!.height);
+  expect(gap).toBeGreaterThanOrEqual(16);
+
+  await guard.assertClean();
+});

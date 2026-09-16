@@ -963,6 +963,7 @@
 </style>
 
 <link rel="stylesheet" href="assets/danjion-service-header.css">
+<link rel="stylesheet" href="assets/danjion-interaction-polish.css">
 </head>
 <body data-danjion-page="1" data-shop-experience="popup-v3">
 <header class="site-header topbar danjion-service-header"><div class="header-inner topbar-inner"><button class="brand" data-route="04_데일리홈.html" type="button"><span class="wordmark">단지온</span><small>DANJION by PADIEM</small></button><nav aria-label="주요 메뉴" class="desktop-nav nav"><button data-route="04_데일리홈.html" type="button">홈</button><button data-route="index.html?intro=1" type="button">인트로</button><button aria-current="page" class="active" data-route="01_이웃가게_발견.html" type="button">이웃가게</button><button data-route="05_우리단지_첫화면.html" type="button">우리단지</button><button data-route="19_내정보_메인.html" type="button">내정보</button></nav><div class="identity" data-account-host>방림명지로드힐</div></div></header>
@@ -1097,7 +1098,7 @@
  function card(s,i){
    const cls=i===0?'b-featured':i===1?'b-medium':'b-row';
    const rel=relationClass(s.relation);
-   return `<article class="b-shop-card ${cls}" data-shop-key="${esc(s.key)}">
+   return `<article class="b-shop-card ${cls}" data-shop-key="${esc(s.key)}" tabindex="0" aria-label="${esc(s.name)} 상세 보기">
      <div class="b-card-media"><img src="${esc(s.image)}" alt="${esc(s.name)} 작업 장면"></div>
      <div class="b-card-body">
        <div class="b-card-titleline">
@@ -1112,7 +1113,7 @@
  }
  function textRow(s,i){
    const rel=relationClass(s.relation);
-   return `<div class="b-text-shop" data-shop-key="${esc(s.key)}">
+   return `<div class="b-text-shop" data-shop-key="${esc(s.key)}" tabindex="0" aria-label="${esc(s.name)} 상세 보기">
      <div class="b-text-main"><div class="b-text-name-line">
        <b class="b-text-shop-name">${esc(s.name)}</b>
        <span class="b-card-relation ${rel}">${esc(s.relation)}</span>
@@ -1181,6 +1182,14 @@ grid.addEventListener('click',e=>{
   }
   const shop=e.target.closest('[data-shop-key]');
   if(shop){e.preventDefault();e.stopPropagation();openShop(shop.dataset.shopKey);}
+});
+grid.addEventListener('keydown',e=>{
+  const shop=e.target.closest('[data-shop-key][tabindex="0"]');
+  if(!shop||e.target!==shop)return;
+  if(e.key==='Enter'||e.key===' '){
+    e.preventDefault();
+    openShop(shop.dataset.shopKey);
+  }
 });
  document.getElementById('shopCompareClose').onclick=closeShop.onclick=closeShop;modal.addEventListener('click',e=>{if(e.target===modal)closeShop()});
  document.getElementById('shopCompareSave').onclick=async()=>{try{const r=await __savedShopsBridge.toggle(active);flash(r.saved?'저장한 이웃가게에 담았습니다.':'저장을 취소했습니다.')}catch(_){void 0}syncModalSave();syncSaveButtons()};
