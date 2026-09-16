@@ -595,7 +595,15 @@ if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt
   })();
   function loadExemptIdentity(user){
     setTxt(n.household,DASH);
-    renderResidentState('운영자 계정 · 주민인증 불필요',{kind:'exempt'});
+    renderResidentState('운영자 계정 · 주민인증 불필요',{kind:'exempt',edit:true});
+    bridge.profile().then(function(pr){
+      if(!pr||!pr.ok||!pr.profile)return;
+      var p=pr.profile,nick=String(p.nickname||'').trim();
+      serverProfile=p;
+      setTxt(n.nickname,nick?nick+'님':DASH);
+      setTxt(n.avatar,nick?nick.charAt(0):DASH);
+      setTxt(n.joined,fmtJoined(p.joinedMonth));
+    });
   }
   function resolveResidentExemption(){
     if(!AA||typeof AA.fetchAuthority!=='function'||typeof AA.hasResidentVerificationExemption!=='function')return Promise.resolve(false);
