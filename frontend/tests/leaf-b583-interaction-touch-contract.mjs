@@ -2,8 +2,9 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
 const root = new URL('../', import.meta.url);
-const [css, shops, home, complex, myinfo, warmth] = await Promise.all([
+const [css, consistency, shops, home, complex, myinfo, warmth] = await Promise.all([
   readFile(new URL('assets/danjion-interaction-polish.css', root), 'utf8'),
+  readFile(new URL('assets/consistency.css', root), 'utf8'),
   readFile(new URL('01_이웃가게_발견.html', root), 'utf8'),
   readFile(new URL('04_데일리홈.html', root), 'utf8'),
   readFile(new URL('05_우리단지_첫화면.html', root), 'utf8'),
@@ -13,17 +14,27 @@ const [css, shops, home, complex, myinfo, warmth] = await Promise.all([
 
 for (const [name, html] of [
   ['shops', shops],
-  ['home', home],
-  ['complex', complex],
   ['myinfo', myinfo],
   ['warmth', warmth]
 ]) {
   assert.match(
     html,
     /assets\/danjion-interaction-polish\.css/,
-    `#583: ${name} canonical page must load the shared non-header interaction policy`
+    `#583: ${name} canonical page must load the shared non-header interaction policy directly`
   );
 }
+for (const [name, html] of [['home', home], ['complex', complex]]) {
+  assert.match(
+    html,
+    /assets\/consistency\.css/,
+    `#583: ${name} must retain its existing consistency stylesheet authority`
+  );
+}
+assert.match(
+  consistency,
+  /^@import url\("\.\/danjion-interaction-polish\.css"\);/m,
+  '#583: consistency-owned pages must receive interaction polish without changing their visible DOM'
+);
 
 assert.match(css, /:focus-visible\{/,
   '#583: keyboard focus feedback must be explicit');
