@@ -162,7 +162,61 @@
         : { ok: false, mode: authMode(result), status: result.status, error: result.error };
     }
 
-    return { profile, publicProfile, updateProfile, settings, updateSetting, activity, summary, consents, setConsent };
+    async function blockedUsers() {
+      const result = await requestJson(fetchImpl, `${apiBase}/api/v1/me/blocks${query}`, { method: 'GET' });
+      const rows = Array.isArray(result.data?.blocks) ? result.data.blocks : [];
+      return result.ok
+        ? { ok: true, mode: 'server', status: result.status, blocks: rows }
+        : { ok: false, mode: authMode(result), status: result.status, error: result.error, blocks: [] };
+    }
+
+    async function blockResident(userId) {
+      const target = String(userId || '').trim().toLowerCase();
+      if (!UUID.test(target)) return { ok: false, mode: 'client', error: 'BLOCK_USER_ID_REQUIRED' };
+      const result = await requestJson(fetchImpl, `${apiBase}/api/v1/me/blocks${query}`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ userId: target })
+      });
+      return result.ok
+        ? { ok: true, mode: 'server', status: result.status, block: result.data }
+        : { ok: false, mode: authMode(result), status: result.status, error: result.error };
+    }
+
+    async function unblockResident(userId) {
+      const target = String(userId || '').trim().toLowerCase();
+      if (!UUID.test(target)) return { ok: false, mode: 'client', error: 'BLOCK_USER_ID_REQUIRED' };
+      const result = await requestJson(fetchImpl, `${apiBase}/api/v1/me/blocks/${encodeURIComponent(target)}${query}`, {
+        method: 'DELETE'
+      });
+      return result.ok
+        ? { ok: true, mode: 'server', status: result.status, block: result.data }
+        : { ok: false, mode: authMode(result), status: result.status, error: result.error };
+    }
+
+    async function reportResident(userId, reason, detail) {
+      const target = String(userId || '').trim().toLowerCase();
+      const reportReason = String(reason || '').trim();
+      const allowedReasons = new Set(['abuse', 'threat', 'privacy', 'defamation_risk', 'spam', 'other']);
+      if (!UUID.test(target)) return { ok: false, mode: 'client', error: 'REPORT_USER_ID_REQUIRED' };
+      if (!allowedReasons.has(reportReason)) return { ok: false, mode: 'client', error: 'REPORT_REASON_REQUIRED' };
+      const payload = { targetType: 'resident', targetId: target, reason: reportReason };
+      const detailText = String(detail || '').trim();
+      if (detailText) payload.detail = detailText;
+      const result = await requestJson(fetchImpl, `${apiBase}/api/v1/me/reports${query}`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      return result.ok
+        ? { ok: true, mode: 'server', status: result.status, report: result.data }
+        : { ok: false, mode: authMode(result), status: result.status, error: result.error };
+    }
+
+    return {
+      profile, publicProfile, updateProfile, settings, updateSetting, activity, summary, consents, setConsent,
+      blockedUsers, blockResident, unblockResident, reportResident
+    };
   }
 
   globalThis.DanjionResidentBridge = { createResidentBridge, serverConfig };
