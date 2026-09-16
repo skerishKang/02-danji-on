@@ -22,6 +22,7 @@ const actorsBySubject = new Map([
 const principalByActor = new Map([
   ['00000000-0000-4000-8000-000000000101', {
     id: '10000000-0000-4000-8000-000000000001',
+    provider: 'google',
     authority_level: 'operator',
     scopes: [
       'benefit.manage',
@@ -36,11 +37,19 @@ const principalByActor = new Map([
   }],
   ['00000000-0000-4000-8000-000000000102', {
     id: '10000000-0000-4000-8000-000000000002',
+    provider: 'google',
+    authority_level: 'admin',
+    scopes: ['*']
+  }],
+  ['00000000-0000-4000-8000-000000000105', {
+    id: '10000000-0000-4000-8000-000000000005',
+    provider: 'credential',
     authority_level: 'admin',
     scopes: ['*']
   }],
   ['00000000-0000-4000-8000-000000000106', {
     id: '10000000-0000-4000-8000-000000000006',
+    provider: 'google',
     authority_level: 'admin',
     scopes: ['business.review']
   }]
@@ -63,12 +72,13 @@ async function sql(strings, ...values) {
   const query = normalized(strings);
 
   if (query.includes('join padiem_admin_identity_allowlist p')) {
-    assert.match(query, /p\.provider = 'google'/, 'bootstrap must be provider-pinned to Google');
-    assert.match(query, /u\.email_verified = true/, 'bootstrap must require verified Better Auth email');
-    assert.match(query, /lower\(a\.provider_id\) = 'google'/, 'bootstrap must require an attached Google account');
+    assert.match(query, /p\.provider in \('google','credential'\)/, 'bootstrap must accept only supported server-side principal providers');
+    assert.match(query, /p\.provider = 'credential'[\s\S]*or u\.email_verified = true/, 'Google keeps verified-email enforcement');
+    assert.match(query, /lower\(a\.provider_id\) = p\.provider/, 'bootstrap must match the exact allowlisted provider');
+    assert.match(query, /p\.provider = 'credential'[\s\S]*p\.provider_account_id is not null[\s\S]*p\.provider_account_id = a\.account_id/,
+      'credential bootstrap must require an exact provider account pin');
     assert.match(query, /p\.status = 'active'/, 'bootstrap must require active pre-registration');
     assert.match(query, /p\.expires_at is null or p\.expires_at > now\(\)/, 'bootstrap must enforce registration expiry');
-    assert.match(query, /p\.provider_account_id is null[\s\S]*p\.provider_account_id = a\.account_id/, 'optional provider account pin must be enforced');
     if (failBootstrapQuery) {
       failBootstrapQuery = false;
       throw new Error('synthetic bootstrap DB failure');
@@ -139,7 +149,7 @@ async function payload(response, status) {
 }
 
 // 2. Authenticated but not pre-registered -> 403.
-for (const subject of ['sub-unlisted', 'sub-unverified', 'sub-credential']) {
+for (const subject of ['sub-unlisted', 'sub-unverified']) {
   const response = await bootstrapAdminAuthorityResponse(request(subject), env, sql, 'req-denied-' + subject);
   const body = await payload(response, 403);
   assert.equal(body.error.code, 'ADMIN_BOOTSTRAP_NOT_ALLOWED');
@@ -195,7 +205,17 @@ for (const subject of ['sub-unlisted', 'sub-unverified', 'sub-credential']) {
   assert.equal(auditEvents.at(-1).metadata.authorityLevel, 'operator');
 }
 
-// 5. SUPER registration preserves wildcard plus the full bounded operational bundle.
+// 5. Existing credential SUPER may bootstrap only through its exact server-pinned credential principal.
+{
+  const response = await bootstrapAdminAuthorityResponse(request('sub-credential'), env, sql, 'req-credential');
+  const body = await payload(response, 200);
+  assert.equal(body.data.level, 'admin');
+  assert.equal(body.data.wildcard, true);
+  assert.ok(body.data.scopes.includes('*'));
+  assert.equal(auditEvents.at(-1).decision, 'allowed');
+}
+
+// 6. SUPER registration preserves wildcard plus the full bounded operational bundle.
 {
   const response = await bootstrapAdminAuthorityResponse(request('sub-admin'), env, sql, 'req-admin');
   const body = await payload(response, 200);
@@ -228,7 +248,7 @@ for (const subject of ['sub-unlisted', 'sub-unverified', 'sub-credential']) {
   ]);
 }
 
-// 6. Retry is idempotent: no duplicate or widened grant appears.
+// 7. Retry is idempotent: no duplicate or widened grant appears.
 {
   const actorId = actorsBySubject.get('sub-operator').id;
   const before = [...grantsFor(actorId)].sort();
@@ -237,7 +257,7 @@ for (const subject of ['sub-unlisted', 'sub-unverified', 'sub-credential']) {
   assert.deepEqual([...grantsFor(actorId)].sort(), before);
 }
 
-// 7. Bootstrap lookup outage is fail-closed with 503.
+// 8. Bootstrap lookup outage is fail-closed with 503.
 {
   failBootstrapQuery = true;
   const response = await bootstrapAdminAuthorityResponse(request('sub-admin'), env, sql, 'req-db');
@@ -245,7 +265,7 @@ for (const subject of ['sub-unlisted', 'sub-unverified', 'sub-credential']) {
   assert.equal(body.error.code, 'ADMIN_BOOTSTRAP_UNAVAILABLE');
 }
 
-// 8. Handler only owns POST /api/v1/admin/bootstrap; missing DB fails closed before Neon use.
+// 9. Handler only owns POST /api/v1/admin/bootstrap; missing DB fails closed before Neon use.
 {
   assert.equal(
     await handleAdminBootstrapRequest(new Request('https://danjion.test/api/v1/admin/bootstrap', { method: 'GET' }), env, 'req-get'),
@@ -269,4 +289,4 @@ assert.ok(auditEvents.length >= 7);
 assert.ok(auditEvents.every((event) => !('email' in event.metadata)));
 assert.ok(auditEvents.every((event) => !('token' in event.metadata)));
 
-console.log('Admin pre-registered Google bootstrap runtime contract PASS');
+console.log('Admin pre-registered provider-aware bootstrap runtime contract PASS');
