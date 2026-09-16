@@ -176,6 +176,11 @@ const loadAdminContext = (location) => {
   assert.equal(calls.length, beforeHeldCalls, 'known policy-hold sections must not perform a misleading live fetch');
   const scopeDenied = await C.loadSection(route(403, { error: { code: 'PADIEM_GRANT_REQUIRED' } }), 'https://api.test', byId('reports'));
   assert.equal(scopeDenied.state, 'scope-denied', 'per-section access is decided by the server grant scope');
+  const posts = await C.loadSection(route(200, { data: [{ id: 3, status: 'draft' }] }), 'https://api.test', byId('posts'));
+  assert.equal(posts.state, 'ready');
+  assert.equal(posts.rows.length, 1);
+  assert.ok(calls.at(-1).includes(`/api/v1/admin/complexes/${CANONICAL_SLUG}/posts?status=all`),
+    'admin posts must read the operational list so draft/archived rows remain manageable');
   const signedOut = await C.loadSection(route(401, {}), 'https://api.test', byId('posts'));
   assert.equal(signedOut.state, 'signed-out');
   const broken = await C.loadSection(route(500, { error: { code: 'DB_READ_FAILED' } }), 'https://api.test', byId('benefits'));
@@ -234,6 +239,61 @@ const loadAdminContext = (location) => {
   );
   assert.equal(conflict.state, 'conflict', 'server approval preconditions must remain authoritative');
   assert.equal(conflict.code, 'RELATION_NOT_RESOLVED');
+
+  const postCalls = [];
+  const postFetch = async (url, init) => {
+    postCalls.push({ url, init });
+    return {
+      ok: true,
+      status: init.method === 'POST' ? 201 : 200,
+      json: async () => ({ data: { id: 'd0a1c4a1-0000-4000-8000-000000000012', status: 'draft' } })
+    };
+  };
+  const created = await C.createOfficialPost(postFetch, 'https://api.test', {
+    sourceName: '단지온 운영자',
+    category: '생활소식',
+    title: '엘리베이터 점검 안내',
+    body: '점검 일정을 안내드립니다.',
+    status: 'draft'
+  });
+  assert.equal(created.state, 'updated');
+  assert.equal(postCalls[0].init.method, 'POST');
+  assert.ok(postCalls[0].url.endsWith(`/api/v1/admin/complexes/${CANONICAL_SLUG}/posts`));
+  assert.deepEqual(JSON.parse(postCalls[0].init.body), {
+    sourceName: '단지온 운영자',
+    category: '생활소식',
+    title: '엘리베이터 점검 안내',
+    body: '점검 일정을 안내드립니다.',
+    status: 'draft'
+  });
+
+  const updated = await C.updateOfficialPost(
+    postFetch,
+    'https://api.test',
+    'd0a1c4a1-0000-4000-8000-000000000012',
+    {
+      sourceName: '단지온 운영자',
+      category: '생활소식',
+      title: '엘리베이터 점검 안내',
+      body: '수정된 점검 일정을 안내드립니다.',
+      status: 'published'
+    }
+  );
+  assert.equal(updated.state, 'updated');
+  assert.equal(postCalls[1].init.method, 'PATCH');
+  assert.ok(postCalls[1].url.endsWith('/api/v1/admin/posts/d0a1c4a1-0000-4000-8000-000000000012'));
+  assert.equal(JSON.parse(postCalls[1].init.body).status, 'published');
+
+  const beforeInvalidPost = postCalls.length;
+  const invalidPost = await C.createOfficialPost(postFetch, 'https://api.test', {
+    sourceName: '단지온 운영자',
+    category: '',
+    title: '',
+    body: '',
+    status: 'draft'
+  });
+  assert.equal(invalidPost.state, 'invalid-request');
+  assert.equal(postCalls.length, beforeInvalidPost, 'invalid post form must fail before network mutation');
 }
 
 /* ================= 5. the admin page renders from the server grant only ==== */
@@ -262,6 +322,14 @@ const loadAdminContext = (location) => {
     'the canonical admin page must expose the changes-requested transition');
   assert.ok(adminPage.includes("['rejected','거절','danger'"),
     'the canonical admin page must expose the rejected transition');
+  assert.ok(adminPage.includes("postComposer(panel,section,apiBase)"),
+    'official-news section must expose the bounded create surface');
+  assert.ok(adminPage.includes("postEditControls(row,panel,section,apiBase)"),
+    'official-news rows must expose bounded edit/status controls');
+  assert.ok(adminPage.includes("createOfficialPost(fetch,apiBase,postPayload(fields))"),
+    'page must delegate post creation to the reviewed console bridge');
+  assert.ok(adminPage.includes("updateOfficialPost(fetch,apiBase,row.id,postPayload(fields))"),
+    'page must delegate post edits to the reviewed console bridge');
   assert.ok(adminPage.includes("meta name=\"robots\" content=\"noindex\""), 'the admin console must not be indexed');
 }
 
@@ -279,12 +347,18 @@ const loadAdminContext = (location) => {
     assert.ok(!/method\s*:\s*['"](?:POST|PATCH|PUT|DELETE)['"]/.test(src),
       'page/authority layers must not directly own mutation transports');
   }
-  assert.equal((consoleSrc.match(/method\s*:\s*'PATCH'/g) || []).length, 1,
-    'the console bridge may own exactly one PATCH transport');
+  assert.equal((consoleSrc.match(/method\s*:\s*'PATCH'/g) || []).length, 2,
+    'the console bridge may own only application-review PATCH and official-news PATCH');
+  assert.equal((consoleSrc.match(/method\s*:\s*'POST'/g) || []).length, 1,
+    'the console bridge may own only the official-news create POST');
   assert.ok(consoleSrc.includes("'/api/v1/admin/business-applications/'"),
-    'the only activated mutation family must be business-application review');
-  assert.ok(!/method\s*:\s*['"](?:POST|PUT|DELETE)['"]/.test(consoleSrc),
-    'no additional operational mutation verb may be activated in #607');
+    'business-application review must remain an explicitly activated mutation family');
+  assert.ok(consoleSrc.includes("'/api/v1/admin/complexes/'") && consoleSrc.includes(" + '/posts'"),
+    'official-news create must use the admin complex posts family');
+  assert.ok(consoleSrc.includes("'/api/v1/admin/posts/'"),
+    'official-news edit must use the admin post PATCH family');
+  assert.ok(!/method\s*:\s*['"](?:PUT|DELETE)['"]/.test(consoleSrc),
+    'no PUT/DELETE operational mutation may be activated');
 
   assert.ok(authoritySrc.includes("state: 'invalid'"), 'the resolver must carry an explicit rejection state for malformed 200s');
   assert.ok(!/state:\s*\w+\s*\?\s*'admin'\s*:\s*'operator'/.test(authoritySrc),
