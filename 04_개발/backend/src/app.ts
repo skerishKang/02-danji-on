@@ -2,6 +2,7 @@ import core, { type CoreEnv } from './core-v1';
 import { handleAccountLifecycleRequest } from './account-lifecycle-v1';
 import { handleAdminApplicationDocumentRequest } from './admin-application-docs-v1';
 import { handleAdminAuditRequest } from './admin-audit-v1';
+import { handleAdminBootstrapRequest } from './admin-bootstrap-v1';
 import { handleAdminAuthorityRequest } from './admin-authority-v1';
 import { handleAdminOperationalRequest } from './admin-operational-v2';
 import { handleAdminReviewContextRequest } from './admin-review-context-v1';
@@ -163,6 +164,8 @@ export default {
       if (adminAuditResponse) return respond(adminAuditResponse);
       const adminAuthorityResponse = await handleAdminAuthorityRequest(request, env, id);
       if (adminAuthorityResponse) return respond(adminAuthorityResponse);
+      const adminBootstrapResponse = await handleAdminBootstrapRequest(request, env, id);
+      if (adminBootstrapResponse) return respond(adminBootstrapResponse);
       const adminReviewContextResponse = await handleAdminReviewContextRequest(request, env, id);
       if (adminReviewContextResponse) return respond(adminReviewContextResponse);
       const adminVerificationResponse = await handleAdminVerificationRequest(request, env, id);
