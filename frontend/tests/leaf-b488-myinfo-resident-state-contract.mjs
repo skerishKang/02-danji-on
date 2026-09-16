@@ -49,7 +49,7 @@ assert.ok(wiring.includes("flags&&flags.edit") && /renderResidentState\('주민�
   'verified resident snapshot must reveal the edit entry');
 assert.ok(/renderResidentState\('운영자 계정 · 주민인증 불필요',\{kind:'exempt',edit:true\}\)/.test(wiring),
   'an explicitly exempt operator state must reveal the self-profile edit entry');
-assert.ok(/function loadExemptIdentity[\s\S]*bridge\.profile\(\)[\s\S]*serverProfile=p/.test(wiring),
+assert.ok(/function loadExemptIdentity[\s\S]*loadProfile\(\)[\s\S]*serverProfile=p/.test(wiring),
   'exempt operator edit fields must be populated from the server-backed self profile');
 assert.ok(wiring.includes('bridge.updateProfile({nickname:nick.value,publicBio:bio.value})'), 'save must go through the bridge PATCH');
 assert.ok(/updateProfile\(\{[\s\S]*?\.then\(function\(r\)\{[\s\S]*?if\(r&&r\.ok&&r\.profile\)\{[\s\S]*?serverProfile=r\.profile/.test(wiring),
