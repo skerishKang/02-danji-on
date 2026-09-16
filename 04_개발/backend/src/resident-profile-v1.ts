@@ -1,6 +1,8 @@
 import { neon, type NeonQueryFunction } from '@neondatabase/serverless';
 import { requireVerifiedResident, type VerifiedResident } from './authorization-v2';
+import { requireActor } from './auth-v1';
 import type { CoreEnv } from './core-v1';
+import { resolvePadiemAuthority } from './padiem-authority-v1';
 
 type Sql = NeonQueryFunction<false, false>;
 
@@ -11,6 +13,8 @@ const MAX_BIO_CHARS = 300;
 const MAX_AVATAR_URL_CHARS = 500;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const PROFILE_LABEL = 'verified_resident';
+const OPERATOR_PROFILE_LABEL = 'operator';
+const RESIDENT_VERIFICATION_EXEMPT_SCOPE = 'resident.verification.exempt';
 
 type PublicProfileRow = {
   id: unknown;
@@ -159,13 +163,32 @@ async function loadPublicProfile(sql: Sql, userId: string, complexId: string): P
   return (rows[0] as PublicProfileRow | undefined) ?? null;
 }
 
-function presentProfile(row: PublicProfileRow): Record<string, unknown> {
+async function loadOwnAccountProfile(sql: Sql, userId: string): Promise<PublicProfileRow | null> {
+  const rows = await sql`
+    select
+      u.id,
+      u.display_name,
+      u.avatar_url,
+      to_char(u.created_at at time zone 'UTC', 'YYYY-MM') as joined_month,
+      coalesce(p.public_bio, '') as public_bio,
+      coalesce(p.is_discoverable, true) as is_discoverable,
+      0::int as public_activity_count
+    from app_users u
+    left join resident_public_profiles p on p.user_id = u.id
+    where u.id = ${userId}::uuid
+      and u.account_status = 'active'
+    limit 1
+  `;
+  return (rows[0] as PublicProfileRow | undefined) ?? null;
+}
+
+function presentProfile(row: PublicProfileRow, residentLabel = PROFILE_LABEL): Record<string, unknown> {
   const publicActivityCount = Number(row.public_activity_count ?? 0);
   return {
     userId: String(row.id),
     nickname: String(row.display_name),
     avatarUrl: row.avatar_url ? String(row.avatar_url) : null,
-    residentLabel: PROFILE_LABEL,
+    residentLabel,
     joinedMonth: String(row.joined_month),
     publicBio: String(row.public_bio ?? ''),
     publicActivityCount: Number.isFinite(publicActivityCount) && publicActivityCount > 0 ? Math.floor(publicActivityCount) : 0
@@ -181,6 +204,44 @@ async function viewerForComplex(
 ): Promise<VerifiedResident | Response> {
   if (!complexSlug) return fail('VALIDATION_ERROR', 'complexSlug is required', 400, requestId);
   return requireVerifiedResident(request, env, sql, requestId, complexSlug);
+}
+
+type OwnProfileViewer = {
+  id: string;
+  complexId: string | null;
+  profileLabel: string;
+};
+
+async function viewerForOwnProfile(
+  request: Request,
+  env: CoreEnv,
+  sql: Sql,
+  requestId: string,
+  complexSlug: string
+): Promise<OwnProfileViewer | Response> {
+  const resident = await viewerForComplex(request, env, sql, requestId, complexSlug);
+  if (!(resident instanceof Response)) {
+    return { id: resident.id, complexId: resident.complexId, profileLabel: PROFILE_LABEL };
+  }
+  if (resident.status !== 403) return resident;
+
+  const actor = await requireActor(request, env, sql, requestId);
+  if (actor instanceof Response) return actor;
+  try {
+    const authority = await resolvePadiemAuthority(sql, actor.id);
+    if (authority.scopes.includes(RESIDENT_VERIFICATION_EXEMPT_SCOPE)) {
+      return { id: actor.id, complexId: null, profileLabel: OPERATOR_PROFILE_LABEL };
+    }
+    return resident;
+  } catch {
+    return fail('AUTHORITY_DB_ERROR', 'Authorization could not be verified', 503, requestId);
+  }
+}
+
+async function loadOwnProfile(sql: Sql, viewer: OwnProfileViewer): Promise<PublicProfileRow | null> {
+  return viewer.complexId
+    ? loadPublicProfile(sql, viewer.id, viewer.complexId)
+    : loadOwnAccountProfile(sql, viewer.id);
 }
 
 async function getProfile(
@@ -211,7 +272,7 @@ async function updateOwnProfile(
   requestId: string,
   complexSlug: string
 ): Promise<Response> {
-  const viewer = await viewerForComplex(request, env, sql, requestId, complexSlug);
+  const viewer = await viewerForOwnProfile(request, env, sql, requestId, complexSlug);
   if (viewer instanceof Response) return viewer;
   const payload = await bodyJson(request, requestId);
   if (payload instanceof Response) return payload;
@@ -222,7 +283,7 @@ async function updateOwnProfile(
     return fail('VALIDATION_ERROR', 'Only nickname, avatarUrl, and publicBio may be updated', 400, requestId);
   }
 
-  const current = await loadPublicProfile(sql, viewer.id, viewer.complexId);
+  const current = await loadOwnProfile(sql, viewer);
   if (!current) return fail('PROFILE_NOT_FOUND', 'Profile not found', 404, requestId);
 
   let nickname = String(current.display_name);
@@ -269,9 +330,9 @@ async function updateOwnProfile(
     `
   ]);
 
-  const updated = await loadPublicProfile(sql, viewer.id, viewer.complexId);
+  const updated = await loadOwnProfile(sql, viewer);
   if (!updated) return fail('PROFILE_UPDATE_FAILED', 'Profile could not be loaded after update', 500, requestId);
-  return ok(presentProfile(updated), requestId);
+  return ok(presentProfile(updated, viewer.profileLabel), requestId);
 }
 
 export async function handleResidentProfileWithSql(
@@ -286,11 +347,11 @@ export async function handleResidentProfileWithSql(
 
   if (path === '/api/v1/me/profile') {
     if (request.method === 'GET') {
-      const viewer = await viewerForComplex(request, env, sql, requestId, complexSlug);
+      const viewer = await viewerForOwnProfile(request, env, sql, requestId, complexSlug);
       if (viewer instanceof Response) return viewer;
-      const row = await loadPublicProfile(sql, viewer.id, viewer.complexId);
+      const row = await loadOwnProfile(sql, viewer);
       if (!row) return fail('PROFILE_NOT_FOUND', 'Profile not found', 404, requestId);
-      return ok(presentProfile(row), requestId);
+      return ok(presentProfile(row, viewer.profileLabel), requestId);
     }
     if (request.method === 'PATCH') return updateOwnProfile(request, env, sql, requestId, complexSlug);
     return fail('METHOD_NOT_ALLOWED', 'Method not allowed', 405, requestId);
