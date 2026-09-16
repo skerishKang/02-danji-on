@@ -79,11 +79,12 @@ main{padding-top:18px!important}
 <script>
     const toast=document.querySelector('.toast');let timer;function showToast(text){toast.textContent=text;toast.classList.add('show');clearTimeout(timer);timer=setTimeout(()=>toast.classList.remove('show'),1900)}document.querySelectorAll('[data-demo]').forEach(button=>button.addEventListener('click',()=>showToast(button.dataset.demo)));
     const more=document.querySelector('.more-menu');document.querySelector('[data-more]').addEventListener('click',event=>{event.stopPropagation();more.classList.toggle('open')});document.addEventListener('click',event=>{if(!event.target.closest('.route-actions'))more.classList.remove('open')});
-    const layer=document.querySelector('.action-layer'),title=document.querySelector('[data-action-title]'),copy=document.querySelector('[data-action-copy]'),reasons=document.querySelector('[data-reasons]'),confirm=document.querySelector('[data-confirm]');let action='report';function openAction(type){action=type;more.classList.remove('open');const block=type==='block';title.textContent=block?'산책메이트님을 차단할까요?':'대화 신고하기';copy.textContent=block?'차단하면 서로 새 메시지를 보낼 수 없습니다. 이전 대화는 내 메시지함에서 확인할 수 있습니다.':'운영팀이 확인할 수 있도록 가장 가까운 이유를 선택해주세요.';reasons.hidden=block;confirm.textContent=block?'이 주민 차단':'운영팀에 신고';confirm.classList.toggle('danger',block);layer.classList.add('open');layer.setAttribute('aria-hidden','false');document.body.style.overflow='hidden'}document.querySelectorAll('[data-action]').forEach(button=>button.addEventListener('click',()=>openAction(button.dataset.action)));document.querySelectorAll('[data-close]').forEach(button=>button.addEventListener('click',()=>{layer.classList.remove('open');layer.setAttribute('aria-hidden','true');document.body.style.overflow=''}));document.querySelectorAll('.reason').forEach(button=>button.addEventListener('click',()=>{document.querySelectorAll('.reason').forEach(item=>item.classList.remove('selected'));button.classList.add('selected')}));confirm.addEventListener('click',()=>{if(action==='report'&&!document.querySelector('.reason.selected')){showToast('신고 이유를 선택해주세요.');return}layer.classList.remove('open');document.body.style.overflow='';showToast(action==='block'?'차단한 시연입니다. 실제 상태는 바뀌지 않습니다.':'신고가 접수된 시연입니다. 실제 전송은 하지 않습니다.')});
+    const layer=document.querySelector('.action-layer'),title=document.querySelector('[data-action-title]'),copy=document.querySelector('[data-action-copy]'),reasons=document.querySelector('[data-reasons]'),confirm=document.querySelector('[data-confirm]');let action='report';function openAction(type){action=type;more.classList.remove('open');const block=type==='block';title.textContent=block?'산책메이트님을 차단할까요?':'대화 신고하기';copy.textContent=block?'차단하면 서로 새 메시지를 보낼 수 없습니다. 이전 대화는 내 메시지함에서 확인할 수 있습니다.':'운영팀이 확인할 수 있도록 가장 가까운 이유를 선택해주세요.';reasons.hidden=block;confirm.textContent=block?'이 주민 차단':'운영팀에 신고';confirm.classList.toggle('danger',block);layer.classList.add('open');layer.setAttribute('aria-hidden','false');document.body.style.overflow='hidden'}document.querySelectorAll('[data-action]').forEach(button=>button.addEventListener('click',()=>openAction(button.dataset.action)));document.querySelectorAll('[data-close]').forEach(button=>button.addEventListener('click',()=>{layer.classList.remove('open');layer.setAttribute('aria-hidden','true');document.body.style.overflow=''}));document.querySelectorAll('.reason').forEach(button=>button.addEventListener('click',()=>{document.querySelectorAll('.reason').forEach(item=>item.classList.remove('selected'));button.classList.add('selected')}));confirm.addEventListener('click',()=>{if(action==='report'&&!document.querySelector('.reason.selected')){showToast('신고 이유를 선택해주세요.');return}layer.classList.remove('open');document.body.style.overflow='';showToast('안전 기능은 서버 상태가 확인되는 경로에서만 처리됩니다.')});
     document.querySelectorAll('.toggle').forEach(button=>button.addEventListener('click',()=>{const on=button.classList.toggle('on');button.setAttribute('aria-checked',String(on));showToast(on?'알림을 받습니다.':'알림을 받지 않습니다.')}));const reply=document.querySelector('#reply'),send=document.querySelector('.send');reply.addEventListener('input',()=>{document.querySelector('#count').textContent=reply.value.length;send.disabled=!reply.value.trim()});document.querySelector('#replyForm').addEventListener('submit',event=>{event.preventDefault();const value=reply.value.trim();if(!value)return;const item=document.createElement('article');item.className='message mine';item.innerHTML='<header class="message-head"><div class="sender"><span class="sender-mark">연</span><b>연블리 <span>내가 보냄</span></b></div><time>방금</time></header><p class="message-body"></p><small class="message-state">보냄 · 새로고침하면 초기화되는 시연입니다.</small>';item.querySelector('.message-body').textContent=value;document.querySelector('#thread').appendChild(item);reply.value='';reply.dispatchEvent(new Event('input'));showToast('답장을 보낸 시연입니다.');item.scrollIntoView({behavior:'smooth',block:'center'})});document.querySelector('[data-scroll-reply]').addEventListener('click',()=>{document.querySelector('.composer').scrollIntoView({behavior:'smooth',block:'center'});setTimeout(()=>reply.focus(),350)});document.addEventListener('keydown',event=>{if(event.key==='Escape'){layer.classList.remove('open');more.classList.remove('open');document.body.style.overflow=''}});
   </script>
 <script src="assets/danjion-session.js"></script>
 <script src="assets/messages-notifications-bridge.js"></script>
+<script src="assets/resident-bridge.js"></script>
 <script id="danjion-conversation-detail-live-wiring-330">
 (function(){
   const params=new URLSearchParams(location.search);
@@ -97,6 +98,8 @@ main{padding-top:18px!important}
   const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
   let selfId='';
   let participantNickname='';
+  let participantUserId='';
+  let participantComplexSlug='';
   let sending=false;
   function esc(value){return String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]))}
   function fmt(value){
@@ -153,7 +156,21 @@ main{padding-top:18px!important}
     const conversations=await bridge.listConversations();
     if(conversations.mode==='server'){
       const found=conversations.conversations.find(row=>row.id===conversationId);
-      if(found)setParticipantNames(found.participant.nickname);
+      if(found){
+        setParticipantNames(found.participant.nickname);
+        participantUserId=String(found.participant&&found.participant.userId||'').trim().toLowerCase();
+        participantComplexSlug=String(found.complexSlug||'').trim();
+        if(participantUserId&&participantComplexSlug&&globalThis.DanjionResidentBridge){
+          const safetyBridge=DanjionResidentBridge.createResidentBridge({apiBase,complexSlug:participantComplexSlug});
+          globalThis.__danjionConversationSafety={bridge:safetyBridge,userId:participantUserId,complexSlug:participantComplexSlug};
+          const blocks=await safetyBridge.blockedUsers();
+          if(blocks&&blocks.ok){
+            const target=participantUserId.toLowerCase();
+            const isBlocked=(blocks.blocks||[]).some(item=>String(item&&item.userId||'').toLowerCase()===target);
+            if(typeof globalThis.__danjionSetConversationBlocked==='function')globalThis.__danjionSetConversationBlocked(isBlocked);
+          }
+        }
+      }
     }
     const result=await bridge.listMessages(conversationId);
     if(result.mode==='auth-required'){showState(result.status===403?'본인 확인된 입주민만 이 대화를 볼 수 있습니다.':'로그인 후 이용 가능합니다.');return}
@@ -195,10 +212,11 @@ main{padding-top:18px!important}
 })();
 </script>
 <script>
-    /* 최종 통합 전 검토용: 같은 차단 상태가 대화 화면 전체에 일관되게 반영되는지 시연합니다. */
+    /* 서버가 권위인 주민 차단 상태를 대화 화면 전체에 일관되게 반영합니다. */
     (()=>{
       let blocked=false;
       let enhancedAction='report';
+      let safetyBusy=false;
       const replyField=document.querySelector('#reply');
       const sendButton=document.querySelector('.send');
       const context=document.querySelector('.reply-context');
@@ -229,6 +247,7 @@ main{padding-top:18px!important}
         replyField.placeholder=blocked?'차단한 주민에게는 답장할 수 없습니다.':'답장 내용을 입력하세요. 연락처나 동·호는 적지 않는 것이 안전해요.';
         mobileReply.textContent=blocked?'차단 해제':'답장하기';
       }
+      globalThis.__danjionSetConversationBlocked=value=>{blocked=Boolean(value);renderControls()};
       function renderModal(type){
         enhancedAction=type;
         const isBlock=type==='block',isUnblock=type==='unblock';
@@ -241,14 +260,39 @@ main{padding-top:18px!important}
       }
       function bindControl(button){button.addEventListener('click',()=>{if(button===railBlock)openAction(button.dataset.action);renderModal(button.dataset.action)})}
       controls().forEach(bindControl);
-      document.querySelectorAll('[data-action="report"]').forEach(button=>button.addEventListener('click',()=>{enhancedAction='report'}));
-      confirm.addEventListener('click',event=>{
-        if(!['block','unblock'].includes(enhancedAction))return;
+      document.querySelectorAll('[data-action="report"]').forEach(button=>button.addEventListener('click',()=>{enhancedAction='report';title.textContent='대화 신고하기';copy.textContent='현재 이 화면은 특정 메시지를 선택하지 않는 대화 단위 화면이라 신고를 전송하지 않습니다. 주민 신고는 공개 프로필에서 이용해 주세요.';reasons.hidden=true;confirm.textContent='확인';confirm.classList.remove('danger')}));
+      confirm.addEventListener('click',async event=>{
+        if(enhancedAction==='report'){
+          event.preventDefault();event.stopImmediatePropagation();
+          layer.classList.remove('open');layer.setAttribute('aria-hidden','true');document.body.style.overflow='';
+          showToast('대화 단위 신고는 아직 전송하지 않습니다. 주민 신고는 공개 프로필에서 이용해 주세요.');
+          return;
+        }
+        if(!['block','unblock'].includes(enhancedAction)||safetyBusy)return;
         event.preventDefault();event.stopImmediatePropagation();
-        blocked=enhancedAction==='block';
-        layer.classList.remove('open');layer.setAttribute('aria-hidden','true');document.body.style.overflow='';
-        renderControls();
-        showToast(blocked?'이 주민을 차단했습니다. 차단 해제는 이 화면이나 내정보에서 할 수 있습니다.':'차단을 해제했습니다. 다시 메시지를 보낼 수 있습니다.');
+        const safety=globalThis.__danjionConversationSafety;
+        if(!safety||!safety.bridge||!safety.userId){
+          showToast('상대 주민 정보를 확인하지 못해 처리할 수 없습니다.');
+          return;
+        }
+        safetyBusy=true;confirm.disabled=true;
+        try{
+          const result=enhancedAction==='block'
+            ? await safety.bridge.blockResident(safety.userId)
+            : await safety.bridge.unblockResident(safety.userId);
+          if(!result||!result.ok){
+            if(result&&result.mode==='auth-required')showToast('로그인 후 이용할 수 있습니다.');
+            else if(result&&result.mode==='resident-verification-required')showToast('주민 인증 후 이용할 수 있습니다.');
+            else showToast('처리하지 못했습니다. 잠시 후 다시 시도해 주세요.');
+            return;
+          }
+          blocked=enhancedAction==='block';
+          layer.classList.remove('open');layer.setAttribute('aria-hidden','true');document.body.style.overflow='';
+          renderControls();
+          showToast(blocked?'이 주민을 차단했습니다. 차단 해제는 이 화면이나 내정보에서 할 수 있습니다.':'차단을 해제했습니다. 다시 메시지를 보낼 수 있습니다.');
+        }finally{
+          safetyBusy=false;confirm.disabled=false;
+        }
       },true);
       mobileReply.addEventListener('click',event=>{
         if(!blocked)return;
