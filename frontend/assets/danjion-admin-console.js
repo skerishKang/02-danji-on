@@ -4,9 +4,10 @@
   // Issue #460 [admin production] + #607 [bounded review actions]: the canonical
   // V3 admin console surface. Per-section access is decided by the SERVER
   // (403 = scope not granted, 503 = policy hold), never by client-side role
-  // inference. #607 activates exactly one pre-existing write authority:
-  // PATCH /api/v1/admin/business-applications/:id. All other operational writes
-  // and the privileged (최고관리) area remain disabled until separately reviewed.
+  // inference. #607 activates business-application review PATCH and #609
+  // activates the pre-existing official-news POST/PATCH family. All remaining
+  // operational writes and the privileged (최고관리) area stay disabled until
+  // separately reviewed.
   const COMPLEX_SLUG = 'banglim-myeongji-roadhill';
 
   const OPERATIONAL_SECTIONS = [
@@ -43,8 +44,9 @@
       id: 'posts',
       requiredScope: 'official-content.manage',
       title: '단지소식',
-      description: '게시된 단지소식 목록을 조회합니다.',
-      path: (slug) => `/api/v1/complexes/${slug}/posts?limit=20`
+      description: '단지소식을 작성하고 초안·게시·보관 상태를 관리합니다.',
+      path: (slug) => `/api/v1/admin/complexes/${slug}/posts?status=all`,
+      postActions: true
     },
     {
       id: 'benefits',
@@ -63,7 +65,8 @@
   ];
 
   const APPLICATION_REVIEW_STATUSES = Object.freeze(['approved', 'changes_requested', 'rejected']);
-  const APPLICATION_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  const POST_STATUSES = Object.freeze(['draft', 'published', 'archived']);
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
   // #460: 최고관리 write endpoints do not exist yet — every control stays
   // disabled (mirrors the #412 view-only placeholder discipline).
@@ -115,7 +118,7 @@
   async function reviewBusinessApplication(fetchImpl, apiBase, applicationId, status, reviewNote) {
     const id = String(applicationId || '').trim();
     const nextStatus = String(status || '').trim();
-    if (!APPLICATION_ID_RE.test(id) || !APPLICATION_REVIEW_STATUSES.includes(nextStatus)) {
+    if (!UUID_RE.test(id) || !APPLICATION_REVIEW_STATUSES.includes(nextStatus)) {
       return { state: 'invalid-request', status: 0, code: 'INVALID_APPLICATION_REVIEW_REQUEST' };
     }
 
@@ -138,6 +141,53 @@
     if (result.status === 409) return { state: 'conflict', status: 409, code };
     if (result.reason === 'network-error' || result.status === 0) return { state: 'network-error', status: 0, code };
     return { state: 'error', status: Number(result.status || 0), code };
+  }
+
+  function normalizePostInput(input) {
+    const value = input && typeof input === 'object' ? input : {};
+    const sourceName = String(value.sourceName || '').trim();
+    const category = String(value.category || '').trim();
+    const title = String(value.title || '').trim();
+    const body = String(value.body || '').trim();
+    const status = String(value.status || '').trim();
+    if (!sourceName || !category || !title || !body || !POST_STATUSES.includes(status)) return null;
+    return { sourceName, category, title, body, status };
+  }
+
+  function classifyPostMutation(result) {
+    const code = result && result.error && result.error.code ? String(result.error.code) : '';
+    if (result && result.ok) return { state: 'updated', data: result.data, status: result.status, code };
+    if (result && result.status === 401) return { state: 'signed-out', status: 401, code };
+    if (result && result.status === 403) return { state: 'scope-denied', status: 403, code };
+    if (result && result.status === 404) return { state: 'not-found', status: 404, code };
+    if (result && result.status === 409) return { state: 'conflict', status: 409, code };
+    if (!result || result.reason === 'network-error' || result.status === 0) return { state: 'network-error', status: 0, code };
+    return { state: 'error', status: Number(result.status || 0), code };
+  }
+
+  async function createOfficialPost(fetchImpl, apiBase, input, slug) {
+    const payload = normalizePostInput(input);
+    if (!payload) return { state: 'invalid-request', status: 0, code: 'INVALID_OFFICIAL_POST_REQUEST' };
+    const session = global.DanjionSession;
+    const result = await session.request(
+      fetchImpl,
+      session.joinUrl(String(apiBase || ''), '/api/v1/admin/complexes/' + encodeURIComponent(slug || COMPLEX_SLUG) + '/posts'),
+      { method: 'POST', body: JSON.stringify(payload) }
+    );
+    return classifyPostMutation(result);
+  }
+
+  async function updateOfficialPost(fetchImpl, apiBase, postId, input) {
+    const id = String(postId || '').trim();
+    const payload = normalizePostInput(input);
+    if (!UUID_RE.test(id) || !payload) return { state: 'invalid-request', status: 0, code: 'INVALID_OFFICIAL_POST_REQUEST' };
+    const session = global.DanjionSession;
+    const result = await session.request(
+      fetchImpl,
+      session.joinUrl(String(apiBase || ''), '/api/v1/admin/posts/' + encodeURIComponent(id)),
+      { method: 'PATCH', body: JSON.stringify(payload) }
+    );
+    return classifyPostMutation(result);
   }
 
   function rowTitle(row) {
@@ -168,10 +218,13 @@
     OPERATIONAL_SECTIONS,
     PRIVILEGED_PLACEHOLDERS,
     APPLICATION_REVIEW_STATUSES,
+    POST_STATUSES,
     extractRows,
     consoleSections,
     loadSection,
     reviewBusinessApplication,
+    createOfficialPost,
+    updateOfficialPost,
     rowTitle,
     rowStatus,
     rowMeta
