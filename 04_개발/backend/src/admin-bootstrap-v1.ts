@@ -152,17 +152,18 @@ export async function bootstrapAdminAuthorityResponse(
       limit 1
     `;
 
-    if (!rows[0]) {
+    const rawPrincipal = rows[0] as Record<string, unknown> | undefined;
+    if (!rawPrincipal) {
       await auditBootstrap(sql, actor, requestId, 'denied', 'ADMIN_BOOTSTRAP_NOT_ALLOWLISTED', {
-        provider: rows[0] && typeof rows[0].provider === 'string' ? rows[0].provider : 'unknown'
+        provider: 'unknown'
       });
       return fail('ADMIN_BOOTSTRAP_NOT_ALLOWED', 'Pre-registered administrator identity required', 403, requestId);
     }
 
-    const principal = normalizedPrincipal(rows[0] as Record<string, unknown>);
+    const principal = normalizedPrincipal(rawPrincipal);
     if (!principal) {
       await auditBootstrap(sql, actor, requestId, 'denied', 'ADMIN_BOOTSTRAP_PRINCIPAL_INVALID', {
-        provider: rows[0] && typeof rows[0].provider === 'string' ? rows[0].provider : 'unknown'
+        provider: typeof rawPrincipal.provider === 'string' ? rawPrincipal.provider : 'unknown'
       });
       return fail('ADMIN_BOOTSTRAP_PRINCIPAL_INVALID', 'Administrator registration is invalid', 503, requestId);
     }
