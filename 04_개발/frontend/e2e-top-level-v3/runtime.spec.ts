@@ -45,7 +45,7 @@ type Guard = {
   assertClean(): Promise<void>;
 };
 
-async function installGuard(page: Page, businesses = BUSINESSES): Promise<Guard> {
+async function installGuard(page: Page, businesses = BUSINESSES, authenticated = false): Promise<Guard> {
   const pageErrors: string[] = [];
   const consoleErrors: string[] = [];
   const mutationRequests: string[] = [];
@@ -76,6 +76,35 @@ async function installGuard(page: Page, businesses = BUSINESSES): Promise<Guard>
           status: 409,
           contentType: 'application/json',
           body: JSON.stringify({ error: { code: 'TEST_MUTATION_BLOCKED' } })
+        });
+        return;
+      }
+
+      if (url.pathname === '/api/auth/get-session') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: authenticated
+            ? JSON.stringify({
+                session: { id: 'runtime-session', userId: 'runtime-member', expiresAt: '2099-01-01T00:00:00.000Z' },
+                user: {
+                  id: 'runtime-member',
+                  name: '런타임 주민',
+                  email: 'runtime-member@example.invalid',
+                  emailVerified: true,
+                  createdAt: '2026-01-01T00:00:00.000Z'
+                }
+              })
+            : 'null'
+        });
+        return;
+      }
+
+      if (url.pathname === '/api/auth/list-accounts') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify(authenticated ? [{ providerId: 'credential' }] : [])
         });
         return;
       }
@@ -270,18 +299,23 @@ test('#600 Apartment News category filters hide non-matching stories and expose 
   await guard.assertClean();
 });
 
-test('My Info canonical top-level page renders signed-out without runtime errors', async ({ page }) => {
+test('My Info canonical top-level page gates signed-out guests without exposing the private dashboard', async ({ page }) => {
   const guard = await installGuard(page);
   await page.goto(withApi('/19_%EB%82%B4%EC%A0%95%EB%B3%B4_%EB%A9%94%EC%9D%B8.html'));
   await expect(page.locator('body[data-danjion-page="19"]')).toBeVisible();
   await expect(page.locator('[data-account-host]').first()).toBeVisible();
+  await expect(page.locator('#myinfoAccessGate')).toBeVisible();
+  await expect(page.locator('#myinfoGuestLogin')).toBeVisible();
+  await expect(page.locator('#myinfoGuestLogin')).toHaveAttribute('href', 'index.html?auth=login');
+  await expect(page.locator('#myinfoPrivateContent')).toBeHidden();
+  await expect(page.locator('.level-card[role="link"][tabindex="0"]')).toBeHidden();
   await guard.assertClean();
 });
 
 
 test('#583 desktop non-header interactions expose pointer and keyboard feedback', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
-  const guard = await installGuard(page);
+  const guard = await installGuard(page, BUSINESSES, true);
 
   await page.goto(withApi('/04_%EB%8D%B0%EC%9D%BC%EB%A6%AC%ED%99%88.html'));
   const brand = page.locator('.danjion-service-header .brand').first();
@@ -317,7 +351,7 @@ test('#583 desktop non-header interactions expose pointer and keyboard feedback'
 
 test('#583 mobile controls meet touch-target policy and Warmth toast clears bottom nav', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  const guard = await installGuard(page);
+  const guard = await installGuard(page, BUSINESSES, true);
 
   const expectMinHit = async (selector: string, minWidth = 44, minHeight = 44) => {
     const locator = page.locator(selector).first();
