@@ -93,7 +93,7 @@
     transition:transform .18s ease,opacity .18s ease!important;
     pointer-events:none!important;
   }
-  @media (hover:hover) and (pointer:fine){
+  @media (any-hover:hover) and (any-pointer:fine){
     .danjion-service-header .desktop-nav button:hover::after,.danjion-service-header .desktop-nav a:hover::after{
       transform:scaleX(1)!important;
       opacity:.55!important;
