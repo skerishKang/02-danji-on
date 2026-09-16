@@ -8,10 +8,10 @@ import vm from 'node:vm';
 // their own valid PADIEM authority answer (GET /api/v1/admin/authority). The
 // wildcard '*' alone NEVER exempts; identity, email, provider, or browser
 // storage are never exemption inputs. When exempt, My Info must resolve the
-// authority FIRST and then perform ZERO resident traffic: no bridge.profile(),
-// no bridge.summary(), no household getSnapshot(). The exempt view renders
-// only Better Auth get-session identity (user.name / user.createdAt) with the
-// exact copy '운영자 계정 · 주민인증 불필요' and never the resident-state copy.
+// authority FIRST and then avoid resident-only traffic: no summary or household
+// snapshot. The explicitly exempt principal may load only its own server-backed
+// profile so nickname/publicBio can be edited. The view keeps the exact copy
+// '운영자 계정 · 주민인증 불필요' and never claims verified-resident state.
 // Ordinary residents (no grant → 403, invalid 200, demo lane) keep the full
 // #488 flow unchanged.
 // Run: node frontend/tests/leaf-admin-resident-verification-exempt-contract.mjs
@@ -111,8 +111,8 @@ const wiring = wiringRaw.replace(/^\s*<script[^>]*>\s*/, '');
   const profileAt = wiring.indexOf('bridge.profile()');
   const summaryAt = wiring.indexOf('bridge.summary()');
   const snapshotAt = wiring.indexOf('.getSnapshot()');
-  assert.ok(profileAt > wiring.indexOf('function loadResidentData') && profileAt < wiring.indexOf('function renderResidentState'),
-    'bridge.profile() may only be called inside loadResidentData');
+  assert.ok(profileAt > wiring.indexOf('function loadProfile') && profileAt < wiring.indexOf('function loadResidentData'),
+    'bridge.profile() must have one shared self-profile call site before resident loading');
   assert.ok(summaryAt > wiring.indexOf('function loadResidentData') && summaryAt < wiring.indexOf('function renderResidentState'),
     'bridge.summary() may only be called inside loadResidentData');
   assert.ok(snapshotAt > wiring.indexOf('function loadResidentState'), 'the household snapshot is only read inside loadResidentState');
@@ -124,12 +124,14 @@ const wiring = wiringRaw.replace(/^\s*<script[^>]*>\s*/, '');
 /* ============ 7. the exempt branch renders the exact copy only ============ */
 {
   assert.ok(wiring.includes(`'${EXEMPT_COPY}'`), 'the exempt copy must ship exactly');
-  assert.ok(new RegExp(`renderResidentState\\('${EXEMPT_COPY}',\\{kind:'exempt'\\}\\)`).test(wiring),
-    'the exempt state must render with kind exempt and no cta/edit flags');
+  assert.ok(new RegExp(`renderResidentState\\('${EXEMPT_COPY}',\\{kind:'exempt',edit:true\\}\\)`).test(wiring),
+    'the exempt state must render with kind exempt and the self-profile edit action');
   const exemptFn = wiring.slice(wiring.indexOf('function loadExemptIdentity'), wiring.indexOf('function resolveResidentExemption'));
   assert.ok(!exemptFn.includes('주민인증 완료'), 'the exempt branch must never render the verified copy');
   assert.ok(!exemptFn.includes('주민인증이 필요합니다'), 'the exempt branch must never toast the required copy');
-  assert.ok(!exemptFn.includes('cta:true') && !exemptFn.includes('edit:true'), 'the exempt branch must not surface the CTA or edit entry');
+  assert.ok(!exemptFn.includes('cta:true') && exemptFn.includes('edit:true'), 'the exempt branch must hide resident CTA and surface only self-profile edit');
+  assert.ok(exemptFn.includes('loadProfile()') && !exemptFn.includes('loadResidentData()') && !exemptFn.includes('loadResidentState()'),
+    'the exempt branch may load only its own profile, never resident summary or household state');
 }
 
 /* ==== 8. account identity comes only from Better Auth get-session fields === */
@@ -142,7 +144,7 @@ const wiring = wiringRaw.replace(/^\s*<script[^>]*>\s*/, '');
   assert.ok(identityFn.includes('S.visibleAccountIdentity') && identityFn.includes('user.createdAt'), 'visible identity must use the shared role-label-safe helper while createdAt stays session-sourced');
   assert.ok(identityFn.includes('renderEmailState(user,authKind)'), 'the signed-in session may present provider-aware account email state');
   assert.ok(!identityFn.includes('user.id'), 'the auth user id must never be rendered');
-  assert.ok(!exemptFn.includes('bridge.') && !exemptFn.includes('getSnapshot'), 'the exempt branch must stay off every resident surface');
+  assert.ok(!exemptFn.includes('bridge.summary') && !exemptFn.includes('getSnapshot'), 'the exempt branch must stay off resident summary and household surfaces');
   for (const endpoint of ['/auth/social-start', '/api/auth/get-session', '/api/auth/sign-in/social',
     '/api/auth/sign-in/email', '/api/auth/sign-up/email', '/api/auth/forget-password']) {
     assert.ok(!f19.includes(endpoint), `leaf-b14 Stage 2: f19 must not carry auth endpoint traffic (${endpoint})`);
@@ -179,7 +181,7 @@ const wiring = wiringRaw.replace(/^\s*<script[^>]*>\s*/, '');
     'the exemption decision may read nothing but the resolved authority');
 }
 
-/* ================= runtime harness: exempt principal, zero resident calls == */
+/* =========== runtime harness: exempt principal, self-profile call only ===== */
 function response(status, payload) {
   return { ok: status >= 200 && status < 300, status, json: async () => payload, headers: { get: () => null } };
 }
@@ -210,7 +212,7 @@ function makeHarness(authorityAnswer) {
       calls.push(u);
       if (u.includes('/api/v1/admin/authority')) return authorityAnswer();
       if (u.includes('/api/auth/get-session')) return response(200, { session: { id: 'sess-1' }, user: { name: '최고관리자', email: 'signed-in@example.invalid', emailVerified: true, createdAt: '2026-01-15T00:00:00Z' } });
-      if (u.includes('/api/v1/me/profile')) return response(200, { data: { nickname: '주민', joinedMonth: '2026-08' } });
+      if (u.includes('/api/v1/me/profile')) return response(200, { data: { nickname: '관리자별명', publicBio: '운영자 소개', joinedMonth: '2026-08' } });
       if (u.includes('/api/v1/me/summary')) return response(200, { data: { postCount: 1, commentCount: 2, receivedReactionCount: 3, savedBusinessCount: 4, unreadMessageCount: 0, household: { status: 'verified' } } });
       return response(404, { error: { code: 'NOT_FOUND' } });
     },
@@ -230,20 +232,21 @@ const deniedGrant = () => response(403, { error: { code: 'ADMIN_AUTHORITY_REQUIR
 const malformed200 = () => response(200, { data: { level: 'operator', wildcard: false, scopes: ['*'] } });
 const lookalikeScope = () => response(200, { data: { level: 'operator', wildcard: false, scopes: [`${EXEMPT_SCOPE}x`] } });
 
-/* ============ runtime A. exempt operator: zero resident traffic, copy ====== */
+/* ===== runtime A. exempt operator: self profile only, no resident traffic === */
 {
   const h = makeHarness(operatorExempt);
   await h.drain();
   assert.ok(h.calls.some((u) => u.includes('/api/v1/admin/authority')), 'authority must be resolved first');
-  assert.ok(!h.calls.some((u) => u.includes('/api/v1/me/')), 'the exempt branch must emit ZERO resident-surface traffic');
+  assert.equal(h.calls.filter((u) => u.includes('/api/v1/me/profile')).length, 1, 'the exempt branch may load its own profile exactly once');
+  assert.ok(!h.calls.some((u) => u.includes('/api/v1/me/summary')), 'the exempt branch must not load resident summary');
   assert.ok(h.calls.some((u) => u.includes('/api/auth/get-session')), 'identity must come from get-session');
   assert.equal(h.nodes.get('mi-resident-state').textContent, EXEMPT_COPY, 'exact exempt copy');
   assert.equal(h.nodes.get('mi-resident-row').hidden, false, 'state row visible');
   assert.ok(h.nodes.get('mi-resident-row').className.includes('is-exempt'), 'state row must carry the exempt kind');
   assert.equal(h.nodes.get('mi-resident-cta').hidden, true, 'the resident CTA must stay hidden');
-  assert.equal(h.nodes.get('mi-profile-edit').hidden, true, 'the profile edit entry must stay hidden');
-  assert.equal(h.nodes.get('mi-nickname').textContent, 'signed-in님', 'reserved authority labels must never render as user identity; credential email local-part is the fallback');
-  assert.equal(h.nodes.get('mi-joined').textContent, '2026년 1월 가입', 'joined month renders from createdAt');
+  assert.equal(h.nodes.get('mi-profile-edit').hidden, false, 'the self-profile edit entry must be visible');
+  assert.equal(h.nodes.get('mi-nickname').textContent, '관리자별명님', 'server-backed self-profile nickname must replace the session fallback');
+  assert.equal(h.nodes.get('mi-joined').textContent, '2026년 8월 가입', 'joined month renders from the server-backed self profile');
   assert.equal(h.nodes.get('mi-household').textContent, '—', 'the household badge must never claim completion');
   assert.equal(h.nodes.get('mi-stat-posts').textContent, '—', 'non-resident activity stats stay em-dash');
 }
