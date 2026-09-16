@@ -269,7 +269,26 @@ jobs:
               exit 1
             fi
           done
-          echo "Canonical DanjiOn Pages root + critical leaf content parity: PASS"
+
+          test -f dist/404.html
+          expected_404_sha="$(sha256sum dist/404.html | awk '{print $1}')"
+          missing_file="${RUNNER_TEMP}/canonical-404.html"
+          missing_status="$(curl --silent --show-error \
+            --header 'Cache-Control: no-cache' \
+            --output "$missing_file" \
+            --write-out '%{http_code}' \
+            "${CANONICAL_PAGES_URL}/__danjion_missing_${GITHUB_SHA}?release=${GITHUB_SHA}-404")"
+          if [ "$missing_status" != "404" ]; then
+            echo "::error::Unknown canonical Pages path did not return HTTP 404 (got ${missing_status})."
+            exit 1
+          fi
+          actual_404_sha="$(sha256sum "$missing_file" | awk '{print $1}')"
+          if [ "$actual_404_sha" != "$expected_404_sha" ]; then
+            echo "::error::Canonical Pages 404 body does not match frontend/404.html."
+            exit 1
+          fi
+          grep -q 'data-danjion-page="404"' "$missing_file"
+          echo "Canonical DanjiOn Pages root + critical leaf content parity + true 404: PASS"
 
       - name: Record Pages release disposition
         shell: bash
