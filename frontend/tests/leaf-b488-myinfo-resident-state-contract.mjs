@@ -38,14 +38,19 @@ assert.ok(wiring.includes('.getSnapshot()'), 'state must read the household snap
 assert.ok(wiring.includes("renderResidentState('—',{kind:'unknown'})"), 'unexpected snapshot failures must fail closed to em-dash');
 assert.ok(!wiring.includes('localStorage') && !f19.includes('localStorage'), 'no local persistence may fabricate resident state');
 
-/* --- 내정보 수정 entry: visible only for verified residents, server-backed save --- */
+/* --- 내정보 수정 entry: verified residents or explicitly exempt operators, server-backed save --- */
 assert.ok(f19.includes('id="mi-profile-edit" type="button" hidden'), 'edit entry must exist and default hidden');
 assert.ok(f19.includes('>내정보 수정</button>'), 'edit entry copy');
 assert.ok(f19.includes('id="mi-profile-edit-panel" hidden'), 'edit panel must exist and default hidden');
 assert.ok(f19.includes('id="mi-edit-nickname" maxlength="40"'), 'nickname input mirrors the server 40-char bound');
 assert.ok(f19.includes('id="mi-edit-bio" maxlength="300"'), 'bio textarea mirrors the server 300-char bound');
 assert.ok(f19.includes('id="mi-edit-save"') && f19.includes('id="mi-edit-cancel"'), 'panel must carry save/cancel controls');
-assert.ok(wiring.includes("flags&&flags.edit") && /renderResidentState\('주민인증 완료',\{kind:'verified',edit:true\}\)/.test(wiring), 'edit entry must be revealed only by a verified snapshot');
+assert.ok(wiring.includes("flags&&flags.edit") && /renderResidentState\('주민인증 완료',\{kind:'verified',edit:true\}\)/.test(wiring),
+  'verified resident snapshot must reveal the edit entry');
+assert.ok(/renderResidentState\('운영자 계정 · 주민인증 불필요',\{kind:'exempt',edit:true\}\)/.test(wiring),
+  'an explicitly exempt operator state must reveal the self-profile edit entry');
+assert.ok(/function loadExemptIdentity[\s\S]*loadProfile\(\)[\s\S]*serverProfile=p/.test(wiring),
+  'exempt operator edit fields must be populated from the server-backed self profile');
 assert.ok(wiring.includes('bridge.updateProfile({nickname:nick.value,publicBio:bio.value})'), 'save must go through the bridge PATCH');
 assert.ok(/updateProfile\(\{[\s\S]*?\.then\(function\(r\)\{[\s\S]*?if\(r&&r\.ok&&r\.profile\)\{[\s\S]*?serverProfile=r\.profile/.test(wiring),
   'save must apply server state only after a successful PATCH (no optimistic write)');

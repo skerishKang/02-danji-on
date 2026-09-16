@@ -421,8 +421,9 @@ if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt
   var bridge=B.createResidentBridge({apiBase:cfg.apiBase,complexSlug:cfg.complexSlug});
   var serverProfile=null;
   function toast(t){if(typeof window.showToast==='function')window.showToast(t);}
+  function loadProfile(){return bridge.profile();}
   function loadResidentData(){
-  Promise.allSettled([bridge.profile(),bridge.summary()]).then(function(res){
+  Promise.allSettled([loadProfile(),bridge.summary()]).then(function(res){
     var pr=res[0].value,sr=res[1].value;
     if(pr&&pr.ok&&pr.profile){
       var p=pr.profile,nick=String(p.nickname||'').trim();
@@ -595,7 +596,15 @@ if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt
   })();
   function loadExemptIdentity(user){
     setTxt(n.household,DASH);
-    renderResidentState('운영자 계정 · 주민인증 불필요',{kind:'exempt'});
+    renderResidentState('운영자 계정 · 주민인증 불필요',{kind:'exempt',edit:true});
+    loadProfile().then(function(pr){
+      if(!pr||!pr.ok||!pr.profile)return;
+      var p=pr.profile,nick=String(p.nickname||'').trim();
+      serverProfile=p;
+      setTxt(n.nickname,nick?nick+'님':DASH);
+      setTxt(n.avatar,nick?nick.charAt(0):DASH);
+      setTxt(n.joined,fmtJoined(p.joinedMonth));
+    });
   }
   function resolveResidentExemption(){
     if(!AA||typeof AA.fetchAuthority!=='function'||typeof AA.hasResidentVerificationExemption!=='function')return Promise.resolve(false);

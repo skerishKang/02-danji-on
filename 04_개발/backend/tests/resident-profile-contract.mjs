@@ -13,7 +13,17 @@ assert.match(migration, /user_id uuid primary key references app_users\(id\)/i, 
 assert.match(migration, /char_length\(public_bio\) <= 300/i, 'public bio must be DB bounded');
 assert.match(migration, /set_updated_at\(\)/i, 'profile extension needs updated-at trigger');
 
-assert.match(api, /requireVerifiedResident\(/, 'viewer must pass canonical verified-resident authorization');
+assert.match(api, /requireVerifiedResident\(/, 'ordinary viewers must pass canonical verified-resident authorization');
+assert.match(api, /RESIDENT_VERIFICATION_EXEMPT_SCOPE = 'resident\.verification\.exempt'/,
+  'operator self-profile bypass must require the explicit resident-verification exemption scope');
+assert.match(api, /authority\.scopes\.includes\(RESIDENT_VERIFICATION_EXEMPT_SCOPE\)/,
+  'operator self-profile bypass must inspect the actor own explicit scopes');
+assert.doesNotMatch(api, /authority\.wildcard[^\n]*OPERATOR_PROFILE_LABEL/,
+  'wildcard authority alone must never become the profile-edit exemption');
+assert.match(api, /loadOwnAccountProfile\(sql, viewer\.id\)/,
+  'explicitly exempt operators need a self-only account profile loader');
+assert.match(api, /path === '\/api\/v1\/me\/profile'/,
+  'exemption must remain limited to the self-profile route');
 assert.match(api, /hm\.complex_id = \$\{complexId\}::uuid/i, 'target must be verified in the viewer complex');
 assert.match(api, /u\.account_status = 'active'/i, 'closed target accounts must not have a public resident profile');
 assert.match(api, /from blocks/i, 'profile safety must respect block relationships');
