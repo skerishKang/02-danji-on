@@ -474,14 +474,15 @@ async function applyAdoption() {
       returning g.id, g.user_id, g.scope
     ),
     asserted as materialized (
-      select case
-        when (select count(*) from inserted_principals) = 4
-         and (select count(*) from inserted_principals where authority_level = 'admin') = 2
-         and (select count(*) from inserted_principals where authority_level = 'operator') = 2
-         and (select count(*) from linked_grants) = 34
-        then 1
-        else (1 / 0)
-      end as ok
+      select
+        1 / case
+          when (select count(*) from inserted_principals) = 4
+           and (select count(*) from inserted_principals where authority_level = 'admin') = 2
+           and (select count(*) from inserted_principals where authority_level = 'operator') = 2
+           and (select count(*) from linked_grants) = 34
+          then 1
+          else 0
+        end as ok
     ),
     audited as (
       insert into audit_events (
@@ -576,12 +577,13 @@ async function rollbackAdoption() {
       returning p.id
     ),
     asserted as materialized (
-      select case
-        when (select count(*) from unlinked_grants) = 34
-         and (select count(*) from deleted_principals) = 4
-        then 1
-        else (1 / 0)
-      end as ok
+      select
+        1 / case
+          when (select count(*) from unlinked_grants) = 34
+           and (select count(*) from deleted_principals) = 4
+          then 1
+          else 0
+        end as ok
     ),
     audited as (
       insert into audit_events (
@@ -692,7 +694,10 @@ try {
     account_link_mutation: 0,
     ...after
   }, null, 2));
-} catch {
-  console.error('ADMIN_PRINCIPAL_ADOPTION=FAIL database operation failed');
+} catch (error) {
+  const sqlState = error && typeof error === 'object' && typeof error.code === 'string'
+    ? error.code
+    : 'UNKNOWN';
+  console.error(`ADMIN_PRINCIPAL_ADOPTION=FAIL database operation failed sqlstate=${sqlState}`);
   process.exit(1);
 }
