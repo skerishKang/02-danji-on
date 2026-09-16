@@ -36,12 +36,12 @@ assert.match(workflow, /ACCOUNT_LINK_MUTATION=0/, 'workflow must explicitly pres
 assert.match(script, /ADMIN_PROVISION_MODE \|\| 'preflight'/, 'script must default to preflight');
 assert.match(script, /new Set\(principals\.map\(\(principal\) => principal\.email\)\)\.size !== 4/,
   'all four administrator identities must be pairwise distinct');
-assert.match(script, /before\.allowlist_total !== 0[\s\S]*before\.bootstrap_active_grant_rows !== 0/,
-  'apply must require completely empty initial administrator state');
+assert.match(script, /before\.allowlist_total !== 0[\s\S]*before\.bootstrap_active_grant_rows !== 0[\s\S]*before\.active_grant_rows !== 0/,
+  'apply must require completely empty initial administrator and runtime grant state');
 assert.match(script, /not exists \([\s\S]*from padiem_admin_identity_allowlist/,
   'atomic apply must guard against any existing principal row');
-assert.match(script, /not exists \([\s\S]*from padiem_operator_grants[\s\S]*admin_identity_allowlist/,
-  'atomic apply must guard against bootstrap-origin runtime grants');
+assert.match(script, /not exists \([\s\S]*from padiem_operator_grants[\s\S]*status = 'active'[\s\S]*expires_at/,
+  'atomic apply must guard against every active runtime grant, regardless metadata source');
 assert.match(script, /insert into padiem_admin_identity_allowlist/,
   'apply must insert only the approved allowlist principals');
 assert.match(script, /provider_account_id,[\s\S]*'google',[\s\S]*null,/,
@@ -60,8 +60,8 @@ assert.doesNotMatch(script, /update\s+padiem_operator_grants|delete\s+from\s+pad
   'initial provisioning must never mutate existing runtime grants');
 assert.match(script, /insertedCount !== 4[\s\S]*superCount !== 2[\s\S]*operationalCount !== 2[\s\S]*auditCount !== 1/,
   'apply must fail unless the atomic result is exactly 4 principals, 2+2, and one audit');
-assert.match(script, /after\.bootstrap_active_grant_rows !== 0/,
-  'postread must prove provisioning itself created no runtime grants');
+assert.match(script, /after\.bootstrap_active_grant_rows !== 0[\s\S]*after\.active_grant_rows !== 0/,
+  'postread must prove provisioning itself created no runtime grants of any source');
 assert.doesNotMatch(script, /console\.(?:log|error)\([^\n]*(?:principal\.email|normalized_email|DANJION_ADMIN_)/i,
   'administrator identity values must never be printed');
 
