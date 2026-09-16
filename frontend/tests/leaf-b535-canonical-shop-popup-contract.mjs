@@ -23,8 +23,8 @@ assert.ok(canonical.includes("if(key&&byKey[key])setTimeout(()=>openShop(key),0)
   'API SUCCESS must resolve the requested ?shop= key after live authority replacement');
 assert.ok(canonical.includes("if(key&&byKey[key])setTimeout(()=>openShop(key),60);"),
   'API fallback must resolve the requested ?shop= key only after fallback authority is known');
-assert.ok(canonical.indexOf("if(key&&byKey[key])setTimeout(()=>openShop(key),0);") > canonical.indexOf("Array.prototype.push.apply(SHOP_DATA,list);"),
-  'API deep-link auto-open must occur after API SHOP_DATA replacement');
+assert.ok(canonical.indexOf("if(key&&byKey[key])setTimeout(()=>openShop(key),0);") > canonical.indexOf("Array.prototype.push.apply(SHOP_DATA,reconciled);"),
+  'API deep-link auto-open must occur after live authority is reconciled with the V3 presentation');
 assert.equal(canonical.includes('01_이웃가게_발견_v3.html'), false,
   'public canonical page must never self-route to the comparison filename');
 assert.equal(/setItem\(["']danjion:shopVariant["'],["']v3["']\)/.test(canonical), false,
