@@ -222,7 +222,7 @@ async function createPrincipal(
             and p.normalized_email = ${email}
             and p.status = 'active'
         )
-        returning id, normalized_email, authority_level, scopes, status, created_at
+        returning id, provider, normalized_email, authority_level, scopes, status, created_at
       ),
       audited as (
         insert into audit_events (
@@ -463,6 +463,7 @@ async function updatePrincipal(
       : [];
     return ok({
       id: String(row.id),
+      provider: String(row.provider),
       email: String(row.normalized_email),
       role: String(row.authority_level),
       status: String(row.status),
