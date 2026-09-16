@@ -13,6 +13,8 @@
     main{width:min(1280px,calc(100% - 64px));margin:auto;padding-bottom:100px}.route{height:58px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--line)}.route button{display:flex;align-items:center;gap:9px;border:0;background:none;padding:0;font-size:15px;font-weight:850}.route svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8}.route span{font-size:14px;color:var(--muted)}.route span::before{content:"/";margin-right:10px;color:#aaa49b}
     .page-head{display:grid;grid-template-columns:minmax(0,1fr) 420px;gap:70px;align-items:end;padding:42px 0 27px}.eyebrow{display:flex;align-items:center;gap:10px;font-size:14px;font-weight:900;color:var(--coral);margin-bottom:13px}.eyebrow::before{content:"";width:28px;height:2px;background:var(--coral)}h1{font-size:58px;line-height:1;letter-spacing:-.055em;margin:0;font-weight:900}.head-copy{border-top:1px solid var(--ink);padding-top:17px;font-size:16px;line-height:1.7;color:var(--muted)}.head-copy b{display:block;font-size:18px;color:var(--ink);margin-bottom:5px}
     .filters{border-top:1px solid var(--ink);padding:16px 0;display:flex;gap:7px;overflow:auto;scrollbar-width:none}.filters::-webkit-scrollbar{display:none}.filter{height:44px;padding:0 17px;border:1px solid var(--line);background:var(--paper2);font-size:14px;font-weight:820;white-space:nowrap}.filter.active{background:var(--ink);border-color:var(--ink);color:#fff}
+    .feature[hidden],.news-row[hidden],.filter-empty[hidden]{display:none!important}
+    .filter-empty{margin-top:18px;border:1px dashed var(--line);background:var(--paper2);padding:24px 22px;font-size:15px;font-weight:760;color:var(--muted);text-align:center}
     .feature{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(360px,.75fr);min-height:410px;background:var(--navy);color:#fff}.feature-photo{position:relative;overflow:hidden}.feature-photo img{width:100%;height:100%;object-fit:cover;object-position:center 42%;filter:saturate(.83) contrast(1.02)}.feature-photo::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(16,29,48,.08),rgba(16,29,48,.15))}.photo-label{position:absolute;left:27px;bottom:25px;z-index:2;padding:9px 11px;background:rgba(16,19,23,.82);font-size:13px;font-weight:850}.photo-label::before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--amber);margin-right:8px;box-shadow:0 0 0 4px rgba(242,184,75,.15)}.feature-copy{padding:36px;display:flex;flex-direction:column}.feature-meta{display:flex;align-items:center;justify-content:space-between;gap:15px}.feature-meta span{font-size:13px;font-weight:900;color:var(--amber)}.feature-meta time{font-size:13px;color:rgba(255,255,255,.64)}.feature h2{font-size:36px;line-height:1.28;letter-spacing:-.045em;margin:34px 0 17px;word-break:keep-all;font-weight:900}.feature p{font-size:16px;line-height:1.75;color:rgba(255,255,255,.72);margin:0}.feature button{margin-top:auto;width:100%;padding:17px 0 0;border:0;border-top:1px solid rgba(255,255,255,.34);background:none;color:#fff;display:flex;justify-content:space-between;font-size:16px;font-weight:880}.feature button span:last-child{font-size:23px}
     .feature-link{margin-top:auto;width:100%;padding:17px 0 0;border-top:1px solid rgba(255,255,255,.34);color:#fff;display:flex;justify-content:space-between;align-items:center;font-size:16px;font-weight:880;text-decoration:none}.feature-link span:last-child{font-size:23px}
     .news-area{display:grid;grid-template-columns:230px 1fr;gap:34px;margin-top:46px}.section-title{border-top:1px solid var(--ink);padding-top:18px}.section-title span{font-size:13px;font-weight:900;color:var(--coral)}.section-title h2{font-size:28px;letter-spacing:-.04em;margin:12px 0 0;font-weight:900}.news-list{border-top:1px solid var(--ink)}.news-row{width:100%;min-height:112px;border:0;border-bottom:1px solid var(--line);background:none;display:grid;grid-template-columns:125px 1fr 96px 30px;gap:20px;align-items:center;text-align:left}.news-row .type{font-size:14px;font-weight:900;color:var(--coral)}.news-row strong{font-size:20px;line-height:1.45;letter-spacing:-.025em;font-weight:850}.news-row time{font-size:13px;color:var(--muted);text-align:right}.news-row .arrow{font-size:22px;text-align:right}.news-row:hover strong{color:var(--coral)}
@@ -72,7 +74,7 @@
 <main>
 <div class="route"><button onclick="location.href='05_우리단지_첫화면.html'" type="button"><svg viewbox="0 0 24 24"><path d="M19 12H5M10 7l-5 5 5 5"></path></svg>우리단지</button><span>아파트소식</span></div>
 <section class="page-head"><div><div class="eyebrow">입대의가 선별한 우리 단지 이야기</div><h1>아파트소식</h1></div><div class="head-copy"><b>실제로 진행되는 일과 달라진 모습을 전합니다.</b>회의 후 진행사항, 생활편의와 현장기록을 확인하세요.</div></section>
-<nav aria-label="아파트소식 분류" class="filters"><button class="filter active" data-filter="all">전체</button><button class="filter" data-filter="chair">회장 인사</button><button class="filter" data-filter="change">단지 변화</button><button class="filter" data-filter="progress">회의 후 진행</button><button class="filter" data-filter="life">생활소식</button><button class="filter" data-filter="record">현장기록</button></nav>
+<nav aria-label="아파트소식 분류" class="filters"><button class="filter active" data-filter="all">전체</button><button class="filter" data-filter="chair">회장 인사</button><button class="filter" data-filter="change">단지 변화</button><button class="filter" data-filter="progress">회의 후 진행</button><button class="filter" data-filter="life">생활소식</button><button class="filter" data-filter="record">현장기록</button></nav><div aria-live="polite" class="filter-empty" hidden>해당 분류의 소식이 아직 없습니다.</div>
 <article class="feature" data-kind="chair"><div class="feature-photo"><img alt="방림명지로드힐 아파트 전경" src="assets/bangnim-road-hill.png"/><span class="photo-label">우리 아파트 전경</span></div><div class="feature-copy"><div class="feature-meta"><span>회장 인사 · 아파트소식 첫 글</span><time>2026.08.31</time></div><h2>1년 넘게 늦어진 주민생활 개선,<br/>이제 시작합니다.</h2><p>주민생활에 필요한 일을 더 미룰 수 없다는 마음으로 단지온을 시작합니다. 그동안의 과정과 앞으로 만들고 싶은 변화를 주민 여러분께 말씀드립니다.</p><a class="feature-link" href="09_회장인사_상세.html"><span>회장말씀 전체 보기</span><span>→</span></a></div></article>
 <section class="news-area"><header class="section-title"><span>ROADHILL TODAY</span><h2>최근 소식</h2></header><div class="news-list"><button class="news-row" data-kind="progress" data-story="meeting"><span class="type">회의 후 진행</span><strong>주민 안내문자·방송·게시판 홍보 협조 논의</strong><time>2026.08.28</time></button><button class="news-row" data-kind="life" data-story="business"><span class="type">생활소식</span><strong>단지 내 주민 사업자 소개자료 접수 준비</strong><time>2026.08.25</time></button><button class="news-row" data-kind="record" data-story="record"><span class="type">현장기록</span><strong>우리 단지에서 달라진 일을 사진으로 기록합니다</strong><time>2026.08.22</time></button></div></section>
 </main>
@@ -194,14 +196,25 @@ function storyItemMatches(item, button) {
 }
 
 const filters = [...document.querySelectorAll('.filter')];
-filters.forEach(button => button.addEventListener('click', () => {
+const filterEmpty = document.querySelector('.filter-empty');
+
+function applyStoryFilter(button) {
   filters.forEach(item => item.classList.toggle('active', item === button));
-  storyFilterItems().forEach(item => {
+  const items = storyFilterItems();
+  items.forEach(item => {
     item.hidden = button.dataset.filter !== 'all' && !storyItemMatches(item, button);
   });
-}));
+  if (filterEmpty) {
+    filterEmpty.hidden = items.some(item => !item.hidden);
+  }
+}
 
-loadPosts();
+filters.forEach(button => button.addEventListener('click', () => applyStoryFilter(button)));
+
+loadPosts().then(() => {
+  const active = filters.find(button => button.classList.contains('active')) || filters[0];
+  if (active) applyStoryFilter(active);
+});
 </script>
 <script id="danjion-direct-router-v5">
 (function(){
