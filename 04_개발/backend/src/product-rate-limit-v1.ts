@@ -8,6 +8,7 @@ export type ProductMutationLimitKey =
   | 'community_post_create'
   | 'community_comment_create'
   | 'community_report_create'
+  | 'resident_safety_report_create'
   | 'family_invite_create'
   | 'family_invite_redeem'
   | 'business_application_create'
@@ -23,6 +24,9 @@ export const PRODUCT_MUTATION_LIMITS: Record<ProductMutationLimitKey, ProductMut
   community_post_create: { action: 'community_post_create', max: 5, windowSeconds: 10 * 60 },
   community_comment_create: { action: 'community_comment_create', max: 30, windowSeconds: 10 * 60 },
   community_report_create: { action: 'community_report_create', max: 10, windowSeconds: 60 * 60 },
+  // Same product action class as community reporting: one resident-submitted safety report.
+  // Reuse the already-approved report policy rather than inventing a new threshold for #570.
+  resident_safety_report_create: { action: 'resident_safety_report_create', max: 10, windowSeconds: 60 * 60 },
   family_invite_create: { action: 'family_invite_create', max: 10, windowSeconds: 60 * 60 },
   family_invite_redeem: { action: 'family_invite_redeem', max: 10, windowSeconds: 60 * 60 },
   business_application_create: { action: 'business_application_create', max: 5, windowSeconds: 24 * 60 * 60 },
@@ -73,6 +77,9 @@ export function productMutationLimitForRequest(request: Request): ProductMutatio
   }
   if (/^\/api\/v1\/complexes\/[^/]+\/community\/reports$/.test(path)) {
     return 'community_report_create';
+  }
+  if (path === '/api/v1/me/reports') {
+    return 'resident_safety_report_create';
   }
   if (/^\/api\/v1\/complexes\/[^/]+\/household\/family-invites$/.test(path)) {
     return 'family_invite_create';
