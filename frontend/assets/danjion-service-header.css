@@ -198,6 +198,46 @@
   }
 }
 
+@media (min-width:761px) and (max-width:986px){
+  .danjion-service-header .header-inner{
+    width:calc(100% - 24px)!important;
+    gap:8px!important;
+  }
+  .danjion-service-header .brand{
+    font-size:21px!important;
+  }
+  /* The wordmark already routes to Intro. Remove the duplicate nav item only
+     in the measured squeeze range so the primary service destinations never
+     collide with the brand or account controls (#633). */
+  .danjion-service-header .desktop-nav [data-route="index.html?intro=1"]{
+    display:none!important;
+  }
+  .danjion-service-header .desktop-nav{
+    justify-content:space-evenly!important;
+    gap:8px!important;
+  }
+  .danjion-service-header .desktop-nav button,
+  .danjion-service-header .desktop-nav a{
+    font-size:13px!important;
+  }
+  .danjion-service-header .danjion-account-label{
+    display:none!important;
+  }
+  .danjion-service-header .danjion-account-trigger{
+    padding:4px!important;
+  }
+  .danjion-service-header .danjion-admin-quick-entry{
+    min-height:34px!important;
+    padding:0 8px!important;
+    font-size:10px!important;
+  }
+  .danjion-service-header .danjion-guest-auth-entry{
+    min-height:34px!important;
+    padding:0 9px!important;
+    font-size:11px!important;
+  }
+}
+
 @media (max-width:760px){
   body .danjion-service-header .identity.danjion-account-host{display:none!important}
   body .danjion-service-header .identity.danjion-guest-auth-host{

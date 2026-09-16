@@ -80,4 +80,19 @@ assert.ok(session.includes("소셜 로그인 계정"),
 assert.ok(session.includes("label.append(labelMain)"),
   'persistent account trigger must render the display name only');
 
-console.log('PASS #520 canonical service header + simplified persistent account identity');
+assert.ok(css.includes('@media (min-width:761px) and (max-width:986px)'),
+  'measured mid-width collision range must have a dedicated service-header rule');
+assert.ok(css.includes('.desktop-nav [data-route="index.html?intro=1"]') &&
+          css.includes('display:none!important'),
+  'mid-width header may hide only the duplicate Intro nav item while the wordmark keeps Intro reachable');
+assert.ok(css.includes('justify-content:space-evenly!important') &&
+          css.includes('font-size:13px!important'),
+  'mid-width primary nav must compress instead of overflowing into the brand');
+assert.match(css, /@media \(min-width:761px\) and \(max-width:986px\)[\s\S]*\.danjion-account-label\{[\s\S]*display:none!important/,
+  'mid-width authenticated account label must collapse to the compact trigger');
+for (const [key,html] of Object.entries(pages)) {
+  assert.ok(html.includes('data-route="index.html?intro=1"'),
+    `${key}: hiding duplicate Intro nav must not remove the wordmark/Intro route from source`);
+}
+
+console.log('PASS #520/#633 canonical service header + collision-safe mid-width geometry');
