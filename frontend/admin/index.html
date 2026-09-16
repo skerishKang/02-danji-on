@@ -47,6 +47,10 @@
     .restricted-box h1{font-size:24px;letter-spacing:-.03em}
     .restricted-box p{color:var(--muted);font-size:14px;line-height:1.7}
     .restricted-box a{display:inline-flex;min-height:46px;align-items:center;margin-top:18px;padding:0 20px;border-radius:999px;background:var(--blue);color:#fff;font-weight:800;font-size:14px;text-decoration:none}
+    .admin-bootstrap-note{max-width:460px;margin:16px auto 0!important;font-size:12.5px!important}
+    .admin-bootstrap-button{min-height:46px;margin-top:12px;padding:0 20px;border:0;border-radius:999px;background:var(--navy);color:#fff;font-size:14px;font-weight:800;cursor:pointer}
+    .admin-bootstrap-button:disabled{opacity:.58;cursor:wait}
+    .admin-bootstrap-status{min-height:20px;margin:10px auto 0!important;font-size:12.5px!important;font-weight:700;color:var(--coral)!important}
     @media(max-width:720px){.admin-card-top{flex-direction:column}.admin-header{position:static}}
   </style>
 </head>
@@ -62,14 +66,15 @@
   <section id="restrictedView" hidden></section>
   <script src="/assets/danjion-session.js"></script>
   <script src="/assets/danjion-admin-authority.js"></script>
+  <script src="/assets/danjion-admin-bootstrap.js"></script>
   <script src="/assets/danjion-admin-console.js"></script>
   <script>
     const badge=document.getElementById('roleBadge'),main=document.getElementById('adminMain'),restricted=document.getElementById('restrictedView');
-    const authority=window.DanjionAdminAuthority,consoleApi=window.DanjionAdminConsole;
+    const authority=window.DanjionAdminAuthority,bootstrapApi=window.DanjionAdminBootstrap,consoleApi=window.DanjionAdminConsole;
     const RESTRICTED_COPY={
       unbound:'이 환경에서는 관리자 콘솔을 사용할 수 없습니다.',
       'signed-out':'관리자 콘솔은 로그인 후 이용할 수 있습니다.',
-      denied:'접근 권한이 없습니다. 관리자 여부는 로그인 계정의 서버 권한 기록(padiem_operator_grants)으로만 판정되며, 이메일·로그인 수단·브라우저 저장 정보로 추정하지 않습니다.',
+      denied:'현재 계정에 활성 관리자 권한이 없습니다. 관리자 여부는 서버의 명시적 권한 기록(padiem_operator_grants)으로만 판정합니다.',
       invalid:'권한 응답을 검증할 수 없어 접근을 차단했습니다. 잠시 후 다시 시도해 주세요.',
       error:'권한 확인에 실패했습니다. 잠시 후 다시 시도해 주세요.'
     };
@@ -78,8 +83,31 @@
       main.hidden=true;main.replaceChildren();
       restricted.hidden=false;
       badge.textContent='접근 제한';badge.className='admin-role-badge restricted';badge.dataset.roleState='restricted';
-      const box=el('div');
+      const box=el('div',undefined,'restricted-box');
       box.append(el('h1','관리자 콘솔 접근 제한'),el('p',RESTRICTED_COPY[state]||RESTRICTED_COPY.denied));
+      if(state==='denied'&&bootstrapApi){
+        box.append(el('p','관리자 등록은 운영자가 서버에 미리 등록한 Google 관리자 계정에서만 가능합니다. 일반 Google 로그인만으로는 관리자 권한이 생기지 않습니다.','admin-bootstrap-note'));
+        const activate=el('button','등록된 관리자 권한 확인','admin-bootstrap-button');
+        activate.type='button';
+        const status=el('p','', 'admin-bootstrap-status');status.setAttribute('aria-live','polite');
+        activate.addEventListener('click',async()=>{
+          activate.disabled=true;activate.textContent='관리자 등록 확인 중…';status.textContent='';
+          const outcome=await bootstrapApi.bootstrapAuthority(fetch);
+          if(authority.hasAdminSurface(outcome)){
+            const canonicalGrant=await authority.fetchAuthority(fetch);
+            if(authority.hasAdminSurface(canonicalGrant)){renderConsole(canonicalGrant);return}
+            status.textContent='관리자 권한 등록은 완료됐지만 최종 권한 확인에 실패했습니다.';
+            activate.disabled=false;activate.textContent='등록된 관리자 권한 확인';
+            return;
+          }
+          if(outcome.state==='signed-out'){showRestricted('signed-out');return}
+          if(outcome.state==='not-registered')status.textContent='사전 등록된 관리자 계정이 아닙니다.';
+          else if(outcome.state==='unavailable')status.textContent='관리자 등록 정보를 확인할 수 없습니다. 잠시 후 다시 시도해 주세요.';
+          else status.textContent='관리자 권한 확인에 실패했습니다.';
+          activate.disabled=false;activate.textContent='등록된 관리자 권한 확인';
+        });
+        box.append(activate,status);
+      }
       const home=el('a','단지온 홈으로');home.href='/';
       box.append(home);restricted.replaceChildren(box);
     }

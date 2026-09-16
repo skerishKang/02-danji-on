@@ -28,6 +28,8 @@
     "test:admin-operational-rbac": "node tests/admin-operational-rbac-contract.mjs",
     "test:padiem-authority": "tsx tests/padiem-authority-v1.test.mjs",
     "test:admin-authority-contract": "node tests/admin-authority-contract.mjs",
+    "test:admin-bootstrap": "tsx tests/admin-bootstrap-v1.test.mjs",
+    "test:admin-bootstrap-contract": "node tests/admin-bootstrap-contract.mjs",
     "test:admin-review-privacy-rbac": "node tests/admin-review-privacy-rbac-contract.mjs",
     "test:admin-review-context-gallery": "tsx tests/admin-review-context-gallery.test.mjs",
     "test:resident-verification-policy-hold": "node tests/verification-contract.mjs",

@@ -270,3 +270,120 @@ test('#583 mobile controls meet touch-target policy and Warmth toast clears bott
 
   await guard.assertClean();
 });
+
+
+test('#592 pre-registered admin bootstrap re-reads canonical authority before opening console', async ({ page }) => {
+  const pageErrors: string[] = [];
+  const consoleErrors: string[] = [];
+  const unexpectedMutations: string[] = [];
+  const bootstrapBodies: Array<string | null> = [];
+  let authorityReads = 0;
+
+  page.on('pageerror', error => pageErrors.push(error.stack || error.message));
+  page.on('console', message => {
+    if (message.type() === 'error') consoleErrors.push(message.text());
+  });
+
+  await page.route('**/*', async route => {
+    const request = route.request();
+    const url = new URL(request.url());
+    const method = request.method().toUpperCase();
+    const local = url.origin === BASE;
+
+    if (!local) {
+      if (!['GET', 'HEAD', 'OPTIONS'].includes(method)) {
+        unexpectedMutations.push(method + ' ' + request.url());
+      }
+      await route.fulfill({ status: 204, body: '' });
+      return;
+    }
+
+    if (!url.pathname.startsWith('/api/')) {
+      await route.continue();
+      return;
+    }
+
+    if (url.pathname === '/api/v1/admin/authority' && method === 'GET') {
+      authorityReads += 1;
+      if (authorityReads === 1) {
+        await route.fulfill({
+          status: 403,
+          contentType: 'application/json',
+          body: JSON.stringify({ error: { code: 'ADMIN_AUTHORITY_REQUIRED' } })
+        });
+        return;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          data: {
+            level: 'operator',
+            label: '일반관리자',
+            wildcard: false,
+            scopes: ['business.review']
+          }
+        })
+      });
+      return;
+    }
+
+    if (url.pathname === '/api/v1/admin/bootstrap' && method === 'POST') {
+      bootstrapBodies.push(request.postData());
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          data: {
+            level: 'operator',
+            label: '일반관리자',
+            wildcard: false,
+            scopes: ['business.review']
+          }
+        })
+      });
+      return;
+    }
+
+    if (!['GET', 'HEAD', 'OPTIONS'].includes(method)) {
+      unexpectedMutations.push(method + ' ' + url.pathname);
+      await route.fulfill({
+        status: 409,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: { code: 'TEST_MUTATION_BLOCKED' } })
+      });
+      return;
+    }
+
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ data: [] })
+    });
+  });
+
+  await page.goto(withApi('/admin/'));
+  const activate = page.getByRole('button', { name: '등록된 관리자 권한 확인' });
+  await expect(activate).toBeVisible();
+  await expect(page.locator('#adminMain')).toBeHidden();
+
+  await activate.click();
+
+  await expect(page.locator('#roleBadge')).toHaveText('운영관리자');
+  await expect(page.locator('#adminMain')).toBeVisible();
+  await expect(page.getByRole('heading', { name: '단지온 운영관리' })).toBeVisible();
+
+  expect(authorityReads).toBe(2);
+  expect(bootstrapBodies).toEqual([null]);
+  expect(unexpectedMutations).toEqual([]);
+  expect(pageErrors).toEqual([]);
+
+  const expectedDeniedNoise = consoleErrors.filter(message =>
+    message.includes('Failed to load resource') && message.includes('403')
+  );
+  const unexpectedConsoleErrors = consoleErrors.filter(message =>
+    !(message.includes('Failed to load resource') && message.includes('403'))
+  );
+  expect(expectedDeniedNoise.length).toBeGreaterThanOrEqual(1);
+  expect(unexpectedConsoleErrors).toEqual([]);
+});

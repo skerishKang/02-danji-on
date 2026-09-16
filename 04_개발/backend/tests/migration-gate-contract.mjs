@@ -183,6 +183,14 @@ assert.ok(futurePlan.apply_set.includes('047_future_pr.sql'), 'later migrations 
 assert.equal(classifyMigration(ledger, '047_community_greeting_kind.sql').class, 'schema', 'the reserved 047 leaf is registered with no hard-coded gate case');
 const plan047 = await computeMigrationPlan({ ledger, inventory, appliedResolver: resolverFromApplied(new Set()), targetSha });
 assert.ok(plan047.apply_set.includes('047_community_greeting_kind.sql'), '047 enters the pending apply set only via its constraint marker readback');
+assert.equal(classifyMigration(ledger, '049_padiem_admin_identity_allowlist.sql').class, 'schema',
+  '049 administrator pre-registration is schema-only and never a production seed');
+assert.deepEqual(classifyMigration(ledger, '049_padiem_admin_identity_allowlist.sql').marker,
+  { kind: 'table', schema: 'public', name: 'padiem_admin_identity_allowlist' },
+  '049 readback marker must be the allowlist table itself');
+const plan049 = await computeMigrationPlan({ ledger, inventory, appliedResolver: resolverFromApplied(new Set()), targetSha });
+assert.ok(plan049.apply_set.includes('049_padiem_admin_identity_allowlist.sql'),
+  '049 enters the safe pending set through the ordinary schema gate');
 
 // 13. Target SHA recorded.
 assert.equal(inventoryPlan.target_sha, targetSha);
