@@ -160,18 +160,17 @@ test('Home executes businesses SUCCESS authority path, setScene, canonical detai
   await guard.assertClean();
 });
 
-test('Shops replaces demo data with API shops and opens canonical in-page popup', async ({ page }) => {
+test('Shops resolves an API shop deep-link only after authority replacement and opens the canonical in-page popup', async ({ page }) => {
   const guard = await installGuard(page);
-  await page.goto(withApi('/01_%EC%9D%B4%EC%9B%83%EA%B0%80%EA%B2%8C_%EB%B0%9C%EA%B2%AC.html'));
-
   const key = 'api-' + BUSINESSES[1].id;
+  await page.goto(withApi('/01_%EC%9D%B4%EC%9B%83%EA%B0%80%EA%B2%8C_%EB%B0%9C%EA%B2%AC.html?shop=' + encodeURIComponent(key) + '&from=home'));
+
   const card = page.locator('[data-shop-key="' + key + '"]').first();
   await expect(card).toBeVisible();
-  await card.click();
-
   await expect(page.locator('#shopCompareModal')).toHaveClass(/open/);
   await expect(page.locator('#shopCompareTitle')).toHaveText(BUSINESSES[1].name);
-  expect(page.url()).toContain('01_%EC%9D%B4%EC%9B%83%EA%B0%80%EA%B2%8C_%EB%B0%9C%EA%B2%AC.html');
+  expect(page.url()).toContain('shop=' + encodeURIComponent(key));
+  expect(page.url()).toContain('from=home');
   expect(page.url()).not.toContain('02_%EC%9D%B4%EC%9B%83%EA%B0%80%EA%B2%8C_%EC%83%81%EC%84%B8');
 
   await guard.assertClean();
