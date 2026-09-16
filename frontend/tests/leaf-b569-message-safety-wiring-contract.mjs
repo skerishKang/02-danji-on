@@ -15,12 +15,21 @@ assert.match(page, /await safety\.bridge\.unblockResident\(safety\.userId\)/);
 
 assert.doesNotMatch(page, /차단한 시연입니다\. 실제 상태는 바뀌지 않습니다\./);
 assert.doesNotMatch(page, /신고가 접수된 시연입니다\. 실제 전송은 하지 않습니다\./);
-assert.match(page, /대화 단위 신고는 아직 전송하지 않습니다/);
+assert.doesNotMatch(page, /대화 단위 신고는 아직 전송하지 않습니다/);
+assert.match(page, /이 주민 신고하기/);
+assert.match(page, /await safety\.bridge\.reportResident\(safety\.userId,reportReason\)/);
+assert.match(page, /'욕설·협박·괴롭힘':'threat'/);
+assert.match(page, /'개인정보 요구':'privacy'/);
+assert.match(page, /'광고·반복 메시지':'spam'/);
+assert.match(page, /'기타 운영기준 위반':'other'/);
+assert.match(page, /already_reported/);
 assert.doesNotMatch(page, /targetType\s*:\s*['"]message['"]/,
-  'conversation-level report UI must not be silently reinterpreted as a specific-message report');
+  'message-detail resident report must not be silently reinterpreted as a specific-message report');
 
 assert.match(bridge, /async function blockedUsers\(\)/);
 assert.match(bridge, /async function blockResident\(userId\)/);
 assert.match(bridge, /async function unblockResident\(userId\)/);
+assert.match(bridge, /async function reportResident\(userId, reason, detail\)/);
+assert.match(bridge, /targetType: 'resident'/);
 
-console.log('PASS message-detail resident block authority is server-persisted; ambiguous conversation report stays fail-closed');
+console.log('PASS message-detail block and resident-report authority are server-persisted with explicit resident semantics');
