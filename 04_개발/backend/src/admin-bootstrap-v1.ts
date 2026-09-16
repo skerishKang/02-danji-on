@@ -12,8 +12,10 @@ type Sql = NeonQueryFunction<false, false>;
 
 const REQUEST_ID_HEADER = 'x-danjion-request-id';
 const BOOTSTRAP_PATH = '/api/v1/admin/bootstrap';
+type BootstrapProvider = 'google' | 'credential';
 type BootstrapPrincipal = {
   id: string;
+  provider: BootstrapProvider;
   authorityLevel: AdminPrincipalRole;
   scopes: string[];
 };
@@ -40,14 +42,16 @@ function fail(code: string, message: string, status: number, requestId: string):
 function normalizedPrincipal(row: Record<string, unknown> | undefined): BootstrapPrincipal | null {
   if (!row) return null;
   const id = String(row.id ?? '').trim();
+  const provider = String(row.provider ?? '');
   const authorityLevel = String(row.authority_level ?? '');
   const rawScopes = Array.isArray(row.scopes) ? row.scopes : [];
   const scopes = Array.from(new Set(rawScopes.map((value) => String(value).trim()))).sort();
 
-  if (!id || (authorityLevel !== 'operator' && authorityLevel !== 'admin')) return null;
+  if (!id || (provider !== 'google' && provider !== 'credential')) return null;
+  if (authorityLevel !== 'operator' && authorityLevel !== 'admin') return null;
   if (!isCanonicalPrincipalScopes(authorityLevel, scopes)) return null;
 
-  return { id, authorityLevel, scopes };
+  return { id, provider, authorityLevel, scopes };
 }
 
 async function auditBootstrap(
@@ -87,8 +91,10 @@ async function auditBootstrap(
  * #592 / #396.
  *
  * This is NOT a public admin signup path. The caller must already be a valid
- * DanjiOn actor, have a verified Better Auth email, have an attached Google
- * account, and match a separately pre-registered active allowlist row.
+ * DanjiOn actor and match a separately pre-registered active allowlist row
+ * for the actor's exact Better Auth login provider/account. Google principals
+ * additionally require Better Auth's verified-email bit; credential principals
+ * must be pinned to their exact credential account id and never rely on email alone.
  *
  * The allowlist is consumed only as onboarding approval. The resulting runtime
  * authority is materialized into padiem_operator_grants; all later admin
@@ -111,26 +117,36 @@ export async function bootstrapAdminAuthorityResponse(
     const rows = await sql`
       select
         p.id,
+        p.provider,
         p.authority_level,
         p.scopes
       from app_users au
       join danjion_auth."user" u
         on u.id = au.auth_user_id
       join padiem_admin_identity_allowlist p
-        on p.provider = 'google'
+        on p.provider in ('google','credential')
        and p.normalized_email = lower(btrim(u.email))
        and p.status = 'active'
        and (p.expires_at is null or p.expires_at > now())
       where au.id = ${actor.id}::uuid
-        and u.email_verified = true
+        and (
+          p.provider = 'credential'
+          or u.email_verified = true
+        )
         and exists (
           select 1
           from danjion_auth.account a
           where a.user_id = u.id
-            and lower(a.provider_id) = 'google'
+            and lower(a.provider_id) = p.provider
             and (
-              p.provider_account_id is null
-              or p.provider_account_id = a.account_id
+              (p.provider = 'google' and (
+                p.provider_account_id is null
+                or p.provider_account_id = a.account_id
+              ))
+              or
+              (p.provider = 'credential'
+                and p.provider_account_id is not null
+                and p.provider_account_id = a.account_id)
             )
         )
       limit 1
@@ -138,15 +154,15 @@ export async function bootstrapAdminAuthorityResponse(
 
     if (!rows[0]) {
       await auditBootstrap(sql, actor, requestId, 'denied', 'ADMIN_BOOTSTRAP_NOT_ALLOWLISTED', {
-        provider: 'google'
+        provider: rows[0] && typeof rows[0].provider === 'string' ? rows[0].provider : 'unknown'
       });
-      return fail('ADMIN_BOOTSTRAP_NOT_ALLOWED', 'Pre-registered Google administrator identity required', 403, requestId);
+      return fail('ADMIN_BOOTSTRAP_NOT_ALLOWED', 'Pre-registered administrator identity required', 403, requestId);
     }
 
     const principal = normalizedPrincipal(rows[0] as Record<string, unknown>);
     if (!principal) {
       await auditBootstrap(sql, actor, requestId, 'denied', 'ADMIN_BOOTSTRAP_PRINCIPAL_INVALID', {
-        provider: 'google'
+        provider: rows[0] && typeof rows[0].provider === 'string' ? rows[0].provider : 'unknown'
       });
       return fail('ADMIN_BOOTSTRAP_PRINCIPAL_INVALID', 'Administrator registration is invalid', 503, requestId);
     }
@@ -154,7 +170,7 @@ export async function bootstrapAdminAuthorityResponse(
     const grantMetadata = JSON.stringify({
       source: 'admin_identity_allowlist',
       principalId: principal.id,
-      provider: 'google'
+      provider: principal.provider
     });
 
     const runtimeScopes = runtimeScopesForRole(principal.authorityLevel);
@@ -206,7 +222,7 @@ export async function bootstrapAdminAuthorityResponse(
     return ok(padiemAuthorityResponseData(authority), requestId);
   } catch {
     await auditBootstrap(sql, actor, requestId, 'denied', 'ADMIN_BOOTSTRAP_DATABASE_ERROR', {
-      provider: 'google'
+      provider: 'unknown'
     }).catch(() => {});
     return fail('ADMIN_BOOTSTRAP_UNAVAILABLE', 'Administrator registration could not be verified', 503, requestId);
   }
