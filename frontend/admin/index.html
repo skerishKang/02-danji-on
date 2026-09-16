@@ -46,6 +46,19 @@
     .admin-review-actions button:disabled{opacity:.5;cursor:wait}
     .admin-review-status{min-height:20px;margin:8px 0 0!important;font-size:12.5px!important;font-weight:750;color:var(--muted)!important}
     .admin-review-status.error{color:var(--coral)!important}.admin-review-complete{margin:12px 0 0;color:var(--green);font-size:12.5px;font-weight:800}
+    .admin-post-editor{margin:14px 0;padding:16px;border:1px solid var(--line);border-radius:16px;background:#fff}
+    .admin-post-editor.create{border-style:dashed;background:var(--paper2)}
+    .admin-post-editor h3{margin:0 0 12px;font-size:15px}
+    .admin-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+    .admin-field{display:flex;flex-direction:column;gap:5px;font-size:12px;font-weight:800;color:var(--muted)}
+    .admin-field.full{grid-column:1/-1}
+    .admin-field input,.admin-field textarea,.admin-field select{width:100%;border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--ink);padding:10px 11px;font:inherit;font-size:13px;font-weight:600}
+    .admin-field textarea{min-height:110px;resize:vertical;line-height:1.55}
+    .admin-post-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:10px}
+    .admin-post-actions button{min-height:42px;padding:0 14px;border-radius:10px;border:1px solid var(--navy);background:var(--navy);color:#fff;font-size:13px;font-weight:850;cursor:pointer}
+    .admin-post-actions button:disabled{opacity:.5;cursor:wait}
+    .admin-post-status{min-height:20px;margin:0!important;font-size:12.5px!important;font-weight:750;color:var(--muted)!important}
+    .admin-post-status.error{color:var(--coral)!important}
     .admin-empty,.admin-state{padding:26px 18px;border:1px dashed var(--line);border-radius:16px;background:var(--paper2);color:var(--muted);font-size:13.5px;line-height:1.7;text-align:center}
     .privileged-grid{display:grid;gap:12px}
     .privileged-item{display:flex;justify-content:space-between;gap:14px;align-items:center;background:var(--paper2);border:1px solid var(--line);border-radius:16px;padding:16px 18px}
@@ -61,7 +74,7 @@
     .admin-bootstrap-button{min-height:46px;margin-top:12px;padding:0 20px;border:0;border-radius:999px;background:var(--navy);color:#fff;font-size:14px;font-weight:800;cursor:pointer}
     .admin-bootstrap-button:disabled{opacity:.58;cursor:wait}
     .admin-bootstrap-status{min-height:20px;margin:10px auto 0!important;font-size:12.5px!important;font-weight:700;color:var(--coral)!important}
-    @media(max-width:720px){.admin-card-top{flex-direction:column}.admin-header{position:static}.admin-facts{grid-template-columns:1fr}.admin-review-actions button{flex:1 1 calc(50% - 8px)}}
+    @media(max-width:720px){.admin-card-top{flex-direction:column}.admin-header{position:static}.admin-facts,.admin-form-grid{grid-template-columns:1fr}.admin-field.full{grid-column:auto}.admin-review-actions button,.admin-post-actions button{flex:1 1 calc(50% - 8px)}}
   </style>
 </head>
 <body>
@@ -173,11 +186,83 @@
       });
       wrap.append(note,actions,live);return wrap;
     }
+    function labeledField(labelText,control,full){
+      const label=el('label',undefined,'admin-field'+(full?' full':''));label.append(el('span',labelText),control);return label;
+    }
+    function postStatusSelect(current,includeArchived){
+      const select=document.createElement('select');select.setAttribute('aria-label','게시 상태');
+      const statuses=includeArchived?['draft','published','archived']:['draft','published'];
+      const labels={draft:'초안',published:'게시',archived:'보관'};
+      statuses.forEach((value)=>{const option=document.createElement('option');option.value=value;option.textContent=labels[value];option.selected=value===current;select.append(option)});
+      return select;
+    }
+    function postFields(row,includeArchived){
+      const source=document.createElement('input');source.value=String(row?.source_name||row?.sourceName||'단지온 운영자');source.maxLength=80;source.setAttribute('aria-label','출처');
+      const category=document.createElement('input');category.value=String(row?.category||'');category.maxLength=80;category.setAttribute('aria-label','분류');
+      const title=document.createElement('input');title.value=String(row?.title||'');title.maxLength=200;title.setAttribute('aria-label','소식 제목');
+      const body=document.createElement('textarea');body.value=String(row?.body||'');body.maxLength=10000;body.setAttribute('aria-label','소식 본문');
+      const status=postStatusSelect(String(row?.status||'draft'),includeArchived);
+      return {source,category,title,body,status};
+    }
+    function postPayload(fields){return {sourceName:fields.source.value,category:fields.category.value,title:fields.title.value,body:fields.body.value,status:fields.status.value}}
+    function postErrorMessage(outcome){
+      if(outcome.state==='scope-denied')return '현재 관리자 권한으로 단지소식을 변경할 수 없습니다.';
+      if(outcome.state==='not-found')return '수정할 단지소식을 찾을 수 없습니다.';
+      if(outcome.state==='conflict')return '현재 상태에서는 이 변경을 적용할 수 없습니다'+(outcome.code?' · '+outcome.code:'')+'.';
+      if(outcome.state==='network-error')return 'API 연결에 실패했습니다. 잠시 후 다시 시도해 주세요.';
+      if(outcome.state==='invalid-request')return '출처·분류·제목·본문·게시 상태를 모두 확인해 주세요.';
+      return '처리에 실패했습니다'+(outcome.code?' · '+outcome.code:'')+'.';
+    }
+    function appendPostFields(editor,fields){
+      const grid=el('div',undefined,'admin-form-grid');
+      grid.append(
+        labeledField('출처',fields.source,false),
+        labeledField('분류',fields.category,false),
+        labeledField('제목',fields.title,true),
+        labeledField('본문',fields.body,true),
+        labeledField('게시 상태',fields.status,false)
+      );
+      editor.append(grid);
+    }
+    function postComposer(panel,section,apiBase){
+      const editor=el('section',undefined,'admin-post-editor create');editor.append(el('h3','새 단지소식 작성'));
+      const fields=postFields({status:'draft'},false);appendPostFields(editor,fields);
+      const actions=el('div',undefined,'admin-post-actions');
+      const save=el('button','새 소식 저장');save.type='button';
+      const live=el('p','', 'admin-post-status');live.setAttribute('aria-live','polite');
+      save.addEventListener('click',async()=>{
+        if(fields.status.value==='published'&&!window.confirm('작성한 단지소식을 바로 게시하시겠습니까?'))return;
+        save.disabled=true;live.className='admin-post-status';live.textContent='저장 중…';
+        const outcome=await consoleApi.createOfficialPost(fetch,apiBase,postPayload(fields));
+        if(outcome.state==='updated'){live.textContent='저장됐습니다. 최신 목록을 다시 불러옵니다.';await renderSection(panel,section,apiBase);return}
+        if(outcome.state==='signed-out'){showRestricted('signed-out');return}
+        live.textContent=postErrorMessage(outcome);live.className='admin-post-status error';save.disabled=false;
+      });
+      actions.append(save,live);editor.append(actions);return editor;
+    }
+    function postEditControls(row,panel,section,apiBase){
+      if(!section.postActions)return null;
+      const editor=el('section',undefined,'admin-post-editor');
+      const fields=postFields(row,true);appendPostFields(editor,fields);
+      const actions=el('div',undefined,'admin-post-actions');
+      const save=el('button','변경 저장');save.type='button';
+      const live=el('p','', 'admin-post-status');live.setAttribute('aria-live','polite');
+      save.addEventListener('click',async()=>{
+        if(fields.status.value==='published'&&String(row.status||'')!=='published'&&!window.confirm('이 단지소식을 게시 상태로 변경하시겠습니까?'))return;
+        save.disabled=true;live.className='admin-post-status';live.textContent='변경 저장 중…';
+        const outcome=await consoleApi.updateOfficialPost(fetch,apiBase,row.id,postPayload(fields));
+        if(outcome.state==='updated'){live.textContent='변경됐습니다. 최신 목록을 다시 불러옵니다.';await renderSection(panel,section,apiBase);return}
+        if(outcome.state==='signed-out'){showRestricted('signed-out');return}
+        live.textContent=postErrorMessage(outcome);live.className='admin-post-status error';save.disabled=false;
+      });
+      actions.append(save,live);editor.append(actions);return editor;
+    }
     async function renderSection(panel,section,apiBase){
       statePanel(panel,'불러오는 중…');
       const outcome=await consoleApi.loadSection(fetch,apiBase,section);
       if(outcome.state==='ready'){
         panel.replaceChildren(el('h2',section.title),el('p',section.description));
+        if(section.id==='posts')panel.append(postComposer(panel,section,apiBase));
         if(!outcome.rows.length){panel.append(el('div','표시할 항목이 없습니다.','admin-empty'));return}
         outcome.rows.forEach((row)=>{
           const card=el('article',undefined,'admin-card');
@@ -186,8 +271,10 @@
           top.append(copy,el('span',consoleApi.rowStatus(row)||'-','admin-status'));
           card.append(top);
           if(section.id==='applications')appendApplicationFacts(card,row);
-          const controls=applicationReviewControls(row,panel,section,apiBase);
-          if(controls)card.append(controls);
+          const reviewControls=applicationReviewControls(row,panel,section,apiBase);
+          const postControls=postEditControls(row,panel,section,apiBase);
+          if(reviewControls)card.append(reviewControls);
+          else if(postControls)card.append(postControls);
           else{const readonly=el('button','상태 변경 (조회 전용)');readonly.disabled=true;card.append(readonly)}
           panel.append(card);
         });
@@ -230,7 +317,7 @@
       lead.append(roleSummary);
       const tabs=el('nav',undefined,'admin-tabs');tabs.setAttribute('aria-label','운영관리 메뉴');
       const panel=el('section',undefined,'admin-panel');
-      const note=el('p','등록 신청 심사는 기존 서버 business.review 권한으로 처리할 수 있습니다. 그 밖의 쓰기 작업은 별도 검토·승인 전까지 조회 전용입니다.','admin-note');
+      const note=el('p','등록 신청 심사와 단지소식 관리는 기존 서버 권한으로 처리할 수 있습니다. 주민혜택 및 최고관리 쓰기 작업은 별도 검토·승인 전까지 조회 전용입니다.','admin-note');
       main.append(lead,tabs,note,panel);
       const open=(tab)=>{
         [...tabs.children].forEach((button)=>button.classList.toggle('active',button===tab.button));
