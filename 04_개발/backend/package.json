@@ -28,6 +28,8 @@
     "test:admin-operational-rbac": "node tests/admin-operational-rbac-contract.mjs",
     "test:padiem-authority": "tsx tests/padiem-authority-v1.test.mjs",
     "test:admin-authority-contract": "node tests/admin-authority-contract.mjs",
+    "test:admin-bootstrap": "tsx tests/admin-bootstrap-v1.test.mjs",
+    "test:admin-bootstrap-contract": "node tests/admin-bootstrap-contract.mjs",
     "test:admin-review-privacy-rbac": "node tests/admin-review-privacy-rbac-contract.mjs",
     "test:admin-review-context-gallery": "tsx tests/admin-review-context-gallery.test.mjs",
     "test:resident-verification-policy-hold": "node tests/verification-contract.mjs",
@@ -86,9 +88,7 @@
     "test:security-abuse-rate-limit": "node tests/security-abuse-rate-limit-contract.mjs",
     "test:product-rate-limit-routes": "tsx tests/product-rate-limit-route.test.mjs",
     "test:cross-platform-executable-contract": "node tests/cross-platform-executable-contract.mjs",
-    "check": "node ../scripts/test-manifest-runner.mjs run --scope backend",
-    "test:admin-bootstrap": "tsx tests/admin-bootstrap-v1.test.mjs",
-    "test:admin-bootstrap-contract": "node tests/admin-bootstrap-contract.mjs"
+    "check": "node ../scripts/test-manifest-runner.mjs run --scope backend"
   },
   "dependencies": {
     "@neondatabase/serverless": "1.1.0",
