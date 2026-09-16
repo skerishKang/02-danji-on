@@ -112,6 +112,7 @@ async function listPrincipals(
   const rows = await sql`
     select
       p.id,
+      p.provider,
       p.normalized_email,
       p.authority_level,
       p.scopes,
@@ -141,7 +142,7 @@ async function listPrincipals(
       where g.metadata ->> 'source' = 'admin_identity_allowlist'
         and g.metadata ->> 'principalId' = p.id::text
     ) rt on true
-    where p.provider = 'google'
+    where p.provider in ('google','credential')
     order by
       case p.status when 'active' then 0 else 1 end,
       case p.authority_level when 'admin' then 0 else 1 end,
@@ -154,6 +155,7 @@ async function listPrincipals(
       : [];
     return {
       id: String(row.id),
+      provider: String(row.provider),
       email: String(row.normalized_email),
       role: String(row.authority_level),
       status: String(row.status),
@@ -257,6 +259,7 @@ async function createPrincipal(
     const row = rows[0];
     return ok({
       id: String(row.id),
+      provider: String(row.provider),
       email: String(row.normalized_email),
       role: String(row.authority_level),
       scopes: Array.isArray(row.scopes) ? row.scopes.map((scope) => String(scope)) : principalScopes,
@@ -298,10 +301,10 @@ async function updatePrincipal(
   }
 
   const currentRows = await sql`
-    select id, normalized_email, authority_level, status
+    select id, provider, normalized_email, authority_level, status
     from padiem_admin_identity_allowlist
     where id = ${principalId}::uuid
-      and provider = 'google'
+      and provider in ('google','credential')
     limit 1
   `;
   const current = currentRows[0];
@@ -311,7 +314,7 @@ async function updatePrincipal(
     const duplicateRows = await sql`
       select 1
       from padiem_admin_identity_allowlist p
-      where p.provider = 'google'
+      where p.provider = ${String(current.provider)}
         and p.normalized_email = ${String(current.normalized_email)}
         and p.status = 'active'
         and p.id <> ${principalId}::uuid
@@ -341,7 +344,7 @@ async function updatePrincipal(
   const syncMetadata = JSON.stringify({
     source: 'admin_identity_allowlist',
     principalId,
-    provider: 'google'
+    provider: String(current.provider)
   });
   const auditMetadata = JSON.stringify({
     principalId,
@@ -369,8 +372,8 @@ async function updatePrincipal(
             revoked_at = case when ${status} = 'revoked' then coalesce(revoked_at, now()) else null end,
             reason = ${reason}
         where id = ${principalId}::uuid
-          and provider = 'google'
-        returning id, normalized_email, authority_level, scopes, status, created_at, expires_at, revoked_at
+          and provider in ('google','credential')
+        returning id, provider, normalized_email, authority_level, scopes, status, created_at, expires_at, revoked_at
       ),
       revoked as (
         update padiem_operator_grants g
