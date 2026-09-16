@@ -144,7 +144,142 @@ async function readState() {
           and account_status = 'active'
           and normalized_email is not null
           and char_length(normalized_email) between 3 and 254
-          and normalized_email ~ '^[^[:space:]@]+@[^[:space:]@]+[.][^[:space:]@]+      (
+          and normalized_email ~ '^[^[:space:]@]+@[^[:space:]@]+[.][^[:space:]@]+$'
+      ) as valid_normalized_email_users,
+      (
+        select count(*)::int
+        from identity_state
+        where auth_user_id is not null
+          and account_status = 'active'
+          and email_verified = true
+      ) as email_verified_true_users,
+      (
+        select count(*)::int
+        from identity_state
+        where auth_user_id is not null
+          and account_status = 'active'
+          and email_verified = false
+      ) as email_verified_false_users,
+      (
+        select count(*)::int
+        from identity_state
+        where auth_user_id is not null
+          and account_status = 'active'
+          and email_verified = true
+          and normalized_email is not null
+          and char_length(normalized_email) between 3 and 254
+          and normalized_email ~ '^[^[:space:]@]+@[^[:space:]@]+[.][^[:space:]@]+$'
+      ) as verified_email_users,
+      (
+        select count(*)::int
+        from identity_state
+        where auth_user_id is not null
+          and account_status = 'active'
+          and google_account_count = 1
+          and google_account_id is not null
+      ) as one_google_account_users,
+      (
+        select count(*)::int
+        from identity_state
+        where auth_user_id is not null
+          and account_status = 'active'
+          and google_account_count = 0
+      ) as zero_google_account_users,
+      (
+        select count(*)::int
+        from identity_state
+        where auth_user_id is not null
+          and account_status = 'active'
+          and google_account_count > 1
+      ) as multiple_google_account_users,
+      (
+        select count(*)::int
+        from identity_state
+        where auth_user_id is not null
+          and account_status = 'active'
+          and email_verified = true
+          and google_account_count = 1
+          and google_account_id is not null
+      ) as verified_with_one_google_users,
+      (
+        select count(*)::int
+        from identity_state
+        where auth_user_id is not null
+          and account_status = 'active'
+          and email_verified = false
+          and google_account_count = 1
+          and google_account_id is not null
+      ) as unverified_with_one_google_users,
+      (
+        select count(*)::int
+        from identity_state
+        where auth_user_id is not null
+          and account_status = 'active'
+          and email_verified = true
+          and google_account_count <> 1
+      ) as verified_without_one_google_users,
+      (
+        select count(*)::int
+        from identity_state
+        where auth_user_id is not null
+          and account_status = 'active'
+          and email_verified = true
+          and normalized_email is not null
+          and char_length(normalized_email) between 3 and 254
+          and normalized_email ~ '^[^[:space:]@]+@[^[:space:]@]+[.][^[:space:]@]+$'
+          and google_account_count = 1
+          and google_account_id is not null
+      ) as unique_google_users,
+      (
+        select count(*)::int
+        from identity_state
+        where auth_user_id is not null
+          and account_status = 'active'
+          and email_verified = true
+          and normalized_email is not null
+          and char_length(normalized_email) between 3 and 254
+          and normalized_email ~ '^[^[:space:]@]+@[^[:space:]@]+[.][^[:space:]@]+$'
+          and google_account_count = 1
+          and google_account_id is not null
+      ) as ready_identity_users,
+      (
+        select count(*)::int
+        from identity_state
+        where authority_role = 'admin'
+          and auth_user_id is not null
+          and account_status = 'active'
+          and email_verified = true
+          and normalized_email is not null
+          and char_length(normalized_email) between 3 and 254
+          and normalized_email ~ '^[^[:space:]@]+@[^[:space:]@]+[.][^[:space:]@]+$'
+          and google_account_count = 1
+          and google_account_id is not null
+      ) as ready_super_users,
+      (
+        select count(*)::int
+        from identity_state
+        where authority_role = 'operator'
+          and auth_user_id is not null
+          and account_status = 'active'
+          and email_verified = true
+          and normalized_email is not null
+          and char_length(normalized_email) between 3 and 254
+          and normalized_email ~ '^[^[:space:]@]+@[^[:space:]@]+[.][^[:space:]@]+$'
+          and google_account_count = 1
+          and google_account_id is not null
+      ) as ready_operational_users,
+      (
+        select count(distinct normalized_email)::int
+        from identity_state
+        where normalized_email is not null
+      ) as distinct_normalized_emails,
+      (
+        select count(distinct google_account_id)::int
+        from identity_state
+        where google_account_count = 1
+          and google_account_id is not null
+      ) as distinct_google_account_ids,
+      (
         select count(*)::int
         from candidate_grants
         where metadata ?| array['source','principalId','provider','adoptionMarker']
