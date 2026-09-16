@@ -962,6 +962,22 @@
 }
 </style>
 
+<link rel="stylesheet" href="assets/danjion-interaction-polish.css">
+<style id="v3-shop-header-hover-authority">
+@media (min-width:761px){
+  .site-header .desktop-nav button{position:relative}
+  .site-header .desktop-nav button::after{
+    content:"";position:absolute;left:0;right:0;bottom:0;height:3px;
+    background:var(--coral,#ee6045);transform:scaleX(0);transform-origin:center;
+    opacity:0;transition:transform .18s ease,opacity .18s ease;pointer-events:none
+  }
+  @media (any-hover:hover) and (any-pointer:fine){
+    .site-header .desktop-nav button:hover::after{transform:scaleX(1);opacity:.55}
+  }
+  .site-header .desktop-nav button:focus-visible::after{transform:scaleX(1);opacity:.75}
+  .site-header .desktop-nav button.active::after{transform:scaleX(1);opacity:1}
+}
+</style>
 </head>
 <body data-danjion-page="1"><script>try{sessionStorage.setItem("danjion:shopVariant","v3");localStorage.setItem("danjion:shopVariant","v3")}catch(e){}</script>
 <header class="site-header">
