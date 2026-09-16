@@ -416,6 +416,7 @@
     const closeShare=()=>{shareModal.classList.remove('open');shareModal.setAttribute('aria-hidden','true')};
     document.querySelector('.share-button').addEventListener('click',openShare);
     document.querySelectorAll('[data-share-close]').forEach(el=>el.addEventListener('click',closeShare));
+    document.addEventListener('keydown',event=>{if(event.key==='Escape'&&shareModal.classList.contains('open')){event.preventDefault();closeShare()}});
     document.querySelector('#copyShareUrl').addEventListener('click',async()=>{
       try{await navigator.clipboard.writeText(shareUrl.value);toast.textContent='가게 상세페이지 주소를 복사했습니다.';}catch(e){shareUrl.select();document.execCommand('copy');toast.textContent='가게 상세페이지 주소를 복사했습니다.';}
       toast.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>toast.classList.remove('show'),1800);
