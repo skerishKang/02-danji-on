@@ -1201,3 +1201,148 @@ test('#613 superadmin manages the four designated administrator principals witho
   expect(unexpectedMutations).toEqual([]);
   expect(pageErrors).toEqual([]);
 });
+
+
+test('#615 SUPER global audit viewer is hidden from operators and renders only privacy-bounded summary fields', async ({ page }) => {
+  const pageErrors: string[] = [];
+  const unexpectedMutations: string[] = [];
+  const auditQueries: string[] = [];
+  let authorityMode: 'admin' | 'operator' = 'operator';
+
+  page.on('pageerror', error => pageErrors.push(error.stack || error.message));
+
+  await page.route('**/*', async route => {
+    const request = route.request();
+    const url = new URL(request.url());
+    const method = request.method().toUpperCase();
+    const local = url.origin === BASE;
+
+    if (!local) {
+      if (!['GET', 'HEAD', 'OPTIONS'].includes(method)) unexpectedMutations.push(method + ' ' + request.url());
+      await route.fulfill({ status: 204, body: '' });
+      return;
+    }
+
+    if (!url.pathname.startsWith('/api/')) {
+      await route.continue();
+      return;
+    }
+
+    if (url.pathname === '/api/v1/admin/authority' && method === 'GET') {
+      const admin = authorityMode === 'admin';
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          data: admin
+            ? { level: 'admin', label: '최고관리자', wildcard: true, scopes: ['*'] }
+            : {
+                level: 'operator',
+                label: '일반관리자',
+                wildcard: false,
+                scopes: ['benefit.manage','business.review','official-content.manage','resident_news.review']
+              }
+        })
+      });
+      return;
+    }
+
+    if (url.pathname === '/api/v1/admin/audit-events' && method === 'GET') {
+      auditQueries.push(url.search);
+      const decision = url.searchParams.get('decision');
+      const allRows = [
+        {
+          id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+          actorKind: 'operator',
+          action: 'admin.principal.update',
+          scope: 'platform.authz.manage',
+          resourceType: 'administrator-principal',
+          decision: 'allowed',
+          reasonCode: 'ADMIN_PRINCIPAL_UPDATED',
+          createdAt: '2026-09-16T15:00:00.000Z',
+          actorUserId: 'PII-SENTINEL-ACTOR',
+          resourceId: 'PII-SENTINEL-RESOURCE',
+          requestId: 'PII-SENTINEL-REQUEST',
+          metadata: { email: 'PII-SENTINEL@example.com' }
+        },
+        {
+          id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+          actorKind: 'operator',
+          action: 'authorization.padiem-authority-check',
+          scope: 'platform.audit.read',
+          resourceType: null,
+          decision: 'denied',
+          reasonCode: 'PRIVILEGED_WILDCARD_REQUIRED',
+          createdAt: '2026-09-16T14:59:00.000Z'
+        }
+      ];
+      const rows = decision ? allRows.filter(row => row.decision === decision) : allRows;
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: rows })
+      });
+      return;
+    }
+
+    if (!['GET', 'HEAD', 'OPTIONS'].includes(method)) {
+      unexpectedMutations.push(method + ' ' + url.pathname);
+      await route.fulfill({
+        status: 409,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: { code: 'TEST_MUTATION_BLOCKED' } })
+      });
+      return;
+    }
+
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ data: [] })
+    });
+  });
+
+  await page.goto(withApi('/admin/'));
+  await expect(page.getByRole('heading', { name: '단지온 운영관리' })).toBeVisible();
+  await expect(page.getByRole('button', { name: '최고관리', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '전체 감사 기록', exact: true })).toHaveCount(0);
+  expect(auditQueries).toEqual([]);
+
+  authorityMode = 'admin';
+  await page.reload();
+  await page.getByRole('button', { name: '최고관리', exact: true }).click();
+  await page.getByRole('button', { name: '전체 감사 기록', exact: true }).click();
+
+  await expect(page.getByRole('heading', { name: '전체 감사 기록', exact: true })).toBeVisible();
+  await expect.poll(() => auditQueries.length).toBe(1);
+  expect(new URLSearchParams(auditQueries[0]).get('limit')).toBe('100');
+
+  const allowedCard = page.locator('.admin-card').filter({ hasText: 'admin.principal.update' });
+  await expect(allowedCard).toBeVisible();
+  await expect(allowedCard).toContainText('platform.authz.manage');
+  await expect(allowedCard).toContainText('ADMIN_PRINCIPAL_UPDATED');
+  await expect(allowedCard).toContainText('administrator-principal');
+  await expect(allowedCard).toContainText('allowed');
+
+  for (const sentinel of [
+    'PII-SENTINEL-ACTOR',
+    'PII-SENTINEL-RESOURCE',
+    'PII-SENTINEL-REQUEST',
+    'PII-SENTINEL@example.com'
+  ]) {
+    await expect(page.getByText(sentinel, { exact: false })).toHaveCount(0);
+  }
+
+  await page.getByLabel('감사 결정 필터').selectOption('denied');
+  await expect.poll(() => auditQueries.length).toBe(2);
+  expect(new URLSearchParams(auditQueries[1]).get('decision')).toBe('denied');
+  await expect(page.locator('.admin-card')).toHaveCount(1);
+  await expect(page.locator('.admin-card')).toContainText('authorization.padiem-authority-check');
+  await expect(page.locator('.admin-card')).toContainText('PRIVILEGED_WILDCARD_REQUIRED');
+
+  await page.getByRole('button', { name: '감사 기록 새로고침', exact: true }).click();
+  await expect.poll(() => auditQueries.length).toBe(3);
+
+  expect(unexpectedMutations).toEqual([]);
+  expect(pageErrors).toEqual([]);
+});
