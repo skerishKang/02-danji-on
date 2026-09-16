@@ -48,6 +48,14 @@ const ENV = {
   assert.equal(preResolveRelation(nearby.reportedRelationRaw), null,
     'nearby must NOT pre-resolve (nearby -> local is forbidden)');
 
+  const local = recommendationInput({
+    complexSlug: 'rb-complex', relationType: 'local', businessName: 'L',
+    serviceSummary: 'Raw local relation still needs operator resolution'
+  });
+  assert.ok(local, 'raw local report must parse');
+  assert.equal(preResolveRelation(local.reportedRelationRaw), null,
+    'raw local must NOT pre-resolve; local is an operator-resolved materialization value');
+
   const etc = recommendationInput({
     complexSlug: 'rb-complex', relationType: 'etc', businessName: 'E',
     serviceSummary: 'Etc shop', relationDetail: 'friend of a friend',
