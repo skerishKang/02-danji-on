@@ -23,7 +23,7 @@ test.describe('Current 04 React completion', () => {
     await expect(auth.getByRole('heading', { name: '단지온 계정을 만들어요.' })).toBeVisible();
     await expect(auth.getByText(/계정 가입·이메일 확인·휴대폰 연락처 확인·입주민 인증은 서로 다른 단계입니다/)).toBeVisible();
     await expect(auth.getByRole('button', { name: 'Kakao로 가입', exact: true })).toBeVisible();
-    await expect(auth.getByRole('button', { name: 'Naver로 가입', exact: true })).toBeVisible();
+    await expect(auth.getByRole('button', { name: 'Naver로 가입', exact: true })).toHaveCount(0);
     await expect(auth.getByRole('button', { name: 'Google로 가입', exact: true })).toBeVisible();
 
     await page.keyboard.press('Escape');
