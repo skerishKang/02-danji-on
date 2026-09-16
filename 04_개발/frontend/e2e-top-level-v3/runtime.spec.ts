@@ -184,6 +184,59 @@ test('Complex canonical top-level page renders without runtime errors', async ({
   await guard.assertClean();
 });
 
+test('#600 Apartment News category filters hide non-matching stories and expose empty state', async ({ page }) => {
+  const guard = await installGuard(page);
+  await page.goto(withApi('/08_%EC%95%84%ED%8C%8C%ED%8A%B8%EC%86%8C%EC%8B%9D_%EB%AA%A9%EB%A1%9D.html'));
+
+  const feature = page.locator('.feature');
+  const rows = page.locator('.news-row');
+  const empty = page.locator('.filter-empty');
+
+  await expect(feature).toBeVisible();
+  await expect(rows).toHaveCount(3);
+  for (const row of await rows.all()) await expect(row).toBeVisible();
+  await expect(empty).toBeHidden();
+
+  await page.getByRole('button', { name: '회장 인사', exact: true }).click();
+  await expect(feature).toBeVisible();
+  for (const row of await rows.all()) await expect(row).toBeHidden();
+  await expect(empty).toBeHidden();
+
+  await page.getByRole('button', { name: '회의 후 진행', exact: true }).click();
+  await expect(feature).toBeHidden();
+  await expect(page.locator('.news-row[data-kind="progress"]')).toBeVisible();
+  await expect(page.locator('.news-row[data-kind="life"]')).toBeHidden();
+  await expect(page.locator('.news-row[data-kind="record"]')).toBeHidden();
+  await expect(empty).toBeHidden();
+
+  await page.getByRole('button', { name: '생활소식', exact: true }).click();
+  await expect(feature).toBeHidden();
+  await expect(page.locator('.news-row[data-kind="progress"]')).toBeHidden();
+  await expect(page.locator('.news-row[data-kind="life"]')).toBeVisible();
+  await expect(page.locator('.news-row[data-kind="record"]')).toBeHidden();
+  await expect(empty).toBeHidden();
+
+  await page.getByRole('button', { name: '현장기록', exact: true }).click();
+  await expect(feature).toBeHidden();
+  await expect(page.locator('.news-row[data-kind="progress"]')).toBeHidden();
+  await expect(page.locator('.news-row[data-kind="life"]')).toBeHidden();
+  await expect(page.locator('.news-row[data-kind="record"]')).toBeVisible();
+  await expect(empty).toBeHidden();
+
+  await page.getByRole('button', { name: '단지 변화', exact: true }).click();
+  await expect(feature).toBeHidden();
+  for (const row of await rows.all()) await expect(row).toBeHidden();
+  await expect(empty).toBeVisible();
+  await expect(empty).toHaveText('해당 분류의 소식이 아직 없습니다.');
+
+  await page.getByRole('button', { name: '전체', exact: true }).click();
+  await expect(feature).toBeVisible();
+  for (const row of await rows.all()) await expect(row).toBeVisible();
+  await expect(empty).toBeHidden();
+
+  await guard.assertClean();
+});
+
 test('My Info canonical top-level page renders signed-out without runtime errors', async ({ page }) => {
   const guard = await installGuard(page);
   await page.goto(withApi('/19_%EB%82%B4%EC%A0%95%EB%B3%B4_%EB%A9%94%EC%9D%B8.html'));
