@@ -1,0 +1,152 @@
+name: Production Existing Admin Principal Adoption
+
+on:
+  workflow_dispatch:
+    inputs:
+      expected_main:
+        description: 'Exact origin/main SHA authorized by CENTRAL'
+        required: true
+        type: string
+      mode:
+        description: 'Read-only preflight, apply adoption, or bounded rollback'
+        required: true
+        default: preflight
+        type: choice
+        options:
+          - preflight
+          - apply
+          - rollback
+      confirm_production:
+        description: 'Explicitly authorize the selected Production data mutation'
+        required: true
+        default: false
+        type: boolean
+      confirmation:
+        description: 'Apply: ADOPT EXISTING FOUR ADMIN PRINCIPALS / Rollback: ROLL BACK FOUR ADMIN PRINCIPAL ADOPTION'
+        required: false
+        default: ''
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: danjion-production-existing-admin-principal-adoption
+  cancel-in-progress: false
+
+jobs:
+  adopt:
+    name: Guarded existing administrator principal adoption
+    runs-on: ubuntu-latest
+    environment: production
+    defaults:
+      run:
+        working-directory: 04_개발/backend
+    env:
+      DANJION_PRODUCTION_DB_URL: ${{ secrets.DANJION_PRODUCTION_DB_URL }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: 04_개발/backend/package.json
+
+      - name: Exact main authority guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main --no-tags
+          actual_main="$(git rev-parse origin/main)"
+          expected_main="${{ inputs.expected_main }}"
+          if [ "$GITHUB_SHA" != "$expected_main" ] || [ "$actual_main" != "$expected_main" ]; then
+            echo "::error::Exact-main authority mismatch."
+            echo "EXPECTED_MAIN=$expected_main"
+            echo "GITHUB_SHA=$GITHUB_SHA"
+            echo "ACTUAL_MAIN=$actual_main"
+            exit 1
+          fi
+          echo "EXACT_MAIN_GUARD=PASS"
+
+      - name: Validate execution authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          mode="${{ inputs.mode }}"
+          if [ "$mode" = "apply" ]; then
+            if [ "${{ inputs.confirm_production }}" != "true" ]; then
+              echo "::error::Production adoption requires confirm_production=true."
+              exit 1
+            fi
+            if [ "${{ inputs.confirmation }}" != "ADOPT EXISTING FOUR ADMIN PRINCIPALS" ]; then
+              echo "::error::Production adoption confirmation phrase mismatch."
+              exit 1
+            fi
+          elif [ "$mode" = "rollback" ]; then
+            if [ "${{ inputs.confirm_production }}" != "true" ]; then
+              echo "::error::Production adoption rollback requires confirm_production=true."
+              exit 1
+            fi
+            if [ "${{ inputs.confirmation }}" != "ROLL BACK FOUR ADMIN PRINCIPAL ADOPTION" ]; then
+              echo "::error::Production rollback confirmation phrase mismatch."
+              exit 1
+            fi
+          fi
+          echo "EXECUTION_AUTHORITY=PASS mode=$mode"
+
+      - name: Install backend dependencies
+        run: npm install --ignore-scripts
+
+      - name: Run source safety contract
+        run: npm run test:production-admin-principal-adopt-existing
+
+      - name: Verify Production DB binding without output
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${DANJION_PRODUCTION_DB_URL:-}" ]; then
+            echo "::error::DANJION_PRODUCTION_DB_URL is missing."
+            exit 1
+          fi
+          echo "PRODUCTION_DB_SECRET_BINDING=PASS (value not printed)"
+
+      - name: Read-only adoption preflight
+        env:
+          ADMIN_ADOPTION_MODE: preflight
+        run: node scripts/production-admin-principal-adopt-existing.mjs
+
+      - name: Apply existing-principal adoption
+        if: inputs.mode == 'apply'
+        env:
+          ADMIN_ADOPTION_MODE: apply
+        run: node scripts/production-admin-principal-adopt-existing.mjs
+
+      - name: Roll back untouched adoption
+        if: inputs.mode == 'rollback'
+        env:
+          ADMIN_ADOPTION_MODE: rollback
+        run: node scripts/production-admin-principal-adopt-existing.mjs
+
+      - name: Record disposition
+        if: always()
+        shell: bash
+        run: |
+          mode="${{ inputs.mode }}"
+          echo "WORKER_DEPLOY=0"
+          echo "PAGES_DEPLOY=0"
+          echo "SECRET_MUTATION=0"
+          echo "ACCOUNT_LINK_MUTATION=0"
+          echo "GRANT_SCOPE_STATUS_MUTATION=0"
+          if [ "$mode" = "preflight" ]; then
+            echo "DB_MUTATION=0"
+            echo "ALLOWLIST_MUTATION=0"
+            echo "GRANT_METADATA_MUTATION=0"
+          elif [ "$mode" = "apply" ]; then
+            echo "ALLOWLIST_MUTATION=AUTHORIZED_BY_EXPLICIT_APPLY_INPUT"
+            echo "GRANT_METADATA_MUTATION=AUTHORIZED_BY_EXPLICIT_APPLY_INPUT"
+          else
+            echo "ALLOWLIST_MUTATION=AUTHORIZED_BY_EXPLICIT_ROLLBACK_INPUT"
+            echo "GRANT_METADATA_MUTATION=AUTHORIZED_BY_EXPLICIT_ROLLBACK_INPUT"
+          fi
