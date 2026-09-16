@@ -48,6 +48,14 @@ assert.equal(url.searchParams.get('decision'), 'denied');
 assert.equal(url.searchParams.get('before'), '2026-09-17T00:00:00.000Z');
 assert.equal(calls[0].init.credentials, 'include');
 
+const relativeCalls = [];
+const relative = await A.list(async (url, init = {}) => {
+  relativeCalls.push({ url, init });
+  return { ok: true, status: 200, json: async () => ({ data: [] }) };
+}, '', { limit: 5 });
+assert.equal(relative.state, 'ready');
+assert.equal(relativeCalls[0].url, '/api/v1/admin/audit-events?limit=5');
+
 const invalidDecision = await A.list(okFetch, 'https://api.test', { decision: 'maybe' });
 assert.equal(invalidDecision.state, 'invalid-request');
 assert.equal(calls.length, 1, 'invalid audit filter must fail before network');
