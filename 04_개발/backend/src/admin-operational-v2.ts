@@ -509,6 +509,30 @@ export async function handleAdminOperationalRequest(
   }
 
   match = path.match(/^\/api\/v1\/admin\/complexes\/([^/]+)\/posts$/);
+  if (match && request.method === 'GET') {
+    const complexSlug = decodeURIComponent(match[1]);
+    const operator = await authority(request, env, sql, requestId, complexSlug, POLICY.officialContent);
+    if (operator instanceof Response) return operator;
+
+    const status = url.searchParams.get('status')?.trim() || 'all';
+    if (!['all','draft','published','archived'].includes(status)) {
+      return fail('VALIDATION_ERROR', 'Invalid post status filter', 400, requestId);
+    }
+    const rows = await sql`
+      select p.id, p.source_name, p.category, p.channel, p.title, p.body,
+             p.attachment_object_key, p.status, p.published_at, p.created_at, p.updated_at
+      from complex_posts p
+      where p.complex_id = ${operator.complexId}::uuid
+        and (${status} = 'all' or p.status = ${status})
+      order by
+        case p.status when 'draft' then 0 when 'published' then 1 when 'archived' then 2 else 3 end,
+        coalesce(p.published_at, p.created_at) desc,
+        p.created_at desc
+      limit 200
+    `;
+    return ok(rows, requestId);
+  }
+
   if (match && request.method === 'POST') {
     return createPost(request, env, sql, decodeURIComponent(match[1]), requestId);
   }
