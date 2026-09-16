@@ -100,14 +100,20 @@ const wiring = wiringRaw.replace(/^\s*<script[^>]*>\s*/, '');
     'f19 must load session → resident-bridge → admin-authority before the myinfo wiring');
 }
 
-/* ==== 6. the wiring resolves authority FIRST and gates every resident call = */
+/* ==== 6. session resolves FIRST; authority/resident calls require a member === */
 {
-  assert.ok(/Promise\.all\(\[sessionIdentity\(\),resolveResidentExemption\(\)\]\)\.then\(function\(values\)\{/.test(wiring),
-    'the wiring must resolve session identity and exemption before loading any resident data');
-  assert.ok(/if\(exempt\)\{loadExemptIdentity\(identity&&identity\.user\);return;\}/.test(wiring),
-    'the exempt branch must return before any resident fetch is started');
-  const gateAt = wiring.indexOf('Promise.all([sessionIdentity(),resolveResidentExemption()])');
-  assert.ok(gateAt > -1 && gateAt > wiring.indexOf('function loadResidentData'), 'the combined session/authority gate is the wiring entry point');
+  assert.ok(/sessionIdentity\(\)\.then\(function\(identity\)\{/.test(wiring),
+    'the wiring must resolve native session identity before any authority/resident hydration');
+  assert.ok(/if\(!identity\|\|!identity\.user\)\{[\s\S]*showGuestGate[\s\S]*return;[\s\S]*showPrivateContent\(\);[\s\S]*resolveResidentExemption\(\)\.then/.test(wiring),
+    'signed-out users must return at the guest gate before authority or resident reads begin');
+  assert.ok(/if\(exempt\)\{loadExemptIdentity\(identity\.user\);return;\}/.test(wiring),
+    'the authenticated exempt branch must return before ordinary resident fetches start');
+  const gateAt = wiring.indexOf('sessionIdentity().then(function(identity)');
+  const authorityAt = wiring.indexOf('return resolveResidentExemption().then', gateAt);
+  assert.ok(gateAt > -1 && gateAt > wiring.indexOf('function loadResidentData'),
+    'session identity must be the myinfo hydration entry point');
+  assert.ok(authorityAt > gateAt,
+    'resident-verification exemption must be evaluated only after authenticated session gating');
   const profileAt = wiring.indexOf('bridge.profile()');
   const summaryAt = wiring.indexOf('bridge.summary()');
   const snapshotAt = wiring.indexOf('.getSnapshot()');
