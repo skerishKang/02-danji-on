@@ -31,6 +31,7 @@ const EXPECTED_BACKEND_ORDER = [
   "test:production-db-secret-bootstrap",
   "test:production-auth-readonly-diagnostic",
   "test:production-admin-principal-provision",
+  "test:production-admin-principal-adopt-existing",
   "test:auth-facade-public-base",
   "test:authz-v2",
   "test:authz-v2-schema",
