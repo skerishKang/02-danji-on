@@ -80,6 +80,20 @@ function safeReason(value: unknown): string | null {
   return reason ? reason.slice(0, 500) : null;
 }
 
+function hasUnexpectedKeys(payload: Record<string, unknown>, allowed: readonly string[]): boolean {
+  const allowedKeys = new Set(allowed);
+  return Object.keys(payload).some((key) => !allowedKeys.has(key));
+}
+
+function isUniqueViolation(error: unknown): boolean {
+  return Boolean(
+    error
+    && typeof error === 'object'
+    && 'code' in error
+    && String((error as { code?: unknown }).code ?? '') === '23505'
+  );
+}
+
 async function requireSuper(
   request: Request,
   env: CoreEnv,
@@ -113,7 +127,11 @@ async function listPrincipals(
     from padiem_admin_identity_allowlist p
     left join lateral (
       select
-        count(distinct g.user_id)::int as runtime_user_count,
+        count(distinct g.user_id)
+          filter (
+            where g.status = 'active'
+              and (g.expires_at is null or g.expires_at > now())
+          ) as runtime_user_count,
         coalesce(
           array_agg(distinct g.scope order by g.scope)
             filter (
@@ -164,6 +182,9 @@ async function createPrincipal(
 
   const payload = await bodyJson(request, requestId);
   if (payload instanceof Response) return payload;
+  if (hasUnexpectedKeys(payload, ['email', 'role', 'reason'])) {
+    return fail('VALIDATION_ERROR', 'Unsupported administrator principal fields', 400, requestId);
+  }
 
   const email = normalizedEmail(payload.email);
   const role = normalizedRole(payload.role);
@@ -248,7 +269,10 @@ async function createPrincipal(
       runtimeRole: 'none',
       createdAt: row.created_at ? String(row.created_at) : null
     }, requestId, 201);
-  } catch {
+  } catch (error) {
+    if (isUniqueViolation(error)) {
+      return fail('ADMIN_PRINCIPAL_EXISTS', 'An active administrator principal already exists for this email', 409, requestId);
+    }
     return fail('ADMIN_PRINCIPAL_CREATE_FAILED', 'Administrator principal could not be created', 503, requestId);
   }
 }
@@ -266,6 +290,9 @@ async function updatePrincipal(
 
   const payload = await bodyJson(request, requestId);
   if (payload instanceof Response) return payload;
+  if (hasUnexpectedKeys(payload, ['role', 'status', 'reason'])) {
+    return fail('VALIDATION_ERROR', 'Unsupported administrator principal fields', 400, requestId);
+  }
   const role = normalizedRole(payload.role);
   const status = normalizedStatus(payload.status);
   const reason = safeReason(payload.reason);
@@ -351,7 +378,9 @@ async function updatePrincipal(
         set status = 'revoked',
             revoked_at = now(),
             reason = coalesce(${reason}, 'administrator principal authority changed')
-        where g.status = 'active'
+        from updated u
+        where u.id = ${principalId}::uuid
+          and g.status = 'active'
           and g.metadata ->> 'source' = 'admin_identity_allowlist'
           and g.metadata ->> 'principalId' = ${principalId}
         returning g.user_id
@@ -383,8 +412,9 @@ async function updatePrincipal(
           ${syncMetadata}::jsonb
         from linked_users lu
         cross join desired_scopes ds
+        cross join updated u
         cross join revoke_barrier rb
-        where ${status} = 'active'
+        where u.status = 'active'
         on conflict do nothing
         returning user_id, scope
       ),
@@ -411,15 +441,16 @@ async function updatePrincipal(
           'ADMIN_PRINCIPAL_UPDATED',
           ${auditMetadata}::jsonb
         from updated
+        cross join lateral (select count(*) from inserted_grants) sync_barrier
         returning id
       )
       select
         updated.*,
-        (select count(*)::int from linked_users) as runtime_user_count,
-        case
-          when ${status} = 'active' then array(select scope from desired_scopes order by scope)
-          else array[]::text[]
-        end as runtime_scopes
+        (select count(distinct user_id)::int from inserted_grants) as runtime_user_count,
+        coalesce(
+          (select array_agg(distinct scope order by scope) from inserted_grants),
+          array[]::text[]
+        ) as runtime_scopes
       from updated
       cross join lateral (select count(*) from audited) audit_barrier
     `;
@@ -441,7 +472,10 @@ async function updatePrincipal(
       expiresAt: row.expires_at ? String(row.expires_at) : null,
       revokedAt: row.revoked_at ? String(row.revoked_at) : null
     }, requestId);
-  } catch {
+  } catch (error) {
+    if (isUniqueViolation(error)) {
+      return fail('ADMIN_PRINCIPAL_EXISTS', 'Another active administrator principal already exists for this email', 409, requestId);
+    }
     return fail('ADMIN_PRINCIPAL_UPDATE_FAILED', 'Administrator authority could not be synchronized', 503, requestId);
   }
 }
