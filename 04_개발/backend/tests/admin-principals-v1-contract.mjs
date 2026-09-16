@@ -6,15 +6,36 @@ import { fileURLToPath } from 'node:url';
 const here = fileURLToPath(new URL('.', import.meta.url));
 const root = resolve(here, '..');
 const src = readFileSync(resolve(root, 'src', 'admin-principals-v1.ts'), 'utf8');
+const policy = readFileSync(resolve(root, 'src', 'admin-scope-policy-v1.ts'), 'utf8');
 const app = readFileSync(resolve(root, 'src', 'app.ts'), 'utf8');
 
 assert.match(src, /requirePadiemPrivilegedScope/);
 assert.match(src, /'platform\.authz\.manage'/);
 assert.match(src, /OPERATIONAL_ADMIN_SCOPES/);
-for (const scope of ['business.review', 'official-content.manage', 'benefit.manage', 'resident_news.review']) {
-  assert.ok(src.includes(`'${scope}'`), `missing fixed OPERATIONAL scope ${scope}`);
+for (const scope of [
+  'benefit.manage',
+  'business.review',
+  'community.moderate',
+  'inquiry.respond',
+  'official-content.manage',
+  'resident.verification.exempt',
+  'resident_news.review',
+  'safety.report.review'
+]) {
+  assert.ok(policy.includes(`'${scope}'`), `missing fixed OPERATIONAL scope ${scope}`);
 }
-assert.match(src, /role === 'admin' \? \['\*'\]/, 'SUPER role must map only to wildcard scope');
+assert.match(policy, /principalScopesForRole[\s\S]*role === 'admin' \? \['\*'\]/,
+  'SUPER allowlist row must remain schema-compatible wildcard only');
+assert.match(policy, /SUPER_ADMIN_RUNTIME_SCOPES[\s\S]*'\*'[\s\S]*\.\.\.OPERATIONAL_ADMIN_SCOPES/,
+  'SUPER runtime must preserve wildcard plus the full operational bundle');
+assert.match(policy, /runtimeScopesForRole/,
+  'principal synchronization must use a separate runtime scope policy');
+assert.match(src, /principalScopesForRole\(role\)/,
+  'principal rows must use the allowlist storage policy');
+assert.match(src, /runtimeScopesForRole\(role\)/,
+  'runtime synchronization must use the full runtime authority policy');
+assert.match(src, /jsonb_array_elements_text\(\$\{runtimeScopesJson\}::jsonb\)/,
+  'role updates must rematerialize the full runtime bundle, not allowlist storage scopes');
 assert.match(src, /SELF_LOCKOUT_BLOCKED/, 'self-demotion/self-revocation must fail closed');
 assert.match(src, /metadata ->> 'source' = 'admin_identity_allowlist'/);
 assert.match(src, /metadata ->> 'principalId'/);
