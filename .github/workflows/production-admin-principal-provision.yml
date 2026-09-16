@@ -1,0 +1,142 @@
+name: Production Admin Principal Provisioning
+
+on:
+  workflow_dispatch:
+    inputs:
+      expected_main:
+        description: 'Exact origin/main SHA authorized by CENTRAL'
+        required: true
+        type: string
+      mode:
+        description: 'Read-only preflight or one-time apply'
+        required: true
+        default: preflight
+        type: choice
+        options:
+          - preflight
+          - apply
+      confirm_production:
+        description: 'Explicitly authorize the Production principal data mutation'
+        required: true
+        default: false
+        type: boolean
+      confirmation:
+        description: 'For apply only, type: PROVISION FOUR ADMIN PRINCIPALS'
+        required: false
+        default: ''
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: danjion-production-admin-principal-provision
+  cancel-in-progress: false
+
+jobs:
+  provision:
+    name: Guarded initial administrator principal provisioning
+    runs-on: ubuntu-latest
+    environment: production
+    defaults:
+      run:
+        working-directory: 04_개발/backend
+    env:
+      DANJION_PRODUCTION_DB_URL: ${{ secrets.DANJION_PRODUCTION_DB_URL }}
+      DANJION_ADMIN_SUPER_1_EMAIL: ${{ secrets.DANJION_ADMIN_SUPER_1_EMAIL }}
+      DANJION_ADMIN_SUPER_2_EMAIL: ${{ secrets.DANJION_ADMIN_SUPER_2_EMAIL }}
+      DANJION_ADMIN_OPERATIONAL_1_EMAIL: ${{ secrets.DANJION_ADMIN_OPERATIONAL_1_EMAIL }}
+      DANJION_ADMIN_OPERATIONAL_2_EMAIL: ${{ secrets.DANJION_ADMIN_OPERATIONAL_2_EMAIL }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: 04_개발/backend/package.json
+
+      - name: Exact main authority guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main --no-tags
+          actual_main="$(git rev-parse origin/main)"
+          expected_main="${{ inputs.expected_main }}"
+          if [ "$GITHUB_SHA" != "$expected_main" ] || [ "$actual_main" != "$expected_main" ]; then
+            echo "::error::Exact-main authority mismatch."
+            echo "EXPECTED_MAIN=$expected_main"
+            echo "GITHUB_SHA=$GITHUB_SHA"
+            echo "ACTUAL_MAIN=$actual_main"
+            exit 1
+          fi
+          echo "EXACT_MAIN_GUARD=PASS"
+
+      - name: Validate execution authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          mode="${{ inputs.mode }}"
+          if [ "$mode" = "apply" ]; then
+            if [ "${{ inputs.confirm_production }}" != "true" ]; then
+              echo "::error::Production principal provisioning requires confirm_production=true."
+              exit 1
+            fi
+            if [ "${{ inputs.confirmation }}" != "PROVISION FOUR ADMIN PRINCIPALS" ]; then
+              echo "::error::Production principal provisioning confirmation phrase mismatch."
+              exit 1
+            fi
+          fi
+          echo "EXECUTION_AUTHORITY=PASS mode=$mode"
+
+      - name: Install backend dependencies
+        run: npm install --ignore-scripts
+
+      - name: Run source safety contract
+        run: npm run test:production-admin-principal-provision
+
+      - name: Verify Production bindings without output
+        shell: bash
+        run: |
+          set -euo pipefail
+          missing=0
+          for key in             DANJION_PRODUCTION_DB_URL             DANJION_ADMIN_SUPER_1_EMAIL             DANJION_ADMIN_SUPER_2_EMAIL             DANJION_ADMIN_OPERATIONAL_1_EMAIL             DANJION_ADMIN_OPERATIONAL_2_EMAIL
+          do
+            if [ -z "${!key:-}" ]; then
+              echo "::error::Required Production binding is missing: $key"
+              missing=1
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then
+            exit 1
+          fi
+          echo "PRODUCTION_ADMIN_PRINCIPAL_BINDINGS=PASS (values not printed)"
+
+      - name: Read-only principal provisioning preflight
+        env:
+          ADMIN_PROVISION_MODE: preflight
+        run: node scripts/production-admin-principal-provision.mjs
+
+      - name: Apply initial four-principal provisioning
+        if: inputs.mode == 'apply'
+        env:
+          ADMIN_PROVISION_MODE: apply
+        run: node scripts/production-admin-principal-provision.mjs
+
+      - name: Record disposition
+        if: always()
+        shell: bash
+        run: |
+          mode="${{ inputs.mode }}"
+          echo "WORKER_DEPLOY=0"
+          echo "PAGES_DEPLOY=0"
+          echo "SECRET_MUTATION=0"
+          echo "GRANT_MUTATION=0"
+          echo "ACCOUNT_LINK_MUTATION=0"
+          if [ "$mode" = "apply" ]; then
+            echo "PRINCIPAL_ALLOWLIST_MUTATION=AUTHORIZED_BY_EXPLICIT_APPLY_INPUT"
+          else
+            echo "PRINCIPAL_ALLOWLIST_MUTATION=0"
+            echo "DB_MUTATION=0"
+          fi
