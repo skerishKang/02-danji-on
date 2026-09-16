@@ -5,6 +5,7 @@ import { handleAdminAuditRequest } from './admin-audit-v1';
 import { handleAdminBootstrapRequest } from './admin-bootstrap-v1';
 import { handleAdminAuthorityRequest } from './admin-authority-v1';
 import { handleAdminOperationalRequest } from './admin-operational-v2';
+import { handleAdminPrincipalRequest } from './admin-principals-v1';
 import { handleAdminReviewContextRequest } from './admin-review-context-v1';
 import { handleAdminVerificationRequest } from './admin-verification-v1';
 import { handleAdminRequest } from './admin-v1';
@@ -172,6 +173,8 @@ export default {
       if (adminVerificationResponse) return respond(adminVerificationResponse);
       const adminOperationalResponse = await handleAdminOperationalRequest(request, env, id);
       if (adminOperationalResponse) return respond(adminOperationalResponse);
+      const adminPrincipalResponse = await handleAdminPrincipalRequest(request, env, id);
+      if (adminPrincipalResponse) return respond(adminPrincipalResponse);
       const adminApplicationDocumentResponse = await handleAdminApplicationDocumentRequest(request, env, id);
       if (adminApplicationDocumentResponse) return respond(adminApplicationDocumentResponse);
       const communityModerationResponse = await handleCommunityModerationRequest(request, env, id);

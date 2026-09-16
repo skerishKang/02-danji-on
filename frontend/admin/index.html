@@ -66,6 +66,14 @@
     .privileged-item p{margin:0;color:var(--muted);font-size:12.5px}
     .privileged-state{flex:none;display:inline-flex;align-items:center;gap:8px;border:1px solid var(--amber);color:var(--navy);background:var(--amber);border-radius:999px;padding:6px 11px;font-size:11.5px;font-weight:800}
     .privileged-item button{min-height:30px;padding:0 11px;border-radius:999px;border:1px solid var(--line);background:#fff;color:var(--muted);font-weight:800;font-size:12px}
+    .principal-summary{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 14px}
+    .principal-summary span{display:inline-flex;align-items:center;min-height:32px;padding:0 11px;border:1px solid var(--line);border-radius:999px;background:var(--paper2);font-size:12px;font-weight:800}
+    .principal-card{background:var(--paper2);border:1px solid var(--line);border-radius:16px;padding:16px 18px;margin-bottom:12px}
+    .principal-card h3{margin:0 0 4px;font-size:15.5px;overflow-wrap:anywhere}
+    .principal-meta{margin:0 0 12px!important;color:var(--muted)!important;font-size:12px!important;line-height:1.55}
+    .principal-runtime{font-size:12px;color:var(--muted);margin:8px 0 0}.principal-runtime strong{color:var(--ink)}
+    .principal-form{margin:14px 0 18px;padding:16px;border:1px dashed var(--amber);border-radius:16px;background:var(--paper2)}
+    .principal-form h3{margin:0 0 12px;font-size:15.5px}
     .restricted-box{max-width:560px;margin:14svh auto 0;padding:0 22px;text-align:center}
     .restricted-box h1{font-size:24px;letter-spacing:-.03em}
     .restricted-box p{color:var(--muted);font-size:14px;line-height:1.7}
@@ -90,10 +98,11 @@
   <script src="/assets/danjion-session.js"></script>
   <script src="/assets/danjion-admin-authority.js"></script>
   <script src="/assets/danjion-admin-bootstrap.js"></script>
+  <script src="/assets/danjion-admin-principals.js"></script>
   <script src="/assets/danjion-admin-console.js"></script>
   <script>
     const badge=document.getElementById('roleBadge'),main=document.getElementById('adminMain'),restricted=document.getElementById('restrictedView');
-    const authority=window.DanjionAdminAuthority,bootstrapApi=window.DanjionAdminBootstrap,consoleApi=window.DanjionAdminConsole;
+    const authority=window.DanjionAdminAuthority,bootstrapApi=window.DanjionAdminBootstrap,principalApi=window.DanjionAdminPrincipals,consoleApi=window.DanjionAdminConsole;
     const RESTRICTED_COPY={
       unbound:'이 환경에서는 관리자 콘솔을 사용할 수 없습니다.',
       'signed-out':'관리자 콘솔은 로그인 후 이용할 수 있습니다.',
@@ -403,10 +412,92 @@
       const safeStatus=outcome.status?'HTTP '+outcome.status:'서버 오류';
       statePanel(panel,'목록 조회 실패 ('+safeStatus+safeCode+'). 잠시 후 다시 시도해 주세요.');
     }
-    function renderPrivileged(panel){
-      panel.replaceChildren(el('h2','최고관리'),el('p','전체 관리자(와일드카드 권한) 전용 영역입니다. 백엔드 권한 API가 실제 변경 엔드포인트를 제공하기 전까지 모든 쓰기 작업은 비활성화됩니다.'));
+    function principalRoleSelect(current){
+      const select=document.createElement('select');select.setAttribute('aria-label','관리자 등급');
+      [['admin','최고관리자'],['operator','일반관리자']].forEach(([value,label])=>{const option=document.createElement('option');option.value=value;option.textContent=label;option.selected=value===current;select.append(option)});
+      return select;
+    }
+    function principalStatusSelect(current){
+      const select=document.createElement('select');select.setAttribute('aria-label','관리자 상태');
+      [['active','활성'],['revoked','해제']].forEach(([value,label])=>{const option=document.createElement('option');option.value=value;option.textContent=label;option.selected=value===current;select.append(option)});
+      return select;
+    }
+    function principalError(outcome){
+      if(outcome.state==='forbidden')return '최고관리자 권한이 필요합니다.';
+      if(outcome.state==='conflict'&&outcome.code==='SELF_LOCKOUT_BLOCKED')return '현재 로그인한 최고관리자 자신의 권한은 여기서 낮추거나 해제할 수 없습니다.';
+      if(outcome.state==='conflict'&&outcome.code==='ADMIN_PRINCIPAL_EXISTS')return '이미 활성 등록된 관리자 이메일입니다.';
+      if(outcome.state==='not-found')return '관리자 등록 정보를 찾을 수 없습니다.';
+      if(outcome.state==='network-error')return 'API 연결에 실패했습니다.';
+      if(outcome.state==='invalid-request')return '이메일·등급·상태를 확인해 주세요.';
+      return '권한 변경에 실패했습니다'+(outcome.code?' · '+outcome.code:'')+'.';
+    }
+    async function renderPrincipalManager(panel,apiBase){
+      const title=el('h2','사용자 · 권한 관리');
+      const intro=el('p','최고관리자만 접근할 수 있습니다. 목표 구성은 최고관리자 2계정 + 일반관리자 2계정이며, 일반관리자는 승인된 일상 운영 권한 프리셋만 사용합니다.');
+      panel.replaceChildren(title,intro);
+      const createBox=el('section',undefined,'principal-form');createBox.append(el('h3','관리자 계정 사전 등록'));
+      const email=document.createElement('input');email.type='email';email.placeholder='Google 로그인 이메일';email.setAttribute('aria-label','관리자 이메일');
+      const role=principalRoleSelect('operator');
+      const reason=document.createElement('input');reason.placeholder='등록 사유 (선택)';reason.maxLength=500;reason.setAttribute('aria-label','관리자 등록 사유');
+      const formGrid=el('div',undefined,'admin-form-grid');formGrid.append(labeledField('관리자 이메일',email,true),labeledField('관리자 등급',role,false),labeledField('등록 사유',reason,true));createBox.append(formGrid);
+      const createActions=el('div',undefined,'admin-post-actions');const createButton=el('button','관리자 추가');createButton.type='button';const createStatus=el('p','', 'admin-post-status');createStatus.setAttribute('aria-live','polite');createActions.append(createButton,createStatus);createBox.append(createActions);
+      panel.append(createBox);
+      const summary=el('div',undefined,'principal-summary'),list=el('div',undefined,'principal-list');panel.append(summary,list);
+
+      const refresh=async()=>{
+        list.replaceChildren(el('div','관리자 목록 불러오는 중…','admin-state'));summary.replaceChildren();
+        const outcome=await principalApi.list(fetch,apiBase);
+        if(outcome.state==='signed-out'){showRestricted('signed-out');return}
+        if(outcome.state!=='ready'){list.replaceChildren(el('div',principalError(outcome),'admin-state'));return}
+        const active=outcome.rows.filter((row)=>row.status==='active');
+        const superCount=active.filter((row)=>row.role==='admin').length;
+        const operatorCount=active.filter((row)=>row.role==='operator').length;
+        summary.append(el('span','활성 최고관리자 '+superCount+' / 목표 2'),el('span','활성 일반관리자 '+operatorCount+' / 목표 2'),el('span','전체 등록 '+outcome.rows.length));
+        list.replaceChildren();
+        if(!outcome.rows.length){list.append(el('div','등록된 관리자 계정이 없습니다.','admin-empty'));return}
+        outcome.rows.forEach((row)=>{
+          const card=el('article',undefined,'principal-card');
+          card.append(el('h3',String(row.email||'(이메일 없음)')));
+          const configured=(row.role==='admin'?'최고관리자':'일반관리자')+' · '+(row.status==='active'?'활성':'해제');
+          card.append(el('p','설정: '+configured,'principal-meta'));
+          const runtimeLabel=row.runtimeRole==='admin'?'최고관리자':row.runtimeRole==='operator'?'일반관리자':'미부트스트랩/비활성';
+          const runtime=el('p',undefined,'principal-runtime');runtime.append(el('strong','Runtime: '),document.createTextNode(runtimeLabel+' · 연결 사용자 '+Number(row.runtimeUserCount||0)+'명'));card.append(runtime);
+          const editGrid=el('div',undefined,'admin-form-grid');
+          const editRole=principalRoleSelect(String(row.role||'operator'));const editStatus=principalStatusSelect(String(row.status||'active'));
+          const editReason=document.createElement('input');editReason.placeholder='변경 사유 (선택)';editReason.maxLength=500;editReason.setAttribute('aria-label','권한 변경 사유');
+          editGrid.append(labeledField('관리자 등급',editRole,false),labeledField('상태',editStatus,false),labeledField('변경 사유',editReason,true));card.append(editGrid);
+          const actions=el('div',undefined,'admin-post-actions');const save=el('button','권한 변경 저장');save.type='button';const live=el('p','', 'admin-post-status');live.setAttribute('aria-live','polite');actions.append(save,live);card.append(actions);
+          save.addEventListener('click',async()=>{
+            const demoting=String(row.role)==='admin'&&editRole.value!=='admin';const revoking=String(row.status)==='active'&&editStatus.value==='revoked';
+            if((demoting||revoking)&&!window.confirm('이 관리자의 권한을 낮추거나 해제하시겠습니까?'))return;
+            save.disabled=true;live.className='admin-post-status';live.textContent='권한 동기화 중…';
+            const changed=await principalApi.update(fetch,apiBase,row.id,{role:editRole.value,status:editStatus.value,reason:editReason.value});
+            if(changed.state==='ready'){live.textContent='권한이 동기화됐습니다.';await refresh();return}
+            if(changed.state==='signed-out'){showRestricted('signed-out');return}
+            live.textContent=principalError(changed);live.className='admin-post-status error';save.disabled=false;
+          });
+          list.append(card);
+        });
+      };
+
+      createButton.addEventListener('click',async()=>{
+        if(!email.value.trim())return;
+        createButton.disabled=true;createStatus.className='admin-post-status';createStatus.textContent='관리자 등록 중…';
+        const created=await principalApi.create(fetch,apiBase,{email:email.value,role:role.value,reason:reason.value});
+        if(created.state==='ready'){email.value='';reason.value='';role.value='operator';createStatus.textContent='관리자가 사전 등록됐습니다. 해당 계정은 Google 로그인 후 관리자 등록 확인을 거쳐 활성화됩니다.';await refresh();createButton.disabled=false;return}
+        if(created.state==='signed-out'){showRestricted('signed-out');return}
+        createStatus.textContent=principalError(created);createStatus.className='admin-post-status error';createButton.disabled=false;
+      });
+      await refresh();
+    }
+    async function renderPrivileged(panel,apiBase){
+      panel.replaceChildren(el('h2','최고관리'),el('p','전체 관리자(와일드카드 권한) 전용 영역입니다.'));
+      if(principalApi){
+        const usersButton=el('button','사용자 · 권한 관리');usersButton.type='button';usersButton.addEventListener('click',()=>renderPrincipalManager(panel,apiBase));
+        const liveItem=el('article',undefined,'privileged-item');const liveCopy=el('div');liveCopy.append(el('h3','사용자 · 권한 관리'),el('p','사전 등록된 관리자 4계정과 실제 runtime 권한을 관리합니다.'));const liveState=el('span','사용 가능','privileged-state');liveState.append(usersButton);liveItem.append(liveCopy,liveState);panel.append(liveItem);
+      }
       const grid=el('div',undefined,'privileged-grid');
-      consoleApi.PRIVILEGED_PLACEHOLDERS.forEach((capability)=>{
+      consoleApi.PRIVILEGED_PLACEHOLDERS.filter((capability)=>capability.id!=='users').forEach((capability)=>{
         const item=el('article',undefined,'privileged-item');item.setAttribute('aria-disabled','true');
         const copy=el('div');copy.append(el('h3',capability.title),el('p',capability.description));
         const side=el('span','연동 대기','privileged-state');
@@ -432,11 +523,11 @@
       lead.append(roleSummary);
       const tabs=el('nav',undefined,'admin-tabs');tabs.setAttribute('aria-label','운영관리 메뉴');
       const panel=el('section',undefined,'admin-panel');
-      const note=el('p','등록 신청 심사, 단지소식, 주민혜택 관리는 기존 서버 권한으로 처리할 수 있습니다. 최고관리 쓰기 작업은 별도 검토·승인 전까지 비활성화됩니다.','admin-note');
+      const note=el('p','등록 신청 심사, 단지소식, 주민혜택 관리는 기존 서버 권한으로 처리할 수 있습니다. 최고관리자만 사용자·권한 관리를 사용할 수 있으며, 전체 감사·민감정보·시스템 관리는 아직 비활성화되어 있습니다.','admin-note');
       main.append(lead,tabs,note,panel);
       const open=(tab)=>{
         [...tabs.children].forEach((button)=>button.classList.toggle('active',button===tab.button));
-        if(tab.section)renderSection(panel,tab.section,apiBase);else renderPrivileged(panel);
+        if(tab.section)renderSection(panel,tab.section,apiBase);else renderPrivileged(panel,apiBase);
       };
       const tabsModel=sections.operational.map((section)=>({button:el('button',section.title),section}));
       sections.held.forEach((section)=>{const button=el('button',section.title+' · 정책 대기');button.disabled=true;button.title='정책 승인 후 활성화';tabs.append(button)});
