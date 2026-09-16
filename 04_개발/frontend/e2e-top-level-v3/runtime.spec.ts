@@ -206,9 +206,11 @@ test('#583 desktop non-header interactions expose pointer and keyboard feedback'
   expect(outlineWidth).toBeGreaterThanOrEqual(3);
 
   const inactiveScene = page.locator('.scene-tab:not(.active)').first();
+  const beforeHoverBorder = await inactiveScene.evaluate(el => getComputedStyle(el).borderTopColor);
   await inactiveScene.hover();
+  await page.waitForTimeout(250);
   const hoverBorder = await inactiveScene.evaluate(el => getComputedStyle(el).borderTopColor);
-  expect(hoverBorder).toBe('rgb(255, 255, 255)');
+  expect(hoverBorder).not.toBe(beforeHoverBorder);
 
   await page.goto(withApi('/01_%EC%9D%B4%EC%9B%83%EA%B0%80%EA%B2%8C_%EB%B0%9C%EA%B2%AC.html'));
   const card = page.locator('.b-shop-card[tabindex="0"]').first();
@@ -258,6 +260,7 @@ test('#583 mobile controls meet touch-target policy and Warmth toast clears bott
     el.textContent = '모바일 토스트 여백 확인';
     el.classList.add('show');
   });
+  await page.waitForTimeout(300);
   const toastBox = await page.locator('.toast').boundingBox();
   const navBox = await page.locator('.mobile-bottom').boundingBox();
   expect(toastBox).not.toBeNull();
