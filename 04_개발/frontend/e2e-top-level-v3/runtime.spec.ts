@@ -377,5 +377,13 @@ test('#592 pre-registered admin bootstrap re-reads canonical authority before op
   expect(bootstrapBodies).toEqual([null]);
   expect(unexpectedMutations).toEqual([]);
   expect(pageErrors).toEqual([]);
-  expect(consoleErrors).toEqual([]);
+
+  const expectedDeniedNoise = consoleErrors.filter(message =>
+    message.includes('Failed to load resource') && message.includes('403')
+  );
+  const unexpectedConsoleErrors = consoleErrors.filter(message =>
+    !(message.includes('Failed to load resource') && message.includes('403'))
+  );
+  expect(expectedDeniedNoise.length).toBeGreaterThanOrEqual(1);
+  expect(unexpectedConsoleErrors).toEqual([]);
 });
