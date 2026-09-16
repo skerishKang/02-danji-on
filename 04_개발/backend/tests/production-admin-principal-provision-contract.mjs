@@ -20,8 +20,8 @@ for (const name of [
   'DANJION_ADMIN_OPERATIONAL_1_EMAIL',
   'DANJION_ADMIN_OPERATIONAL_2_EMAIL'
 ]) {
-  assert.match(workflow, new RegExp(`${name}: \\${\\{\\{ secrets\\.${name} \\}\\}`),
-    `${name} must come from a GitHub secret`);
+  const expectedBinding = name + ': ${{ secrets.' + name + ' }}';
+  assert.ok(workflow.includes(expectedBinding), `${name} must come from a GitHub secret`);
 }
 assert.doesNotMatch(
   workflow,
