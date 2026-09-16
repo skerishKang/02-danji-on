@@ -36,6 +36,10 @@ assert.match(script, /g\.metadata ->> 'source' = 'admin_identity_allowlist'/,
   'bootstrap runtime aggregate must remain scoped to allowlist-origin grants');
 assert.match(script, /key: 'all_source_runtime_authority'/,
   'diagnostic must separately inspect all-source active runtime authority');
+assert.match(script, /const OPERATIONAL_PRESET = \[[\s\S]*community\.moderate[\s\S]*inquiry\.respond[\s\S]*resident\.verification\.exempt[\s\S]*safety\.report\.review/,
+  'allowlist/bootstrap diagnostic must use the full eight-scope operational preset');
+assert.match(script, /key: 'admin_bootstrap_runtime_authority'[\s\S]*cardinality\(scopes\) = 9[\s\S]*cardinality\(scopes\) = 8/,
+  'bootstrap runtime diagnostic must classify canonical SUPER 9-scope and OPERATIONAL 8-scope shapes');
 assert.match(script, /cardinality\(scopes\) = 9[\s\S]*resident\.verification\.exempt/,
   'legacy SUPER shape must be exact wildcard plus the eight bounded scopes');
 assert.match(script, /cardinality\(scopes\) = 8[\s\S]*array_position\(scopes, '\*'\) is null/,
