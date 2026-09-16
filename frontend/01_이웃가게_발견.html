@@ -1306,9 +1306,10 @@ grid.addEventListener('keydown',e=>{
      Array.prototype.push.apply(SHOP_DATA,reconciled);
      Object.keys(byKey).forEach(k=>delete byKey[k]);
      reconciled.forEach(s=>{byKey[s.key]=s;if(s.presentationKey)byKey[s.presentationKey]=s});
-     currentFilter='all';query='';
-     document.getElementById('searchInput').value='';
-     document.querySelectorAll('.filter').forEach(b=>b.classList.toggle('active',b.dataset.filter==='all'));
+     // Preserve the current route/user search and filter while replacing only
+     // the underlying live shop data. Hydration may complete after the user has
+     // already typed or changed a filter, so resetting UI state here would race
+     // and silently discard that intent (#630).
      draw();
      if(key&&byKey[key])setTimeout(()=>openShop(key),0);
      console.info('[danjion] discovery API shops loaded:',list.length);
