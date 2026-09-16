@@ -1,4 +1,7 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   globalAuditResponse,
   handleAdminGlobalAuditRequest
@@ -148,5 +151,12 @@ assert.equal(
   ),
   null
 );
+
+const here = fileURLToPath(new URL('.', import.meta.url));
+const app = readFileSync(resolve(here, '..', 'src', 'app.ts'), 'utf8');
+assert.ok(app.includes("import { handleAdminGlobalAuditRequest } from './admin-global-audit-v1';"));
+const mounted = app.indexOf('handleAdminGlobalAuditRequest(request, env, id)');
+const terminal = app.indexOf('handleAdminRequest(request, env, id)');
+assert.ok(mounted >= 0 && terminal > mounted, 'global audit handler must mount before terminal /admin/ fallback');
 
 console.log('Admin global audit V1 contract PASS');
