@@ -5,9 +5,9 @@
   // V3 admin console surface. Per-section access is decided by the SERVER
   // (403 = scope not granted, 503 = policy hold), never by client-side role
   // inference. #607 activates business-application review PATCH, #609 activates
-  // official-news POST/PATCH, and #611 activates resident-benefit POST/PATCH.
-  // All remaining operational writes and the privileged (최고관리) area stay
-  // disabled until separately reviewed.
+  // official-news POST/PATCH, #611 activates resident-benefit POST/PATCH, and
+  // #613 activates SUPER-only administrator principal management through its
+  // separate reviewed bridge. Audit/system SUPER capabilities remain disabled.
   const COMPLEX_SLUG = 'banglim-myeongji-roadhill';
 
   const OPERATIONAL_SECTIONS = [
@@ -70,8 +70,8 @@
   const BENEFIT_STATUSES = Object.freeze(['draft', 'active', 'expired', 'suspended']);
   const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-  // #460: 최고관리 write endpoints do not exist yet — every control stays
-  // disabled (mirrors the #412 view-only placeholder discipline).
+  // #460/#613: user/authority management is now implemented by the separate
+  // DanjionAdminPrincipals bridge. Audit/system remain placeholder-only.
   const PRIVILEGED_PLACEHOLDERS = [
     { id: 'users', title: '사용자 · 권한 관리', description: '관리자 계정과 운영 권한 부여를 관리합니다.' },
     { id: 'audit', title: '전체 감사 기록', description: '단지 전체의 운영 감사 이력을 조회합니다.' },
