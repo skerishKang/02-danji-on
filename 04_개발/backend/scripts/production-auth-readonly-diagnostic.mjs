@@ -14,6 +14,17 @@ const OPERATIONAL_PRESET = [
   'resident_news.review'
 ];
 
+const LEGACY_OPERATIONAL_SCOPES = [
+  'benefit.manage',
+  'business.review',
+  'community.moderate',
+  'inquiry.respond',
+  'official-content.manage',
+  'resident.verification.exempt',
+  'resident_news.review',
+  'safety.report.review'
+];
+
 const queries = [
   {
     key: 'recent_google_accounts',
@@ -185,6 +196,55 @@ const queries = [
         (select count(*)::int from active_bootstrap_grants) as active_grant_rows
       from by_user
     `
+  },
+  {
+    key: 'all_source_runtime_authority',
+    fields: ['legacy_super_users', 'legacy_operational_users', 'other_users', 'active_grant_rows'],
+    sql: `
+      with active_all_grants as (
+        select g.user_id, g.scope
+        from padiem_operator_grants g
+        where g.status = 'active'
+          and (g.expires_at is null or g.expires_at > now())
+      ),
+      by_user as (
+        select
+          user_id,
+          array_agg(distinct scope order by scope) as scopes
+        from active_all_grants
+        group by user_id
+      )
+      select
+        count(*) filter (
+          where cardinality(scopes) = 9
+            and scopes @> array['*','benefit.manage','business.review','community.moderate','inquiry.respond','official-content.manage','resident.verification.exempt','resident_news.review','safety.report.review']::text[]
+            and array['*','benefit.manage','business.review','community.moderate','inquiry.respond','official-content.manage','resident.verification.exempt','resident_news.review','safety.report.review']::text[] @> scopes
+        )::int as legacy_super_users,
+        count(*) filter (
+          where cardinality(scopes) = 8
+            and array_position(scopes, '*') is null
+            and scopes @> array['benefit.manage','business.review','community.moderate','inquiry.respond','official-content.manage','resident.verification.exempt','resident_news.review','safety.report.review']::text[]
+            and array['benefit.manage','business.review','community.moderate','inquiry.respond','official-content.manage','resident.verification.exempt','resident_news.review','safety.report.review']::text[] @> scopes
+        )::int as legacy_operational_users,
+        count(*) filter (
+          where not (
+            (
+              cardinality(scopes) = 9
+              and scopes @> array['*','benefit.manage','business.review','community.moderate','inquiry.respond','official-content.manage','resident.verification.exempt','resident_news.review','safety.report.review']::text[]
+              and array['*','benefit.manage','business.review','community.moderate','inquiry.respond','official-content.manage','resident.verification.exempt','resident_news.review','safety.report.review']::text[] @> scopes
+            )
+            or
+            (
+              cardinality(scopes) = 8
+              and array_position(scopes, '*') is null
+              and scopes @> array['benefit.manage','business.review','community.moderate','inquiry.respond','official-content.manage','resident.verification.exempt','resident_news.review','safety.report.review']::text[]
+              and array['benefit.manage','business.review','community.moderate','inquiry.respond','official-content.manage','resident.verification.exempt','resident_news.review','safety.report.review']::text[] @> scopes
+            )
+          )
+        )::int as other_users,
+        (select count(*)::int from active_all_grants) as active_grant_rows
+      from by_user
+    `
   }
 ];
 
@@ -221,5 +281,6 @@ console.log('DANJION_AUTH_READONLY_DIAG=PASS');
 console.log(JSON.stringify({
   window_hours: 24,
   admin_operational_preset_scope_count: OPERATIONAL_PRESET.length,
+  legacy_operational_scope_count: LEGACY_OPERATIONAL_SCOPES.length,
   ...output
 }, null, 2));
