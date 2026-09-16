@@ -1,24 +1,37 @@
-name: V2 Integration Gate
+name: Legacy V2 Regression Gate
 
 on:
   pull_request:
     types: [opened, synchronize, reopened]
     paths:
-      - '04_개발/frontend/**'
+      - '04_개발/frontend/src/v2/**'
+      - '04_개발/frontend/src/gateway/**'
+      - '04_개발/frontend/src/ui-variant.tsx'
+      - '04_개발/frontend/src/main.tsx'
+      - '04_개발/frontend/tests/v2/**'
+      - '04_개발/frontend/tests/v2-*.spec.ts'
+      - '04_개발/frontend/tests/v2-*-contract.mjs'
+      - '04_개발/frontend/package.json'
+      - '04_개발/frontend/package-lock.json'
+      - '04_개발/frontend/tsconfig.json'
+      - '04_개발/frontend/playwright.config.ts'
+      - '04_개발/frontend/vite.config.ts'
+      - '04_개발/frontend/vite.v2-runtime-preview.config.ts'
+      - '04_개발/frontend/v2-runtime-preview-sw-stub.ts'
       - '04_개발/scripts/v2-*'
       - '04_개발/docs/v2/**'
       - '.github/workflows/v2-integration-gate.yml'
   workflow_dispatch:
 
 concurrency:
-  group: danjion-v2-integration-gate-${{ github.event.pull_request.number || github.ref }}
+  group: danjion-legacy-v2-regression-gate-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 permissions:
   contents: read
 
 jobs:
-  fidelity-gate:
+  legacy-v2-regression:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -37,7 +50,7 @@ jobs:
         working-directory: 04_개발/frontend
         run: npx playwright install --with-deps chromium
 
-      - name: Run fail-closed A/B/C/D release gate
+      - name: Run legacy V2 compatibility/regression gate
         working-directory: 04_개발
         env:
           VITE_DATA_MODE: mock
@@ -50,12 +63,13 @@ jobs:
         if: success()
         run: |
           {
-            echo '## DanjiOn V2 integration gate'
+            echo '## DanjiOn Legacy V2 regression gate'
             echo
-            echo '- Existing V1 Playwright: PASS'
+            echo '- Role: legacy compatibility/regression safety only; NOT current design authority'
             echo '- Unset/invalid variant -> V1: PASS'
             echo '- Gateway isolation: PASS'
-            echo '- V2 current sibling Gate1 visual/product flow/responsive/accessibility/current Product Shell/React completion: PASS'
-            echo '- Verdict: `V2_FIDELITY_GATE_PASS`'
+            echo '- Legacy V2/React sibling compatibility flow: PASS'
+            echo '- Verdict: `LEGACY_V2_REGRESSION_PASS` (underlying script: V2_FIDELITY_GATE_PASS)'
+            echo '- Canonical design authority: sibling latest V3 (`frontend/**`) — NOT this workflow'
             echo '- Production readiness: NOT CLAIMED'
           } >> "$GITHUB_STEP_SUMMARY"
