@@ -26,12 +26,13 @@ The product limiter runs before the existing bounded endpoint handlers. A succes
 | Community post create | 5 / 10 minutes |
 | Community comment create | 30 / 10 minutes |
 | Community report | 10 / hour |
+| Resident safety report | 10 / hour |
 | Family invite create | 10 / hour |
 | Family invite redeem | 10 / hour |
 | Business application create | 5 / 24 hours |
 | Benefit claim | 30 / hour |
 
-Only POST routes matching these actions are intercepted. Reads, PATCH/DELETE ownership flows, official-content administration, Community moderation, account closure, storage, and resident-verification administration are not broadened into this v1 policy.
+Only POST routes matching these actions are intercepted. Resident safety report reuses the already-approved report threshold because it is the same resident-submitted safety-report action class; #570 does not invent a new limit. Reads, PATCH/DELETE ownership flows, official-content administration, Community moderation, account closure, storage, and resident-verification administration are not broadened into this v1 policy.
 
 ## 3. Atomic product counter
 

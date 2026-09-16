@@ -12,6 +12,7 @@ const cases = [
   ['/api/v1/complexes/complex-1/community/posts', 'community_post_create'],
   ['/api/v1/complexes/complex-1/community/posts/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/comments', 'community_comment_create'],
   ['/api/v1/complexes/complex-1/community/reports', 'community_report_create'],
+  ['/api/v1/me/reports', 'resident_safety_report_create'],
   ['/api/v1/complexes/complex-1/household/family-invites', 'family_invite_create'],
   ['/api/v1/household/family-invites/redeem', 'family_invite_redeem'],
   ['/api/v1/me/business-applications', 'business_application_create'],
@@ -45,6 +46,9 @@ assert.deepEqual(PRODUCT_MUTATION_LIMITS.community_comment_create, {
 });
 assert.deepEqual(PRODUCT_MUTATION_LIMITS.community_report_create, {
   action: 'community_report_create', max: 10, windowSeconds: 3600
+});
+assert.deepEqual(PRODUCT_MUTATION_LIMITS.resident_safety_report_create, {
+  action: 'resident_safety_report_create', max: 10, windowSeconds: 3600
 });
 assert.deepEqual(PRODUCT_MUTATION_LIMITS.family_invite_create, {
   action: 'family_invite_create', max: 10, windowSeconds: 3600
