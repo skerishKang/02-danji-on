@@ -4,6 +4,12 @@ import {
   requirePadiemPrivilegedScope,
   type PadiemPrivilegedActor
 } from './padiem-authority-v1';
+import {
+  OPERATIONAL_ADMIN_SCOPES,
+  principalScopesForRole,
+  runtimeScopesForRole,
+  type AdminPrincipalRole
+} from './admin-scope-policy-v1';
 
 type Sql = NeonQueryFunction<false, false>;
 
@@ -12,14 +18,9 @@ const COLLECTION_PATH = '/api/v1/admin/principals';
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-export const OPERATIONAL_ADMIN_SCOPES = Object.freeze([
-  'benefit.manage',
-  'business.review',
-  'official-content.manage',
-  'resident_news.review'
-]);
+export { OPERATIONAL_ADMIN_SCOPES };
 
-type PrincipalRole = 'admin' | 'operator';
+type PrincipalRole = AdminPrincipalRole;
 type PrincipalStatus = 'active' | 'revoked';
 
 function json(data: unknown, status: number, requestId: string): Response {
@@ -69,10 +70,6 @@ function normalizedRole(value: unknown): PrincipalRole | null {
 function normalizedStatus(value: unknown): PrincipalStatus | null {
   const status = String(value ?? '').trim();
   return status === 'active' || status === 'revoked' ? status : null;
-}
-
-function scopesForRole(role: PrincipalRole): string[] {
-  return role === 'admin' ? ['*'] : [...OPERATIONAL_ADMIN_SCOPES];
 }
 
 function safeReason(value: unknown): string | null {
@@ -192,8 +189,8 @@ async function createPrincipal(
   if (!email || !role) {
     return fail('VALIDATION_ERROR', 'Valid email and role are required', 400, requestId);
   }
-  const scopes = scopesForRole(role);
-  const scopesJson = JSON.stringify(scopes);
+  const principalScopes = principalScopesForRole(role);
+  const principalScopesJson = JSON.stringify(principalScopes);
   const metadata = JSON.stringify({ provider: 'google', role, email });
 
   try {
@@ -212,7 +209,7 @@ async function createPrincipal(
           'google',
           ${email},
           ${role},
-          array(select jsonb_array_elements_text(${scopesJson}::jsonb)),
+          array(select jsonb_array_elements_text(${principalScopesJson}::jsonb)),
           'active',
           ${actor.id}::uuid,
           ${reason}
@@ -262,7 +259,7 @@ async function createPrincipal(
       id: String(row.id),
       email: String(row.normalized_email),
       role: String(row.authority_level),
-      scopes: Array.isArray(row.scopes) ? row.scopes.map((scope) => String(scope)) : scopes,
+      scopes: Array.isArray(row.scopes) ? row.scopes.map((scope) => String(scope)) : principalScopes,
       status: String(row.status),
       runtimeUserCount: 0,
       runtimeScopes: [],
@@ -337,8 +334,10 @@ async function updatePrincipal(
     return fail('SELF_LOCKOUT_BLOCKED', 'A super administrator cannot demote or revoke their own principal', 409, requestId);
   }
 
-  const scopes = scopesForRole(role);
-  const scopesJson = JSON.stringify(scopes);
+  const principalScopes = principalScopesForRole(role);
+  const runtimeScopes = runtimeScopesForRole(role);
+  const principalScopesJson = JSON.stringify(principalScopes);
+  const runtimeScopesJson = JSON.stringify(runtimeScopes);
   const syncMetadata = JSON.stringify({
     source: 'admin_identity_allowlist',
     principalId,
@@ -365,7 +364,7 @@ async function updatePrincipal(
       updated as (
         update padiem_admin_identity_allowlist
         set authority_level = ${role},
-            scopes = array(select jsonb_array_elements_text(${scopesJson}::jsonb)),
+            scopes = array(select jsonb_array_elements_text(${principalScopesJson}::jsonb)),
             status = ${status},
             revoked_at = case when ${status} = 'revoked' then coalesce(revoked_at, now()) else null end,
             reason = ${reason}
@@ -390,7 +389,7 @@ async function updatePrincipal(
       ),
       desired_scopes as (
         select value as scope
-        from jsonb_array_elements_text(${scopesJson}::jsonb)
+        from jsonb_array_elements_text(${runtimeScopesJson}::jsonb)
       ),
       inserted_grants as (
         insert into padiem_operator_grants (
@@ -464,7 +463,7 @@ async function updatePrincipal(
       email: String(row.normalized_email),
       role: String(row.authority_level),
       status: String(row.status),
-      scopes: Array.isArray(row.scopes) ? row.scopes.map((scope) => String(scope)) : scopes,
+      scopes: Array.isArray(row.scopes) ? row.scopes.map((scope) => String(scope)) : principalScopes,
       runtimeUserCount: Number(row.runtime_user_count ?? 0),
       runtimeScopes,
       runtimeRole: runtimeScopes.includes('*') ? 'admin' : runtimeScopes.length ? 'operator' : 'none',

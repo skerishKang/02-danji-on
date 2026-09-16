@@ -23,7 +23,16 @@ const principalByActor = new Map([
   ['00000000-0000-4000-8000-000000000101', {
     id: '10000000-0000-4000-8000-000000000001',
     authority_level: 'operator',
-    scopes: ['official-content.manage', 'business.review']
+    scopes: [
+      'benefit.manage',
+      'business.review',
+      'community.moderate',
+      'inquiry.respond',
+      'official-content.manage',
+      'resident.verification.exempt',
+      'resident_news.review',
+      'safety.report.review'
+    ]
   }],
   ['00000000-0000-4000-8000-000000000102', {
     id: '10000000-0000-4000-8000-000000000002',
@@ -159,26 +168,64 @@ for (const subject of ['sub-unlisted', 'sub-unverified', 'sub-credential']) {
   assert.deepEqual(body.data, {
     level: 'operator',
     label: '일반관리자',
-    scopes: ['business.review', 'official-content.manage'],
+    scopes: [
+      'benefit.manage',
+      'business.review',
+      'community.moderate',
+      'inquiry.respond',
+      'official-content.manage',
+      'resident.verification.exempt',
+      'resident_news.review',
+      'safety.report.review'
+    ],
     wildcard: false
   });
-  assert.deepEqual([...grantsFor(actorsBySubject.get('sub-operator').id)].sort(), ['business.review', 'official-content.manage']);
+  assert.deepEqual([...grantsFor(actorsBySubject.get('sub-operator').id)].sort(), [
+    'benefit.manage',
+    'business.review',
+    'community.moderate',
+    'inquiry.respond',
+    'official-content.manage',
+    'resident.verification.exempt',
+    'resident_news.review',
+    'safety.report.review'
+  ]);
   assert.equal(auditEvents.at(-1).decision, 'allowed');
   assert.equal(auditEvents.at(-1).reasonCode, 'ADMIN_BOOTSTRAP_GRANTED');
   assert.equal(auditEvents.at(-1).metadata.authorityLevel, 'operator');
 }
 
-// 5. SUPER registration materializes wildcard only.
+// 5. SUPER registration preserves wildcard plus the full bounded operational bundle.
 {
   const response = await bootstrapAdminAuthorityResponse(request('sub-admin'), env, sql, 'req-admin');
   const body = await payload(response, 200);
   assert.deepEqual(body.data, {
     level: 'admin',
     label: '최고관리자',
-    scopes: ['*'],
+    scopes: [
+      '*',
+      'benefit.manage',
+      'business.review',
+      'community.moderate',
+      'inquiry.respond',
+      'official-content.manage',
+      'resident.verification.exempt',
+      'resident_news.review',
+      'safety.report.review'
+    ],
     wildcard: true
   });
-  assert.deepEqual([...grantsFor(actorsBySubject.get('sub-admin').id)], ['*']);
+  assert.deepEqual([...grantsFor(actorsBySubject.get('sub-admin').id)].sort(), [
+    '*',
+    'benefit.manage',
+    'business.review',
+    'community.moderate',
+    'inquiry.respond',
+    'official-content.manage',
+    'resident.verification.exempt',
+    'resident_news.review',
+    'safety.report.review'
+  ]);
 }
 
 // 6. Retry is idempotent: no duplicate or widened grant appears.

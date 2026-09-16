@@ -2,16 +2,19 @@ import { neon, type NeonQueryFunction } from '@neondatabase/serverless';
 import { requireActor, type Actor } from './auth-v1';
 import type { CoreEnv } from './core-v1';
 import { padiemAuthorityResponseData, resolvePadiemAuthority } from './padiem-authority-v1';
+import {
+  isCanonicalPrincipalScopes,
+  runtimeScopesForRole,
+  type AdminPrincipalRole
+} from './admin-scope-policy-v1';
 
 type Sql = NeonQueryFunction<false, false>;
 
 const REQUEST_ID_HEADER = 'x-danjion-request-id';
 const BOOTSTRAP_PATH = '/api/v1/admin/bootstrap';
-const SCOPE_PATTERN = /^[a-z0-9][a-z0-9.*:_-]{0,119}$/;
-
 type BootstrapPrincipal = {
   id: string;
-  authorityLevel: 'operator' | 'admin';
+  authorityLevel: AdminPrincipalRole;
   scopes: string[];
 };
 
@@ -42,12 +45,7 @@ function normalizedPrincipal(row: Record<string, unknown> | undefined): Bootstra
   const scopes = Array.from(new Set(rawScopes.map((value) => String(value).trim()))).sort();
 
   if (!id || (authorityLevel !== 'operator' && authorityLevel !== 'admin')) return null;
-  if (!scopes.length || scopes.length > 32) return null;
-  if (authorityLevel === 'admin') {
-    if (scopes.length !== 1 || scopes[0] !== '*') return null;
-  } else {
-    if (scopes.includes('*') || scopes.some((scope) => !SCOPE_PATTERN.test(scope))) return null;
-  }
+  if (!isCanonicalPrincipalScopes(authorityLevel, scopes)) return null;
 
   return { id, authorityLevel, scopes };
 }
@@ -159,7 +157,9 @@ export async function bootstrapAdminAuthorityResponse(
       provider: 'google'
     });
 
-    for (const scope of principal.scopes) {
+    const runtimeScopes = runtimeScopesForRole(principal.authorityLevel);
+
+    for (const scope of runtimeScopes) {
       await sql`
         insert into padiem_operator_grants (
           user_id,
@@ -187,12 +187,12 @@ export async function bootstrapAdminAuthorityResponse(
     if (
       authority.level === 'none'
       || authority.wildcard !== expectedWildcard
-      || principal.scopes.some((scope) => !authority.scopes.includes(scope))
+      || runtimeScopes.some((scope) => !authority.scopes.includes(scope))
     ) {
       await auditBootstrap(sql, actor, requestId, 'denied', 'ADMIN_BOOTSTRAP_GRANT_READBACK_FAILED', {
         principalId: principal.id,
         authorityLevel: principal.authorityLevel,
-        scopeCount: principal.scopes.length
+        scopeCount: runtimeScopes.length
       });
       return fail('ADMIN_BOOTSTRAP_GRANT_FAILED', 'Administrator authority could not be established', 503, requestId);
     }
@@ -200,7 +200,7 @@ export async function bootstrapAdminAuthorityResponse(
     await auditBootstrap(sql, actor, requestId, 'allowed', 'ADMIN_BOOTSTRAP_GRANTED', {
       principalId: principal.id,
       authorityLevel: principal.authorityLevel,
-      scopeCount: principal.scopes.length
+      scopeCount: runtimeScopes.length
     });
 
     return ok(padiemAuthorityResponseData(authority), requestId);

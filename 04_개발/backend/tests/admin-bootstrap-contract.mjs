@@ -60,6 +60,10 @@ assert.match(bootstrap, /p\.provider_account_id is null[\s\S]*p\.provider_accoun
 // Allowlist is onboarding approval only; persistent authorization stays in the
 // existing grant ledger and gets canonical authority readback.
 assert.match(bootstrap, /insert into padiem_operator_grants/i);
+assert.match(bootstrap, /runtimeScopesForRole\(principal\.authorityLevel\)/,
+  'bootstrap must materialize the canonical runtime scope bundle, not raw allowlist storage scopes');
+assert.match(bootstrap, /isCanonicalPrincipalScopes\(authorityLevel, scopes\)/,
+  'bootstrap must reject non-canonical allowlist scope shapes');
 assert.match(bootstrap, /on conflict do nothing/i);
 assert.match(bootstrap, /resolvePadiemAuthority\(sql, actor\.id\)/);
 assert.match(authority, /from padiem_operator_grants/i);

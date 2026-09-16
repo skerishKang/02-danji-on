@@ -48,7 +48,16 @@ assert.match(script, /provider_account_id,[\s\S]*'google',[\s\S]*null,/,
   'initial provisioning must not invent provider account IDs');
 assert.match(script, /'admin'[\s\S]*array\['\*'\]::text\[\]/,
   'SUPER principal scope must be exact wildcard');
-for (const scope of ['benefit.manage','business.review','official-content.manage','resident_news.review']) {
+for (const scope of [
+  'benefit.manage',
+  'business.review',
+  'community.moderate',
+  'inquiry.respond',
+  'official-content.manage',
+  'resident.verification.exempt',
+  'resident_news.review',
+  'safety.report.review'
+]) {
   assert.match(script, new RegExp(scope.replace('.', '\\.')),
     `OPERATIONAL preset must include ${scope}`);
 }
