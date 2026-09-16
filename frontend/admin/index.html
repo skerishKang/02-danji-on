@@ -36,6 +36,16 @@
     .admin-card h3{margin:0 0 4px;font-size:16px}
     .admin-card .meta{color:var(--muted);font-size:12.5px;margin:0}
     .admin-status{flex:none;border:1px solid var(--line);border-radius:999px;padding:5px 10px;font-size:11.5px;font-weight:800;color:var(--muted);background:#fff}
+    .admin-facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 16px;margin:14px 0 0;padding:12px 0 0;border-top:1px solid var(--line)}
+    .admin-fact{font-size:12.5px;line-height:1.5;color:var(--muted)}.admin-fact b{display:block;color:var(--ink);font-size:11px;margin-bottom:2px}
+    .admin-review-controls{margin-top:14px;padding-top:14px;border-top:1px solid var(--line)}
+    .admin-review-controls textarea{width:100%;min-height:76px;resize:vertical;border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--ink);padding:10px 12px;font:inherit;font-size:13px;line-height:1.55}
+    .admin-review-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:9px}
+    .admin-review-actions button{min-height:42px;padding:0 14px;border-radius:10px;border:1px solid var(--ink);background:#fff;color:var(--ink);font-size:13px;font-weight:850;cursor:pointer}
+    .admin-review-actions button.primary{background:var(--navy);color:#fff}.admin-review-actions button.danger{border-color:var(--coral);color:var(--coral)}
+    .admin-review-actions button:disabled{opacity:.5;cursor:wait}
+    .admin-review-status{min-height:20px;margin:8px 0 0!important;font-size:12.5px!important;font-weight:750;color:var(--muted)!important}
+    .admin-review-status.error{color:var(--coral)!important}.admin-review-complete{margin:12px 0 0;color:var(--green);font-size:12.5px;font-weight:800}
     .admin-empty,.admin-state{padding:26px 18px;border:1px dashed var(--line);border-radius:16px;background:var(--paper2);color:var(--muted);font-size:13.5px;line-height:1.7;text-align:center}
     .privileged-grid{display:grid;gap:12px}
     .privileged-item{display:flex;justify-content:space-between;gap:14px;align-items:center;background:var(--paper2);border:1px solid var(--line);border-radius:16px;padding:16px 18px}
@@ -51,7 +61,7 @@
     .admin-bootstrap-button{min-height:46px;margin-top:12px;padding:0 20px;border:0;border-radius:999px;background:var(--navy);color:#fff;font-size:14px;font-weight:800;cursor:pointer}
     .admin-bootstrap-button:disabled{opacity:.58;cursor:wait}
     .admin-bootstrap-status{min-height:20px;margin:10px auto 0!important;font-size:12.5px!important;font-weight:700;color:var(--coral)!important}
-    @media(max-width:720px){.admin-card-top{flex-direction:column}.admin-header{position:static}}
+    @media(max-width:720px){.admin-card-top{flex-direction:column}.admin-header{position:static}.admin-facts{grid-template-columns:1fr}.admin-review-actions button{flex:1 1 calc(50% - 8px)}}
   </style>
 </head>
 <body>
@@ -112,6 +122,57 @@
       box.append(home);restricted.replaceChildren(box);
     }
     function statePanel(panel,message){panel.replaceChildren(el('div',message,'admin-state'))}
+    function appendApplicationFacts(card,row){
+      const facts=[
+        ['분류',row.categoryName||row.category_name],
+        ['관계',row.relationType||row.relation_type],
+        ['서비스 지역',row.serviceArea||row.service_area],
+        ['가격·이용료',row.priceText||row.price_text],
+        ['연락 방법',row.contactMethod||row.contact_method],
+        ['주민 혜택',row.benefitText||row.benefit_text],
+        ['운영 시간',row.availabilityText||row.availability_text]
+      ].filter((item)=>item[1]);
+      if(!facts.length)return;
+      const grid=el('div',undefined,'admin-facts');
+      facts.forEach(([label,value])=>{const fact=el('div',undefined,'admin-fact');fact.append(el('b',label),document.createTextNode(String(value)));grid.append(fact)});
+      card.append(grid);
+    }
+    function applicationReviewControls(row,panel,section,apiBase){
+      if(!section.reviewActions)return null;
+      const current=String(row.status||'');
+      if(current!=='pending'&&current!=='changes_requested')return el('p','처리 완료된 신청입니다.','admin-review-complete');
+      const wrap=el('div',undefined,'admin-review-controls');
+      const note=document.createElement('textarea');note.maxLength=2000;note.placeholder='검토 메모 (선택)';note.setAttribute('aria-label','검토 메모');
+      const actions=el('div',undefined,'admin-review-actions');
+      const live=el('p','', 'admin-review-status');live.setAttribute('aria-live','polite');
+      const specs=[
+        ['approved','승인','primary','이 신청을 승인하시겠습니까?'],
+        ['changes_requested','수정요청','','수정 요청 상태로 변경하시겠습니까?'],
+        ['rejected','거절','danger','이 신청을 거절하시겠습니까?']
+      ];
+      const buttons=specs.map(([next,label,cls,confirmText])=>{
+        const button=el('button',label,cls);button.type='button';
+        button.addEventListener('click',async()=>{
+          if(!window.confirm(confirmText))return;
+          buttons.forEach((b)=>b.disabled=true);note.disabled=true;live.className='admin-review-status';live.textContent=label+' 처리 중…';
+          const outcome=await consoleApi.reviewBusinessApplication(fetch,apiBase,row.id,next,note.value);
+          if(outcome.state==='updated'){
+            live.textContent=label+' 처리됐습니다. 최신 목록을 다시 불러옵니다.';
+            await renderSection(panel,section,apiBase);
+            return;
+          }
+          if(outcome.state==='signed-out'){showRestricted('signed-out');return}
+          if(outcome.state==='scope-denied'){live.textContent='현재 관리자 권한으로 이 신청을 변경할 수 없습니다.'}
+          else if(outcome.state==='conflict'){live.textContent='현재 신청 상태에서는 처리할 수 없습니다'+(outcome.code?' · '+outcome.code:'')+'.'}
+          else if(outcome.state==='network-error'){live.textContent='API 연결에 실패했습니다. 잠시 후 다시 시도해 주세요.'}
+          else if(outcome.state==='invalid-request'){live.textContent='신청 식별자 또는 변경 상태가 올바르지 않습니다.'}
+          else live.textContent='처리에 실패했습니다'+(outcome.code?' · '+outcome.code:'')+'.';
+          live.className='admin-review-status error';buttons.forEach((b)=>b.disabled=false);note.disabled=false;
+        });
+        actions.append(button);return button;
+      });
+      wrap.append(note,actions,live);return wrap;
+    }
     async function renderSection(panel,section,apiBase){
       statePanel(panel,'불러오는 중…');
       const outcome=await consoleApi.loadSection(fetch,apiBase,section);
@@ -124,8 +185,10 @@
           const copy=el('div');copy.append(el('h3',consoleApi.rowTitle(row)||'(제목 없음)'),el('p',consoleApi.rowMeta(row),'meta'));
           top.append(copy,el('span',consoleApi.rowStatus(row)||'-','admin-status'));
           card.append(top);
-          const approve=el('button','상태 변경 (조회 전용)');approve.disabled=true;
-          card.append(approve);
+          if(section.id==='applications')appendApplicationFacts(card,row);
+          const controls=applicationReviewControls(row,panel,section,apiBase);
+          if(controls)card.append(controls);
+          else{const readonly=el('button','상태 변경 (조회 전용)');readonly.disabled=true;card.append(readonly)}
           panel.append(card);
         });
         return;
@@ -167,7 +230,7 @@
       lead.append(roleSummary);
       const tabs=el('nav',undefined,'admin-tabs');tabs.setAttribute('aria-label','운영관리 메뉴');
       const panel=el('section',undefined,'admin-panel');
-      const note=el('p','이 화면은 조회 전용입니다. 상태 변경·승인 등의 쓰기 작업은 백엔드 쓰기가 별도 검토·승인된 뒤에 순차 활성화됩니다.','admin-note');
+      const note=el('p','등록 신청 심사는 기존 서버 business.review 권한으로 처리할 수 있습니다. 그 밖의 쓰기 작업은 별도 검토·승인 전까지 조회 전용입니다.','admin-note');
       main.append(lead,tabs,note,panel);
       const open=(tab)=>{
         [...tabs.children].forEach((button)=>button.classList.toggle('active',button===tab.button));

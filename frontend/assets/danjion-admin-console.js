@@ -1,14 +1,12 @@
 (function (global) {
   'use strict';
 
-  // Issue #460 [admin production]: the canonical V3 admin console surface.
-  // Every section is a read-only GET against the existing production admin
-  // endpoints; per-section access is decided by the SERVER (403 = scope not
-  // granted, 503 = policy hold), never by client-side role inference. No write
-  // verb exists in this module: mutation controls stay disabled until each
-  // backend write path is separately implemented and reviewed. The privileged
-  // (최고관리) area is placeholder-only because those write endpoints do not
-  // exist yet.
+  // Issue #460 [admin production] + #607 [bounded review actions]: the canonical
+  // V3 admin console surface. Per-section access is decided by the SERVER
+  // (403 = scope not granted, 503 = policy hold), never by client-side role
+  // inference. #607 activates exactly one pre-existing write authority:
+  // PATCH /api/v1/admin/business-applications/:id. All other operational writes
+  // and the privileged (최고관리) area remain disabled until separately reviewed.
   const COMPLEX_SLUG = 'banglim-myeongji-roadhill';
 
   const OPERATIONAL_SECTIONS = [
@@ -16,8 +14,9 @@
       id: 'applications',
       requiredScope: 'business.review',
       title: '등록 신청',
-      description: '가게·서비스 등록 신청 원문과 검토 상태를 조회합니다.',
-      path: (slug) => `/api/v1/admin/complexes/${slug}/business-applications`
+      description: '가게·서비스 등록 신청을 검토하고 승인·수정요청·거절할 수 있습니다.',
+      path: (slug) => `/api/v1/admin/complexes/${slug}/business-applications`,
+      reviewActions: true
     },
     {
       id: 'reports',
@@ -62,6 +61,9 @@
       path: (slug) => `/api/v1/admin/complexes/${slug}/resident-verifications`
     }
   ];
+
+  const APPLICATION_REVIEW_STATUSES = Object.freeze(['approved', 'changes_requested', 'rejected']);
+  const APPLICATION_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
   // #460: 최고관리 write endpoints do not exist yet — every control stays
   // disabled (mirrors the #412 view-only placeholder discipline).
@@ -110,6 +112,34 @@
     return { state: 'error', status: Number(result.status || 0), code };
   }
 
+  async function reviewBusinessApplication(fetchImpl, apiBase, applicationId, status, reviewNote) {
+    const id = String(applicationId || '').trim();
+    const nextStatus = String(status || '').trim();
+    if (!APPLICATION_ID_RE.test(id) || !APPLICATION_REVIEW_STATUSES.includes(nextStatus)) {
+      return { state: 'invalid-request', status: 0, code: 'INVALID_APPLICATION_REVIEW_REQUEST' };
+    }
+
+    const session = global.DanjionSession;
+    const result = await session.request(
+      fetchImpl,
+      session.joinUrl(String(apiBase || ''), '/api/v1/admin/business-applications/' + encodeURIComponent(id)),
+      {
+        method: 'PATCH',
+        body: JSON.stringify({
+          status: nextStatus,
+          reviewNote: String(reviewNote || '').trim() || null
+        })
+      }
+    );
+    const code = result && result.error && result.error.code ? String(result.error.code) : '';
+    if (result.ok) return { state: 'updated', data: result.data, status: result.status, code };
+    if (result.status === 401) return { state: 'signed-out', status: 401, code };
+    if (result.status === 403) return { state: 'scope-denied', status: 403, code };
+    if (result.status === 409) return { state: 'conflict', status: 409, code };
+    if (result.reason === 'network-error' || result.status === 0) return { state: 'network-error', status: 0, code };
+    return { state: 'error', status: Number(result.status || 0), code };
+  }
+
   function rowTitle(row) {
     if (!row || typeof row !== 'object') return '';
     const value = row.businessName ?? row.title ?? row.name ?? row.business_name ?? '';
@@ -137,9 +167,11 @@
     COMPLEX_SLUG,
     OPERATIONAL_SECTIONS,
     PRIVILEGED_PLACEHOLDERS,
+    APPLICATION_REVIEW_STATUSES,
     extractRows,
     consoleSections,
     loadSection,
+    reviewBusinessApplication,
     rowTitle,
     rowStatus,
     rowMeta

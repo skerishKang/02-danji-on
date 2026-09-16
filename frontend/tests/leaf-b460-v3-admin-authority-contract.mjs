@@ -12,7 +12,8 @@ import vm from 'node:vm';
 // other answer — including malformed or empty HTTP 200 payloads — is rejected
 // (least privilege is NOT an operator fallback at the entry boundary). No role
 // may ever be inferred from email, login provider, browser storage, or query
-// parameters, and the console ships read-only: no write verb exists anywhere.
+// parameters. #607 permits exactly one reviewed operational mutation family:
+// business-application PATCH; every other write family remains disabled.
 // Run: node frontend/tests/leaf-b460-v3-admin-authority-contract.mjs
 
 const read = (rel) => readFile(new URL(rel, import.meta.url), 'utf8');
@@ -136,7 +137,7 @@ const loadAdminContext = (location) => {
   assert.equal(emptyBase.state, 'unbound', 'an empty base must short-circuit before any fetch');
 }
 
-/* ================= 4. console sections are GET-only and server-decided ===== */
+/* ================= 4. console sections + bounded write stay server-decided == */
 {
   const ctx = loadAdminContext({ hostname: 'danjion.pages.dev', search: '' });
   const { DanjionAdminConsole: C, DanjionAdminAuthority: A } = ctx;
@@ -186,6 +187,53 @@ const loadAdminContext = (location) => {
   assert.equal(C.rowTitle({ business_name: '방림정육점' }), '방림정육점', 'snake_case rows must render');
   assert.equal(C.rowStatus({ status: 'pending' }), 'pending');
   assert.ok(C.rowMeta({ applicantName: '주민', created_at: '2026-09-14T00:00:00Z' }).includes('주민'));
+
+  const reviewCalls = [];
+  const reviewFetch = async (url, init) => {
+    reviewCalls.push({ url, init });
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({ data: { id: 'd0a1c4a1-0000-4000-8000-000000000011', status: 'approved' } })
+    };
+  };
+  const reviewed = await C.reviewBusinessApplication(
+    reviewFetch,
+    'https://api.test',
+    'd0a1c4a1-0000-4000-8000-000000000011',
+    'approved',
+    '승인 메모'
+  );
+  assert.equal(reviewed.state, 'updated', 'the reviewed application mutation must classify a successful PATCH');
+  assert.equal(reviewCalls.length, 1);
+  assert.ok(reviewCalls[0].url.endsWith('/api/v1/admin/business-applications/d0a1c4a1-0000-4000-8000-000000000011'));
+  assert.equal(reviewCalls[0].init.method, 'PATCH');
+  assert.deepEqual(JSON.parse(reviewCalls[0].init.body), { status: 'approved', reviewNote: '승인 메모' });
+
+  const invalidBefore = reviewCalls.length;
+  const invalid = await C.reviewBusinessApplication(
+    reviewFetch,
+    'https://api.test',
+    'not-a-uuid',
+    'approved',
+    ''
+  );
+  assert.equal(invalid.state, 'invalid-request', 'invalid application IDs must fail before network mutation');
+  assert.equal(reviewCalls.length, invalidBefore);
+
+  const conflict = await C.reviewBusinessApplication(
+    async () => ({
+      ok: false,
+      status: 409,
+      json: async () => ({ error: { code: 'RELATION_NOT_RESOLVED' } })
+    }),
+    'https://api.test',
+    'd0a1c4a1-0000-4000-8000-000000000011',
+    'approved',
+    ''
+  );
+  assert.equal(conflict.state, 'conflict', 'server approval preconditions must remain authoritative');
+  assert.equal(conflict.code, 'RELATION_NOT_RESOLVED');
 }
 
 /* ================= 5. the admin page renders from the server grant only ==== */
@@ -205,24 +253,39 @@ const loadAdminContext = (location) => {
   assert.ok(adminPage.includes("section.title+' · 정책 대기'"), 'policy-held verification must render as an explicit disabled tab');
   assert.ok(adminPage.includes("outcome.state==='network-error'"), 'network/CORS failures must be distinguishable from server failures');
   assert.ok(adminPage.includes("'목록 조회 실패 ('+safeStatus+safeCode"), 'safe HTTP status/code diagnostics must be visible');
-  assert.ok(adminPage.includes('button.disabled=true'), 'every privileged write control must ship disabled');
-  assert.ok(adminPage.includes('approve.disabled=true'), 'row write actions must stay disabled (view-only)');
+  assert.ok(adminPage.includes('button.disabled=true'), 'privileged write controls must stay disabled');
+  assert.ok(adminPage.includes('applicationReviewControls(row,panel,section,apiBase)'),
+    'business applications must render the bounded #607 review controls');
+  assert.ok(adminPage.includes("['approved','승인','primary'"),
+    'the canonical admin page must expose the approved transition');
+  assert.ok(adminPage.includes("['changes_requested','수정요청'"),
+    'the canonical admin page must expose the changes-requested transition');
+  assert.ok(adminPage.includes("['rejected','거절','danger'"),
+    'the canonical admin page must expose the rejected transition');
   assert.ok(adminPage.includes("meta name=\"robots\" content=\"noindex\""), 'the admin console must not be indexed');
 }
 
-/* ================= 6. no client-side identity inference or write verbs ===== */
+/* ================= 6. no client-side identity inference; write scope is exact */
 {
   const banned = ['localStorage', 'sessionStorage', 'location.search', 'URLSearchParams(', 'document.cookie', '/api/auth', '/auth/social-start', 'x-danjion-dev-auth-user'];
-  const writeVerbs = ["method:'POST'", "method:'PATCH'", "method:'PUT'", "method:'DELETE'", "method: 'POST'", "method: 'PATCH'", "method: 'PUT'", "method: 'DELETE'"];
   for (const [name, src] of [['admin/index.html', adminPage], ['danjion-admin-authority.js', authoritySrc], ['danjion-admin-console.js', consoleSrc]]) {
     for (const token of banned) {
       assert.ok(!src.includes(token), `${name} must never read ${token} (identity/authority comes only from the server grant)`);
     }
-    for (const verb of writeVerbs) {
-      assert.ok(!src.includes(verb), `${name} must stay read-only (no ${verb})`);
-    }
     assert.ok(!/innerHTML\s*=/.test(src), `${name} must build the DOM text-safe (no innerHTML assignment)`);
   }
+
+  for (const src of [adminPage, authoritySrc]) {
+    assert.ok(!/method\s*:\s*['"](?:POST|PATCH|PUT|DELETE)['"]/.test(src),
+      'page/authority layers must not directly own mutation transports');
+  }
+  assert.equal((consoleSrc.match(/method\s*:\s*'PATCH'/g) || []).length, 1,
+    'the console bridge may own exactly one PATCH transport');
+  assert.ok(consoleSrc.includes("'/api/v1/admin/business-applications/'"),
+    'the only activated mutation family must be business-application review');
+  assert.ok(!/method\s*:\s*['"](?:POST|PUT|DELETE)['"]/.test(consoleSrc),
+    'no additional operational mutation verb may be activated in #607');
+
   assert.ok(authoritySrc.includes("state: 'invalid'"), 'the resolver must carry an explicit rejection state for malformed 200s');
   assert.ok(!/state:\s*\w+\s*\?\s*'admin'\s*:\s*'operator'/.test(authoritySrc),
     'the resolver must never ternary-demote an unknown payload to a usable operator view');

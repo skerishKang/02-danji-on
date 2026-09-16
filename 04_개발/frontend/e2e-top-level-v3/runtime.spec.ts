@@ -473,3 +473,120 @@ test('#592 pre-registered admin bootstrap re-reads canonical authority before op
   expect(expectedDeniedNoise.length).toBeGreaterThanOrEqual(1);
   expect(unexpectedConsoleErrors).toEqual([]);
 });
+
+
+test('#607 bounded admin business review performs one server-authorized PATCH and refreshes the row', async ({ page }) => {
+  const pageErrors: string[] = [];
+  const unexpectedMutations: string[] = [];
+  const applicationId = 'd0a1c4a1-0000-4000-8000-000000000021';
+  const patchBodies: any[] = [];
+  let applicationStatus = 'pending';
+
+  page.on('pageerror', error => pageErrors.push(error.stack || error.message));
+
+  await page.route('**/*', async route => {
+    const request = route.request();
+    const url = new URL(request.url());
+    const method = request.method().toUpperCase();
+    const local = url.origin === BASE;
+
+    if (!local) {
+      if (!['GET', 'HEAD', 'OPTIONS'].includes(method)) unexpectedMutations.push(method + ' ' + request.url());
+      await route.fulfill({ status: 204, body: '' });
+      return;
+    }
+
+    if (!url.pathname.startsWith('/api/')) {
+      await route.continue();
+      return;
+    }
+
+    if (url.pathname === '/api/v1/admin/authority' && method === 'GET') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          data: {
+            level: 'operator',
+            label: '일반관리자',
+            wildcard: false,
+            scopes: ['business.review']
+          }
+        })
+      });
+      return;
+    }
+
+    if (url.pathname === '/api/v1/admin/complexes/' + COMPLEX + '/business-applications' && method === 'GET') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          data: [{
+            id: applicationId,
+            business_name: '런타임 꽃집',
+            category_name: '꽃·선물',
+            relation_type: 'resident',
+            service_summary: '예약 꽃다발 제작',
+            service_area: '방림동',
+            price_text: '상담',
+            contact_method: '1:1 문의',
+            benefit_text: '주민 예약 혜택',
+            availability_text: '예약 운영',
+            status: applicationStatus,
+            applicant_name: '테스트 주민',
+            created_at: '2026-09-16T12:00:00Z'
+          }]
+        })
+      });
+      return;
+    }
+
+    if (url.pathname === '/api/v1/admin/business-applications/' + applicationId && method === 'PATCH') {
+      patchBodies.push(JSON.parse(request.postData() || '{}'));
+      applicationStatus = String(patchBodies.at(-1)?.status || applicationStatus);
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: { id: applicationId, status: applicationStatus } })
+      });
+      return;
+    }
+
+    if (!['GET', 'HEAD', 'OPTIONS'].includes(method)) {
+      unexpectedMutations.push(method + ' ' + url.pathname);
+      await route.fulfill({
+        status: 409,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: { code: 'TEST_MUTATION_BLOCKED' } })
+      });
+      return;
+    }
+
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ data: [] })
+    });
+  });
+
+  page.on('dialog', dialog => dialog.accept());
+  await page.goto(withApi('/admin/'));
+
+  await expect(page.getByRole('heading', { name: '단지온 운영관리' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '런타임 꽃집' })).toBeVisible();
+  await expect(page.locator('.admin-fact').filter({ hasText: '꽃·선물' })).toBeVisible();
+  await expect(page.getByRole('button', { name: '승인', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: '수정요청', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: '거절', exact: true })).toBeVisible();
+
+  await page.getByRole('textbox', { name: '검토 메모' }).fill('현장 확인 완료');
+  await page.getByRole('button', { name: '승인', exact: true }).click();
+
+  await expect.poll(() => patchBodies.length).toBe(1);
+  expect(patchBodies).toEqual([{ status: 'approved', reviewNote: '현장 확인 완료' }]);
+  await expect(page.getByText('처리 완료된 신청입니다.', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: '승인', exact: true })).toHaveCount(0);
+  expect(unexpectedMutations).toEqual([]);
+  expect(pageErrors).toEqual([]);
+});
