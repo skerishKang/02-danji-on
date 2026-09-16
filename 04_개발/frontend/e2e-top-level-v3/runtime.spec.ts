@@ -913,6 +913,8 @@ test('#613 superadmin manages the four designated administrator principals witho
   const unexpectedMutations: string[] = [];
   const postBodies: any[] = [];
   const patchBodies: any[] = [];
+  let authorityMode: 'admin' | 'operator' = 'operator';
+  let nextPrincipalSuffix = 64;
   let rows: any[] = [
     {
       id: 'd0a1c4a1-0000-4000-8000-000000000061',
@@ -943,6 +945,16 @@ test('#613 superadmin manages the four designated administrator principals witho
       runtimeUserCount: 1,
       runtimeScopes: ['benefit.manage','business.review','official-content.manage','resident_news.review'],
       runtimeRole: 'operator'
+    },
+    {
+      id: 'd0a1c4a1-0000-4000-8000-000000000060',
+      email: 'owner-super@example.com',
+      role: 'operator',
+      status: 'revoked',
+      scopes: ['benefit.manage','business.review','official-content.manage','resident_news.review'],
+      runtimeUserCount: 0,
+      runtimeScopes: [],
+      runtimeRole: 'none'
     }
   ];
 
@@ -966,11 +978,19 @@ test('#613 superadmin manages the four designated administrator principals witho
     }
 
     if (url.pathname === '/api/v1/admin/authority' && method === 'GET') {
+      const admin = authorityMode === 'admin';
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
-          data: { level: 'admin', label: '최고관리자', wildcard: true, scopes: ['*'] }
+          data: admin
+            ? { level: 'admin', label: '최고관리자', wildcard: true, scopes: ['*'] }
+            : {
+                level: 'operator',
+                label: '일반관리자',
+                wildcard: false,
+                scopes: ['benefit.manage','business.review','official-content.manage','resident_news.review']
+              }
         })
       });
       return;
@@ -988,9 +1008,18 @@ test('#613 superadmin manages the four designated administrator principals witho
     if (url.pathname === '/api/v1/admin/principals' && method === 'POST') {
       const body = JSON.parse(request.postData() || '{}');
       postBodies.push(body);
+      const email = String(body.email || '').trim().toLowerCase();
+      if (rows.some((row) => row.status === 'active' && String(row.email).toLowerCase() === email)) {
+        await route.fulfill({
+          status: 409,
+          contentType: 'application/json',
+          body: JSON.stringify({ error: { code: 'ADMIN_PRINCIPAL_EXISTS' } })
+        });
+        return;
+      }
       const row = {
-        id: 'd0a1c4a1-0000-4000-8000-000000000064',
-        email: body.email,
+        id: 'd0a1c4a1-0000-4000-8000-' + String(nextPrincipalSuffix++).padStart(12, '0'),
+        email,
         role: body.role,
         status: 'active',
         scopes: body.role === 'admin' ? ['*'] : ['benefit.manage','business.review','official-content.manage','resident_news.review'],
@@ -1011,6 +1040,34 @@ test('#613 superadmin manages the four designated administrator principals witho
     if (principalMatch && method === 'PATCH') {
       const body = JSON.parse(request.postData() || '{}');
       patchBodies.push({ id: principalMatch[1], ...body });
+      const current = rows.find((row) => row.id === principalMatch[1]);
+      if (
+        principalMatch[1] === 'd0a1c4a1-0000-4000-8000-000000000061'
+        && (body.role !== 'admin' || body.status !== 'active')
+      ) {
+        await route.fulfill({
+          status: 409,
+          contentType: 'application/json',
+          body: JSON.stringify({ error: { code: 'SELF_LOCKOUT_BLOCKED' } })
+        });
+        return;
+      }
+      if (
+        current
+        && body.status === 'active'
+        && rows.some((row) =>
+          row.id !== current.id
+          && row.status === 'active'
+          && String(row.email).toLowerCase() === String(current.email).toLowerCase()
+        )
+      ) {
+        await route.fulfill({
+          status: 409,
+          contentType: 'application/json',
+          body: JSON.stringify({ error: { code: 'ADMIN_PRINCIPAL_EXISTS' } })
+        });
+        return;
+      }
       rows = rows.map((row) => row.id === principalMatch[1]
         ? {
             ...row,
@@ -1049,7 +1106,12 @@ test('#613 superadmin manages the four designated administrator principals witho
 
   await page.goto(withApi('/admin/'));
   await expect(page.getByRole('heading', { name: '단지온 운영관리' })).toBeVisible();
+  await expect(page.getByRole('button', { name: '최고관리', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '사용자 · 권한 관리', exact: true })).toHaveCount(0);
 
+  authorityMode = 'admin';
+  await page.reload();
+  await expect(page.getByRole('heading', { name: '단지온 운영관리' })).toBeVisible();
   await page.getByRole('button', { name: '최고관리', exact: true }).click();
   await expect(page.locator('.privileged-state').filter({ hasText: '사용 가능' })).toBeVisible();
   await page.getByRole('button', { name: '사용자 · 권한 관리', exact: true }).click();
@@ -1057,6 +1119,9 @@ test('#613 superadmin manages the four designated administrator principals witho
   await expect(page.getByRole('heading', { name: '사용자 · 권한 관리', exact: true })).toBeVisible();
   await expect(page.getByText('활성 최고관리자 2 / 목표 2', { exact: true })).toBeVisible();
   await expect(page.getByText('활성 일반관리자 1 / 목표 2', { exact: true })).toBeVisible();
+  await expect(page.getByText('Runtime: 최고관리자 · 연결 사용자 1명', { exact: true }).first()).toBeVisible();
+  await expect(page.locator('.principal-form input')).toHaveCount(2);
+  await expect(page.locator('.principal-form select')).toHaveCount(1);
 
   await page.getByLabel('관리자 이메일').fill('sibling-ops@example.com');
   await page.locator('.principal-form').getByLabel('관리자 등급').selectOption('operator');
@@ -1085,6 +1150,53 @@ test('#613 superadmin manages the four designated administrator principals witho
     reason: 'temporary promotion check'
   });
   await expect(page.getByText('활성 최고관리자 3 / 목표 2', { exact: true })).toBeVisible();
+
+  page.once('dialog', dialog => dialog.accept());
+  await newCard.getByLabel('관리자 등급').selectOption('operator');
+  await newCard.getByLabel('권한 변경 사유').fill('return to operational');
+  await newCard.getByRole('button', { name: '권한 변경 저장', exact: true }).click();
+  await expect.poll(() => patchBodies.length).toBe(2);
+  await expect(page.getByText('활성 최고관리자 2 / 목표 2', { exact: true })).toBeVisible();
+  await expect(page.getByText('활성 일반관리자 2 / 목표 2', { exact: true })).toBeVisible();
+
+  const historicalDuplicate = page.locator('.principal-card')
+    .filter({ hasText: 'owner-super@example.com' })
+    .filter({ hasText: '설정: 일반관리자 · 해제' });
+  await historicalDuplicate.getByLabel('관리자 상태').selectOption('active');
+  await historicalDuplicate.getByRole('button', { name: '권한 변경 저장', exact: true }).click();
+  await expect.poll(() => patchBodies.length).toBe(3);
+  await expect(historicalDuplicate.locator('.admin-post-status')).toHaveText('이미 활성 등록된 관리자 이메일입니다.');
+
+  await page.getByLabel('관리자 이메일').fill('temporary-super@example.com');
+  await page.locator('.principal-form').getByLabel('관리자 등급').selectOption('admin');
+  await page.getByLabel('관리자 등록 사유').fill('new SUPER registration contract');
+  await page.getByRole('button', { name: '관리자 추가', exact: true }).click();
+  await expect.poll(() => postBodies.length).toBe(2);
+  expect(postBodies[1]).toMatchObject({
+    email: 'temporary-super@example.com',
+    role: 'admin',
+    reason: 'new SUPER registration contract'
+  });
+  const tempSuper = page.locator('.principal-card').filter({ hasText: 'temporary-super@example.com' });
+  await expect(tempSuper).toBeVisible();
+  await expect(page.getByText('활성 최고관리자 3 / 목표 2', { exact: true })).toBeVisible();
+
+  page.once('dialog', dialog => dialog.accept());
+  await tempSuper.getByLabel('관리자 상태').selectOption('revoked');
+  await tempSuper.getByLabel('권한 변경 사유').fill('revoke contract');
+  await tempSuper.getByRole('button', { name: '권한 변경 저장', exact: true }).click();
+  await expect.poll(() => patchBodies.length).toBe(4);
+  await expect(page.getByText('활성 최고관리자 2 / 목표 2', { exact: true })).toBeVisible();
+
+  const ownerSuper = page.locator('.principal-card')
+    .filter({ hasText: 'owner-super@example.com' })
+    .filter({ hasText: '설정: 최고관리자 · 활성' });
+  page.once('dialog', dialog => dialog.accept());
+  await ownerSuper.getByLabel('관리자 등급').selectOption('operator');
+  await ownerSuper.getByRole('button', { name: '권한 변경 저장', exact: true }).click();
+  await expect.poll(() => patchBodies.length).toBe(5);
+  await expect(ownerSuper.locator('.admin-post-status'))
+    .toHaveText('현재 로그인한 최고관리자 자신의 권한은 여기서 낮추거나 해제할 수 없습니다.');
 
   expect(unexpectedMutations).toEqual([]);
   expect(pageErrors).toEqual([]);
