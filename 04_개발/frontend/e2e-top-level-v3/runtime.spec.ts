@@ -575,7 +575,7 @@ test('#607 bounded admin business review performs one server-authorized PATCH an
 
   await expect(page.getByRole('heading', { name: '단지온 운영관리' })).toBeVisible();
   await expect(page.getByRole('heading', { name: '런타임 꽃집' })).toBeVisible();
-  await expect(page.getByText('꽃·선물', { exact: true })).toBeVisible();
+  await expect(page.locator('.admin-fact').filter({ hasText: '꽃·선물' })).toBeVisible();
   await expect(page.getByRole('button', { name: '승인', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: '수정요청', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: '거절', exact: true })).toBeVisible();
