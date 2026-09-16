@@ -6,8 +6,9 @@
   // (403 = scope not granted, 503 = policy hold), never by client-side role
   // inference. #607 activates business-application review PATCH, #609 activates
   // official-news POST/PATCH, #611 activates resident-benefit POST/PATCH, and
-  // #613 activates SUPER-only administrator principal management through its
-  // separate reviewed bridge. Audit/system SUPER capabilities remain disabled.
+  // #613 activates SUPER-only administrator principal management and #615
+  // activates privacy-bounded SUPER audit reads through separate reviewed
+  // bridges. Sensitive/system SUPER capabilities remain disabled.
   const COMPLEX_SLUG = 'banglim-myeongji-roadhill';
 
   const OPERATIONAL_SECTIONS = [
@@ -70,8 +71,8 @@
   const BENEFIT_STATUSES = Object.freeze(['draft', 'active', 'expired', 'suspended']);
   const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-  // #460/#613: user/authority management is now implemented by the separate
-  // DanjionAdminPrincipals bridge. Audit/system remain placeholder-only.
+  // #460/#613/#615: user/authority management and bounded global audit reads
+  // are implemented by separate bridges. Sensitive/system remains placeholder-only.
   const PRIVILEGED_PLACEHOLDERS = [
     { id: 'users', title: '사용자 · 권한 관리', description: '관리자 계정과 운영 권한 부여를 관리합니다.' },
     { id: 'audit', title: '전체 감사 기록', description: '단지 전체의 운영 감사 이력을 조회합니다.' },
