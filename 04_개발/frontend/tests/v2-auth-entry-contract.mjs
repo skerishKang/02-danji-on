@@ -15,8 +15,9 @@ assert.match(portal, /signInWithEmail/, 'email sign-in must be available');
 assert.match(portal, /signInWithPhone/, 'phone sign-in must be available');
 assert.match(portal, /signInWithSocial/, 'existing social account sign-in must use the Better Auth adapter');
 
-// Google/Naver/Kakao signup is explicit OAuth signup with no post-OAuth phone
-// second factor. The direct-email phone flow must not gate social buttons.
+// Google/Kakao signup remains explicit OAuth signup with no post-OAuth phone
+// second factor. Naver is temporarily absent from visible UI under #586 while
+// its provider app remains development-restricted.
 assert.match(portal, /signUpWithSocial/, 'new social signup must begin with OAuth');
 assert.doesNotMatch(portal, /completeSocialOnboarding|getSocialOnboardingStatus|socialOnboardingRequired/, 'V2 must not force social users through phone onboarding');
 assert.doesNotMatch(portal, /account_onboarding=phone/, 'social signup must not return to a phone-completion route');
@@ -25,7 +26,13 @@ assert.match(
   /<button type="button" disabled=\{busy\} onClick=\{\(\) => void social\('google'\)\}/,
   'social signup buttons must not be disabled by direct-email phone state'
 );
-assert.match(portal, /Google·Naver·Kakao/, 'V2 copy must explain the no-extra-phone-second-factor social policy');
+assert.match(portal, /Google·Kakao/, 'V2 copy must describe only currently visible social providers');
+assert.doesNotMatch(portal, /onClick=\{\(\) => void social\('naver'\)\}/,
+  '#586: Naver must stay out of the visible V2 auth UI while provider access is restricted');
+assert.match(portal, /onClick=\{\(\) => void social\('kakao'\)\}/,
+  '#586: hiding Naver must preserve Kakao');
+assert.match(portal, /onClick=\{\(\) => void social\('google'\)\}/,
+  '#586: hiding Naver must preserve Google');
 assert.match(portal, /\/verification\.html/, 'authenticated accounts must continue to resident verification');
 assert.match(portal, /getProductApiBearerToken/, 'the launcher must detect an existing Better Auth account session');
 assert.doesNotMatch(portal, /x-danjion-dev-auth-user/, 'live account entry must not manufacture a dev identity');
