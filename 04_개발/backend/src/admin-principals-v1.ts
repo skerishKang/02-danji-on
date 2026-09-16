@@ -283,6 +283,21 @@ async function updatePrincipal(
   const current = currentRows[0];
   if (!current) return fail('NOT_FOUND', 'Administrator principal not found', 404, requestId);
 
+  if (status === 'active') {
+    const duplicateRows = await sql`
+      select 1
+      from padiem_admin_identity_allowlist p
+      where p.provider = 'google'
+        and p.normalized_email = ${String(current.normalized_email)}
+        and p.status = 'active'
+        and p.id <> ${principalId}::uuid
+      limit 1
+    `;
+    if (duplicateRows[0]) {
+      return fail('ADMIN_PRINCIPAL_EXISTS', 'Another active administrator principal already exists for this email', 409, requestId);
+    }
+  }
+
   const linkedRows = await sql`
     select distinct g.user_id
     from padiem_operator_grants g
