@@ -1,0 +1,43 @@
+name: Canonical V3 Browser Runtime Gate
+
+on:
+  pull_request:
+    paths:
+      - 'frontend/**'
+      - '04_개발/frontend/e2e-top-level-v3/**'
+      - '04_개발/frontend/playwright-top-level-v3.config.ts'
+      - '.github/workflows/toplevel-v3-browser-gate.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'frontend/**'
+      - '04_개발/frontend/e2e-top-level-v3/**'
+      - '04_개발/frontend/playwright-top-level-v3.config.ts'
+      - '.github/workflows/toplevel-v3-browser-gate.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: danjion-v3-browser-gate-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  canonical-v3-browser:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: 04_개발/frontend
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - name: Install Playwright test runner
+        run: npm install --ignore-scripts
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Run canonical top-level V3 browser gate
+        run: npx playwright test --config=playwright-top-level-v3.config.ts
