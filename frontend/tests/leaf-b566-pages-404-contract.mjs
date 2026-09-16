@@ -13,7 +13,8 @@ assert.doesNotMatch(notFound, /http-equiv\s*=\s*["']refresh["']/i);
 assert.doesNotMatch(notFound, /location\.(?:replace|assign)|location\.href\s*=/i);
 
 assert.match(releaseWorkflow, /test -f dist\/404\.html/);
-assert.match(releaseWorkflow, /missing_status=.*%\{http_code\}/);
+assert.ok(releaseWorkflow.includes('missing_status="$(curl --silent --show-error'), 'release workflow must capture the missing-path status');
+assert.ok(releaseWorkflow.includes("--write-out '%{http_code}'"), 'release workflow must read the HTTP status code');
 assert.match(releaseWorkflow, /if \[ "\$missing_status" != "404" \]/);
 assert.match(releaseWorkflow, /data-danjion-page="404"/);
 assert.match(releaseWorkflow, /sha256sum dist\/404\.html/);
