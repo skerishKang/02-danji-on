@@ -257,12 +257,125 @@
       });
       actions.append(save,live);editor.append(actions);return editor;
     }
+    function benefitStatusSelect(current,includeTerminal){
+      const select=document.createElement('select');select.setAttribute('aria-label','혜택 상태');
+      const statuses=includeTerminal?['draft','active','suspended','expired']:['draft','active'];
+      const labels={draft:'초안',active:'활성',suspended:'중지',expired:'만료'};
+      statuses.forEach((value)=>{const option=document.createElement('option');option.value=value;option.textContent=labels[value];option.selected=value===current;select.append(option)});
+      return select;
+    }
+    function toLocalDateTime(value){
+      if(!value)return '';
+      const date=new Date(value);if(Number.isNaN(date.getTime()))return '';
+      const pad=(n)=>String(n).padStart(2,'0');
+      return date.getFullYear()+'-'+pad(date.getMonth()+1)+'-'+pad(date.getDate())+'T'+pad(date.getHours())+':'+pad(date.getMinutes());
+    }
+    function benefitFields(row,includeTerminal){
+      const title=document.createElement('input');title.value=String(row?.title||'');title.maxLength=200;title.setAttribute('aria-label','혜택 제목');
+      const description=document.createElement('textarea');description.value=String(row?.description||'');description.maxLength=10000;description.setAttribute('aria-label','혜택 설명');
+      const conditions=document.createElement('textarea');conditions.value=String(row?.conditions||'');conditions.maxLength=4000;conditions.setAttribute('aria-label','이용 조건');
+      const startsAt=document.createElement('input');startsAt.type='datetime-local';startsAt.value=toLocalDateTime(row?.starts_at||row?.startsAt);startsAt.setAttribute('aria-label','시작 시각');
+      const endsAt=document.createElement('input');endsAt.type='datetime-local';endsAt.value=toLocalDateTime(row?.ends_at||row?.endsAt);endsAt.setAttribute('aria-label','종료 시각');
+      const status=benefitStatusSelect(String(row?.status||'draft'),includeTerminal);
+      return {title,description,conditions,startsAt,endsAt,status};
+    }
+    function isoValue(control){
+      const value=String(control.value||'').trim();if(!value)return null;
+      const date=new Date(value);return Number.isNaN(date.getTime())?value:date.toISOString();
+    }
+    function benefitPayload(fields,businessId){
+      return {
+        ...(businessId?{businessId}:{}),
+        title:fields.title.value,
+        description:fields.description.value,
+        conditions:fields.conditions.value,
+        startsAt:isoValue(fields.startsAt),
+        endsAt:isoValue(fields.endsAt),
+        status:fields.status.value
+      };
+    }
+    function appendBenefitFields(editor,fields){
+      const grid=el('div',undefined,'admin-form-grid');
+      grid.append(
+        labeledField('혜택 제목',fields.title,true),
+        labeledField('혜택 설명',fields.description,true),
+        labeledField('이용 조건',fields.conditions,true),
+        labeledField('시작 시각',fields.startsAt,false),
+        labeledField('종료 시각',fields.endsAt,false),
+        labeledField('혜택 상태',fields.status,false)
+      );
+      editor.append(grid);
+    }
+    function benefitErrorMessage(outcome){
+      if(outcome.state==='scope-denied')return '현재 관리자 권한으로 주민혜택을 변경할 수 없습니다.';
+      if(outcome.state==='not-found')return '수정할 주민혜택을 찾을 수 없습니다.';
+      if(outcome.state==='conflict')return '현재 상태에서는 이 변경을 적용할 수 없습니다'+(outcome.code?' · '+outcome.code:'')+'.';
+      if(outcome.state==='network-error')return 'API 연결에 실패했습니다. 잠시 후 다시 시도해 주세요.';
+      if(outcome.state==='invalid-request')return '대상 가게·혜택 제목·혜택 상태와 기간을 확인해 주세요.';
+      return '처리에 실패했습니다'+(outcome.code?' · '+outcome.code:'')+'.';
+    }
+    async function benefitComposer(panel,section,apiBase){
+      const editor=el('section',undefined,'admin-post-editor create');editor.append(el('h3','새 주민혜택 등록'));
+      const businessSelect=document.createElement('select');businessSelect.setAttribute('aria-label','대상 가게');
+      const loading=document.createElement('option');loading.value='';loading.textContent='가게 목록 불러오는 중…';businessSelect.append(loading);businessSelect.disabled=true;
+      const fields=benefitFields({status:'draft'},false);
+      const grid=el('div',undefined,'admin-form-grid');grid.append(labeledField('대상 가게',businessSelect,true));editor.append(grid);appendBenefitFields(editor,fields);
+      const actions=el('div',undefined,'admin-post-actions');
+      const save=el('button','새 혜택 저장');save.type='button';save.disabled=true;
+      const live=el('p','', 'admin-post-status');live.setAttribute('aria-live','polite');
+      actions.append(save,live);editor.append(actions);
+
+      const businesses=await consoleApi.loadBenefitBusinesses(fetch,apiBase);
+      businessSelect.replaceChildren();
+      const empty=document.createElement('option');empty.value='';empty.textContent='대상 가게 선택';businessSelect.append(empty);
+      if(businesses.state==='ready'){
+        businesses.rows.forEach((row)=>{
+          const id=String(row.id||'');if(!id)return;
+          const option=document.createElement('option');option.value=id;option.textContent=String(row.name||row.business_name||id);businessSelect.append(option);
+        });
+        businessSelect.disabled=businesses.rows.length===0;save.disabled=businesses.rows.length===0;
+        if(!businesses.rows.length)live.textContent='혜택을 연결할 승인 가게가 없습니다.';
+      }else{
+        businessSelect.disabled=true;save.disabled=true;
+        live.textContent='가게 목록을 불러오지 못했습니다.';
+        live.className='admin-post-status error';
+      }
+
+      save.addEventListener('click',async()=>{
+        if(fields.status.value==='active'&&!window.confirm('이 주민혜택을 바로 활성화하시겠습니까?'))return;
+        save.disabled=true;businessSelect.disabled=true;live.className='admin-post-status';live.textContent='저장 중…';
+        const outcome=await consoleApi.createResidentBenefit(fetch,apiBase,benefitPayload(fields,businessSelect.value));
+        if(outcome.state==='updated'){live.textContent='저장됐습니다. 최신 목록을 다시 불러옵니다.';await renderSection(panel,section,apiBase);return}
+        if(outcome.state==='signed-out'){showRestricted('signed-out');return}
+        live.textContent=benefitErrorMessage(outcome);live.className='admin-post-status error';save.disabled=false;businessSelect.disabled=false;
+      });
+      return editor;
+    }
+    function benefitEditControls(row,panel,section,apiBase){
+      if(!section.benefitActions)return null;
+      const editor=el('section',undefined,'admin-post-editor');
+      const business=el('p','대상 가게: '+String(row.business_name||row.businessName||row.business_id||'-'),'meta');editor.append(business);
+      const fields=benefitFields(row,true);appendBenefitFields(editor,fields);
+      const actions=el('div',undefined,'admin-post-actions');
+      const save=el('button','혜택 변경 저장');save.type='button';
+      const live=el('p','', 'admin-post-status');live.setAttribute('aria-live','polite');
+      save.addEventListener('click',async()=>{
+        if(fields.status.value==='active'&&String(row.status||'')!=='active'&&!window.confirm('이 주민혜택을 활성 상태로 변경하시겠습니까?'))return;
+        save.disabled=true;live.className='admin-post-status';live.textContent='변경 저장 중…';
+        const outcome=await consoleApi.updateResidentBenefit(fetch,apiBase,row.id,benefitPayload(fields,null));
+        if(outcome.state==='updated'){live.textContent='변경됐습니다. 최신 목록을 다시 불러옵니다.';await renderSection(panel,section,apiBase);return}
+        if(outcome.state==='signed-out'){showRestricted('signed-out');return}
+        live.textContent=benefitErrorMessage(outcome);live.className='admin-post-status error';save.disabled=false;
+      });
+      actions.append(save,live);editor.append(actions);return editor;
+    }
     async function renderSection(panel,section,apiBase){
       statePanel(panel,'불러오는 중…');
       const outcome=await consoleApi.loadSection(fetch,apiBase,section);
       if(outcome.state==='ready'){
         panel.replaceChildren(el('h2',section.title),el('p',section.description));
         if(section.id==='posts')panel.append(postComposer(panel,section,apiBase));
+        if(section.id==='benefits')panel.append(await benefitComposer(panel,section,apiBase));
         if(!outcome.rows.length){panel.append(el('div','표시할 항목이 없습니다.','admin-empty'));return}
         outcome.rows.forEach((row)=>{
           const card=el('article',undefined,'admin-card');
@@ -273,8 +386,10 @@
           if(section.id==='applications')appendApplicationFacts(card,row);
           const reviewControls=applicationReviewControls(row,panel,section,apiBase);
           const postControls=postEditControls(row,panel,section,apiBase);
+          const benefitControls=benefitEditControls(row,panel,section,apiBase);
           if(reviewControls)card.append(reviewControls);
           else if(postControls)card.append(postControls);
+          else if(benefitControls)card.append(benefitControls);
           else{const readonly=el('button','상태 변경 (조회 전용)');readonly.disabled=true;card.append(readonly)}
           panel.append(card);
         });
@@ -317,7 +432,7 @@
       lead.append(roleSummary);
       const tabs=el('nav',undefined,'admin-tabs');tabs.setAttribute('aria-label','운영관리 메뉴');
       const panel=el('section',undefined,'admin-panel');
-      const note=el('p','등록 신청 심사와 단지소식 관리는 기존 서버 권한으로 처리할 수 있습니다. 주민혜택 및 최고관리 쓰기 작업은 별도 검토·승인 전까지 조회 전용입니다.','admin-note');
+      const note=el('p','등록 신청 심사, 단지소식, 주민혜택 관리는 기존 서버 권한으로 처리할 수 있습니다. 최고관리 쓰기 작업은 별도 검토·승인 전까지 비활성화됩니다.','admin-note');
       main.append(lead,tabs,note,panel);
       const open=(tab)=>{
         [...tabs.children].forEach((button)=>button.classList.toggle('active',button===tab.button));

@@ -43,6 +43,10 @@ assert.match(admin, /request\.method === 'GET'[\s\S]{0,1800}status[\s\S]{0,600}'
 assert.match(admin, /select p\.id, p\.source_name, p\.category, p\.channel, p\.title, p\.body,[\s\S]{0,500}p\.status/,
   'official post admin list must return status and editable content fields');
 assert.ok(admin.includes('/benefits'), 'benefit routes must be intercepted');
+assert.match(admin, /request\.method === 'GET'[\s\S]{0,2200}'all','draft','active','expired','suspended'/,
+  'benefit admin list must expose all manageable states under benefit.manage authority');
+assert.match(admin, /select be\.id, be\.business_id, b\.name as business_name,[\s\S]{0,500}be\.status/,
+  'benefit admin list must return business identity, editable fields, and status');
 
 const operationalIndex = app.indexOf('handleAdminOperationalRequest(request, env, id)');
 const legacyIndex = app.indexOf('handleAdminRequest(request, env, id)');

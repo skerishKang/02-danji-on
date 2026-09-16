@@ -732,3 +732,177 @@ test('#609 admin official-news creates a draft then publishes it through the exi
   expect(unexpectedMutations).toEqual([]);
   expect(pageErrors).toEqual([]);
 });
+
+
+test('#611 admin resident-benefit selects an approved business, creates a draft, then activates it', async ({ page }) => {
+  const pageErrors: string[] = [];
+  const unexpectedMutations: string[] = [];
+  const businessId = 'd0a1c4a1-0000-4000-8000-000000000041';
+  const benefitId = 'd0a1c4a1-0000-4000-8000-000000000042';
+  const postBodies: any[] = [];
+  const patchBodies: any[] = [];
+  let rows: any[] = [];
+
+  page.on('pageerror', error => pageErrors.push(error.stack || error.message));
+
+  await page.route('**/*', async route => {
+    const request = route.request();
+    const url = new URL(request.url());
+    const method = request.method().toUpperCase();
+    const local = url.origin === BASE;
+
+    if (!local) {
+      if (!['GET', 'HEAD', 'OPTIONS'].includes(method)) unexpectedMutations.push(method + ' ' + request.url());
+      await route.fulfill({ status: 204, body: '' });
+      return;
+    }
+
+    if (!url.pathname.startsWith('/api/')) {
+      await route.continue();
+      return;
+    }
+
+    if (url.pathname === '/api/v1/admin/authority' && method === 'GET') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          data: {
+            level: 'operator',
+            label: '일반관리자',
+            wildcard: false,
+            scopes: ['benefit.manage']
+          }
+        })
+      });
+      return;
+    }
+
+    if (url.pathname === '/api/v1/complexes/' + COMPLEX + '/businesses' && method === 'GET') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          data: [{
+            id: businessId,
+            name: '온케어 홈서비스',
+            status: 'approved',
+            relation_type: 'resident'
+          }]
+        })
+      });
+      return;
+    }
+
+    if (url.pathname === '/api/v1/admin/complexes/' + COMPLEX + '/benefits' && method === 'GET') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: rows })
+      });
+      return;
+    }
+
+    if (url.pathname === '/api/v1/admin/complexes/' + COMPLEX + '/benefits' && method === 'POST') {
+      const body = JSON.parse(request.postData() || '{}');
+      postBodies.push(body);
+      rows = [{
+        id: benefitId,
+        business_id: businessId,
+        business_name: '온케어 홈서비스',
+        title: body.title,
+        description: body.description,
+        conditions: body.conditions,
+        starts_at: body.startsAt,
+        ends_at: body.endsAt,
+        status: body.status,
+        created_at: '2026-09-16T14:20:00Z',
+        updated_at: '2026-09-16T14:20:00Z'
+      }];
+      await route.fulfill({
+        status: 201,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: rows[0] })
+      });
+      return;
+    }
+
+    if (url.pathname === '/api/v1/admin/benefits/' + benefitId && method === 'PATCH') {
+      const body = JSON.parse(request.postData() || '{}');
+      patchBodies.push(body);
+      rows = [{
+        ...rows[0],
+        title: body.title,
+        description: body.description,
+        conditions: body.conditions,
+        starts_at: body.startsAt,
+        ends_at: body.endsAt,
+        status: body.status
+      }];
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: rows[0] })
+      });
+      return;
+    }
+
+    if (!['GET', 'HEAD', 'OPTIONS'].includes(method)) {
+      unexpectedMutations.push(method + ' ' + url.pathname);
+      await route.fulfill({
+        status: 409,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: { code: 'TEST_MUTATION_BLOCKED' } })
+      });
+      return;
+    }
+
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ data: [] })
+    });
+  });
+
+  page.on('dialog', dialog => dialog.accept());
+  await page.goto(withApi('/admin/'));
+
+  await expect(page.getByRole('heading', { name: '단지온 운영관리' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '주민혜택', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '새 주민혜택 등록' })).toBeVisible();
+
+  const composer = page.locator('.admin-post-editor.create');
+  await composer.getByLabel('대상 가게').selectOption(businessId);
+  await composer.getByLabel('혜택 제목').fill('주민 전용 방문 혜택');
+  await composer.getByLabel('혜택 설명').fill('방림명지로드힐 주민 대상 방문 서비스 혜택입니다.');
+  await composer.getByLabel('이용 조건').fill('예약 시 단지온 주민 화면 확인');
+  await composer.getByLabel('혜택 상태').selectOption('draft');
+  await composer.getByRole('button', { name: '새 혜택 저장' }).click();
+
+  await expect.poll(() => postBodies.length).toBe(1);
+  expect(postBodies[0]).toEqual({
+    businessId,
+    title: '주민 전용 방문 혜택',
+    description: '방림명지로드힐 주민 대상 방문 서비스 혜택입니다.',
+    conditions: '예약 시 단지온 주민 화면 확인',
+    startsAt: null,
+    endsAt: null,
+    status: 'draft'
+  });
+
+  const card = page.locator('.admin-card').filter({ hasText: '주민 전용 방문 혜택' });
+  await expect(card).toBeVisible();
+  await expect(card.locator('.admin-status')).toHaveText('draft');
+  await expect(card.getByText('대상 가게: 온케어 홈서비스', { exact: true })).toBeVisible();
+
+  await card.getByLabel('혜택 상태').selectOption('active');
+  await card.getByRole('button', { name: '혜택 변경 저장' }).click();
+
+  await expect.poll(() => patchBodies.length).toBe(1);
+  expect(patchBodies[0].status).toBe('active');
+  expect(patchBodies[0].businessId).toBeUndefined();
+  await expect(page.locator('.admin-card').filter({ hasText: '주민 전용 방문 혜택' }).locator('.admin-status')).toHaveText('active');
+
+  expect(unexpectedMutations).toEqual([]);
+  expect(pageErrors).toEqual([]);
+});
