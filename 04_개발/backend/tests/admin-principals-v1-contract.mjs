@@ -45,6 +45,15 @@ assert.match(src, /admin\.principal\.create/);
 assert.match(src, /admin\.principal\.update/);
 assert.match(src, /insert into audit_events/, 'principal mutations must be audited');
 assert.match(src, /normalized_email/);
+
+assert.match(src, /where p\.provider in \('google','credential'\)/,
+  'principal listing must include adopted Google and credential principals');
+assert.match(src, /select id, provider, normalized_email, authority_level, status/,
+  'principal update lookup must retain the server-side provider');
+assert.match(src, /provider:\s*String\(current\.provider\)/,
+  'runtime grant synchronization metadata must preserve the adopted provider');
+assert.match(src, /where p\.provider = \$\{String\(current\.provider\)\}/,
+  'duplicate checks must stay provider-scoped for adopted credential rows');
 assert.doesNotMatch(src, /provider_account_id\s*=/, 'V1 must not let the client edit provider account identity');
 assert.doesNotMatch(src, /complex_memberships/i, 'PADIEM principal management must not use legacy apartment roles');
 assert.doesNotMatch(src, /(?:resident_profiles|resident_verifications|household_units|complex_memberships)/i,

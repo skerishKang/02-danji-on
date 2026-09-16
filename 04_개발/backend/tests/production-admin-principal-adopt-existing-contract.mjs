@@ -56,13 +56,17 @@ assert.match(script, /left join app_users au on au\.id = c\.user_id/,
 assert.match(script, /left join danjion_auth\."user" u on u\.id = au\.auth_user_id/,
   'candidate actor must resolve to Better Auth identity server-side');
 assert.match(script, /email_verified = true/,
-  'adoption must require verified Better Auth email');
+  'Google adoption lane must retain Better Auth verified-email enforcement');
 assert.match(script, /account_status = 'active'/,
   'adoption must require active product accounts');
 assert.match(script, /lower\(a\.provider_id\) = 'google'/,
-  'adoption must require an attached Google identity');
-assert.match(script, /google_account_count = 1/,
-  'adoption must require one unambiguous Google account per candidate');
+  'adoption must inventory attached Google identities');
+assert.match(script, /lower\(a\.provider_id\) = 'credential'/,
+  'adoption must inventory attached credential identities');
+assert.match(script, /credential_account_count = 1[\s\S]*google_account_count = 0/,
+  'credential principals must be accepted only as one unambiguous credential identity');
+assert.match(script, /google_account_count = 1[\s\S]*credential_account_count = 0[\s\S]*email_verified = true/,
+  'Google principals must remain uniquely Google-linked and email-verified');
 for (const aggregate of [
   'valid_normalized_email_users',
   'email_verified_true_users',
@@ -70,20 +74,21 @@ for (const aggregate of [
   'one_google_account_users',
   'zero_google_account_users',
   'multiple_google_account_users',
-  'verified_with_one_google_users',
-  'unverified_with_one_google_users',
-  'verified_without_one_google_users',
+  'one_credential_account_users',
+  'zero_credential_account_users',
+  'multiple_credential_account_users',
+  'ready_google_identity_users',
+  'ready_credential_identity_users',
   'ready_identity_users',
   'ready_super_users',
   'ready_operational_users',
-  'distinct_google_account_ids'
+  'ambiguous_supported_provider_users',
+  'distinct_supported_provider_accounts'
 ]) {
   assert.ok(script.includes(`) as ${aggregate}`) || script.includes(`as ${aggregate}`),
     `missing privacy-safe readiness aggregate ${aggregate}`);
 }
-assert.match(script, /one_google_account_users[\s\S]*google_account_count = 1[\s\S]*google_account_id is not null/,
-  'Google-account readiness must be counted independently from email verification');
-assert.match(script, /email_verified_false_users[\s\S]*email_verified = false/,
+assert.match(script, /email_verified = false[\s\S]*as email_verified_false_users/,
   'diagnostic must explicitly count unverified active candidate identities');
 assert.match(script, /ready_super_users[\s\S]*authority_role = 'admin'/,
   'readiness diagnostic may disclose only aggregate SUPER readiness');
@@ -100,8 +105,10 @@ assert.match(script, /metadata \?\| array\['source','principalId','provider','ad
   'apply must fail on reserved metadata key collisions');
 assert.match(script, /insert into padiem_admin_identity_allowlist/,
   'apply must create the four allowlist principal rows');
-assert.match(script, /provider_account_id[\s\S]*i\.google_account_id/,
-  'adopted principal must be pinned to the unique existing Google account');
+assert.match(script, /i\.canonical_provider[\s\S]*i\.canonical_provider_account_id/,
+  'adopted principal must preserve the exact server-derived provider and account id');
+assert.match(script, /'provider', i\.canonical_provider/,
+  'existing grant tracking metadata must preserve the adopted provider');
 assert.match(script, /when i\.authority_role = 'admin' then array\['\*'\]::text\[\]/,
   'SUPER allowlist storage must remain migration-049 compatible');
 assert.match(script, /else array\['benefit\.manage','business\.review','community\.moderate','inquiry\.respond','official-content\.manage','resident\.verification\.exempt','resident_news\.review','safety\.report\.review'\]::text\[\]/,
@@ -136,9 +143,9 @@ assert.match(script, /delete from padiem_admin_identity_allowlist p/,
 assert.match(script, /ADMIN_EXISTING_PRINCIPALS_ADOPTION_ROLLED_BACK/,
   'successful rollback must be audited');
 
-assert.doesNotMatch(script, /console\.(?:log|error)\([^\n]*(?:normalized_email|google_account_id|auth_user_id|user_id)/i,
+assert.doesNotMatch(script, /console\.(?:log|error)\([^\n]*(?:normalized_email|google_account_id|credential_account_id|auth_user_id|user_id)/i,
   'identity/account values must never be printed');
-assert.doesNotMatch(script, /fields:\s*\[[^\]]*(?:normalized_email|google_account_id|auth_user_id|user_id)/i,
+assert.doesNotMatch(script, /fields:\s*\[[^\]]*(?:normalized_email|google_account_id|credential_account_id|auth_user_id|user_id)/i,
   'diagnostic output must remain aggregate-only and must not whitelist identity fields');
 assert.doesNotMatch(script, /access_token|refresh_token|id_token|session\.token|ip_address|user_agent/i,
   'adoption must not touch auth tokens or session metadata');

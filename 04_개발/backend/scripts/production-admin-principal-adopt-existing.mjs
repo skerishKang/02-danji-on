@@ -74,7 +74,19 @@ const BASE_CTES = `
         from danjion_auth.account a
         where a.user_id = u.id
           and lower(a.provider_id) = 'google'
-      ) as google_account_id
+      ) as google_account_id,
+      (
+        select count(*)::int
+        from danjion_auth.account a
+        where a.user_id = u.id
+          and lower(a.provider_id) = 'credential'
+      ) as credential_account_count,
+      (
+        select max(a.account_id)
+        from danjion_auth.account a
+        where a.user_id = u.id
+          and lower(a.provider_id) = 'credential'
+      ) as credential_account_id
     from candidates c
     left join app_users au on au.id = c.user_id
     left join danjion_auth."user" u on u.id = au.auth_user_id
@@ -197,50 +209,52 @@ async function readState() {
         from identity_state
         where auth_user_id is not null
           and account_status = 'active'
-          and email_verified = true
-          and google_account_count = 1
-          and google_account_id is not null
-      ) as verified_with_one_google_users,
+          and credential_account_count = 1
+          and credential_account_id is not null
+      ) as one_credential_account_users,
       (
         select count(*)::int
         from identity_state
         where auth_user_id is not null
           and account_status = 'active'
-          and email_verified = false
-          and google_account_count = 1
-          and google_account_id is not null
-      ) as unverified_with_one_google_users,
+          and credential_account_count = 0
+      ) as zero_credential_account_users,
       (
         select count(*)::int
         from identity_state
         where auth_user_id is not null
           and account_status = 'active'
-          and email_verified = true
-          and google_account_count <> 1
-      ) as verified_without_one_google_users,
+          and credential_account_count > 1
+      ) as multiple_credential_account_users,
       (
         select count(*)::int
         from identity_state
         where auth_user_id is not null
           and account_status = 'active'
-          and email_verified = true
-          and normalized_email is not null
-          and char_length(normalized_email) between 3 and 254
-          and normalized_email ~ '^[^[:space:]@]+@[^[:space:]@]+[.][^[:space:]@]+$'
           and google_account_count = 1
+          and credential_account_count = 0
           and google_account_id is not null
-      ) as unique_google_users,
+          and email_verified = true
+      ) as ready_google_identity_users,
       (
         select count(*)::int
         from identity_state
         where auth_user_id is not null
           and account_status = 'active'
-          and email_verified = true
-          and normalized_email is not null
-          and char_length(normalized_email) between 3 and 254
-          and normalized_email ~ '^[^[:space:]@]+@[^[:space:]@]+[.][^[:space:]@]+$'
-          and google_account_count = 1
-          and google_account_id is not null
+          and credential_account_count = 1
+          and google_account_count = 0
+          and credential_account_id is not null
+      ) as ready_credential_identity_users,
+      (
+        select count(*)::int
+        from identity_state
+        where auth_user_id is not null
+          and account_status = 'active'
+          and (
+            (google_account_count = 1 and credential_account_count = 0 and google_account_id is not null and email_verified = true)
+            or
+            (credential_account_count = 1 and google_account_count = 0 and credential_account_id is not null)
+          )
       ) as ready_identity_users,
       (
         select count(*)::int
@@ -248,12 +262,11 @@ async function readState() {
         where authority_role = 'admin'
           and auth_user_id is not null
           and account_status = 'active'
-          and email_verified = true
-          and normalized_email is not null
-          and char_length(normalized_email) between 3 and 254
-          and normalized_email ~ '^[^[:space:]@]+@[^[:space:]@]+[.][^[:space:]@]+$'
-          and google_account_count = 1
-          and google_account_id is not null
+          and (
+            (google_account_count = 1 and credential_account_count = 0 and google_account_id is not null and email_verified = true)
+            or
+            (credential_account_count = 1 and google_account_count = 0 and credential_account_id is not null)
+          )
       ) as ready_super_users,
       (
         select count(*)::int
@@ -261,24 +274,36 @@ async function readState() {
         where authority_role = 'operator'
           and auth_user_id is not null
           and account_status = 'active'
-          and email_verified = true
-          and normalized_email is not null
-          and char_length(normalized_email) between 3 and 254
-          and normalized_email ~ '^[^[:space:]@]+@[^[:space:]@]+[.][^[:space:]@]+$'
-          and google_account_count = 1
-          and google_account_id is not null
+          and (
+            (google_account_count = 1 and credential_account_count = 0 and google_account_id is not null and email_verified = true)
+            or
+            (credential_account_count = 1 and google_account_count = 0 and credential_account_id is not null)
+          )
       ) as ready_operational_users,
+      (
+        select count(*)::int
+        from identity_state
+        where auth_user_id is not null
+          and account_status = 'active'
+          and (google_account_count + credential_account_count) <> 1
+      ) as ambiguous_supported_provider_users,
       (
         select count(distinct normalized_email)::int
         from identity_state
         where normalized_email is not null
       ) as distinct_normalized_emails,
       (
-        select count(distinct google_account_id)::int
+        select count(distinct
+          case
+            when google_account_count = 1 and credential_account_count = 0 and google_account_id is not null
+              then 'google:' || google_account_id
+            when credential_account_count = 1 and google_account_count = 0 and credential_account_id is not null
+              then 'credential:' || credential_account_id
+            else null
+          end
+        )::int
         from identity_state
-        where google_account_count = 1
-          and google_account_id is not null
-      ) as distinct_google_account_ids,
+      ) as distinct_supported_provider_accounts,
       (
         select count(*)::int
         from candidate_grants
@@ -300,6 +325,16 @@ async function readState() {
   return Object.fromEntries(Object.entries(row).map(([key, value]) => [key, numeric(value)]));
 }
 
+function providerAwareIdentityReady(state) {
+  return state.ready_identity_users === 4
+    && state.ready_super_users === 2
+    && state.ready_operational_users === 2
+    && state.ready_google_identity_users + state.ready_credential_identity_users === 4
+    && state.ambiguous_supported_provider_users === 0
+    && state.distinct_normalized_emails === 4
+    && state.distinct_supported_provider_accounts === 4;
+}
+
 function assertPreflightReady(state) {
   const expected = {
     schema_present: 1,
@@ -313,26 +348,12 @@ function assertPreflightReady(state) {
     candidate_grant_rows: 34,
     active_identity_users: 4,
     valid_normalized_email_users: 4,
-    email_verified_true_users: 4,
-    email_verified_false_users: 0,
-    verified_email_users: 4,
-    one_google_account_users: 4,
-    zero_google_account_users: 0,
-    multiple_google_account_users: 0,
-    verified_with_one_google_users: 4,
-    unverified_with_one_google_users: 0,
-    verified_without_one_google_users: 0,
-    unique_google_users: 4,
-    ready_identity_users: 4,
-    ready_super_users: 2,
-    ready_operational_users: 2,
-    distinct_normalized_emails: 4,
-    distinct_google_account_ids: 4,
     reserved_metadata_collision_rows: 0,
     principal_linked_active_grant_rows: 0,
     adoption_marked_active_grant_rows: 0
   };
-  return Object.entries(expected).every(([key, value]) => state[key] === value);
+  return Object.entries(expected).every(([key, value]) => state[key] === value)
+    && providerAwareIdentityReady(state);
 }
 
 function assertAdoptedState(state) {
@@ -350,25 +371,11 @@ function assertAdoptedState(state) {
     candidate_grant_rows: 34,
     active_identity_users: 4,
     valid_normalized_email_users: 4,
-    email_verified_true_users: 4,
-    email_verified_false_users: 0,
-    verified_email_users: 4,
-    one_google_account_users: 4,
-    zero_google_account_users: 0,
-    multiple_google_account_users: 0,
-    verified_with_one_google_users: 4,
-    unverified_with_one_google_users: 0,
-    verified_without_one_google_users: 0,
-    unique_google_users: 4,
-    ready_identity_users: 4,
-    ready_super_users: 2,
-    ready_operational_users: 2,
-    distinct_normalized_emails: 4,
-    distinct_google_account_ids: 4,
     principal_linked_active_grant_rows: 34,
     adoption_marked_active_grant_rows: 34
   };
-  return Object.entries(expected).every(([key, value]) => state[key] === value);
+  return Object.entries(expected).every(([key, value]) => state[key] === value)
+    && providerAwareIdentityReady(state);
 }
 
 async function applyAdoption() {
@@ -376,16 +383,29 @@ async function applyAdoption() {
     with
     ${BASE_CTES},
     ready_identities as materialized (
-      select *
+      select
+        identity_state.*,
+        case
+          when google_account_count = 1 and credential_account_count = 0 then 'google'
+          when credential_account_count = 1 and google_account_count = 0 then 'credential'
+          else null
+        end as canonical_provider,
+        case
+          when google_account_count = 1 and credential_account_count = 0 then google_account_id
+          when credential_account_count = 1 and google_account_count = 0 then credential_account_id
+          else null
+        end as canonical_provider_account_id
       from identity_state
       where auth_user_id is not null
         and account_status = 'active'
-        and email_verified = true
         and normalized_email is not null
         and char_length(normalized_email) between 3 and 254
         and normalized_email ~ '^[^[:space:]@]+@[^[:space:]@]+[.][^[:space:]@]+$'
-        and google_account_count = 1
-        and google_account_id is not null
+        and (
+          (google_account_count = 1 and credential_account_count = 0 and google_account_id is not null and email_verified = true)
+          or
+          (credential_account_count = 1 and google_account_count = 0 and credential_account_id is not null)
+        )
     ),
     guard as materialized (
       select 1 as ok
@@ -417,9 +437,9 @@ async function applyAdoption() {
         metadata
       )
       select
-        'google',
+        i.canonical_provider,
         i.normalized_email,
-        i.google_account_id,
+        i.canonical_provider_account_id,
         i.authority_role,
         case
           when i.authority_role = 'admin' then array['*']::text[]
@@ -441,7 +461,7 @@ async function applyAdoption() {
       set metadata = g.metadata || jsonb_build_object(
         'source', 'admin_identity_allowlist',
         'principalId', p.id::text,
-        'provider', 'google',
+        'provider', i.canonical_provider,
         'adoptionMarker', '${ADOPTION_MARKER}'
       )
       from ready_identities i

@@ -87,8 +87,10 @@ assert.doesNotMatch(html, /danjionResidentVerified/,
   'no entry flow may mint a resident-verified flag');
 
 /* --- boot reconciliation replaces fake flags with the real session result --- */
-assert.match(html, /if\(serverMode\)\{serverSessionCheck\(\)\.then\(\(real\)=>\{[\s\S]*?sessionStorage\.removeItem\('danjionMember'\);sessionStorage\.removeItem\('danjionSignedUp'\);sessionStorage\.removeItem\('danjionAuthPending'\)\}memberMode=real;sessionResolved=true;syncMemberState\(\);if\(real\)refreshAdminEntry\(\)\}\)/,
-  'boot must reconcile memberMode against the real session and drop fake member flags without forcing Intro away');
+assert.match(html, /async function reconcileLandingSession\(\)[\s\S]*const real=await serverSessionCheck\(\)[\s\S]*sessionStorage\.removeItem\('danjionMember'\);\s*sessionStorage\.removeItem\('danjionSignedUp'\);\s*sessionStorage\.removeItem\('danjionAuthPending'\);?[\s\S]*memberMode=real;sessionResolved=true;syncMemberState\(\);[\s\S]*if\(real\)refreshAdminEntry\(\)/,
+  'boot must reconcile memberMode against the real session through the centralized reconciler and drop fake member flags without forcing Intro away');
+assert.match(html, /reconcileLandingSession\(\);window\.addEventListener\('pageshow',event=>\{if\(event\.persisted\)reconcileLandingSession\(\)\}\)/,
+  'landing must also reconcile the real session after BFCache restoration');
 
 /* --- demo mode keeps the historical prototype flow untouched --- */
 assert.match(html, /\}else\{showToast\(button\.dataset\.social\+' 인증은 백엔드 OAuth 연결 후 실제 동작합니다/,

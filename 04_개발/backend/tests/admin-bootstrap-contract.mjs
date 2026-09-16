@@ -48,14 +48,19 @@ for (const forbidden of [
 // Eligibility comes only from server-side Better Auth + pre-registration state.
 assert.match(bootstrap, /join danjion_auth\."user" u/i);
 assert.match(bootstrap, /join padiem_admin_identity_allowlist p/i);
-assert.match(bootstrap, /p\.provider = 'google'/);
+assert.match(bootstrap, /p\.provider in \('google','credential'\)/);
 assert.match(bootstrap, /p\.normalized_email = lower\(btrim\(u\.email\)\)/);
 assert.match(bootstrap, /p\.status = 'active'/);
 assert.match(bootstrap, /p\.expires_at is null or p\.expires_at > now\(\)/);
-assert.match(bootstrap, /u\.email_verified = true/);
+assert.match(bootstrap, /p\.provider = 'credential'[\s\S]*or u\.email_verified = true/,
+  'Google principals must retain verified-email enforcement while credential principals use exact account pinning');
 assert.match(bootstrap, /from danjion_auth\.account a/i);
-assert.match(bootstrap, /lower\(a\.provider_id\) = 'google'/);
-assert.match(bootstrap, /p\.provider_account_id is null[\s\S]*p\.provider_account_id = a\.account_id/);
+assert.match(bootstrap, /lower\(a\.provider_id\) = p\.provider/,
+  'bootstrap must bind the attached Better Auth provider selected by server-side principal state');
+assert.match(bootstrap, /p\.provider = 'google'[\s\S]*p\.provider_account_id is null[\s\S]*p\.provider_account_id = a\.account_id/,
+  'Google rows may use email plus optional provider-account pin');
+assert.match(bootstrap, /p\.provider = 'credential'[\s\S]*p\.provider_account_id is not null[\s\S]*p\.provider_account_id = a\.account_id/,
+  'credential rows must always pin the exact Better Auth credential account id');
 
 // Allowlist is onboarding approval only; persistent authorization stays in the
 // existing grant ledger and gets canonical authority readback.
