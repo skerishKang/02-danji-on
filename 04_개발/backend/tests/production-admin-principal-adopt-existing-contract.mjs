@@ -129,8 +129,16 @@ assert.match(script, /linked_grants\) = 34/,
   'atomic apply must require all 34 existing grants to be attached');
 assert.match(script, /inserted_principals\) = 4/,
   'atomic apply must require exactly four principal inserts');
-assert.match(script, /else \(1 \/ 0\)/,
-  'unexpected mutation counts must raise inside the SQL statement so it rolls back atomically');
+assert.doesNotMatch(script, /else \(1 \/ 0\)/,
+  'constant-foldable 1/0 branches are unsafe because PostgreSQL may evaluate them during planning');
+assert.match(script, /1 \/ case[\s\S]*inserted_principals\) = 4[\s\S]*linked_grants\) = 34[\s\S]*then 1[\s\S]*else 0[\s\S]*end as ok/,
+  'apply count mismatch must still raise at runtime inside the same SQL statement');
+assert.match(script, /1 \/ case[\s\S]*unlinked_grants\) = 34[\s\S]*deleted_principals\) = 4[\s\S]*then 1[\s\S]*else 0[\s\S]*end as ok/,
+  'rollback count mismatch must still raise at runtime inside the same SQL statement');
+assert.match(script, /sqlstate=\$\{sqlState\}/,
+  'database failures may expose only privacy-safe SQLSTATE diagnostics');
+assert.doesNotMatch(script, /error\.(?:message|detail|hint|where|query|parameters)/,
+  'database failure handling must not print detailed SQL/provider/identity data');
 assert.match(script, /ADMIN_EXISTING_PRINCIPALS_ADOPTED/,
   'successful adoption must write a bounded system audit');
 
