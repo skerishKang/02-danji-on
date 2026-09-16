@@ -5,7 +5,7 @@
     try{sessionStorage.removeItem('danjion:shopVariant')}catch(e){}
     try{localStorage.removeItem('danjion:shopVariant')}catch(e){}
   }
-  const FILES={1:'01_이웃가게_발견.html',2:'02_이웃가게_상세.html',3:'03_주민혜택_쿠폰.html',4:'04_데일리홈.html',5:'05_우리단지_첫화면.html',6:'06_단지온공지_목록.html',7:'07_단지온공지_상세.html',8:'08_아파트소식_목록.html',9:'09_회장인사_상세.html',10:'10_주민소식_목록.html',11:'11_주민소식_상세.html',12:'12_이웃대화_첫화면.html',13:'13_이웃대화_글상세_댓글.html',14:'14_가입인사_글쓰기.html',15:'15_단지이야기_글쓰기.html',16:'16_궁금해요_글쓰기.html',17:'17_같이해요_글쓰기.html',18:'18_공통앱셸.html',19:'19_내정보_메인.html',20:'20_메시지함_목록.html',21:'21_메시지_대화상세.html',22:'22_주민_공개프로필.html',23:'23_이웃온기.html',24:'24_설정.html',25:'25_1대1문의.html',26:'26_우리집연결.html',27:'27_알림함.html',28:'28_나의활동.html',29:'index.html'};
+  const FILES={1:'01_이웃가게_발견_v3.html',2:'02_이웃가게_상세.html',3:'03_주민혜택_쿠폰.html',4:'04_데일리홈.html',5:'05_우리단지_첫화면.html',6:'06_단지온공지_목록.html',7:'07_단지온공지_상세.html',8:'08_아파트소식_목록.html',9:'09_회장인사_상세.html',10:'10_주민소식_목록.html',11:'11_주민소식_상세.html',12:'12_이웃대화_첫화면.html',13:'13_이웃대화_글상세_댓글.html',14:'14_가입인사_글쓰기.html',15:'15_단지이야기_글쓰기.html',16:'16_궁금해요_글쓰기.html',17:'17_같이해요_글쓰기.html',18:'18_공통앱셸.html',19:'19_내정보_메인.html',20:'20_메시지함_목록.html',21:'21_메시지_대화상세.html',22:'22_주민_공개프로필.html',23:'23_이웃온기.html',24:'24_설정.html',25:'25_1대1문의.html',26:'26_우리집연결.html',27:'27_알림함.html',28:'28_나의활동.html',29:'index.html'};
   const __variant=()=>{if(!isExplicitShopComparison)return null;try{return sessionStorage.getItem('danjion:shopVariant')}catch(e){return null}};
   const isShopVariantB=()=>['v2','v3'].includes(__variant());
   const shopV2File=__variant()==='v3'?'01_이웃가게_발견_v3.html':'01_이웃가게_발견_v2.html';
