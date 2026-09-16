@@ -63,6 +63,32 @@ assert.match(script, /lower\(a\.provider_id\) = 'google'/,
   'adoption must require an attached Google identity');
 assert.match(script, /google_account_count = 1/,
   'adoption must require one unambiguous Google account per candidate');
+for (const aggregate of [
+  'valid_normalized_email_users',
+  'email_verified_true_users',
+  'email_verified_false_users',
+  'one_google_account_users',
+  'zero_google_account_users',
+  'multiple_google_account_users',
+  'verified_with_one_google_users',
+  'unverified_with_one_google_users',
+  'verified_without_one_google_users',
+  'ready_identity_users',
+  'ready_super_users',
+  'ready_operational_users',
+  'distinct_google_account_ids'
+]) {
+  assert.ok(script.includes(`) as ${aggregate}`) || script.includes(`as ${aggregate}`),
+    `missing privacy-safe readiness aggregate ${aggregate}`);
+}
+assert.match(script, /one_google_account_users[\s\S]*google_account_count = 1[\s\S]*google_account_id is not null/,
+  'Google-account readiness must be counted independently from email verification');
+assert.match(script, /email_verified_false_users[\s\S]*email_verified = false/,
+  'diagnostic must explicitly count unverified active candidate identities');
+assert.match(script, /ready_super_users[\s\S]*authority_role = 'admin'/,
+  'readiness diagnostic may disclose only aggregate SUPER readiness');
+assert.match(script, /ready_operational_users[\s\S]*authority_role = 'operator'/,
+  'readiness diagnostic may disclose only aggregate OPERATIONAL readiness');
 assert.match(script, /count\(distinct normalized_email\)[\s\S]*= 4/,
   'apply must require four distinct server-derived normalized identities');
 assert.match(script, /active_grant_rows:\s*34|active_grant_rows = 34|count\(\*\) from active_grants\) = 34/,
@@ -112,6 +138,8 @@ assert.match(script, /ADMIN_EXISTING_PRINCIPALS_ADOPTION_ROLLED_BACK/,
 
 assert.doesNotMatch(script, /console\.(?:log|error)\([^\n]*(?:normalized_email|google_account_id|auth_user_id|user_id)/i,
   'identity/account values must never be printed');
+assert.doesNotMatch(script, /fields:\s*\[[^\]]*(?:normalized_email|google_account_id|auth_user_id|user_id)/i,
+  'diagnostic output must remain aggregate-only and must not whitelist identity fields');
 assert.doesNotMatch(script, /access_token|refresh_token|id_token|session\.token|ip_address|user_agent/i,
   'adoption must not touch auth tokens or session metadata');
 
