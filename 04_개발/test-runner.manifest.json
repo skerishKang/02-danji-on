@@ -30,6 +30,7 @@
         {"id":"test:admin-authority-contract","npm":"test:admin-authority-contract","kind":"contract"},
         {"id":"test:admin-bootstrap","npm":"test:admin-bootstrap","kind":"contract"},
         {"id":"test:admin-bootstrap-contract","npm":"test:admin-bootstrap-contract","kind":"contract"},
+        {"id":"test:admin-principals-contract","npm":"test:admin-principals-contract","kind":"contract"},
         {"id":"test:admin-review-privacy-rbac","npm":"test:admin-review-privacy-rbac","kind":"contract"},
         {"id":"test:admin-review-context-gallery","npm":"test:admin-review-context-gallery","kind":"contract"},
         {"id":"test:resident-verification-policy-hold","npm":"test:resident-verification-policy-hold","kind":"contract"},
