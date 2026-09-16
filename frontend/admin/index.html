@@ -99,10 +99,11 @@
   <script src="/assets/danjion-admin-authority.js"></script>
   <script src="/assets/danjion-admin-bootstrap.js"></script>
   <script src="/assets/danjion-admin-principals.js"></script>
+  <script src="/assets/danjion-admin-global-audit.js"></script>
   <script src="/assets/danjion-admin-console.js"></script>
   <script>
     const badge=document.getElementById('roleBadge'),main=document.getElementById('adminMain'),restricted=document.getElementById('restrictedView');
-    const authority=window.DanjionAdminAuthority,bootstrapApi=window.DanjionAdminBootstrap,principalApi=window.DanjionAdminPrincipals,consoleApi=window.DanjionAdminConsole;
+    const authority=window.DanjionAdminAuthority,bootstrapApi=window.DanjionAdminBootstrap,principalApi=window.DanjionAdminPrincipals,auditApi=window.DanjionAdminGlobalAudit,consoleApi=window.DanjionAdminConsole;
     const RESTRICTED_COPY={
       unbound:'이 환경에서는 관리자 콘솔을 사용할 수 없습니다.',
       'signed-out':'관리자 콘솔은 로그인 후 이용할 수 있습니다.',
@@ -490,14 +491,63 @@
       });
       await refresh();
     }
+    function auditError(outcome){
+      if(outcome.state==='forbidden')return '최고관리자 감사 조회 권한이 필요합니다.';
+      if(outcome.state==='signed-out')return '로그인이 만료됐습니다.';
+      if(outcome.state==='network-error')return '감사 기록 API 연결에 실패했습니다.';
+      if(outcome.state==='invalid-request')return '감사 조회 조건을 확인해 주세요.';
+      return '감사 기록을 불러오지 못했습니다'+(outcome.code?' · '+outcome.code:'')+'.';
+    }
+    async function renderAuditManager(panel,apiBase){
+      panel.replaceChildren(
+        el('h2','전체 감사 기록'),
+        el('p','최고관리자 전용 읽기 화면입니다. 개인정보 보호를 위해 사용자·세대·resource 식별자와 request ID, raw metadata는 표시하지 않습니다.')
+      );
+      const controls=el('div',undefined,'admin-form-grid');
+      const decision=document.createElement('select');decision.setAttribute('aria-label','감사 결정 필터');
+      [['','전체 결정'],['allowed','허용'],['denied','거부'],['recorded','기록']].forEach(([value,label])=>{const option=document.createElement('option');option.value=value;option.textContent=label;decision.append(option)});
+      const refresh=el('button','감사 기록 새로고침');refresh.type='button';
+      controls.append(labeledField('결정',decision,false),refresh);panel.append(controls);
+      const list=el('div',undefined,'audit-list');panel.append(list);
+      const load=async()=>{
+        refresh.disabled=true;list.replaceChildren(el('div','감사 기록 불러오는 중…','admin-state'));
+        const outcome=await auditApi.list(fetch,apiBase,{limit:100,decision:decision.value});
+        if(outcome.state==='signed-out'){showRestricted('signed-out');return}
+        if(outcome.state!=='ready'){list.replaceChildren(el('div',auditError(outcome),'admin-state'));refresh.disabled=false;return}
+        list.replaceChildren();
+        if(!outcome.rows.length){list.append(el('div','표시할 감사 기록이 없습니다.','admin-empty'));refresh.disabled=false;return}
+        outcome.rows.forEach((row)=>{
+          const card=el('article',undefined,'admin-card');
+          const top=el('div',undefined,'admin-card-top');
+          const copy=el('div');copy.append(el('h3',String(row.action||'(action 없음)')));
+          const meta=[
+            row.scope?'scope '+String(row.scope):'',
+            row.actorKind?'actor '+String(row.actorKind):'',
+            row.resourceType?'resource '+String(row.resourceType):'',
+            row.reasonCode?'reason '+String(row.reasonCode):'',
+            row.createdAt?String(row.createdAt).slice(0,19).replace('T',' '):''
+          ].filter(Boolean).join(' · ');
+          copy.append(el('p',meta,'meta'));
+          top.append(copy,el('span',String(row.decision||'recorded'),'admin-status'));
+          card.append(top);list.append(card);
+        });
+        refresh.disabled=false;
+      };
+      refresh.addEventListener('click',load);decision.addEventListener('change',load);
+      await load();
+    }
     async function renderPrivileged(panel,apiBase){
       panel.replaceChildren(el('h2','최고관리'),el('p','전체 관리자(와일드카드 권한) 전용 영역입니다.'));
       if(principalApi){
         const usersButton=el('button','사용자 · 권한 관리');usersButton.type='button';usersButton.addEventListener('click',()=>renderPrincipalManager(panel,apiBase));
         const liveItem=el('article',undefined,'privileged-item');const liveCopy=el('div');liveCopy.append(el('h3','사용자 · 권한 관리'),el('p','사전 등록된 관리자 4계정과 실제 runtime 권한을 관리합니다.'));const liveState=el('span','사용 가능','privileged-state');liveState.append(usersButton);liveItem.append(liveCopy,liveState);panel.append(liveItem);
       }
+      if(auditApi){
+        const auditButton=el('button','전체 감사 기록');auditButton.type='button';auditButton.addEventListener('click',()=>renderAuditManager(panel,apiBase));
+        const auditItem=el('article',undefined,'privileged-item');const auditCopy=el('div');auditCopy.append(el('h3','전체 감사 기록'),el('p','식별자·raw metadata를 제외한 운영 감사 요약을 조회합니다.'));const auditState=el('span','사용 가능','privileged-state');auditState.append(auditButton);auditItem.append(auditCopy,auditState);panel.append(auditItem);
+      }
       const grid=el('div',undefined,'privileged-grid');
-      consoleApi.PRIVILEGED_PLACEHOLDERS.filter((capability)=>capability.id!=='users').forEach((capability)=>{
+      consoleApi.PRIVILEGED_PLACEHOLDERS.filter((capability)=>capability.id!=='users'&&capability.id!=='audit').forEach((capability)=>{
         const item=el('article',undefined,'privileged-item');item.setAttribute('aria-disabled','true');
         const copy=el('div');copy.append(el('h3',capability.title),el('p',capability.description));
         const side=el('span','연동 대기','privileged-state');
@@ -523,7 +573,7 @@
       lead.append(roleSummary);
       const tabs=el('nav',undefined,'admin-tabs');tabs.setAttribute('aria-label','운영관리 메뉴');
       const panel=el('section',undefined,'admin-panel');
-      const note=el('p','등록 신청 심사, 단지소식, 주민혜택 관리는 기존 서버 권한으로 처리할 수 있습니다. 최고관리자만 사용자·권한 관리를 사용할 수 있으며, 전체 감사·민감정보·시스템 관리는 아직 비활성화되어 있습니다.','admin-note');
+      const note=el('p','등록 신청 심사, 단지소식, 주민혜택 관리는 기존 서버 권한으로 처리할 수 있습니다. 최고관리자는 사용자·권한 관리와 개인정보를 제한한 전체 감사 기록을 사용할 수 있으며, 민감정보·시스템 관리는 아직 비활성화되어 있습니다.','admin-note');
       main.append(lead,tabs,note,panel);
       const open=(tab)=>{
         [...tabs.children].forEach((button)=>button.classList.toggle('active',button===tab.button));
