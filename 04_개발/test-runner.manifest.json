@@ -20,6 +20,7 @@
         {"id":"test:production-db-secret-bootstrap","npm":"test:production-db-secret-bootstrap","kind":"contract"},
         {"id":"test:production-auth-readonly-diagnostic","npm":"test:production-auth-readonly-diagnostic","kind":"contract"},
         {"id":"test:production-admin-principal-provision","npm":"test:production-admin-principal-provision","kind":"contract"},
+        {"id":"test:production-admin-principal-adopt-existing","npm":"test:production-admin-principal-adopt-existing","kind":"contract"},
         {"id":"test:auth-facade-public-base","npm":"test:auth-facade-public-base","kind":"contract"},
         {"id":"test:authz-v2","npm":"test:authz-v2","kind":"contract"},
         {"id":"test:authz-v2-schema","npm":"test:authz-v2-schema","kind":"contract"},
