@@ -699,7 +699,7 @@ test('#609 admin official-news creates a draft then publishes it through the exi
   await page.goto(withApi('/admin/'));
 
   await expect(page.getByRole('heading', { name: '단지온 운영관리' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: '단지소식' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '단지소식', exact: true })).toBeVisible();
   await expect(page.getByRole('heading', { name: '새 단지소식 작성' })).toBeVisible();
 
   const composer = page.locator('.admin-post-editor.create');
