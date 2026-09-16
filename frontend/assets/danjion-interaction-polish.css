@@ -48,6 +48,7 @@
   .news-row,
   .filter,
   .b-shop-card[tabindex="0"],
+  .b-text-shop[tabindex="0"],
   .b-save,
   .row-save,
   .channel-link,
@@ -73,7 +74,7 @@ body[data-danjion-page="4"] .search:focus-within{
 }
 
 body[data-danjion-page="4"] :where(.scene-tab,.actions button,.go,.news-head button,.news-row),
-body[data-danjion-page="1"] :where(.filter,.b-shop-card,.b-save,.row-save),
+body[data-danjion-page="1"] :where(.filter,.b-shop-card,.b-text-shop,.b-save,.row-save),
 body[data-danjion-page="5"] .channel-link,
 body[data-danjion-page="19"] :where(.level-chip,.level-card,.card-link,.menu-row,.utility-row,.settings-entry a),
 body[data-danjion-page="23"] :where(.back,.level-button){
@@ -118,7 +119,7 @@ body[data-danjion-page="23"] :where(.back,.level-button){
     border-color:var(--ink,#101317)!important;
     background:#f0e9dd!important;
   }
-  body[data-danjion-page="1"] .b-shop-card[tabindex="0"]:hover{
+  body[data-danjion-page="1"] :where(.b-shop-card,.b-text-shop)[tabindex="0"]:hover{
     box-shadow:0 10px 26px rgba(16,29,48,.11)!important;
   }
   body[data-danjion-page="1"] :where(.b-save,.row-save):hover{
