@@ -33,7 +33,15 @@ assert.match(script, /from padiem_admin_identity_allowlist/,
 assert.match(script, /from padiem_operator_grants g/,
   'diagnostic must inspect runtime PADIEM grant aggregates');
 assert.match(script, /g\.metadata ->> 'source' = 'admin_identity_allowlist'/,
-  'runtime grant aggregate must remain scoped to allowlist bootstrap-origin grants');
+  'bootstrap runtime aggregate must remain scoped to allowlist-origin grants');
+assert.match(script, /key: 'all_source_runtime_authority'/,
+  'diagnostic must separately inspect all-source active runtime authority');
+assert.match(script, /cardinality\(scopes\) = 9[\s\S]*resident\.verification\.exempt/,
+  'legacy SUPER shape must be exact wildcard plus the eight bounded scopes');
+assert.match(script, /cardinality\(scopes\) = 8[\s\S]*array_position\(scopes, '\*'\) is null/,
+  'legacy OPERATIONAL shape must be exact eight bounded scopes with no wildcard');
+assert.match(script, /active_all_grants[\s\S]*from padiem_operator_grants g[\s\S]*g\.status = 'active'/,
+  'all-source aggregate must count all active PADIEM grants regardless metadata source');
 assert.match(script, /group by normalized_email[\s\S]*having count\(\*\) > 1/,
   'duplicate identity detection must aggregate by normalized email without returning the identity');
 assert.match(script, /safeValue[\s\S]*unexpected non-aggregate value/,
