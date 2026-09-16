@@ -31,7 +31,10 @@ assert.equal(calls[0].init.credentials, 'include');
 const created = await P.create(okFetch, 'https://api.test', {
   email: 'Admin.Example@Example.com ',
   role: 'operator',
-  reason: 'four-principal setup'
+  reason: 'four-principal setup',
+  scopes: ['*'],
+  provider: 'credential',
+  providerAccountId: 'client-must-not-control-this'
 });
 assert.equal(created.state, 'ready');
 assert.equal(calls[1].init.method, 'POST');
@@ -45,7 +48,15 @@ const updated = await P.update(
   okFetch,
   'https://api.test',
   'd0a1c4a1-0000-4000-8000-000000000061',
-  { role: 'admin', status: 'active', reason: 'promote' }
+  {
+    role: 'admin',
+    status: 'active',
+    reason: 'promote',
+    email: 'replacement@example.com',
+    scopes: ['*'],
+    provider: 'credential',
+    providerAccountId: 'client-must-not-control-this'
+  }
 );
 assert.equal(updated.state, 'ready');
 assert.equal(calls[2].init.method, 'PATCH');
@@ -73,6 +84,18 @@ const selfLockout = await P.update(
 );
 assert.equal(selfLockout.state, 'conflict');
 assert.equal(selfLockout.code, 'SELF_LOCKOUT_BLOCKED');
+
+const duplicate = await P.create(
+  async () => ({
+    ok: false,
+    status: 409,
+    json: async () => ({ error: { code: 'ADMIN_PRINCIPAL_EXISTS' } })
+  }),
+  'https://api.test',
+  { email: 'owner-super@example.com', role: 'admin' }
+);
+assert.equal(duplicate.state, 'conflict');
+assert.equal(duplicate.code, 'ADMIN_PRINCIPAL_EXISTS');
 
 assert.ok(adminPage.includes('<script src="/assets/danjion-admin-principals.js"></script>'),
   'canonical admin page must load the principal bridge');
