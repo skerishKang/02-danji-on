@@ -247,12 +247,11 @@ jobs:
             'assets/consistency.js'
           )
 
-          # #589: Cloudflare Pages can expose the canonical deployment record
-          # before every edge POP serves the new leaf bytes. Verify all pending
-          # leaves in bounded global rounds instead of giving each leaf only an
-          # isolated ~18-second window. The first delay is an intentional settle
-          # window; later delays provide bounded backoff without weakening exact
-          # byte parity.
+          # #589/#602: Verify all critical leaves in bounded global rounds with
+          # exact byte parity. Cloudflare Pages may canonicalize `.html` routes
+          # to clean URLs, so each leaf fetch must follow redirects before hashing.
+          # The first delay is an intentional settle window; later delays provide
+          # bounded backoff without weakening exact byte parity.
           retry_delays=(8 3 5 8 13 21 30 45)
           encoded_paths=()
           expected_leaf_shas=()
@@ -293,7 +292,7 @@ jobs:
               expected_leaf_sha="${expected_leaf_shas[$i]}"
               leaf_file="${leaf_files[$i]}"
 
-              if curl --silent --show-error --fail \
+              if curl --silent --show-error --fail --location \
                 --header 'Cache-Control: no-cache' \
                 --header 'Pragma: no-cache' \
                 "${CANONICAL_PAGES_URL}/${encoded_path}?release=${GITHUB_SHA}-leaf-${leaf_round}-${leaf_tokens[$i]}" \
