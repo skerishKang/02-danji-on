@@ -71,7 +71,8 @@ async function readAggregateState() {
       schema_present: schemaPresent,
       allowlist_total: null,
       active_principals: null,
-      bootstrap_active_grant_rows: null
+      bootstrap_active_grant_rows: null,
+      active_grant_rows: null
     };
   }
 
@@ -90,14 +91,21 @@ async function readAggregateState() {
         where status = 'active'
           and (expires_at is null or expires_at > now())
           and metadata ->> 'source' = 'admin_identity_allowlist'
-      ) as bootstrap_active_grant_rows
+      ) as bootstrap_active_grant_rows,
+      (
+        select count(*)::int
+        from padiem_operator_grants
+        where status = 'active'
+          and (expires_at is null or expires_at > now())
+      ) as active_grant_rows
   `, []);
   const row = rows[0] || {};
   return {
     schema_present: 1,
     allowlist_total: Number(row.allowlist_total || 0),
     active_principals: Number(row.active_principals || 0),
-    bootstrap_active_grant_rows: Number(row.bootstrap_active_grant_rows || 0)
+    bootstrap_active_grant_rows: Number(row.bootstrap_active_grant_rows || 0),
+    active_grant_rows: Number(row.active_grant_rows || 0)
   };
 }
 
@@ -126,6 +134,7 @@ try {
     before.allowlist_total !== 0
     || before.active_principals !== 0
     || before.bootstrap_active_grant_rows !== 0
+    || before.active_grant_rows !== 0
   ) {
     console.error('ADMIN_PRINCIPAL_PROVISION=FAIL initial provisioning requires an empty administrator state');
     process.exit(1);
@@ -151,7 +160,6 @@ try {
           from padiem_operator_grants
           where status = 'active'
             and (expires_at is null or expires_at > now())
-            and metadata ->> 'source' = 'admin_identity_allowlist'
         )
     ),
     inserted as (
@@ -245,6 +253,7 @@ try {
     after.allowlist_total !== 4
     || after.active_principals !== 4
     || after.bootstrap_active_grant_rows !== 0
+    || after.active_grant_rows !== 0
   ) {
     console.error('ADMIN_PRINCIPAL_PROVISION=FAIL post-mutation aggregate readback mismatch');
     process.exit(1);
@@ -259,7 +268,8 @@ try {
     runtime_grant_rows_created: 0,
     postread_allowlist_total: after.allowlist_total,
     postread_active_principals: after.active_principals,
-    postread_bootstrap_active_grant_rows: after.bootstrap_active_grant_rows
+    postread_bootstrap_active_grant_rows: after.bootstrap_active_grant_rows,
+    postread_active_grant_rows: after.active_grant_rows
   }, null, 2));
 } catch {
   console.error('ADMIN_PRINCIPAL_PROVISION=FAIL database operation failed');
