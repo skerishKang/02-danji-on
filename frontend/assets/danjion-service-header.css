@@ -1,5 +1,34 @@
 /* DanjiOn canonical authenticated-service header (#520).
    Desktop only: mobile page shells/bottom-nav remain page-owned. */
+.danjion-service-header .identity.danjion-guest-auth-host{
+  display:flex!important;
+  align-items:center!important;
+  justify-content:flex-end!important;
+  min-width:0!important;
+  max-width:none!important;
+  overflow:visible!important;
+}
+.danjion-service-header .danjion-guest-auth-entry{
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  min-height:38px!important;
+  padding:0 12px!important;
+  border:1px solid var(--ink,#101317)!important;
+  background:transparent!important;
+  color:var(--ink,#101317)!important;
+  text-decoration:none!important;
+  font-family:inherit!important;
+  font-size:12px!important;
+  font-weight:850!important;
+  line-height:1!important;
+  white-space:nowrap!important;
+}
+.danjion-service-header .danjion-guest-auth-entry:hover,
+.danjion-service-header .danjion-guest-auth-entry:focus-visible{
+  background:var(--ink,#101317)!important;
+  color:#fff!important;
+}
 @media (min-width:761px){
   .danjion-service-header{
     height:76px!important;
@@ -171,5 +200,15 @@
 
 @media (max-width:760px){
   body .danjion-service-header .identity.danjion-account-host{display:none!important}
+  body .danjion-service-header .identity.danjion-guest-auth-host{
+    display:flex!important;
+    max-width:none!important;
+    overflow:visible!important;
+  }
+  .danjion-service-header .danjion-guest-auth-entry{
+    min-height:34px!important;
+    padding:0 10px!important;
+    font-size:11px!important;
+  }
   .danjion-service-header .desktop-nav{display:none!important}
 }
