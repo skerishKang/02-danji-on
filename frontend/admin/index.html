@@ -523,7 +523,7 @@
       lead.append(roleSummary);
       const tabs=el('nav',undefined,'admin-tabs');tabs.setAttribute('aria-label','운영관리 메뉴');
       const panel=el('section',undefined,'admin-panel');
-      const note=el('p','등록 신청 심사, 단지소식, 주민혜택 관리는 기존 서버 권한으로 처리할 수 있습니다. 최고관리 쓰기 작업은 별도 검토·승인 전까지 비활성화됩니다.','admin-note');
+      const note=el('p','등록 신청 심사, 단지소식, 주민혜택 관리는 기존 서버 권한으로 처리할 수 있습니다. 최고관리자만 사용자·권한 관리를 사용할 수 있으며, 전체 감사·민감정보·시스템 관리는 아직 비활성화되어 있습니다.','admin-note');
       main.append(lead,tabs,note,panel);
       const open=(tab)=>{
         [...tabs.children].forEach((button)=>button.classList.toggle('active',button===tab.button));
