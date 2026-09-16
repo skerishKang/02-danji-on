@@ -39,7 +39,7 @@
       requiredScope: 'resident_news.review',
       title: '주민소식 검토',
       description: '게시 대기 중인 주민소식 원고를 조회합니다.',
-      path: (slug) => `/api/v1/operator/complexes/${slug}/resident-news/submissions?status=pending`
+      path: (slug) => `/api/v1/operator/complexes/${slug}/resident-news/submissions?status=submitted`
     },
     {
       id: 'posts',
