@@ -178,10 +178,33 @@
 </style>
 <link rel="stylesheet" href="assets/danjion-service-header.css">
 <link rel="stylesheet" href="assets/danjion-interaction-polish.css">
+<style id="myinfo-member-gate-637">
+.myinfo-access-gate{width:min(1180px,calc(100% - 40px));min-height:calc(100vh - var(--header));margin:0 auto;display:grid;place-items:center;padding:56px 0}
+.myinfo-access-gate[hidden]{display:none}
+.myinfo-access-card{width:min(620px,100%);border:1px solid var(--line);background:var(--paper);padding:40px;text-align:center;box-shadow:0 18px 50px rgba(16,29,48,.08)}
+.myinfo-access-card small{display:block;color:var(--coral);font-weight:900;letter-spacing:.08em;margin-bottom:10px}
+.myinfo-access-card h1{font-size:clamp(32px,5vw,50px);margin:0 0 14px;letter-spacing:-.045em}
+.myinfo-access-card p{margin:0 auto;color:var(--muted);line-height:1.7;max-width:470px}
+.myinfo-access-actions{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;margin-top:26px}
+.myinfo-access-actions a{min-height:48px;display:inline-flex;align-items:center;justify-content:center;padding:0 20px;border:1px solid var(--ink);text-decoration:none;color:var(--ink);font-weight:900;background:#fff}
+.myinfo-access-actions .primary{background:var(--ink);color:#fff}
+@media(max-width:760px){.myinfo-access-gate{width:100%;padding:28px 20px 96px}.myinfo-access-card{padding:30px 20px}.myinfo-access-actions{display:grid}.myinfo-access-actions a{width:100%}}
+</style>
 </head>
 <body data-danjion-page="19">
 <header class="site-header topbar danjion-service-header"><div class="header-inner topbar-inner"><button class="brand" data-route="04_데일리홈.html" type="button"><span class="wordmark">단지온</span><small>DANJION by PADIEM</small></button><nav aria-label="주요 메뉴" class="desktop-nav nav"><button data-route="04_데일리홈.html" type="button">홈</button><button data-route="index.html?intro=1" type="button">인트로</button><button data-route="01_이웃가게_발견.html" type="button">이웃가게</button><button data-route="05_우리단지_첫화면.html" type="button">우리단지</button><button aria-current="page" class="active" data-route="19_내정보_메인.html" type="button">내정보</button></nav><div class="identity" data-account-host>방림명지로드힐</div><div class="mobile-head">내정보</div></div></header>
-<main>
+<section class="myinfo-access-gate" id="myinfoAccessGate" aria-live="polite">
+  <div class="myinfo-access-card">
+    <small>MY DANJION</small>
+    <h1 id="myinfoAccessTitle">내정보를 확인하고 있습니다.</h1>
+    <p id="myinfoAccessCopy">로그인 상태를 안전하게 확인한 뒤 내 활동과 우리집 정보를 보여드립니다.</p>
+    <div class="myinfo-access-actions">
+      <a class="primary" id="myinfoGuestLogin" href="index.html?auth=login" hidden>로그인 · 가입</a>
+      <a href="04_데일리홈.html">홈으로</a>
+    </div>
+  </div>
+</section>
+<main id="myinfoPrivateContent" hidden>
 <section class="page-head"><div><div class="eyebrow">MY DANJION</div><h1>내정보</h1></div><div class="page-side"><div class="page-copy"><b>내 활동과 우리집, 메시지를 한곳에서 확인하세요.</b>자주 쓰는 정보는 이 화면에서 바로 확인할 수 있습니다.</div></div></section>
 <section class="profile-grid">
 <article class="profile-hero">
@@ -430,7 +453,19 @@ if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt
     return s?s+' 가입':DASH;
   }
   var n={avatar:$('mi-avatar'),nickname:$('mi-nickname'),joined:$('mi-joined'),household:$('mi-household'),unread:$('mi-unread'),sp:$('mi-stat-posts'),sc:$('mi-stat-comments'),sr:$('mi-stat-reactions'),mp:$('mi-menu-posts'),mc:$('mi-menu-comments'),mr:$('mi-menu-reactions'),ms:$('mi-menu-saved'),mb:$('mi-menu-benefits')};
+  var accessGate=$('myinfoAccessGate'),privateContent=$('myinfoPrivateContent'),accessTitle=$('myinfoAccessTitle'),accessCopy=$('myinfoAccessCopy'),guestLogin=$('myinfoGuestLogin');
   ['avatar','nickname','joined','household','unread','sp','sc','sr','mp','mc','mr','ms','mb'].forEach(function(k){setTxt(n[k],DASH);});
+  function showGuestGate(state){
+    if(privateContent)privateContent.hidden=true;
+    if(accessGate)accessGate.hidden=false;
+    setTxt(accessTitle,state==='error'?'로그인 상태를 확인할 수 없습니다.':'내정보는 로그인 후 확인할 수 있습니다.');
+    setTxt(accessCopy,state==='error'?'개인정보 보호를 위해 내정보를 열지 않았습니다. 다시 로그인한 뒤 이용해 주세요.':'메시지·우리집·활동·설정은 로그인한 회원에게만 표시됩니다.');
+    if(guestLogin)guestLogin.hidden=false;
+  }
+  function showPrivateContent(){
+    if(accessGate)accessGate.hidden=true;
+    if(privateContent)privateContent.hidden=false;
+  }
   var bridge=B.createResidentBridge({apiBase:cfg.apiBase,complexSlug:cfg.complexSlug});
   var serverProfile=null;
   function toast(t){if(typeof window.showToast==='function')window.showToast(t);}
@@ -492,22 +527,38 @@ if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt
     if(resend)resend.hidden=true;
   }
   function sessionIdentity(){
-    var sp=S&&typeof S.fetchSession==='function'?S.fetchSession(fetch):Promise.resolve(null);
-    var ap=S&&typeof S.fetchLinkedAccounts==='function'?S.fetchLinkedAccounts(fetch):Promise.resolve(null);
-    return Promise.all([sp,ap]).then(function(values){
-      var result=values[0],accounts=values[1];
-      var ready=S&&typeof S.nativeSessionReady==='function'&&S.nativeSessionReady(result);
-      var user=ready&&result.raw.user&&typeof result.raw.user==='object'?result.raw.user:null;
-      var authKind=S&&typeof S.accountAuthKind==='function'?S.accountAuthKind(accounts):null;
-      if(user){
-        var name=S&&typeof S.visibleAccountIdentity==='function'?S.visibleAccountIdentity(user,authKind):'';
+    if(!S||typeof S.fetchSession!=='function'){
+      renderEmailState(null,null);
+      return Promise.resolve({user:null,authKind:null,state:'error'});
+    }
+    return S.fetchSession(fetch).then(function(result){
+      var ready=typeof S.nativeSessionReady==='function'&&S.nativeSessionReady(result);
+      var user=ready&&result&&result.raw&&result.raw.user&&typeof result.raw.user==='object'?result.raw.user:null;
+      if(!user){
+        renderEmailState(null,null);
+        return {user:null,authKind:null,state:'guest'};
+      }
+      var accountsPromise=typeof S.fetchLinkedAccounts==='function'?S.fetchLinkedAccounts(fetch):Promise.resolve(null);
+      return Promise.resolve(accountsPromise).then(function(accounts){
+        var authKind=typeof S.accountAuthKind==='function'?S.accountAuthKind(accounts):null;
+        var name=typeof S.visibleAccountIdentity==='function'?S.visibleAccountIdentity(user,authKind):'';
         setTxt(n.nickname,name?name+'님':DASH);
         setTxt(n.avatar,name?name.charAt(0):DASH);
         setTxt(n.joined,user.createdAt?fmtJoined(String(user.createdAt)):DASH);
-      }
-      renderEmailState(user,authKind);
-      return {user:user,authKind:authKind};
-    },function(){renderEmailState(null,null);return {user:null,authKind:null};});
+        renderEmailState(user,authKind);
+        return {user:user,authKind:authKind,state:'member'};
+      },function(){
+        var name=typeof S.visibleAccountIdentity==='function'?S.visibleAccountIdentity(user,null):'';
+        setTxt(n.nickname,name?name+'님':DASH);
+        setTxt(n.avatar,name?name.charAt(0):DASH);
+        setTxt(n.joined,user.createdAt?fmtJoined(String(user.createdAt)):DASH);
+        renderEmailState(user,null);
+        return {user:user,authKind:null,state:'member'};
+      });
+    },function(){
+      renderEmailState(null,null);
+      return {user:null,authKind:null,state:'error'};
+    });
   }
   function bindEmailResend(){
     var resend=$('mi-email-resend');
@@ -625,11 +676,17 @@ if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt
       return AA.hasResidentVerificationExemption(authority)===true;
     },function(){return false;});
   }
-  Promise.all([sessionIdentity(),resolveResidentExemption()]).then(function(values){
-    var identity=values[0],exempt=values[1];
-    if(exempt){loadExemptIdentity(identity&&identity.user);return;}
-    loadResidentData();
-    loadResidentState();
+  sessionIdentity().then(function(identity){
+    if(!identity||!identity.user){
+      showGuestGate(identity&&identity.state==='error'?'error':'guest');
+      return;
+    }
+    showPrivateContent();
+    return resolveResidentExemption().then(function(exempt){
+      if(exempt){loadExemptIdentity(identity.user);return;}
+      loadResidentData();
+      loadResidentState();
+    });
   });
 })();
 </script>
