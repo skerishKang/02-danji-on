@@ -49,7 +49,7 @@ assert.match(session, /guestAuth\.href = 'index\.html\?auth=login'/,
   'guest service entry must route only to the canonical landing auth intent');
 assert.match(session, /guestAuth\.textContent = '로그인 · 가입'/);
 assert.match(session, /guestAuth\.setAttribute\('aria-label', '로그인 또는 가입'\)/);
-assert.doesNotMatch(session, /guestAuth\.href[^\\r\\n]*(?:email|user|accountId|token)/i,
+assert.doesNotMatch(session, /guestAuth\.href\s*=\s*['"][^'"]*(?:email|user|accountId|token)/i,
   'guest auth route must never carry identity/session values');
 assert.match(session, /host\.classList\.remove\('danjion-account-host'\)[\s\S]*host\.classList\.add\('danjion-guest-auth-host'\)/,
   'signed-out shell must not masquerade as the authenticated account host');
