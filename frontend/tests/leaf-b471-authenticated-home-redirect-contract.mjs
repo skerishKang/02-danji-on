@@ -8,8 +8,9 @@ import { readFile } from 'node:fs/promises';
 const index = await readFile(new URL('../index.html', import.meta.url), 'utf8');
 const consistency = await readFile(new URL('../assets/consistency.js', import.meta.url), 'utf8');
 
-assert.ok(index.includes("serverSessionCheck().then((real)=>{"),
-  'landing must still resolve the real server session');
+assert.ok(index.includes("async function reconcileLandingSession()") &&
+          index.includes("const real=await serverSessionCheck();"),
+  'landing must still resolve the real server session through the centralized reconciliation path');
 assert.ok(index.includes("memberMode=real;sessionResolved=true;syncMemberState();"),
   'session state must still resolve on Intro');
 assert.equal(index.includes("const explicitIntro=new URLSearchParams(location.search).get('intro')==='1'"), false,
@@ -18,7 +19,7 @@ assert.equal(index.includes("if(real&&!explicitIntro){location.replace('04_데�
   'authenticated root/Intro visits must not be bounced to Home');
 assert.ok(index.includes("location.replace('04_데일리홈.html')"),
   'successful email login must still continue into the service Home');
-assert.ok(index.includes("else{sessionStorage.removeItem('danjionMember');"),
+assert.match(index, /else\{\s*sessionStorage\.removeItem\('danjionMember'\);[\s\S]*sessionStorage\.removeItem\('danjionSignedUp'\);[\s\S]*sessionStorage\.removeItem\('danjionAuthPending'\);\s*\}/,
   'unauthenticated resolution must still clear stale member state');
 assert.ok(index.includes("function finishDanjionLogout()"),
   'logout behavior must remain present');
