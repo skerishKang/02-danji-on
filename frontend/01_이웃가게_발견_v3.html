@@ -1172,7 +1172,7 @@ async function openReview(keepLoaded){const s=byKey[active];if(!s)return;if(!kee
    if(r.ok){closeShopInquiry();flash('문의가 접수됐습니다.');return}
    if(r.mode==='error'){flash('문의 접수에 실패했습니다.');return}}
   let arr=[];try{arr=JSON.parse(localStorage.getItem('danjion:demo:shop-inquiries')||'[]')}catch(_){}arr.unshift({type:'shop_inquiry',shopKey:active,shopName:sh.name,recipientType:'shop_owner',recipientDisplay:sh.name,subject,text,at:new Date().toISOString()});localStorage.setItem('danjion:demo:shop-inquiries',JSON.stringify(arr.slice(0,50)));closeShopInquiry();flash('문의가 접수됐습니다.')}
- function openShop(key){active=byKey[key]?key:(byKey['florist']?'florist':(SHOP_DATA[0]?SHOP_DATA[0].key:'florist'));const s=byKey[active];const relTxt=s.relation;const relCls=(s.relation==='우리 주민 가게')?'rel-owner':((s.relation==='주민 가족 가게')?'rel-family':((s.relation==='이웃단지 가게'||s.relation==='이웃가게')?'rel-neighbor':'rel-family'));[['shopCompareRelation',relTxt],['shopCompareTitle',s.name],['shopCompareDesc',s.desc],['shopCompareService',s.service],['shopCompareWay',s.way],['shopCompareLocation',s.location||'단지 인근 생활권'],['shopCompareContact',s.contact||'1:1 문의로 확인'],['shopCompareBenefit',s.benefit]].forEach(([id,v])=>document.getElementById(id).textContent=v);document.getElementById('shopCompareRelation').className='shop-compare-kicker '+relCls;renderReviewPreview(s);const img=document.getElementById('shopCompareImage');img.src=s.image;img.alt=s.name+' 대표 이미지';img.style.objectPosition='50% 50%';const gallery=document.getElementById('shopCompareGallery'),positions=['50% 50%','30% 55%','75% 45%'];gallery.innerHTML=positions.map((pos,i)=>`<button type="button" class="${i===0?'active':''}" data-pos="${pos}" aria-label="사진 ${i+1}"><img src="${s.image}" alt=""></button>`).join('');gallery.querySelectorAll('button').forEach(b=>b.onclick=()=>{gallery.querySelectorAll('button').forEach(x=>x.classList.remove('active'));b.classList.add('active');img.style.objectPosition=b.dataset.pos});syncModalSave();modal.classList.add('open');modal.setAttribute('aria-hidden','false');document.body.style.overflow='hidden'}
+ function openShop(key){const s=byKey[key]||byKey['florist']||SHOP_DATA[0];if(!s)return;active=s.key;const relTxt=s.relation;const relCls=(s.relation==='우리 주민 가게')?'rel-owner':((s.relation==='주민 가족 가게')?'rel-family':((s.relation==='이웃단지 가게'||s.relation==='이웃가게')?'rel-neighbor':'rel-family'));[['shopCompareRelation',relTxt],['shopCompareTitle',s.name],['shopCompareDesc',s.desc],['shopCompareService',s.service],['shopCompareWay',s.way],['shopCompareLocation',s.location||'단지 인근 생활권'],['shopCompareContact',s.contact||'1:1 문의로 확인'],['shopCompareBenefit',s.benefit]].forEach(([id,v])=>document.getElementById(id).textContent=v);document.getElementById('shopCompareRelation').className='shop-compare-kicker '+relCls;renderReviewPreview(s);const img=document.getElementById('shopCompareImage');img.src=s.image;img.alt=s.name+' 대표 이미지';img.style.objectPosition='50% 50%';const gallery=document.getElementById('shopCompareGallery'),positions=['50% 50%','30% 55%','75% 45%'];gallery.innerHTML=positions.map((pos,i)=>`<button type="button" class="${i===0?'active':''}" data-pos="${pos}" aria-label="사진 ${i+1}"><img src="${s.image}" alt=""></button>`).join('');gallery.querySelectorAll('button').forEach(b=>b.onclick=()=>{gallery.querySelectorAll('button').forEach(x=>x.classList.remove('active'));b.classList.add('active');img.style.objectPosition=b.dataset.pos});syncModalSave();modal.classList.add('open');modal.setAttribute('aria-hidden','false');document.body.style.overflow='hidden'}
  function closeShop(){modal.classList.remove('open');modal.setAttribute('aria-hidden','true');if(!coupon.classList.contains('open')&&!review.classList.contains('open'))document.body.style.overflow=''}
  function openCoupon(key){const s=byKey[key];if(!s)return;active=key;document.getElementById('shopCouponShop').textContent=s.name+' · '+s.relation;document.getElementById('shopCouponTitle').textContent=s.benefit;document.getElementById('shopCouponValue').textContent=s.value;document.getElementById('shopCouponCode').textContent=s.code;document.getElementById('shopCouponNote').textContent='예약·문의 또는 방문 시 방림명지로드힐 주민임을 확인한 뒤 적용합니다. 실제 제공 조건은 가게 안내를 우선합니다.';syncCouponStore();coupon.classList.add('open');coupon.setAttribute('aria-hidden','false');document.body.style.overflow='hidden'}
  function syncCouponStore(){document.getElementById('shopCouponStore').textContent=savedBenefits().includes(active)?'✓ 내 혜택에 보관됨':'내 혜택에 보관'}
@@ -1235,6 +1235,7 @@ grid.addEventListener('click',e=>{
      name:b.name||('이웃가게 '+(i+1)),
      relation,
      image:(b.representative_image_object_key??b.representativeImageObjectKey)||'assets/scene-car.webp',
+     representativeImageObjectKey:(b.representative_image_object_key??b.representativeImageObjectKey)||'',
      desc:desc||'등록된 소개가 아직 없습니다.',
      service:service||'1:1 문의로 확인',
      way:'가게 안내에 따릅니다.',
@@ -1246,6 +1247,39 @@ grid.addEventListener('click',e=>{
       code:benefit.code||'DANJION · API',
       benefitId:BENEFIT_ID_UUID.test(benefitIdValue)?benefitIdValue:''
    };
+ }
+ function normalizedBusinessName(v){return String(v||'').replace(/\s+/g,' ').trim().toLowerCase()}
+ function liveBusinessImage(v){
+   const key=String(v||'').trim();
+   const prefix='gdrive/public/business-image/';
+   const objectId=key.startsWith(prefix)?key.slice(prefix.length):'';
+   return objectId&&/^[A-Za-z0-9_-]+$/.test(objectId)
+     ? DISCOVERY_API_BASE+'/api/v1/storage/public?objectKey='+encodeURIComponent(key)
+     : '';
+ }
+ function reconcileApiShop(live,staticByName){
+   const base=staticByName.get(normalizedBusinessName(live.name));
+   const resolvedImage=liveBusinessImage(live.representativeImageObjectKey);
+   if(!base)return {...live,image:resolvedImage||live.image};
+   return {
+     ...base,
+     ...live,
+     image:resolvedImage||(live.image&&live.image!=='assets/scene-car.webp'?live.image:base.image),
+     desc:live.desc&&live.desc!=='등록된 소개가 아직 없습니다.'?live.desc:base.desc,
+     service:live.service&&live.service!=='1:1 문의로 확인'?live.service:base.service,
+     way:base.way,
+     location:live.location&&live.location!=='단지 인근 생활권'?live.location:base.location,
+     contact:base.contact,
+     reviews:Array.isArray(live.reviews)&&live.reviews.length?live.reviews:base.reviews,
+     benefit:live.benefit&&live.benefit!=='주민 전용 혜택'?live.benefit:base.benefit,
+     value:live.value&&live.value!=='혜택'?live.value:base.value,
+     code:live.code&&live.code!=='DANJION · API'?live.code:base.code,
+     presentationKey:base.key
+   };
+ }
+ function reconcileApiShops(list){
+   const staticByName=new Map(SHOP_DATA.map(s=>[normalizedBusinessName(s.name),s]));
+   return list.map(live=>reconcileApiShop(live,staticByName));
  }
  function apiShops(){
    const base=DISCOVERY_API_BASE||location.origin;
@@ -1263,13 +1297,14 @@ grid.addEventListener('click',e=>{
      })
      .catch(err=>{if(timer)clearTimeout(timer);throw err});
  }
- /* API 성공 → SHOP_DATA 교체 + 재렌더 / 실패(빈 DB 포함) → 기존 SHOP_DATA fallback */
+ /* API 성공 → V3 presentation에 live authority를 reconcile + 재렌더 / 실패(빈 DB 포함) → 기존 SHOP_DATA fallback */
  try{
    apiShops().then(list=>{
+     const reconciled=reconcileApiShops(list);
      SHOP_DATA.length=0;
-     Array.prototype.push.apply(SHOP_DATA,list);
+     Array.prototype.push.apply(SHOP_DATA,reconciled);
      Object.keys(byKey).forEach(k=>delete byKey[k]);
-     list.forEach(s=>{byKey[s.key]=s});
+     reconciled.forEach(s=>{byKey[s.key]=s;if(s.presentationKey)byKey[s.presentationKey]=s});
      currentFilter='all';query='';
      document.getElementById('searchInput').value='';
      document.querySelectorAll('.filter').forEach(b=>b.classList.toggle('active',b.dataset.filter==='all'));
