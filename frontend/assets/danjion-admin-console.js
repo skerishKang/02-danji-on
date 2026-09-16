@@ -4,10 +4,10 @@
   // Issue #460 [admin production] + #607 [bounded review actions]: the canonical
   // V3 admin console surface. Per-section access is decided by the SERVER
   // (403 = scope not granted, 503 = policy hold), never by client-side role
-  // inference. #607 activates business-application review PATCH and #609
-  // activates the pre-existing official-news POST/PATCH family. All remaining
-  // operational writes and the privileged (최고관리) area stay disabled until
-  // separately reviewed.
+  // inference. #607 activates business-application review PATCH, #609 activates
+  // official-news POST/PATCH, and #611 activates resident-benefit POST/PATCH.
+  // All remaining operational writes and the privileged (최고관리) area stay
+  // disabled until separately reviewed.
   const COMPLEX_SLUG = 'banglim-myeongji-roadhill';
 
   const OPERATIONAL_SECTIONS = [
@@ -52,8 +52,9 @@
       id: 'benefits',
       requiredScope: 'benefit.manage',
       title: '주민혜택',
-      description: '운영 중인 주민혜택 목록을 조회합니다.',
-      path: (slug) => `/api/v1/complexes/${slug}/benefits`
+      description: '주민혜택을 등록하고 초안·활성·중지·만료 상태를 관리합니다.',
+      path: (slug) => `/api/v1/admin/complexes/${slug}/benefits?status=all`,
+      benefitActions: true
     },
     {
       id: 'verifications',
@@ -66,6 +67,7 @@
 
   const APPLICATION_REVIEW_STATUSES = Object.freeze(['approved', 'changes_requested', 'rejected']);
   const POST_STATUSES = Object.freeze(['draft', 'published', 'archived']);
+  const BENEFIT_STATUSES = Object.freeze(['draft', 'active', 'expired', 'suspended']);
   const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
   // #460: 최고관리 write endpoints do not exist yet — every control stays
@@ -190,6 +192,76 @@
     return classifyPostMutation(result);
   }
 
+  async function loadBenefitBusinesses(fetchImpl, apiBase, slug) {
+    const session = global.DanjionSession;
+    const result = await session.request(
+      fetchImpl,
+      session.joinUrl(String(apiBase || ''), '/api/v1/complexes/' + encodeURIComponent(slug || COMPLEX_SLUG) + '/businesses?limit=50')
+    );
+    const code = result && result.error && result.error.code ? String(result.error.code) : '';
+    if (result.ok) return { state: 'ready', rows: extractRows(result.data), status: result.status, code };
+    if (result.status === 401) return { state: 'signed-out', status: 401, code };
+    if (result.reason === 'network-error' || result.status === 0) return { state: 'network-error', status: 0, code };
+    return { state: 'error', status: Number(result.status || 0), code };
+  }
+
+  function normalizeBenefitInput(input, requireBusiness) {
+    const value = input && typeof input === 'object' ? input : {};
+    const businessId = String(value.businessId || '').trim();
+    const title = String(value.title || '').trim();
+    const description = String(value.description || '');
+    const conditions = String(value.conditions || '').trim();
+    const startsAt = String(value.startsAt || '').trim();
+    const endsAt = String(value.endsAt || '').trim();
+    const status = String(value.status || '').trim();
+    if ((requireBusiness && !UUID_RE.test(businessId)) || !title || !BENEFIT_STATUSES.includes(status)) return null;
+    return {
+      ...(requireBusiness ? { businessId } : {}),
+      title,
+      description,
+      conditions: conditions || null,
+      startsAt: startsAt || null,
+      endsAt: endsAt || null,
+      status
+    };
+  }
+
+  function classifyBenefitMutation(result) {
+    const code = result && result.error && result.error.code ? String(result.error.code) : '';
+    if (result && result.ok) return { state: 'updated', data: result.data, status: result.status, code };
+    if (result && result.status === 401) return { state: 'signed-out', status: 401, code };
+    if (result && result.status === 403) return { state: 'scope-denied', status: 403, code };
+    if (result && result.status === 404) return { state: 'not-found', status: 404, code };
+    if (result && result.status === 409) return { state: 'conflict', status: 409, code };
+    if (!result || result.reason === 'network-error' || result.status === 0) return { state: 'network-error', status: 0, code };
+    return { state: 'error', status: Number(result.status || 0), code };
+  }
+
+  async function createResidentBenefit(fetchImpl, apiBase, input, slug) {
+    const payload = normalizeBenefitInput(input, true);
+    if (!payload) return { state: 'invalid-request', status: 0, code: 'INVALID_BENEFIT_REQUEST' };
+    const session = global.DanjionSession;
+    const result = await session.request(
+      fetchImpl,
+      session.joinUrl(String(apiBase || ''), '/api/v1/admin/complexes/' + encodeURIComponent(slug || COMPLEX_SLUG) + '/benefits'),
+      { method: 'POST', body: JSON.stringify(payload) }
+    );
+    return classifyBenefitMutation(result);
+  }
+
+  async function updateResidentBenefit(fetchImpl, apiBase, benefitId, input) {
+    const id = String(benefitId || '').trim();
+    const payload = normalizeBenefitInput(input, false);
+    if (!UUID_RE.test(id) || !payload) return { state: 'invalid-request', status: 0, code: 'INVALID_BENEFIT_REQUEST' };
+    const session = global.DanjionSession;
+    const result = await session.request(
+      fetchImpl,
+      session.joinUrl(String(apiBase || ''), '/api/v1/admin/benefits/' + encodeURIComponent(id)),
+      { method: 'PATCH', body: JSON.stringify(payload) }
+    );
+    return classifyBenefitMutation(result);
+  }
+
   function rowTitle(row) {
     if (!row || typeof row !== 'object') return '';
     const value = row.businessName ?? row.title ?? row.name ?? row.business_name ?? '';
@@ -219,12 +291,16 @@
     PRIVILEGED_PLACEHOLDERS,
     APPLICATION_REVIEW_STATUSES,
     POST_STATUSES,
+    BENEFIT_STATUSES,
     extractRows,
     consoleSections,
     loadSection,
     reviewBusinessApplication,
     createOfficialPost,
     updateOfficialPost,
+    loadBenefitBusinesses,
+    createResidentBenefit,
+    updateResidentBenefit,
     rowTitle,
     rowStatus,
     rowMeta
