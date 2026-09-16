@@ -165,9 +165,9 @@ assert.ok(index.includes(`showToast('로그아웃되었습니다.')`), 'logout s
 /* ================= 4. one-time login-success toast after the OAuth round trip ================= */
 assert.ok(index.includes(`q.set('requestSignUp','1');sessionStorage.setItem('danjionAuthPending','1');location.href=__session.joinUrl(__session.danjionAuthBase(),'/auth/social-start')`),
   'social start must arm the one-time pending marker before leaving the page');
-assert.match(index, /if\(sessionStorage\.getItem\('danjionAuthPending'\)==='1'\)\{sessionStorage\.removeItem\('danjionAuthPending'\);showToast\('로그인되었습니다\.'\)\}/,
+assert.match(index, /if\(sessionStorage\.getItem\('danjionAuthPending'\)==='1'\)\{\s*sessionStorage\.removeItem\('danjionAuthPending'\);\s*showToast\('로그인되었습니다\.'\);?\s*\}/,
   'the confirmed session must consume the marker once and toast 로그인되었습니다.');
-assert.match(index, /sessionStorage\.removeItem\('danjionMember'\);sessionStorage\.removeItem\('danjionSignedUp'\);sessionStorage\.removeItem\('danjionAuthPending'\)/,
+assert.match(index, /sessionStorage\.removeItem\('danjionMember'\);\s*sessionStorage\.removeItem\('danjionSignedUp'\);\s*sessionStorage\.removeItem\('danjionAuthPending'\)/,
   'a rejected session check must drop the stale pending marker too');
 assert.match(index, /memberMode=real;sessionResolved=true;syncMemberState\(\)/,
   'the startup auth UI must become visible only after the server session verdict resolves');
