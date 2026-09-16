@@ -47,6 +47,16 @@ assert.match(
 );
 assert.match(
   workflow,
+  /if curl --silent --show-error --fail --location \\\n\s+--header 'Cache-Control: no-cache'[\s\S]*\$\{CANONICAL_PAGES_URL\}\/\$\{encoded_path\}\?release=\$\{GITHUB_SHA\}-leaf-/,
+  '#602: leaf parity fetches must follow Cloudflare clean-URL redirects before hashing'
+);
+assert.doesNotMatch(
+  workflow,
+  /if curl --silent --show-error --fail \\\n\s+--header 'Cache-Control: no-cache'[\s\S]*\$\{CANONICAL_PAGES_URL\}\/\$\{encoded_path\}\?release=\$\{GITHUB_SHA\}-leaf-/,
+  '#602: primary leaf verifier must not regress to non-redirect-following curl'
+);
+assert.match(
+  workflow,
   /actual_leaf_sha="HTTP_ERROR"/,
   '#589: transient HTTP failures must stay inside the bounded retry loop instead of aborting immediately'
 );
@@ -78,4 +88,4 @@ assert.deepEqual(
   '#589: a permanent stale/mismatched edge must still exhaust the budget and fail closed'
 );
 
-console.log('PASS #589 Pages leaf propagation verification is bounded, cache-busted, and fail-closed');
+console.log('PASS #589/#602 Pages leaf verification is bounded, cache-busted, redirect-safe, and fail-closed');
