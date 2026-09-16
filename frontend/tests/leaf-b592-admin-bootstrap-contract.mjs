@@ -99,8 +99,10 @@ function response(status, payload, seen) {
   assert.ok(adminPage.includes("if(state==='denied'&&bootstrapApi)"),
     'activation action must only appear after server authority denial');
   assert.ok(adminPage.includes("bootstrapApi.bootstrapAuthority(fetch)"));
-  assert.ok(adminPage.includes("authority.hasAdminSurface(outcome)){renderConsole(outcome)"),
-    'successful bootstrap must still pass strict canonical authority shape before console render');
+  assert.ok(adminPage.includes("const canonicalGrant=await authority.fetchAuthority(fetch)"),
+    'successful bootstrap must re-read the canonical authority endpoint');
+  assert.ok(adminPage.includes("authority.hasAdminSurface(canonicalGrant)){renderConsole(canonicalGrant)"),
+    'console render must use the canonical post-bootstrap authority readback, not the bootstrap response directly');
   assert.ok(adminPage.includes('등록된 관리자 권한 확인'));
   assert.ok(adminPage.includes('일반 Google 로그인만으로는 관리자 권한이 생기지 않습니다.'));
   assert.ok(adminPage.includes("outcome.state==='not-registered'"));
