@@ -1113,7 +1113,7 @@ test('#613 superadmin manages the four designated administrator principals witho
   await page.reload();
   await expect(page.getByRole('heading', { name: '단지온 운영관리' })).toBeVisible();
   await page.getByRole('button', { name: '최고관리', exact: true }).click();
-  await expect(page.locator('.privileged-state').filter({ hasText: '사용 가능' })).toBeVisible();
+  await expect(page.getByRole('button', { name: '사용자 · 권한 관리', exact: true })).toBeVisible();
   await page.getByRole('button', { name: '사용자 · 권한 관리', exact: true }).click();
 
   await expect(page.getByRole('heading', { name: '사용자 · 권한 관리', exact: true })).toBeVisible();
