@@ -146,7 +146,7 @@ test('Home executes businesses SUCCESS authority path, setScene, canonical detai
   await expect(detail).toHaveAttribute('data-shop-key', firstKey);
   await expect(detail).toHaveAttribute(
     'data-route',
-    '01_이웃가게_발견.html?shop=' + firstKey + '&from=home'
+    '01_이웃가게_발견_v3.html?shop=' + firstKey + '&from=home'
   );
   await expect(page.locator('#shopName')).toHaveText(BUSINESSES[0].name);
 
@@ -164,6 +164,7 @@ test('Shops resolves an API shop deep-link only after authority replacement and 
   const guard = await installGuard(page);
   const key = 'api-' + BUSINESSES[1].id;
   await page.goto(withApi('/01_%EC%9D%B4%EC%9B%83%EA%B0%80%EA%B2%8C_%EB%B0%9C%EA%B2%AC.html?shop=' + encodeURIComponent(key) + '&from=home'));
+  await expect(page).toHaveURL(/01_%EC%9D%B4%EC%9B%83%EA%B0%80%EA%B2%8C_%EB%B0%9C%EA%B2%AC_v3(?:\.html)?\?/);
 
   const card = page.locator('[data-shop-key="' + key + '"]').first();
   await expect(card).toBeVisible();
@@ -172,6 +173,14 @@ test('Shops resolves an API shop deep-link only after authority replacement and 
   expect(page.url()).toContain('shop=' + encodeURIComponent(key));
   expect(page.url()).toContain('from=home');
   expect(page.url()).not.toContain('02_%EC%9D%B4%EC%9B%83%EA%B0%80%EA%B2%8C_%EC%83%81%EC%84%B8');
+
+  const inactiveNav = page.locator('.desktop-nav button:not(.active)').first();
+  await expect(inactiveNav).toBeVisible();
+  const beforeTransform = await inactiveNav.evaluate(el => getComputedStyle(el, '::after').transform);
+  await inactiveNav.hover();
+  await page.waitForTimeout(250);
+  const afterTransform = await inactiveNav.evaluate(el => getComputedStyle(el, '::after').transform);
+  expect(afterTransform).not.toBe(beforeTransform);
 
   await guard.assertClean();
 });
