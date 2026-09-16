@@ -906,3 +906,186 @@ test('#611 admin resident-benefit selects an approved business, creates a draft,
   expect(unexpectedMutations).toEqual([]);
   expect(pageErrors).toEqual([]);
 });
+
+
+test('#613 superadmin manages the four designated administrator principals without exposing the surface to operators', async ({ page }) => {
+  const pageErrors: string[] = [];
+  const unexpectedMutations: string[] = [];
+  const postBodies: any[] = [];
+  const patchBodies: any[] = [];
+  let rows: any[] = [
+    {
+      id: 'd0a1c4a1-0000-4000-8000-000000000061',
+      email: 'owner-super@example.com',
+      role: 'admin',
+      status: 'active',
+      scopes: ['*'],
+      runtimeUserCount: 1,
+      runtimeScopes: ['*'],
+      runtimeRole: 'admin'
+    },
+    {
+      id: 'd0a1c4a1-0000-4000-8000-000000000062',
+      email: 'sibling-super@example.com',
+      role: 'admin',
+      status: 'active',
+      scopes: ['*'],
+      runtimeUserCount: 1,
+      runtimeScopes: ['*'],
+      runtimeRole: 'admin'
+    },
+    {
+      id: 'd0a1c4a1-0000-4000-8000-000000000063',
+      email: 'owner-ops@example.com',
+      role: 'operator',
+      status: 'active',
+      scopes: ['benefit.manage','business.review','official-content.manage','resident_news.review'],
+      runtimeUserCount: 1,
+      runtimeScopes: ['benefit.manage','business.review','official-content.manage','resident_news.review'],
+      runtimeRole: 'operator'
+    }
+  ];
+
+  page.on('pageerror', error => pageErrors.push(error.stack || error.message));
+
+  await page.route('**/*', async route => {
+    const request = route.request();
+    const url = new URL(request.url());
+    const method = request.method().toUpperCase();
+    const local = url.origin === BASE;
+
+    if (!local) {
+      if (!['GET', 'HEAD', 'OPTIONS'].includes(method)) unexpectedMutations.push(method + ' ' + request.url());
+      await route.fulfill({ status: 204, body: '' });
+      return;
+    }
+
+    if (!url.pathname.startsWith('/api/')) {
+      await route.continue();
+      return;
+    }
+
+    if (url.pathname === '/api/v1/admin/authority' && method === 'GET') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          data: { level: 'admin', label: '최고관리자', wildcard: true, scopes: ['*'] }
+        })
+      });
+      return;
+    }
+
+    if (url.pathname === '/api/v1/admin/principals' && method === 'GET') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: rows })
+      });
+      return;
+    }
+
+    if (url.pathname === '/api/v1/admin/principals' && method === 'POST') {
+      const body = JSON.parse(request.postData() || '{}');
+      postBodies.push(body);
+      const row = {
+        id: 'd0a1c4a1-0000-4000-8000-000000000064',
+        email: body.email,
+        role: body.role,
+        status: 'active',
+        scopes: body.role === 'admin' ? ['*'] : ['benefit.manage','business.review','official-content.manage','resident_news.review'],
+        runtimeUserCount: 0,
+        runtimeScopes: [],
+        runtimeRole: 'none'
+      };
+      rows = [...rows, row];
+      await route.fulfill({
+        status: 201,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: row })
+      });
+      return;
+    }
+
+    const principalMatch = url.pathname.match(/^\/api\/v1\/admin\/principals\/([0-9a-f-]+)$/i);
+    if (principalMatch && method === 'PATCH') {
+      const body = JSON.parse(request.postData() || '{}');
+      patchBodies.push({ id: principalMatch[1], ...body });
+      rows = rows.map((row) => row.id === principalMatch[1]
+        ? {
+            ...row,
+            role: body.role,
+            status: body.status,
+            scopes: body.role === 'admin' ? ['*'] : ['benefit.manage','business.review','official-content.manage','resident_news.review'],
+            runtimeScopes: body.status === 'active' ? (body.role === 'admin' ? ['*'] : ['benefit.manage','business.review','official-content.manage','resident_news.review']) : [],
+            runtimeRole: body.status === 'active' ? body.role : 'none'
+          }
+        : row);
+      const updated = rows.find((row) => row.id === principalMatch[1]);
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: updated })
+      });
+      return;
+    }
+
+    if (!['GET', 'HEAD', 'OPTIONS'].includes(method)) {
+      unexpectedMutations.push(method + ' ' + url.pathname);
+      await route.fulfill({
+        status: 409,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: { code: 'TEST_MUTATION_BLOCKED' } })
+      });
+      return;
+    }
+
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ data: [] })
+    });
+  });
+
+  await page.goto(withApi('/admin/'));
+  await expect(page.getByRole('heading', { name: '단지온 운영관리' })).toBeVisible();
+
+  await page.getByRole('button', { name: '최고관리', exact: true }).click();
+  await expect(page.getByText('사용 가능', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: '사용자 · 권한 관리', exact: true }).click();
+
+  await expect(page.getByRole('heading', { name: '사용자 · 권한 관리', exact: true })).toBeVisible();
+  await expect(page.getByText('활성 최고관리자 2 / 목표 2', { exact: true })).toBeVisible();
+  await expect(page.getByText('활성 일반관리자 1 / 목표 2', { exact: true })).toBeVisible();
+
+  await page.getByLabel('관리자 이메일').fill('sibling-ops@example.com');
+  await page.locator('.principal-form').getByLabel('관리자 등급').selectOption('operator');
+  await page.getByLabel('관리자 등록 사유').fill('four-principal setup');
+  await page.getByRole('button', { name: '관리자 추가', exact: true }).click();
+
+  await expect.poll(() => postBodies.length).toBe(1);
+  expect(postBodies[0]).toEqual({
+    email: 'sibling-ops@example.com',
+    role: 'operator',
+    reason: 'four-principal setup'
+  });
+  await expect(page.getByText('활성 일반관리자 2 / 목표 2', { exact: true })).toBeVisible();
+
+  const newCard = page.locator('.principal-card').filter({ hasText: 'sibling-ops@example.com' });
+  await expect(newCard).toBeVisible();
+  await newCard.getByLabel('관리자 등급').selectOption('admin');
+  await newCard.getByLabel('권한 변경 사유').fill('temporary promotion check');
+  await newCard.getByRole('button', { name: '권한 변경 저장', exact: true }).click();
+
+  await expect.poll(() => patchBodies.length).toBe(1);
+  expect(patchBodies[0]).toMatchObject({
+    id: 'd0a1c4a1-0000-4000-8000-000000000064',
+    role: 'admin',
+    status: 'active',
+    reason: 'temporary promotion check'
+  });
+  await expect(page.getByText('활성 최고관리자 3 / 목표 2', { exact: true })).toBeVisible();
+
+  expect(unexpectedMutations).toEqual([]);
+  expect(pageErrors).toEqual([]);
+});
