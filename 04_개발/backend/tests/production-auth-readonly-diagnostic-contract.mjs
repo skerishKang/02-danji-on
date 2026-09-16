@@ -24,9 +24,23 @@ assert.match(script, /count\(distinct s\.id\)/, 'script must count linked active
 assert.match(script, /date_trunc\('hour'/, 'timestamps must be coarse-grained');
 assert.match(script, /forbidden\s*=.*insert.*update.*delete.*alter.*drop/is,
   'script must fail closed on mutation/DDL keywords');
-assert.match(script, /!\/\^\\s\*select\\b\/i\.test\(query\.sql\)/,
-  'every query must be SELECT-only');
-assert.doesNotMatch(script, /email|account_id|session\.token|ip_address|user_agent|access_token|refresh_token|id_token/i,
-  'diagnostic source must not select or print identity/token fields');
+assert.match(script, /!\/\^\\s\*\(select\|with\)\\b\/i\.test\(query\.sql\)/,
+  'every query must be a read-only SELECT/CTE');
+assert.match(script, /to_regclass\('public\.padiem_admin_identity_allowlist'\)/,
+  'diagnostic must verify the admin allowlist schema is present');
+assert.match(script, /from padiem_admin_identity_allowlist/,
+  'diagnostic must inspect admin principal aggregates');
+assert.match(script, /from padiem_operator_grants g/,
+  'diagnostic must inspect runtime PADIEM grant aggregates');
+assert.match(script, /g\.metadata ->> 'source' = 'admin_identity_allowlist'/,
+  'runtime grant aggregate must remain scoped to allowlist bootstrap-origin grants');
+assert.match(script, /group by normalized_email[\s\S]*having count\(\*\) > 1/,
+  'duplicate identity detection must aggregate by normalized email without returning the identity');
+assert.match(script, /safeValue[\s\S]*unexpected non-aggregate value/,
+  'diagnostic must refuse to print unexpected string/identity values');
+assert.doesNotMatch(script, /fields:\s*\[[^\]]*(normalized_email|provider_account_id|user_id|grant_id|metadata)/i,
+  'diagnostic output field allowlists must not expose administrator identities or metadata');
+assert.doesNotMatch(script, /session\.token|ip_address|user_agent|access_token|refresh_token|id_token/i,
+  'diagnostic must not select or print auth token/session metadata');
 
 console.log('production auth readonly diagnostic contract: PASS');
