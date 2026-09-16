@@ -88,7 +88,7 @@ for (const aggregate of [
   assert.ok(script.includes(`) as ${aggregate}`) || script.includes(`as ${aggregate}`),
     `missing privacy-safe readiness aggregate ${aggregate}`);
 }
-assert.match(script, /email_verified_false_users[\s\S]*email_verified = false/,
+assert.match(script, /email_verified = false[\s\S]*as email_verified_false_users/,
   'diagnostic must explicitly count unverified active candidate identities');
 assert.match(script, /ready_super_users[\s\S]*authority_role = 'admin'/,
   'readiness diagnostic may disclose only aggregate SUPER readiness');
