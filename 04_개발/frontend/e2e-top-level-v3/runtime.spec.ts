@@ -45,7 +45,7 @@ type Guard = {
   assertClean(): Promise<void>;
 };
 
-async function installGuard(page: Page): Promise<Guard> {
+async function installGuard(page: Page, businesses = BUSINESSES): Promise<Guard> {
   const pageErrors: string[] = [];
   const consoleErrors: string[] = [];
   const mutationRequests: string[] = [];
@@ -84,7 +84,7 @@ async function installGuard(page: Page): Promise<Guard> {
         await route.fulfill({
           status: 200,
           contentType: 'application/json',
-          body: JSON.stringify({ data: BUSINESSES })
+          body: JSON.stringify({ data: businesses })
         });
         return;
       }
@@ -172,6 +172,39 @@ test('Shops resolves an API shop deep-link only after authority replacement and 
   expect(page.url()).toContain('shop=' + encodeURIComponent(key));
   expect(page.url()).toContain('from=home');
   expect(page.url()).not.toContain('02_%EC%9D%B4%EC%9B%83%EA%B0%80%EA%B2%8C_%EC%83%81%EC%84%B8');
+
+  await guard.assertClean();
+});
+
+test('#604 Shops preserves adopted V3 presentation while promoting matched live API identity', async ({ page }) => {
+  const matched = [{
+    id: 'd0a1c4a1-0000-4000-8000-000000000009',
+    name: '로드힐 꽃작업실',
+    relation_type: 'resident',
+    category_slug: 'food'
+  }];
+  const guard = await installGuard(page, matched);
+  const apiKey = 'api-' + matched[0].id;
+
+  await page.goto(withApi('/01_%EC%9D%B4%EC%9B%83%EA%B0%80%EA%B2%8C_%EB%B0%9C%EA%B2%AC.html?shop=florist'));
+
+  const card = page.locator('[data-shop-key="' + apiKey + '"]').first();
+  await expect(card).toBeVisible();
+  await expect(card.locator('.b-card-media img')).toHaveAttribute('src', 'assets/home-florist.png');
+  await expect(card.locator('.b-card-desc')).toHaveText('계절 꽃다발과 작은 선물을 예약 상담으로 준비합니다.');
+  await expect(card.locator('.b-card-meta')).toContainText('꽃다발 · 작은 선물 · 예약 제작');
+  await expect(card.locator('.b-card-meta')).toContainText('꽃다발 예약 상담 시 주민 전용 혜택');
+
+  await expect(page.locator('#shopCompareModal')).toHaveClass(/open/);
+  await expect(page.locator('#shopCompareTitle')).toHaveText('로드힐 꽃작업실');
+  await expect(page.locator('#shopCompareImage')).toHaveAttribute('src', 'assets/home-florist.png');
+  await expect(page.locator('#shopCompareDesc')).toHaveText('계절 꽃다발과 작은 선물을 예약 상담으로 준비합니다.');
+
+  await page.locator('#shopCompareBenefitBtn').click();
+  await page.locator('#shopCouponStore').click();
+  await expect.poll(async () =>
+    page.evaluate(() => JSON.parse(localStorage.getItem('danjion:savedBenefits') || '[]'))
+  ).toContain(apiKey);
 
   await guard.assertClean();
 });
