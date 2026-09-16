@@ -248,15 +248,34 @@
       fetchLinkedAccounts(fetch, loc),
       fetchAccountAuthority(fetch, loc)
     ]);
-    if (!nativeSessionReady(session)) return null;
+
+    const host = document.querySelector('.identity') || document.querySelector('[data-account-host]');
+    if (!host) return null;
+
+    // Signed-out Production service pages must not strand a guest inside the
+    // product shell. Reuse the existing header slot as a navigation-only entry
+    // to the canonical landing auth modal; never duplicate auth or carry PII.
+    if (!nativeSessionReady(session)) {
+      const canonicalProduction = String(loc.hostname || '').toLowerCase() === PRODUCTION_PAGES_HOSTNAME;
+      if (!canonicalProduction) return null;
+      host.classList.remove('danjion-account-host');
+      host.classList.add('danjion-guest-auth-host');
+      host.textContent = '';
+      const guestAuth = document.createElement('a');
+      guestAuth.className = 'danjion-guest-auth-entry';
+      guestAuth.href = 'index.html?auth=login';
+      guestAuth.textContent = '로그인 · 가입';
+      guestAuth.setAttribute('aria-label', '로그인 또는 가입');
+      host.append(guestAuth);
+      return { state: 'guest' };
+    }
 
     const email = String(session.raw.user?.email || '').trim();
     const emailVerified = session.raw.user?.emailVerified === true;
     const authKind = accountAuthKind(accounts);
     if (!email) return null;
 
-    const host = document.querySelector('.identity') || document.querySelector('[data-account-host]');
-    if (!host) return null;
+    host.classList.remove('danjion-guest-auth-host');
     host.classList.add('danjion-account-host');
     host.textContent = '';
 
