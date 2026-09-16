@@ -17,8 +17,14 @@ assert.ok(canonical.includes("if(SCREEN==='shops' && cls.contains('shop-link'))"
           canonical.includes("if(window.openShopCompareV2)window.openShopCompareV2(el.dataset.shopKey||'florist')"),
   'canonical direct router must preserve popup behavior for shop-link controls');
 
-assert.ok(canonical.includes("const key=initial.get('shop');if(key&&byKey[key])setTimeout(()=>openShop(key),60)"),
-  'canonical ?shop= deep links must auto-open the matching popup');
+assert.ok(canonical.includes("const key=initial.get('shop');"),
+  'canonical ?shop= deep-link key must be captured before authority resolution');
+assert.ok(canonical.includes("if(key&&byKey[key])setTimeout(()=>openShop(key),0);"),
+  'API SUCCESS must resolve the requested ?shop= key after live authority replacement');
+assert.ok(canonical.includes("if(key&&byKey[key])setTimeout(()=>openShop(key),60);"),
+  'API fallback must resolve the requested ?shop= key only after fallback authority is known');
+assert.ok(canonical.indexOf("if(key&&byKey[key])setTimeout(()=>openShop(key),0);") > canonical.indexOf("Array.prototype.push.apply(SHOP_DATA,list);"),
+  'API deep-link auto-open must occur after API SHOP_DATA replacement');
 assert.equal(canonical.includes('01_이웃가게_발견_v3.html'), false,
   'public canonical page must never self-route to the comparison filename');
 assert.equal(/setItem\(["']danjion:shopVariant["'],["']v3["']\)/.test(canonical), false,
