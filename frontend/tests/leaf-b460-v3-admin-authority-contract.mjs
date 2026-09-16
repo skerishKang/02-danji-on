@@ -183,6 +183,11 @@ const loadAdminContext = (location) => {
     'admin posts must read the operational list so draft/archived rows remain manageable');
   const signedOut = await C.loadSection(route(401, {}), 'https://api.test', byId('posts'));
   assert.equal(signedOut.state, 'signed-out');
+  const benefits = await C.loadSection(route(200, { data: [{ id: 4, status: 'draft' }] }), 'https://api.test', byId('benefits'));
+  assert.equal(benefits.state, 'ready');
+  assert.equal(benefits.rows.length, 1);
+  assert.ok(calls.at(-1).includes(`/api/v1/admin/complexes/${CANONICAL_SLUG}/benefits?status=all`),
+    'admin benefits must read the operational list so draft/suspended/expired rows remain manageable');
   const broken = await C.loadSection(route(500, { error: { code: 'DB_READ_FAILED' } }), 'https://api.test', byId('benefits'));
   assert.equal(broken.state, 'error', '5xx sections must render a neutral error, never stale rows');
   assert.equal(broken.status, 500, 'safe HTTP status must be preserved for actionable diagnostics');
@@ -294,6 +299,80 @@ const loadAdminContext = (location) => {
   });
   assert.equal(invalidPost.state, 'invalid-request');
   assert.equal(postCalls.length, beforeInvalidPost, 'invalid post form must fail before network mutation');
+
+  const businessCalls = [];
+  const businessList = await C.loadBenefitBusinesses(async (url, init) => {
+    businessCalls.push({ url, init });
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({ data: [{ id: 'd0a1c4a1-0000-4000-8000-000000000041', name: '온케어 홈서비스' }] })
+    };
+  }, 'https://api.test');
+  assert.equal(businessList.state, 'ready');
+  assert.equal(businessList.rows.length, 1);
+  assert.ok(businessCalls[0].url.endsWith(`/api/v1/complexes/${CANONICAL_SLUG}/businesses?limit=50`),
+    'benefit creation must source eligible business identities from the canonical public business list');
+
+  const benefitCalls = [];
+  const benefitFetch = async (url, init) => {
+    benefitCalls.push({ url, init });
+    return {
+      ok: true,
+      status: init.method === 'POST' ? 201 : 200,
+      json: async () => ({ data: { id: 'd0a1c4a1-0000-4000-8000-000000000042', status: 'draft' } })
+    };
+  };
+  const benefitCreated = await C.createResidentBenefit(benefitFetch, 'https://api.test', {
+    businessId: 'd0a1c4a1-0000-4000-8000-000000000041',
+    title: '주민 전용 방문 혜택',
+    description: '방문 서비스 주민 혜택',
+    conditions: '예약 시 단지온 확인',
+    startsAt: null,
+    endsAt: null,
+    status: 'draft'
+  });
+  assert.equal(benefitCreated.state, 'updated');
+  assert.equal(benefitCalls[0].init.method, 'POST');
+  assert.ok(benefitCalls[0].url.endsWith(`/api/v1/admin/complexes/${CANONICAL_SLUG}/benefits`));
+  assert.deepEqual(JSON.parse(benefitCalls[0].init.body), {
+    businessId: 'd0a1c4a1-0000-4000-8000-000000000041',
+    title: '주민 전용 방문 혜택',
+    description: '방문 서비스 주민 혜택',
+    conditions: '예약 시 단지온 확인',
+    startsAt: null,
+    endsAt: null,
+    status: 'draft'
+  });
+
+  const benefitUpdated = await C.updateResidentBenefit(
+    benefitFetch,
+    'https://api.test',
+    'd0a1c4a1-0000-4000-8000-000000000042',
+    {
+      title: '주민 전용 방문 혜택',
+      description: '수정된 주민 혜택',
+      conditions: '',
+      startsAt: null,
+      endsAt: null,
+      status: 'active'
+    }
+  );
+  assert.equal(benefitUpdated.state, 'updated');
+  assert.equal(benefitCalls[1].init.method, 'PATCH');
+  assert.ok(benefitCalls[1].url.endsWith('/api/v1/admin/benefits/d0a1c4a1-0000-4000-8000-000000000042'));
+  assert.equal(JSON.parse(benefitCalls[1].init.body).status, 'active');
+  assert.ok(!('businessId' in JSON.parse(benefitCalls[1].init.body)),
+    'editing a benefit must not allow client-side business identity mutation');
+
+  const invalidBenefitBefore = benefitCalls.length;
+  const invalidBenefit = await C.createResidentBenefit(benefitFetch, 'https://api.test', {
+    businessId: 'not-a-uuid',
+    title: '',
+    status: 'draft'
+  });
+  assert.equal(invalidBenefit.state, 'invalid-request');
+  assert.equal(benefitCalls.length, invalidBenefitBefore, 'invalid benefit form must fail before network mutation');
 }
 
 /* ================= 5. the admin page renders from the server grant only ==== */
@@ -330,6 +409,16 @@ const loadAdminContext = (location) => {
     'page must delegate post creation to the reviewed console bridge');
   assert.ok(adminPage.includes("updateOfficialPost(fetch,apiBase,row.id,postPayload(fields))"),
     'page must delegate post edits to the reviewed console bridge');
+  assert.ok(adminPage.includes("benefitComposer(panel,section,apiBase)"),
+    'resident-benefit section must expose the bounded create surface');
+  assert.ok(adminPage.includes("benefitEditControls(row,panel,section,apiBase)"),
+    'resident-benefit rows must expose bounded edit/status controls');
+  assert.ok(adminPage.includes("loadBenefitBusinesses(fetch,apiBase)"),
+    'benefit creation must use a server-derived business selector rather than manual UUID entry');
+  assert.ok(adminPage.includes("createResidentBenefit(fetch,apiBase,benefitPayload(fields,businessSelect.value))"),
+    'page must delegate benefit creation to the reviewed console bridge');
+  assert.ok(adminPage.includes("updateResidentBenefit(fetch,apiBase,row.id,benefitPayload(fields,null))"),
+    'page must delegate benefit edits to the reviewed console bridge');
   assert.ok(adminPage.includes("meta name=\"robots\" content=\"noindex\""), 'the admin console must not be indexed');
 }
 
@@ -347,16 +436,20 @@ const loadAdminContext = (location) => {
     assert.ok(!/method\s*:\s*['"](?:POST|PATCH|PUT|DELETE)['"]/.test(src),
       'page/authority layers must not directly own mutation transports');
   }
-  assert.equal((consoleSrc.match(/method\s*:\s*'PATCH'/g) || []).length, 2,
-    'the console bridge may own only application-review PATCH and official-news PATCH');
-  assert.equal((consoleSrc.match(/method\s*:\s*'POST'/g) || []).length, 1,
-    'the console bridge may own only the official-news create POST');
+  assert.equal((consoleSrc.match(/method\s*:\s*'PATCH'/g) || []).length, 3,
+    'the console bridge may own only application-review, official-news, and benefit PATCH transports');
+  assert.equal((consoleSrc.match(/method\s*:\s*'POST'/g) || []).length, 2,
+    'the console bridge may own only official-news and benefit create POST transports');
   assert.ok(consoleSrc.includes("'/api/v1/admin/business-applications/'"),
     'business-application review must remain an explicitly activated mutation family');
   assert.ok(consoleSrc.includes("'/api/v1/admin/complexes/'") && consoleSrc.includes(" + '/posts'"),
     'official-news create must use the admin complex posts family');
   assert.ok(consoleSrc.includes("'/api/v1/admin/posts/'"),
     'official-news edit must use the admin post PATCH family');
+  assert.ok(consoleSrc.includes(" + '/benefits'"),
+    'resident-benefit create must use the admin complex benefits family');
+  assert.ok(consoleSrc.includes("'/api/v1/admin/benefits/'"),
+    'resident-benefit edit must use the admin benefit PATCH family');
   assert.ok(!/method\s*:\s*['"](?:PUT|DELETE)['"]/.test(consoleSrc),
     'no PUT/DELETE operational mutation may be activated');
 
