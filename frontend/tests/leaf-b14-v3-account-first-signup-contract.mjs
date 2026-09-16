@@ -71,6 +71,14 @@ assert.doesNotMatch(index, /signupUnavailable|blockEmailSignup|block-email-signu
 /* OAuth/login/recovery routes stay intact */
 assert.match(index, /'\/auth\/social-start'/, '#448r2: social entry must start first-party via the Worker /auth/social-start route');
 assert.doesNotMatch(index, /\/api\/auth\/sign-in\/social/, '#448r2: no cross-site social POST may remain in the production entry');
+assert.doesNotMatch(index, /<button[^>]+data-social="네이버"/,
+  '#586: Naver must stay out of the visible canonical auth UI while the provider app is development-restricted');
+assert.match(index, /<button[^>]+data-social="카카오"/,
+  '#586: hiding Naver must not remove Kakao');
+assert.match(index, /<button[^>]+data-social="Google"/,
+  '#586: hiding Naver must not remove Google');
+assert.match(index, /<button[^>]+data-email/,
+  '#586: hiding Naver must not remove direct email auth');
 assert.match(index, /'\/api\/auth\/sign-in\/email'/);
 assert.match(index, /'\/api\/auth\/forget-password'\)/);
 

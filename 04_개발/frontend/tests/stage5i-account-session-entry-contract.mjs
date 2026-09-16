@@ -71,8 +71,10 @@ assert.doesNotMatch(html, /\/api\/auth\/sign-in\/social/,
   'frontend must never POST /api/auth/sign-in/social cross-site from Pages; the Worker start page owns the same-origin sign-in call');
 assert.match(html, /providerMap=\{'카카오':'kakao','네이버':'naver','Google':'google'\}/,
   'social providers must map to the existing adapter ids only');
-assert.match(html, /카카오로 계속하기[\s\S]*네이버로 계속하기[\s\S]*Google로 계속하기/,
-  '#444: social buttons must use neutral continue copy for kakao/naver/google');
+assert.match(html, /카카오로 계속하기[\s\S]*Google로 계속하기/,
+  '#444/#586: visible Kakao and Google buttons must keep neutral continue copy');
+assert.doesNotMatch(html, /<button[^>]+data-social="네이버"/,
+  '#586: the development-restricted Naver provider must not be exposed as a visible button');
 assert.match(html, /<span>이메일로 \$\{action\}<\/span>/,
   '#444: email login/signup copy must remain mode-specific (only social is unified)');
 

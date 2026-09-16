@@ -150,10 +150,12 @@ assert.match(index, /return __session\.nativeSessionReady\(r\)/,
 assert.ok(!/r\.data\s*&&\s*r\.data\.session/.test(index),
   'session detection must not fall back to the { data } envelope');
 
-// neutral social copy must be untouched by the cutover.
-for (const copy of ['Google로 계속하기', '네이버로 계속하기', '카카오로 계속하기']) {
-  assert.ok(index.includes(copy), `social button copy must stay neutral: ${copy}`);
+// Visible social copy remains neutral; Naver is temporarily hidden by #586
+// while its provider application is development-restricted.
+for (const copy of ['Google로 계속하기', '카카오로 계속하기']) {
+  assert.ok(index.includes(copy), `visible social button copy must stay neutral: ${copy}`);
 }
+assert.ok(!index.includes('네이버로 계속하기'), '#586: Naver must stay out of the visible auth UI');
 
 /* ================= 5. Stage-1 facade authority stays intact ================= */
 const facade = await read('../../functions/_lib/auth-facade.js');
