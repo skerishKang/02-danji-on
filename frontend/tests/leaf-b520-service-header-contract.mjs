@@ -60,8 +60,10 @@ assert.ok(css.includes('body .danjion-service-header .identity.danjion-account-h
   'shared CSS must override page-specific identity display rules with sufficient specificity');
 assert.ok(css.includes('flex-direction:row!important') && css.includes('flex-wrap:nowrap!important'),
   'admin quick entry and account identity must remain on one row');
-assert.ok(css.includes('@media (hover:hover) and (pointer:fine)'),
-  'desktop hover styling must be pointer-capability gated so touch/mobile is not hover-dependent');
+assert.ok(css.includes('@media (any-hover:hover) and (any-pointer:fine)'),
+  'desktop hover styling must activate when any available mouse-like pointer can hover');
+assert.ok(!css.includes('@media (hover:hover) and (pointer:fine)'),
+  'desktop hover styling must not depend only on the primary pointer capability');
 assert.ok(css.includes('.desktop-nav button:hover::after,.danjion-service-header .desktop-nav a:hover::after'),
   'shared header must expose the same hover affordance for button and anchor nav items');
 assert.ok(css.includes('.desktop-nav button:focus-visible::after,.danjion-service-header .desktop-nav a:focus-visible::after'),

@@ -38,8 +38,10 @@ assert.match(
 
 assert.match(css, /:focus-visible\{/,
   '#583: keyboard focus feedback must be explicit');
-assert.match(css, /@media \(hover:hover\) and \(pointer:fine\)/,
-  '#583: hover feedback must be pointer-capability scoped');
+assert.match(css, /@media \(any-hover:hover\) and \(any-pointer:fine\)/,
+  '#583/#598: hover feedback must work when any available mouse-like pointer can hover');
+assert.doesNotMatch(css, /@media \(hover:hover\) and \(pointer:fine\)/,
+  '#598: canonical hover feedback must not regress to primary-pointer-only detection');
 assert.match(css, /\.scene-tab:not\(\.active\):hover/,
   '#583: Home hover feedback must preserve active state');
 assert.match(css, /\.filter:not\(\.active\):hover/,
