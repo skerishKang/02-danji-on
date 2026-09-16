@@ -590,3 +590,145 @@ test('#607 bounded admin business review performs one server-authorized PATCH an
   expect(unexpectedMutations).toEqual([]);
   expect(pageErrors).toEqual([]);
 });
+
+
+test('#609 admin official-news creates a draft then publishes it through the existing server authority', async ({ page }) => {
+  const pageErrors: string[] = [];
+  const unexpectedMutations: string[] = [];
+  const postId = 'd0a1c4a1-0000-4000-8000-000000000031';
+  const postBodies: any[] = [];
+  const patchBodies: any[] = [];
+  let rows: any[] = [];
+
+  page.on('pageerror', error => pageErrors.push(error.stack || error.message));
+
+  await page.route('**/*', async route => {
+    const request = route.request();
+    const url = new URL(request.url());
+    const method = request.method().toUpperCase();
+    const local = url.origin === BASE;
+
+    if (!local) {
+      if (!['GET', 'HEAD', 'OPTIONS'].includes(method)) unexpectedMutations.push(method + ' ' + request.url());
+      await route.fulfill({ status: 204, body: '' });
+      return;
+    }
+
+    if (!url.pathname.startsWith('/api/')) {
+      await route.continue();
+      return;
+    }
+
+    if (url.pathname === '/api/v1/admin/authority' && method === 'GET') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          data: {
+            level: 'operator',
+            label: '일반관리자',
+            wildcard: false,
+            scopes: ['official-content.manage']
+          }
+        })
+      });
+      return;
+    }
+
+    if (url.pathname === '/api/v1/admin/complexes/' + COMPLEX + '/posts' && method === 'GET') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: rows })
+      });
+      return;
+    }
+
+    if (url.pathname === '/api/v1/admin/complexes/' + COMPLEX + '/posts' && method === 'POST') {
+      const body = JSON.parse(request.postData() || '{}');
+      postBodies.push(body);
+      rows = [{
+        id: postId,
+        source_name: body.sourceName,
+        category: body.category,
+        channel: 'danjion_notice',
+        title: body.title,
+        body: body.body,
+        status: body.status,
+        created_at: '2026-09-16T13:45:00Z',
+        updated_at: '2026-09-16T13:45:00Z'
+      }];
+      await route.fulfill({
+        status: 201,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: rows[0] })
+      });
+      return;
+    }
+
+    if (url.pathname === '/api/v1/admin/posts/' + postId && method === 'PATCH') {
+      const body = JSON.parse(request.postData() || '{}');
+      patchBodies.push(body);
+      rows = [{ ...rows[0], source_name: body.sourceName, category: body.category, title: body.title, body: body.body, status: body.status }];
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: rows[0] })
+      });
+      return;
+    }
+
+    if (!['GET', 'HEAD', 'OPTIONS'].includes(method)) {
+      unexpectedMutations.push(method + ' ' + url.pathname);
+      await route.fulfill({
+        status: 409,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: { code: 'TEST_MUTATION_BLOCKED' } })
+      });
+      return;
+    }
+
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ data: [] })
+    });
+  });
+
+  page.on('dialog', dialog => dialog.accept());
+  await page.goto(withApi('/admin/'));
+
+  await expect(page.getByRole('heading', { name: '단지온 운영관리' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '단지소식' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '새 단지소식 작성' })).toBeVisible();
+
+  const composer = page.locator('.admin-post-editor.create');
+  await composer.getByLabel('분류').fill('생활소식');
+  await composer.getByLabel('소식 제목').fill('엘리베이터 점검 안내');
+  await composer.getByLabel('소식 본문').fill('오후 2시부터 엘리베이터 정기점검을 진행합니다.');
+  await composer.getByLabel('게시 상태').selectOption('draft');
+  await composer.getByRole('button', { name: '새 소식 저장' }).click();
+
+  await expect.poll(() => postBodies.length).toBe(1);
+  expect(postBodies[0]).toEqual({
+    sourceName: '단지온 운영자',
+    category: '생활소식',
+    title: '엘리베이터 점검 안내',
+    body: '오후 2시부터 엘리베이터 정기점검을 진행합니다.',
+    status: 'draft'
+  });
+
+  const card = page.locator('.admin-card').filter({ hasText: '엘리베이터 점검 안내' });
+  await expect(card).toBeVisible();
+  await expect(card.locator('.admin-status')).toHaveText('draft');
+
+  await card.getByLabel('게시 상태').selectOption('published');
+  await card.getByRole('button', { name: '변경 저장' }).click();
+
+  await expect.poll(() => patchBodies.length).toBe(1);
+  expect(patchBodies[0].status).toBe('published');
+  await expect(page.locator('.admin-card').filter({ hasText: '엘리베이터 점검 안내' }).locator('.admin-status')).toHaveText('published');
+
+  expect(unexpectedMutations).toEqual([]);
+  expect(pageErrors).toEqual([]);
+});
