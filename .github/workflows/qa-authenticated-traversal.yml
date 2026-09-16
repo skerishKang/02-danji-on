@@ -1,0 +1,48 @@
+name: QA Authenticated Traversal Gate
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-authenticated-traversal.yml'
+      - '04_개발/backend/tests/qa-authenticated-traversal-smoke.mjs'
+      - '04_개발/backend/tests/qa-auth-lane-contract.mjs'
+  workflow_dispatch:
+    inputs:
+      run_live:
+        description: 'Run the real non-production Better Auth session + V3 traversal smoke'
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  source-contract:
+    name: QA auth source safety contract
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Verify non-production QA auth contract
+        run: node 04_개발/backend/tests/qa-auth-lane-contract.mjs
+
+  live-qa:
+    name: Real Better Auth QA session and V3 traversal
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_live }}
+    runs-on: ubuntu-latest
+    environment: qa
+    env:
+      DANJION_QA_API_URL: ${{ vars.DANJION_QA_API_URL }}
+      DANJION_QA_FRONTEND_URL: ${{ vars.DANJION_QA_FRONTEND_URL }}
+      DANJION_QA_EMAIL: ${{ secrets.DANJION_QA_EMAIL }}
+      DANJION_QA_PASSWORD: ${{ secrets.DANJION_QA_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Run real non-production QA auth/traversal smoke
+        run: node 04_개발/backend/tests/qa-authenticated-traversal-smoke.mjs
