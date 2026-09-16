@@ -93,7 +93,13 @@
         activate.addEventListener('click',async()=>{
           activate.disabled=true;activate.textContent='관리자 등록 확인 중…';status.textContent='';
           const outcome=await bootstrapApi.bootstrapAuthority(fetch);
-          if(authority.hasAdminSurface(outcome)){renderConsole(outcome);return}
+          if(authority.hasAdminSurface(outcome)){
+            const canonicalGrant=await authority.fetchAuthority(fetch);
+            if(authority.hasAdminSurface(canonicalGrant)){renderConsole(canonicalGrant);return}
+            status.textContent='관리자 권한 등록은 완료됐지만 최종 권한 확인에 실패했습니다.';
+            activate.disabled=false;activate.textContent='등록된 관리자 권한 확인';
+            return;
+          }
           if(outcome.state==='signed-out'){showRestricted('signed-out');return}
           if(outcome.state==='not-registered')status.textContent='사전 등록된 관리자 계정이 아닙니다.';
           else if(outcome.state==='unavailable')status.textContent='관리자 등록 정보를 확인할 수 없습니다. 잠시 후 다시 시도해 주세요.';
