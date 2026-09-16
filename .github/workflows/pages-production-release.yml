@@ -236,7 +236,40 @@ jobs:
             echo "::error::Canonical Pages content contains a forbidden stale signup marker."
             exit 1
           fi
-          echo "Canonical DanjiOn Pages content parity: PASS"
+
+          parity_paths=(
+            '01_이웃가게_발견.html'
+            '04_데일리홈.html'
+            '05_우리단지_첫화면.html'
+            '19_내정보_메인.html'
+            'assets/danjion-session.js'
+            'assets/danjion-service-header.css'
+            'assets/consistency.js'
+          )
+          for path in "${parity_paths[@]}"; do
+            test -f "dist/${path}"
+            encoded_path="$(python3 -c 'import sys, urllib.parse; print(urllib.parse.quote(sys.argv[1], safe="/"))' "$path")"
+            expected_leaf_sha="$(sha256sum "dist/${path}" | awk '{print $1}')"
+            leaf_file="${RUNNER_TEMP}/canonical-leaf-$(printf '%s' "$path" | sha256sum | cut -d' ' -f1)"
+            leaf_matched=0
+            for attempt in $(seq 1 6); do
+              curl --silent --show-error --fail \
+                --header 'Cache-Control: no-cache' \
+                "${CANONICAL_PAGES_URL}/${encoded_path}?release=${GITHUB_SHA}-leaf-${attempt}" \
+                --output "$leaf_file"
+              actual_leaf_sha="$(sha256sum "$leaf_file" | awk '{print $1}')"
+              if [ "$actual_leaf_sha" = "$expected_leaf_sha" ]; then
+                leaf_matched=1
+                break
+              fi
+              sleep 3
+            done
+            if [ "$leaf_matched" -ne 1 ]; then
+              echo "::error::Canonical Pages leaf content mismatch: ${path}"
+              exit 1
+            fi
+          done
+          echo "Canonical DanjiOn Pages root + critical leaf content parity: PASS"
 
       - name: Record Pages release disposition
         shell: bash
