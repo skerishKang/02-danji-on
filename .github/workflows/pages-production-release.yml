@@ -246,26 +246,82 @@ jobs:
             'assets/danjion-service-header.css'
             'assets/consistency.js'
           )
+
+          # #589: Cloudflare Pages can expose the canonical deployment record
+          # before every edge POP serves the new leaf bytes. Verify all pending
+          # leaves in bounded global rounds instead of giving each leaf only an
+          # isolated ~18-second window. The first delay is an intentional settle
+          # window; later delays provide bounded backoff without weakening exact
+          # byte parity.
+          retry_delays=(8 3 5 8 13 21 30 45)
+          encoded_paths=()
+          expected_leaf_shas=()
+          leaf_files=()
+          leaf_tokens=()
+          leaf_matched=()
+          leaf_attempts=()
+          last_leaf_shas=()
+
           for path in "${parity_paths[@]}"; do
             test -f "dist/${path}"
             encoded_path="$(python3 -c 'import sys, urllib.parse; print(urllib.parse.quote(sys.argv[1], safe="/"))' "$path")"
             expected_leaf_sha="$(sha256sum "dist/${path}" | awk '{print $1}')"
+            leaf_token="$(printf '%s' "$path" | sha256sum | cut -c1-16)"
             leaf_file="${RUNNER_TEMP}/canonical-leaf-$(printf '%s' "$path" | sha256sum | cut -d' ' -f1)"
-            leaf_matched=0
-            for attempt in $(seq 1 6); do
-              curl --silent --show-error --fail \
-                --header 'Cache-Control: no-cache' \
-                "${CANONICAL_PAGES_URL}/${encoded_path}?release=${GITHUB_SHA}-leaf-${attempt}" \
-                --output "$leaf_file"
-              actual_leaf_sha="$(sha256sum "$leaf_file" | awk '{print $1}')"
-              if [ "$actual_leaf_sha" = "$expected_leaf_sha" ]; then
-                leaf_matched=1
-                break
+            encoded_paths+=("$encoded_path")
+            expected_leaf_shas+=("$expected_leaf_sha")
+            leaf_tokens+=("$leaf_token")
+            leaf_files+=("$leaf_file")
+            leaf_matched+=("0")
+            leaf_attempts+=("0")
+            last_leaf_shas+=("NOT_FETCHED")
+          done
+
+          leaf_round=0
+          for delay in "${retry_delays[@]}"; do
+            leaf_round=$((leaf_round + 1))
+            sleep "$delay"
+            pending=0
+
+            for i in "${!parity_paths[@]}"; do
+              if [ "${leaf_matched[$i]}" = "1" ]; then
+                continue
               fi
-              sleep 3
+
+              path="${parity_paths[$i]}"
+              encoded_path="${encoded_paths[$i]}"
+              expected_leaf_sha="${expected_leaf_shas[$i]}"
+              leaf_file="${leaf_files[$i]}"
+
+              if curl --silent --show-error --fail \
+                --header 'Cache-Control: no-cache' \
+                --header 'Pragma: no-cache' \
+                "${CANONICAL_PAGES_URL}/${encoded_path}?release=${GITHUB_SHA}-leaf-${leaf_round}-${leaf_tokens[$i]}" \
+                --output "$leaf_file"; then
+                actual_leaf_sha="$(sha256sum "$leaf_file" | awk '{print $1}')"
+              else
+                actual_leaf_sha="HTTP_ERROR"
+              fi
+              last_leaf_shas[$i]="$actual_leaf_sha"
+
+              if [ "$actual_leaf_sha" = "$expected_leaf_sha" ]; then
+                leaf_matched[$i]="1"
+                leaf_attempts[$i]="$leaf_round"
+                echo "Canonical Pages leaf converged: ${path} (round ${leaf_round})"
+              else
+                pending=$((pending + 1))
+                echo "Canonical Pages leaf pending: ${path}; round=${leaf_round}; expected_sha=${expected_leaf_sha}; actual_sha=${actual_leaf_sha}"
+              fi
             done
-            if [ "$leaf_matched" -ne 1 ]; then
-              echo "::error::Canonical Pages leaf content mismatch: ${path}"
+
+            if [ "$pending" -eq 0 ]; then
+              break
+            fi
+          done
+
+          for i in "${!parity_paths[@]}"; do
+            if [ "${leaf_matched[$i]}" != "1" ]; then
+              echo "::error::Canonical Pages leaf content mismatch after ${leaf_round} attempts: ${parity_paths[$i]}; expected_sha=${expected_leaf_shas[$i]}; actual_sha=${last_leaf_shas[$i]}"
               exit 1
             fi
           done
