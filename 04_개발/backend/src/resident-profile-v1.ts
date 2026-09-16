@@ -182,17 +182,21 @@ async function loadOwnAccountProfile(sql: Sql, userId: string): Promise<PublicPr
   return (rows[0] as PublicProfileRow | undefined) ?? null;
 }
 
-function presentProfile(row: PublicProfileRow, residentLabel = PROFILE_LABEL): Record<string, unknown> {
+function presentProfile(row: PublicProfileRow): Record<string, unknown> {
   const publicActivityCount = Number(row.public_activity_count ?? 0);
   return {
     userId: String(row.id),
     nickname: String(row.display_name),
     avatarUrl: row.avatar_url ? String(row.avatar_url) : null,
-    residentLabel,
+    residentLabel: PROFILE_LABEL,
     joinedMonth: String(row.joined_month),
     publicBio: String(row.public_bio ?? ''),
     publicActivityCount: Number.isFinite(publicActivityCount) && publicActivityCount > 0 ? Math.floor(publicActivityCount) : 0
   };
+}
+
+function presentOwnProfile(row: PublicProfileRow, profileLabel: string): Record<string, unknown> {
+  return { ...presentProfile(row), residentLabel: profileLabel };
 }
 
 async function viewerForComplex(
@@ -332,7 +336,7 @@ async function updateOwnProfile(
 
   const updated = await loadOwnProfile(sql, viewer);
   if (!updated) return fail('PROFILE_UPDATE_FAILED', 'Profile could not be loaded after update', 500, requestId);
-  return ok(presentProfile(updated, viewer.profileLabel), requestId);
+  return ok(presentOwnProfile(updated, viewer.profileLabel), requestId);
 }
 
 export async function handleResidentProfileWithSql(
@@ -351,7 +355,7 @@ export async function handleResidentProfileWithSql(
       if (viewer instanceof Response) return viewer;
       const row = await loadOwnProfile(sql, viewer);
       if (!row) return fail('PROFILE_NOT_FOUND', 'Profile not found', 404, requestId);
-      return ok(presentProfile(row, viewer.profileLabel), requestId);
+      return ok(presentOwnProfile(row, viewer.profileLabel), requestId);
     }
     if (request.method === 'PATCH') return updateOwnProfile(request, env, sql, requestId, complexSlug);
     return fail('METHOD_NOT_ALLOWED', 'Method not allowed', 405, requestId);
