@@ -42,11 +42,11 @@ function normalizedPrincipal(row: Record<string, unknown> | undefined): Bootstra
   const scopes = Array.from(new Set(rawScopes.map((value) => String(value).trim()))).sort();
 
   if (!id || (authorityLevel !== 'operator' && authorityLevel !== 'admin')) return null;
-  if (!scopes.length || scopes.length > 32 || scopes.some((scope) => !SCOPE_PATTERN.test(scope))) return null;
+  if (!scopes.length || scopes.length > 32) return null;
   if (authorityLevel === 'admin') {
     if (scopes.length !== 1 || scopes[0] !== '*') return null;
-  } else if (scopes.includes('*')) {
-    return null;
+  } else {
+    if (scopes.includes('*') || scopes.some((scope) => !SCOPE_PATTERN.test(scope))) return null;
   }
 
   return { id, authorityLevel, scopes };
