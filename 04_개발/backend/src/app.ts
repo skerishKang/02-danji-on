@@ -3,6 +3,7 @@ import { handleAccountLifecycleRequest } from './account-lifecycle-v1';
 import { handleAdminApplicationDocumentRequest } from './admin-application-docs-v1';
 import { handleAdminAuditRequest } from './admin-audit-v1';
 import { handleAdminBootstrapRequest } from './admin-bootstrap-v1';
+import { handleAdminGlobalAuditRequest } from './admin-global-audit-v1';
 import { handleAdminAuthorityRequest } from './admin-authority-v1';
 import { handleAdminOperationalRequest } from './admin-operational-v2';
 import { handleAdminPrincipalRequest } from './admin-principals-v1';
@@ -163,6 +164,8 @@ export default {
       if (storageResponse) return respond(storageResponse);
       const adminAuditResponse = await handleAdminAuditRequest(request, env, id);
       if (adminAuditResponse) return respond(adminAuditResponse);
+      const adminGlobalAuditResponse = await handleAdminGlobalAuditRequest(request, env, id);
+      if (adminGlobalAuditResponse) return respond(adminGlobalAuditResponse);
       const adminAuthorityResponse = await handleAdminAuthorityRequest(request, env, id);
       if (adminAuthorityResponse) return respond(adminAuthorityResponse);
       const adminBootstrapResponse = await handleAdminBootstrapRequest(request, env, id);
