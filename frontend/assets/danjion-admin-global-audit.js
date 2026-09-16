@@ -39,12 +39,13 @@
     if (!normalized) return { state: 'invalid-request', rows: [], status: 0, code: 'INVALID_AUDIT_QUERY' };
 
     const session = global.DanjionSession;
-    const url = new URL(session.joinUrl(String(apiBase || ''), AUDIT_PATH));
-    url.searchParams.set('limit', String(normalized.limit));
-    if (normalized.decision) url.searchParams.set('decision', normalized.decision);
-    if (normalized.before) url.searchParams.set('before', new Date(normalized.before).toISOString());
+    const params = new URLSearchParams();
+    params.set('limit', String(normalized.limit));
+    if (normalized.decision) params.set('decision', normalized.decision);
+    if (normalized.before) params.set('before', new Date(normalized.before).toISOString());
+    const target = session.joinUrl(String(apiBase || ''), AUDIT_PATH) + '?' + params.toString();
 
-    const result = await session.request(fetchImpl, url.toString());
+    const result = await session.request(fetchImpl, target);
     return classify(result);
   }
 
