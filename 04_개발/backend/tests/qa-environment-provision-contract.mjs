@@ -1,10 +1,12 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import { bindQaPagesRuntime, validateQaApi } from '../scripts/qa-pages-runtime-bind.mjs';
 
 const root = new URL('../../../', import.meta.url);
 const workflow = await readFile(new URL('.github/workflows/qa-environment-provision.yml', root), 'utf8');
 const wrangler = JSON.parse(await readFile(new URL('04_개발/backend/wrangler.jsonc', root), 'utf8'));
 const migration = await readFile(new URL('04_개발/backend/scripts/qa-migration-gate.mjs', root), 'utf8');
+const canonicalSession = await readFile(new URL('frontend/assets/danjion-session.js', root), 'utf8');
 
 assert.match(workflow, /pull_request:/, 'QA source safety contract must run on PRs');
 assert.match(workflow, /workflow_dispatch:/, 'QA cloud mutation must be manual only');
@@ -41,6 +43,9 @@ assert.ok(workflow.includes('wrangler@4.114.0 deploy --env qa'), 'Worker deploy 
 assert.ok(workflow.includes('pages deploy dist-qa --project-name "$QA_PAGES_PROJECT" --branch main'), 'Pages deploy must target the dedicated QA project');
 assert.ok(workflow.includes('X-Robots-Tag: noindex'), 'QA Pages must be noindex');
 assert.ok(workflow.includes('response suppressed') && workflow.includes('identity/session material suppressed'), 'synthetic account output must remain secret-safe');
+assert.ok(workflow.includes("qa-pages-runtime-bind.mjs' dist-qa"), 'QA Pages artifact must receive a dedicated runtime binding');
+assert.ok(workflow.includes("const QA_PAGES_HOSTNAME = 'danjion-qa.pages.dev';"), 'workflow must verify QA runtime host binding before and after deploy');
+assert.ok(workflow.includes('grep -Fq "$DANJION_QA_API_URL"'), 'workflow must verify deployed runtime points to the configured QA API');
 
 const qa = wrangler.env?.qa;
 assert.ok(qa, 'wrangler must define env.qa');
@@ -57,5 +62,25 @@ assert.doesNotMatch(migration, /DANJION_PRODUCTION_DB_URL/, 'QA migration gate m
 assert.match(migration, /includeProductionSeed:\s*false/, 'QA migration plan must exclude production seeds');
 assert.match(migration, /entry\.class !== 'schema'/, 'QA apply set must reject every non-schema migration');
 assert.match(migration, /--confirm-qa-apply/, 'QA migration mutation must require explicit QA confirmation');
+
+const qaOrigin = 'https://padiem-danjion-api-qa.example.workers.dev';
+assert.equal(validateQaApi(qaOrigin), qaOrigin, 'dedicated QA Worker origin must be accepted');
+for (const forbiddenOrigin of [
+  'http://padiem-danjion-api-qa.example.workers.dev',
+  'https://padiem-danjion-api-production.padiem.workers.dev',
+  'https://padiem-danjion-api-qa.example.workers.dev/path',
+  'https://other-worker.example.workers.dev'
+]) {
+  assert.throws(() => validateQaApi(forbiddenOrigin), /QA_PAGES_RUNTIME_BIND_FAILED/, `unsafe QA API origin must be rejected: ${forbiddenOrigin}`);
+}
+
+const boundSession = bindQaPagesRuntime(canonicalSession, qaOrigin);
+assert.ok(boundSession.includes("const QA_PAGES_HOSTNAME = 'danjion-qa.pages.dev';"), 'QA artifact runtime must recognize only the exact QA Pages host');
+assert.ok(boundSession.includes(`const QA_API_BASE = "${qaOrigin}";`), 'QA artifact runtime must carry the deployment-selected QA API origin');
+assert.ok(boundSession.includes('if (hostname === QA_PAGES_HOSTNAME) return QA_API_BASE;'), 'both app API and auth base must bind QA Pages to QA Worker');
+assert.equal((boundSession.match(/if \(hostname === QA_PAGES_HOSTNAME\) return QA_API_BASE;/g) || []).length, 2, 'QA binding must cover exactly application API and auth base');
+assert.ok(canonicalSession.includes("if (hostname === PRODUCTION_PAGES_HOSTNAME) return CANONICAL_PAGES_API_BASE;"), 'canonical Production API binding must remain present');
+assert.ok(canonicalSession.includes("if (hostname === PRODUCTION_PAGES_HOSTNAME) return '';"), 'canonical Production auth binding must remain present');
+assert.ok(!canonicalSession.includes("QA_PAGES_HOSTNAME = 'danjion-qa.pages.dev'"), 'canonical source must not hard-code QA deployment state');
 
 console.log('qa-environment-provision-contract: PASS');
