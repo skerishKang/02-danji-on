@@ -47,6 +47,23 @@ assert.ok(workflow.includes("qa-pages-runtime-bind.mjs' dist-qa"), 'QA Pages art
 assert.ok(workflow.includes("const QA_PAGES_HOSTNAME = 'danjion-qa.pages.dev';"), 'workflow must verify QA runtime host binding before and after deploy');
 assert.ok(workflow.includes('grep -Fq "$DANJION_QA_API_URL"'), 'workflow must verify deployed runtime points to the configured QA API');
 
+// #673 regression: first-ever workers.dev propagation may briefly return 404.
+// Readiness verification must tolerate temporary non-200 responses within a bounded window,
+// while still requiring valid health and JWKS payloads before continuing.
+const readinessStepStart = workflow.indexOf('name: Verify QA Worker health and JWKS');
+const readinessStepEnd = workflow.indexOf('name: Ensure dedicated QA Pages project');
+assert.ok(readinessStepStart >= 0 && readinessStepEnd > readinessStepStart, 'QA Worker readiness step must exist before Pages provisioning');
+const readinessStep = workflow.slice(readinessStepStart, readinessStepEnd);
+assert.match(readinessStep, /for attempt in \$\(seq 1 12\)/, 'Worker readiness must use a bounded retry loop');
+assert.match(readinessStep, /sleep 2/, 'Worker readiness retries must have a fixed delay');
+assert.match(readinessStep, /--write-out '%\{http_code\}'/, 'Worker readiness must inspect HTTP status without failing immediately on 404');
+assert.match(readinessStep, /health_status.*= '200'/s, 'Worker readiness must require health HTTP 200');
+assert.match(readinessStep, /\.data\.status == \"ok\" and \.data\.database == \"ok\"/, 'Worker readiness must require healthy app and database state');
+assert.match(readinessStep, /jwks_status.*= '200'/s, 'Worker readiness must require JWKS HTTP 200');
+assert.match(readinessStep, /\.keys \| type == \"array\"/, 'Worker readiness must require a JWKS keys array');
+assert.match(readinessStep, /if \[ \"\$ready\" != '1' \]/, 'Worker readiness must fail closed after the bounded window');
+assert.doesNotMatch(readinessStep, /cat .*qa-(health|jwks)/, 'Worker readiness must not print response bodies');
+
 const qa = wrangler.env?.qa;
 assert.ok(qa, 'wrangler must define env.qa');
 assert.equal(qa.name, 'padiem-danjion-api-qa');
