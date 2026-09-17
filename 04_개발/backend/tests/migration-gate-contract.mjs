@@ -154,10 +154,37 @@ assert.deepEqual(
 assert.equal(classifyMigration(ledger, '041_business_category_benefit_contract.sql').class, 'schema');
 
 // 11. 042 is not silently treated as an ordinary schema apply.
-const seedPendingPlan = await computeMigrationPlan({ ledger, inventory, appliedResolver: resolverFromApplied(new Set()), targetSha });
+// #669 regression: schema-only planning must not probe an explicitly deferred production seed.
+let deferredSeedProbeCount = 0;
+const schemaOnlyResolver = async marker => {
+  if (marker?.kind === 'data_probe') {
+    deferredSeedProbeCount += 1;
+    throw new Error('deferred production seed probe must not run');
+  }
+  return false;
+};
+const seedPendingPlan = await computeMigrationPlan({ ledger, inventory, appliedResolver: schemaOnlyResolver, targetSha });
+assert.equal(deferredSeedProbeCount, 0, 'schema-only plan must skip production-seed readback entirely');
 assert.ok(seedPendingPlan.pending_production_seed.includes('042_seed_banglim_pilot_production.sql'));
 assert.ok(!seedPendingPlan.apply_set.includes('042_seed_banglim_pilot_production.sql'), '042 must not auto-enter the apply set');
+assert.equal(seedPendingPlan.entries.find(e => e.file === '042_seed_banglim_pilot_production.sql').outcome, 'DEFERRED_OPT_IN');
 assert.ok(seedPendingPlan.entries.find(e => e.file === '042_seed_banglim_pilot_production.sql').deferred_opt_in === true);
+
+await assert.rejects(
+  computeMigrationPlan({
+    ledger,
+    inventory,
+    appliedResolver: async marker => {
+      if (marker?.kind === 'data_probe') throw new Error('seed readback unavailable');
+      return false;
+    },
+    targetSha,
+    includeProductionSeed: true,
+  }),
+  err => err instanceof GateError && /042_seed_banglim_pilot_production\.sql/.test(err.message) && /readback failed/.test(err.message),
+  'explicit production-seed opt-in must still require live readback and fail closed when unavailable'
+);
+
 const seedOptInPlan = await computeMigrationPlan({
   ledger,
   inventory,
