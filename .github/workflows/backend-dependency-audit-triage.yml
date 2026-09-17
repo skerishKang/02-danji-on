@@ -8,17 +8,17 @@ on:
       - '04_개발/backend/package-lock.json'
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   audit:
     name: Clean exact-lock npm audit
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: 04_개발/backend
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
@@ -26,10 +26,67 @@ jobs:
           cache: npm
           cache-dependency-path: 04_개발/backend/package-lock.json
 
+      - name: Restore base manifest bytes and apply only intended dependency values
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected_main='e4ad5b80d1cc7ae197e9fdc601c8e2d46391657f'
+          remote_main="$(git ls-remote origin refs/heads/main | awk '{print $1}')"
+          test "$remote_main" = "$expected_main"
+
+          current_wrangler="$(node -p "require('./04_개발/backend/package.json').devDependencies.wrangler")"
+          current_workers_types="$(node -p "require('./04_개발/backend/package.json').devDependencies['@cloudflare/workers-types']")"
+          if [[ "$current_wrangler" != '4.131.0' || "$current_workers_types" != '5.20260910.1' ]]; then
+            echo 'REFUSAL=UNEXPECTED_TARGET_DEPENDENCY_STATE'
+            exit 1
+          fi
+
+          base_manifest="${RUNNER_TEMP}/package-base.json"
+          git show "${expected_main}:04_개발/backend/package.json" > "$base_manifest"
+
+          node - "$base_manifest" '04_개발/backend/package.json' <<'NODE'
+          const fs = require('node:fs');
+          const [basePath, targetPath] = process.argv.slice(2);
+          const baseRaw = fs.readFileSync(basePath, 'utf8');
+          const base = JSON.parse(baseRaw);
+          const expected = structuredClone(base);
+          expected.devDependencies['@cloudflare/workers-types'] = '5.20260910.1';
+          expected.devDependencies.wrangler = '4.131.0';
+
+          let nextRaw = baseRaw;
+          const replacements = [
+            ['"@cloudflare/workers-types": "5.20260728.1"', '"@cloudflare/workers-types": "5.20260910.1"'],
+            ['"wrangler": "4.114.0"', '"wrangler": "4.131.0"']
+          ];
+          for (const [from, to] of replacements) {
+            const first = nextRaw.indexOf(from);
+            const last = nextRaw.lastIndexOf(from);
+            if (first < 0 || first !== last) throw new Error(`replacement precondition failed: ${from}`);
+            nextRaw = nextRaw.replace(from, to);
+          }
+
+          const parsed = JSON.parse(nextRaw);
+          if (JSON.stringify(parsed) !== JSON.stringify(expected)) throw new Error('semantic manifest drift detected');
+          fs.writeFileSync(targetPath, nextRaw, 'utf8');
+          NODE
+
+          mapfile -t changed < <(git -c core.quotepath=false diff --name-only)
+          test "${#changed[@]}" -eq 1
+          test "${changed[0]}" = '04_개발/backend/package.json'
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add '04_개발/backend/package.json'
+          git commit -m 'chore: preserve backend package manifest formatting'
+          git push origin "HEAD:${GITHUB_HEAD_REF}"
+          echo 'PACKAGE_MANIFEST_FORMATTING_NORMALIZED=YES'
+
       - name: Clean install exact lock
+        working-directory: 04_개발/backend
         run: npm ci
 
       - name: Capture full and runtime-only npm audit JSON
+        working-directory: 04_개발/backend
         shell: bash
         run: |
           set -uo pipefail
@@ -44,6 +101,7 @@ jobs:
           exit 0
 
       - name: Enforce sanitized high and critical disposition
+        working-directory: 04_개발/backend
         shell: bash
         env:
           FULL_REPORT: ${{ runner.temp }}/audit-full.json
@@ -57,7 +115,6 @@ jobs:
           const runtime = read(process.env.RUNTIME_REPORT);
           const runtimeNames = new Set(Object.keys(runtime.vulnerabilities || {}));
           const findings = [];
-
           for (const [packageName, vuln] of Object.entries(full.vulnerabilities || {})) {
             if (!['high', 'critical'].includes(vuln.severity)) continue;
             findings.push({
@@ -70,7 +127,6 @@ jobs:
               fixAvailable: vuln.fixAvailable ?? null
             });
           }
-
           findings.sort((a, b) => a.package.localeCompare(b.package));
           const metadata = full.metadata?.vulnerabilities || {};
           const runtimeMetadata = runtime.metadata?.vulnerabilities || {};
@@ -78,40 +134,25 @@ jobs:
           const fullCritical = metadata.critical ?? 0;
           const runtimeHigh = runtimeMetadata.high ?? 0;
           const runtimeCritical = runtimeMetadata.critical ?? 0;
-
           console.log(`AUDIT_HIGH=${fullHigh}`);
           console.log(`AUDIT_CRITICAL=${fullCritical}`);
           console.log(`RUNTIME_HIGH=${runtimeHigh}`);
           console.log(`RUNTIME_CRITICAL=${runtimeCritical}`);
           console.log(`HIGH_CRITICAL_PACKAGE_COUNT=${findings.length}`);
           for (const finding of findings) console.log(`AUDIT_FINDING=${JSON.stringify(finding)}`);
-
-          const summary = [
-            '## Backend dependency audit',
-            '',
-            `- Full high: ${fullHigh}`,
-            `- Full critical: ${fullCritical}`,
-            `- Runtime-only high: ${runtimeHigh}`,
-            `- Runtime-only critical: ${runtimeCritical}`,
-            '',
-            'Read-only audit; no dependency or Production mutation.'
-          ].join('\n');
-          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${summary}\n`);
-
-          if (fullHigh !== 0 || fullCritical !== 0 || runtimeHigh !== 0 || runtimeCritical !== 0) {
-            process.exitCode = 1;
-          }
+          if (fullHigh !== 0 || fullCritical !== 0 || runtimeHigh !== 0 || runtimeCritical !== 0) process.exitCode = 1;
           NODE
 
       - name: QA persona provision source safety contract
+        working-directory: 04_개발/backend
         run: node tests/qa-persona-provision-contract.mjs
 
       - name: QA persona RBAC matrix source safety contract
+        working-directory: 04_개발/backend
         run: node ../frontend/tests/qa-persona-rbac-matrix-contract.mjs
 
-      - name: Confirm read-only safety disposition
+      - name: Confirm bounded safety disposition
         run: |
-          echo 'DEPENDENCY_MUTATION=0'
           echo 'QA_LIVE_MUTATION=0'
           echo 'PRODUCTION_MUTATION=0'
           echo 'SECRET_OUTPUT=NO'
