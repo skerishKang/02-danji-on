@@ -193,6 +193,13 @@ export async function computeMigrationPlan({
       });
       continue;
     }
+    // A production seed that is not opted in cannot enter this plan's apply set.
+    // Do not require its data probe merely to build a schema-only plan; on a fresh
+    // database that probe may reference schema created by earlier pending migrations.
+    if (entry.class === 'production_seed' && !includeProductionSeed) {
+      entries.push({ file, class: entry.class, applied: false });
+      continue;
+    }
     if (typeof appliedResolver !== 'function') {
       throw new GateError('Applied-state resolver is required before any production plan; failing closed (UNKNOWN_FAIL_CLOSED)');
     }
