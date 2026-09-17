@@ -16,6 +16,7 @@ const read = (...parts) => readFileSync(resolve(root, ...parts), 'utf8');
 
 const authority = read('src', 'padiem-authority-v1.ts');
 const handler = read('src', 'admin-authority-v1.ts');
+const exemption = read('src', 'resident-verification-exemption-v1.ts');
 const app = read('src', 'app.ts');
 const authz = read('src', 'authorization-v2.ts');
 const operational = read('src', 'operational-authz-v2.ts');
@@ -28,7 +29,7 @@ assert.match(authority, /authorization\.padiem-authority-check/);
 assert.match(authority, /insert into audit_events/i);
 
 // Legacy role tables must never back the new authority surface.
-for (const [name, source] of [['padiem-authority-v1', authority], ['admin-authority-v1', handler]]) {
+for (const [name, source] of [['padiem-authority-v1', authority], ['admin-authority-v1', handler], ['resident-verification-exemption-v1', exemption]]) {
   assert.doesNotMatch(source, /user_roles/i, `${name} must not use legacy user_roles authority`);
   assert.doesNotMatch(source, /complex_memberships/i, `${name} must not use legacy manager membership`);
   assert.doesNotMatch(source, /x-danjion-role|x-danjion-verified|x-danjion-complex/i, `${name} must not trust client authority headers`);
@@ -37,6 +38,7 @@ for (const [name, source] of [['padiem-authority-v1', authority], ['admin-author
 // No owner emails or account identifiers in request-path code.
 assert.doesNotMatch(authority, /skerish|muphobia|charliekant|padiemipu|@naver\.com|@gmail\.com|email/i);
 assert.doesNotMatch(handler, /skerish|muphobia|charliekant|padiemipu|@naver\.com|@gmail\.com|email/i);
+assert.doesNotMatch(exemption, /skerish|muphobia|charliekant|padiemipu|@naver\.com|@gmail\.com|email/i);
 
 // Privileged scope registry: every owner-only scope named in #411 exists.
 for (const scope of [
@@ -62,6 +64,22 @@ assert.match(authority, /일반관리자/);
 for (const key of ['level', 'label', 'scopes', 'wildcard']) {
   assert.ok(new RegExp(`${key}:`).test(authority), `response data must expose ${key}`);
 }
+
+// My Info uses a separate self-only read path. It may resolve active scopes
+// server-side but must never emit authorization audit rows from routine page views.
+assert.match(exemption, /\/api\/v1\/me\/resident-verification-exemption/);
+assert.match(exemption, /requireActor/);
+assert.match(exemption, /resolvePadiemAuthority/);
+assert.match(exemption, /resident\.verification\.exempt/);
+assert.match(exemption, /authority\.scopes\.includes\(RESIDENT_VERIFICATION_EXEMPT_SCOPE\)/);
+assert.doesNotMatch(exemption, /recordAuthorityDecision/);
+assert.doesNotMatch(exemption, /insert into audit_events/i);
+assert.doesNotMatch(exemption, /wildcard\s*\?/i);
+
+const exemptionIndex = app.indexOf('handleResidentVerificationExemptionRequest(request, env, id)');
+const residentSummaryIndex = app.indexOf('handleResidentSummaryRequest(request, env, id)');
+assert.ok(exemptionIndex >= 0, 'app must mount the self exemption handler');
+assert.ok(residentSummaryIndex > exemptionIndex, 'self exemption handler must be mounted before resident summary fallback');
 
 // The authority handler must intercept before the terminal admin-v1 gate.
 const authorityIndex = app.indexOf('handleAdminAuthorityRequest(request, env, id)');
