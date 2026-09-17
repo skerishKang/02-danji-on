@@ -26,11 +26,11 @@ for (const required of [
 
 for (const forbidden of [
   'DANJION_PRODUCTION_DB_URL',
-  'DATABASE_URL: ${{ secrets.',
   '--env production',
   'danjion.pages.dev',
   'padiem-danjion-api-production'
 ]) assert.ok(!workflow.includes(forbidden), `fixture workflow carries production authority: ${forbidden}`);
+assert.doesNotMatch(workflow, /^\s+DATABASE_URL:\s*\$\{\{\s*secrets\./m, 'fixture workflow must not bind a generic DATABASE_URL secret');
 
 assert.match(script, /APP_ENV.*qa/, 'fixture script must fail closed unless APP_ENV=qa');
 assert.match(script, /QA_API_HOST = 'padiem-danjion-api-qa\.padiem\.workers\.dev'/, 'fixture must pin dedicated QA Worker');
