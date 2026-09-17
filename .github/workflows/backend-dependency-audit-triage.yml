@@ -32,10 +32,12 @@ jobs:
         shell: bash
         run: |
           set -uo pipefail
+          set +e
           npm audit --json > "${RUNNER_TEMP}/audit-full.json"
           full_status=$?
           npm audit --json --omit=dev > "${RUNNER_TEMP}/audit-runtime.json"
           runtime_status=$?
+          set -e
           echo "FULL_AUDIT_EXIT=${full_status}"
           echo "RUNTIME_AUDIT_EXIT=${runtime_status}"
           exit 0
