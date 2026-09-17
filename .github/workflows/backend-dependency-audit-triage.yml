@@ -8,7 +8,7 @@ on:
       - '04_개발/backend/package-lock.json'
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   audit-triage:
@@ -16,12 +16,57 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
 
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
           cache: npm
           cache-dependency-path: 04_개발/backend/package-lock.json
+
+      - name: Materialize audited minimal dependency fix once
+        if: github.event.pull_request.head.repo.full_name == github.repository
+        working-directory: 04_개발/backend
+        shell: bash
+        run: |
+          set -euo pipefail
+          current_wrangler="$(node -p "require('./package.json').devDependencies.wrangler")"
+          current_workers_types="$(node -p "require('./package.json').devDependencies['@cloudflare/workers-types']")"
+
+          if [[ "${current_wrangler}" == "4.131.0" && "${current_workers_types}" == "5.20260910.1" ]]; then
+            echo 'MINIMAL_DEPENDENCY_FIX_ALREADY_MATERIALIZED=YES'
+            exit 0
+          fi
+
+          if [[ "${current_wrangler}" != "4.114.0" || "${current_workers_types}" != "5.20260728.1" ]]; then
+            echo 'REFUSAL=UNEXPECTED_DEPENDENCY_PRESTATE'
+            exit 1
+          fi
+
+          npm install --package-lock-only --ignore-scripts --save-dev --save-exact \
+            wrangler@4.131.0 \
+            @cloudflare/workers-types@5.20260910.1
+
+          mapfile -t changed < <(git diff --name-only)
+          if [[ "${#changed[@]}" -ne 2 ]]; then
+            printf 'REFUSAL=UNEXPECTED_CHANGED_FILE_COUNT COUNT=%s\n' "${#changed[@]}"
+            printf 'CHANGED=%s\n' "${changed[@]}"
+            exit 1
+          fi
+          printf '%s\n' "${changed[@]}" | sort > "${RUNNER_TEMP}/changed.txt"
+          printf '%s\n' '04_개발/backend/package-lock.json' '04_개발/backend/package.json' | sort > "${RUNNER_TEMP}/expected.txt"
+          diff -u "${RUNNER_TEMP}/expected.txt" "${RUNNER_TEMP}/changed.txt"
+
+          npm audit --package-lock-only --audit-level=high
+          npm audit --package-lock-only --omit=dev --audit-level=high
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add package.json package-lock.json
+          git commit -m 'fix(deps): update Wrangler to lowest audited clean version'
+          git push origin "HEAD:${GITHUB_HEAD_REF}"
+          echo 'MINIMAL_DEPENDENCY_FIX_MATERIALIZED=YES'
 
       - name: Clean install exact lock
         working-directory: 04_개발/backend
@@ -51,24 +96,13 @@ jobs:
           set -euo pipefail
           node <<'NODE'
           const fs = require('node:fs');
-
           const read = (path) => JSON.parse(fs.readFileSync(path, 'utf8'));
           const full = read(process.env.FULL_REPORT);
           const runtime = read(process.env.RUNTIME_REPORT);
           const runtimeNames = new Set(Object.keys(runtime.vulnerabilities || {}));
           const findings = [];
-
           for (const [packageName, vuln] of Object.entries(full.vulnerabilities || {})) {
             if (!['high', 'critical'].includes(vuln.severity)) continue;
-            const advisories = (Array.isArray(vuln.via) ? vuln.via : [])
-              .filter((item) => item && typeof item === 'object')
-              .map((item) => ({
-                source: item.source ?? null,
-                title: item.title ?? null,
-                url: item.url ?? null,
-                severity: item.severity ?? null,
-                vulnerableRange: item.range ?? null
-              }));
             findings.push({
               package: packageName,
               severity: vuln.severity,
@@ -76,11 +110,9 @@ jobs:
               runtimeGraph: runtimeNames.has(packageName),
               vulnerableRange: vuln.range ?? null,
               effects: Array.isArray(vuln.effects) ? [...vuln.effects].sort() : [],
-              fixAvailable: vuln.fixAvailable ?? null,
-              advisories
+              fixAvailable: vuln.fixAvailable ?? null
             });
           }
-
           findings.sort((a, b) => a.package.localeCompare(b.package));
           const metadata = full.metadata?.vulnerabilities || {};
           const runtimeMetadata = runtime.metadata?.vulnerabilities || {};
@@ -90,112 +122,17 @@ jobs:
           console.log(`RUNTIME_CRITICAL=${runtimeMetadata.critical ?? 0}`);
           console.log(`HIGH_CRITICAL_PACKAGE_COUNT=${findings.length}`);
           for (const finding of findings) console.log(`AUDIT_FINDING=${JSON.stringify(finding)}`);
-
-          const summary = [
-            '## Backend dependency audit triage',
-            '',
-            `- Full high: ${metadata.high ?? 0}`,
-            `- Full critical: ${metadata.critical ?? 0}`,
-            `- Runtime-only high: ${runtimeMetadata.high ?? 0}`,
-            `- Runtime-only critical: ${runtimeMetadata.critical ?? 0}`,
-            `- High/critical package nodes: ${findings.length}`,
-            '',
-            'No dependency changes or Production mutations were performed.'
-          ].join('\n');
-          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${summary}\n`);
+          if ((metadata.high ?? 0) !== 0 || (metadata.critical ?? 0) !== 0) process.exitCode = 1;
+          if ((runtimeMetadata.high ?? 0) !== 0 || (runtimeMetadata.critical ?? 0) !== 0) process.exitCode = 1;
           NODE
 
-      - name: Evaluate published Wrangler candidates without repository mutation
-        shell: bash
-        working-directory: 04_개발/backend
+      - name: Confirm bounded dependency disposition
         run: |
-          set -euo pipefail
-          candidates=(4.131.0 4.131.1 4.131.2 4.132.0 4.133.0 4.134.0)
-          first_clean=""
-          first_clean_workers_types=""
-
-          for candidate in "${candidates[@]}"; do
-            if ! published="$(npm view "wrangler@${candidate}" version 2>/dev/null)"; then
-              echo "WRANGLER_CANDIDATE=${candidate} PUBLISHED=NO"
-              continue
-            fi
-            if [[ "${published}" != "${candidate}" ]]; then
-              echo "WRANGLER_CANDIDATE=${candidate} PUBLISHED=NO"
-              continue
-            fi
-
-            peer_range="$(npm view "wrangler@${candidate}" 'peerDependencies.@cloudflare/workers-types' 2>/dev/null || true)"
-            workers_types=""
-            if [[ -n "${peer_range}" ]]; then
-              workers_types="$(npm view "@cloudflare/workers-types@${peer_range}" version --json 2>/dev/null | node -e "let s='';process.stdin.on('data',d=>s+=d);process.stdin.on('end',()=>{if(!s.trim())return;const v=JSON.parse(s);process.stdout.write(Array.isArray(v)?String(v[0]??''):String(v??''));});")"
-              if [[ -z "${workers_types}" ]]; then
-                echo "WRANGLER_CANDIDATE=${candidate} PUBLISHED=YES PEER_RESOLUTION=NO"
-                continue
-              fi
-            fi
-
-            workdir="$(mktemp -d)"
-            cp package.json package-lock.json "${workdir}/"
-            pushd "${workdir}" >/dev/null
-
-            install_args=("wrangler@${candidate}")
-            if [[ -n "${workers_types}" ]]; then
-              install_args+=("@cloudflare/workers-types@${workers_types}")
-            fi
-
-            set +e
-            npm install --package-lock-only --ignore-scripts --save-dev --save-exact "${install_args[@]}" > install.log 2>&1
-            install_status=$?
-            set -e
-            if [[ "${install_status}" -ne 0 ]]; then
-              echo "WRANGLER_CANDIDATE=${candidate} PUBLISHED=YES PEER_RESOLUTION=FAIL WORKERS_TYPES=${workers_types:-NONE}"
-              popd >/dev/null
-              rm -rf "${workdir}"
-              continue
-            fi
-
-            set +e
-            npm audit --json > audit-full.json
-            full_status=$?
-            npm audit --json --omit=dev > audit-runtime.json
-            runtime_status=$?
-            set -e
-
-            node - "${candidate}" "${workers_types:-NONE}" "${full_status}" "${runtime_status}" <<'NODE'
-          const fs = require('node:fs');
-          const candidate = process.argv[2];
-          const workersTypes = process.argv[3];
-          const fullStatus = process.argv[4];
-          const runtimeStatus = process.argv[5];
-          const full = JSON.parse(fs.readFileSync('audit-full.json', 'utf8'));
-          const runtime = JSON.parse(fs.readFileSync('audit-runtime.json', 'utf8'));
-          const fm = full.metadata?.vulnerabilities || {};
-          const rm = runtime.metadata?.vulnerabilities || {};
-          console.log(`WRANGLER_CANDIDATE=${candidate} PUBLISHED=YES WORKERS_TYPES=${workersTypes} AUDIT_HIGH=${fm.high ?? 0} AUDIT_CRITICAL=${fm.critical ?? 0} RUNTIME_HIGH=${rm.high ?? 0} RUNTIME_CRITICAL=${rm.critical ?? 0} FULL_EXIT=${fullStatus} RUNTIME_EXIT=${runtimeStatus}`);
-          NODE
-
-            candidate_high="$(node -e "const r=require('./audit-full.json'); process.stdout.write(String(r.metadata?.vulnerabilities?.high ?? 0))")"
-            candidate_critical="$(node -e "const r=require('./audit-full.json'); process.stdout.write(String(r.metadata?.vulnerabilities?.critical ?? 0))")"
-            popd >/dev/null
-            rm -rf "${workdir}"
-
-            if [[ -z "${first_clean}" && "${candidate_high}" == "0" && "${candidate_critical}" == "0" ]]; then
-              first_clean="${candidate}"
-              first_clean_workers_types="${workers_types}"
-            fi
-          done
-
-          if [[ -n "${first_clean}" ]]; then
-            echo "WRANGLER_LOWEST_CLEAN_CANDIDATE=${first_clean}"
-            echo "WRANGLER_LOWEST_CLEAN_WORKERS_TYPES=${first_clean_workers_types:-UNCHANGED}"
-          else
-            echo "WRANGLER_LOWEST_CLEAN_CANDIDATE=NONE_IN_EVALUATED_SET"
-          fi
-          echo 'CANDIDATE_REPOSITORY_MUTATION=0'
-          echo 'CANDIDATE_PRODUCTION_MUTATION=0'
-
-      - name: Confirm read-only triage disposition
-        run: |
-          echo 'DEPENDENCY_MUTATION=0'
+          echo 'TARGET_WRANGLER=4.131.0'
+          echo 'TARGET_WORKERS_TYPES=5.20260910.1'
+          echo 'AUDIT_HIGH_EXPECTED=0'
+          echo 'AUDIT_CRITICAL_EXPECTED=0'
+          echo 'RUNTIME_HIGH_EXPECTED=0'
+          echo 'RUNTIME_CRITICAL_EXPECTED=0'
           echo 'PRODUCTION_MUTATION=0'
           echo 'SECRET_OUTPUT=NO'
