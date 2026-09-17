@@ -131,6 +131,18 @@ async function main() {
     `;
     const householdId = String(households[0].id);
 
+    const householdId = String(households[0].id);
+
+    const primaryOccupant = await sql`
+      select user_id from household_memberships
+      where household_id = ${householdId}::uuid
+        and membership_role = 'primary'
+        and status in ('pending','verified')
+      limit 1
+    `;
+    const reuseAsMember = Boolean(primaryOccupant[0]?.user_id) && String(primaryOccupant[0].user_id) !== userId;
+    const membershipRole = reuseAsMember ? 'member' : 'primary';
+
     const verified = disposition === 'HOUSEHOLD_ASSOCIATED_RESIDENT_VERIFIED';
     const residentStatus = verified ? 'verified' : 'pending';
     const householdStatus = verified ? 'verified' : 'pending';
@@ -159,7 +171,7 @@ async function main() {
       await sql`
         update household_memberships
         set household_id = ${householdId}::uuid,
-            membership_role = 'primary',
+            membership_role = ${membershipRole},
             status = ${householdStatus},
             verified_at = ${verified ? new Date().toISOString() : null}::timestamptz,
             revoked_at = null,
@@ -174,7 +186,7 @@ async function main() {
           ${complexId}::uuid,
           ${householdId}::uuid,
           ${userId}::uuid,
-          'primary',
+          ${membershipRole},
           ${householdStatus},
           ${verified ? new Date().toISOString() : null}::timestamptz,
           null
