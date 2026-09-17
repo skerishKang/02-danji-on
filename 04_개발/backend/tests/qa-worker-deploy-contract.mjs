@@ -20,7 +20,7 @@ must('DANJION_QA_FRONTEND_URL');
 must('padiem-danjion-api-qa');
 must("--var 'APP_ENV:qa'");
 must('AUTH_CANONICAL_PUBLIC_BASE_URL');
-must('wrangler@4.114.0 deploy --env qa');
+must('wrangler@4.131.0 deploy --env qa');
 must('--secrets-file');
 must('for attempt in $(seq 1 12)');
 must('Database migration: NO');
@@ -42,7 +42,7 @@ assert.equal((workflow.match(/danjion\.pages\.dev/g) || []).length, 1,
 const deployJob = workflow.slice(workflow.indexOf('  deploy-worker:'));
 assert.ok(deployJob.includes("if: ${{ github.event_name == 'workflow_dispatch' && inputs.confirm_qa_worker }}"),
   'Worker deploy must require manual dispatch + explicit confirmation');
-assert.ok(!workflow.slice(0, workflow.indexOf('  deploy-worker:')).includes('wrangler@4.114.0 deploy --env qa'),
+assert.ok(!workflow.slice(0, workflow.indexOf('  deploy-worker:')).includes('wrangler@4.131.0 deploy --env qa'),
   'PR source-contract job must never deploy Worker');
 
 console.log('OK: qa-worker-deploy-contract passed');
