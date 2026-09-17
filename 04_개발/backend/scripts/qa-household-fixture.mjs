@@ -2,8 +2,8 @@ import { neon } from '@neondatabase/serverless';
 
 const QA_API_HOST = 'padiem-danjion-api-qa.padiem.workers.dev';
 const QA_FRONTEND_HOST = 'danjion-qa.pages.dev';
-const SYNTHETIC_COMPLEX_SLUG = 'qa-synthetic-complex';
-const SYNTHETIC_COMPLEX_NAME = 'QA Synthetic Complex';
+const SYNTHETIC_COMPLEX_SLUG = process.env.DANJION_QA_COMPLEX_SLUG?.trim() || 'banglim-myeongji-roadhill';
+const SYNTHETIC_COMPLEX_NAME = process.env.DANJION_QA_COMPLEX_NAME?.trim() || '방림명지로드힐';
 const SYNTHETIC_BUILDING = 'qa-building';
 const SYNTHETIC_UNIT = 'qa-unit';
 const DISPOSITIONS = new Set([

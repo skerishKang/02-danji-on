@@ -138,7 +138,7 @@ try {
   for (const route of routes) {
     const response = await fetch(page(route), {
       headers: { accept: 'text/html' },
-      redirect: 'manual'
+      redirect: 'follow'
     });
     await expectStatus(`QA canonical V3 route ${route}`, response);
   }

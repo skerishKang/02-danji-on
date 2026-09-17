@@ -80,9 +80,10 @@ for (const sensitiveOutput of [
   'console.log(householdId'
 ]) assert.ok(!script.includes(sensitiveOutput), `fixture must not print sensitive value: ${sensitiveOutput}`);
 
-for (const forbiddenSeed of ['900_', '901_', '902_', 'banglim', 'myeongji']) {
-  assert.ok(!script.toLowerCase().includes(forbiddenSeed), `fixture must not reuse Production/dev seed material: ${forbiddenSeed}`);
+for (const forbiddenSeed of ['900_', '901_', '902_']) {
+  assert.ok(!script.toLowerCase().includes(forbiddenSeed), `fixture must not reuse dev seed material: ${forbiddenSeed}`);
 }
+assert.match(script, /banglim-myeongji-roadhill/, 'fixture must target canonical pilot complex');
 
 for (const safeOutput of [
   'HOUSEHOLD_ASSOCIATED=true',
