@@ -1,0 +1,120 @@
+name: QA Authenticated UI Readback
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-authenticated-ui-readback.yml'
+      - '04_개발/frontend/scripts/qa-authenticated-ui-readback.mjs'
+      - '04_개발/frontend/tests/qa-authenticated-ui-readback-contract.mjs'
+  workflow_dispatch:
+    inputs:
+      expected_main:
+        description: 'Exact main SHA authorized for authenticated QA UI readback'
+        required: true
+        type: string
+      run_live:
+        description: 'Explicitly confirm authenticated QA browser readback'
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: danjion-qa-authenticated-ui-readback
+  cancel-in-progress: false
+
+jobs:
+  source-contract:
+    name: QA authenticated UI readback source safety contract
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Verify authenticated UI readback contract
+        run: node 04_개발/frontend/tests/qa-authenticated-ui-readback-contract.mjs
+
+  live-readback:
+    name: Read QA pending resident state in authenticated browser
+    needs: source-contract
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_live }}
+    runs-on: ubuntu-latest
+    environment: qa
+    env:
+      DANJION_QA_API_URL: ${{ vars.DANJION_QA_API_URL }}
+      DANJION_QA_FRONTEND_URL: ${{ vars.DANJION_QA_FRONTEND_URL }}
+      DANJION_QA_EMAIL: ${{ secrets.DANJION_QA_EMAIL }}
+      DANJION_QA_PASSWORD: ${{ secrets.DANJION_QA_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: 04_개발/frontend/package-lock.json
+
+      - name: Exact-main guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected='${{ inputs.expected_main }}'
+          test "$GITHUB_REF" = 'refs/heads/main'
+          actual="$(git rev-parse HEAD)"
+          remote="$(git ls-remote origin refs/heads/main | awk '{print $1}')"
+          test -n "$expected"
+          test "$actual" = "$expected"
+          test "$remote" = "$expected"
+          echo 'QA authenticated UI readback exact-main guard: PASS'
+
+      - name: Validate QA-only origins and credential presence
+        shell: bash
+        run: |
+          set -euo pipefail
+          for key in DANJION_QA_API_URL DANJION_QA_FRONTEND_URL DANJION_QA_EMAIL DANJION_QA_PASSWORD; do
+            test -n "${!key:-}" || { echo "::error::Missing QA UI readback input: ${key}"; exit 1; }
+          done
+          test "${#DANJION_QA_PASSWORD}" -ge 8
+          node - <<'NODE'
+          const api = new URL(process.env.DANJION_QA_API_URL);
+          const front = new URL(process.env.DANJION_QA_FRONTEND_URL);
+          if (api.protocol !== 'https:' || api.hostname !== 'padiem-danjion-api-qa.padiem.workers.dev' || api.pathname !== '/') throw new Error('QA API origin invalid');
+          if (front.protocol !== 'https:' || front.hostname !== 'danjion-qa.pages.dev' || front.pathname !== '/') throw new Error('QA frontend origin invalid');
+          if (api.hostname.includes('production') || front.hostname === 'danjion.pages.dev') throw new Error('Production target forbidden');
+          NODE
+          echo 'QA authenticated UI readback isolation guard: PASS'
+
+      - name: Install frontend dependencies
+        working-directory: 04_개발/frontend
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        working-directory: 04_개발/frontend
+        run: npx playwright install --with-deps chromium
+
+      - name: Run authenticated QA browser readback
+        working-directory: 04_개발/frontend
+        run: node scripts/qa-authenticated-ui-readback.mjs
+
+      - name: Record bounded disposition
+        shell: bash
+        run: |
+          {
+            echo '## DanjiOn authenticated QA UI readback'
+            echo ''
+            echo '- Environment: `qa`'
+            echo '- Browser session: existing synthetic QA identity'
+            echo '- Allowed mutation: ephemeral QA auth session only'
+            echo '- Account creation: NO'
+            echo '- Fixture mutation: NO'
+            echo '- Database fixture/state mutation: NO'
+            echo '- Worker deploy: NO'
+            echo '- Pages deploy: NO'
+            echo '- Production target: NO'
+          } >> "$GITHUB_STEP_SUMMARY"
