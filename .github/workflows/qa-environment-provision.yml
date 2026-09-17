@@ -219,13 +219,28 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          curl --silent --show-error --fail --retry 4 --retry-delay 2 --output /dev/null "${DANJION_QA_FRONTEND_URL}/"
-          headers="$(curl --silent --show-error --fail --head "${DANJION_QA_FRONTEND_URL}/")"
-          printf '%s' "$headers" | grep -qi '^x-robots-tag: noindex'
+          root_body="${RUNNER_TEMP}/qa-pages-root.html"
+          root_headers="${RUNNER_TEMP}/qa-pages-root.headers"
           runtime_file="${RUNNER_TEMP}/qa-danjion-session.js"
-          curl --silent --show-error --fail --retry 4 --retry-delay 2 "${DANJION_QA_FRONTEND_URL}/assets/danjion-session.js" --output "$runtime_file"
-          grep -Fq "const QA_PAGES_HOSTNAME = 'danjion-qa.pages.dev';" "$runtime_file"
-          grep -Fq "$DANJION_QA_API_URL" "$runtime_file"
+          pages_ready=0
+          for attempt in $(seq 1 12); do
+            root_status="$(curl --silent --show-error --output "$root_body" --dump-header "$root_headers" --write-out '%{http_code}' "${DANJION_QA_FRONTEND_URL}/" || true)"
+            runtime_status="$(curl --silent --show-error --output "$runtime_file" --write-out '%{http_code}' "${DANJION_QA_FRONTEND_URL}/assets/danjion-session.js" || true)"
+            if [ "$root_status" = '200' ] \
+              && grep -qi '^x-robots-tag: noindex' "$root_headers" \
+              && [ "$runtime_status" = '200' ] \
+              && grep -Fq "const QA_PAGES_HOSTNAME = 'danjion-qa.pages.dev';" "$runtime_file" \
+              && grep -Fq "$DANJION_QA_API_URL" "$runtime_file"; then
+              pages_ready=1
+              break
+            fi
+            echo "QA Pages readiness attempt ${attempt}/12 not ready yet; retrying."
+            sleep 2
+          done
+          if [ "$pages_ready" != '1' ]; then
+            echo '::error::QA Pages did not become ready with noindex and dedicated runtime binding within bounded readiness window.'
+            exit 1
+          fi
           echo 'QA Pages smoke + runtime binding + noindex: PASS'
 
       - name: Provision or verify synthetic QA credential account
