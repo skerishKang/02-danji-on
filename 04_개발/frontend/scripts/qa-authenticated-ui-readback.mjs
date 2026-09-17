@@ -28,8 +28,12 @@ const email = required('DANJION_QA_EMAIL');
 const password = required('DANJION_QA_PASSWORD');
 
 let browser;
+let page;
 let stage = 'START';
 const report = (name, value) => console.log(`${name}=${value}`);
+const apiEvents = [];
+const consoleEvents = [];
+const pageErrorEvents = [];
 try {
   browser = await chromium.launch({ headless: true });
   const context = await browser.newContext();
@@ -54,7 +58,31 @@ try {
   if (!sessionJson || !sessionJson.session || !sessionJson.user) throw new Error('SESSION_NOT_AUTHENTICATED');
   report('SESSION', 'PASS');
 
-  const page = await context.newPage();
+  page = await context.newPage();
+
+  page.on('console', (msg) => {
+    const text = msg.text().slice(0, 160).replace(/[\r\n\t]+/g, ' ');
+    if (!/token|secret|jwt|password|bearer|cookie/i.test(text)) {
+      consoleEvents.push(`[${msg.type()}] ${text}`);
+    }
+  });
+
+  page.on('pageerror', (err) => {
+    const msg = String(err?.message || err).slice(0, 160).replace(/[\r\n\t]+/g, ' ');
+    if (!/token|secret|jwt|password|bearer|cookie/i.test(msg)) {
+      pageErrorEvents.push(msg);
+    }
+  });
+
+  page.on('response', (resp) => {
+    const url = resp.url();
+    if (url.includes('/api/')) {
+      const u = new URL(url);
+      const bridge = resp.headers()['x-danjion-auth-bridge'] || '-';
+      const facade = resp.headers()['x-danjion-app-facade'] || resp.headers()['x-danjion-auth-facade'] || '-';
+      apiEvents.push(`${resp.status()}:${u.pathname}:b=${bridge}:f=${facade}`);
+    }
+  });
 
   stage = 'PAGE19_LOAD';
   await page.goto(new URL('19_내정보_메인.html', `${frontendBase}/`).href, {
@@ -104,6 +132,7 @@ try {
   console.log('PAGE_26_PENDING_HERO=PASS');
   console.log('PAGE_26_PENDING_MEMBER_COPY=PASS');
   console.log('BARE_COMPLETION_COPY_VISIBLE=NO');
+  if (apiEvents.length) console.log(`DIAG_API_RESPONSES=${apiEvents.join(' | ')}`);
   console.log('QA_AUTH_SESSION_MUTATION=EPHEMERAL_ONLY');
   console.log('QA_FIXTURE_MUTATION=0');
   console.log('PRODUCTION_MUTATION=0');
@@ -114,6 +143,33 @@ try {
   const code = error instanceof Error ? error.message.replace(/[^A-Za-z0-9_:-]/g, '_').slice(0, 160) : 'UNKNOWN_FAILURE';
   report(stage, 'FAIL');
   console.error(`QA_AUTHENTICATED_UI_READBACK_FAILED=${stage}:${code}`);
+  if (page) {
+    const diag = await page.evaluate(() => {
+      const gate = document.getElementById('myinfoAccessGate');
+      const priv = document.getElementById('myinfoPrivateContent');
+      const row = document.getElementById('mi-resident-row');
+      const state = document.getElementById('mi-resident-state');
+      const household = document.getElementById('mi-household');
+      const p26Panel = document.getElementById('household-home-panel');
+      const p26Hero = document.getElementById('household-home-complex');
+      const p26Role = document.getElementById('household-my-role');
+      return {
+        path: location.pathname,
+        gateHidden: gate ? gate.hidden : null,
+        privHidden: priv ? priv.hidden : null,
+        rowHidden: row ? row.hidden : null,
+        stateText: state ? state.textContent : null,
+        householdText: household ? household.textContent : null,
+        p26PanelHidden: p26Panel ? p26Panel.hidden : null,
+        p26HeroText: p26Hero ? p26Hero.textContent : null,
+        p26RoleText: p26Role ? p26Role.textContent : null,
+      };
+    }).catch(() => null);
+    if (apiEvents.length) console.log(`DIAG_API_RESPONSES=${apiEvents.join(' | ')}`);
+    if (diag) console.log(`DIAG_DOM_STATE=${JSON.stringify(diag)}`);
+    if (pageErrorEvents.length) console.log(`DIAG_PAGE_ERRORS=${pageErrorEvents.join(' | ')}`);
+    if (consoleEvents.length) console.log(`DIAG_CONSOLE_LOGS=${consoleEvents.slice(-5).join(' | ')}`);
+  }
   process.exitCode = 1;
 } finally {
   if (browser) await browser.close();

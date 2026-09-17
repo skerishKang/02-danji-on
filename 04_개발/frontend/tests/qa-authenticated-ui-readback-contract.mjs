@@ -77,4 +77,13 @@ for (const stage of ['SIGN_IN', 'SESSION', 'PAGE19_LOAD', 'PAGE19_COPY', 'PAGE26
   assert.ok(script.includes(`'${stage}'`) || script.includes(`'${stage}',`), `stage disposition must include ${stage}`);
 }
 
+// Issue #688: stage-level and network diagnostics are preserved for readback triage.
+assert.ok(script.includes('DIAG_API_RESPONSES'));
+assert.ok(script.includes('DIAG_DOM_STATE'));
+assert.ok(script.includes('DIAG_PAGE_ERRORS'));
+assert.ok(script.includes('DIAG_CONSOLE_LOGS'));
+assert.ok(script.includes("page.on('response'"));
+assert.ok(script.includes("page.on('pageerror'"));
+assert.ok(script.includes("page.on('console'"));
+
 console.log('OK: qa-authenticated-ui-readback contract passed');
