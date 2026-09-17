@@ -117,7 +117,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          npx wrangler@4.114.0 deploy --env qa --secrets-file "$DANJION_QA_WORKER_SECRETS_FILE" \
+          npx wrangler@4.131.0 deploy --env qa --secrets-file "$DANJION_QA_WORKER_SECRETS_FILE" \
             --var 'APP_ENV:qa' \
             --var 'DEV_AUTH_BYPASS:false' \
             --var 'AUTH_REQUIRE_EMAIL_VERIFICATION:false' \
