@@ -48,7 +48,7 @@ jobs:
             wrangler@4.131.0 \
             @cloudflare/workers-types@5.20260910.1
 
-          mapfile -t changed < <(git diff --name-only)
+          mapfile -t changed < <(git -c core.quotepath=false diff --name-only)
           if [[ "${#changed[@]}" -ne 2 ]]; then
             printf 'REFUSAL=UNEXPECTED_CHANGED_FILE_COUNT COUNT=%s\n' "${#changed[@]}"
             printf 'CHANGED=%s\n' "${changed[@]}"
