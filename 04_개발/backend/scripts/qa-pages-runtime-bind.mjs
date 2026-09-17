@@ -1,5 +1,6 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const PRODUCTION_API_HOST = 'padiem-danjion-api-production.padiem.workers.dev';
 const QA_PAGES_HOST = 'danjion-qa.pages.dev';
@@ -9,7 +10,7 @@ function fail(message) {
   throw new Error(`QA_PAGES_RUNTIME_BIND_FAILED:${message}`);
 }
 
-function validateQaApi(raw) {
+export function validateQaApi(raw) {
   let url;
   try { url = new URL(String(raw || '').trim()); } catch { fail('INVALID_QA_API_URL'); }
   if (url.protocol !== 'https:') fail('QA_API_MUST_USE_HTTPS');
@@ -71,6 +72,6 @@ async function main() {
   console.log('QA Pages runtime binding: PASS (origin value suppressed)');
 }
 
-if (process.argv[1] && import.meta.url === new URL(`file://${resolve(process.argv[1])}`).href) {
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   await main();
 }
