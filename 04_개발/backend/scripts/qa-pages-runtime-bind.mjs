@@ -29,14 +29,13 @@ function replaceOnce(source, needle, replacement, label) {
 }
 
 export function bindQaPagesRuntime(source, qaApiOrigin) {
-  const escaped = JSON.stringify(qaApiOrigin);
   let next = source;
 
   const constantsAnchor = "  const PRODUCTION_API_BASE = 'https://padiem-danjion-api-production.padiem.workers.dev';";
   next = replaceOnce(
     next,
     constantsAnchor,
-    `${constantsAnchor}\n  // QA-only deployment artifact binding (#664). Canonical source is copied first,\n  // then this non-secret origin is injected only into dist-qa.\n  const QA_PAGES_HOSTNAME = '${QA_PAGES_HOST}';\n  const QA_API_BASE = ${escaped};`,
+    `${constantsAnchor}\n  // QA-only deployment artifact binding (#686). The QA Pages facade is same-origin;\n  // its Pages Function selects the fixed QA Worker upstream server-side.\n  const QA_PAGES_HOSTNAME = '${QA_PAGES_HOST}';`,
     'constants'
   );
 
@@ -44,7 +43,7 @@ export function bindQaPagesRuntime(source, qaApiOrigin) {
   next = replaceOnce(
     next,
     apiAnchor,
-    `${apiAnchor}\n    if (hostname === QA_PAGES_HOSTNAME) return QA_API_BASE;`,
+    `${apiAnchor}\n    if (hostname === QA_PAGES_HOSTNAME) return '';`,
     'api-base'
   );
 
@@ -52,12 +51,11 @@ export function bindQaPagesRuntime(source, qaApiOrigin) {
   next = replaceOnce(
     next,
     authAnchor,
-    `${authAnchor}\n    if (hostname === QA_PAGES_HOSTNAME) return QA_API_BASE;`,
+    `${authAnchor}\n    if (hostname === QA_PAGES_HOSTNAME) return '';`,
     'auth-base'
   );
 
   if (!next.includes(`const QA_PAGES_HOSTNAME = '${QA_PAGES_HOST}'`)) fail('QA_HOST_BINDING_MISSING');
-  if (!next.includes(`const QA_API_BASE = ${escaped};`)) fail('QA_API_BINDING_MISSING');
   return next;
 }
 

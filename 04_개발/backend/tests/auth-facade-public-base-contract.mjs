@@ -34,6 +34,14 @@ assert.equal(resolveAuthPublicBaseUrl(env, makeSignInSocialRequest({
   [AUTH_FACADE_MARKER_HEADER]: AUTH_FACADE_MARKER_VALUE,
   origin: CANONICAL_PAGES_AUTH_BASE_URL
 })), CANONICAL_PAGES_AUTH_BASE_URL, 'facade marker + canonical Origin must select the canonical Pages base');
+assert.equal(resolveAuthPublicBaseUrl({ ...env, APP_ENV: 'qa' }, makeSignInSocialRequest({
+  [AUTH_FACADE_MARKER_HEADER]: AUTH_FACADE_MARKER_VALUE,
+  origin: 'https://danjion-qa.pages.dev'
+})), 'https://danjion-qa.pages.dev', 'QA facade marker + exact QA Origin must select the QA Pages base');
+assert.equal(resolveAuthPublicBaseUrl(env, makeSignInSocialRequest({
+  [AUTH_FACADE_MARKER_HEADER]: AUTH_FACADE_MARKER_VALUE,
+  origin: 'https://danjion-qa.pages.dev'
+})), WORKER_BASE, 'QA facade origin must remain disabled outside APP_ENV=qa');
 assert.equal(resolveAuthPublicBaseUrl(env, makeSignInSocialRequest({ origin: CANONICAL_PAGES_AUTH_BASE_URL })),
   WORKER_BASE, 'canonical Origin without the marker must not flip the base');
 assert.equal(resolveAuthPublicBaseUrl(env, makeSignInSocialRequest({ [AUTH_FACADE_MARKER_HEADER]: AUTH_FACADE_MARKER_VALUE })),

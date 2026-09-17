@@ -70,5 +70,8 @@ assert.ok(script.includes('QA_AUTH_SESSION_MUTATION=EPHEMERAL_ONLY'));
 assert.ok(script.includes('QA_FIXTURE_MUTATION=0'));
 assert.ok(script.includes('PRODUCTION_MUTATION=0'));
 assert.ok(script.includes('SECRET_OUTPUT=NO'));
+for (const stage of ['SIGN_IN', 'SESSION', 'PAGE19_LOAD', 'PAGE19_COPY', 'PAGE26_LOAD', 'PAGE26_HERO', 'PAGE26_MEMBER']) {
+  assert.ok(script.includes(`'${stage}'`) || script.includes(`'${stage}',`), `stage disposition must include ${stage}`);
+}
 
 console.log('OK: qa-authenticated-ui-readback contract passed');

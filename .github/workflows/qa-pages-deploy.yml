@@ -115,7 +115,7 @@ jobs:
           test -f dist-qa/assets/danjion-session.js
           test ! -e dist-qa/tests
           grep -Fq "const QA_PAGES_HOSTNAME = 'danjion-qa.pages.dev';" dist-qa/assets/danjion-session.js
-          grep -Fq "$DANJION_QA_API_URL" dist-qa/assets/danjion-session.js
+          grep -Fq "return '';" dist-qa/assets/danjion-session.js
           echo 'QA Pages artifact runtime binding: PASS'
 
       - name: Deploy dedicated QA Pages only
@@ -139,7 +139,7 @@ jobs:
               && grep -qi '^x-robots-tag: noindex' "$root_headers" \
               && [ "$runtime_status" = '200' ] \
               && grep -Fq "const QA_PAGES_HOSTNAME = 'danjion-qa.pages.dev';" "$runtime_file" \
-              && grep -Fq "$DANJION_QA_API_URL" "$runtime_file"; then
+              && grep -Fq "return '';" "$runtime_file"; then
               pages_ready=1
               break
             fi

@@ -6,7 +6,7 @@
 // the same session without any browser cross-origin cookie dependency.
 //
 // Fail-closed guarantees:
-//   * canonical Pages origin only;
+//   * exact production or QA Pages origins only;
 //   * /api/v1/* only;
 //   * fixed Worker upstream, never client-controlled;
 //   * no client-controlled auth, no dev bypass, no grant widening;
@@ -17,7 +17,9 @@
 
 export const APP_FACADE_MARKER = 'danjion-app-facade/v1';
 export const CANONICAL_PAGES_ORIGIN = 'https://danjion.pages.dev';
+export const QA_PAGES_ORIGIN = 'https://danjion-qa.pages.dev';
 export const WORKER_API_BASE = 'https://padiem-danjion-api-production.padiem.workers.dev';
+export const QA_WORKER_API_BASE = 'https://padiem-danjion-api-qa.padiem.workers.dev';
 export const APP_PROXY_PREFIX = '/api/v1/';
 
 const HOP_BY_HOP = new Set([
@@ -49,19 +51,19 @@ function betterAuthSessionToken(cookieHeader) {
   return matches.length === 1 ? matches[0] : null;
 }
 
-async function bearerFromSessionCookie(fetchImpl, request, url) {
+async function bearerFromSessionCookie(fetchImpl, request, url, upstreamBase) {
   const cookie = request.headers.get('cookie') || '';
   if (!cookie.trim()) return { bearer: null, disposition: 'no-cookie' };
 
   const headers = new Headers();
   headers.set('cookie', cookie);
-  headers.set('origin', CANONICAL_PAGES_ORIGIN);
+  headers.set('origin', url.origin === QA_PAGES_ORIGIN ? QA_PAGES_ORIGIN : CANONICAL_PAGES_ORIGIN);
   headers.set(AUTH_FACADE_MARKER_HEADER, AUTH_FACADE_MARKER_VALUE);
   headers.set('x-forwarded-host', url.host);
   headers.set('x-forwarded-proto', 'https');
 
   const sessionResponse = await fetchImpl(new Request(
-    new URL(AUTH_SESSION_PATH, WORKER_API_BASE).toString(),
+    new URL(AUTH_SESSION_PATH, upstreamBase).toString(),
     { method: 'GET', headers, redirect: 'manual' }
   ));
 
@@ -89,7 +91,7 @@ async function bearerFromSessionCookie(fetchImpl, request, url) {
   const tokenHeaders = new Headers(headers);
   tokenHeaders.set('authorization', `Bearer ${sessionToken}`);
   const tokenResponse = await fetchImpl(new Request(
-    new URL(AUTH_TOKEN_PATH, WORKER_API_BASE).toString(),
+    new URL(AUTH_TOKEN_PATH, upstreamBase).toString(),
     { method: 'GET', headers: tokenHeaders, redirect: 'manual' }
   ));
   if (!tokenResponse.ok) return { bearer: null, disposition: 'token-failed' };
@@ -111,7 +113,12 @@ export async function appFacadeFetch(context, deps = {}) {
   const { request, env } = context;
   const url = new URL(request.url);
 
-  if (url.origin !== CANONICAL_PAGES_ORIGIN) {
+  const upstreamBase = url.origin === CANONICAL_PAGES_ORIGIN
+    ? WORKER_API_BASE
+    : url.origin === QA_PAGES_ORIGIN
+      ? QA_WORKER_API_BASE
+      : null;
+  if (!upstreamBase) {
     return new Response('not found', { status: 404, headers: { 'cache-control': 'no-store' } });
   }
 
@@ -119,7 +126,7 @@ export async function appFacadeFetch(context, deps = {}) {
     return env.ASSETS.fetch(request);
   }
 
-  const upstream = new URL(url.pathname, WORKER_API_BASE);
+  const upstream = new URL(url.pathname, upstreamBase);
   upstream.search = url.search;
 
   const headers = new Headers();
@@ -128,7 +135,7 @@ export async function appFacadeFetch(context, deps = {}) {
     if (HOP_BY_HOP.has(lower) || GUARDED_HEADERS.has(lower)) continue;
     headers.set(name, value);
   }
-  headers.set('origin', CANONICAL_PAGES_ORIGIN);
+  headers.set('origin', url.origin === QA_PAGES_ORIGIN ? QA_PAGES_ORIGIN : CANONICAL_PAGES_ORIGIN);
   headers.set('x-forwarded-host', url.host);
   headers.set('x-forwarded-proto', 'https');
 
@@ -136,7 +143,7 @@ export async function appFacadeFetch(context, deps = {}) {
   // session can be exchanged for a JWKS-verifiable JWT, attach it only to the
   // fixed server-to-server Worker request. Client-supplied Authorization is
   // always stripped above and can never become Worker authority.
-  const bridge = await bearerFromSessionCookie(fetchImpl, request, url);
+  const bridge = await bearerFromSessionCookie(fetchImpl, request, url, upstreamBase);
   if (bridge.bearer) headers.set('authorization', `Bearer ${bridge.bearer}`);
 
   const method = request.method.toUpperCase();

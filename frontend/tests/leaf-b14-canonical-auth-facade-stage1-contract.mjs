@@ -32,8 +32,8 @@ assert.match(apiRoute, /import \{ authFacadeFetch \} from '\.\.\/\.\.\/_lib\/aut
   '/api/auth/* route must delegate to the shared facade module');
 assert.match(startRoute, /import \{ authFacadeFetch \} from '\.\.\/_lib\/auth-facade\.js';\s*export const onRequest = authFacadeFetch;/,
   '/auth/social-start route must delegate to the shared facade module');
-assert.match(facade, /if \(url\.origin !== CANONICAL_PAGES_ORIGIN\) \{\s*return new Response\('not found', \{ status: 404/,
-  'non-canonical origins must fail closed with 404');
+assert.match(facade, /if \(!upstreamBase\) \{\s*return new Response\('not found', \{ status: 404/,
+  'unapproved origins must fail closed with 404');
 
 /* --- transparent forwarding: cookie, set-cookie, location, query --- */
 assert.match(facade, /HOP_BY_HOP/, 'hop-by-hop headers must be stripped, cookie must not be');
@@ -139,6 +139,11 @@ assert.match(session, /PRODUCTION_API_BASE/,
   const preview = await authFacadeFetch(makeContext('https://danjion-review.pages.dev/api/auth/get-session'), { fetchImpl });
   assert.equal(preview.status, 404, 'preview origins must fail closed');
   assert.equal(calls.length, 0, 'fail-closed must never reach the Worker');
+
+  calls.length = 0;
+  const qa = await authFacadeFetch(makeContext('https://danjion-qa.pages.dev/api/auth/get-session'), { fetchImpl });
+  assert.equal(qa.status, 302, 'QA auth facade must proxy');
+  assert.ok(calls[0].url.startsWith('https://padiem-danjion-api-qa.padiem.workers.dev/'), 'QA facade must use the fixed QA Worker');
 
   assert.equal(mod.EXPECTED_GOOGLE_REDIRECT_URI, 'https://danjion.pages.dev/api/auth/callback/google',
     'the Google console redirect contract must be the canonical Pages callback');

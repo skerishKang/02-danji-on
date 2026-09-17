@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
 const workflow = await readFile(new URL('../../../.github/workflows/qa-pages-deploy.yml', import.meta.url), 'utf8');
+const runtime = await readFile(new URL('../scripts/qa-pages-runtime-bind.mjs', import.meta.url), 'utf8');
 
 const must = (needle, message = `missing ${needle}`) => assert.ok(workflow.includes(needle), message);
 const mustNot = (needle, message = `forbidden ${needle}`) => assert.ok(!workflow.includes(needle), message);
@@ -31,6 +32,7 @@ must("--project-name \"$QA_PAGES_PROJECT\"");
 must("for attempt in $(seq 1 12)");
 must("x-robots-tag: noindex");
 must("QA_PAGES_HOSTNAME = 'danjion-qa.pages.dev';");
+must("grep -Fq \"return '';\" dist-qa/assets/danjion-session.js");
 must("Database mutation: NO");
 must("Worker mutation: NO");
 must("Auth secret mutation: NO");
@@ -61,5 +63,10 @@ assert.ok(deployJob.includes("if: ${{ github.event_name == 'workflow_dispatch' &
   'deploy-pages must be manual and confirmation-gated');
 assert.ok(!workflow.slice(0, workflow.indexOf('  deploy-pages:')).includes('pages deploy'),
   'source-contract job must not deploy Pages');
+
+assert.ok(runtime.includes("if (hostname === QA_PAGES_HOSTNAME) return '';"),
+  'QA runtime must bind browser API and auth bases to same-origin relative URLs');
+assert.ok(!runtime.includes('QA_API_BASE'),
+  'QA runtime must not inject a direct Worker browser base');
 
 console.log('OK: qa-pages-deploy-contract passed');

@@ -25,10 +25,13 @@ const email = required('DANJION_QA_EMAIL');
 const password = required('DANJION_QA_PASSWORD');
 
 let browser;
+let stage = 'START';
+const report = (name, value) => console.log(`${name}=${value}`);
 try {
   browser = await chromium.launch({ headless: true });
   const context = await browser.newContext();
 
+  stage = 'SIGN_IN';
   const signin = await context.request.post(`${apiBase}/api/auth/sign-in/email`, {
     headers: {
       Origin: frontendBase,
@@ -37,20 +40,26 @@ try {
     data: { email, password },
   });
   if (signin.status() !== 200) throw new Error(`SIGNIN_HTTP_${signin.status()}`);
+  report('SIGN_IN', 'PASS');
 
+  stage = 'SESSION';
   const session = await context.request.get(`${apiBase}/api/auth/get-session`, {
     headers: { Origin: frontendBase },
   });
   if (session.status() !== 200) throw new Error(`SESSION_HTTP_${session.status()}`);
   const sessionJson = await session.json().catch(() => null);
   if (!sessionJson || !sessionJson.session || !sessionJson.user) throw new Error('SESSION_NOT_AUTHENTICATED');
+  report('SESSION', 'PASS');
 
   const page = await context.newPage();
 
+  stage = 'PAGE19_LOAD';
   await page.goto(new URL('19_내정보_메인.html', `${frontendBase}/`).href, {
     waitUntil: 'domcontentloaded',
     timeout: 30_000,
   });
+  report('PAGE19_LOAD', 'PASS');
+  stage = 'PAGE19_COPY';
   await page.waitForFunction(
     (pending) => document.body && document.body.innerText.includes(pending),
     PENDING_COPY,
@@ -58,11 +67,15 @@ try {
   );
   const page19Pending = await page.evaluate((pending) => document.body.innerText.includes(pending), PENDING_COPY);
   if (!page19Pending) throw new Error('PAGE_19_PENDING_COPY_MISSING');
+  report('PAGE19_COPY', 'PASS');
 
+  stage = 'PAGE26_LOAD';
   await page.goto(new URL('26_우리집연결.html', `${frontendBase}/`).href, {
     waitUntil: 'domcontentloaded',
     timeout: 30_000,
   });
+  report('PAGE26_LOAD', 'PASS');
+  stage = 'PAGE26_HERO';
   await page.waitForFunction(() => {
     const panel = document.getElementById('household-home-panel');
     const hero = document.getElementById('household-home-complex');
@@ -80,6 +93,9 @@ try {
   if (!page26.role.includes(PENDING_COPY)) throw new Error('PAGE_26_PENDING_MEMBER_COPY_MISMATCH');
   if (page26.hero.trim().endsWith('우리집 연결 완료')) throw new Error('PAGE_26_BARE_COMPLETION_VISIBLE');
 
+  report('PAGE26_HERO', 'PASS');
+  stage = 'PAGE26_MEMBER';
+  report('PAGE26_MEMBER', 'PASS');
   console.log('AUTHENTICATED_BROWSER_SESSION=PASS');
   console.log('PAGE_19_PENDING_COPY=PASS');
   console.log('PAGE_26_PENDING_HERO=PASS');
@@ -93,7 +109,8 @@ try {
   await context.close();
 } catch (error) {
   const code = error instanceof Error ? error.message.replace(/[^A-Z0-9_:-]/g, '_').slice(0, 160) : 'UNKNOWN_FAILURE';
-  console.error(`QA_AUTHENTICATED_UI_READBACK_FAILED=${code}`);
+  report(stage, 'FAIL');
+  console.error(`QA_AUTHENTICATED_UI_READBACK_FAILED=${stage}:${code}`);
   process.exitCode = 1;
 } finally {
   if (browser) await browser.close();
