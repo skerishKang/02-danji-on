@@ -105,6 +105,66 @@ jobs:
           fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${summary}\n`);
           NODE
 
+      - name: Evaluate published Wrangler candidates without repository mutation
+        shell: bash
+        working-directory: 04_개발/backend
+        run: |
+          set -euo pipefail
+          candidates=(4.131.0 4.131.1 4.131.2 4.132.0 4.133.0 4.134.0)
+          first_clean=""
+
+          for candidate in "${candidates[@]}"; do
+            if ! published="$(npm view "wrangler@${candidate}" version 2>/dev/null)"; then
+              echo "WRANGLER_CANDIDATE=${candidate} PUBLISHED=NO"
+              continue
+            fi
+            if [[ "${published}" != "${candidate}" ]]; then
+              echo "WRANGLER_CANDIDATE=${candidate} PUBLISHED=NO"
+              continue
+            fi
+
+            workdir="$(mktemp -d)"
+            cp package.json package-lock.json "${workdir}/"
+            pushd "${workdir}" >/dev/null
+            npm install --package-lock-only --ignore-scripts --save-dev --save-exact "wrangler@${candidate}" >/dev/null
+
+            set +e
+            npm audit --json > audit-full.json
+            full_status=$?
+            npm audit --json --omit=dev > audit-runtime.json
+            runtime_status=$?
+            set -e
+
+            node - "${candidate}" "${full_status}" "${runtime_status}" <<'NODE'
+          const fs = require('node:fs');
+          const candidate = process.argv[2];
+          const fullStatus = process.argv[3];
+          const runtimeStatus = process.argv[4];
+          const full = JSON.parse(fs.readFileSync('audit-full.json', 'utf8'));
+          const runtime = JSON.parse(fs.readFileSync('audit-runtime.json', 'utf8'));
+          const fm = full.metadata?.vulnerabilities || {};
+          const rm = runtime.metadata?.vulnerabilities || {};
+          console.log(`WRANGLER_CANDIDATE=${candidate} PUBLISHED=YES AUDIT_HIGH=${fm.high ?? 0} AUDIT_CRITICAL=${fm.critical ?? 0} RUNTIME_HIGH=${rm.high ?? 0} RUNTIME_CRITICAL=${rm.critical ?? 0} FULL_EXIT=${fullStatus} RUNTIME_EXIT=${runtimeStatus}`);
+          NODE
+
+            candidate_high="$(node -e "const r=require('./audit-full.json'); process.stdout.write(String(r.metadata?.vulnerabilities?.high ?? 0))")"
+            candidate_critical="$(node -e "const r=require('./audit-full.json'); process.stdout.write(String(r.metadata?.vulnerabilities?.critical ?? 0))")"
+            popd >/dev/null
+            rm -rf "${workdir}"
+
+            if [[ -z "${first_clean}" && "${candidate_high}" == "0" && "${candidate_critical}" == "0" ]]; then
+              first_clean="${candidate}"
+            fi
+          done
+
+          if [[ -n "${first_clean}" ]]; then
+            echo "WRANGLER_LOWEST_CLEAN_CANDIDATE=${first_clean}"
+          else
+            echo "WRANGLER_LOWEST_CLEAN_CANDIDATE=NONE_IN_EVALUATED_SET"
+          fi
+          echo 'CANDIDATE_REPOSITORY_MUTATION=0'
+          echo 'CANDIDATE_PRODUCTION_MUTATION=0'
+
       - name: Confirm read-only triage disposition
         run: |
           echo 'DEPENDENCY_MUTATION=0'
