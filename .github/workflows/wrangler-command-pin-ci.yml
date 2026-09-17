@@ -11,7 +11,7 @@ on:
       - '.github/workflows/pages-production-release.yml'
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   cli-compat:
@@ -54,90 +54,46 @@ jobs:
           grep -Fq -- '--production-branch' "${RUNNER_TEMP}/pages-project-create-help.txt"
           echo 'WRANGLER_REQUIRED_COMMAND_SURFACE=PASS'
 
+      - name: Verify bounded explicit pin migration
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          expected = {
+              Path('.github/workflows/danjion-review-auto-deploy.yml'): 2,
+              Path('.github/workflows/qa-worker-deploy.yml'): 1,
+              Path('.github/workflows/qa-pages-deploy.yml'): 1,
+              Path('.github/workflows/qa-environment-provision.yml'): 3,
+              Path('.github/workflows/pages-production-release.yml'): 1,
+          }
+          old = 'wrangler@4.114.0'
+          new = 'wrangler@4.131.0'
+          total = 0
+          for path, expected_count in expected.items():
+              text = path.read_text(encoding='utf-8')
+              old_count = text.count(old)
+              new_count = text.count(new)
+              if old_count != 0:
+                  raise SystemExit(f'old explicit pin remains in {path}: {old_count}')
+              if new_count != expected_count:
+                  raise SystemExit(
+                      f'unexpected 4.131.0 pin count in {path}: '
+                      f'expected={expected_count} actual={new_count}'
+                  )
+              total += new_count
+              print(f'PIN_COUNT {path}={new_count}')
+          if total != 8:
+              raise SystemExit(f'unexpected explicit pin total: {total}')
+          print('PIN_REPLACEMENTS_TOTAL=8 PASS')
+          PY
+
       - name: Confirm source-only safety disposition
         run: |
           echo 'CLOUDFLARE_API_CALL=0'
           echo 'QA_LIVE_MUTATION=0'
           echo 'PRODUCTION_MUTATION=0'
+          echo 'DB_MUTATION=0'
+          echo 'SECRET_MUTATION=0'
           echo 'SECRET_OUTPUT=NO'
-
-  materialize-pins:
-    name: Materialize verified explicit pins
-    needs: cli-compat
-    if: github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'central/702-wrangler-workflow-pins'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.head_ref }}
-          fetch-depth: 0
-
-      - name: Exact-base and bounded replacement guard
-        shell: bash
-        run: |
-          set -euo pipefail
-          expected_main='c477be8607bbcc2097a373416c180af07c7eacd7'
-          actual_main="$(git ls-remote origin refs/heads/main | awk '{print $1}')"
-          test "$actual_main" = "$expected_main"
-
-          python3 - <<'PY'
-          from pathlib import Path
-          paths = [
-              Path('.github/workflows/danjion-review-auto-deploy.yml'),
-              Path('.github/workflows/qa-worker-deploy.yml'),
-              Path('.github/workflows/qa-pages-deploy.yml'),
-              Path('.github/workflows/qa-environment-provision.yml'),
-              Path('.github/workflows/pages-production-release.yml'),
-          ]
-          old = 'wrangler@4.114.0'
-          new = 'wrangler@4.131.0'
-          total = 0
-          for path in paths:
-              text = path.read_text(encoding='utf-8')
-              count = text.count(old)
-              if count < 1:
-                  raise SystemExit(f'expected explicit old pin missing: {path}')
-              total += count
-              path.write_text(text.replace(old, new), encoding='utf-8', newline='')
-              print(f'PIN_REPLACEMENTS {path}={count}')
-          if total < len(paths):
-              raise SystemExit('unexpected replacement total')
-          print(f'PIN_REPLACEMENTS_TOTAL={total}')
-          PY
-
-          mapfile -t changed < <(git -c core.quotepath=false diff --name-only | sort)
-          printf '%s\n' "${changed[@]}" > "${RUNNER_TEMP}/changed.txt"
-          printf '%s\n' \
-            '.github/workflows/danjion-review-auto-deploy.yml' \
-            '.github/workflows/pages-production-release.yml' \
-            '.github/workflows/qa-environment-provision.yml' \
-            '.github/workflows/qa-pages-deploy.yml' \
-            '.github/workflows/qa-worker-deploy.yml' \
-            | sort > "${RUNNER_TEMP}/expected.txt"
-          diff -u "${RUNNER_TEMP}/expected.txt" "${RUNNER_TEMP}/changed.txt"
-          git diff --check
-          ! grep -F 'wrangler@4.114.0' \
-            .github/workflows/danjion-review-auto-deploy.yml \
-            .github/workflows/qa-worker-deploy.yml \
-            .github/workflows/qa-pages-deploy.yml \
-            .github/workflows/qa-environment-provision.yml \
-            .github/workflows/pages-production-release.yml
-
-      - name: Commit verified source-only pin migration
-        shell: bash
-        run: |
-          set -euo pipefail
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add \
-            .github/workflows/danjion-review-auto-deploy.yml \
-            .github/workflows/qa-worker-deploy.yml \
-            .github/workflows/qa-pages-deploy.yml \
-            .github/workflows/qa-environment-provision.yml \
-            .github/workflows/pages-production-release.yml
-          git commit -m 'fix(ci): align explicit Wrangler deploy pins'
-          git push origin "HEAD:${GITHUB_HEAD_REF}"
-          echo 'SOURCE_PIN_MIGRATION=COMMITTED'
-          echo 'CLOUDFLARE_API_CALL=0'
-          echo 'QA_LIVE_MUTATION=0'
-          echo 'PRODUCTION_MUTATION=0'
