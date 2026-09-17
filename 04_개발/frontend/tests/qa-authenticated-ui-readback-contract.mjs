@@ -32,12 +32,15 @@ for (const forbidden of [
   'sign-up/email',
 ]) assert.ok(!workflow.includes(forbidden), `workflow must not contain ${forbidden}`);
 
-// Browser-session contract: sign-in happens through the same Playwright BrowserContext
-// whose pages perform the final UI readback.
+// Browser-session contract: sign-in and session readback must use the same-origin
+// QA Pages facade inside the same Playwright BrowserContext whose pages perform
+// the final UI readback. Direct Worker auth would scope the cookie to workers.dev
+// and cannot prove first-party Pages session continuity.
 assert.match(script, /chromium\.launch/);
 assert.match(script, /browser\.newContext/);
-assert.match(script, /context\.request\.post\(`\$\{apiBase\}\/api\/auth\/sign-in\/email`/);
-assert.match(script, /context\.request\.get\(`\$\{apiBase\}\/api\/auth\/get-session`/);
+assert.match(script, /context\.request\.post\(`\$\{frontendBase\}\/api\/auth\/sign-in\/email`/);
+assert.match(script, /context\.request\.get\(`\$\{frontendBase\}\/api\/auth\/get-session`/);
+assert.doesNotMatch(script, /context\.request\.(?:post|get)\(`\$\{apiBase\}\/api\/auth\//);
 assert.match(script, /context\.newPage/);
 assert.match(script, /19_내정보_메인\.html/);
 assert.match(script, /26_우리집연결\.html/);
@@ -70,5 +73,8 @@ assert.ok(script.includes('QA_AUTH_SESSION_MUTATION=EPHEMERAL_ONLY'));
 assert.ok(script.includes('QA_FIXTURE_MUTATION=0'));
 assert.ok(script.includes('PRODUCTION_MUTATION=0'));
 assert.ok(script.includes('SECRET_OUTPUT=NO'));
+for (const stage of ['SIGN_IN', 'SESSION', 'PAGE19_LOAD', 'PAGE19_COPY', 'PAGE26_LOAD', 'PAGE26_HERO', 'PAGE26_MEMBER']) {
+  assert.ok(script.includes(`'${stage}'`) || script.includes(`'${stage}',`), `stage disposition must include ${stage}`);
+}
 
 console.log('OK: qa-authenticated-ui-readback contract passed');

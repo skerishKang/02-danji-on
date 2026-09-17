@@ -10,6 +10,7 @@ import { handleSocialOnboardingRequest } from './social-onboarding-v1';
 
 export interface BetterAuthEnv extends AuthEmailEnv {
   DATABASE_URL: string;
+  APP_ENV?: string;
   DANJION_AUTH_BASE_URL?: string;
   BETTER_AUTH_SECRET?: string;
   AUTH_TRUSTED_ORIGINS?: string;
@@ -68,13 +69,16 @@ function trustedOrigins(env: BetterAuthEnv, baseUrl: string): string[] {
 export const AUTH_FACADE_MARKER_HEADER = 'x-danjion-auth-facade';
 export const AUTH_FACADE_MARKER_VALUE = 'canonical-pages-v1';
 export const CANONICAL_PAGES_AUTH_BASE_URL = 'https://danjion.pages.dev';
+export const QA_PAGES_AUTH_BASE_URL = 'https://danjion-qa.pages.dev';
 
 export function resolveAuthPublicBaseUrl(env: BetterAuthEnv, request?: Request): string {
   const envBase = normalizeBaseUrl(requireValue(env.DANJION_AUTH_BASE_URL, 'DANJION_AUTH_BASE_URL'));
   if (!request) return envBase;
   if (request.headers.get(AUTH_FACADE_MARKER_HEADER) !== AUTH_FACADE_MARKER_VALUE) return envBase;
-  if (request.headers.get('origin') !== new URL(CANONICAL_PAGES_AUTH_BASE_URL).origin) return envBase;
-  return CANONICAL_PAGES_AUTH_BASE_URL;
+  const origin = request.headers.get('origin');
+  if (origin === new URL(CANONICAL_PAGES_AUTH_BASE_URL).origin) return CANONICAL_PAGES_AUTH_BASE_URL;
+  if (env.APP_ENV === 'qa' && origin === new URL(QA_PAGES_AUTH_BASE_URL).origin) return QA_PAGES_AUTH_BASE_URL;
+  return envBase;
 }
 
 function emailVerificationRequired(env: BetterAuthEnv): boolean {

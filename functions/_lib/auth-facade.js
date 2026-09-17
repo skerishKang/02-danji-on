@@ -8,7 +8,7 @@
 // application API traffic still resolves the Worker base directly.
 //
 // Fail-closed guarantees:
-//   * only https://danjion.pages.dev may invoke the proxy (preview/localhost 404);
+//   * only the exact production or QA Pages origins may invoke the proxy;
 //   * only /api/auth/* and /auth/social-start are proxied; every other path
 //     falls through to the static asset router;
 //   * the Worker keeps full ownership of state checks, CSRF, origin validation
@@ -16,7 +16,9 @@
 
 export const AUTH_FACADE_MARKER = 'danjion-auth-facade/v1';
 export const CANONICAL_PAGES_ORIGIN = 'https://danjion.pages.dev';
+export const QA_PAGES_ORIGIN = 'https://danjion-qa.pages.dev';
 export const WORKER_API_BASE = 'https://padiem-danjion-api-production.padiem.workers.dev';
+export const QA_WORKER_API_BASE = 'https://padiem-danjion-api-qa.padiem.workers.dev';
 export const EXPECTED_GOOGLE_REDIRECT_URI = `${CANONICAL_PAGES_ORIGIN}/api/auth/callback/google`;
 
 // Fixed internal request marker: the Worker's bounded public-base resolver only
@@ -47,7 +49,12 @@ export async function authFacadeFetch(context, deps = {}) {
   const { request, env } = context;
   const url = new URL(request.url);
 
-  if (url.origin !== CANONICAL_PAGES_ORIGIN) {
+  const upstreamBase = url.origin === CANONICAL_PAGES_ORIGIN
+    ? WORKER_API_BASE
+    : url.origin === QA_PAGES_ORIGIN
+      ? QA_WORKER_API_BASE
+      : null;
+  if (!upstreamBase) {
     return new Response('not found', { status: 404, headers: { 'cache-control': 'no-store' } });
   }
 
@@ -55,7 +62,7 @@ export async function authFacadeFetch(context, deps = {}) {
     return env.ASSETS.fetch(request);
   }
 
-  const upstream = new URL(url.pathname, WORKER_API_BASE);
+  const upstream = new URL(url.pathname, upstreamBase);
   upstream.search = url.search;
 
   const headers = new Headers();
@@ -64,7 +71,7 @@ export async function authFacadeFetch(context, deps = {}) {
     if (HOP_BY_HOP.has(lower) || FORGED_GUARDED_HEADERS.has(lower)) continue;
     headers.set(name, value);
   }
-  headers.set('origin', CANONICAL_PAGES_ORIGIN);
+  headers.set('origin', url.origin === QA_PAGES_ORIGIN ? QA_PAGES_ORIGIN : CANONICAL_PAGES_ORIGIN);
   headers.set(FACADE_REQUEST_MARKER_HEADER, FACADE_REQUEST_MARKER_VALUE);
   headers.set('x-forwarded-host', url.host);
   headers.set('x-forwarded-proto', url.protocol.replace(':', ''));

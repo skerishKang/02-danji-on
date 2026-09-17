@@ -6,6 +6,8 @@ on:
       - '.github/workflows/qa-pages-deploy.yml'
       - '04_개발/backend/scripts/qa-pages-runtime-bind.mjs'
       - '04_개발/backend/tests/qa-pages-deploy-contract.mjs'
+      - 'frontend/assets/danjion-session.js'
+      - 'functions/**'
   workflow_dispatch:
     inputs:
       expected_main:
@@ -113,10 +115,18 @@ jobs:
           printf '/*\n  X-Robots-Tag: noindex\n' > dist-qa/_headers
           test -f dist-qa/index.html
           test -f dist-qa/assets/danjion-session.js
+          test -f functions/_lib/auth-facade.js
+          test -f functions/_lib/app-facade.js
+          test -f 'functions/api/auth/[[path]].js'
+          test -f 'functions/api/v1/[[path]].js'
           test ! -e dist-qa/tests
           grep -Fq "const QA_PAGES_HOSTNAME = 'danjion-qa.pages.dev';" dist-qa/assets/danjion-session.js
-          grep -Fq "$DANJION_QA_API_URL" dist-qa/assets/danjion-session.js
-          echo 'QA Pages artifact runtime binding: PASS'
+          grep -Fq "return '';" dist-qa/assets/danjion-session.js
+          grep -Fq "QA_PAGES_ORIGIN = 'https://danjion-qa.pages.dev'" functions/_lib/auth-facade.js
+          grep -Fq "QA_WORKER_API_BASE = 'https://padiem-danjion-api-qa.padiem.workers.dev'" functions/_lib/auth-facade.js
+          grep -Fq "QA_PAGES_ORIGIN = 'https://danjion-qa.pages.dev'" functions/_lib/app-facade.js
+          grep -Fq "QA_WORKER_API_BASE = 'https://padiem-danjion-api-qa.padiem.workers.dev'" functions/_lib/app-facade.js
+          echo 'QA Pages artifact runtime + facade source binding: PASS'
 
       - name: Deploy dedicated QA Pages only
         shell: bash
@@ -124,22 +134,32 @@ jobs:
           set -euo pipefail
           npx wrangler@4.114.0 pages deploy dist-qa --project-name "$QA_PAGES_PROJECT" --branch main --commit-hash "$GITHUB_SHA" --commit-message 'DanjiOn QA Pages-only deploy'
 
-      - name: Verify QA Pages readiness, runtime binding, and noindex
+      - name: Verify QA Pages readiness, same-origin facades, runtime binding, and noindex
         shell: bash
         run: |
           set -euo pipefail
           root_body="${RUNNER_TEMP}/qa-pages-root.html"
           root_headers="${RUNNER_TEMP}/qa-pages-root.headers"
           runtime_file="${RUNNER_TEMP}/qa-danjion-session.js"
+          auth_body="${RUNNER_TEMP}/qa-auth-session.json"
+          auth_headers="${RUNNER_TEMP}/qa-auth-session.headers"
+          app_body="${RUNNER_TEMP}/qa-app-me.json"
+          app_headers="${RUNNER_TEMP}/qa-app-me.headers"
           pages_ready=0
           for attempt in $(seq 1 12); do
             root_status="$(curl --silent --show-error --output "$root_body" --dump-header "$root_headers" --write-out '%{http_code}' "${DANJION_QA_FRONTEND_URL}/" || true)"
             runtime_status="$(curl --silent --show-error --output "$runtime_file" --write-out '%{http_code}' "${DANJION_QA_FRONTEND_URL}/assets/danjion-session.js" || true)"
+            auth_status="$(curl --silent --show-error --output "$auth_body" --dump-header "$auth_headers" --write-out '%{http_code}' "${DANJION_QA_FRONTEND_URL}/api/auth/get-session" || true)"
+            app_status="$(curl --silent --show-error --output "$app_body" --dump-header "$app_headers" --write-out '%{http_code}' "${DANJION_QA_FRONTEND_URL}/api/v1/me" || true)"
             if [ "$root_status" = '200' ] \
               && grep -qi '^x-robots-tag: noindex' "$root_headers" \
               && [ "$runtime_status" = '200' ] \
               && grep -Fq "const QA_PAGES_HOSTNAME = 'danjion-qa.pages.dev';" "$runtime_file" \
-              && grep -Fq "$DANJION_QA_API_URL" "$runtime_file"; then
+              && grep -Fq "return '';" "$runtime_file" \
+              && [ "$auth_status" = '200' ] \
+              && grep -qi '^x-danjion-auth-facade: danjion-auth-facade/v1' "$auth_headers" \
+              && [ "$app_status" = '401' ] \
+              && grep -qi '^x-danjion-app-facade: danjion-app-facade/v1' "$app_headers"; then
               pages_ready=1
               break
             fi
@@ -147,10 +167,10 @@ jobs:
             sleep 2
           done
           if [ "$pages_ready" != '1' ]; then
-            echo '::error::QA Pages did not become ready with noindex and dedicated runtime binding within bounded readiness window.'
+            echo '::error::QA Pages did not become ready with noindex, same-origin facades, and dedicated runtime binding within bounded readiness window.'
             exit 1
           fi
-          echo 'QA Pages-only deploy readback: PASS'
+          echo 'QA Pages-only deploy same-origin facade readback: PASS'
 
       - name: Record QA Pages-only disposition
         shell: bash
@@ -160,6 +180,8 @@ jobs:
             echo ''
             echo '- Environment: `qa`'
             echo '- Pages: `danjion-qa`'
+            echo '- Same-origin auth facade: PASS'
+            echo '- Same-origin app facade: PASS'
             echo '- Worker mutation: NO'
             echo '- Database mutation: NO'
             echo '- Auth secret mutation: NO'

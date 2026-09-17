@@ -44,12 +44,14 @@ assert.ok(facadeSrc.includes("WORKER_API_BASE = 'https://padiem-danjion-api-prod
   'app facade upstream must be fixed');
 assert.ok(facadeSrc.includes("APP_PROXY_PREFIX = '/api/v1/'"),
   'app facade must be bounded to /api/v1/*');
-assert.ok(facadeSrc.includes("url.origin !== CANONICAL_PAGES_ORIGIN"),
-  'non-canonical origins must fail closed');
+assert.ok(facadeSrc.includes("url.origin === QA_PAGES_ORIGIN"),
+  'QA facade origin must be explicit');
+assert.ok(facadeSrc.includes("QA_WORKER_API_BASE"),
+  'QA facade upstream must be fixed');
 assert.ok(facadeSrc.includes("headers.set(name, value)"),
   'incoming first-party request headers, including Cookie, must be forwarded');
-assert.ok(facadeSrc.includes("headers.set('origin', CANONICAL_PAGES_ORIGIN)"),
-  'upstream Origin must be server-pinned, not client-controlled');
+assert.ok(facadeSrc.includes("headers.set('origin', url.origin === QA_PAGES_ORIGIN ? QA_PAGES_ORIGIN : CANONICAL_PAGES_ORIGIN)"),
+  'upstream Origin must be pinned to the exact facade origin');
 assert.ok(!facadeSrc.includes('x-danjion-dev-auth-user'),
   'app facade must never carry the development auth bypass header');
 assert.ok(facadeSrc.includes("'authorization'"),
