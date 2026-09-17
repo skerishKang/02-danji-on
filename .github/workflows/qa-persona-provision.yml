@@ -7,6 +7,7 @@ on:
       - '04_개발/backend/scripts/qa-persona-provision.mjs'
       - '04_개발/backend/scripts/qa-household-fixture.mjs'
       - '04_개발/backend/src/admin-scope-policy-v1.ts'
+      - '04_개발/backend/tests/qa-persona-auth-target-contract.mjs'
       - '04_개발/backend/tests/qa-persona-provision-contract.mjs'
   workflow_dispatch:
     inputs:
@@ -38,6 +39,16 @@ jobs:
           node-version: '24'
       - name: Verify QA persona provisioning contract
         run: node 04_개발/backend/tests/qa-persona-provision-contract.mjs
+
+      - name: Install backend test dependencies
+        working-directory: 04_개발/backend
+        run: npm ci --ignore-scripts
+
+      - name: Verify QA persona auth target contract
+        run: node 04_개발/backend/tests/qa-persona-auth-target-contract.mjs
+
+      - name: Verify Pages auth boundary regression contract
+        run: node frontend/tests/qa-persona-pages-origin-auth-contract.mjs
 
   apply-personas:
     name: Converge isolated QA personas

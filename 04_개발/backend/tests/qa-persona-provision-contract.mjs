@@ -39,6 +39,12 @@ assert.match(workflow, /PERSONA=QA_RESIDENT/, 'workflow must emit privacy-safe r
 assert.match(script, /APP_ENV.*qa/, 'persona script must fail closed unless APP_ENV=qa');
 assert.match(script, /QA_API_HOST = 'padiem-danjion-api-qa\.padiem\.workers\.dev'/, 'persona script must pin dedicated QA Worker');
 assert.match(script, /QA_FRONTEND_HOST = 'danjion-qa\.pages\.dev'/, 'persona script must pin dedicated QA Pages');
+assert.match(script, /const apiOrigin = exactHttpsOrigin\(required\('DANJION_QA_API_URL'/,
+  'persona script must retain the validated QA Worker origin');
+assert.match(script, /resolvePersona\(frontendOrigin, apiOrigin, sql, persona\)/,
+  'persona resolution must receive both validated Pages and Worker origins');
+assert.match(script, /new URL\('\/api\/v1\/me', apiOrigin\)/,
+  'JWT-backed /api/v1/me must target the validated QA Worker origin');
 assert.match(script, /DANJION_QA_DATABASE_URL/, 'persona script must use dedicated QA DB variable');
 assert.match(script, /GENERIC_DATABASE_URL_FORBIDDEN/, 'persona script must reject generic DATABASE_URL authority');
 assert.match(script, /PRODUCTION_DATABASE_VARIABLE_FORBIDDEN/, 'persona script must reject production DB variable authority');

@@ -1,4 +1,5 @@
 import { neon } from '@neondatabase/serverless';
+import { fileURLToPath } from 'node:url';
 
 const QA_API_HOST = 'padiem-danjion-api-qa.padiem.workers.dev';
 const QA_FRONTEND_HOST = 'danjion-qa.pages.dev';
@@ -40,7 +41,7 @@ function required(name) {
   return value;
 }
 
-function exactHttpsOrigin(raw, name, expectedHost) {
+export function exactHttpsOrigin(raw, name, expectedHost) {
   const url = new URL(raw);
   if (url.protocol !== 'https:' || url.hostname !== expectedHost || url.pathname !== '/' || url.search || url.hash) {
     throw new Error(`QA_PERSONA_UNSAFE_TARGET:${name}`);
@@ -73,7 +74,16 @@ async function expectOk(label, response) {
   if (!response.ok) throw new Error(`QA_PERSONA_${label}_HTTP_${response.status}`);
 }
 
-async function resolvePersona(frontendOrigin, sql, persona) {
+export async function fetchPersonaMe(apiOrigin, frontendOrigin, jwt, personaName, fetchImpl = fetch) {
+  const me = await fetchImpl(new URL('/api/v1/me', apiOrigin), {
+    headers: { accept: 'application/json', authorization: `Bearer ${jwt}`, origin: frontendOrigin },
+    redirect: 'manual'
+  });
+  await expectOk(`AUTH_BRIDGE_${personaName}`, me);
+  return me;
+}
+
+export async function resolvePersona(frontendOrigin, apiOrigin, sql, persona) {
   const email = required(persona.emailEnv).toLowerCase();
   const password = required(persona.passwordEnv);
   if (password.length < 8) throw new Error(`QA_PERSONA_PASSWORD_INVALID:${persona.name}`);
@@ -121,11 +131,7 @@ async function resolvePersona(frontendOrigin, sql, persona) {
     }
     if (!jwt) throw new Error(`QA_PERSONA_SERVICE_JWT_MISSING:${persona.name}`);
 
-    const me = await fetch(new URL('/api/v1/me', frontendOrigin), {
-      headers: { accept: 'application/json', authorization: `Bearer ${jwt}`, origin: frontendOrigin },
-      redirect: 'manual'
-    });
-    await expectOk(`AUTH_BRIDGE_${persona.name}`, me);
+    await fetchPersonaMe(apiOrigin, frontendOrigin, jwt, persona.name);
 
     const users = await sql`select id from app_users where auth_user_id = ${subject} limit 1`;
     if (!users[0]?.id) throw new Error(`QA_PERSONA_APP_USER_LINK_MISSING:${persona.name}`);
@@ -241,7 +247,7 @@ async function main() {
   if (process.env.DATABASE_URL) throw new Error('QA_PERSONA_GENERIC_DATABASE_URL_FORBIDDEN');
   if (process.env.DANJION_PRODUCTION_DB_URL) throw new Error('QA_PERSONA_PRODUCTION_DATABASE_VARIABLE_FORBIDDEN');
 
-  exactHttpsOrigin(required('DANJION_QA_API_URL'), 'API', QA_API_HOST);
+  const apiOrigin = exactHttpsOrigin(required('DANJION_QA_API_URL'), 'API', QA_API_HOST);
   const frontendOrigin = exactHttpsOrigin(required('DANJION_QA_FRONTEND_URL'), 'FRONTEND', QA_FRONTEND_HOST);
   const databaseUrl = validateDatabaseUrl(required('DANJION_QA_DATABASE_URL'));
 
@@ -255,7 +261,7 @@ async function main() {
 
   const sql = neon(databaseUrl);
   const actors = [];
-  for (const persona of PERSONAS) actors.push(await resolvePersona(frontendOrigin, sql, persona));
+  for (const persona of PERSONAS) actors.push(await resolvePersona(frontendOrigin, apiOrigin, sql, persona));
 
   if (new Set(actors.map(({ subject }) => subject)).size !== PERSONAS.length) {
     throw new Error('QA_PERSONA_AUTH_SUBJECTS_MUST_BE_DISTINCT');
@@ -272,7 +278,9 @@ async function main() {
   }
 }
 
-main().catch((error) => {
-  console.error(error instanceof Error ? error.message : 'QA_PERSONA_PROVISION_FAILED');
-  process.exit(1);
-});
+if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+  main().catch((error) => {
+    console.error(error instanceof Error ? error.message : 'QA_PERSONA_PROVISION_FAILED');
+    process.exit(1);
+  });
+}
