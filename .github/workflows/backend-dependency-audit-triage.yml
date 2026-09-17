@@ -1,4 +1,4 @@
-name: Backend Dependency Audit Triage
+name: Backend Dependency Audit
 
 on:
   pull_request:
@@ -8,16 +8,17 @@ on:
       - '04_개발/backend/package-lock.json'
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  audit-triage:
-    name: Clean npm audit triage
+  audit:
+    name: Clean exact-lock npm audit
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: 04_개발/backend
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.head_ref }}
 
       - uses: actions/setup-node@v4
         with:
@@ -25,55 +26,10 @@ jobs:
           cache: npm
           cache-dependency-path: 04_개발/backend/package-lock.json
 
-      - name: Materialize audited minimal dependency fix once
-        if: github.event.pull_request.head.repo.full_name == github.repository
-        working-directory: 04_개발/backend
-        shell: bash
-        run: |
-          set -euo pipefail
-          current_wrangler="$(node -p "require('./package.json').devDependencies.wrangler")"
-          current_workers_types="$(node -p "require('./package.json').devDependencies['@cloudflare/workers-types']")"
-
-          if [[ "${current_wrangler}" == "4.131.0" && "${current_workers_types}" == "5.20260910.1" ]]; then
-            echo 'MINIMAL_DEPENDENCY_FIX_ALREADY_MATERIALIZED=YES'
-            exit 0
-          fi
-
-          if [[ "${current_wrangler}" != "4.114.0" || "${current_workers_types}" != "5.20260728.1" ]]; then
-            echo 'REFUSAL=UNEXPECTED_DEPENDENCY_PRESTATE'
-            exit 1
-          fi
-
-          npm install --package-lock-only --ignore-scripts --save-dev --save-exact \
-            wrangler@4.131.0 \
-            @cloudflare/workers-types@5.20260910.1
-
-          mapfile -t changed < <(git -c core.quotepath=false diff --name-only)
-          if [[ "${#changed[@]}" -ne 2 ]]; then
-            printf 'REFUSAL=UNEXPECTED_CHANGED_FILE_COUNT COUNT=%s\n' "${#changed[@]}"
-            printf 'CHANGED=%s\n' "${changed[@]}"
-            exit 1
-          fi
-          printf '%s\n' "${changed[@]}" | sort > "${RUNNER_TEMP}/changed.txt"
-          printf '%s\n' '04_개발/backend/package-lock.json' '04_개발/backend/package.json' | sort > "${RUNNER_TEMP}/expected.txt"
-          diff -u "${RUNNER_TEMP}/expected.txt" "${RUNNER_TEMP}/changed.txt"
-
-          npm audit --package-lock-only --audit-level=high
-          npm audit --package-lock-only --omit=dev --audit-level=high
-
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add package.json package-lock.json
-          git commit -m 'fix(deps): update Wrangler to lowest audited clean version'
-          git push origin "HEAD:${GITHUB_HEAD_REF}"
-          echo 'MINIMAL_DEPENDENCY_FIX_MATERIALIZED=YES'
-
       - name: Clean install exact lock
-        working-directory: 04_개발/backend
         run: npm ci
 
       - name: Capture full and runtime-only npm audit JSON
-        working-directory: 04_개발/backend
         shell: bash
         run: |
           set -uo pipefail
@@ -87,7 +43,7 @@ jobs:
           echo "RUNTIME_AUDIT_EXIT=${runtime_status}"
           exit 0
 
-      - name: Emit sanitized vulnerability disposition inputs
+      - name: Enforce sanitized high and critical disposition
         shell: bash
         env:
           FULL_REPORT: ${{ runner.temp }}/audit-full.json
@@ -101,6 +57,7 @@ jobs:
           const runtime = read(process.env.RUNTIME_REPORT);
           const runtimeNames = new Set(Object.keys(runtime.vulnerabilities || {}));
           const findings = [];
+
           for (const [packageName, vuln] of Object.entries(full.vulnerabilities || {})) {
             if (!['high', 'critical'].includes(vuln.severity)) continue;
             findings.push({
@@ -113,26 +70,41 @@ jobs:
               fixAvailable: vuln.fixAvailable ?? null
             });
           }
+
           findings.sort((a, b) => a.package.localeCompare(b.package));
           const metadata = full.metadata?.vulnerabilities || {};
           const runtimeMetadata = runtime.metadata?.vulnerabilities || {};
-          console.log(`AUDIT_HIGH=${metadata.high ?? 0}`);
-          console.log(`AUDIT_CRITICAL=${metadata.critical ?? 0}`);
-          console.log(`RUNTIME_HIGH=${runtimeMetadata.high ?? 0}`);
-          console.log(`RUNTIME_CRITICAL=${runtimeMetadata.critical ?? 0}`);
+          const fullHigh = metadata.high ?? 0;
+          const fullCritical = metadata.critical ?? 0;
+          const runtimeHigh = runtimeMetadata.high ?? 0;
+          const runtimeCritical = runtimeMetadata.critical ?? 0;
+
+          console.log(`AUDIT_HIGH=${fullHigh}`);
+          console.log(`AUDIT_CRITICAL=${fullCritical}`);
+          console.log(`RUNTIME_HIGH=${runtimeHigh}`);
+          console.log(`RUNTIME_CRITICAL=${runtimeCritical}`);
           console.log(`HIGH_CRITICAL_PACKAGE_COUNT=${findings.length}`);
           for (const finding of findings) console.log(`AUDIT_FINDING=${JSON.stringify(finding)}`);
-          if ((metadata.high ?? 0) !== 0 || (metadata.critical ?? 0) !== 0) process.exitCode = 1;
-          if ((runtimeMetadata.high ?? 0) !== 0 || (runtimeMetadata.critical ?? 0) !== 0) process.exitCode = 1;
+
+          const summary = [
+            '## Backend dependency audit',
+            '',
+            `- Full high: ${fullHigh}`,
+            `- Full critical: ${fullCritical}`,
+            `- Runtime-only high: ${runtimeHigh}`,
+            `- Runtime-only critical: ${runtimeCritical}`,
+            '',
+            'Read-only audit; no dependency or Production mutation.'
+          ].join('\n');
+          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${summary}\n`);
+
+          if (fullHigh !== 0 || fullCritical !== 0 || runtimeHigh !== 0 || runtimeCritical !== 0) {
+            process.exitCode = 1;
+          }
           NODE
 
-      - name: Confirm bounded dependency disposition
+      - name: Confirm read-only safety disposition
         run: |
-          echo 'TARGET_WRANGLER=4.131.0'
-          echo 'TARGET_WORKERS_TYPES=5.20260910.1'
-          echo 'AUDIT_HIGH_EXPECTED=0'
-          echo 'AUDIT_CRITICAL_EXPECTED=0'
-          echo 'RUNTIME_HIGH_EXPECTED=0'
-          echo 'RUNTIME_CRITICAL_EXPECTED=0'
+          echo 'DEPENDENCY_MUTATION=0'
           echo 'PRODUCTION_MUTATION=0'
           echo 'SECRET_OUTPUT=NO'
