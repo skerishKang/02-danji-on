@@ -671,9 +671,9 @@ if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt
     });
   }
   function resolveResidentExemption(){
-    if(!AA||typeof AA.fetchAuthority!=='function'||typeof AA.hasResidentVerificationExemption!=='function')return Promise.resolve(false);
-    return Promise.resolve(AA.fetchAuthority(fetch)).then(function(authority){
-      return AA.hasResidentVerificationExemption(authority)===true;
+    if(!AA||typeof AA.fetchResidentVerificationExemption!=='function')return Promise.resolve(false);
+    return Promise.resolve(AA.fetchResidentVerificationExemption(fetch)).then(function(result){
+      return !!(result&&result.state==='ready'&&result.exempt===true);
     },function(){return false;});
   }
   sessionIdentity().then(function(identity){
