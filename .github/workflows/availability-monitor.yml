@@ -1,0 +1,69 @@
+name: Availability Monitor
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: danjion-availability-monitor
+  cancel-in-progress: false
+
+jobs:
+  monitor:
+    name: Check pinned health endpoints (read-only)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Run availability checks
+        id: checks
+        run: node 04_개발/backend/scripts/availability-monitor.mjs
+
+      - name: Open alert issue on failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          existing="$(gh issue list --repo skerishKang/02-danji-on --state open --label ops-availability-alert --json number --jq 'length')"
+          if [ "$existing" -gt 0 ]; then
+            echo "Alert issue already open; not duplicating."
+            exit 0
+          fi
+          gh issue create --repo skerishKang/02-danji-on \
+            --label ops-availability-alert \
+            --title "[Ops][Alert] Availability monitor FAILED $(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --body "$(cat <<'BODY'
+          ## Availability monitor failure
+
+          Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+          Check the workflow log for the per-target PASS/FAIL lines.
+          Values are redacted per runbook §6: log only host labels, status codes, and PASS/FAIL.
+
+          Evidence to capture per runbook §6: release SHA, Worker version, /api/health status, error-code aggregates.
+          BODY
+          )"
+
+      - name: Close alert issue on recovery
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          open_issues="$(gh issue list --repo skerishKang/02-danji-on --state open --label ops-availability-alert --json number --jq 'map(.number) | join(" ")')"
+          for n in $open_issues; do
+            gh issue close "$n" --repo skerishKang/02-danji-on \
+              --comment "Recovered: availability monitor PASS at $(date -u +%Y-%m-%dT%H:%M:%SZ). Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          done
