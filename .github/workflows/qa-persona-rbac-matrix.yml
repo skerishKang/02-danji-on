@@ -1,0 +1,129 @@
+name: QA Persona RBAC Matrix
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-persona-rbac-matrix.yml'
+      - '04_개발/frontend/scripts/qa-persona-rbac-matrix.mjs'
+      - '04_개발/frontend/tests/qa-persona-rbac-matrix-contract.mjs'
+      - '04_개발/backend/src/admin-scope-policy-v1.ts'
+      - '04_개발/backend/src/admin-authority-v1.ts'
+      - '04_개발/backend/src/padiem-authority-v1.ts'
+      - '04_개발/backend/src/admin-operational-v2.ts'
+      - '04_개발/backend/src/admin-global-audit-v1.ts'
+  workflow_dispatch:
+    inputs:
+      expected_main:
+        description: 'Exact main SHA authorized for the live QA persona matrix'
+        required: true
+        type: string
+      run_live:
+        description: 'Explicitly confirm live QA browser/RBAC validation'
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: danjion-qa-persona-rbac-matrix
+  cancel-in-progress: false
+
+jobs:
+  source-contract:
+    name: QA persona RBAC matrix source safety contract
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Verify persona RBAC matrix contract
+        run: node 04_개발/frontend/tests/qa-persona-rbac-matrix-contract.mjs
+
+  live-matrix:
+    name: Validate isolated QA resident/operator/super browser states
+    needs: source-contract
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_live }}
+    runs-on: ubuntu-latest
+    environment: qa
+    env:
+      DANJION_QA_API_URL: ${{ vars.DANJION_QA_API_URL }}
+      DANJION_QA_FRONTEND_URL: ${{ vars.DANJION_QA_FRONTEND_URL }}
+      DANJION_QA_RESIDENT_EMAIL: ${{ secrets.DANJION_QA_RESIDENT_EMAIL }}
+      DANJION_QA_RESIDENT_PASSWORD: ${{ secrets.DANJION_QA_RESIDENT_PASSWORD }}
+      DANJION_QA_OPERATIONAL_EMAIL: ${{ secrets.DANJION_QA_OPERATIONAL_EMAIL }}
+      DANJION_QA_OPERATIONAL_PASSWORD: ${{ secrets.DANJION_QA_OPERATIONAL_PASSWORD }}
+      DANJION_QA_SUPER_EMAIL: ${{ secrets.DANJION_QA_SUPER_EMAIL }}
+      DANJION_QA_SUPER_PASSWORD: ${{ secrets.DANJION_QA_SUPER_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: 04_개발/frontend/package-lock.json
+
+      - name: Exact-main guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected='${{ inputs.expected_main }}'
+          test "$GITHUB_REF" = 'refs/heads/main'
+          actual="$(git rev-parse HEAD)"
+          remote="$(git ls-remote origin refs/heads/main | awk '{print $1}')"
+          test -n "$expected"
+          test "$actual" = "$expected"
+          test "$remote" = "$expected"
+          echo 'QA persona matrix exact-main guard: PASS'
+
+      - name: Validate QA-only origins and credential presence
+        shell: bash
+        run: |
+          set -euo pipefail
+          for key in DANJION_QA_API_URL DANJION_QA_FRONTEND_URL DANJION_QA_RESIDENT_EMAIL DANJION_QA_RESIDENT_PASSWORD DANJION_QA_OPERATIONAL_EMAIL DANJION_QA_OPERATIONAL_PASSWORD DANJION_QA_SUPER_EMAIL DANJION_QA_SUPER_PASSWORD; do
+            test -n "${!key:-}" || { echo "::error::Missing QA matrix input: ${key}"; exit 1; }
+          done
+          test "${#DANJION_QA_RESIDENT_PASSWORD}" -ge 8
+          test "${#DANJION_QA_OPERATIONAL_PASSWORD}" -ge 8
+          test "${#DANJION_QA_SUPER_PASSWORD}" -ge 8
+          node - <<'NODE'
+          const api = new URL(process.env.DANJION_QA_API_URL);
+          const front = new URL(process.env.DANJION_QA_FRONTEND_URL);
+          if (api.protocol !== 'https:' || api.hostname !== 'padiem-danjion-api-qa.padiem.workers.dev' || api.pathname !== '/') throw new Error('QA API origin invalid');
+          if (front.protocol !== 'https:' || front.hostname !== 'danjion-qa.pages.dev' || front.pathname !== '/') throw new Error('QA frontend origin invalid');
+          if (api.hostname.includes('production') || front.hostname === 'danjion.pages.dev') throw new Error('Production target forbidden');
+          NODE
+          echo 'QA persona matrix isolation guard: PASS'
+
+      - name: Install frontend dependencies
+        working-directory: 04_개발/frontend
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        working-directory: 04_개발/frontend
+        run: npx playwright install --with-deps chromium
+
+      - name: Run QA persona browser/RBAC matrix
+        working-directory: 04_개발/frontend
+        run: node scripts/qa-persona-rbac-matrix.mjs
+
+      - name: Record bounded disposition
+        shell: bash
+        run: |
+          {
+            echo '## DanjiOn QA Phase 2 persona RBAC matrix'
+            echo ''
+            echo '- Environment: `qa`'
+            echo '- Browser contexts: `3 isolated`'
+            echo '- Product data mutation: `NO`'
+            echo '- Expected server audit writes from authorization checks: `QA only`'
+            echo '- Worker/Pages deploy: `NO`'
+            echo '- Production target: `NO`'
+            echo '- Secret output: `NO`'
+          } >> "$GITHUB_STEP_SUMMARY"
