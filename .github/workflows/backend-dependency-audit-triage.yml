@@ -103,8 +103,15 @@ jobs:
           }
           NODE
 
+      - name: QA persona provision source safety contract
+        run: node tests/qa-persona-provision-contract.mjs
+
+      - name: QA persona RBAC matrix source safety contract
+        run: node ../frontend/tests/qa-persona-rbac-matrix-contract.mjs
+
       - name: Confirm read-only safety disposition
         run: |
           echo 'DEPENDENCY_MUTATION=0'
+          echo 'QA_LIVE_MUTATION=0'
           echo 'PRODUCTION_MUTATION=0'
           echo 'SECRET_OUTPUT=NO'
