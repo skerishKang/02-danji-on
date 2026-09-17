@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict';
 import { handleAdminAuthorityRequest, resolveAdminAuthorityResponse } from '../src/admin-authority-v1.ts';
 import {
+  handleResidentVerificationExemptionRequest,
+  resolveResidentVerificationExemptionResponse
+} from '../src/resident-verification-exemption-v1.ts';
+import {
   PRIVILEGED_PADIEM_SCOPES,
   isPrivilegedPadiemScope,
   requirePadiemPrivilegedScope,
@@ -18,7 +22,8 @@ const actorsBySubject = new Map([
   ['sub-operator', { id: 'user-operator', auth_user_id: 'sub-operator', display_name: 'Operator' }],
   ['sub-none', { id: 'user-none', auth_user_id: 'sub-none', display_name: 'Nobody' }],
   ['sub-revoked', { id: 'user-revoked', auth_user_id: 'sub-revoked', display_name: 'Revoked' }],
-  ['sub-expired', { id: 'user-expired', auth_user_id: 'sub-expired', display_name: 'Expired' }]
+  ['sub-expired', { id: 'user-expired', auth_user_id: 'sub-expired', display_name: 'Expired' }],
+  ['sub-exempt', { id: 'user-exempt', auth_user_id: 'sub-exempt', display_name: 'Exempt' }]
 ]);
 
 // Synthetic grant fixtures. The mock below re-implements the exact fail-closed
@@ -37,7 +42,8 @@ const grantsByUser = new Map([
   [
     'user-expired',
     [{ id: 'g-exp', scope: 'business.review', status: 'active', expires_at: new Date(Date.now() - 60_000).toISOString() }]
-  ]
+  ],
+  ['user-exempt', [{ id: 'g-exempt', scope: 'resident.verification.exempt', status: 'active', expires_at: null }]]
 ]);
 
 const auditEvents = [];
@@ -89,6 +95,11 @@ async function sql(strings, ...values) {
 function request(subject, extraHeaders = {}) {
   const headers = subject ? { 'x-danjion-dev-auth-user': subject, ...extraHeaders } : { ...extraHeaders };
   return new Request('https://danjion.test/api/v1/admin/authority', { headers });
+}
+
+function exemptionRequest(subject, extraHeaders = {}) {
+  const headers = subject ? { 'x-danjion-dev-auth-user': subject, ...extraHeaders } : { ...extraHeaders };
+  return new Request('https://danjion.test/api/v1/me/resident-verification-exemption', { headers });
 }
 
 async function errorOf(value, expectedStatus) {
@@ -167,7 +178,77 @@ assert.equal(
   null
 );
 
-// 10. Privileged scope guard: wildcard passes, bounded operator does not, none does not.
+// 10. My Info exemption probe is self-only/read-only: ordinary users get false
+// without generating authorization audit rows. Exact explicit scope gets true;
+// wildcard alone is insufficient; DB failure stays fail-closed.
+{
+  const auditBefore = auditEvents.length;
+
+  const ordinary = await dataOf(
+    await resolveResidentVerificationExemptionResponse(exemptionRequest('sub-none'), env, sql, 'req-exempt-none')
+  );
+  assert.deepEqual(ordinary, { exempt: false });
+  assert.equal(auditEvents.length, auditBefore, 'ordinary My Info exemption probe must not write audit_events');
+
+  const explicit = await dataOf(
+    await resolveResidentVerificationExemptionResponse(exemptionRequest('sub-exempt'), env, sql, 'req-exempt-yes')
+  );
+  assert.deepEqual(explicit, { exempt: true });
+  assert.equal(auditEvents.length, auditBefore, 'explicit exemption self-read must remain audit-write-free');
+
+  const wildcardOnly = await dataOf(
+    await resolveResidentVerificationExemptionResponse(exemptionRequest('sub-admin'), env, sql, 'req-exempt-wildcard')
+  );
+  assert.deepEqual(wildcardOnly, { exempt: false }, 'wildcard alone must never imply resident-verification exemption');
+  assert.equal(auditEvents.length, auditBefore);
+
+  assert.deepEqual(
+    await errorOf(
+      await resolveResidentVerificationExemptionResponse(exemptionRequest(null), env, sql, 'req-exempt-401'),
+      401
+    ),
+    { status: 401, code: 'AUTH_REQUIRED' }
+  );
+  assert.equal(auditEvents.length, auditBefore);
+
+  failNextGrantQuery = true;
+  assert.deepEqual(
+    await errorOf(
+      await resolveResidentVerificationExemptionResponse(exemptionRequest('sub-exempt'), env, sql, 'req-exempt-dbdown'),
+      503
+    ),
+    { status: 503, code: 'RESIDENT_VERIFICATION_EXEMPTION_DB_ERROR' }
+  );
+  assert.equal(auditEvents.length, auditBefore, 'DB failure on self probe must not synthesize an authority audit write');
+
+  assert.equal(
+    await handleResidentVerificationExemptionRequest(
+      new Request('https://danjion.test/api/v1/me/resident-verification-exemption', { method: 'POST' }),
+      env,
+      'req-exempt-post'
+    ),
+    null
+  );
+  assert.equal(
+    await handleResidentVerificationExemptionRequest(
+      new Request('https://danjion.test/api/v1/me/other', { method: 'GET' }),
+      env,
+      'req-exempt-other'
+    ),
+    null
+  );
+
+  const noDb = await handleResidentVerificationExemptionRequest(
+    exemptionRequest('sub-exempt'),
+    { ...env, DATABASE_URL: '' },
+    'req-exempt-nodb'
+  );
+  assert.ok(noDb instanceof Response);
+  assert.equal(noDb.status, 503);
+  assert.equal((await noDb.json()).error.code, 'DATABASE_NOT_CONFIGURED');
+}
+
+// 11. Privileged scope guard: wildcard passes, bounded operator does not, none does not.
 const privileged = PRIVILEGED_PADIEM_SCOPES[0];
 assert.ok(isPrivilegedPadiemScope(privileged));
 assert.ok(!isPrivilegedPadiemScope('business.review'));
@@ -190,7 +271,7 @@ assert.deepEqual(await errorOf(privilegedInvalid, 400), { status: 400, code: 'PR
 const privilegedUnauth = await requirePadiemPrivilegedScope(request(null), env, sql, 'req-priv-401', privileged);
 assert.deepEqual(await errorOf(privilegedUnauth, 401), { status: 401, code: 'AUTH_REQUIRED' });
 
-// 11. resolvePadiemAuthority keeps ordinary operator scopes intact for council-governed routes.
+// 12. resolvePadiemAuthority keeps ordinary operator scopes intact for council-governed routes.
 const resolved = await resolvePadiemAuthority(sql, 'user-operator');
 assert.equal(resolved.level, 'operator');
 assert.ok(resolved.scopes.includes('business.review'));
@@ -199,7 +280,7 @@ assert.ok(resolved.scopes.includes('business.review'));
 assert.ok(auditEvents.length >= 8);
 assert.ok(auditEvents.every((e) => e.reasonCode && e.decision));
 
-// 12. Handler wiring: missing DATABASE_URL is 503 and foreign routes/methods
+// 13. Handler wiring: missing DATABASE_URL is 503 and foreign routes/methods
 // return null (the 401 short-circuit is proven at core level in scenario 1).
 {
   const noDb = await handleAdminAuthorityRequest(
