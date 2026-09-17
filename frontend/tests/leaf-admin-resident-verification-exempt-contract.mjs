@@ -5,7 +5,9 @@ import vm from 'node:vm';
 // Admin resident-verification exemption (Phase A, frontend-only): the four
 // designated administrator principals are exempted from resident verification
 // ONLY through the explicit bounded scope `resident.verification.exempt` on
-// their own valid PADIEM authority answer (GET /api/v1/admin/authority). The
+// their own server-side self exemption answer. My Info must use the dedicated
+// GET /api/v1/me/resident-verification-exemption probe, never the audited
+// administrator authority endpoint. The
 // wildcard '*' alone NEVER exempts; identity, email, provider, or browser
 // storage are never exemption inputs. When exempt, My Info must resolve the
 // authority FIRST and then avoid resident-only traffic: no summary or household
@@ -40,7 +42,9 @@ const wiring = wiringRaw.replace(/^\s*<script[^>]*>\s*/, '');
   const { DanjionAdminAuthority: A } = ctx;
   assert.equal(A.RESIDENT_VERIFICATION_EXEMPT_SCOPE, EXEMPT_SCOPE,
     'the exemption must key on the exact canonical scope string');
-  assert.equal(typeof A.hasResidentVerificationExemption, 'function', 'the helper must be exported');
+  assert.equal(typeof A.hasResidentVerificationExemption, 'function', 'the scope helper must be exported');
+  assert.equal(A.RESIDENT_VERIFICATION_EXEMPTION_PATH, '/api/v1/me/resident-verification-exemption', 'the self-only probe path is canonical');
+  assert.equal(typeof A.fetchResidentVerificationExemption, 'function', 'the read-only self exemption fetch helper must be exported');
   assert.ok(Object.isFrozen(A), 'the authority module must stay frozen');
 }
 
@@ -114,6 +118,8 @@ const wiring = wiringRaw.replace(/^\s*<script[^>]*>\s*/, '');
     'session identity must be the myinfo hydration entry point');
   assert.ok(authorityAt > gateAt,
     'resident-verification exemption must be evaluated only after authenticated session gating');
+  assert.ok(wiring.includes('AA.fetchResidentVerificationExemption(fetch)'), 'My Info must use the dedicated read-only self exemption probe');
+  assert.ok(!wiring.includes('AA.fetchAuthority(fetch)'), 'My Info must never use the audited admin authority endpoint as an exemption probe');
   const profileAt = wiring.indexOf('bridge.profile()');
   const summaryAt = wiring.indexOf('bridge.summary()');
   const snapshotAt = wiring.indexOf('.getSnapshot()');
@@ -216,7 +222,7 @@ function makeHarness(authorityAnswer) {
     fetch: async (url) => {
       const u = String(url);
       calls.push(u);
-      if (u.includes('/api/v1/admin/authority')) return authorityAnswer();
+      if (u.includes('/api/v1/me/resident-verification-exemption')) return authorityAnswer();
       if (u.includes('/api/auth/get-session')) return response(200, { session: { id: 'sess-1' }, user: { name: '최고관리자', email: 'signed-in@example.invalid', emailVerified: true, createdAt: '2026-01-15T00:00:00Z' } });
       if (u.includes('/api/v1/me/profile')) return response(200, { data: { nickname: '관리자별명', publicBio: '운영자 소개', joinedMonth: '2026-08' } });
       if (u.includes('/api/v1/me/summary')) return response(200, { data: { postCount: 1, commentCount: 2, receivedReactionCount: 3, savedBusinessCount: 4, unreadMessageCount: 0, household: { status: 'verified' } } });
@@ -232,17 +238,17 @@ function makeHarness(authorityAnswer) {
   return { calls, nodes, drain };
 }
 
-const operatorExempt = () => response(200, { data: { level: 'operator', label: '운영관리자', wildcard: false, scopes: [EXEMPT_SCOPE] } });
-const bareSuper = () => response(200, { data: { level: 'admin', label: '최고관리자', wildcard: true, scopes: ['*'] } });
-const deniedGrant = () => response(403, { error: { code: 'ADMIN_AUTHORITY_REQUIRED' } });
-const malformed200 = () => response(200, { data: { level: 'operator', wildcard: false, scopes: ['*'] } });
-const lookalikeScope = () => response(200, { data: { level: 'operator', wildcard: false, scopes: [`${EXEMPT_SCOPE}x`] } });
+const operatorExempt = () => response(200, { data: { exempt: true } });
+const bareSuper = () => response(200, { data: { exempt: false } });
+const deniedGrant = () => response(200, { data: { exempt: false } });
+const malformed200 = () => response(200, { data: { exempt: 'yes' } });
+const lookalikeScope = () => response(503, { error: { code: 'RESIDENT_VERIFICATION_EXEMPTION_DB_ERROR' } });
 
 /* ===== runtime A. exempt operator: self profile only, no resident traffic === */
 {
   const h = makeHarness(operatorExempt);
   await h.drain();
-  assert.ok(h.calls.some((u) => u.includes('/api/v1/admin/authority')), 'authority must be resolved first');
+  assert.ok(h.calls.some((u) => u.includes('/api/v1/me/resident-verification-exemption')), 'authority must be resolved first');
   assert.equal(h.calls.filter((u) => u.includes('/api/v1/me/profile')).length, 1, 'the exempt branch may load its own profile exactly once');
   assert.ok(!h.calls.some((u) => u.includes('/api/v1/me/summary')), 'the exempt branch must not load resident summary');
   assert.ok(h.calls.some((u) => u.includes('/api/auth/get-session')), 'identity must come from get-session');
@@ -257,10 +263,10 @@ const lookalikeScope = () => response(200, { data: { level: 'operator', wildcard
   assert.equal(h.nodes.get('mi-stat-posts').textContent, '—', 'non-resident activity stats stay em-dash');
 }
 
-/* ====== runtime B. wildcard SUPER without the explicit scope: full flow ==== */
-/* ====== runtime C. ordinary resident (403): full flow ====== */
-/* ====== runtime D. malformed 200: full flow, fail toward resident ========== */
-/* ====== runtime E. lookalike scope: full flow ============================== */
+/* ====== runtime B. server says false: ordinary resident flow =============== */
+/* ====== runtime C. ordinary resident false: full flow ====================== */
+/* ====== runtime D. malformed 200: fail toward resident ===================== */
+/* ====== runtime E. server failure: fail toward resident ==================== */
 for (const [label, answer, authorityHits] of [
   ['wildcard SUPER', bareSuper, 1],
   ['ungranted resident', deniedGrant, 1],
@@ -269,7 +275,7 @@ for (const [label, answer, authorityHits] of [
 ]) {
   const h = makeHarness(answer);
   await h.drain();
-  assert.equal(h.calls.filter((u) => u.includes('/api/v1/admin/authority')).length, authorityHits, `${label}: authority resolved exactly once`);
+  assert.equal(h.calls.filter((u) => u.includes('/api/v1/me/resident-verification-exemption')).length, authorityHits, `${label}: self exemption resolved exactly once`);
   assert.ok(h.calls.some((u) => u.includes('/api/v1/me/profile')), `${label}: ordinary flow must still call bridge.profile()`);
   assert.ok(h.calls.some((u) => u.includes('/api/v1/me/summary')), `${label}: ordinary flow must still call bridge.summary()`);
   assert.notEqual(h.nodes.get('mi-resident-state').textContent, EXEMPT_COPY, `${label}: the exempt copy must never render`);
