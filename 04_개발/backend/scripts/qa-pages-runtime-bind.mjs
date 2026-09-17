@@ -35,7 +35,7 @@ export function bindQaPagesRuntime(source, qaApiOrigin) {
   next = replaceOnce(
     next,
     constantsAnchor,
-    `${constantsAnchor}\n  // QA-only deployment artifact binding (#686). The QA Pages facade is same-origin;\n  // its Pages Function selects the fixed QA Worker upstream server-side.\n  const QA_PAGES_HOSTNAME = '${QA_PAGES_HOST}';`,
+    `${constantsAnchor}\n  // QA-only deployment artifact binding (#686). The QA Pages facade is same-origin;\n  // its Pages Function selects the fixed QA Worker upstream server-side.\n  const QA_PAGES_HOSTNAME = '${QA_PAGES_HOST}';\n  const QA_PAGES_API_BASE = 'https://${QA_PAGES_HOST}';`,
     'constants'
   );
 
@@ -43,7 +43,7 @@ export function bindQaPagesRuntime(source, qaApiOrigin) {
   next = replaceOnce(
     next,
     apiAnchor,
-    `${apiAnchor}\n    if (hostname === QA_PAGES_HOSTNAME) return '';`,
+    `${apiAnchor}\n    if (hostname === QA_PAGES_HOSTNAME) return QA_PAGES_API_BASE;`,
     'api-base'
   );
 
@@ -56,6 +56,7 @@ export function bindQaPagesRuntime(source, qaApiOrigin) {
   );
 
   if (!next.includes(`const QA_PAGES_HOSTNAME = '${QA_PAGES_HOST}'`)) fail('QA_HOST_BINDING_MISSING');
+  if (!next.includes(`const QA_PAGES_API_BASE = 'https://${QA_PAGES_HOST}'`)) fail('QA_API_BASE_BINDING_MISSING');
   return next;
 }
 

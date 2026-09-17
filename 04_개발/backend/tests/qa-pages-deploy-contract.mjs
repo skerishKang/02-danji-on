@@ -32,6 +32,8 @@ must("--project-name \"$QA_PAGES_PROJECT\"");
 must("for attempt in $(seq 1 12)");
 must("x-robots-tag: noindex");
 must("QA_PAGES_HOSTNAME = 'danjion-qa.pages.dev';");
+must("QA_PAGES_API_BASE = 'https://danjion-qa.pages.dev';");
+must("grep -Fq \"return QA_PAGES_API_BASE;\" dist-qa/assets/danjion-session.js");
 must("grep -Fq \"return '';\" dist-qa/assets/danjion-session.js");
 must("'frontend/assets/danjion-session.js'");
 must("'functions/**'");
@@ -76,9 +78,11 @@ assert.ok(deployJob.includes("if: ${{ github.event_name == 'workflow_dispatch' &
 assert.ok(!workflow.slice(0, workflow.indexOf('  deploy-pages:')).includes('pages deploy'),
   'source-contract job must not deploy Pages');
 
+assert.ok(runtime.includes("if (hostname === QA_PAGES_HOSTNAME) return QA_PAGES_API_BASE;"),
+  'QA runtime must bind browser API base to same-origin QA Pages base');
 assert.ok(runtime.includes("if (hostname === QA_PAGES_HOSTNAME) return '';"),
-  'QA runtime must bind browser API and auth bases to same-origin relative URLs');
-assert.ok(!runtime.includes('QA_API_BASE'),
+  'QA runtime must bind browser auth base to same-origin relative URL');
+assert.ok(!runtime.includes('QA_API_BASE ='),
   'QA runtime must not inject a direct Worker browser base');
 
 console.log('OK: qa-pages-deploy-contract passed');
