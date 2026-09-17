@@ -1,0 +1,69 @@
+name: QA Resident State Diagnostic
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-resident-state-diagnostic.yml'
+      - '04_개발/backend/scripts/qa-resident-state-diagnostic.mjs'
+      - '04_개발/backend/tests/qa-resident-state-diagnostic-contract.mjs'
+  workflow_dispatch:
+    inputs:
+      expected_main:
+        description: 'Exact main SHA authorized for the QA diagnostic'
+        required: true
+        type: string
+      run_live:
+        description: 'Run same-session QA resident-state diagnostic'
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  source-contract:
+    name: QA resident diagnostic source contract
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Verify privacy-safe QA diagnostic contract
+        run: node 04_개발/backend/tests/qa-resident-state-diagnostic-contract.mjs
+
+  live-qa:
+    name: Same-session My Info / Our House diagnostic
+    needs: source-contract
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_live }}
+    runs-on: ubuntu-latest
+    environment: qa
+    env:
+      APP_ENV: qa
+      DANJION_QA_API_URL: ${{ vars.DANJION_QA_API_URL }}
+      DANJION_QA_FRONTEND_URL: ${{ vars.DANJION_QA_FRONTEND_URL }}
+      DANJION_QA_EMAIL: ${{ secrets.DANJION_QA_EMAIL }}
+      DANJION_QA_PASSWORD: ${{ secrets.DANJION_QA_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+      - name: Exact-main guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected='${{ inputs.expected_main }}'
+          test "$GITHUB_REF" = 'refs/heads/main'
+          actual="$(git rev-parse HEAD)"
+          remote="$(git ls-remote origin refs/heads/main | awk '{print $1}')"
+          test -n "$expected"
+          test "$actual" = "$expected"
+          test "$remote" = "$expected"
+          echo 'QA resident diagnostic exact-main guard: PASS'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Run same-session resident-state diagnostic
+        run: node 04_개발/backend/scripts/qa-resident-state-diagnostic.mjs
