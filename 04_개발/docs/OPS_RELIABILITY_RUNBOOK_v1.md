@@ -1,7 +1,7 @@
 # OPS Reliability Runbook v1 — Backup / Recovery / Alerting Baseline
 
 Issue: #695 · PHASE=READ_ONLY_INVENTORY_AND_RUNBOOK · PRODUCTION_MUTATION=0
-Status: inventory complete for repository-observable facts. Provider-plan facts are `TBD_BY_OWNER` with the exact verification procedure recorded.
+Status: inventory complete 2026-09-18 (main 3773a2c). Provider facts verified read-only via provider consoles (Neon console, Cloudflare dashboard). No mutation performed.
 
 ## 1. Scope and authority
 
@@ -9,7 +9,7 @@ Status: inventory complete for repository-observable facts. Provider-plan facts 
 - Owner of this runbook: CTO agent proposes, human owner approves any mutation-class change.
 - `PRODUCTION_MUTATION=0` for the entire lifecycle of this document until a separate implementation issue is approved.
 
-## 2. Inventory — repository-observable facts (verified 2026-09-18, main bb90519)
+## 2. Inventory — repository-observable facts (verified 2026-09-18, main 3773a2c)
 
 ### 2.1 Application / backend
 
@@ -30,7 +30,7 @@ Status: inventory complete for repository-observable facts. Provider-plan facts 
 - No documented backup authority, retention, restore procedure, or recovery drill.
 - No incident severity/owner/evidence-retention contract.
 
-## 3. Inventory — provider facts requiring verification (TBD_BY_OWNER)
+## 3. Inventory — provider facts (verified read-only 2026-09-18 via provider consoles)
 
 These must be read from provider consoles/CLI by the owner (or an agent with approved read-only provider access). Do **not** assume plan defaults equal accepted policy.
 
@@ -43,13 +43,18 @@ Verification procedure (read-only):
 3. Console → Project → Backup & restore: record plan-included backup/PITR retention window and restore surface (restore-to-branch, restore-to-project).
 4. Record the retention/window facts verbatim in the table below. Never copy connection strings, passwords, or roles into this document.
 
-| Item | Value |
+| Item | Value (verified 2026-09-18) |
 |---|---|
-| Neon plan / region | TBD_BY_OWNER |
-| Backup capability included | TBD_BY_OWNER |
-| PITR window / retention | TBD_BY_OWNER |
-| Restore surface (branch/project restore) | TBD_BY_OWNER |
-| Separate scheduled snapshot required? | TBD_BY_OWNER |
+| Neon plan / region | **Free plan**, AWS Asia Pacific 1 (Singapore) |
+| Production project | `Danjion` — ID `old-shape-61609481`, default branch `production` (`br-bold-sun-azurylwi`, created 2026-08-08) |
+| Compute | 0.25 ↔ 2 CU autoscaling (default compute) |
+| **History retention (PITR window)** | **6 hours** — point-in-time recovery is impossible beyond 6 hours ago on current settings |
+| Backup capability included | Neon history/PITR only; no separate scheduled snapshots included on Free plan |
+| Restore surface | Branch-level restore / child branches (used 4/10) — restore-to-branch available; production-like drill must target a child branch, never overwrite `production` |
+| Separate scheduled snapshot required? | **YES — likely required**: 6h PITR window is below any reasonable RPO for identity/audit data; upgrade or scheduled logical dumps are the candidate mitigations (see §10) |
+| Branch hygiene note | 3 stale sandbox/preview branches (`better-auth-five-method-sandbox-20260826`, `cloudflare-preview-20260808`, `pre-danjion-schema-20260808`) consume branch quota; cleanup is owner-approved housekeeping, not this issue |
+
+QA reference: project `Danjion-QA` — ID `wispy-rain-16787448`, branch `qa-main`, Free plan, history retention 6 hours.
 
 ### 3.2 Cloudflare (Worker / Pages)
 
@@ -59,11 +64,11 @@ Verification procedure (read-only):
 2. Dashboard → Pages → `danjion`: same.
 3. Check whether any external uptime monitor already watches the domains.
 
-| Item | Value |
+| Item | Value (verified 2026-09-18) |
 |---|---|
-| Existing Worker alerting | TBD_BY_OWNER |
-| Existing Pages alerting | TBD_BY_OWNER |
-| External uptime monitor | TBD_BY_OWNER |
+| Existing Worker alerting | **None** — account notifications table is empty (Padiem account `5a305a…41d`) |
+| Existing Pages alerting | **None** — same account-level notifications surface |
+| External uptime monitor | None known; only release-time checks inside CI |
 
 ## 4. Data classification for recovery guarantees
 
@@ -110,10 +115,10 @@ Severity / owner / retention:
 
 | Metric | Target |
 |---|---|
-| RPO | TBD_BY_OWNER (candidate: provider PITR window once §3.1 is filled) |
-| RTO | TBD_BY_OWNER (candidate: restore drill measured time from §5 + deploy time) |
+| RPO | Owner decision required. Current platform ceiling: **6 hours** (Neon history retention). Candidate: confirm acceptable RPO ≥ 6h, or raise retention / add scheduled dumps for identity·audit data |
+| RTO | Owner decision required. Candidate inputs: branch-restore time (drill, §5) + Worker deploy time |
 
-Both remain `TBD_BY_OWNER` until owner confirms; the drill (§5) is the measurement instrument.
+Both require owner confirmation; the drill (§5) is the measurement instrument.
 
 ## 8. Rollback vs restore decision boundary
 
@@ -130,7 +135,8 @@ Both remain `TBD_BY_OWNER` until owner confirms; the drill (§5) is the measurem
 
 ## 10. Follow-up implementation issues (separate approval gates)
 
-1. Neon backup verification + (if required) scheduled snapshot setup — after §3.1 facts are recorded.
-2. Uptime/error alerting for Worker + Pages — after §3.2 facts are recorded.
-3. Recovery drill execution — after 1 is done.
-4. RPO/RTO confirmation — after drill results.
+1. **Backup hardening** — decide RPO; if 6h retention is insufficient: upgrade Neon plan / raise history retention / schedule logical dumps of auth·grant·audit tables to R2. (Enabled by §3.1 facts.)
+2. **Uptime/error alerting** — add Cloudflare account notifications (or external monitor) for Worker + Pages health. (Enabled by §3.2 facts — none configured today.)
+3. **Recovery drill execution** — restore PITR candidate into a private child branch, verify schema/aggregates/read-smoke, record RTO evidence, tear down.
+4. **RPO/RTO confirmation** — record owner-approved targets after drill results.
+5. **Branch hygiene** (housekeeping, low priority) — owner-approved cleanup of the 3 stale sandbox branches.
