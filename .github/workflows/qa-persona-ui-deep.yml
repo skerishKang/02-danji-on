@@ -1,0 +1,99 @@
+name: QA Persona UI Deep
+
+on:
+  workflow_dispatch:
+    inputs:
+      expected_main:
+        description: 'Exact main SHA authorized for the live QA persona UI deep test'
+        required: true
+        type: string
+      run_live:
+        description: 'Explicitly confirm live QA browser login-flow validation'
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: danjion-qa-persona-ui-deep
+  cancel-in-progress: false
+
+jobs:
+  live-ui-deep:
+    name: Validate 3-persona real login flow on QA
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_live }}
+    runs-on: ubuntu-latest
+    environment: qa
+    env:
+      DANJION_QA_FRONTEND_URL: ${{ vars.DANJION_QA_FRONTEND_URL }}
+      DANJION_QA_RESIDENT_EMAIL: ${{ secrets.DANJION_QA_RESIDENT_EMAIL }}
+      DANJION_QA_RESIDENT_PASSWORD: ${{ secrets.DANJION_QA_RESIDENT_PASSWORD }}
+      DANJION_QA_OPERATIONAL_EMAIL: ${{ secrets.DANJION_QA_OPERATIONAL_EMAIL }}
+      DANJION_QA_OPERATIONAL_PASSWORD: ${{ secrets.DANJION_QA_OPERATIONAL_PASSWORD }}
+      DANJION_QA_SUPER_EMAIL: ${{ secrets.DANJION_QA_SUPER_EMAIL }}
+      DANJION_QA_SUPER_PASSWORD: ${{ secrets.DANJION_QA_SUPER_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: 04_개발/frontend/package-lock.json
+
+      - name: Exact-main guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected='${{ inputs.expected_main }}'
+          test "$GITHUB_REF" = 'refs/heads/main'
+          actual="$(git rev-parse HEAD)"
+          remote="$(git ls-remote origin refs/heads/main | awk '{print $1}')"
+          test -n "$expected"
+          test "$actual" = "$expected"
+          test "$remote" = "$expected"
+          echo 'QA persona UI deep exact-main guard: PASS'
+
+      - name: Validate QA-only frontend origin and credential presence
+        shell: bash
+        run: |
+          set -euo pipefail
+          for key in DANJION_QA_FRONTEND_URL DANJION_QA_RESIDENT_EMAIL DANJION_QA_RESIDENT_PASSWORD DANJION_QA_OPERATIONAL_EMAIL DANJION_QA_OPERATIONAL_PASSWORD DANJION_QA_SUPER_EMAIL DANJION_QA_SUPER_PASSWORD; do
+            test -n "${!key:-}" || { echo "::error::Missing QA UI deep input: ${key}"; exit 1; }
+          done
+          node - <<'NODE'
+          const front = new URL(process.env.DANJION_QA_FRONTEND_URL);
+          if (front.protocol !== 'https:' || front.hostname !== 'danjion-qa.pages.dev' || front.pathname !== '/') throw new Error('QA frontend origin invalid');
+          if (front.hostname === 'danjion.pages.dev') throw new Error('Production target forbidden');
+          NODE
+          echo 'QA persona UI deep isolation guard: PASS'
+
+      - name: Install frontend dependencies
+        working-directory: 04_개발/frontend
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        working-directory: 04_개발/frontend
+        run: npx playwright install --with-deps chromium
+
+      - name: Run QA persona UI deep test
+        working-directory: 04_개발/frontend
+        run: node scripts/qa-persona-ui-deep.mjs
+
+      - name: Record bounded disposition
+        shell: bash
+        run: |
+          {
+            echo '## DanjiOn QA persona UI deep'
+            echo ''
+            echo '- Environment: `qa`'
+            echo '- Real login form driven: `yes (modal → email path → form submit)`'
+            echo '- Product data mutation: `NO`'
+            echo '- Production target: `NO`'
+            echo '- Secret output: `NO`'
+          } >> "$GITHUB_STEP_SUMMARY"
