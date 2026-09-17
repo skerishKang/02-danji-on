@@ -157,7 +157,7 @@ jobs:
           # Production Direct Upload is intentionally unambiguous: do not pass
           # --branch here. Cloudflare documents bare pages deploy as production,
           # while branch-directed uploads may create preview/branch deployments.
-          npx wrangler@4.114.0 pages deploy dist \
+          npx wrangler@4.131.0 pages deploy dist \
             --project-name "$PAGES_PROJECT" \
             --commit-hash "$GITHUB_SHA" \
             --commit-message "$commit_message"

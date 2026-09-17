@@ -39,7 +39,7 @@ assert.ok(workflow.includes("front.hostname === 'danjion.pages.dev'"), 'canonica
 assert.ok(workflow.includes('git ls-remote origin refs/heads/main'), 'QA deploy must fresh-read remote main');
 assert.ok(workflow.includes('test "$actual" = "$expected"') && workflow.includes('test "$remote" = "$expected"'), 'QA deploy must exact-main guard local and remote heads');
 assert.ok(workflow.includes("qa-migration-gate.mjs' apply --confirm-qa-apply"), 'QA schema apply must use explicit QA confirmation');
-assert.ok(workflow.includes('wrangler@4.114.0 deploy --env qa'), 'Worker deploy must target the qa Wrangler environment');
+assert.ok(workflow.includes('wrangler@4.131.0 deploy --env qa'), 'Worker deploy must target the qa Wrangler environment');
 assert.ok(workflow.includes('pages deploy dist-qa --project-name "$QA_PAGES_PROJECT" --branch main'), 'Pages deploy must target the dedicated QA project');
 assert.ok(workflow.includes('X-Robots-Tag: noindex'), 'QA Pages must be noindex');
 assert.ok(workflow.includes('response suppressed') && workflow.includes('identity/session material suppressed'), 'synthetic account output must remain secret-safe');

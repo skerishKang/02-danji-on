@@ -143,7 +143,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          npx wrangler@4.114.0 deploy --env qa --secrets-file "$DANJION_QA_WORKER_SECRETS_FILE" \
+          npx wrangler@4.131.0 deploy --env qa --secrets-file "$DANJION_QA_WORKER_SECRETS_FILE" \
             --var 'APP_ENV:qa' \
             --var 'DEV_AUTH_BYPASS:false' \
             --var 'AUTH_REQUIRE_EMAIL_VERIFICATION:false' \
@@ -184,7 +184,7 @@ jobs:
           tmp="$(mktemp)"
           status="$(curl --silent --output "$tmp" --write-out '%{http_code}' -H "$auth_header" "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/pages/projects/${QA_PAGES_PROJECT}")"
           if [ "$status" = '404' ]; then
-            npx wrangler@4.114.0 pages project create "$QA_PAGES_PROJECT" --production-branch main
+            npx wrangler@4.131.0 pages project create "$QA_PAGES_PROJECT" --production-branch main
           elif [ "$status" = '200' ]; then
             test "$(jq -r '.result.name // empty' "$tmp")" = "$QA_PAGES_PROJECT"
           else
@@ -213,7 +213,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          npx wrangler@4.114.0 pages deploy dist-qa --project-name "$QA_PAGES_PROJECT" --branch main --commit-hash "$GITHUB_SHA" --commit-message 'DanjiOn QA environment'
+          npx wrangler@4.131.0 pages deploy dist-qa --project-name "$QA_PAGES_PROJECT" --branch main --commit-hash "$GITHUB_SHA" --commit-message 'DanjiOn QA environment'
 
       - name: Verify QA Pages, runtime binding, and noindex
         shell: bash

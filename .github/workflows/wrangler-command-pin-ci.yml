@@ -1,0 +1,99 @@
+name: Wrangler Command Pin CI
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/wrangler-command-pin-ci.yml'
+      - '.github/workflows/danjion-review-auto-deploy.yml'
+      - '.github/workflows/qa-worker-deploy.yml'
+      - '.github/workflows/qa-pages-deploy.yml'
+      - '.github/workflows/qa-environment-provision.yml'
+      - '.github/workflows/pages-production-release.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  cli-compat:
+    name: Wrangler 4.131.0 command surface
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Verify exact published Wrangler version
+        shell: bash
+        run: |
+          set -euo pipefail
+          published="$(npm view wrangler@4.131.0 version)"
+          test "$published" = '4.131.0'
+          actual="$(npx --yes wrangler@4.131.0 --version)"
+          printf '%s\n' "$actual" | grep -Fq '4.131.0'
+          echo 'WRANGLER_VERSION=4.131.0 PASS'
+
+      - name: Verify required CLI command surfaces without cloud mutation
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx --yes wrangler@4.131.0 deploy --help > "${RUNNER_TEMP}/deploy-help.txt"
+          npx --yes wrangler@4.131.0 pages deploy --help > "${RUNNER_TEMP}/pages-deploy-help.txt"
+          npx --yes wrangler@4.131.0 pages project create --help > "${RUNNER_TEMP}/pages-project-create-help.txt"
+
+          grep -Fq -- '--env' "${RUNNER_TEMP}/deploy-help.txt"
+          grep -Fq -- '--secrets-file' "${RUNNER_TEMP}/deploy-help.txt"
+          grep -Fq -- '--var' "${RUNNER_TEMP}/deploy-help.txt"
+
+          grep -Fq -- '--project-name' "${RUNNER_TEMP}/pages-deploy-help.txt"
+          grep -Fq -- '--branch' "${RUNNER_TEMP}/pages-deploy-help.txt"
+          grep -Fq -- '--commit-hash' "${RUNNER_TEMP}/pages-deploy-help.txt"
+          grep -Fq -- '--commit-message' "${RUNNER_TEMP}/pages-deploy-help.txt"
+
+          grep -Fq -- '--production-branch' "${RUNNER_TEMP}/pages-project-create-help.txt"
+          echo 'WRANGLER_REQUIRED_COMMAND_SURFACE=PASS'
+
+      - name: Verify bounded explicit pin migration
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          expected = {
+              Path('.github/workflows/danjion-review-auto-deploy.yml'): 2,
+              Path('.github/workflows/qa-worker-deploy.yml'): 1,
+              Path('.github/workflows/qa-pages-deploy.yml'): 1,
+              Path('.github/workflows/qa-environment-provision.yml'): 3,
+              Path('.github/workflows/pages-production-release.yml'): 1,
+          }
+          old = 'wrangler@4.114.0'
+          new = 'wrangler@4.131.0'
+          total = 0
+          for path, expected_count in expected.items():
+              text = path.read_text(encoding='utf-8')
+              old_count = text.count(old)
+              new_count = text.count(new)
+              if old_count != 0:
+                  raise SystemExit(f'old explicit pin remains in {path}: {old_count}')
+              if new_count != expected_count:
+                  raise SystemExit(
+                      f'unexpected 4.131.0 pin count in {path}: '
+                      f'expected={expected_count} actual={new_count}'
+                  )
+              total += new_count
+              print(f'PIN_COUNT {path}={new_count}')
+          if total != 8:
+              raise SystemExit(f'unexpected explicit pin total: {total}')
+          print('PIN_REPLACEMENTS_TOTAL=8 PASS')
+          PY
+
+      - name: Confirm source-only safety disposition
+        run: |
+          echo 'CLOUDFLARE_API_CALL=0'
+          echo 'QA_LIVE_MUTATION=0'
+          echo 'PRODUCTION_MUTATION=0'
+          echo 'DB_MUTATION=0'
+          echo 'SECRET_MUTATION=0'
+          echo 'SECRET_OUTPUT=NO'
