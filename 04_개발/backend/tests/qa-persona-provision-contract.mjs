@@ -35,6 +35,22 @@ assert.doesNotMatch(workflow, /padiem-danjion-api-production|https:\/\/danjion\.
 assert.match(workflow, /QA_FIXTURE_DISPOSITION:\s*HOUSEHOLD_ASSOCIATED_RESIDENT_VERIFIED/, 'resident persona must reuse verified household fixture');
 assert.match(workflow, /qa-household-fixture\.mjs\s*>\s*"\$fixture_report"/, 'legacy fixture output must be captured rather than exposed');
 assert.match(workflow, /PERSONA=QA_RESIDENT/, 'workflow must emit privacy-safe resident persona report');
+const fixtureChecks = workflow.match(/          if grep -Fxq[\s\S]*?(?=          echo 'PERSONA=QA_RESIDENT')/);
+assert.ok(fixtureChecks, 'fixture checks must emit named outcomes');
+const expectedFixtureChecks = [
+  ['RESIDENT_VERIFIED', 'true'],
+  ['OPERATOR_GRANT_PRESENT', 'false'],
+  ['PRODUCTION_TARGET', 'NO'],
+  ['SECRET_OUTPUT', 'NO']
+].map(([name, value]) => [
+  `          if grep -Fxq '${name}=${value}' "$fixture_report"; then`,
+  `            echo '${name}: PASS'`,
+  '          else',
+  `            echo '${name}: FAIL'`,
+  '            exit 1',
+  '          fi'
+].join('\n')).join('\n') + '\n';
+assert.equal(fixtureChecks[0], expectedFixtureChecks, 'each quiet exact check must print only its name and outcome, then stop on failure');
 
 assert.match(script, /APP_ENV.*qa/, 'persona script must fail closed unless APP_ENV=qa');
 assert.match(script, /QA_API_HOST = 'padiem-danjion-api-qa\.padiem\.workers\.dev'/, 'persona script must pin dedicated QA Worker');
