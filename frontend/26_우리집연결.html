@@ -323,7 +323,7 @@ if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt
     }
     return fallback;
   }
-  function memberLabel(member){return `${member.membershipRole==='primary'?'주 세대원':'세대원'} · ${member.residentVerified?'주민 확인됨':'확인 대기'}`}
+  function memberLabel(member){return `${member.membershipRole==='primary'?'주 세대원':'세대원'} · ${member.residentVerified?'주민 확인됨':'주민인증 심사 대기 중'}`}
   function renderHome(snapshot){
     el('household-banner').hidden=true;
     el('household-claim-panel').hidden=true;
@@ -331,9 +331,10 @@ if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt
     el('household-panels-row').hidden=false;
     const unit=snapshot.unit?`${snapshot.unit.buildingCode} ${snapshot.unit.unitCode}`:'—';
     el('household-home-unit').textContent=unit;
-    el('household-home-complex').textContent='방림명지로드힐 · 우리집 연결 완료';
-    el('household-member-count').textContent=`${snapshot.members.length}명`;
     const me=snapshot.myMembership;
+    const residentState=me.status==='verified'||me.residentVerified?'우리집 연결 완료 · 주민 확인됨':'우리집 연결됨 · 주민인증 심사 대기 중';
+    el('household-home-complex').textContent=`방림명지로드힐 · ${residentState}`;
+    el('household-member-count').textContent=`${snapshot.members.length}명`;
     el('household-my-role').textContent=memberLabel(me);
     const primary=me.membershipRole==='primary'&&me.status==='verified';
     const list=el('household-members');
