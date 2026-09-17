@@ -29,7 +29,11 @@ assert.ok(f05.includes('<script src="assets/danjion-session.js"></script>'),
 
 const normalize520 = (html) => html
   .replace(CANONICAL_HEADER, LEGACY_HEADER)
-  .replace('<link rel="stylesheet" href="assets/danjion-service-header.css">\n', '');
+  .replace('<link rel="stylesheet" href="assets/danjion-service-header.css">\n', '')
+  // #639 authorizes document-title metadata cleanup only; preserve the historical
+  // sibling-visible-DOM hash by normalizing the Production-facing title back to
+  // the prior authority string before hashing.
+  .replace('<title>단지온 · 우리단지</title>', '<title>단지온 · 우리단지 · STEP 05</title>');
 const visibleDom = (html) => html.replace(/<script\b[\s\S]*?<\/script>/gi, '').replace(/\r\n/g, '\n').replace(/>\s+</g, '><').trim();
 const visibleHash = (html) => createHash('sha256').update(visibleDom(normalize520(html))).digest('hex');
 assert.equal(visibleHash(f05), 'b5ca6eadeded279fbe83603fcd3acc1faf6b707b861a99b8e6ebe4553b85b1b8',
