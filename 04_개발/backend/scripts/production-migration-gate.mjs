@@ -124,7 +124,7 @@ export function markerToSql(marker) {
       return `select exists(select 1 from information_schema.columns where table_schema = '${dotted.schema}' and table_name = '${dotted.table}' and column_name = '${marker.name}')`;
     }
     case 'constraint':
-      return `select exists(select 1 from pg_constraint where conname = '${marker.name}' and conrelid = '${marker.table}'::regclass)`;
+      return `select exists(select 1 from pg_constraint where conname = '${marker.name}' and conrelid = to_regclass('${marker.table}'))`;
     case 'function':
       return `select exists(select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = '${marker.schema}' and p.proname = '${marker.name}')`;
     case 'data_probe':
