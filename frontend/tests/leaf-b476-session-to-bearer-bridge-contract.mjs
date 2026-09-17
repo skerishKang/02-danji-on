@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
-// Issue #476: canonical Pages app facade bridges a first-party Better Auth
-// session cookie to a server-only JWT for the Worker's bearer-only auth boundary.
+// Issue #476 + #686: canonical/QA Pages app facades bridge a first-party
+// Better Auth session cookie to a server-only JWT for the selected fixed
+// Worker's bearer-only auth boundary. The upstream is selected only from the
+// exact Pages origin; it is never client-provided.
 // Run: node frontend/tests/leaf-b476-session-to-bearer-bridge-contract.mjs
 
 const facade = await readFile(new URL('../../functions/_lib/app-facade.js', import.meta.url), 'utf8');
@@ -13,12 +15,30 @@ assert.ok(facade.includes("AUTH_FACADE_MARKER_HEADER = 'x-danjion-auth-facade'")
   'token exchange must use the canonical auth-facade marker');
 assert.ok(facade.includes("AUTH_FACADE_MARKER_VALUE = 'canonical-pages-v1'"),
   'token exchange marker value must stay pinned');
-assert.ok(facade.includes("new URL(AUTH_SESSION_PATH, WORKER_API_BASE)"),
-  'session bridge upstream must be the fixed production Worker');
+assert.ok(facade.includes("CANONICAL_PAGES_ORIGIN = 'https://danjion.pages.dev'"),
+  'Production Pages origin must stay fixed');
+assert.ok(facade.includes("WORKER_API_BASE = 'https://padiem-danjion-api-production.padiem.workers.dev'"),
+  'Production Worker upstream must stay fixed');
+assert.ok(facade.includes("QA_PAGES_ORIGIN = 'https://danjion-qa.pages.dev'"),
+  'QA Pages origin must be explicit');
+assert.ok(facade.includes("QA_WORKER_API_BASE = 'https://padiem-danjion-api-qa.padiem.workers.dev'"),
+  'QA Worker upstream must stay fixed');
+assert.ok(facade.includes('async function bearerFromSessionCookie(fetchImpl, request, url, upstreamBase)'),
+  'session bridge must receive only the facade-selected fixed upstream');
+assert.ok(facade.includes("new URL(AUTH_SESSION_PATH, upstreamBase)"),
+  'session bridge must use the already-selected fixed upstream');
+assert.ok(facade.includes("new URL(AUTH_TOKEN_PATH, upstreamBase)"),
+  'fallback token exchange must use the already-selected fixed upstream');
+assert.ok(facade.includes("const upstreamBase = url.origin === CANONICAL_PAGES_ORIGIN"),
+  'upstream selection must begin from the exact Production Pages origin');
+assert.ok(facade.includes("url.origin === QA_PAGES_ORIGIN"),
+  'upstream selection may include only the explicit QA Pages origin');
+assert.ok(facade.includes("if (!upstreamBase)"),
+  'unknown origins must fail closed before any Worker call');
 assert.ok(facade.includes("headers.set('cookie', cookie)"),
   'server-side token exchange must use the first-party session cookie');
-assert.ok(facade.includes("headers.set('origin', CANONICAL_PAGES_ORIGIN)"),
-  'token exchange and app request Origin must be canonical and server-pinned');
+assert.ok(facade.includes("headers.set('origin', url.origin === QA_PAGES_ORIGIN ? QA_PAGES_ORIGIN : CANONICAL_PAGES_ORIGIN)"),
+  'token exchange and app request Origin must be server-pinned to the selected Pages origin');
 assert.ok(facade.includes("'authorization'"),
   'client Authorization must be in the guarded-header set');
 assert.ok(facade.includes("if (HOP_BY_HOP.has(lower) || GUARDED_HEADERS.has(lower)) continue;"),
@@ -35,8 +55,6 @@ assert.ok(facade.includes("betterAuthSessionToken(cookie)"),
   'fallback may extract only the first-party Better Auth session token server-side');
 assert.ok(facade.includes("tokenHeaders.set('authorization', `Bearer ${sessionToken}`)"),
   'fallback must present the opaque session token only to Better Auth /token server-side');
-assert.ok(facade.includes("new URL(AUTH_TOKEN_PATH, WORKER_API_BASE)"),
-  'fallback token exchange must stay pinned to the fixed production Worker');
 assert.ok(facade.includes("tokenPayload.token"),
   'fallback must consume the JWT response body, not expose it to the browser');
 assert.ok(facade.includes("looksLikeJwt"),
@@ -46,7 +64,7 @@ assert.ok(facade.includes("if (!sessionResponse.ok) return { bearer: null, dispo
 assert.ok(facade.includes("if (!cookie.trim()) return { bearer: null, disposition: 'no-cookie' }"),
   'guest/public requests must not require a token exchange');
 assert.ok(!facade.includes('x-danjion-dev-auth-user'),
-  'production app facade must never carry development auth');
+  'app facade must never carry development auth');
 assert.ok(!facade.includes("headers.set('authorization', request.headers.get"),
   'client-provided Authorization must never be copied into Worker authority');
 assert.ok(!facade.includes("outHeaders.set('authorization'"),
