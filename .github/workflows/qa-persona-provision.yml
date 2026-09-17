@@ -130,10 +130,30 @@ jobs:
           set -euo pipefail
           fixture_report="${RUNNER_TEMP}/qa-resident-fixture-report.txt"
           node 04_개발/backend/scripts/qa-household-fixture.mjs > "$fixture_report"
-          grep -Fxq 'RESIDENT_VERIFIED=true' "$fixture_report"
-          grep -Fxq 'OPERATOR_GRANT_PRESENT=false' "$fixture_report"
-          grep -Fxq 'PRODUCTION_TARGET=NO' "$fixture_report"
-          grep -Fxq 'SECRET_OUTPUT=NO' "$fixture_report"
+          if grep -Fxq 'RESIDENT_VERIFIED=true' "$fixture_report"; then
+            echo 'RESIDENT_VERIFIED: PASS'
+          else
+            echo 'RESIDENT_VERIFIED: FAIL'
+            exit 1
+          fi
+          if grep -Fxq 'OPERATOR_GRANT_PRESENT=false' "$fixture_report"; then
+            echo 'OPERATOR_GRANT_PRESENT: PASS'
+          else
+            echo 'OPERATOR_GRANT_PRESENT: FAIL'
+            exit 1
+          fi
+          if grep -Fxq 'PRODUCTION_TARGET=NO' "$fixture_report"; then
+            echo 'PRODUCTION_TARGET: PASS'
+          else
+            echo 'PRODUCTION_TARGET: FAIL'
+            exit 1
+          fi
+          if grep -Fxq 'SECRET_OUTPUT=NO' "$fixture_report"; then
+            echo 'SECRET_OUTPUT: PASS'
+          else
+            echo 'SECRET_OUTPUT: FAIL'
+            exit 1
+          fi
           echo 'PERSONA=QA_RESIDENT'
           echo 'AUTH=PASS'
           echo 'RESIDENT_VERIFIED=true'
