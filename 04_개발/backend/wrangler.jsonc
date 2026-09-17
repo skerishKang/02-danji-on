@@ -23,6 +23,16 @@
         "CORS_ALLOWED_ORIGINS": "https://*.padiem-danjion-web-preview.pages.dev"
       }
     },
+    "qa": {
+      "name": "padiem-danjion-api-qa",
+      "workers_dev": true,
+      "preview_urls": false,
+      "vars": {
+        "APP_ENV": "qa",
+        "DEV_AUTH_BYPASS": "false",
+        "AUTH_REQUIRE_EMAIL_VERIFICATION": "false"
+      }
+    },
     "production": {
       "name": "padiem-danjion-api-production",
       "workers_dev": true,
