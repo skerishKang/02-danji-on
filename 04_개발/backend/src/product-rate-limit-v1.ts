@@ -12,7 +12,12 @@ export type ProductMutationLimitKey =
   | 'family_invite_create'
   | 'family_invite_redeem'
   | 'business_application_create'
-  | 'benefit_claim';
+  | 'benefit_claim'
+  | 'resident_message_send'
+  | 'business_review_create'
+  | 'business_review_comment_create'
+  | 'inquiry_create'
+  | 'shop_recommendation_create';
 
 type ProductMutationPolicy = {
   action: ProductMutationLimitKey;
@@ -30,7 +35,12 @@ export const PRODUCT_MUTATION_LIMITS: Record<ProductMutationLimitKey, ProductMut
   family_invite_create: { action: 'family_invite_create', max: 10, windowSeconds: 60 * 60 },
   family_invite_redeem: { action: 'family_invite_redeem', max: 10, windowSeconds: 60 * 60 },
   business_application_create: { action: 'business_application_create', max: 5, windowSeconds: 24 * 60 * 60 },
-  benefit_claim: { action: 'benefit_claim', max: 30, windowSeconds: 60 * 60 }
+  benefit_claim: { action: 'benefit_claim', max: 30, windowSeconds: 60 * 60 },
+  resident_message_send: { action: 'resident_message_send', max: 120, windowSeconds: 10 * 60 },
+  business_review_create: { action: 'business_review_create', max: 10, windowSeconds: 24 * 60 * 60 },
+  business_review_comment_create: { action: 'business_review_comment_create', max: 30, windowSeconds: 10 * 60 },
+  inquiry_create: { action: 'inquiry_create', max: 10, windowSeconds: 24 * 60 * 60 },
+  shop_recommendation_create: { action: 'shop_recommendation_create', max: 20, windowSeconds: 24 * 60 * 60 }
 };
 
 const REQUEST_ID_HEADER = 'x-danjion-request-id';
@@ -92,6 +102,21 @@ export function productMutationLimitForRequest(request: Request): ProductMutatio
   }
   if (/^\/api\/v1\/me\/benefits\/[0-9a-fA-F-]+\/claim$/.test(path)) {
     return 'benefit_claim';
+  }
+  if (/^\/api\/v1\/conversations\/[0-9a-fA-F-]+\/messages$/.test(path)) {
+    return 'resident_message_send';
+  }
+  if (/^\/api\/v1\/complexes\/[^/]+\/businesses\/[0-9a-fA-F-]+\/reviews$/.test(path)) {
+    return 'business_review_create';
+  }
+  if (/^\/api\/v1\/complexes\/[^/]+\/businesses\/[0-9a-fA-F-]+\/reviews\/[0-9a-fA-F-]+\/comments$/.test(path)) {
+    return 'business_review_comment_create';
+  }
+  if (path === '/api/v1/me/inquiries') {
+    return 'inquiry_create';
+  }
+  if (path === '/api/v1/me/shop-recommendations') {
+    return 'shop_recommendation_create';
   }
   return null;
 }
