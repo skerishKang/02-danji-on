@@ -134,7 +134,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          npx wrangler@4.114.0 pages deploy dist-qa --project-name "$QA_PAGES_PROJECT" --branch main --commit-hash "$GITHUB_SHA" --commit-message 'DanjiOn QA Pages-only deploy'
+          npx wrangler@4.131.0 pages deploy dist-qa --project-name "$QA_PAGES_PROJECT" --branch main --commit-hash "$GITHUB_SHA" --commit-message 'DanjiOn QA Pages-only deploy'
 
       - name: Verify QA Pages readiness, same-origin facades, runtime binding, and noindex
         shell: bash
