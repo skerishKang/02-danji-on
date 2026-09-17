@@ -53,10 +53,16 @@ const expectedPolicies = [
   ["community_post_create", 5, '10 * 60'],
   ["community_comment_create", 30, '10 * 60'],
   ["community_report_create", 10, '60 * 60'],
+  ["resident_safety_report_create", 10, '60 * 60'],
   ["family_invite_create", 10, '60 * 60'],
   ["family_invite_redeem", 10, '60 * 60'],
   ["business_application_create", 5, '24 * 60 * 60'],
-  ["benefit_claim", 30, '60 * 60']
+  ["benefit_claim", 30, '60 * 60'],
+  ["resident_message_send", 120, '10 * 60'],
+  ["business_review_create", 10, '24 * 60 * 60'],
+  ["business_review_comment_create", 30, '10 * 60'],
+  ["inquiry_create", 10, '24 * 60 * 60'],
+  ["shop_recommendation_create", 20, '24 * 60 * 60']
 ];
 for (const [action, max, windowExpr] of expectedPolicies) {
   assert.ok(limiter.includes(`${action}: { action: '${action}', max: ${max}, windowSeconds: ${windowExpr} }`),
@@ -67,24 +73,35 @@ for (const routeEvidence of [
   'community\\/posts$',
   'community\\/posts\\/[0-9a-fA-F-]+\\/comments$',
   'community\\/reports$',
+  "path === '/api/v1/me/reports'",
   'household\\/family-invites$',
   "path === '/api/v1/household/family-invites/redeem'",
   "path === '/api/v1/me/business-applications'",
-  'benefits\\/[0-9a-fA-F-]+\\/claim$'
+  'benefits\\/[0-9a-fA-F-]+\\/claim$',
+  'conversations\\/[0-9a-fA-F-]+\\/messages$',
+  'businesses\\/[0-9a-fA-F-]+\\/reviews$',
+  'reviews\\/[0-9a-fA-F-]+\\/comments$',
+  "path === '/api/v1/me/inquiries'",
+  "path === '/api/v1/me/shop-recommendations'"
 ]) {
   assert.ok(limiter.includes(routeEvidence), `missing bounded mutation route evidence ${routeEvidence}`);
 }
 assert.match(limiter, /if \(request\.method !== 'POST'\) return null/,
   'non-POST surfaces must not be swept into the product mutation limiter');
 assert.doesNotMatch(limiter, /community\/moderation|\/moderate|\/resolve/,
-  'operator moderation is outside the bounded Issue #92 product limiter');
+  'operator moderation is outside the bounded product mutation limiter');
 
 // The limiter is a pre-handler guard; all existing endpoint AuthZ remains in place.
 const limitIndex = app.indexOf('handleProductMutationRateLimitRequest(request, env, id)');
 for (const downstream of [
   'handleHouseholdFamilyRequest(request, env, id)',
   'handleCommunityResidentRequest(request, env, id)',
-  'handleResidentEconomyMutationRequest(request, env, id)'
+  'handleResidentEconomyMutationRequest(request, env, id)',
+  'handleResidentMessageRequest(request, env, id)',
+  'handleBusinessReviewRequest(request, env, id)',
+  'handleBusinessReviewCommentRequest(request, env, id)',
+  'handleInquiryRequest(request, env, id)',
+  'handleShopRecommendationRequest(request, env, id)'
 ]) {
   const downstreamIndex = app.indexOf(downstream);
   assert.ok(limitIndex >= 0 && downstreamIndex > limitIndex, `rate limiter must run before ${downstream}`);
