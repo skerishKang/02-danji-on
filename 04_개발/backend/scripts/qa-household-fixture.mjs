@@ -131,8 +131,6 @@ async function main() {
     `;
     const householdId = String(households[0].id);
 
-    const householdId = String(households[0].id);
-
     const primaryOccupant = await sql`
       select user_id from household_memberships
       where household_id = ${householdId}::uuid
