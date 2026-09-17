@@ -13,6 +13,7 @@
   // grant — it is a read-only GET with strict two-shape validation: anything
   // that is not an exactly-valid SUPER or OPERATIONAL answer is rejected.
   const AUTHORITY_PATH = '/api/v1/admin/authority';
+  const RESIDENT_VERIFICATION_EXEMPTION_PATH = '/api/v1/me/resident-verification-exemption';
   const SUPER_LABEL = '최고관리자';
   const OPERATOR_LABEL = '운영관리자';
 
@@ -79,6 +80,25 @@
     return classifyAuthority(result);
   }
 
+  async function fetchResidentVerificationExemption(fetchImpl, options = {}) {
+    const base = options.apiBase === undefined
+      ? resolveApiBase(options.location)
+      : String(options.apiBase || '');
+    if (!base) return { state: 'unbound', exempt: false };
+    const session = global.DanjionSession;
+    const result = await session.request(
+      fetchImpl || global.fetch,
+      session.joinUrl(base, RESIDENT_VERIFICATION_EXEMPTION_PATH)
+    );
+    if (!result || typeof result !== 'object') return { state: 'error', exempt: false };
+    if (result.status === 401) return { state: 'signed-out', exempt: false };
+    if (!result.ok) return { state: 'error', exempt: false };
+    const exempt = result.data && result.data.exempt;
+    return typeof exempt === 'boolean'
+      ? { state: 'ready', exempt }
+      : { state: 'invalid', exempt: false };
+  }
+
   function hasAdminSurface(authority) {
     return !!authority && (authority.state === 'admin' || authority.state === 'operator');
   }
@@ -108,6 +128,7 @@
 
   global.DanjionAdminAuthority = Object.freeze({
     AUTHORITY_PATH,
+    RESIDENT_VERIFICATION_EXEMPTION_PATH,
     SUPER_LABEL,
     OPERATOR_LABEL,
     RESIDENT_VERIFICATION_EXEMPT_SCOPE,
@@ -115,6 +136,7 @@
     normalizeAuthority,
     classifyAuthority,
     fetchAuthority,
+    fetchResidentVerificationExemption,
     hasAdminSurface,
     isSuperAdminAuthority,
     hasResidentVerificationExemption
