@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises';
 const workflow = await readFile(new URL('../../.github/workflows/pages-production-release.yml', import.meta.url), 'utf8');
 
 /* #432: canonical production upload must not force a branch-directed preview deploy. */
-assert.match(workflow, /npx wrangler@4\.114\.0 pages deploy dist[\s\S]*--project-name "\$PAGES_PROJECT"[\s\S]*--commit-hash "\$GITHUB_SHA"/,
+assert.match(workflow, /npx wrangler@4\.131\.0 pages deploy dist[\s\S]*--project-name "\$PAGES_PROJECT"[\s\S]*--commit-hash "\$GITHUB_SHA"/,
   'production workflow must deploy the V3 artifact with explicit project and source SHA');
 assert.doesNotMatch(workflow, /pages deploy dist[\s\S]{0,250}--branch "\$PAGES_PRODUCTION_BRANCH"/,
   'canonical production deploy must not pass --branch');
