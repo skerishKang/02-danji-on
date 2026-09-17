@@ -38,6 +38,7 @@ import { handleResidentSafetyReportRequest } from './resident-safety-reports-v1'
 import { handleResidentSettingsRequest } from './resident-settings-v1';
 import { handleResidentSummaryRequest } from './resident-summary-v1';
 import { handleResidentVerificationRequest } from './resident-verification-v1';
+import { handleResidentVerificationExemptionRequest } from './resident-verification-exemption-v1';
 import { handleShopRecommendationRequest } from './shop-recommendations-v1';
 import {
   handleSignupContactVerificationRequest,
@@ -206,6 +207,8 @@ export default {
       if (businessReviewResponse) return respond(businessReviewResponse);
       const businessReviewCommentResponse = await handleBusinessReviewCommentRequest(request, env, id);
       if (businessReviewCommentResponse) return respond(businessReviewCommentResponse);
+      const residentVerificationExemptionResponse = await handleResidentVerificationExemptionRequest(request, env, id);
+      if (residentVerificationExemptionResponse) return respond(residentVerificationExemptionResponse);
       const residentSummaryResponse = await handleResidentSummaryRequest(request, env, id);
       if (residentSummaryResponse) return respond(residentSummaryResponse);
       const residentActivityResponse = await handleResidentActivityRequest(request, env, id);
