@@ -19,7 +19,10 @@ function required(name) {
   return value;
 }
 
-const apiBase = exactHttpsOrigin(required('DANJION_QA_API_URL'), EXPECTED_API_HOST, 'QA_API');
+// Keep the dedicated QA Worker origin as an isolation assertion, but browser auth
+// must be established through the QA Pages facade so the resulting host-only
+// Better Auth cookie belongs to danjion-qa.pages.dev, exactly like Production.
+exactHttpsOrigin(required('DANJION_QA_API_URL'), EXPECTED_API_HOST, 'QA_API');
 const frontendBase = exactHttpsOrigin(required('DANJION_QA_FRONTEND_URL'), EXPECTED_FRONTEND_HOST, 'QA_FRONTEND');
 const email = required('DANJION_QA_EMAIL');
 const password = required('DANJION_QA_PASSWORD');
@@ -32,7 +35,7 @@ try {
   const context = await browser.newContext();
 
   stage = 'SIGN_IN';
-  const signin = await context.request.post(`${apiBase}/api/auth/sign-in/email`, {
+  const signin = await context.request.post(`${frontendBase}/api/auth/sign-in/email`, {
     headers: {
       Origin: frontendBase,
       'Content-Type': 'application/json',
@@ -43,7 +46,7 @@ try {
   report('SIGN_IN', 'PASS');
 
   stage = 'SESSION';
-  const session = await context.request.get(`${apiBase}/api/auth/get-session`, {
+  const session = await context.request.get(`${frontendBase}/api/auth/get-session`, {
     headers: { Origin: frontendBase },
   });
   if (session.status() !== 200) throw new Error(`SESSION_HTTP_${session.status()}`);
