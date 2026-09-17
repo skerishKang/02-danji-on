@@ -83,7 +83,7 @@ assert.ok(
     < pagesWorkflow.indexOf('Deploy canonical Pages production'),
   'API/JWKS preflight must happen before Pages mutation'
 );
-assert.match(pagesWorkflow, /wrangler@4\.114\.0 pages deploy dist/);
+assert.match(pagesWorkflow, /wrangler@4\.131\.0 pages deploy dist/);
 assert.match(pagesWorkflow, /--project-name "\$PAGES_PROJECT"/);
 // #432: branch-directed Pages uploads can create preview/branch deployments that
 // never promote the canonical production alias. The release lane is now a bare
