@@ -1,0 +1,110 @@
+name: Backend Dependency Audit Triage
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/backend-dependency-audit-triage.yml'
+      - '04_개발/backend/package.json'
+      - '04_개발/backend/package-lock.json'
+
+permissions:
+  contents: read
+
+jobs:
+  audit-triage:
+    name: Clean npm audit triage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: 04_개발/backend/package-lock.json
+
+      - name: Clean install exact lock
+        working-directory: 04_개발/backend
+        run: npm ci
+
+      - name: Capture full and runtime-only npm audit JSON
+        working-directory: 04_개발/backend
+        shell: bash
+        run: |
+          set -uo pipefail
+          npm audit --json > "${RUNNER_TEMP}/audit-full.json"
+          full_status=$?
+          npm audit --json --omit=dev > "${RUNNER_TEMP}/audit-runtime.json"
+          runtime_status=$?
+          echo "FULL_AUDIT_EXIT=${full_status}"
+          echo "RUNTIME_AUDIT_EXIT=${runtime_status}"
+          exit 0
+
+      - name: Emit sanitized vulnerability disposition inputs
+        shell: bash
+        env:
+          FULL_REPORT: ${{ runner.temp }}/audit-full.json
+          RUNTIME_REPORT: ${{ runner.temp }}/audit-runtime.json
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs = require('node:fs');
+
+          const read = (path) => JSON.parse(fs.readFileSync(path, 'utf8'));
+          const full = read(process.env.FULL_REPORT);
+          const runtime = read(process.env.RUNTIME_REPORT);
+          const runtimeNames = new Set(Object.keys(runtime.vulnerabilities || {}));
+          const findings = [];
+
+          for (const [packageName, vuln] of Object.entries(full.vulnerabilities || {})) {
+            if (!['high', 'critical'].includes(vuln.severity)) continue;
+            const advisories = (Array.isArray(vuln.via) ? vuln.via : [])
+              .filter((item) => item && typeof item === 'object')
+              .map((item) => ({
+                source: item.source ?? null,
+                title: item.title ?? null,
+                url: item.url ?? null,
+                severity: item.severity ?? null,
+                vulnerableRange: item.range ?? null
+              }));
+            findings.push({
+              package: packageName,
+              severity: vuln.severity,
+              direct: Boolean(vuln.isDirect),
+              runtimeGraph: runtimeNames.has(packageName),
+              vulnerableRange: vuln.range ?? null,
+              effects: Array.isArray(vuln.effects) ? [...vuln.effects].sort() : [],
+              fixAvailable: vuln.fixAvailable ?? null,
+              advisories
+            });
+          }
+
+          findings.sort((a, b) => a.package.localeCompare(b.package));
+          const metadata = full.metadata?.vulnerabilities || {};
+          const runtimeMetadata = runtime.metadata?.vulnerabilities || {};
+          console.log(`AUDIT_HIGH=${metadata.high ?? 0}`);
+          console.log(`AUDIT_CRITICAL=${metadata.critical ?? 0}`);
+          console.log(`RUNTIME_HIGH=${runtimeMetadata.high ?? 0}`);
+          console.log(`RUNTIME_CRITICAL=${runtimeMetadata.critical ?? 0}`);
+          console.log(`HIGH_CRITICAL_PACKAGE_COUNT=${findings.length}`);
+          for (const finding of findings) console.log(`AUDIT_FINDING=${JSON.stringify(finding)}`);
+
+          const summary = [
+            '## Backend dependency audit triage',
+            '',
+            `- Full high: ${metadata.high ?? 0}`,
+            `- Full critical: ${metadata.critical ?? 0}`,
+            `- Runtime-only high: ${runtimeMetadata.high ?? 0}`,
+            `- Runtime-only critical: ${runtimeMetadata.critical ?? 0}`,
+            `- High/critical package nodes: ${findings.length}`,
+            '',
+            'No dependency changes or Production mutations were performed.'
+          ].join('\n');
+          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${summary}\n`);
+          NODE
+
+      - name: Confirm read-only triage disposition
+        run: |
+          echo 'DEPENDENCY_MUTATION=0'
+          echo 'PRODUCTION_MUTATION=0'
+          echo 'SECRET_OUTPUT=NO'
