@@ -111,7 +111,7 @@ try {
 
   await context.close();
 } catch (error) {
-  const code = error instanceof Error ? error.message.replace(/[^A-Z0-9_:-]/g, '_').slice(0, 160) : 'UNKNOWN_FAILURE';
+  const code = error instanceof Error ? error.message.replace(/[^A-Za-z0-9_:-]/g, '_').slice(0, 160) : 'UNKNOWN_FAILURE';
   report(stage, 'FAIL');
   console.error(`QA_AUTHENTICATED_UI_READBACK_FAILED=${stage}:${code}`);
   process.exitCode = 1;

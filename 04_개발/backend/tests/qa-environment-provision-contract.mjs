@@ -106,7 +106,9 @@ for (const forbiddenOrigin of [
 
 const boundSession = bindQaPagesRuntime(canonicalSession, qaOrigin);
 assert.ok(boundSession.includes("const QA_PAGES_HOSTNAME = 'danjion-qa.pages.dev';"), 'QA artifact runtime must recognize only the exact QA Pages host');
-assert.equal((boundSession.match(/if \(hostname === QA_PAGES_HOSTNAME\) return '';/g) || []).length, 2, 'QA binding must keep both browser bases same-origin');
+assert.ok(boundSession.includes("const QA_PAGES_API_BASE = 'https://danjion-qa.pages.dev';"), 'QA artifact runtime must bind the exact QA Pages API origin');
+assert.ok(boundSession.includes("if (hostname === QA_PAGES_HOSTNAME) return QA_PAGES_API_BASE;"), 'QA binding must bind API base to same-origin QA Pages base');
+assert.ok(boundSession.includes("if (hostname === QA_PAGES_HOSTNAME) return '';"), 'QA binding must bind auth base to same-origin relative URL');
 assert.ok(canonicalSession.includes("if (hostname === PRODUCTION_PAGES_HOSTNAME) return CANONICAL_PAGES_API_BASE;"), 'canonical Production API binding must remain present');
 assert.ok(canonicalSession.includes("if (hostname === PRODUCTION_PAGES_HOSTNAME) return '';"), 'canonical Production auth binding must remain present');
 assert.ok(!canonicalSession.includes("QA_PAGES_HOSTNAME = 'danjion-qa.pages.dev'"), 'canonical source must not hard-code QA deployment state');
