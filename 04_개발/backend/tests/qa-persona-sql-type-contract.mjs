@@ -10,6 +10,20 @@ assert.equal((query.match(/::text/g) || []).length, 1, 'only the persona metadat
 assert.ok(query.includes("jsonb_build_object('source','qa_persona_provision','persona',${actor.name}::text)"));
 assert.ok(query.includes("where user_id = ${actor.userId}::uuid and status = 'active'"));
 assert.equal((query.match(/\$\{/g) || []).length, 2, 'persona and user ID must remain bound parameters');
+const convergence = source.match(/async function convergePadiemGrants\(sql, actor\) \{([\s\S]*?)\nfunction reportAuthority/);
+assert.ok(convergence, 'grant convergence function must exist');
+const metadataQueries = [...convergence[1].matchAll(/await sql`([\s\S]*?)`;/g)]
+  .map((match) => match[1])
+  .filter((statement) => statement.includes('jsonb_build_object'));
+assert.equal(metadataQueries.length, 4, 'all four grant metadata queries must be covered');
+const parameterCounts = [2, 3, 3, 5];
+for (const [index, statement] of metadataQueries.entries()) {
+  assert.ok(statement.includes("jsonb_build_object('source','qa_persona_provision','persona',${actor.name}::text)"), `metadata query ${index + 1} must type its persona parameter`);
+  assert.equal((statement.match(/\$\{actor\.name\}::text/g) || []).length, 1);
+  assert.equal((statement.match(/\$\{/g) || []).length, parameterCounts[index], 'query parameters must remain bound');
+  assert.ok(statement.includes('${actor.userId}::uuid'), 'user ID must retain its UUID cast');
+}
+assert.ok(metadataQueries[1].includes('${desired}::text[]'), 'scope list must retain its array cast');
 assert.match(source, /if \(required\('APP_ENV'\) !== 'qa'\) throw/);
 assert.match(source, /if \(process\.env\.DATABASE_URL\) throw/);
 assert.match(source, /if \(process\.env\.DANJION_PRODUCTION_DB_URL\) throw/);

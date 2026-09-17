@@ -186,7 +186,7 @@ async function convergePadiemGrants(sql, actor) {
     await sql`
       update padiem_operator_grants
       set status = 'revoked', revoked_at = now(), reason = 'qa persona convergence',
-          metadata = jsonb_build_object('source','qa_persona_provision','persona',${actor.name})
+          metadata = jsonb_build_object('source','qa_persona_provision','persona',${actor.name}::text)
       where user_id = ${actor.userId}::uuid
         and status = 'active'
         and not (scope = any(${desired}::text[]))
@@ -197,13 +197,13 @@ async function convergePadiemGrants(sql, actor) {
     await sql`
       update padiem_operator_grants
       set expires_at = null, revoked_at = null, reason = 'qa persona convergence',
-          metadata = jsonb_build_object('source','qa_persona_provision','persona',${actor.name})
+          metadata = jsonb_build_object('source','qa_persona_provision','persona',${actor.name}::text)
       where user_id = ${actor.userId}::uuid and scope = ${scope} and status = 'active'
     `;
     await sql`
       insert into padiem_operator_grants (user_id, scope, status, granted_by_user_id, expires_at, revoked_at, reason, metadata)
       select ${actor.userId}::uuid, ${scope}, 'active', null, null, null, 'qa persona convergence',
-             jsonb_build_object('source','qa_persona_provision','persona',${actor.name})
+             jsonb_build_object('source','qa_persona_provision','persona',${actor.name}::text)
       where not exists (
         select 1 from padiem_operator_grants
         where user_id = ${actor.userId}::uuid and scope = ${scope} and status = 'active'
