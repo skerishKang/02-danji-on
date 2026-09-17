@@ -179,7 +179,7 @@ async function convergePadiemGrants(sql, actor) {
     await sql`
       update padiem_operator_grants
       set status = 'revoked', revoked_at = now(), reason = 'qa persona convergence',
-          metadata = jsonb_build_object('source','qa_persona_provision','persona',${actor.name})
+          metadata = jsonb_build_object('source','qa_persona_provision','persona',${actor.name}::text)
       where user_id = ${actor.userId}::uuid and status = 'active'
     `;
   } else {

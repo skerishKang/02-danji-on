@@ -9,6 +9,7 @@ on:
       - '04_개발/backend/src/admin-scope-policy-v1.ts'
       - '04_개발/backend/tests/qa-persona-auth-target-contract.mjs'
       - '04_개발/backend/tests/qa-persona-provision-contract.mjs'
+      - '04_개발/backend/tests/qa-persona-sql-type-contract.mjs'
   workflow_dispatch:
     inputs:
       expected_main:
@@ -39,6 +40,9 @@ jobs:
           node-version: '24'
       - name: Verify QA persona provisioning contract
         run: node 04_개발/backend/tests/qa-persona-provision-contract.mjs
+
+      - name: Verify QA persona SQL parameter typing contract
+        run: node 04_개발/backend/tests/qa-persona-sql-type-contract.mjs
 
       - name: Install backend test dependencies
         working-directory: 04_개발/backend
