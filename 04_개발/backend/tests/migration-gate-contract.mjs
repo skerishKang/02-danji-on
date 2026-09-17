@@ -26,6 +26,17 @@ function resolverFromApplied(appliedSet) {
   return async marker => appliedSet.has(markerToSql(marker));
 }
 
+// #667 regression: constraint marker readback must be safe before its table exists.
+const missingTableConstraintSql = markerToSql({
+  kind: 'constraint',
+  table: 'public.business_image_objects',
+  name: 'business_image_objects_storage_key_key',
+});
+assert.match(missingTableConstraintSql, /to_regclass\('public\.business_image_objects'\)/,
+  'constraint markers must resolve the relation with null-safe to_regclass');
+assert.doesNotMatch(missingTableConstraintSql, /::regclass/,
+  'constraint markers must not raise on an empty database via direct regclass cast');
+
 // 1. Repository may contain 900/901/902 without failing inventory.
 assert.ok(inventory.includes('900_dev_seed.sql'), 'dev seeds are expected in the repository');
 assert.ok(inventory.includes('901_dev_contacts.sql'));
