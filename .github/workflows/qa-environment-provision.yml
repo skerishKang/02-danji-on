@@ -155,10 +155,25 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          health="$(curl --silent --show-error --fail --retry 4 --retry-delay 2 "${DANJION_QA_API_URL}/api/health")"
-          printf '%s' "$health" | jq -e '.data.status == "ok" and .data.database == "ok"' >/dev/null
-          jwks="$(curl --silent --show-error --fail --retry 4 --retry-delay 2 "${DANJION_QA_API_URL}/api/auth/jwks")"
-          printf '%s' "$jwks" | jq -e '.keys | type == "array"' >/dev/null
+          health_file="${RUNNER_TEMP}/qa-health.json"
+          jwks_file="${RUNNER_TEMP}/qa-jwks.json"
+          ready=0
+          for attempt in $(seq 1 12); do
+            health_status="$(curl --silent --show-error --output "$health_file" --write-out '%{http_code}' "${DANJION_QA_API_URL}/api/health" || true)"
+            if [ "$health_status" = '200' ] && jq -e '.data.status == "ok" and .data.database == "ok"' "$health_file" >/dev/null 2>&1; then
+              jwks_status="$(curl --silent --show-error --output "$jwks_file" --write-out '%{http_code}' "${DANJION_QA_API_URL}/api/auth/jwks" || true)"
+              if [ "$jwks_status" = '200' ] && jq -e '.keys | type == "array"' "$jwks_file" >/dev/null 2>&1; then
+                ready=1
+                break
+              fi
+            fi
+            echo "QA Worker readiness attempt ${attempt}/12 not ready yet; retrying."
+            sleep 2
+          done
+          if [ "$ready" != '1' ]; then
+            echo '::error::QA Worker did not become healthy with valid JWKS within bounded readiness window.'
+            exit 1
+          fi
           echo 'QA Worker health + JWKS: PASS'
 
       - name: Ensure dedicated QA Pages project
