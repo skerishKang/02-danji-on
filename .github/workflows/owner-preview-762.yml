@@ -170,6 +170,44 @@ jobs:
           done
           exit 1
 
+      - name: Prove credential signup → household → community → shop recommendation
+        shell: bash
+        run: |
+          set -euo pipefail
+          jar="${RUNNER_TEMP}/owner-preview-762.cookies"
+          email="owner-preview-762-${GITHUB_RUN_ID}@example.com"
+          password="Preview762-${GITHUB_RUN_ID}-Aa!"
+          signup_body="$(jq -nc --arg email "$email" --arg password "$password" '{email:$email,password:$password,name:"프리뷰 검증"}')"
+          signup_status="$(curl -sS -c "$jar" -b "$jar" -o "${RUNNER_TEMP}/signup.json" -w '%{http_code}'             -H 'content-type: application/json' -d "$signup_body" "${PREVIEW_PAGES_URL}/api/auth/sign-up/email")"
+          test "$signup_status" = "200" || { echo "::error::credential signup failed status=$signup_status"; exit 1; }
+
+          session_status="$(curl -sS -c "$jar" -b "$jar" -o "${RUNNER_TEMP}/signed-session.json" -w '%{http_code}'             "${PREVIEW_PAGES_URL}/api/auth/get-session")"
+          test "$session_status" = "200"
+          jq -e '.session and .user' "${RUNNER_TEMP}/signed-session.json" >/dev/null
+
+          units_status="$(curl -sS -c "$jar" -b "$jar" -o "${RUNNER_TEMP}/units.json" -w '%{http_code}'             "${PREVIEW_PAGES_URL}/api/v1/complexes/banglim-myeongji-roadhill/household/units")"
+          test "$units_status" = "200"
+          unit_id="$(jq -r '.data.units[0].id // empty' "${RUNNER_TEMP}/units.json")"
+          test -n "$unit_id"
+
+          associate_body="$(jq -nc --arg unitId "$unit_id" '{unitId:$unitId}')"
+          associate_status="$(curl -sS -c "$jar" -b "$jar" -o "${RUNNER_TEMP}/associate.json" -w '%{http_code}'             -H 'content-type: application/json' -d "$associate_body"             "${PREVIEW_PAGES_URL}/api/v1/complexes/banglim-myeongji-roadhill/household/associate")"
+          test "$associate_status" = "200" || { echo "::error::household associate failed status=$associate_status"; cat "${RUNNER_TEMP}/associate.json" | jq '{error:.error}' ; exit 1; }
+          jq -e '.data.status=="verified" and .data.residentVerified==true' "${RUNNER_TEMP}/associate.json" >/dev/null
+
+          post_body='{"kind":"greeting","title":"프리뷰 연결 검증","body":"우리집 연결 뒤 주민 글쓰기가 열리는지 확인합니다."}'
+          post_status="$(curl -sS -c "$jar" -b "$jar" -o "${RUNNER_TEMP}/post.json" -w '%{http_code}'             -H 'content-type: application/json' -d "$post_body"             "${PREVIEW_PAGES_URL}/api/v1/complexes/banglim-myeongji-roadhill/community/posts")"
+          test "$post_status" = "201" || { echo "::error::community post failed status=$post_status"; cat "${RUNNER_TEMP}/post.json" | jq '{error:.error}'; exit 1; }
+
+          rec_body='{"complexSlug":"banglim-myeongji-roadhill","relationRaw":"neighbor","businessName":"프리뷰 검증 가게","serviceSummary":"주민 제보 권한 검증용 QA 데이터입니다."}'
+          rec_status="$(curl -sS -c "$jar" -b "$jar" -o "${RUNNER_TEMP}/rec.json" -w '%{http_code}'             -H 'content-type: application/json' -d "$rec_body"             "${PREVIEW_PAGES_URL}/api/v1/me/shop-recommendations")"
+          test "$rec_status" = "201" || { echo "::error::shop recommendation failed status=$rec_status"; cat "${RUNNER_TEMP}/rec.json" | jq '{error:.error}'; exit 1; }
+
+          echo "OWNER_PREVIEW_762_CREDENTIAL_SIGNUP=PASS"
+          echo "OWNER_PREVIEW_762_HOUSEHOLD_ASSOCIATE=PASS"
+          echo "OWNER_PREVIEW_762_COMMUNITY_WRITE=PASS"
+          echo "OWNER_PREVIEW_762_SHOP_REPORT=PASS"
+
       - name: Record isolation
         shell: bash
         run: |
