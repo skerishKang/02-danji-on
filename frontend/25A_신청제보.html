@@ -196,7 +196,8 @@ ownerRelation.addEventListener('change',()=>toggleEtc(ownerRelation,ownerEtcWrap
 reportRelation.addEventListener('change',()=>toggleEtc(reportRelation,reportEtcWrap,reportEtc));
 owner.onclick=()=>setMode('owner');report.onclick=()=>setMode('report');
 
-const MAX_PHOTOS=3,MAX_OWNER_DOCS=3;
+const MAX_PHOTOS=3;
+const MAX_OWNER_DOCS=3;
 const photos=document.querySelector('#photos'),photoStatus=document.querySelector('#photoStatus');
 function fileKey(file){return [file.name,file.size,file.lastModified].join(':')}
 function bindAccumulatingFiles(input,status,max,unit){
