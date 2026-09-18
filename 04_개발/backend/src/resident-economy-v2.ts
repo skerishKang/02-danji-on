@@ -233,6 +233,9 @@ function validateApplication(input: ApplicationInput, requestId: string): Respon
     if (operationProofs.length < 1) {
       return fail('DOCUMENT_OPERATION_PROOF_REQUIRED', 'At least one operation_proof document is required when documents field is present', 400, requestId);
     }
+    if (operationProofs.length > 3) {
+      return fail('VALIDATION_ERROR', 'operation_proof documents cannot exceed 3', 400, requestId);
+    }
 
     if (otherEvidences.length > 3) {
       return fail('VALIDATION_ERROR', 'other_evidence documents cannot exceed 3', 400, requestId);
