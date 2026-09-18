@@ -88,11 +88,31 @@
     return out;
   }
 
+  async function prepareFiles(files, { max = 3, maxBytes = 5 * 1024 * 1024 } = {}) {
+    const list = Array.from(files || []);
+    if (list.length > max) throw new Error('TOO_MANY_FILES');
+    const out = [];
+    for (const file of list) {
+      if (!file || file.size < 1 || file.size > maxBytes) throw new Error('FILE_TOO_LARGE');
+      const dataUrl = await readAsDataUrl(file);
+      const dataBase64 = base64FromDataUrl(dataUrl);
+      if (!dataBase64) throw new Error('FILE_READ_FAILED');
+      out.push({
+        fileName: safeName(file.name || 'attachment'),
+        contentType: String(file.type || 'application/octet-stream').slice(0, 120),
+        byteSize: file.size,
+        dataBase64
+      });
+    }
+    return out;
+  }
+
   globalThis.DanjionWriteMedia = {
     MAX_IMAGES,
     MAX_BYTES,
     MAX_EDGE,
     prepareImages,
+    prepareFiles,
     compressImage
   };
 })();
