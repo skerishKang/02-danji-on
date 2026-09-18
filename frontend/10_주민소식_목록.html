@@ -414,6 +414,7 @@ if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt
     location.href=DETAIL+'?postId='+encodeURIComponent(card.getAttribute('data-resident-news-id'));
   },true);
   async function load(){
+    notice('주민소식을 불러오는 중입니다.');
     try{
       const b=await ensureBridge();
       const result=await b.listPosts();
