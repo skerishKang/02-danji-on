@@ -22,6 +22,14 @@ if (!email || !password) {
   process.exit(1);
 }
 
+async function sessionShape(context) {
+  const response = await context.request.get(`${FRONTEND}/api/auth/get-session`, {
+    headers: { Origin: FRONTEND }
+  });
+  const body = await response.json().catch(() => null);
+  return { status: response.status(), hasSession: Boolean(body?.session), hasUser: Boolean(body?.user) };
+}
+
 const browser = await chromium.launch({ headless: true });
 try {
   const context = await browser.newContext();
@@ -115,6 +123,16 @@ try {
       // submit (게시하기 primary button)
       let submitted = false;
       try {
+        // session may have expired between login and submit — refresh via API if needed
+        const s = await sessionShape(context);
+        if (!s.hasSession) {
+          console.log('DEBUG_SESSION_EXPIRED_BEFORE_SUBMIT=true — refreshing via API sign-in');
+          await context.request.post(`${FRONTEND}/api/auth/sign-in/email`, {
+            headers: { Origin: FRONTEND, 'Content-Type': 'application/json' },
+            data: { email, password }
+          });
+          await page.waitForTimeout(1_000);
+        }
         const submitBtn = page.locator('button:has-text("게시하기"), button[type="submit"]').first();
         await submitBtn.click({ timeout: 6_000 });
         await page.waitForTimeout(3_500);
