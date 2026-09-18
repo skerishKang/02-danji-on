@@ -37,6 +37,7 @@
     "test:admin-review-privacy-rbac": "node tests/admin-review-privacy-rbac-contract.mjs",
     "test:admin-review-context-gallery": "tsx tests/admin-review-context-gallery.test.mjs",
     "test:resident-verification-policy-hold": "node tests/verification-contract.mjs",
+    "test:household-code-verification": "node tests/household-code-verification-contract.mjs",
     "test:household-family-lifecycle": "node tests/household-family-lifecycle-contract.mjs",
     "test:account-lifecycle": "node tests/account-lifecycle-contract.mjs",
     "test:resident-economy-household-v2": "node tests/resident-economy-household-v2-contract.mjs",
