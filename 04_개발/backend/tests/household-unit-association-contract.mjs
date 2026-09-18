@@ -38,7 +38,8 @@ assert.match(bridge, /async associate\(unitIdInput\)/);
 assert.match(bridge, /\$\{householdPath\}\/associate/);
 assert.match(bridge, /JSON\.stringify\(\{ unitId \}\)/);
 
-assert.match(page, /id="nickname"/);
+assert.doesNotMatch(page, /id="nickname"|resident\\.updateProfile\\(\\{nickname/,
+  'nickname editing belongs to My Info, not household association');
 assert.match(page, /id="buildingSelect"/);
 assert.match(page, /id="unitSelect"/);
 assert.match(page, /household\.listUnits\(\)/);
