@@ -38,6 +38,28 @@ export function normalizeResidentNewsPost(value) {
   };
 }
 
+export function normalizeResidentNewsSubmission(value) {
+  const raw = row(value);
+  return {
+    id: text(raw.id),
+    title: text(raw.title),
+    status: text(raw.status),
+    publishedPostId: optionalText(raw.publishedPostId != null ? raw.publishedPostId : raw.published_post_id),
+    createdAt: optionalText(raw.createdAt != null ? raw.createdAt : raw.created_at),
+    updatedAt: optionalText(raw.updatedAt != null ? raw.updatedAt : raw.updated_at)
+  };
+}
+
+function authorizationBoundary(result) {
+  if (result.ok) return result;
+  const code = text(result.error?.code);
+  if (result.status === 403 && (code === 'RESIDENT_VERIFICATION_REQUIRED' || code === 'HOUSEHOLD_ASSOCIATION_REQUIRED')) {
+    return { ...result, reason: 'resident-verification-required' };
+  }
+  if (result.status === 403) return { ...result, reason: 'forbidden' };
+  return result;
+}
+
 export function createResidentNewsBridge({
   apiBase = '',
   fetchImpl = globalThis.fetch,
@@ -50,8 +72,10 @@ export function createResidentNewsBridge({
     throw new TypeError('DanjionSession runtime is required');
   }
   const base = String(apiBase || '').replace(/\/+$/, '');
-  const slug = encodeURIComponent(String(complexSlug || DANJION_RESIDENT_NEWS_COMPLEX_SLUG));
+  const complex = String(complexSlug || DANJION_RESIDENT_NEWS_COMPLEX_SLUG);
+  const slug = encodeURIComponent(complex);
   const feedPath = `/api/v1/complexes/${slug}/resident-news`;
+  const ownSubmissionsPath = `/api/v1/me/resident-news/submissions?complexSlug=${encodeURIComponent(complex)}`;
 
   function call(path, init = {}) {
     return Session.request(fetchImpl, Session.joinUrl(base, path), {
@@ -64,7 +88,7 @@ export function createResidentNewsBridge({
     // Published feed only; rows without a server-issued UUID are dropped rather
     // than rendered with a fabricated identity.
     async listPosts() {
-      const result = await call(feedPath, { method: 'GET' });
+      const result = authorizationBoundary(await call(feedPath, { method: 'GET' }));
       if (!result.ok) return { ...result, posts: [] };
       const data = row(result.data);
       const posts = (Array.isArray(data.posts) ? data.posts.map(normalizeResidentNewsPost) : [])
@@ -76,7 +100,7 @@ export function createResidentNewsBridge({
     async getPost(postId) {
       const id = text(postId).trim().toLowerCase();
       if (!UUID.test(id)) return validationError();
-      const result = await call(`${feedPath}/${id}`, { method: 'GET' });
+      const result = authorizationBoundary(await call(`${feedPath}/${id}`, { method: 'GET' }));
       if (!result.ok) return result;
       const post = normalizeResidentNewsPost(result.data);
       return { ...result, post: UUID.test(post.id) ? post : null };
@@ -85,11 +109,22 @@ export function createResidentNewsBridge({
       const title = text(input.title).trim();
       const body = text(input.body).trim();
       if (!title || !body) return validationError();
-      return call(`${feedPath}/submissions`, {
+      const result = authorizationBoundary(await call(`${feedPath}/submissions`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ title, body })
-      });
+      }));
+      if (!result.ok) return result;
+      const submission = normalizeResidentNewsSubmission(result.data);
+      return { ...result, submission: UUID.test(submission.id) ? submission : null };
+    },
+    async listOwnSubmissions() {
+      const result = authorizationBoundary(await call(ownSubmissionsPath, { method: 'GET' }));
+      if (!result.ok) return { ...result, submissions: [] };
+      const data = row(result.data);
+      const submissions = (Array.isArray(data.submissions) ? data.submissions.map(normalizeResidentNewsSubmission) : [])
+        .filter((submission) => UUID.test(submission.id));
+      return { ...result, submissions };
     }
   };
 }
