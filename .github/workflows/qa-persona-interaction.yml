@@ -1,0 +1,95 @@
+name: QA Persona Interaction
+
+on:
+  workflow_dispatch:
+    inputs:
+      expected_main:
+        description: 'Exact main SHA authorized for the live QA interaction deep test'
+        required: true
+        type: string
+      run_live:
+        description: 'Explicitly confirm live QA write-flow validation (creates QA-stamped content)'
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: danjion-qa-persona-interaction
+  cancel-in-progress: false
+
+jobs:
+  live-interaction:
+    name: Validate real post/comment write flows on QA
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_live }}
+    runs-on: ubuntu-latest
+    environment: qa
+    env:
+      DANJION_QA_FRONTEND_URL: ${{ vars.DANJION_QA_FRONTEND_URL }}
+      DANJION_QA_SUPER_EMAIL: ${{ secrets.DANJION_QA_SUPER_EMAIL }}
+      DANJION_QA_SUPER_PASSWORD: ${{ secrets.DANJION_QA_SUPER_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: 04_개발/frontend/package-lock.json
+
+      - name: Exact-main guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected='${{ inputs.expected_main }}'
+          test "$GITHUB_REF" = 'refs/heads/main'
+          actual="$(git rev-parse HEAD)"
+          remote="$(git ls-remote origin refs/heads/main | awk '{print $1}')"
+          test -n "$expected"
+          test "$actual" = "$expected"
+          test "$remote" = "$expected"
+          echo 'QA interaction exact-main guard: PASS'
+
+      - name: Validate QA-only frontend origin and credential presence
+        shell: bash
+        run: |
+          set -euo pipefail
+          for key in DANJION_QA_FRONTEND_URL DANJION_QA_SUPER_EMAIL DANJION_QA_SUPER_PASSWORD; do
+            test -n "${!key:-}" || { echo "::error::Missing QA interaction input: ${key}"; exit 1; }
+          done
+          node - <<'NODE'
+          const front = new URL(process.env.DANJION_QA_FRONTEND_URL);
+          if (front.protocol !== 'https:' || front.hostname !== 'danjion-qa.pages.dev' || front.pathname !== '/') throw new Error('QA frontend origin invalid');
+          if (front.hostname === 'danjion.pages.dev') throw new Error('Production target forbidden');
+          NODE
+          echo 'QA interaction isolation guard: PASS'
+
+      - name: Install frontend dependencies
+        working-directory: 04_개발/frontend
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        working-directory: 04_개발/frontend
+        run: npx playwright install --with-deps chromium
+
+      - name: Run QA interaction deep test (writes QA-stamped content)
+        working-directory: 04_개발/frontend
+        run: node scripts/qa-persona-interaction.mjs
+
+      - name: Record bounded disposition
+        shell: bash
+        run: |
+          {
+            echo '## DanjiOn QA persona interaction deep'
+            echo ''
+            echo '- Environment: `qa`'
+            echo '- Content created: `QA-stamped post + comment only`'
+            echo '- Existing content modified/deleted: `NO`'
+            echo '- Production target: `NO`'
+            echo '- Secret output: `NO`'
+          } >> "$GITHUB_STEP_SUMMARY"
