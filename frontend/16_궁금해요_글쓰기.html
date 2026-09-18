@@ -89,19 +89,24 @@ main{width:min(760px,100%);margin:auto;padding:28px 20px 34px}.category{display:
 </script>
 <script src="assets/danjion-session.js"></script>
 <script src="assets/community-bridge.js"></script>
+<script src="assets/write-media.js"></script>
 <script id="danjion-community-write-question-live-wiring-329">
 (()=>{
  const apiBase=(window.DanjionSession&&DanjionSession.danjionApiBase())||'';
  if(!apiBase)return;
  const bridge=DanjionCommunityBridge.createCommunityBridge({apiBase});
+ const media=globalThis.DanjionWriteMedia;
  const title=document.getElementById('title'),body=document.getElementById('body');
+ const photos=document.getElementById('photos'),photoBtn=document.getElementById('photoBtn'),photoCount=document.getElementById('photoCount');
+ const toggle=document.getElementById('messageToggle');
+ const typeMap={'생활·살림':'living','단지시설':'facility','이웃추천':'recommendation','기타':'other'};
  const key='danjionDraft:16:v2';
  const COMMUNITY='12_이웃대화_첫화면.html?type=question&apiBase='+encodeURIComponent(apiBase);
  const DETAIL='13_이웃대화_글상세_댓글.html';
  const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
  const publishButtons=[...document.querySelectorAll('[data-publish]')];
- function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(window.__toast);window.__toast=setTimeout(()=>t.classList.remove('show'),2100)}
- function setBusy(on){publishButtons.forEach(b=>{b.disabled=on;b.setAttribute('aria-busy',String(on))})}
+ function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(window.__toast);window.__toast=setTimeout(()=>t.classList.remove('show'),2700)}
+ function setBusy(on){publishButtons.forEach(b=>{b.disabled=on;b.setAttribute('aria-busy',String(on))});if(photoBtn)photoBtn.disabled=on}
  function serverMessage(r){
   if(r&&r.mode==='auth-required'){
    if(r.status===403){
@@ -114,55 +119,60 @@ main{width:min(760px,100%);margin:auto;padding:28px 20px 34px}.category{display:
   if(r&&r.error&&r.error.message)return r.error.message;
   return '서버 연결에 실패했습니다. 잠시 후 다시 시도해 주세요.';
  }
+ function selectedType(){
+  const active=document.querySelector('.type-tab.active');
+  return typeMap[String(active&&active.dataset.type||'생활·살림')]||'living';
+ }
  function nextHref(post){
-  const postId=String(post&&post.id||'').toLowerCase();
-  return UUID.test(postId)
-   ? DETAIL+'?apiBase='+encodeURIComponent(apiBase)+'&post='+encodeURIComponent(postId)
-   : COMMUNITY;
+  const id=String(post&&post.id||'').toLowerCase();
+  return UUID.test(id)?DETAIL+'?apiBase='+encodeURIComponent(apiBase)+'&post='+encodeURIComponent(id):COMMUNITY;
  }
- {
-  const photoBtn=document.getElementById('photoBtn'),photos=document.getElementById('photos'),count=document.getElementById('photoCount');
-  if(photoBtn){photoBtn.disabled=true;photoBtn.textContent='사진 첨부 준비 중';photoBtn.title='현재 서버 게시에는 사진 첨부가 아직 저장되지 않습니다.'}
-  if(photos)photos.disabled=true;
-  if(count)count.textContent='현재 미지원';
+ async function prepareImages(){
+  if(!photos||!photos.files||!photos.files.length)return [];
+  if(!media||typeof media.prepareImages!=='function')throw new Error('MEDIA_HELPER_UNAVAILABLE');
+  return media.prepareImages(photos.files,3);
  }
- {
-  document.querySelectorAll('.type-tab').forEach(b=>{b.disabled=true;b.setAttribute('aria-disabled','true')});
-  const help=document.getElementById('typeHelp');
-  if(help)help.textContent='질문 유형은 현재 서버 게시 데이터에 별도 저장되지 않습니다. 제목과 내용은 정상 게시됩니다.';
-  const toggle=document.getElementById('messageToggle');
-  if(toggle){
-   toggle.disabled=true;
-   toggle.classList.remove('on');
-   toggle.setAttribute('aria-checked','false');
-   toggle.setAttribute('aria-disabled','true');
-   const row=toggle.closest('.answer-row');
-   const p=row&&row.querySelector('p');
-   if(p)p.textContent='게시글별 1:1 수신 설정은 현재 서버에 별도 저장되지 않습니다.';
+ async function uploadImages(postId,images){
+  for(let i=0;i<images.length;i++){
+   const result=await bridge.addAttachment(postId,{...images[i],sortOrder:i});
+   if(!result.ok)throw Object.assign(new Error('ATTACHMENT_UPLOAD_FAILED'),{result});
   }
  }
+ // Live server mode keeps the original UX controls active because they are now persisted.
+ document.querySelectorAll('.type-tab').forEach(b=>{b.disabled=false;b.removeAttribute('aria-disabled')});
+ if(toggle){toggle.disabled=false;toggle.removeAttribute('aria-disabled');}
+ if(photoBtn){photoBtn.disabled=false;photoBtn.textContent='사진 추가';photoBtn.removeAttribute('title');}
+ if(photoCount)photoCount.textContent=(photos&&photos.files?Math.min(photos.files.length,3):0)+' / 3';
  let busy=false;
- document.addEventListener('click',ev=>{
+ document.addEventListener('click',async ev=>{
   if(!ev.target.closest('[data-publish]'))return;
   ev.preventDefault();ev.stopImmediatePropagation();
   if(busy)return;
   if(!title.value.trim()){toast('질문 제목을 입력해주세요.');title.focus();return}
   if(body.value.trim().length<10){toast('궁금한 내용을 10자 이상 적어주세요.');body.focus();return}
   busy=true;setBusy(true);
-  bridge.createPost({kind:'question',title:title.value.trim(),body:body.value.trim()}).then(r=>{
-   if(r.ok&&r.mode==='server'){
-    try{localStorage.removeItem(key)}catch(e){}
-    const pending=r.post&&r.post.status!=='published';
-    toast(pending?'질문이 저장되었습니다. 공개 전 상태를 확인합니다.':'게시했습니다.');
-    setTimeout(()=>{location.href=nextHref(r.post)},650);
-   }else toast(serverMessage(r));
-  }).catch(()=>toast('서버 연결에 실패했습니다. 잠시 후 다시 시도해 주세요.')).finally(()=>{busy=false;setBusy(false)});
+  let post=null;
+  try{
+   let images=[];
+   try{images=await prepareImages()}catch(error){toast(error&&error.message==='TOO_MANY_IMAGES'?'사진은 최대 3장까지 첨부할 수 있습니다.':'사진을 준비하지 못했습니다. 다른 사진을 선택해 주세요.');return}
+   const result=await bridge.createPost({
+    kind:'question',
+    title:title.value.trim(),
+    body:body.value.trim(),
+    questionCategory:selectedType(),
+    allowDirectMessages:!!(toggle&&toggle.classList.contains('on')),
+    structuredData:{}
+   });
+   if(!result.ok||!result.post){toast(serverMessage(result));return}
+   post=result.post;
+   try{await uploadImages(post.id,images)}catch(_){toast('질문은 저장됐지만 사진 첨부에 실패했습니다. 질문 상세에서 상태를 확인해 주세요.');setTimeout(()=>{location.href=nextHref(post)},900);return}
+   try{localStorage.removeItem(key)}catch(e){}
+   toast(post.status==='published'?'질문을 게시했습니다.':'질문과 사진이 저장되었습니다. 공개 전 상태를 확인합니다.');
+   setTimeout(()=>{location.href=nextHref(post)},650);
+  }catch(_){toast('서버 연결에 실패했습니다. 잠시 후 다시 시도해 주세요.')}
+  finally{busy=false;setBusy(false)}
  },true);
- document.addEventListener('click',ev=>{
-  if(!ev.target.closest('.back'))return;
-  ev.preventDefault();ev.stopImmediatePropagation();
-  location.href=COMMUNITY;
- },true);
+ document.addEventListener('click',ev=>{if(!ev.target.closest('.back'))return;ev.preventDefault();ev.stopImmediatePropagation();location.href=COMMUNITY},true);
 })();
 </script>
 </body></html>
