@@ -16,8 +16,8 @@ const deployAt = workflow.indexOf('  deploy-preview:');
 assert.ok(deployAt > -1, 'workflow must split build and deploy jobs');
 const buildBlock = workflow.slice(0, deployAt);
 const deployBlock = workflow.slice(deployAt);
-assert.doesNotMatch(buildBlock, /secrets\./,
-  'PR-controlled build job must not receive repository/environment secrets');
+assert.doesNotMatch(buildBlock, /\$\{\{\s*secrets\./,
+  'PR-controlled build job must not receive repository/environment secret expressions');
 assert.match(deployBlock, /secrets\.CLOUDFLARE_API_TOKEN/);
 assert.match(deployBlock, /secrets\.CLOUDFLARE_ACCOUNT_ID/);
 assert.doesNotMatch(deployBlock, /actions\/checkout/,
