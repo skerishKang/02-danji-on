@@ -60,6 +60,16 @@ create table if not exists inquiry_attachments (
 create index if not exists idx_inquiry_attachments_inquiry
   on inquiry_attachments(inquiry_id, sort_order);
 
+alter table resident_news_submissions
+  add column if not exists submission_category text,
+  add column if not exists contact_email text;
+
+alter table resident_news_submissions
+  drop constraint if exists resident_news_submissions_category_check;
+alter table resident_news_submissions
+  add constraint resident_news_submissions_category_check
+  check (submission_category is null or submission_category in ('life_share','event','good_news','info_share'));
+
 create table if not exists resident_news_submission_attachments (
   id uuid primary key default gen_random_uuid(),
   submission_id uuid not null references resident_news_submissions(id) on delete cascade,
