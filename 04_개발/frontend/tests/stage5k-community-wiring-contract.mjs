@@ -261,8 +261,8 @@ for (const [name, page, id, kind, chip] of [['14', page14, 'danjion-community-wr
 {
   assert.match(page12, /const POSTS=\[/, '12 demo board data preserved');
   assert.match(page12, /id="danjion-direct-router-v5"/, '12 router preserved');
-  assert.match(page13, /const DATA=\{/, '13 demo detail data preserved');
-  assert.match(page13, /commentForm\.addEventListener\('submit'/, '13 demo comment handler preserved');
+  assert.doesNotMatch(page13, /const DATA=\{/, '13 prototype resident detail data stays retired');
+  assert.match(page13, /function enterServerLoadingState\(\)/, '13 uses the server-owned neutral loading state rather than demo resident content');
   assert.match(page14, /const key='danjionDraft:14'/, '14 demo greeting draft flow preserved');
   assert.match(page15, /const key='danjionDraft:15'/, '15 demo draft flow preserved');
   assert.match(page16, /궁금한 내용을 10자 이상 적어주세요\./, '16 demo validation preserved');
