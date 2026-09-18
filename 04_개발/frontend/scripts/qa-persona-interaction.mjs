@@ -51,30 +51,36 @@ try {
   });
   record('NAV_CANDIDATES_EXIST', navClicked);
 
-  // ---------- community: open 이웃대화 ----------
-  // The community view is reachable from the app shell; try direct hash/route first, then UI links.
+  // ---------- community: open 이웃대화 via the real nav flow ----------
+  // 1) topbar nav "우리단지" opens V2ComplexHub
+  // 2) hub card "이웃대화 들어가기" opens V2CommunityView
   let communityOpened = false;
-  for (const candidate of [
-    () => page.goto(`${FRONTEND}/#community`, { waitUntil: 'domcontentloaded' }),
-    () => page.goto(`${FRONTEND}/community`, { waitUntil: 'domcontentloaded' }),
-    () => page.getByText('이웃대화', { exact: false }).first().click({ timeout: 5_000 })
-  ]) {
-    try {
-      await candidate();
-      await page.waitForTimeout(2_500);
-      if (/이웃대화|궁금해요|같이해요|가입인사/.test(await page.content())) {
-        communityOpened = true;
-        break;
-      }
-    } catch {}
-  }
+  try {
+    await page.locator('[data-v2-nav-key="community"], button:has-text("우리단지")').first().click({ timeout: 8_000 });
+    await page.waitForTimeout(2_000);
+    await page.getByRole('button', { name: /이웃대화 들어가기/ }).first().click({ timeout: 8_000 });
+    await page.waitForTimeout(2_500);
+    const content = await page.content();
+    communityOpened = /이웃대화|궁금해요|같이해요|가입인사|단지이야기/.test(content);
+  } catch {}
   record('COMMUNITY_OPENED', communityOpened);
 
   if (communityOpened) {
+    // switch to a writable tab first (default tab is 가입인사 which is write-locked)
+    // choose 궁금해요 or 단지이야기 or 같이해요 — first visible one
+    for (const kind of ['궁금해요', '단지이야기', '같이해요']) {
+      const tabBtn = page.locator(`button:has-text("${kind}")`).first();
+      if (await tabBtn.isVisible().catch(() => false)) {
+        await tabBtn.click({ timeout: 4_000 }).catch(() => {});
+        await page.waitForTimeout(1_000);
+        break;
+      }
+    }
+
     // ---------- write a post through the UI ----------
     let writeOpened = false;
     try {
-      const writeBtn = page.locator('.v2-community-write-main, button:has-text("글쓰기")').first();
+      const writeBtn = page.locator('.v2-community-write-main, [aria-label="현재 카테고리 글쓰기"], button:has-text("글쓰기")').first();
       await writeBtn.click({ timeout: 8_000 });
       await page.waitForTimeout(1_500);
       writeOpened = true;
@@ -91,14 +97,14 @@ try {
           break;
         }
       }
-      // fill title/body if present
+      // fill title/body if present (writer form uses name=title / name=body)
       let filled = false;
       try {
-        const titleInput = page.locator('input[placeholder*="제목"], input[name="title"]').first();
+        const titleInput = page.locator('input[name="title"], input[placeholder*="제목"], input[placeholder*="무엇"]').first();
         if (await titleInput.isVisible().catch(() => false)) {
           await titleInput.fill(POST_TITLE, { timeout: 5_000 });
         }
-        const bodyArea = page.locator('textarea').first();
+        const bodyArea = page.locator('textarea[name="body"], textarea').first();
         if (await bodyArea.isVisible().catch(() => false)) {
           await bodyArea.fill(POST_BODY, { timeout: 5_000 });
           filled = true;
@@ -106,24 +112,27 @@ try {
       } catch {}
       record('WRITE_FORM_FILLED', filled);
 
-      // submit (게시/등록/작성 button)
+      // submit (게시하기 primary button)
       let submitted = false;
       try {
-        const submitBtn = page.locator('button:has-text("게시"), button:has-text("등록"), button:has-text("작성"), button:has-text("저장")').first();
+        const submitBtn = page.locator('button:has-text("게시하기"), button[type="submit"]').first();
         await submitBtn.click({ timeout: 6_000 });
         await page.waitForTimeout(3_500);
         submitted = true;
       } catch {}
       record('POST_SUBMITTED', submitted);
 
-      // verify the post appears in the list (search by our unique stamp)
+      // verify the post appears (search by unique stamp; handle 운영확인 pending state)
       let visible = false;
+      let pending = false;
       try {
-        await page.waitForTimeout(1_500);
+        await page.waitForTimeout(2_000);
         const found = page.getByText(`상호작용 점검 ${STAMP}`, { exact: false }).first();
         visible = await found.isVisible().catch(() => false);
+        const noticeText = await page.locator('.v2-community-notice, [class*="notice"]').first().innerText().catch(() => '');
+        pending = /운영확인|접수/.test(noticeText || '');
       } catch {}
-      record('POST_VISIBLE_IN_LIST', visible);
+      record('POST_VISIBLE_IN_LIST', visible, pending && !visible ? 'OPERATION_REVIEW_PENDING' : '');
 
       // ---------- comment on the post if detail view is reachable ----------
       if (visible) {
