@@ -47,6 +47,7 @@ const EXPECTED_BACKEND_ORDER = [
   "test:admin-review-context-gallery",
   "test:resident-verification-policy-hold",
   "test:household-code-verification",
+  "test:admin-household-codes",
   "test:household-family-lifecycle",
   "test:account-lifecycle",
   "test:resident-economy-household-v2",
