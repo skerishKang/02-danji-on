@@ -435,10 +435,9 @@ if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt
       showToast('제보가 접수되었습니다. 운영진 확인 후 게시됩니다.');
       document.querySelector('[data-close-drawer]')?.click();
     }catch(_){showToast('제보 접수에 실패했습니다.');}
-  });  // #465: keep the built-in resident-news cards and their filters visible while
-  // the server collection is empty/unavailable. Real server rows take ownership
-  // only after at least one published post exists.
-  console.info('[danjion] 주민소식을 불러오는 중입니다. 기존 콘텐츠를 유지합니다.');
+  });
+  // Canonical Production is server-owned: loading/empty/error states above replace
+  // prototype resident cards instead of reviving built-in resident identities.
   void load();
 })();
 </script>
