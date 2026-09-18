@@ -71,7 +71,8 @@
     "test:v3-persistence-wiring-contract": "node tests/v3-persistence-wiring-contract.mjs",
     "test:admin-authority-role-contract": "node tests/admin-authority-role-contract.mjs",
     "test:e2e": "playwright test",
-    "test:e2e:headed": "playwright test --headed"
+    "test:e2e:headed": "playwright test --headed",
+    "test:pr-review-preview-workflow": "node tests/pr-review-preview-workflow-contract.mjs"
   },
   "dependencies": {
     "better-auth": "1.7.1",
