@@ -20,6 +20,10 @@ main{width:min(920px,calc(100% - 40px));margin:auto;padding-bottom:70px}.route{h
 .mobile-bottom svg{display:block!important;width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;overflow:visible}
 .mobile-bottom span{display:block}
 }
+.post-meta-box{margin-top:18px;padding:14px 16px;background:#f4f0e7;border:1px solid var(--line);display:grid;gap:8px;font-size:13px;line-height:1.5}
+.post-meta-row{display:flex;gap:10px;align-items:flex-start}.post-meta-row b{min-width:88px}.post-media-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:18px}.post-media-grid img{width:100%;aspect-ratio:1/1;object-fit:cover;border:1px solid var(--line);background:#eee}
+.direct-message-button{border:1px solid var(--line);background:#fff;padding:8px 12px;font-weight:850}.direct-message-button:disabled{opacity:.55}
+@media(max-width:600px){.post-media-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 </style><style id="front-audit-bottom-nav-standard-20260904">
 /* Frontend audit 1: all app content screens share one exact bottom navigation geometry. */
 @media (max-width:760px){
@@ -95,6 +99,7 @@ main{width:min(920px,calc(100% - 40px));margin:auto;padding-bottom:70px}.route{h
 </script>
 <script src="assets/danjion-session.js"></script>
 <script src="assets/community-bridge.js"></script>
+<script src="assets/messages-notifications-bridge.js"></script>
 <script id="danjion-community-detail-live-wiring-329">
 (()=>{
  const apiBase=(window.DanjionSession&&DanjionSession.danjionApiBase())||'';
@@ -103,6 +108,9 @@ main{width:min(920px,calc(100% - 40px));margin:auto;padding-bottom:70px}.route{h
  const postId=(new URLSearchParams(location.search).get('post')||'').toLowerCase();
  if(!UUID.test(postId))return;
  const bridge=DanjionCommunityBridge.createCommunityBridge({apiBase});
+ const messagesBridge=globalThis.DanjionMessagesNotificationsBridge
+  ?DanjionMessagesNotificationsBridge.createMessagesNotificationsBridge({apiBase})
+  :null;
  const LABEL={greeting:'가입인사',resident_story:'단지이야기',question:'궁금해요',together:'같이해요'};
  const CHIP={greeting:'hello',resident_story:'story',question:'question',together:'together'};
  const likeBtn=document.getElementById('likeBtn'),likeCount=document.getElementById('likeCount');
@@ -177,6 +185,61 @@ main{width:min(920px,calc(100% - 40px));margin:auto;padding-bottom:70px}.route{h
   }
   host.innerHTML=result.replies.map(r=>'<div class="reply"><b>↳ '+esc(r.author.nickname)+'</b><p>'+esc(r.body)+'</p></div>').join('');
  }
+ function categoryLabel(value){
+  return ({living:'생활·살림',facility:'단지시설',recommendation:'이웃추천',other:'기타'})[String(value||'')]||String(value||'');
+ }
+ function togetherLabel(value){
+  return ({walk:'산책·운동',hobby:'취미활동',parenting:'육아 같이해요',group_buy:'공동구매'})[String(value||'')]||String(value||'');
+ }
+ function fieldLabel(key){
+  return ({date:'날짜',time:'시간',place:'만나는 곳',people:'모집 인원',activity:'활동 내용',supply:'준비물',
+    childCount:'아이 수',age:'아이 연령대',guardianCount:'보호자 수',item:'품목·수량',price:'1인 예상 비용',
+    deadline:'모집 마감일',pickupDate:'수령일',pickupTime:'수령시간',pickupPlace:'수령장소',payment:'결제 방법',refund:'취소·환불 안내'})[key]||key;
+ }
+ function removeExtras(){
+  document.getElementById('postMetaBox')?.remove();
+  document.getElementById('postMediaGrid')?.remove();
+  document.getElementById('directMessageButton')?.remove();
+ }
+ async function bindDirectMessageButton(button){
+  if(!messagesBridge||!post||!post.allowDirectMessages||!UUID.test(String(post.author&&post.author.userId||''))||post.status!=='published'){button.remove();return}
+  const self=await messagesBridge.getSelfId();
+  if(self.mode!=='server'||!self.userId||self.userId===post.author.userId){button.remove();return}
+  button.addEventListener('click',async()=>{
+   if(button.disabled)return;
+   button.disabled=true;button.textContent='대화 여는 중…';
+   const result=await messagesBridge.startConversation(post.author.userId,'banglim-myeongji-roadhill');
+   if(!result.ok||!UUID.test(result.conversationId)){button.disabled=false;button.textContent='1:1 메시지 보내기';flash('1:1 메시지를 시작하지 못했습니다. 잠시 후 다시 시도해 주세요.');return}
+   location.href='21_메시지_대화상세.html?conversation='+encodeURIComponent(result.conversationId);
+  });
+ }
+ function renderPostExtras(){
+  removeExtras();
+  if(!post)return;
+  const article=document.querySelector('.article');
+  const bodyNode=document.getElementById('body');
+  const actions=article&&article.querySelector('.actions');
+  const rows=[];
+  if(post.kind==='question'&&post.questionCategory)rows.push(['질문 유형',categoryLabel(post.questionCategory)]);
+  if(post.kind==='together'&&post.togetherType)rows.push(['같이해요',togetherLabel(post.togetherType)]);
+  if(post.kind==='together'&&post.structuredData&&typeof post.structuredData==='object'){
+   Object.entries(post.structuredData).forEach(([key,value])=>{if(String(value||'').trim())rows.push([fieldLabel(key),String(value)])});
+  }
+  if(rows.length&&bodyNode){
+   const box=document.createElement('div');box.className='post-meta-box';box.id='postMetaBox';
+   rows.forEach(([label,value])=>{const row=document.createElement('div');row.className='post-meta-row';const b=document.createElement('b');b.textContent=label;const span=document.createElement('span');span.textContent=value;row.append(b,span);box.append(row)});
+   bodyNode.insertAdjacentElement('afterend',box);
+  }
+  const attachments=Array.isArray(post.attachments)?post.attachments:[];
+  if(attachments.length&&article){
+   const grid=document.createElement('div');grid.className='post-media-grid';grid.id='postMediaGrid';
+   attachments.forEach((a,index)=>{const img=document.createElement('img');img.alt=(post.title||'게시글')+' 첨부사진 '+(index+1);img.loading='lazy';img.src=bridge.attachmentUrl(a.id);grid.append(img)});
+   (document.getElementById('postMetaBox')||bodyNode).insertAdjacentElement('afterend',grid);
+  }
+  if(post.allowDirectMessages&&actions){
+   const button=document.createElement('button');button.type='button';button.id='directMessageButton';button.className='direct-message-button';button.textContent='1:1 메시지 보내기';actions.insertBefore(button,interactionStatus||null);void bindDirectMessageButton(button);
+  }
+ }
  async function loadPost(){
   const result=await bridge.getPost(postId);
   if(result.mode!=='server'||!result.post){
@@ -196,6 +259,7 @@ main{width:min(920px,calc(100% - 40px));margin:auto;padding-bottom:70px}.route{h
    // Legacy fallback used title.textContent=d.title; canonical server hydration uses post.title.
    document.getElementById('title').textContent=post.title;
   document.getElementById('body').textContent=post.body;
+  renderPostExtras();
   renderLike();
   if(CHIP[post.kind])backLink.href='12_이웃대화_첫화면.html?type='+CHIP[post.kind]+'&apiBase='+encodeURIComponent(apiBase);
   if(post.status!=='published'){
