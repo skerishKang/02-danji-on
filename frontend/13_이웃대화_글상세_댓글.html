@@ -189,7 +189,9 @@ main{width:min(920px,calc(100% - 40px));margin:auto;padding-bottom:70px}.route{h
   }
   loadFailure='';
   post=result.post;liked=post.viewerLiked;count=post.reactionCount;
-  document.getElementById('typeLabel').textContent=LABEL[post.kind]||post.kind;
+  // 말머리(category)는 서버 게시 데이터에서만 읽습니다. 없으면 종류만 표시합니다.
+  const kindLabel=LABEL[post.kind]||post.kind;
+  document.getElementById('typeLabel').textContent=post.category?kindLabel+' · '+post.category:kindLabel;
   document.getElementById('avatar').textContent=post.author.nickname.slice(0,1);
   document.getElementById('author').textContent=post.author.nickname;
   document.getElementById('levelTime').textContent=timeAgo(post.publishedAt||post.createdAt);

@@ -39,11 +39,15 @@ for (const name of ['greeting','story','question']) {
 }
 
 const question = writeScripts.find(([n]) => n === 'question')[1];
-assert.match(question, /toggle\.disabled=true/);
-assert.match(question, /질문 유형은 현재 서버 게시 데이터에 별도 저장되지 않습니다/);
+assert.match(question, /toggle\.disabled=true/, 'question: the unsupported per-post 1:1 receive setting stays disabled');
+assert.equal(question.includes("querySelectorAll('.type-tab').forEach(b=>{b.disabled=true"), false,
+  'question: 말머리 tabs stay selectable now that the server stores the category');
+assert.match(question, /kind:'question',category,/, 'question: the selected 말머리 is part of the server write payload');
+assert.match(question, /POST_CATEGORY_INVALID/, 'question: an unsupported 말머리 is reported, never silently dropped');
 
 const together = writeScripts.find(([n]) => n === 'together')[1];
 assert.match(together, /dynamic\.hidden=true/);
+assert.match(together, /kind:'together',category,/, 'together: the selected 유형 is part of the server write payload');
 assert.match(together, /body:body\.value\.trim\(\)/);
 assert.doesNotMatch(together, /function compose\(|fieldLabel\(i\)\+': '\+v/,
   'unsupported structured together fields must never be body-encoded');
@@ -51,6 +55,8 @@ assert.doesNotMatch(together, /function compose\(|fieldLabel\(i\)\+': '\+v/,
 const detailMatch = pages.detail.match(/<script id="danjion-community-detail-live-wiring-329">([\s\S]*?)<\/script>/);
 assert.ok(detailMatch, 'detail live wiring must exist');
 const detail = detailMatch[1];
+assert.match(detail, /post\.category\?kindLabel\+' · '\+post\.category:kindLabel/,
+  'detail renders the server category as the 말머리, truthfully absent when unsupported');
 assert.match(detail, /if\(post\.status!=='published'\)/);
 assert.match(detail, /다른 주민에게는 아직 보이지 않습니다/);
 assert.match(detail, /likeBtn\.disabled=true/);

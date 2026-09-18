@@ -44,7 +44,7 @@ main{width:min(760px,100%);margin:auto;padding:28px 20px 34px}.category{display:
 <body data-danjion-page="16">
 <header class="writebar"><div class="writebar-inner"><button aria-label="글쓰기 닫기" class="back close-task" type="button">×</button><strong>궁금해요 글쓰기</strong><button class="top-publish" data-publish="" type="button">게시</button></div></header>
 <main>
-<span class="category">궁금해요</span>
+<span class="category" id="categoryChip">궁금해요 · 생활·살림</span>
 <h1>궁금한 종류를 고르고 바로 물어보세요.</h1>
 <p class="lead">궁금해요 안에서 필요한 유형만 탭으로 바꿉니다. 다른 글쓰기 화면을 다시 고를 필요는 없습니다.</p>
 <nav aria-label="궁금해요 질문 유형" class="type-tabs">
@@ -77,7 +77,7 @@ main{width:min(760px,100%);margin:auto;padding:28px 20px 34px}.category{display:
  function reportRoute(){try{if(parent!==window)parent.postMessage({type:'danjion-route',file:'16_궁금해요_글쓰기.html',href:location.href},'*')}catch(e){}} reportRoute();addEventListener('pageshow',reportRoute);
  function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(window.__toast);window.__toast=setTimeout(()=>t.classList.remove('show'),1700)}
  function save(){try{localStorage.setItem(key,JSON.stringify({selected,title:title.value,body:body.value,message:toggle.classList.contains('on')}))}catch(e){}}
- function setType(type){selected=type;document.querySelectorAll('.type-tab').forEach(b=>{const on=b.dataset.type===type;b.classList.toggle('active',on);b.setAttribute('aria-pressed',String(on))});document.getElementById('typeHelp').textContent=help[type]||'';save()}
+ function setType(type){selected=type;document.querySelectorAll('.type-tab').forEach(b=>{const on=b.dataset.type===type;b.classList.toggle('active',on);b.setAttribute('aria-pressed',String(on))});document.getElementById('typeHelp').textContent=help[type]||'';const chip=document.getElementById('categoryChip');if(chip)chip.textContent='궁금해요 · '+type;save()}
  document.querySelectorAll('.type-tab').forEach(b=>b.addEventListener('click',()=>setType(b.dataset.type)));
  try{const d=JSON.parse(localStorage.getItem(key)||'null');if(d){if(help[d.selected])selected=d.selected;title.value=d.title||'';body.value=d.body||'';toggle.classList.toggle('on',!!d.message);toggle.setAttribute('aria-checked',String(!!d.message))}}catch(e){} setType(selected);
  function counts(){document.getElementById('titleCount').textContent=title.value.length;document.getElementById('bodyCount').textContent=body.value.length} counts(); title.addEventListener('input',()=>{counts();save()});body.addEventListener('input',()=>{counts();save()});
@@ -111,6 +111,7 @@ main{width:min(760px,100%);margin:auto;padding:28px 20px 34px}.category{display:
    }
    return '로그인이 만료되었습니다. 다시 로그인한 뒤 이용해 주세요.';
   }
+  if(r&&r.error==='POST_CATEGORY_INVALID')return '질문 유형을 다시 선택한 뒤 게시해 주세요.';
   if(r&&r.error&&r.error.message)return r.error.message;
   return '서버 연결에 실패했습니다. 잠시 후 다시 시도해 주세요.';
  }
@@ -127,9 +128,7 @@ main{width:min(760px,100%);margin:auto;padding:28px 20px 34px}.category{display:
   if(count)count.textContent='현재 미지원';
  }
  {
-  document.querySelectorAll('.type-tab').forEach(b=>{b.disabled=true;b.setAttribute('aria-disabled','true')});
-  const help=document.getElementById('typeHelp');
-  if(help)help.textContent='질문 유형은 현재 서버 게시 데이터에 별도 저장되지 않습니다. 제목과 내용은 정상 게시됩니다.';
+  // 질문 유형(말머리)은 서버 category로 그대로 저장되므로 선택 UI를 유지합니다.
   const toggle=document.getElementById('messageToggle');
   if(toggle){
    toggle.disabled=true;
@@ -148,8 +147,11 @@ main{width:min(760px,100%);margin:auto;padding:28px 20px 34px}.category{display:
   if(busy)return;
   if(!title.value.trim()){toast('질문 제목을 입력해주세요.');title.focus();return}
   if(body.value.trim().length<10){toast('궁금한 내용을 10자 이상 적어주세요.');body.focus();return}
+  const activeTab=document.querySelector('.type-tab.active');
+  const category=String(activeTab&&activeTab.dataset.type||'');
+  if(!category){toast('질문 유형을 선택해주세요.');return}
   busy=true;setBusy(true);
-  bridge.createPost({kind:'question',title:title.value.trim(),body:body.value.trim()}).then(r=>{
+  bridge.createPost({kind:'question',category,title:title.value.trim(),body:body.value.trim()}).then(r=>{
    if(r.ok&&r.mode==='server'){
     try{localStorage.removeItem(key)}catch(e){}
     const pending=r.post&&r.post.status!=='published';

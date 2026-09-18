@@ -43,7 +43,7 @@ main{width:min(760px,100%);margin:auto;padding:28px 20px 34px}.category{display:
 <body data-danjion-page="17">
 <header class="writebar"><div class="writebar-inner"><button aria-label="글쓰기 닫기" class="back close-task" type="button">×</button><strong>같이해요 글쓰기</strong><button class="top-publish" data-publish="" type="button">게시</button></div></header>
 <main>
-<span class="category">같이해요</span><h1>함께할 일을 고르고 필요한 정보만 적어보세요.</h1><p class="lead">사용자님이 만든 네 가지 전용 폼을 탭으로 유지합니다. 탭을 바꾸면 필요한 항목만 바로 바뀝니다.</p>
+<span class="category" id="categoryChip">같이해요 · 산책·운동</span><h1>함께할 일을 고르고 필요한 정보만 적어보세요.</h1><p class="lead">사용자님이 만든 네 가지 전용 폼을 탭으로 유지합니다. 탭을 바꾸면 필요한 항목만 바로 바뀝니다.</p>
 <nav aria-label="같이해요 유형" class="type-tabs"><button class="type-tab active" data-kind="walk" type="button">산책·운동</button><button class="type-tab" data-kind="hobby" type="button">취미활동</button><button class="type-tab" data-kind="parent" type="button">육아 같이해요</button><button class="type-tab" data-kind="group" type="button">공동구매</button></nav>
 <p class="type-help" id="typeHelp"></p>
 <form id="writeForm"><section class="editor"><div class="field"><label for="title">제목 <small>40자 이내</small></label><input autocomplete="off" class="title-input" id="title" maxlength="40" placeholder="무엇을 같이하고 싶은지 적어주세요."/></div><div class="field"><label for="body">자세한 내용 <small><span id="bodyCount">0</span>/1000</small></label><textarea class="body-input" id="body" maxlength="1000" placeholder="누가, 언제, 어디에서, 어떻게 함께하면 되는지 적어주세요."></textarea></div><div class="dynamic" id="dynamicFields"></div><p class="safety" id="safety"></p><p class="rule">공개 글에는 개인 연락처를 적지 마세요. 필요한 연락은 단지온 메시지를 이용합니다.</p></section></form>
@@ -66,7 +66,7 @@ main{width:min(760px,100%);margin:auto;padding:28px 20px 34px}.category{display:
  try{drafts=JSON.parse(localStorage.getItem(key)||'{}')||{};if(data[drafts.__selected])selected=drafts.__selected}catch(e){drafts={}}
  function save(){const fields={};dynamic.querySelectorAll('input').forEach(i=>fields[i.name]=i.value);drafts[selected]={title:title.value,body:body.value,fields};drafts.__selected=selected;try{localStorage.setItem(key,JSON.stringify(drafts))}catch(e){}}
  function fieldMarkup(f){const [id,label,type,ph]=f;return `<div class="field${f.length>4?' full':''}"><label for="dyn_${id}">${label}<small>필수</small></label><input class="dynamic-input" id="dyn_${id}" name="${id}" type="${type}" ${type==='number'?'min="1" inputmode="numeric"':''} placeholder="${ph||''}" required></div>`}
- function render(){const item=data[selected];document.querySelectorAll('.type-tab').forEach(b=>{const on=b.dataset.kind===selected;b.classList.toggle('active',on);b.setAttribute('aria-pressed',String(on))});document.getElementById('typeHelp').textContent=item.description;document.getElementById('safety').textContent=item.safety;dynamic.innerHTML=item.fields.map(fieldMarkup).join('');const d=drafts[selected]||{};title.value=d.title||'';body.value=d.body||'';document.getElementById('bodyCount').textContent=body.value.length;dynamic.querySelectorAll('input').forEach(i=>{if(d.fields&&Object.prototype.hasOwnProperty.call(d.fields,i.name))i.value=d.fields[i.name];i.addEventListener('input',save);i.addEventListener('change',save)})}
+ function render(){const item=data[selected];document.querySelectorAll('.type-tab').forEach(b=>{const on=b.dataset.kind===selected;b.classList.toggle('active',on);b.setAttribute('aria-pressed',String(on))});document.getElementById('typeHelp').textContent=item.description;const chip=document.getElementById('categoryChip');if(chip)chip.textContent='같이해요 · '+item.title;document.getElementById('safety').textContent=item.safety;dynamic.innerHTML=item.fields.map(fieldMarkup).join('');const d=drafts[selected]||{};title.value=d.title||'';body.value=d.body||'';document.getElementById('bodyCount').textContent=body.value.length;dynamic.querySelectorAll('input').forEach(i=>{if(d.fields&&Object.prototype.hasOwnProperty.call(d.fields,i.name))i.value=d.fields[i.name];i.addEventListener('input',save);i.addEventListener('change',save)})}
  document.querySelectorAll('.type-tab').forEach(b=>b.addEventListener('click',()=>{if(b.dataset.kind===selected)return;save();selected=b.dataset.kind;drafts.__selected=selected;render();save()}));
  title.addEventListener('input',save);body.addEventListener('input',()=>{document.getElementById('bodyCount').textContent=body.value.length;save()});document.querySelector('.back').addEventListener('click',()=>{save();location.href=COMMUNITY});
  function publish(){save();if(!title.value.trim()){toast('제목을 입력해주세요.');title.focus();return}if(body.value.trim().length<5){toast('자세한 내용을 조금 더 적어주세요.');body.focus();return}const missing=[...dynamic.querySelectorAll('input[required]')].find(i=>!i.value.trim());if(missing){toast(missing.previousElementSibling?.textContent?.replace('필수','').trim()+'을(를) 입력해주세요.');missing.focus();return}delete drafts[selected];try{localStorage.setItem(key,JSON.stringify(drafts))}catch(e){}toast(data[selected].title+' 글을 게시했습니다.');setTimeout(()=>location.href=COMMUNITY,650)}document.querySelectorAll('[data-publish]').forEach(b=>b.addEventListener('click',publish));render();
@@ -96,6 +96,7 @@ main{width:min(760px,100%);margin:auto;padding:28px 20px 34px}.category{display:
    }
    return '로그인이 만료되었습니다. 다시 로그인한 뒤 이용해 주세요.';
   }
+  if(r&&r.error==='POST_CATEGORY_INVALID')return '같이해요 유형을 다시 선택한 뒤 게시해 주세요.';
   if(r&&r.error&&r.error.message)return r.error.message;
   return '서버 연결에 실패했습니다. 잠시 후 다시 시도해 주세요.';
  }
@@ -105,14 +106,25 @@ main{width:min(760px,100%);margin:auto;padding:28px 20px 34px}.category{display:
    ? DETAIL+'?apiBase='+encodeURIComponent(apiBase)+'&post='+encodeURIComponent(postId)
    : COMMUNITY;
  }
+ const TOGETHER_CATEGORY={walk:'산책·운동',hobby:'취미활동',parent:'육아 같이해요',group:'공동구매'};
+ const togetherTabs=[...document.querySelectorAll('.type-tab')];
+ function togetherCategory(){
+  const active=togetherTabs.find(b=>b.classList.contains('active'));
+  return TOGETHER_CATEGORY[active&&active.dataset.kind]||'';
+ }
  {
-  document.querySelectorAll('.type-tab').forEach(b=>{b.disabled=true;b.setAttribute('aria-disabled','true')});
+  // 같이해요 유형(말머리)은 서버 category로 저장됩니다. 세부 모집 항목은 아직 저장되지 않습니다.
   const help=document.getElementById('typeHelp');
-  if(help)help.textContent='같이해요 유형과 세부 모집항목은 현재 서버에 별도 저장되지 않습니다. 제목과 자세한 내용만 정상 게시됩니다.';
   const dynamic=document.getElementById('dynamicFields');
   if(dynamic)dynamic.hidden=true;
   const safety=document.getElementById('safety');
   if(safety)safety.textContent='공개 본문에는 개인 연락처나 민감한 개인정보를 적지 마세요.';
+  function refreshHelp(){
+   const label=togetherCategory();
+   if(help&&label)help.textContent=label+' 모집 글입니다. 모집 날짜·장소·인원 같은 세부 항목은 현재 서버에 저장되지 않습니다.';
+  }
+  togetherTabs.forEach(b=>b.addEventListener('click',refreshHelp));
+  refreshHelp();
  }
  let busy=false;
  document.addEventListener('click',ev=>{
@@ -121,8 +133,10 @@ main{width:min(760px,100%);margin:auto;padding:28px 20px 34px}.category{display:
   if(busy)return;
   if(!title.value.trim()){toast('제목을 입력해주세요.');title.focus();return}
   if(body.value.trim().length<5){toast('자세한 내용을 조금 더 적어주세요.');body.focus();return}
+  const category=togetherCategory();
+  if(!category){toast('같이해요 유형을 선택해주세요.');return}
   busy=true;setBusy(true);
-  bridge.createPost({kind:'together',title:title.value.trim(),body:body.value.trim()}).then(r=>{
+  bridge.createPost({kind:'together',category,title:title.value.trim(),body:body.value.trim()}).then(r=>{
    if(r.ok&&r.mode==='server'){
     try{localStorage.removeItem(key)}catch(e){}
     const pending=r.post&&r.post.status!=='published';

@@ -99,6 +99,7 @@ const EXPECTED_BACKEND_ORDER = [
   "test:migration-gate",
   "test:migration-ledger-integrity",
   "test:community-c2-greeting-kind",
+  "test:community-c2-post-category",
   "test:application-documents-review-context",
   "test:application-documents-owner-id",
   "test:deploy-provenance",
