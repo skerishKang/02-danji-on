@@ -3,47 +3,43 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>단지온 · 주민인증 · 우리집 연결</title>
+  <title>단지온 · 우리집 연결</title>
   <style>
     :root{--paper:#f6f2e9;--paper2:#fffdf8;--ink:#101317;--navy:#101d30;--coral:#ee6045;--amber:#f2b84b;--green:#255e49;--muted:#68645e;--line:#d8d0c3;--soft:#ece5d8}
     *{box-sizing:border-box}html{font-family:Pretendard,"Pretendard Variable","Noto Sans KR",Arial,sans-serif;background:var(--paper);color:var(--ink)}
-    body{margin:0;min-width:320px;background:var(--paper)}button,input,select,textarea{font:inherit;color:inherit}button{cursor:pointer}
-    button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,a:focus-visible{outline:3px solid var(--amber);outline-offset:2px}
+    body{margin:0;min-width:320px;background:var(--paper)}button,input,select{font:inherit;color:inherit}button{cursor:pointer}a{color:inherit}
+    button:focus-visible,input:focus-visible,select:focus-visible,a:focus-visible{outline:3px solid var(--amber);outline-offset:2px}
     .site-header{height:76px;border-bottom:1px solid var(--line);background:rgba(246,242,233,.97);position:sticky;top:0;z-index:20}
     .header-inner{width:min(1180px,calc(100% - 40px));height:100%;margin:auto;display:flex;align-items:center;justify-content:space-between;gap:24px}
-    .brand{border:0;background:none;padding:0;font-size:25px;font-weight:950;letter-spacing:-.05em}.brand small{font-size:10px;letter-spacing:.12em;color:var(--muted);margin-left:8px}
-    .nav{display:flex;align-items:center;gap:28px}.nav a{color:inherit;text-decoration:none;font-size:14px;font-weight:850}.identity{font-size:13px;font-weight:800;color:var(--muted)}
+    .brand{text-decoration:none;display:flex;align-items:baseline;gap:9px;font-size:25px;font-weight:950;letter-spacing:-.05em}.brand small{font-size:10px;letter-spacing:.12em;color:var(--muted)}
+    .desktop-nav{display:flex;align-items:center;gap:28px}.desktop-nav a{text-decoration:none;font-size:14px;font-weight:850}.desktop-nav .active{color:var(--coral)}
+    .identity{font-size:13px;font-weight:800;color:var(--muted)}.mobile-title{display:none}
     .route{border-bottom:1px solid var(--ink)}.route-inner{width:min(1180px,calc(100% - 40px));min-height:58px;margin:auto;display:flex;align-items:center;justify-content:space-between;gap:20px}
     .back{border:0;background:none;padding:0;font-weight:900}.route-note{font-size:13px;color:var(--muted)}
     main{width:min(1180px,calc(100% - 40px));margin:auto;padding:46px 0 100px}
-    .page-head{display:grid;grid-template-columns:1fr minmax(280px,420px);gap:48px;align-items:end;padding-bottom:28px;border-bottom:1px solid var(--ink)}
+    .page-head{display:grid;grid-template-columns:1fr minmax(280px,430px);gap:48px;align-items:end;padding-bottom:28px;border-bottom:1px solid var(--ink)}
     .eyebrow{font-size:13px;font-weight:950;color:var(--coral);letter-spacing:.06em}.page-head h1{font-size:clamp(42px,6vw,66px);line-height:.98;letter-spacing:-.06em;margin:12px 0 0}
     .page-copy{margin:0;color:var(--muted);line-height:1.7;font-size:15px}.page-copy b{color:var(--ink)}
-    .layout{display:grid;grid-template-columns:minmax(0,1.08fr) minmax(340px,.92fr);gap:18px;margin-top:18px}
-    .intro{background:var(--navy);color:white;min-height:430px;padding:38px;display:flex;flex-direction:column;position:relative;overflow:hidden}
+    .layout{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(360px,.95fr);gap:18px;margin-top:18px}
+    .intro{background:var(--navy);color:#fff;min-height:470px;padding:38px;display:flex;flex-direction:column;position:relative;overflow:hidden}
     .intro:after{content:"";position:absolute;width:420px;height:420px;border-radius:50%;border:1px solid rgba(242,184,75,.18);right:-170px;bottom:-210px}
     .intro small{color:var(--amber);font-weight:950;letter-spacing:.05em}.intro h2{font-size:clamp(32px,4vw,48px);letter-spacing:-.05em;line-height:1.08;margin:18px 0 16px;max-width:650px}
     .intro p{max-width:620px;margin:0;color:rgba(255,255,255,.76);font-size:15px;line-height:1.75}
-    .steps{margin-top:auto;position:relative;z-index:1;border-top:1px solid rgba(255,255,255,.2)}
-    .step{display:grid;grid-template-columns:46px 1fr;gap:10px;padding:16px 0;border-bottom:1px solid rgba(255,255,255,.12)}.step b{color:var(--amber)}.step span{font-size:14px;line-height:1.55}
-    .card{border:1px solid var(--line);background:var(--paper2);padding:30px;min-height:430px}.status-kicker{font-size:12px;font-weight:950;color:var(--coral);letter-spacing:.05em}
+    .steps{margin-top:auto;position:relative;z-index:1;border-top:1px solid rgba(255,255,255,.2)}.step{display:grid;grid-template-columns:46px 1fr;gap:10px;padding:16px 0;border-bottom:1px solid rgba(255,255,255,.12)}
+    .step b{color:var(--amber)}.step span{font-size:14px;line-height:1.55}
+    .card{border:1px solid var(--line);background:var(--paper2);padding:30px;min-height:470px}.status-kicker{font-size:12px;font-weight:950;color:var(--coral);letter-spacing:.05em}
     .status-title{font-size:29px;letter-spacing:-.04em;margin:10px 0 8px}.status-copy{margin:0;color:var(--muted);font-size:14px;line-height:1.65}
-    .status-box{margin-top:22px;border-top:1px solid var(--ink)}
-    .form-field{display:flex;flex-direction:column;gap:7px;margin-top:18px}.form-field label,.form-field>span{font-size:13px;font-weight:900}
-    .form-field input,.form-field select,.form-field textarea{width:100%;border:1px solid var(--line);background:white;padding:13px 14px;border-radius:0}.form-field textarea{min-height:110px;resize:vertical;line-height:1.6}
-    .code-input{font-size:24px!important;font-weight:950;letter-spacing:.12em;text-transform:uppercase}
-    .primary{width:100%;min-height:52px;border:1px solid var(--navy);background:var(--navy);color:white;font-weight:950;margin-top:14px}
-    .primary:disabled{opacity:.55;cursor:wait}.secondary{min-height:44px;border:1px solid var(--line);background:white;font-weight:850;padding:0 14px}.ghost{border:0;background:none;padding:0;color:var(--muted);text-decoration:underline;font-weight:800}
-    .support-links{display:flex;flex-wrap:wrap;gap:9px;margin-top:18px;padding-top:18px;border-top:1px solid var(--line)}
+    .form{margin-top:22px;border-top:1px solid var(--ink);padding-top:4px}.field{display:flex;flex-direction:column;gap:7px;margin-top:16px}.field label{font-size:13px;font-weight:900}
+    .field input,.field select{width:100%;min-height:50px;border:1px solid var(--line);background:#fff;padding:0 13px}.picker{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .primary{width:100%;min-height:52px;border:1px solid var(--navy);background:var(--navy);color:#fff;font-weight:950;margin-top:18px}.primary:disabled{opacity:.55;cursor:wait}
+    .secondary{min-height:44px;border:1px solid var(--line);background:#fff;font-weight:850;padding:0 14px}.links{display:flex;gap:9px;flex-wrap:wrap;margin-top:14px}
     .live{min-height:22px;margin:12px 0 0;font-size:13px;font-weight:800;color:var(--muted)}.live.error{color:var(--coral)}.live.success{color:var(--green)}
-    .house-result{margin-top:20px;border:1px solid var(--green);padding:20px;background:#f0f7f3}.house-result small{font-weight:900;color:var(--green)}.house-result strong{display:block;font-size:32px;letter-spacing:-.04em;margin:7px 0}.house-result p{margin:0;color:var(--muted);font-size:13px;line-height:1.6}
-    .support-panel{margin-top:18px;border-top:1px solid var(--ink);padding-top:22px}.support-panel[hidden]{display:none}
-    .support-head{display:flex;justify-content:space-between;gap:16px;align-items:flex-start}.support-head h3{margin:0;font-size:21px;letter-spacing:-.03em}.support-head p{margin:6px 0 0;color:var(--muted);font-size:13px;line-height:1.6}
-    .support-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.support-grid .wide{grid-column:1/-1}
-    .privacy-note{margin-top:18px;padding:16px;border:1px solid var(--line);background:var(--soft);font-size:12.5px;line-height:1.65;color:var(--muted)}.privacy-note b{color:var(--ink)}
-    .signed-out{margin-top:22px;padding:20px;border:1px solid var(--line);background:var(--soft)}.signed-out a{display:inline-flex;margin-top:12px;min-height:44px;align-items:center;padding:0 16px;background:var(--navy);color:white;text-decoration:none;font-weight:900}
-    @media(max-width:860px){.nav{display:none}.page-head,.layout{grid-template-columns:1fr}.page-copy{max-width:620px}.intro{min-height:350px}.card{min-height:0}.support-grid{grid-template-columns:1fr}.support-grid .wide{grid-column:auto}}
-    @media(max-width:560px){.header-inner,.route-inner,main{width:min(100% - 28px,1180px)}.intro,.card{padding:24px}.route-note{display:none}.page-head h1{font-size:42px}.support-links .secondary{flex:1}}
+    .result{margin-top:20px;border:1px solid var(--green);padding:20px;background:#f0f7f3}.result.pending{border-color:#c99a36;background:#fff8e8}
+    .result small{font-weight:900;color:var(--green)}.result.pending small{color:#8b6419}.result strong{display:block;font-size:32px;letter-spacing:-.04em;margin:7px 0}.result p{margin:0;color:var(--muted);font-size:13px;line-height:1.65}
+    .privacy{margin-top:18px;padding:16px;border:1px solid var(--line);background:var(--soft);font-size:12.5px;line-height:1.65;color:var(--muted)}.privacy b{color:var(--ink)}
+    .signed-out{margin-top:22px;padding:20px;border:1px solid var(--line);background:var(--soft)}.signed-out a{display:inline-flex;margin-top:12px;min-height:44px;align-items:center;padding:0 16px;background:var(--navy);color:#fff;text-decoration:none;font-weight:900}
+    @media(max-width:860px){.desktop-nav{display:none}.page-head,.layout{grid-template-columns:1fr}.intro{min-height:360px}.card{min-height:0}.route-note{display:none}}
+    @media(max-width:560px){.header-inner,.route-inner,main{width:min(100% - 28px,1180px)}.intro,.card{padding:24px}.page-head h1{font-size:42px}.picker{grid-template-columns:1fr}.identity{display:none}.mobile-title{display:inline;font-weight:900}}
   </style>
   <link rel="stylesheet" href="assets/danjion-service-header.css">
 </head>
@@ -52,185 +48,161 @@
     <div class="header-inner">
       <a class="brand" href="./index.html?intro=1"><span class="wordmark">단지온</span><small>DANJION by PADIEM</small></a>
       <nav aria-label="주요 메뉴" class="desktop-nav">
-        <a href="04_데일리홈.html">홈</a>
-        <a href="./index.html?intro=1">인트로</a>
-        <a href="01_이웃가게_발견.html">이웃가게</a>
-        <a href="05_우리단지_첫화면.html">우리단지</a>
-        <a aria-current="page" class="active" href="19_내정보_메인.html">내정보</a>
+        <a href="04_데일리홈.html">홈</a><a href="./index.html?intro=1">인트로</a><a href="01_이웃가게_발견.html">이웃가게</a><a href="05_우리단지_첫화면.html">우리단지</a><a class="active" href="19_내정보_메인.html">내정보</a>
       </nav>
-      <div class="identity" data-account-host>계정 확인 중</div>
-      <span class="mobile-title">주민인증</span>
+      <div class="identity" data-account-host>계정 확인 중</div><span class="mobile-title">우리집 연결</span>
     </div>
   </header>
-
-  <div class="route">
-    <div class="route-inner">
-      <button class="back" type="button" onclick="history.length>1?history.back():location.href='19_내정보_메인.html'">← 내정보로</button>
-      <span class="route-note">주민인증과 우리집 연결은 세대별 코드 하나로 함께 완료됩니다.</span>
-    </div>
-  </div>
+  <div class="route"><div class="route-inner"><button class="back" type="button" onclick="history.length>1?history.back():location.href='19_내정보_메인.html'">← 내정보로</button><span class="route-note">동·호는 우리집 연결에만 사용하며 다른 주민에게 공개하지 않습니다.</span></div></div>
 
   <main>
     <section class="page-head">
-      <div><div class="eyebrow">RESIDENT VERIFICATION</div><h1>주민인증<br>· 우리집 연결</h1></div>
-      <p class="page-copy"><b>안내 문자로 받은 세대별 코드를 입력해 주세요.</b>코드가 확인되면 주민인증과 해당 동·호의 우리집 연결이 동시에 완료됩니다.</p>
+      <div><div class="eyebrow">MY HOUSEHOLD</div><h1>우리집<br>연결</h1></div>
+      <p class="page-copy"><b>가입한 뒤 살고 있는 동·호를 직접 선택해 주세요.</b>관리사무소는 전 세대에 같은 안내문자를 보내므로 세대별 코드는 사용하지 않습니다.</p>
     </section>
 
     <section class="layout">
       <article class="intro">
-        <small>HOUSEHOLD CODE</small>
-        <h2>동·호를 다시 입력할 필요 없이<br>세대 코드가 우리집을 확인합니다.</h2>
-        <p>각 세대에는 서로 다른 주민인증 코드가 안내됩니다. 같은 세대의 가족은 해당 세대 코드를 함께 사용할 수 있으며, 각 계정의 주민인증 기록은 독립적으로 관리됩니다.</p>
+        <small>BANGLIM ROADHILL · MY HOME</small>
+        <h2>닉네임을 정하고<br>우리집을 선택합니다.</h2>
+        <p>단지온 계정과 우리집 연결은 분리해 관리합니다. 동·호는 서버의 실제 세대 목록에서 선택하며 공개 프로필에는 표시하지 않습니다.</p>
         <div class="steps">
-          <div class="step"><b>01</b><span>단지온에 로그인합니다.</span></div>
-          <div class="step"><b>02</b><span>문자로 안내받은 세대별 주민인증 코드를 입력합니다.</span></div>
-          <div class="step"><b>03</b><span>서버가 코드를 확인하면 주민인증과 우리집 연결이 함께 완료됩니다.</span></div>
+          <div class="step"><b>01</b><span>Google · Kakao · 이메일로 로그인합니다.</span></div>
+          <div class="step"><b>02</b><span>이웃에게 보일 닉네임과 동·호를 선택합니다.</span></div>
+          <div class="step"><b>03</b><span>같은 세대 기본 2명까지 자동 연결하고, 3명째부터 운영팀이 확인합니다.</span></div>
         </div>
       </article>
 
       <article class="card">
-        <div class="status-kicker">MY RESIDENT STATUS</div>
-        <h2 class="status-title" id="statusTitle">주민 상태 확인 중</h2>
-        <p class="status-copy" id="statusCopy">현재 계정의 주민인증 상태를 확인하고 있습니다.</p>
+        <div class="status-kicker">HOUSEHOLD ONBOARDING</div>
+        <h2 class="status-title" id="statusTitle">우리집 상태 확인 중</h2>
+        <p class="status-copy" id="statusCopy">현재 계정과 우리집 연결 상태를 확인하고 있습니다.</p>
 
-        <div id="verifiedView" hidden>
-          <div class="house-result">
-            <small>주민인증 완료</small>
-            <strong id="houseLabel">—</strong>
-            <p>이 계정은 위 세대에 연결되어 있습니다. 동·호 정보는 본인과 운영 권한이 있는 관리자에게만 사용됩니다.</p>
-          </div>
-          <button class="secondary" type="button" style="margin-top:16px" onclick="location.href='19_내정보_메인.html'">내정보로 돌아가기</button>
-        </div>
-
-        <div id="verifyView" hidden>
-          <div class="status-box">
-            <div class="form-field">
-              <label for="residentCode">주민인증 코드</label>
-              <input class="code-input" id="residentCode" maxlength="14" autocomplete="one-time-code" inputmode="text" placeholder="예: A7K9-P2Q4">
+        <div id="onboardingView" hidden>
+          <div class="form">
+            <div class="field"><label for="nickname">닉네임</label><input id="nickname" maxlength="40" autocomplete="nickname" placeholder="이웃에게 보일 이름"></div>
+            <div class="picker">
+              <div class="field"><label for="buildingSelect">동</label><select id="buildingSelect" aria-label="동 선택"><option value="">동 선택</option></select></div>
+              <div class="field"><label for="unitSelect">호</label><select id="unitSelect" aria-label="호 선택" disabled><option value="">호 선택</option></select></div>
             </div>
-            <button class="primary" id="verifyButton" type="button">주민인증하기</button>
-            <p class="live" id="verifyLive" aria-live="polite"></p>
-            <div class="support-links">
-              <button class="secondary" id="requestCodeButton" type="button">인증코드 요청</button>
-              <button class="secondary" id="questionButton" type="button">문의하기</button>
-              <button class="ghost" type="button" onclick="location.href='19_내정보_메인.html'">나중에 인증하기</button>
-            </div>
+            <button class="primary" id="connectButton" type="button">닉네임 저장하고 우리집 연결하기</button>
+            <p class="live" id="connectLive" aria-live="polite"></p>
           </div>
+          <div class="links"><button class="secondary" type="button" onclick="location.href='25_1대1문의.html'">연결이 안 되면 문의하기</button><button class="secondary" type="button" onclick="location.href='19_내정보_메인.html'">나중에 연결하기</button></div>
         </div>
 
-        <div id="signedOutView" class="signed-out" hidden>
-          주민인증은 로그인한 계정에서 진행할 수 있습니다.
-          <br><a href="index.html?auth=login">로그인 · 가입하기</a>
+        <div id="resultView" hidden>
+          <div class="result" id="resultBox"><small id="resultKicker">우리집 연결 완료</small><strong id="houseLabel">—</strong><p id="resultCopy">—</p></div>
+          <div class="links"><button class="primary" type="button" onclick="location.href='04_데일리홈.html'">단지온 시작하기</button><button class="secondary" type="button" onclick="location.href='19_내정보_메인.html'">내정보 보기</button></div>
         </div>
 
-        <div class="support-panel" id="supportPanel" hidden>
-          <div class="support-head">
-            <div><h3 id="supportTitle">인증코드 요청</h3><p>관리자가 세대를 확인할 수 있도록 최소한의 정보만 남겨 주세요. 사진이나 서류 첨부는 필요하지 않습니다.</p></div>
-            <button class="ghost" id="closeSupport" type="button">닫기</button>
-          </div>
-          <div class="support-grid">
-            <div class="form-field"><span>동</span><input id="supportBuilding" maxlength="20" placeholder="예: 102"></div>
-            <div class="form-field"><span>호</span><input id="supportUnit" maxlength="20" placeholder="예: 1802"></div>
-            <div class="form-field"><span>이름</span><input id="supportName" maxlength="60" autocomplete="name" placeholder="확인 가능한 이름"></div>
-            <div class="form-field"><span>연락처</span><input id="supportContact" maxlength="80" autocomplete="tel" placeholder="전화번호 또는 연락 방법"></div>
-            <div class="form-field wide"><span>사유</span><textarea id="supportReason" maxlength="1000" placeholder="예: 안내 문자를 받지 못했습니다."></textarea></div>
-          </div>
-          <button class="primary" id="supportSubmit" type="button">요청 보내기</button>
-          <p class="live" id="supportLive" aria-live="polite"></p>
-        </div>
-
-        <div class="privacy-note"><b>개인정보 안내</b><br>일반 주민인증에서는 동·호를 직접 입력하지 않습니다. 동·호는 세대 코드의 서버 매핑으로만 연결됩니다. 코드를 모를 때 지원 요청에 입력한 정보는 관리자 확인 용도로만 사용됩니다.</div>
+        <div id="signedOutView" class="signed-out" hidden>우리집 연결은 로그인한 계정에서 진행할 수 있습니다.<br><a href="index.html?auth=signup">로그인 · 가입하기</a></div>
+        <div class="privacy"><b>개인정보 안내</b><br>동·호는 우리집 연결과 운영 확인에만 사용합니다. 다른 주민의 공개 프로필·게시글에는 동·호가 표시되지 않습니다.</div>
       </article>
     </section>
   </main>
 
   <script src="assets/danjion-session.js"></script>
-  <script src="assets/inquiry-bridge.js"></script>
-  <script src="assets/resident-verification-code-bridge.js"></script>
-  <script>
-    const api=window.DanjionResidentVerificationCode&&window.DanjionResidentVerificationCode.create();
-    const statusTitle=document.getElementById('statusTitle'),statusCopy=document.getElementById('statusCopy');
-    const verifiedView=document.getElementById('verifiedView'),verifyView=document.getElementById('verifyView'),signedOutView=document.getElementById('signedOutView');
-    const codeInput=document.getElementById('residentCode'),verifyButton=document.getElementById('verifyButton'),verifyLive=document.getElementById('verifyLive');
-    const supportPanel=document.getElementById('supportPanel'),supportTitle=document.getElementById('supportTitle'),supportLive=document.getElementById('supportLive'),supportSubmit=document.getElementById('supportSubmit');
-    let supportKind='request';
+  <script src="assets/resident-bridge.js"></script>
+  <script type="module">
+    import { createHouseholdClaimBridge } from './assets/household-claim-bridge.js';
 
-    function live(node,message,kind){node.textContent=message||'';node.className='live'+(kind?' '+kind:'')}
-    function showVerified(result){
-      verifiedView.hidden=false;verifyView.hidden=true;signedOutView.hidden=true;supportPanel.hidden=true;
-      statusTitle.textContent='주민인증 완료';statusCopy.textContent='세대 코드 확인이 완료되어 주민 권한과 우리집 연결이 활성화되었습니다.';
-      document.getElementById('houseLabel').textContent=(result.buildingCode||'—')+'동 '+(result.unitCode||'—')+'호';
+    const S=window.DanjionSession;
+    const RB=window.DanjionResidentBridge;
+    const cfg=RB&&RB.serverConfig?RB.serverConfig():{enabled:false,apiBase:'',complexSlug:'banglim-myeongji-roadhill'};
+    const household=S?createHouseholdClaimBridge({apiBase:cfg.apiBase,Session:S,complexSlug:cfg.complexSlug}):null;
+    const resident=RB&&cfg.enabled?RB.createResidentBridge({apiBase:cfg.apiBase,complexSlug:cfg.complexSlug}):null;
+
+    const $=id=>document.getElementById(id);
+    const title=$('statusTitle'),copy=$('statusCopy'),onboarding=$('onboardingView'),resultView=$('resultView'),signedOut=$('signedOutView');
+    const building=$('buildingSelect'),unit=$('unitSelect'),nickname=$('nickname'),connect=$('connectButton'),live=$('connectLive');
+    let units=[];
+
+    function part(value,suffix){const v=String(value||'').trim();return v.endsWith(suffix)?v:v+suffix}
+    function setLive(message,kind=''){live.textContent=message||'';live.className='live'+(kind?' '+kind:'')}
+    function showSignedOut(){onboarding.hidden=true;resultView.hidden=true;signedOut.hidden=false;title.textContent='로그인이 필요해요';copy.textContent='로그인 후 닉네임과 동·호를 선택해 주세요.'}
+    function showError(message){onboarding.hidden=true;resultView.hidden=true;signedOut.hidden=true;title.textContent='우리집 상태를 확인하지 못했습니다';copy.textContent=message||'잠시 후 다시 시도해 주세요.'}
+    function showResult(data){
+      onboarding.hidden=true;resultView.hidden=false;signedOut.hidden=true;
+      const pending=String(data.status||'')==='pending'||data.reviewRequired===true;
+      $('resultBox').classList.toggle('pending',pending);
+      $('resultKicker').textContent=pending?'운영팀 확인 대기':'우리집 연결 완료';
+      $('houseLabel').textContent=part(data.buildingCode,'동')+' '+part(data.unitCode,'호');
+      $('resultCopy').textContent=pending
+        ? '같은 세대의 3번째 이상 계정이라 우리집은 연결되었고 운영팀 확인을 기다리고 있습니다. 확인 전에는 주민 전용 기능이 제한될 수 있습니다.'
+        : '우리집 연결이 완료되었습니다. 신규 계정은 LV.1 · 새 이웃으로 시작합니다.';
+      title.textContent=pending?'우리집 연결됨 · 확인 대기':'우리집 연결 완료';
+      copy.textContent=pending?'세대 연결은 저장되었고 운영팀 확인이 필요합니다.':'이 계정의 우리집 연결이 완료되었습니다.';
     }
-    function showUnverified(result){
-      verifiedView.hidden=true;verifyView.hidden=false;signedOutView.hidden=true;
-      statusTitle.textContent='주민인증이 필요해요';
-      statusCopy.textContent=result&&result.state==='unverified-associated'
-        ? '우리집 연결 기록은 있지만 주민인증은 아직 완료되지 않았습니다. 해당 세대의 문자 코드를 입력해 주세요.'
-        : '문자로 안내받은 세대별 코드를 입력하면 우리집 연결까지 한 번에 완료됩니다.';
+    function fillBuildings(){
+      building.innerHTML='<option value="">동 선택</option>';
+      const values=[...new Set(units.map(x=>x.buildingCode))];
+      values.forEach(v=>{const o=document.createElement('option');o.value=v;o.textContent=part(v,'동');building.append(o)});
+      unit.innerHTML='<option value="">호 선택</option>';unit.disabled=true;
     }
-    function showSignedOut(){
-      verifiedView.hidden=true;verifyView.hidden=true;signedOutView.hidden=false;supportPanel.hidden=true;
-      statusTitle.textContent='로그인이 필요해요';statusCopy.textContent='로그인 후 현재 계정의 주민인증 상태를 확인할 수 있습니다.';
-    }
-    function showError(message){
-      verifiedView.hidden=true;verifyView.hidden=true;signedOutView.hidden=true;
-      statusTitle.textContent='주민 상태를 확인하지 못했습니다';statusCopy.textContent=message||'잠시 후 다시 시도해 주세요.';
-    }
-    async function loadStatus(){
-      if(!api){showError('주민인증 기능을 불러오지 못했습니다.');return}
-      const result=await api.status();
-      if(result.state==='verified'){showVerified(result);return}
-      if(result.state==='unverified'||result.state==='unverified-associated'){showUnverified(result);return}
-      if(result.state==='signed-out'){showSignedOut();return}
-      if(result.state==='unbound'){showError('이 환경에서는 주민인증을 실행하지 않습니다.');return}
-      showError(result.state==='network-error'?'서버 연결에 실패했습니다. 잠시 후 다시 시도해 주세요.':'주민인증 상태를 확인할 수 없습니다.');
+    function fillUnits(){
+      const b=building.value;unit.innerHTML='<option value="">호 선택</option>';
+      units.filter(x=>x.buildingCode===b).forEach(x=>{const o=document.createElement('option');o.value=x.id;o.textContent=part(x.unitCode,'호');unit.append(o)});
+      unit.disabled=!b;
     }
 
-    verifyButton.addEventListener('click',async()=>{
-      live(verifyLive,'');verifyButton.disabled=true;verifyButton.textContent='확인 중…';
-      const result=await api.verify(codeInput.value);
-      if(result.state==='verified'){showVerified(result);return}
-      if(result.state==='signed-out'){showSignedOut();return}
-      if(result.state==='invalid-input'||result.state==='invalid-code')live(verifyLive,'코드를 확인할 수 없습니다. 안내 문자에 적힌 코드를 다시 확인해 주세요.','error');
-      else if(result.state==='rate-limited')live(verifyLive,'입력 시도가 많습니다. 잠시 후 다시 시도해 주세요.','error');
-      else if(result.state==='unavailable')live(verifyLive,'주민인증이 잠시 중단되어 있습니다. 잠시 후 다시 시도해 주세요.','error');
-      else live(verifyLive,'주민인증 처리에 실패했습니다. 잠시 후 다시 시도해 주세요.','error');
-      verifyButton.disabled=false;verifyButton.textContent='주민인증하기';
-    });
-    codeInput.addEventListener('keydown',event=>{if(event.key==='Enter')verifyButton.click()});
+    building.addEventListener('change',fillUnits);
 
-    function openSupport(kind){
-      supportKind=kind==='question'?'question':'request';
-      supportTitle.textContent=supportKind==='question'?'주민인증 문의':'인증코드 요청';
-      document.getElementById('supportReason').value=supportKind==='question'?'':'안내 문자를 받지 못했습니다.';
-      live(supportLive,'');supportPanel.hidden=false;supportPanel.scrollIntoView({behavior:'smooth',block:'nearest'});
-    }
-    document.getElementById('requestCodeButton').addEventListener('click',()=>openSupport('request'));
-    document.getElementById('questionButton').addEventListener('click',()=>openSupport('question'));
-    document.getElementById('closeSupport').addEventListener('click',()=>{supportPanel.hidden=true});
-
-    supportSubmit.addEventListener('click',async()=>{
-      live(supportLive,'');supportSubmit.disabled=true;supportSubmit.textContent='보내는 중…';
-      const result=await api.support({
-        kind:supportKind,
-        buildingCode:document.getElementById('supportBuilding').value,
-        unitCode:document.getElementById('supportUnit').value,
-        name:document.getElementById('supportName').value,
-        contact:document.getElementById('supportContact').value,
-        reason:document.getElementById('supportReason').value
-      });
-      if(result.state==='submitted'){
-        live(supportLive,'요청이 접수되었습니다. 관리자가 확인 후 문의 답변으로 안내드립니다.','success');
-        supportSubmit.textContent='접수 완료';return;
+    async function boot(){
+      if(!S||!household||!resident||!cfg.enabled){showError('이 환경에서는 우리집 연결을 실행하지 않습니다.');return}
+      const session=await S.fetchSession(fetch);
+      if(!S.nativeSessionReady(session)){showSignedOut();return}
+      const [snapshot,profile]=await Promise.all([household.getSnapshot(),resident.profile()]);
+      if(snapshot.ok&&snapshot.data&&snapshot.data.unit){
+        const me=snapshot.data.myMembership||{};
+        showResult({
+          status:me.status,
+          reviewRequired:me.status==='pending'&&!me.residentVerified,
+          buildingCode:snapshot.data.unit.buildingCode,
+          unitCode:snapshot.data.unit.unitCode
+        });
+        return;
       }
-      if(result.state==='signed-out'){showSignedOut();return}
-      if(result.state==='invalid-input')live(supportLive,'동·호, 이름, 연락처, 사유를 모두 입력해 주세요.','error');
-      else if(result.state==='rate-limited')live(supportLive,'요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.','error');
-      else live(supportLive,'요청을 접수하지 못했습니다. 잠시 후 다시 시도해 주세요.','error');
-      supportSubmit.disabled=false;supportSubmit.textContent='요청 보내기';
+      const code=snapshot.error&&snapshot.error.code;
+      if(snapshot.status===401){showSignedOut();return}
+      if(code!=='HOUSEHOLD_ASSOCIATION_REQUIRED'){
+        showError('우리집 연결 상태를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.');return;
+      }
+      const master=await household.listUnits();
+      if(!master.ok){showError('동·호 목록을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.');return}
+      units=master.data.units||[];
+      if(!units.length){showError('연결할 수 있는 세대 목록이 아직 준비되지 않았습니다.');return}
+      if(profile.ok&&profile.profile)nickname.value=String(profile.profile.nickname||'').trim();
+      fillBuildings();
+      title.textContent='닉네임과 우리집을 선택해 주세요';
+      copy.textContent='서버에 등록된 방림명지로드힐 동·호 목록에서 선택합니다.';
+      onboarding.hidden=false;resultView.hidden=true;signedOut.hidden=true;
+    }
+
+    connect.addEventListener('click',async()=>{
+      const nick=nickname.value.trim(),unitId=unit.value;
+      setLive('');
+      if(!nick){setLive('닉네임을 입력해 주세요.','error');nickname.focus();return}
+      if(!building.value||!unitId){setLive('동과 호를 모두 선택해 주세요.','error');return}
+      connect.disabled=true;connect.textContent='연결 중…';
+      try{
+        const profile=await resident.updateProfile({nickname:nick});
+        if(!profile.ok){setLive(profile.mode==='auth-required'?'로그인 상태를 다시 확인해 주세요.':'닉네임을 저장하지 못했습니다. 잠시 후 다시 시도해 주세요.','error');return}
+        const associated=await household.associate(unitId);
+        if(!associated.ok){
+          const code=associated.error&&associated.error.code;
+          if(code==='HOUSEHOLD_ASSOCIATION_CONFLICT')setLive('이미 다른 동·호에 연결된 계정입니다. 운영팀에 문의해 주세요.','error');
+          else if(code==='HOUSEHOLD_UNIT_NOT_FOUND')setLive('선택한 동·호를 확인할 수 없습니다. 목록을 새로 불러와 주세요.','error');
+          else setLive('우리집 연결을 완료하지 못했습니다. 잠시 후 다시 시도해 주세요.','error');
+          return;
+        }
+        showResult(associated.data);
+      } finally {
+        connect.disabled=false;connect.textContent='닉네임 저장하고 우리집 연결하기';
+      }
     });
 
-    loadStatus();
+    void boot();
   </script>
 </body>
 </html>
