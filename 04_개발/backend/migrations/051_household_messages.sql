@@ -75,3 +75,46 @@ drop trigger if exists trg_household_messages_updated_at on household_messages;
 create trigger trg_household_messages_updated_at
   before update on household_messages
   for each row execute function set_updated_at();
+
+
+create or replace function resident_household_message_feed(
+  p_user_id uuid,
+  p_message_id uuid default null
+)
+returns table (
+  message_id uuid,
+  title text,
+  body text,
+  sent_at timestamptz,
+  delivered_at timestamptz,
+  read_at timestamptz
+)
+language sql
+stable
+as $$
+  select
+    m.id,
+    m.title,
+    m.body,
+    m.sent_at,
+    d.delivered_at,
+    d.read_at
+  from household_message_deliveries d
+  join household_messages m on m.id = d.message_id
+  where d.user_id = p_user_id
+    and (p_message_id is null or m.id = p_message_id)
+    and m.status = 'sent'
+    and exists (
+      select 1
+      from household_memberships hm
+      join households h on h.id = hm.household_id and h.complex_id = hm.complex_id
+      join complex_units cu on cu.id = h.complex_unit_id and cu.complex_id = h.complex_id
+      where hm.user_id = p_user_id
+        and hm.complex_id = m.complex_id
+        and hm.status = 'verified'
+        and h.status = 'active'
+        and cu.status = 'active'
+    )
+  order by m.sent_at desc, m.id desc
+  limit 100
+$$;
