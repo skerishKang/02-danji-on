@@ -60,6 +60,7 @@ jobs:
       DANJION_KAKAO_CLIENT_SECRET: ${{ secrets.DANJION_KAKAO_CLIENT_SECRET }}
       DANJION_NAVER_CLIENT_ID: ${{ secrets.DANJION_NAVER_CLIENT_ID }}
       DANJION_NAVER_CLIENT_SECRET: ${{ secrets.DANJION_NAVER_CLIENT_SECRET }}
+      DANJION_HOUSEHOLD_CODE_PEPPER: ${{ secrets.DANJION_HOUSEHOLD_CODE_PEPPER }}
       TARGET_WORKER: padiem-danjion-api-production
       VERIFICATION_WORKER: padiem-contact-verification
       HEALTH_URL: https://padiem-danjion-api-production.padiem.workers.dev/api/health
@@ -253,6 +254,13 @@ jobs:
           if ! has_secret DANJION_CONTACT_REF_SECRET; then
             add_secret DANJION_CONTACT_REF_SECRET "$(openssl rand -hex 32)"
           fi
+          if ! has_secret HOUSEHOLD_CODE_PEPPER; then
+            if [ -z "${DANJION_HOUSEHOLD_CODE_PEPPER:-}" ]; then
+              echo "::error::HOUSEHOLD_CODE_PEPPER is not already bound and DANJION_HOUSEHOLD_CODE_PEPPER is missing from the GitHub production environment."
+              exit 1
+            fi
+            add_secret HOUSEHOLD_CODE_PEPPER "$DANJION_HOUSEHOLD_CODE_PEPPER"
+          fi
 
           add_optional_pair() {
             local public_value="$1"
@@ -301,7 +309,7 @@ jobs:
         run: |
           set -euo pipefail
           secret_names="$(npx wrangler secret list --env production --format json)"
-          for key in DATABASE_URL BETTER_AUTH_SECRET DANJION_CONTACT_REF_SECRET; do
+          for key in DATABASE_URL BETTER_AUTH_SECRET DANJION_CONTACT_REF_SECRET HOUSEHOLD_CODE_PEPPER; do
             if ! printf '%s' "$secret_names" | jq -e --arg key "$key" '.[] | select(.name == $key)' >/dev/null; then
               echo "::error::Required Worker secret is not bound: ${key}"
               exit 1
