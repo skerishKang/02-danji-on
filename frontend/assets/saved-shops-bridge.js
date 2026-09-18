@@ -19,7 +19,7 @@
 
   function readLocal(storage) {
     try {
-      const parsed = JSON.parse(storage.getItem(STORAGE_KEY) || '[]');
+      const parsed = JSON.parse(storage && storage.getItem ? (storage.getItem(STORAGE_KEY) || '[]') : '[]');
       return Array.isArray(parsed) ? parsed.map(String) : [];
     } catch (_) {
       return [];
@@ -27,43 +27,58 @@
   }
 
   function writeLocal(storage, keys) {
+    if (!storage || typeof storage.setItem !== 'function') return;
     storage.setItem(STORAGE_KEY, JSON.stringify([...new Set(keys.map(String))]));
   }
 
   function createSavedShopsBridge(options) {
-    const fetchImpl = options && options.fetchImpl ? options.fetchImpl : global.fetch.bind(global);
-    const storage = options && options.storage ? options.storage : global.localStorage;
-    const base = apiRoot(options && options.apiBase);
+    const opts = options || {};
+    const fetchImpl = opts.fetchImpl || (global.fetch && global.fetch.bind(global));
+    const storage = opts.storage || global.localStorage;
+    const base = apiRoot(opts.apiBase);
+    const serverMode = Boolean(base);
     const endpoint = `${base}/api/v1/me/bookmarks`;
-    let mode = 'unknown';
-    let saved = new Set(readLocal(storage));
+    let mode = serverMode ? 'loading' : 'local';
+    let saved = new Set(serverMode ? [] : readLocal(storage));
 
     function snapshot() {
       return { mode, keys: [...saved] };
     }
 
+    function clearServerState(nextMode) {
+      mode = nextMode;
+      saved = new Set();
+      return snapshot();
+    }
+
     async function load() {
+      if (!serverMode) {
+        mode = 'local';
+        saved = new Set(readLocal(storage));
+        return snapshot();
+      }
+      if (typeof fetchImpl !== 'function') return clearServerState('degraded');
       try {
-        const response = await fetchImpl(endpoint, { method: 'GET', credentials: 'include', headers: { accept: 'application/json' } });
-        if (response.status === 401 || response.status === 403) {
-          mode = 'local';
-          saved = new Set(readLocal(storage));
-          return snapshot();
-        }
-        if (!response.ok) {
-          mode = 'degraded';
-          saved = new Set(readLocal(storage));
-          return snapshot();
-        }
+        const response = await fetchImpl(endpoint, {
+          method: 'GET',
+          credentials: 'include',
+          headers: { accept: 'application/json' }
+        });
+        if (response.status === 401) return clearServerState('auth-required');
+        if (response.status === 403) return clearServerState('forbidden');
+        if (!response.ok) return clearServerState('degraded');
         const payload = await response.json();
         const rows = Array.isArray(payload && payload.data) ? payload.data : [];
-        saved = new Set(rows.map((row) => row && row.id).filter((id) => UUID.test(String(id || ''))).map((id) => `api-${String(id).toLowerCase()}`));
+        saved = new Set(
+          rows
+            .map((row) => row && row.id)
+            .filter((id) => UUID.test(String(id || '')))
+            .map((id) => `api-${String(id).toLowerCase()}`)
+        );
         mode = 'server';
         return snapshot();
       } catch (_) {
-        mode = 'degraded';
-        saved = new Set(readLocal(storage));
-        return snapshot();
+        return clearServerState('degraded');
       }
     }
 
@@ -72,7 +87,17 @@
       const businessId = businessIdForKey(normalizedKey);
       const currentlySaved = saved.has(normalizedKey);
 
-      if (mode === 'server' && businessId) {
+      if (serverMode) {
+        if (mode !== 'server') {
+          const error = new Error(`bookmark server authority unavailable: ${mode}`);
+          error.mode = mode;
+          throw error;
+        }
+        if (!businessId) {
+          const error = new Error('bookmark requires a server business id');
+          error.mode = 'client';
+          throw error;
+        }
         const response = await fetchImpl(`${endpoint}/${businessId}`, {
           method: currentlySaved ? 'DELETE' : 'POST',
           credentials: 'include',
@@ -84,12 +109,12 @@
           throw error;
         }
         currentlySaved ? saved.delete(normalizedKey) : saved.add(normalizedKey);
-        return { mode, saved: !currentlySaved, key: normalizedKey };
+        return { mode: 'server', saved: !currentlySaved, key: normalizedKey };
       }
 
       currentlySaved ? saved.delete(normalizedKey) : saved.add(normalizedKey);
       writeLocal(storage, [...saved]);
-      return { mode: mode === 'unknown' ? 'local' : mode, saved: !currentlySaved, key: normalizedKey };
+      return { mode: 'local', saved: !currentlySaved, key: normalizedKey };
     }
 
     function isSaved(key) {
@@ -99,5 +124,9 @@
     return { load, toggle, isSaved, snapshot, businessIdForKey };
   }
 
-  global.DanJionSavedShopsBridge = Object.freeze({ create: createSavedShopsBridge, businessIdForKey, STORAGE_KEY });
+  global.DanJionSavedShopsBridge = Object.freeze({
+    create: createSavedShopsBridge,
+    businessIdForKey,
+    STORAGE_KEY
+  });
 })(typeof window !== 'undefined' ? window : globalThis);
