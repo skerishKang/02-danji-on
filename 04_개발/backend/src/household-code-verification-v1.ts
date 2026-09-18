@@ -1,5 +1,6 @@
 import { neon, type NeonQueryFunction } from '@neondatabase/serverless';
 import { requireActor, type AuthEnv } from './auth-v1';
+import { householdCodeVerifier, isHouseholdCode, normalizeHouseholdCode } from './household-code-crypto';
 
 type Sql = NeonQueryFunction<false, false>;
 
@@ -8,7 +9,6 @@ export type HouseholdCodeEnv = AuthEnv & {
 };
 
 const MAX_BODY_BYTES = 1024;
-const CODE = /^[A-Z0-9]{6,12}$/;
 const SLUG = /^[a-z0-9][a-z0-9-]{0,119}$/;
 
 function json(data: unknown, status: number, requestId: string): Response {
@@ -27,9 +27,6 @@ function sqlFor(env: HouseholdCodeEnv): Sql {
   if (!env.DATABASE_URL) throw new Error('DATABASE_URL is not configured');
   return neon(env.DATABASE_URL);
 }
-function normalizeCode(value: unknown): string {
-  return typeof value === 'string' ? value.trim().toUpperCase().replace(/[\s-]+/g, '') : '';
-}
 async function parseBody(request: Request, requestId: string): Promise<string | Response> {
   if (!(request.headers.get('content-type') || '').includes('application/json')) {
     return fail('CONTENT_TYPE_REQUIRED', 'application/json required', 415, requestId);
@@ -43,16 +40,9 @@ async function parseBody(request: Request, requestId: string): Promise<string | 
   if (!value || typeof value !== 'object' || Array.isArray(value)) return fail('INVALID_JSON', 'JSON object required', 400, requestId);
   const record = value as Record<string, unknown>;
   if (Object.keys(record).some((key) => key !== 'code')) return fail('VALIDATION_ERROR', 'Only code is accepted', 400, requestId);
-  const code = normalizeCode(record.code);
-  if (!CODE.test(code)) return fail('RESIDENT_CODE_INVALID', 'The resident verification code is invalid or unavailable', 409, requestId);
+  const code = normalizeHouseholdCode(record.code);
+  if (!isHouseholdCode(code)) return fail('RESIDENT_CODE_INVALID', 'The resident verification code is invalid or unavailable', 409, requestId);
   return code;
-}
-async function verifier(code: string, pepper: string): Promise<string> {
-  const key = await crypto.subtle.importKey(
-    'raw', new TextEncoder().encode(pepper), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']
-  );
-  const digest = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(code));
-  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
 }
 async function auditFailure(sql: Sql, actorId: string, complexId: string | null, requestId: string): Promise<void> {
   await sql`
@@ -108,7 +98,7 @@ export async function handleHouseholdCodeVerificationWithSql(
     return fail('HOUSEHOLD_MEMBERSHIP_EXISTS', 'An active household membership already exists', 409, requestId);
   }
 
-  const codeVerifier = await verifier(code, pepper);
+  const codeVerifier = await householdCodeVerifier(code, pepper);
   const results = await sql.transaction([
     sql`
       with target as (
