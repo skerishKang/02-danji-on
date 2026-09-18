@@ -58,6 +58,14 @@
       benefitActions: true
     },
     {
+      id: 'householdMessages',
+      requiredScope: 'household.message.manage',
+      title: '세대별 메시지',
+      description: '특정 세대·여러 세대·동 전체·단지 전체의 in-app 메시지 대상을 서버에서 미리 확인합니다. 실제 발송은 별도 활성화 전까지 차단됩니다.',
+      path: (slug) => `/api/v1/admin/complexes/${slug}/household-messages/targets`,
+      householdMessageActions: true
+    },
+    {
       id: 'householdReviews',
       requiredScope: 'resident.verification.manage',
       title: '우리집 연결 승인',
@@ -91,7 +99,7 @@
   function extractRows(data) {
     if (Array.isArray(data)) return data;
     if (data && typeof data === 'object') {
-      for (const key of ['applications', 'recommendations', 'submissions', 'posts', 'benefits', 'memberships', 'verifications', 'households', 'events', 'rows', 'items']) {
+      for (const key of ['applications', 'recommendations', 'submissions', 'posts', 'benefits', 'memberships', 'verifications', 'households', 'units', 'events', 'rows', 'items']) {
         if (Array.isArray(data[key])) return data[key];
       }
     }
@@ -272,6 +280,62 @@
     return classifyBenefitMutation(result);
   }
 
+  function classifyHouseholdMessagePreview(result) {
+    const code = result && result.error && result.error.code ? String(result.error.code) : '';
+    if (result && result.ok) return { state: 'preview', data: result.data, status: result.status, code };
+    if (result && result.status === 400) return { state: 'invalid-request', status: 400, code };
+    if (result && result.status === 401) return { state: 'signed-out', status: 401, code };
+    if (result && result.status === 403) return { state: 'scope-denied', status: 403, code };
+    if (result && result.status === 404) return { state: 'not-found', status: 404, code };
+    if (result && result.status === 409) return { state: 'conflict', status: 409, code };
+    if (result && result.status === 503) return { state: 'unavailable', status: 503, code };
+    if (!result || result.reason === 'network-error' || result.status === 0) return { state: 'network-error', status: 0, code };
+    return { state: 'error', status: Number(result.status || 0), code };
+  }
+
+  function normalizeHouseholdMessageTarget(input) {
+    const value = input && typeof input === 'object' ? input : {};
+    const targetType = String(value.targetType || '').trim();
+    if (!['unit', 'units', 'building', 'all'].includes(targetType)) return null;
+    const payload = { targetType };
+    if (targetType === 'building') {
+      const buildingCode = String(value.buildingCode || '').trim();
+      if (!buildingCode || buildingCode.length > 20) return null;
+      payload.buildingCode = buildingCode;
+    }
+    if (targetType === 'unit' || targetType === 'units') {
+      if (!Array.isArray(value.units) || !value.units.length || value.units.length > 100) return null;
+      const units = [];
+      const seen = new Set();
+      for (const raw of value.units) {
+        const buildingCode = String(raw && raw.buildingCode || '').trim();
+        const unitCode = String(raw && raw.unitCode || '').trim();
+        if (!buildingCode || !unitCode || buildingCode.length > 20 || unitCode.length > 20) return null;
+        const key = buildingCode + '\u0000' + unitCode;
+        if (seen.has(key)) continue;
+        seen.add(key);units.push({ buildingCode, unitCode });
+      }
+      if (targetType === 'unit' && units.length !== 1) return null;
+      payload.units = units;
+    }
+    return payload;
+  }
+
+  async function previewHouseholdMessageTargets(fetchImpl, apiBase, input, slug) {
+    const payload = normalizeHouseholdMessageTarget(input);
+    if (!payload) return { state: 'invalid-request', status: 0, code: 'INVALID_HOUSEHOLD_MESSAGE_TARGET' };
+    const session = global.DanjionSession;
+    const result = await session.request(
+      fetchImpl,
+      session.joinUrl(
+        String(apiBase || ''),
+        '/api/v1/admin/complexes/' + encodeURIComponent(slug || COMPLEX_SLUG) + '/household-messages/preview'
+      ),
+      { method: 'POST', body: JSON.stringify(payload) }
+    );
+    return classifyHouseholdMessagePreview(result);
+  }
+
   function classifyHouseholdReviewMutation(result) {
     const code = result && result.error && result.error.code ? String(result.error.code) : '';
     if (result && result.ok) return { state: 'updated', data: result.data, status: result.status, code };
@@ -398,6 +462,7 @@
     loadBenefitBusinesses,
     createResidentBenefit,
     updateResidentBenefit,
+    previewHouseholdMessageTargets,
     reviewHouseholdMembership,
     provisionHouseholdCode,
     revokeHouseholdCode,
