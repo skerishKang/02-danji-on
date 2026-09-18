@@ -59,23 +59,22 @@ try {
   });
   record('NAV_CANDIDATES_EXIST', navClicked);
 
-  // ---------- community: open 이웃대화 via the real nav flow ----------
-  // 1) topbar nav "우리단지" opens V2ComplexHub
-  // 2) hub card "이웃대화 들어가기" opens V2CommunityView
+  // ---------- community: open 이웃대화 via the real multi-page nav flow ----------
+  // QA Pages hosts the static multi-page app: 데일리홈 → bottom nav 우리단지 →
+  // 이웃대화 list (12_) → write form page (16_ 궁금해요). The React V2 modal
+  // flow is NOT what QA serves; adapt to the real DOM ids.
   let communityOpened = false;
   try {
-    await page.locator('[data-v2-nav-key="community"], button:has-text("우리단지")').first().click({ timeout: 8_000 });
-    await page.waitForTimeout(2_000);
-    await page.getByRole('button', { name: /이웃대화 들어가기/ }).first().click({ timeout: 8_000 });
+    await page.goto(`${FRONTEND}/12_%EC%9D%B4%EC%9B%83%EB%8C%80%ED%99%94_%EC%B2%AB%ED%99%94%EB%A9%B4.html`, {
+      waitUntil: 'domcontentloaded', timeout: 30_000
+    });
     await page.waitForTimeout(2_500);
-    const content = await page.content();
-    communityOpened = /이웃대화|궁금해요|같이해요|가입인사|단지이야기/.test(content);
+    communityOpened = await page.locator('#writeMain, .write-main').first().isVisible().catch(() => false);
   } catch {}
   record('COMMUNITY_OPENED', communityOpened);
 
   if (communityOpened) {
-    // switch to a writable tab first (default tab is 가입인사 which is write-locked)
-    // choose 궁금해요 or 단지이야기 or 같이해요 — first visible one
+    // switch to a writable tab first (default is 가입인사 which is write-locked)
     for (const kind of ['궁금해요', '단지이야기', '같이해요']) {
       const tabBtn = page.locator(`button:has-text("${kind}")`).first();
       if (await tabBtn.isVisible().catch(() => false)) {
@@ -85,13 +84,13 @@ try {
       }
     }
 
-    // ---------- write a post through the UI ----------
+    // ---------- write a post through the real write page (16_ 궁금해요_글쓰기) ----------
     let writeOpened = false;
     try {
-      const writeBtn = page.locator('.v2-community-write-main, [aria-label="현재 카테고리 글쓰기"], button:has-text("글쓰기")').first();
-      await writeBtn.click({ timeout: 8_000 });
-      await page.waitForTimeout(1_500);
-      writeOpened = true;
+      await page.locator('#writeMain, .write-main').first().click({ timeout: 8_000 });
+      await page.waitForLoadState('domcontentloaded', { timeout: 15_000 });
+      await page.waitForTimeout(2_000);
+      writeOpened = /writeForm|title/.test(await page.content());
     } catch {}
     record('WRITE_FORM_OPENED', writeOpened);
 
@@ -105,14 +104,14 @@ try {
           break;
         }
       }
-      // fill title/body if present (writer form uses name=title / name=body)
+      // fill title/body if present (write page uses id=title / id=body)
       let filled = false;
       try {
-        const titleInput = page.locator('input[name="title"], input[placeholder*="제목"], input[placeholder*="무엇"]').first();
+        const titleInput = page.locator('#title, input[name="title"], input.title-input').first();
         if (await titleInput.isVisible().catch(() => false)) {
           await titleInput.fill(POST_TITLE, { timeout: 5_000 });
         }
-        const bodyArea = page.locator('textarea[name="body"], textarea').first();
+        const bodyArea = page.locator('#body, textarea[name="body"], textarea.body-input').first();
         if (await bodyArea.isVisible().catch(() => false)) {
           await bodyArea.fill(POST_BODY, { timeout: 5_000 });
           filled = true;
@@ -120,20 +119,10 @@ try {
       } catch {}
       record('WRITE_FORM_FILLED', filled);
 
-      // submit (게시하기 primary button)
+      // submit via the write page's 게시 button (data-publish)
       let submitted = false;
       try {
-        // session may have expired between login and submit — refresh via API if needed
-        const s = await sessionShape(context);
-        if (!s.hasSession) {
-          console.log('DEBUG_SESSION_EXPIRED_BEFORE_SUBMIT=true — refreshing via API sign-in');
-          await context.request.post(`${FRONTEND}/api/auth/sign-in/email`, {
-            headers: { Origin: FRONTEND, 'Content-Type': 'application/json' },
-            data: { email, password }
-          });
-          await page.waitForTimeout(1_000);
-        }
-        const submitBtn = page.locator('button:has-text("게시하기"), button[type="submit"]').first();
+        const submitBtn = page.locator('[data-publish], button:has-text("게시")').first();
         await submitBtn.click({ timeout: 6_000 });
         await page.waitForTimeout(3_500);
         submitted = true;
