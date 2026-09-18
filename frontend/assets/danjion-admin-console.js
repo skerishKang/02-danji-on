@@ -58,6 +58,14 @@
       benefitActions: true
     },
     {
+      id: 'householdReviews',
+      requiredScope: 'resident.verification.manage',
+      title: '우리집 연결 승인',
+      description: '같은 세대의 3번째 이후 pending 계정을 확인하고 승인 또는 거절합니다.',
+      path: (slug) => `/api/v1/admin/complexes/${slug}/household-memberships?status=pending`,
+      householdReviewActions: true
+    },
+    {
       id: 'verifications',
       requiredScope: 'resident.verification.manage',
       title: '주민인증 코드',
@@ -83,7 +91,7 @@
   function extractRows(data) {
     if (Array.isArray(data)) return data;
     if (data && typeof data === 'object') {
-      for (const key of ['applications', 'recommendations', 'submissions', 'posts', 'benefits', 'verifications', 'households', 'events', 'rows', 'items']) {
+      for (const key of ['applications', 'recommendations', 'submissions', 'posts', 'benefits', 'memberships', 'verifications', 'households', 'events', 'rows', 'items']) {
         if (Array.isArray(data[key])) return data[key];
       }
     }
@@ -264,6 +272,32 @@
     return classifyBenefitMutation(result);
   }
 
+  function classifyHouseholdReviewMutation(result) {
+    const code = result && result.error && result.error.code ? String(result.error.code) : '';
+    if (result && result.ok) return { state: 'updated', data: result.data, status: result.status, code };
+    if (result && result.status === 401) return { state: 'signed-out', status: 401, code };
+    if (result && result.status === 403) return { state: 'scope-denied', status: 403, code };
+    if (result && result.status === 409) return { state: 'conflict', status: 409, code };
+    if (result && result.status === 503) return { state: 'unavailable', status: 503, code };
+    if (!result || result.reason === 'network-error' || result.status === 0) return { state: 'network-error', status: 0, code };
+    return { state: 'error', status: Number(result.status || 0), code };
+  }
+
+  async function reviewHouseholdMembership(fetchImpl, apiBase, membershipId, decision) {
+    const id = String(membershipId || '').trim();
+    const nextDecision = String(decision || '').trim();
+    if (!UUID_RE.test(id) || !['approve', 'reject'].includes(nextDecision)) {
+      return { state: 'invalid-request', status: 0, code: 'INVALID_HOUSEHOLD_REVIEW_REQUEST' };
+    }
+    const session = global.DanjionSession;
+    const result = await session.request(
+      fetchImpl,
+      session.joinUrl(String(apiBase || ''), '/api/v1/admin/household-memberships/' + encodeURIComponent(id)),
+      { method: 'PATCH', body: JSON.stringify({ decision: nextDecision }) }
+    );
+    return classifyHouseholdReviewMutation(result);
+  }
+
   function classifyHouseholdCodeMutation(result) {
     const code = result && result.error && result.error.code ? String(result.error.code) : '';
     if (result && result.ok) return { state: 'updated', data: result.data, status: result.status, code };
@@ -313,6 +347,11 @@
 
   function rowTitle(row) {
     if (!row || typeof row !== 'object') return '';
+    if (row.nickname || row.accountReference) {
+      const nickname = String(row.nickname || '').trim();
+      const accountReference = String(row.accountReference || '').trim();
+      return nickname || (accountReference ? '계정 ' + accountReference : '');
+    }
     if (row.buildingCode || row.building_code || row.unitCode || row.unit_code) {
       const building = String(row.buildingCode ?? row.building_code ?? '').trim();
       const unit = String(row.unitCode ?? row.unit_code ?? '').trim();
@@ -324,6 +363,7 @@
 
   function rowStatus(row) {
     if (!row || typeof row !== 'object') return '';
+    if (row.memberPosition !== undefined || row.member_position !== undefined) return '승인 대기';
     return String(row.codeStatus ?? row.code_status ?? row.status ?? '').slice(0, 40);
   }
 
@@ -358,6 +398,7 @@
     loadBenefitBusinesses,
     createResidentBenefit,
     updateResidentBenefit,
+    reviewHouseholdMembership,
     provisionHouseholdCode,
     revokeHouseholdCode,
     rowTitle,
