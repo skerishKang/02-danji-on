@@ -29,6 +29,18 @@ assert.match(shops, /__benefitWalletMode='unknown'/);
 assert.match(shops, /__benefitClaimBridge\.listMine\(\)/);
 assert.match(shops, /if\(PRODUCTION_SERVER_MODE\).*__benefitWallet\.has\(benefitId\)/s);
 assert.match(shops, /businessAuthorityState='error';draw\(\)/);
+assert.match(shops, /r\.mode==='resident-verification-required'\)\{flash\('우리집 연결과 주민 확인을 완료한 뒤 후기를 등록할 수 있습니다\.'/,
+  'review 403 resident boundary must never be shown as logged out');
+assert.match(shops, /r\.mode==='resident-verification-required'\)\{flash\('우리집 연결과 주민 확인을 완료한 뒤 가게에 문의할 수 있습니다\.'/,
+  'shop inquiry 403 resident boundary must stay distinct from 401');
+assert.match(shops, /r\.mode==='resident-verification-required'\)\{flash\('우리집 연결과 주민 확인을 완료한 뒤 혜택을 받을 수 있습니다\.'/,
+  'benefit 403 resident boundary must stay distinct from 401');
+assert.match(shops, /r\.mode==='forbidden'\)\{flash\('이 후기를 등록할 권한이 없습니다\.'/,
+  'bounded review 403 must surface as forbidden');
+assert.match(shops, /r\.mode==='forbidden'\)\{flash\('이 가게에 문의할 권한이 없습니다\.'/,
+  'bounded inquiry 403 must surface as forbidden');
+assert.match(shops, /r\.mode==='forbidden'\)\{flash\('이 혜택을 받을 권한이 없습니다\.'/,
+  'bounded benefit 403 must surface as forbidden');
 
 assert.match(activityHtml, /assets\/saved-shops-bridge\.js/);
 assert.match(activityHtml, /assets\/benefit-claim-bridge\.js/);

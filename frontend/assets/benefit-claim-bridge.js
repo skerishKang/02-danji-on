@@ -54,6 +54,13 @@
     return {ok:true,status:response.status,data:payload?.data??null,payload};
   }
 
+  function failureMode(result){
+    if(result.status===401)return 'auth-required';
+    if(result.status===403&&(result.error==='RESIDENT_VERIFICATION_REQUIRED'||result.error==='HOUSEHOLD_ASSOCIATION_REQUIRED'))return 'resident-verification-required';
+    if(result.status===403)return 'forbidden';
+    return 'error';
+  }
+
   function createBenefitClaimBridge(options={}){
     const fetchImpl=options.fetchImpl||fetch.bind(globalThis);
     const apiBase=normalizeBase(options.apiBase);
@@ -65,13 +72,13 @@
       const result=await requestJson(fetchImpl,`${apiBase}/api/v1/me/benefits/${id}/claim`,{
         method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({complexSlug})
       });
-      if(!result.ok)return {...result,mode:result.status===401?'auth-required':result.status===403?'resident-verification-required':'error'};
+      if(!result.ok)return {...result,mode:failureMode(result)};
       return {ok:true,mode:'server',status:result.status,claim:normalizeClaim(result.data)};
     }
 
     async function listMine(){
       const result=await requestJson(fetchImpl,`${apiBase}/api/v1/me/benefits`,{method:'GET'});
-      if(!result.ok)return {...result,mode:result.status===401?'auth-required':result.status===403?'forbidden':'error',benefits:[]};
+      if(!result.ok)return {...result,mode:failureMode(result),benefits:[]};
       const rows=Array.isArray(result.data)?result.data:[];
       return {mode:'server',status:result.status,benefits:rows.map(normalizeWalletRow).filter(Boolean)};
     }

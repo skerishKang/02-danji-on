@@ -80,12 +80,30 @@ const makeResponse = (status, data) => ({
   assert.equal(called, false);
 }
 
-// unauthenticated/unverified boundaries remain explicit; bridge does not fake success.
-for (const status of [401, 403]) {
-  const bridge = createReviewsBridge({ fetchImpl: async () => makeResponse(status, 'AUTH_REQUIRED') });
+// Authentication and authorization boundaries remain explicit; bridge does not fake success.
+{
+  const bridge = createReviewsBridge({ fetchImpl: async () => makeResponse(401, 'AUTH_REQUIRED') });
   const result = await bridge.list(key);
   assert.equal(result.mode, 'auth-required');
-  assert.equal(result.status, status);
+  assert.equal(result.status, 401);
+}
+{
+  const bridge = createReviewsBridge({ fetchImpl: async () => makeResponse(403, 'RESIDENT_VERIFICATION_REQUIRED') });
+  const result = await bridge.list(key);
+  assert.equal(result.mode, 'resident-verification-required');
+  assert.equal(result.status, 403);
+}
+{
+  const bridge = createReviewsBridge({ fetchImpl: async () => makeResponse(403, 'FORBIDDEN') });
+  const result = await bridge.list(key);
+  assert.equal(result.mode, 'forbidden');
+  assert.equal(result.status, 403);
+}
+{
+  const bridge = createReviewsBridge({ fetchImpl: async () => makeResponse(403, 'HOUSEHOLD_ASSOCIATION_REQUIRED') });
+  const result = await bridge.create(key, '새 후기');
+  assert.equal(result.mode, 'resident-verification-required');
+  assert.equal(result.ok, false);
 }
 
 // create uses canonical POST payload and returns immediately renderable isMine review.
