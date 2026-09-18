@@ -1,0 +1,110 @@
+name: PR754 Exact Visual Preview
+
+on:
+  push:
+    branches:
+      - 'preview/754-exact-qa'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr754-exact-visual-preview
+  cancel-in-progress: true
+
+jobs:
+  deploy-preview:
+    name: Deploy exact #754 frontend to isolated QA branch preview
+    runs-on: ubuntu-latest
+    environment: qa
+    env:
+      EXACT_754_SHA: 24fd74395a8a5c22093dfa0e9ac1a8f7a3c8cb2c
+      PREVIEW_BRANCH: preview-754
+      PREVIEW_HOST: preview-754.danjion-qa.pages.dev
+      PREVIEW_URL: https://preview-754.danjion-qa.pages.dev
+      QA_PAGES_PROJECT: danjion-qa
+      CLOUDFLARE_API_TOKEN: ${{ secrets.DANJION_QA_CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.DANJION_QA_CLOUDFLARE_ACCOUNT_ID }}
+      DANJION_QA_API_URL: ${{ vars.DANJION_QA_API_URL }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Prove product files are byte-identical to exact PR #754 head
+        shell: bash
+        run: |
+          set -euo pipefail
+          git cat-file -e "${EXACT_754_SHA}^{commit}"
+          git diff --exit-code "${EXACT_754_SHA}" HEAD --             frontend             functions             04_개발/backend/scripts/qa-pages-runtime-bind.mjs
+          echo "PR754_PRODUCT_BYTES_EXACT=PASS"
+
+      - name: Validate QA-only deployment authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${CLOUDFLARE_API_TOKEN:-}"
+          test -n "${CLOUDFLARE_ACCOUNT_ID:-}"
+          test -n "${DANJION_QA_API_URL:-}"
+          case "${DANJION_QA_API_URL}" in
+            https://padiem-danjion-api-qa.*.workers.dev) ;;
+            *) echo "::error::Dedicated QA Worker URL required"; exit 1 ;;
+          esac
+          test "${QA_PAGES_PROJECT}" = "danjion-qa"
+          test "${PREVIEW_BRANCH}" = "preview-754"
+          echo "QA_ONLY_AUTHORITY=PASS"
+
+      - name: Assemble exact #754 visual artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf dist-754
+          mkdir -p dist-754
+          cp -R frontend/. dist-754/
+          rm -rf dist-754/tests
+          DANJION_QA_API_URL="${DANJION_QA_API_URL}" node 04_개발/backend/scripts/qa-pages-runtime-bind.mjs dist-754
+
+          # Bind only the generated preview artifact to the isolated branch hostname.
+          # Source files remain byte-identical to PR #754.
+          node - <<'NODE'
+          const fs = require('fs');
+          const path = 'dist-754/assets/danjion-session.js';
+          let text = fs.readFileSync(path, 'utf8');
+          text = text.replaceAll('danjion-qa.pages.dev', 'preview-754.danjion-qa.pages.dev');
+          fs.writeFileSync(path, text);
+          NODE
+
+          printf '/*\n  X-Robots-Tag: noindex, nofollow\n' > dist-754/_headers
+          grep -Fq "preview-754.danjion-qa.pages.dev" dist-754/assets/danjion-session.js
+          grep -Fq "질문 유형은 현재 서버 게시 데이터에 별도 저장되지 않습니다." "dist-754/16_궁금해요_글쓰기.html"
+          grep -Fq "같이해요 유형과 세부 모집항목은 현재 서버에 별도 저장되지 않습니다." "dist-754/17_같이해요_글쓰기.html"
+          grep -Fq "다른 주민에게는 아직 보이지 않습니다." "dist-754/13_이웃대화_글상세_댓글.html"
+          echo "PR754_VISUAL_ARTIFACT=PASS"
+
+      - name: Deploy isolated Cloudflare Pages branch preview
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx wrangler@4.131.0 pages deploy dist-754             --project-name "${QA_PAGES_PROJECT}"             --branch "${PREVIEW_BRANCH}"             --commit-hash "${EXACT_754_SHA}"             --commit-message "PR #754 exact visual preview"
+
+      - name: Smoke exact #754 preview
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 12); do
+            root_status="$(curl --silent --show-error --output /tmp/root.html --write-out '%{http_code}' "${PREVIEW_URL}/" || true)"
+            q_status="$(curl --silent --show-error --location --output /tmp/q.html --write-out '%{http_code}' "${PREVIEW_URL}/16_%EA%B6%81%EA%B8%88%ED%95%B4%EC%9A%94_%EA%B8%80%EC%93%B0%EA%B8%B0.html" || true)"
+            t_status="$(curl --silent --show-error --location --output /tmp/t.html --write-out '%{http_code}' "${PREVIEW_URL}/17_%EA%B0%99%EC%9D%B4%ED%95%B4%EC%9A%94_%EA%B8%80%EC%93%B0%EA%B8%B0.html" || true)"
+            if [ "${root_status}" = "200" ] && [ "${q_status}" = "200" ] && [ "${t_status}" = "200" ]               && grep -Fq "질문 유형은 현재 서버 게시 데이터에 별도 저장되지 않습니다." /tmp/q.html               && grep -Fq "같이해요 유형과 세부 모집항목은 현재 서버에 별도 저장되지 않습니다." /tmp/t.html; then
+              echo "PR754_PREVIEW_SMOKE=PASS"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::PR #754 preview did not converge"
+          exit 1
