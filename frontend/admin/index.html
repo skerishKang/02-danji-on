@@ -395,6 +395,89 @@
       });
       actions.append(save,live);editor.append(actions);return editor;
     }
+    function householdMessageComposer(rows,apiBase){
+      const wrap=el('section',undefined,'admin-post-editor create');
+      wrap.append(
+        el('h3','세대별 메시지'),
+        el('p','세대·동·단지 범위를 선택하고 서버가 계산한 대상 수를 확인합니다. 작성 내용은 현재 브라우저에서만 유지되며 실제 발송·저장은 하지 않습니다.')
+      );
+      const targetType=document.createElement('select');targetType.setAttribute('aria-label','메시지 대상 범위');
+      [['unit','특정 세대'],['units','여러 세대'],['building','동 전체'],['all','단지 전체']].forEach(([value,label])=>{const option=document.createElement('option');option.value=value;option.textContent=label;targetType.append(option)});
+
+      const building=document.createElement('select');building.setAttribute('aria-label','대상 동');
+      const buildingCodes=[...new Set(rows.map((row)=>String(row.buildingCode||row.building_code||'')).filter(Boolean))];
+      buildingCodes.forEach((code)=>{const option=document.createElement('option');option.value=code;option.textContent=code+'동';building.append(option)});
+
+      const unit=document.createElement('select');unit.setAttribute('aria-label','대상 세대');unit.size=Math.min(Math.max(rows.length,4),10);
+      rows.forEach((row,index)=>{const option=document.createElement('option');option.value=String(index);option.textContent=String(row.buildingCode||row.building_code||'')+'동 '+String(row.unitCode||row.unit_code||'')+'호';unit.append(option)});
+      if(unit.options.length)unit.options[0].selected=true;
+
+      const title=document.createElement('input');title.maxLength=120;title.placeholder='메시지 제목';title.setAttribute('aria-label','메시지 제목');
+      const body=document.createElement('textarea');body.maxLength=2000;body.placeholder='주민에게 전달할 내용을 작성해 주세요.';body.setAttribute('aria-label','메시지 본문');
+
+      const grid=el('div',undefined,'admin-form-grid');
+      grid.append(
+        labeledField('대상 범위',targetType,false),
+        labeledField('동',building,false),
+        labeledField('세대',unit,true),
+        labeledField('제목',title,true),
+        labeledField('본문',body,true)
+      );
+      wrap.append(grid);
+
+      const preview=el('button','대상 미리보기','primary');preview.type='button';
+      const send=el('button','발송 · 승인 전 비활성');send.type='button';send.disabled=true;
+      const live=el('p','Production 발송은 별도 승인 후 활성화됩니다.','admin-review-status');live.setAttribute('aria-live','polite');
+      const actions=el('div',undefined,'admin-review-actions');actions.append(preview,send);wrap.append(actions,live);
+
+      const syncTargetControls=()=>{
+        const kind=targetType.value;
+        building.disabled=kind!=='building';
+        unit.disabled=kind!=='unit'&&kind!=='units';
+        unit.multiple=kind==='units';
+        if(kind==='unit'){
+          const selected=[...unit.selectedOptions];
+          if(selected.length>1)selected.slice(1).forEach((option)=>option.selected=false);
+          if(!unit.selectedOptions.length&&unit.options.length)unit.options[0].selected=true;
+        }
+      };
+      targetType.addEventListener('change',syncTargetControls);syncTargetControls();
+
+      preview.addEventListener('click',async()=>{
+        const kind=targetType.value;
+        let target={targetType:kind};
+        if(kind==='building'){
+          if(!building.value){live.className='admin-review-status error';live.textContent='대상 동을 선택해 주세요.';return}
+          target={targetType:kind,buildingCode:building.value};
+        }else if(kind==='unit'||kind==='units'){
+          const picked=[...unit.selectedOptions].map((option)=>rows[Number(option.value)]).filter(Boolean).map((row)=>({
+            buildingCode:String(row.buildingCode||row.building_code||''),
+            unitCode:String(row.unitCode||row.unit_code||'')
+          }));
+          if(kind==='unit'&&picked.length>1)picked.splice(1);
+          if(!picked.length){live.className='admin-review-status error';live.textContent='대상 세대를 선택해 주세요.';return}
+          target={targetType:kind,units:picked};
+        }
+        preview.disabled=true;live.className='admin-review-status';live.textContent='서버에서 대상 수를 확인하는 중…';
+        const outcome=await consoleApi.previewHouseholdMessageTargets(fetch,apiBase,target);
+        preview.disabled=false;
+        if(outcome.state==='preview'){
+          const data=outcome.data||{};
+          live.textContent='대상 '+Number(data.targetUnitCount||0)+'세대 · in-app 수신 계정 '+Number(data.recipientAccountCount||0)+'명 · 발송 비활성';
+          return;
+        }
+        if(outcome.state==='signed-out'){showRestricted('signed-out');return}
+        if(outcome.state==='scope-denied')live.textContent='현재 관리자 권한으로 세대별 메시지 대상을 조회할 수 없습니다.';
+        else if(outcome.state==='not-found')live.textContent='선택한 세대 또는 동을 찾을 수 없습니다.';
+        else if(outcome.state==='conflict')live.textContent='세대 연결이 모호해 대상 계산을 중단했습니다.';
+        else if(outcome.state==='invalid-request')live.textContent='대상 범위를 다시 확인해 주세요.';
+        else if(outcome.state==='network-error')live.textContent='API 연결에 실패했습니다. 잠시 후 다시 시도해 주세요.';
+        else live.textContent='대상 미리보기를 불러오지 못했습니다'+(outcome.code?' · '+outcome.code:'')+'.';
+        live.className='admin-review-status error';
+      });
+      return wrap;
+    }
+
     function householdCodeError(outcome){
       if(outcome.state==='scope-denied')return '현재 관리자 권한으로 주민인증 코드를 관리할 수 없습니다.';
       if(outcome.state==='not-found')return '대상 세대를 찾을 수 없습니다.';
@@ -505,6 +588,7 @@
         panel.replaceChildren(el('h2',section.title),el('p',section.description));
         if(section.id==='posts')panel.append(postComposer(panel,section,apiBase));
         if(section.id==='benefits')panel.append(await benefitComposer(panel,section,apiBase));
+        if(section.id==='householdMessages'){panel.append(householdMessageComposer(outcome.rows,apiBase));return}
         if(section.id==='verifications')panel.append(householdCodeComposer(panel,section,apiBase));
         if(!outcome.rows.length){
           const emptyMessage=section.id==='verifications'
