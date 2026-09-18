@@ -76,6 +76,25 @@
       return {ok:true,mode:'server',status:result.status,inquiry:normalizeInquiry(result.data)};
     }
 
+    async function addAttachment(inquiryId,input={}){
+      const id=String(inquiryId||'').toLowerCase();
+      if(!UUID.test(id))return {ok:false,mode:'client',error:'INQUIRY_ID_INVALID'};
+      const fileName=String(input.fileName||'').trim();
+      const contentType=String(input.contentType||'').trim().toLowerCase();
+      const dataBase64=String(input.dataBase64||'').replace(/\s+/g,'');
+      const sortOrder=Number(input.sortOrder);
+      if(!fileName||!['image/jpeg','image/png','image/webp','image/gif'].includes(contentType)||
+         !Number.isInteger(sortOrder)||sortOrder<0||sortOrder>2||!dataBase64){
+        return {ok:false,mode:'client',error:'ATTACHMENT_INVALID'};
+      }
+      const result=await requestJson(fetchImpl,`${apiBase}/api/v1/me/inquiries/${encodeURIComponent(id)}/attachments`,{
+        method:'POST',headers:{'content-type':'application/json'},
+        body:JSON.stringify({fileName,contentType,dataBase64,sortOrder})
+      });
+      if(!result.ok)return {...result,mode:result.status===401?'auth-required':result.status===403?'resident-verification-required':'error'};
+      return {ok:true,mode:'server',status:result.status,attachment:result.data};
+    }
+
     async function listMine(){
       const result=await requestJson(fetchImpl,`${apiBase}/api/v1/me/inquiries${listQuery}`,{method:'GET'});
        if(!result.ok)return {...result,mode:result.status===401?'auth-required':result.status===403?'resident-verification-required':'error',inquiries:[]};
@@ -83,7 +102,7 @@
       return {mode:'server',status:result.status,inquiries:rows.map(normalizeInquiry).filter(Boolean)};
     }
 
-    return {submit,submitGeneral,listMine,businessIdFromKey};
+    return {submit,submitGeneral,addAttachment,listMine,businessIdFromKey};
   }
 
   globalThis.DanjionInquiryBridge={createInquiryBridge,businessIdFromKey,normalizeInquiry};
