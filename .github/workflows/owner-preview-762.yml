@@ -219,7 +219,7 @@ jobs:
           set -euo pipefail
           jar="${RUNNER_TEMP}/owner-preview-762.cookies"
           email="owner-preview-762-${GITHUB_RUN_ID}@example.com"
-          password="Preview762-${GITHUB_RUN_ID}-Aa!"
+          password="$(node -e "process.stdout.write(require('crypto').randomBytes(24).toString('base64url') + 'Aa1!')")"
           signup_body="$(jq -nc --arg email "$email" --arg password "$password" '{email:$email,password:$password,name:"프리뷰 검증"}')"
           signup_status="$(curl -sS -c "$jar" -b "$jar" -o "${RUNNER_TEMP}/signup.json" -w '%{http_code}'             -H 'content-type: application/json' -d "$signup_body" "${PREVIEW_PAGES_URL}/api/auth/sign-up/email")"
           test "$signup_status" = "200" || { echo "::error::credential signup failed status=$signup_status"; exit 1; }
