@@ -3,7 +3,8 @@ import { readFile } from 'node:fs/promises';
 import vm from 'node:vm';
 
 // Assignment #347 [Leaf B11]: daily-home 04 wired to existing public/bookmark/news
-// authorities only. Static demo fallback preserved without apiBase.
+// authorities only. Static demo behavior remains only when apiBase is absent; canonical
+// Production fails closed to loading/empty/error server-owned states.
 // CENTRAL review 5623904320: verified-resident lane (resident-news) uses the canonical
 // DanjionSession credentials-included transport; representative_image_object_key must
 // never become an <img src> — only the proven /api/v1/storage/public proxy or local fallback.
@@ -38,7 +39,7 @@ assert.ok(f05.includes('data-danjion-page="5"') && f05.includes('danjion-direct-
 assert.ok(f04.includes('assets/danjion-session.js'), '04 must load the canonical DanjionSession runtime');
 const bridgeTagAt = f04.indexOf('assets/saved-shops-bridge.js');
 const wiringAt = f04.indexOf('loadHomeAuthority');
-const bootAt = f04.indexOf('syncSaveButton();restart();');
+const bootAt = f04.indexOf("if(!HOME_SERVER_MODE){syncSaveButton();restart()}");
 assert.ok(bridgeTagAt > -1, '04 must load the saved-shops bridge script');
 assert.ok(f04.indexOf('assets/danjion-session.js') < bootAt, '04 session script must load before the inline wiring boots');
 assert.ok(bootAt > -1 && bridgeTagAt < bootAt, '04 bridge script must load before the inline wiring boots');
@@ -50,7 +51,8 @@ assert.ok(f04.includes('const HOME_API_BASE=DanjionSession.danjionApiBase()'),
 assert.ok(/async function loadHomeAuthority\(\)\{\s*if\(!HOME_API_BASE\)return;/.test(f04),
   '04 must return before any fetch when apiBase is absent (demo/static fallback)');
 assert.ok(f04.includes("food:{i:1,name:'오늘의 반찬'"), '04 static demo scenes must remain for the no-apiBase lane');
-assert.ok(f04.includes('keeping demo scenes'), '04 must log and keep demo scenes when the businesses authority fails');
+assert.ok(f04.includes("showHomeAuthorityState('이웃가게를 불러오지 못했습니다.'"), '04 must render a truthful server-error scene when business authority fails');
+assert.ok(!f04.includes('keeping demo scenes'), '04 canonical Production must not preserve demo businesses after server failure');
 
 /* --- 04: existing authorities only, public GET for public lanes --- */
 assert.ok(f04.includes('/businesses?limit=4'), '04 scenes must read the public businesses list authority');
@@ -69,15 +71,19 @@ assert.ok(f04.includes("await DanjionSession.request(fetch,DanjionSession.joinUr
 assert.ok(!/homePublicJson\([^)]*resident-news/.test(f04) && !f04.includes("newsBase+'/resident-news?limit=1'"),
   '04 must not fetch resident-news over the anonymous public transport');
 assert.ok(f04.includes('result.data.posts'), '04 must read the server {data:{posts}} envelope shape for resident-news');
-assert.ok(f04.includes('home resident-news lane unavailable, keeping demo copy'),
-  '04 resident-news lane must fail closed to the demo copy');
+assert.ok(f04.includes("el.textContent='주민소식을 불러오지 못했습니다.'"),
+  '04 resident-news lane must fail closed to a truthful error row');
+assert.ok(!f04.includes('keeping demo copy'),
+  '04 resident-news lane must not preserve prototype copy in canonical Production');
 
 /* --- 04: bookmark save routes through the server bridge only when present --- */
 assert.ok(f04.includes('DanJionSavedShopsBridge.create({apiBase:HOME_API_BASE})'),
   '04 must create the saved-shops bridge with the same apiBase');
 assert.ok(f04.includes('await __homeBridge.load()'), '04 must load server bookmark state before rendering');
-assert.ok(f04.includes('__homeBridge?__homeBridge.isSaved(key):getSaved().includes(key)'),
-  '04 save button state must prefer the bridge and fall back to local storage');
+assert.ok(f04.includes("serverReady?__homeBridge.isSaved(key):(!HOME_SERVER_MODE&&getSaved().includes(key))"),
+  '04 save button may read local storage only in explicit no-api preview mode');
+assert.ok(f04.includes("b.disabled=HOME_SERVER_MODE&&!serverReady"),
+  '04 must disable save while canonical bookmark authority is unavailable');
 assert.ok(f04.includes('await __homeBridge.toggle(key)'), '04 save click must toggle via the bridge in server mode');
 assert.ok(f04.includes('저장 상태를 서버에 반영하지 못했어요'), '04 must fail closed with an explicit toast on bridge errors');
 assert.ok(f04.includes("'danjion:savedShops'"), '04 must keep the local danjion:savedShops fallback for the no-bridge lane');
