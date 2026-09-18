@@ -137,11 +137,34 @@ h1{margin:17px 0 8px;font-size:30px;line-height:1.18;letter-spacing:-.045em}
  const title=document.getElementById('title'),body=document.getElementById('body');
  const key='danjionDraft:15';
  const COMMUNITY='12_이웃대화_첫화면.html?type=story&apiBase='+encodeURIComponent(apiBase);
- function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(window.__toast);window.__toast=setTimeout(()=>t.classList.remove('show'),1700)}
+ const DETAIL='13_이웃대화_글상세_댓글.html';
+ const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+ const publishButtons=[...document.querySelectorAll('[data-publish]')];
+ function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(window.__toast);window.__toast=setTimeout(()=>t.classList.remove('show'),2100)}
+ function setBusy(on){publishButtons.forEach(b=>{b.disabled=on;b.setAttribute('aria-busy',String(on))})}
  function serverMessage(r){
-  if(r.mode==='auth-required')return '로그인이 만료되었습니다. 다시 로그인한 뒤 이용해 주세요.';
-  if(r.error&&r.error.message)return r.error.message;
+  if(r&&r.mode==='auth-required'){
+   if(r.status===403){
+    const code=String(r.error&&r.error.code||'');
+    if(code==='RESIDENT_VERIFICATION_REQUIRED'||code==='HOUSEHOLD_ASSOCIATION_REQUIRED')return '우리집 연결과 주민 확인을 완료한 뒤 글을 게시할 수 있습니다.';
+    return '이 계정은 현재 글쓰기 권한이 없습니다.';
+   }
+   return '로그인이 만료되었습니다. 다시 로그인한 뒤 이용해 주세요.';
+  }
+  if(r&&r.error&&r.error.message)return r.error.message;
   return '서버 연결에 실패했습니다. 잠시 후 다시 시도해 주세요.';
+ }
+ function nextHref(post){
+  const postId=String(post&&post.id||'').toLowerCase();
+  return UUID.test(postId)
+   ? DETAIL+'?apiBase='+encodeURIComponent(apiBase)+'&post='+encodeURIComponent(postId)
+   : COMMUNITY;
+ }
+ {
+  const photoBtn=document.getElementById('photoBtn'),photos=document.getElementById('photos'),count=document.getElementById('photoCount');
+  if(photoBtn){photoBtn.disabled=true;photoBtn.textContent='사진 첨부 준비 중';photoBtn.title='현재 서버 게시에는 사진 첨부가 아직 저장되지 않습니다.'}
+  if(photos)photos.disabled=true;
+  if(count)count.textContent='현재 미지원';
  }
  let busy=false;
  document.addEventListener('click',ev=>{
@@ -150,15 +173,15 @@ h1{margin:17px 0 8px;font-size:30px;line-height:1.18;letter-spacing:-.045em}
   if(busy)return;
   if(!title.value.trim()){toast('제목을 입력해주세요.');title.focus();return}
   if(body.value.trim().length<5){toast('내용을 조금 더 적어주세요.');body.focus();return}
-  busy=true;
+  busy=true;setBusy(true);
   bridge.createPost({kind:'resident_story',title:title.value.trim(),body:body.value.trim()}).then(r=>{
    if(r.ok&&r.mode==='server'){
     try{localStorage.removeItem(key)}catch(e){}
-    toast(r.post&&r.post.status!=='published'?'게시 요청이 접수되었습니다. 심사 후 공개됩니다.':'게시했습니다.');
-    setTimeout(()=>{location.href=COMMUNITY},650);
+    const pending=r.post&&r.post.status!=='published';
+    toast(pending?'게시 요청이 저장되었습니다. 공개 전 상태를 확인합니다.':'게시했습니다.');
+    setTimeout(()=>{location.href=nextHref(r.post)},650);
    }else toast(serverMessage(r));
-   busy=false;
-  });
+  }).catch(()=>toast('서버 연결에 실패했습니다. 잠시 후 다시 시도해 주세요.')).finally(()=>{busy=false;setBusy(false)});
  },true);
  document.addEventListener('click',ev=>{
   if(!ev.target.closest('.back'))return;
