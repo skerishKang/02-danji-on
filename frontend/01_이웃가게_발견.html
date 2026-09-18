@@ -1240,11 +1240,11 @@ grid.addEventListener('keydown',e=>{
      relation,
      image:(b.representative_image_object_key??b.representativeImageObjectKey)||'assets/scene-car.webp',
      representativeImageObjectKey:(b.representative_image_object_key??b.representativeImageObjectKey)||'',
-     desc:desc||'등록된 소개가 아직 없습니다.',
-     service:service||'1:1 문의로 확인',
-     way:'가게 안내에 따릅니다.',
-     location:(b.service_area??b.serviceArea)||'단지 인근 생활권',
-     contact:'1:1 문의로 확인',
+      desc,
+      service,
+      way:'',
+      location:(b.service_area??b.serviceArea)||'',
+      contact:'',
      reviews:[],
       benefit:benefit.title||'주민 전용 혜택',
       value:benefit.value||benefit.conditions||'혜택',
@@ -1261,14 +1261,21 @@ grid.addEventListener('keydown',e=>{
      ? DISCOVERY_API_BASE+'/api/v1/storage/public?objectKey='+encodeURIComponent(key)
      : '';
  }
- function reconcileApiShop(live,staticByName){
-   const base=staticByName.get(normalizedBusinessName(live.name));
-   const resolvedImage=liveBusinessImage(live.representativeImageObjectKey);
-   return {
-     ...live,
-     image:resolvedImage||(base?base.image:live.image),
-     presentationKey:base?base.key:undefined
-   };
+  function reconcileApiShop(live,staticByName){
+    const base=staticByName.get(normalizedBusinessName(live.name));
+    const resolvedImage=liveBusinessImage(live.representativeImageObjectKey);
+    return {
+      ...(base||{}),
+      ...live,
+      image:resolvedImage||(base?base.image:live.image),
+      desc:live.desc||base?.desc||'등록된 소개가 아직 없습니다.',
+      service:live.service||base?.service||'1:1 문의로 확인',
+      way:live.way||base?.way||'가게 안내에 따릅니다.',
+      location:live.location||base?.location||'단지 인근 생활권',
+      contact:live.contact||base?.contact||'1:1 문의로 확인',
+      benefit:live.benefit&&live.benefit!=='주민 전용 혜택'?live.benefit:(base?.benefit||'주민 전용 혜택'),
+      presentationKey:base?base.key:undefined
+    };
  }
  function reconcileApiShops(list){
    const staticByName=new Map(__V3_PRESENTATION.map(s=>[normalizedBusinessName(s.name),s]));
