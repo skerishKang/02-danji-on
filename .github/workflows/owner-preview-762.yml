@@ -1,0 +1,184 @@
+name: Owner Preview 762
+
+on:
+  push:
+    branches:
+      - 'fix/owner-preview-qa-762'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: owner-preview-762
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Deploy owner QA preview 762
+    runs-on: ubuntu-latest
+    environment: qa
+    env:
+      PREVIEW_PAGES_PROJECT: danjion-qa
+      PREVIEW_PAGES_BRANCH: owner-preview-762
+      PREVIEW_PAGES_HOST: owner-preview-762.danjion-qa.pages.dev
+      PREVIEW_PAGES_URL: https://owner-preview-762.danjion-qa.pages.dev
+      PREVIEW_WORKER_NAME: padiem-danjion-api-owner-preview-762
+      PREVIEW_WORKER_URL: https://padiem-danjion-api-owner-preview-762.padiem.workers.dev
+      CLOUDFLARE_API_TOKEN: ${{ secrets.DANJION_QA_CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.DANJION_QA_CLOUDFLARE_ACCOUNT_ID }}
+      DANJION_QA_DATABASE_URL: ${{ secrets.DANJION_QA_DATABASE_URL }}
+      DANJION_QA_BETTER_AUTH_SECRET: ${{ secrets.DANJION_QA_BETTER_AUTH_SECRET }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Safety gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = 'refs/heads/fix/owner-preview-qa-762'
+          for key in CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID DANJION_QA_DATABASE_URL DANJION_QA_BETTER_AUTH_SECRET; do
+            test -n "${!key:-}" || { echo "::error::Missing QA-only input: $key"; exit 1; }
+          done
+          test "${#DANJION_QA_BETTER_AUTH_SECRET}" -ge 32
+          test "${PREVIEW_PAGES_HOST}" != "danjion.pages.dev"
+          test "${PREVIEW_PAGES_HOST}" != "danjion-qa.pages.dev"
+          test "${PREVIEW_WORKER_NAME}" != "padiem-danjion-api-production"
+          test "${PREVIEW_WORKER_NAME}" != "padiem-danjion-api-qa"
+          echo "OWNER_PREVIEW_762_ISOLATION=PASS"
+
+      - name: Validate branch source
+        working-directory: 04_개발/backend
+        run: |
+          npm ci
+          npm run typecheck
+
+      - name: Prepare preview Worker source/config
+        shell: bash
+        run: |
+          set -euo pipefail
+          # This patch is deployment-only: preview origin is accepted by the preview Worker.
+          sed -i 's#https://danjion-qa.pages.dev#https://owner-preview-762.danjion-qa.pages.dev#g'             04_개발/backend/src/auth-better-v1.ts
+          cp 04_개발/backend/wrangler.jsonc 04_개발/backend/wrangler.owner-preview-762.jsonc
+          node - <<'NODE'
+          const fs=require('fs');
+          const path='04_개발/backend/wrangler.owner-preview-762.jsonc';
+          let text=fs.readFileSync(path,'utf8');
+          if(!text.includes('"name": "padiem-danjion-api-qa"')) throw new Error('QA Worker anchor missing');
+          text=text.replace('"name": "padiem-danjion-api-qa"','"name": "padiem-danjion-api-owner-preview-762"');
+          fs.writeFileSync(path,text);
+          NODE
+          secret_file="${RUNNER_TEMP}/owner-preview-762-secrets.json"
+          jq -n --arg db "${DANJION_QA_DATABASE_URL}" --arg auth "${DANJION_QA_BETTER_AUTH_SECRET}"             '{DATABASE_URL:$db,BETTER_AUTH_SECRET:$auth}' > "$secret_file"
+          chmod 600 "$secret_file"
+          echo "PREVIEW_SECRET_FILE=$secret_file" >> "$GITHUB_ENV"
+
+      - name: Deploy preview Worker
+        working-directory: 04_개발/backend
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx wrangler@4.131.0 deploy             --config wrangler.owner-preview-762.jsonc             --env qa             --secrets-file "${PREVIEW_SECRET_FILE}"             --var 'APP_ENV:qa'             --var 'DEV_AUTH_BYPASS:false'             --var 'AUTH_REQUIRE_EMAIL_VERIFICATION:false'             --var "DANJION_AUTH_BASE_URL:${PREVIEW_WORKER_URL}"             --var "AUTH_CANONICAL_PUBLIC_BASE_URL:${PREVIEW_PAGES_URL}"             --var "CORS_ALLOWED_ORIGINS:${PREVIEW_PAGES_URL}"             --var "AUTH_TRUSTED_ORIGINS:${PREVIEW_PAGES_URL}"
+          echo "OWNER_PREVIEW_762_WORKER=PASS"
+
+      - name: Verify preview Worker
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 15); do
+            code="$(curl -sS -o "${RUNNER_TEMP}/health.json" -w '%{http_code}' "${PREVIEW_WORKER_URL}/api/health" || true)"
+            if [ "$code" = "200" ] && jq -e '.data.status=="ok" and .data.database=="ok"' "${RUNNER_TEMP}/health.json" >/dev/null 2>&1; then
+              echo "OWNER_PREVIEW_762_WORKER_HEALTH=PASS"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::preview Worker failed health"
+          exit 1
+
+      - name: Assemble Pages preview
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf dist-owner-preview-762
+          mkdir -p dist-owner-preview-762
+          cp -R frontend/. dist-owner-preview-762/
+          rm -rf dist-owner-preview-762/tests
+
+          # Branch preview is credential-auth only. Hide unsupported social buttons rather than presenting a broken path.
+          node - <<'NODE'
+          const fs=require('fs');
+          const index='dist-owner-preview-762/index.html';
+          let html=fs.readFileSync(index,'utf8');
+          html=html.replace(
+            '<button class="auth-option kakao" data-social="카카오"><i>K</i><span>카카오로 계속하기</span><span class="arrow">→</span></button><button class="auth-option google" data-social="Google"><i>G</i><span>Google로 계속하기</span><span class="arrow">→</span></button>',
+            ''
+          );
+          html=html.replace(
+            '<div class="auth-options">',
+            '<p class="modal-lead"><b>프리뷰 안내:</b> 이 격리 QA에서는 이메일 로그인만 사용합니다. Google·Kakao는 Production OAuth와 분리되어 있습니다.</p><div class="auth-options">'
+          );
+          fs.writeFileSync(index,html);
+
+          const previewHost='owner-preview-762.danjion-qa.pages.dev';
+          const previewOrigin='https://'+previewHost;
+          const previewWorker='https://padiem-danjion-api-owner-preview-762.padiem.workers.dev';
+          const session='dist-owner-preview-762/assets/danjion-session.js';
+          let runtime=fs.readFileSync(session,'utf8').replaceAll('danjion-qa.pages.dev',previewHost);
+          fs.writeFileSync(session,runtime);
+          for(const path of ['functions/_lib/auth-facade.js','functions/_lib/app-facade.js']){
+            let text=fs.readFileSync(path,'utf8');
+            text=text.replaceAll('https://danjion-qa.pages.dev',previewOrigin);
+            text=text.replaceAll('https://padiem-danjion-api-qa.padiem.workers.dev',previewWorker);
+            fs.writeFileSync(path,text);
+          }
+          NODE
+
+          printf '/*\n  X-Robots-Tag: noindex, nofollow\n' > dist-owner-preview-762/_headers
+          grep -Fq "우리집 연결하기" "dist-owner-preview-762/26_우리집연결.html"
+          ! grep -Fq 'id="nickname"' "dist-owner-preview-762/26_우리집연결.html"
+          grep -Fq "한 줄 소개는 다른 주민이 보는 공개 프로필에 표시됩니다" "dist-owner-preview-762/19_내정보_메인.html"
+          grep -Fq "1~3개 필수" "dist-owner-preview-762/25A_신청제보.html"
+          echo "OWNER_PREVIEW_762_ARTIFACT=PASS"
+
+      - name: Deploy Pages branch preview
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx wrangler@4.131.0 pages deploy dist-owner-preview-762             --project-name "${PREVIEW_PAGES_PROJECT}"             --branch "${PREVIEW_PAGES_BRANCH}"             --commit-hash "${GITHUB_SHA}"             --commit-message "Owner QA #762 preview"
+          echo "OWNER_PREVIEW_762_PAGES=PASS"
+
+      - name: Smoke Pages + same-origin auth/app facades
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 18); do
+            root="$(curl -sS -o "${RUNNER_TEMP}/root.html" -w '%{http_code}' "${PREVIEW_PAGES_URL}/" || true)"
+            session="$(curl -sS -o "${RUNNER_TEMP}/session.json" -D "${RUNNER_TEMP}/session.h" -w '%{http_code}' "${PREVIEW_PAGES_URL}/api/auth/get-session" || true)"
+            me="$(curl -sS -o "${RUNNER_TEMP}/me.json" -D "${RUNNER_TEMP}/me.h" -w '%{http_code}' "${PREVIEW_PAGES_URL}/api/v1/me" || true)"
+            if [ "$root" = 200 ] && [ "$session" = 200 ] && [ "$me" = 401 ]               && grep -qi '^x-danjion-auth-facade: danjion-auth-facade/v1' "${RUNNER_TEMP}/session.h"               && grep -qi '^x-danjion-app-facade: danjion-app-facade/v1' "${RUNNER_TEMP}/me.h"; then
+              echo "OWNER_PREVIEW_762_FACADE_SMOKE=PASS"
+              exit 0
+            fi
+            sleep 3
+          done
+          exit 1
+
+      - name: Record isolation
+        shell: bash
+        run: |
+          {
+            echo '## Owner QA preview #762'
+            echo '- Pages: https://owner-preview-762.danjion-qa.pages.dev'
+            echo '- Worker: isolated preview Worker'
+            echo '- DB: existing QA DB'
+            echo '- Social OAuth: disabled/hidden in preview'
+            echo '- Production mutation: 0'
+            echo '- main mutation: 0'
+          } >> "$GITHUB_STEP_SUMMARY"
