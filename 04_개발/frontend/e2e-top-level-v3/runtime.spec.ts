@@ -1381,3 +1381,154 @@ test('#615 SUPER global audit viewer is hidden from operators and renders only p
   expect(unexpectedMutations).toEqual([]);
   expect(pageErrors).toEqual([]);
 });
+
+// #767 (owner live QA round 2, from #762): the canonical community write screens
+// used to render 말머리 selectors that never reached the server. This gate proves
+// the acceptance criterion end to end inside a real browser: the selected 말머리 is
+// visible on the write screen before submit, rides the canonical write payload, and
+// is rendered back from server data on the published item.
+test('#767 community write carries the selected 말머리 to the server and renders it back', async ({ page }) => {
+  const POST_ID = 'a0a1c4a1-1111-4111-8111-111111111111';
+  const TITLE = '주차장 진입로 공사 문의';
+  const BODY = '이번 주 진입로 공사 시간을 미리 알고 싶습니다.';
+  const posted: any[] = [];
+  const pageErrors: string[] = [];
+  const unexpectedMutations: string[] = [];
+  let stored: any = null;
+
+  page.on('pageerror', error => pageErrors.push(error.stack || error.message));
+
+  await page.route('**/*', async route => {
+    const request = route.request();
+    const url = new URL(request.url());
+    const method = request.method().toUpperCase();
+    const local = url.origin === BASE;
+
+    if (!local) {
+      if (!['GET', 'HEAD', 'OPTIONS'].includes(method)) unexpectedMutations.push(method + ' ' + request.url());
+      await route.fulfill({ status: 204, body: '' });
+      return;
+    }
+
+    if (!url.pathname.startsWith('/api/')) {
+      await route.continue();
+      return;
+    }
+
+    if (url.pathname === '/api/auth/get-session') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          session: { id: 'runtime-session', userId: 'runtime-member', expiresAt: '2099-01-01T00:00:00.000Z' },
+          user: {
+            id: 'runtime-member',
+            name: '런타임 주민',
+            email: 'runtime-member@example.invalid',
+            emailVerified: true,
+            createdAt: '2026-01-01T00:00:00.000Z'
+          }
+        })
+      });
+      return;
+    }
+
+    if (url.pathname === '/api/auth/list-accounts') {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([{ providerId: 'credential' }]) });
+      return;
+    }
+
+    const community = '/api/v1/complexes/' + COMPLEX + '/community/posts';
+    if (url.pathname === community && method === 'POST') {
+      const body = JSON.parse(request.postData() || '{}');
+      posted.push(body);
+      stored = {
+        id: POST_ID,
+        kind: body.kind,
+        category: body.category ?? null,
+        title: body.title,
+        body: body.body,
+        status: 'pending_review',
+        author: { nickname: '런타임 주민' },
+        reactionCount: 0,
+        commentCount: 0,
+        viewerLiked: false,
+        publishedAt: null,
+        createdAt: '2026-09-16T12:00:00.000Z',
+        updatedAt: '2026-09-16T12:00:00.000Z'
+      };
+      await route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify({ data: stored }) });
+      return;
+    }
+
+    if (url.pathname === community + '/' + POST_ID && method === 'GET') {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: stored }) });
+      return;
+    }
+
+    if (url.pathname === community + '/' + POST_ID + '/comments' && method === 'GET') {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [] }) });
+      return;
+    }
+
+    if (!['GET', 'HEAD', 'OPTIONS'].includes(method)) {
+      unexpectedMutations.push(method + ' ' + url.pathname);
+      await route.fulfill({
+        status: 409,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: { code: 'TEST_MUTATION_BLOCKED' } })
+      });
+      return;
+    }
+
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [] }) });
+  });
+
+  await page.goto(withApi('/16_궁금해요_글쓰기.html'));
+
+  // 1. The selected 말머리 is visible on the write screen before submit.
+  await expect(page.locator('[data-danjion-page="16"]')).toBeVisible();
+  await expect(page.locator('#categoryChip')).toHaveText('궁금해요 · 생활·살림');
+  await page.locator('.type-tab[data-type="단지시설"]').click();
+  await expect(page.locator('.type-tab[data-type="단지시설"]')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('#categoryChip')).toHaveText('궁금해요 · 단지시설');
+
+  await page.locator('#title').fill(TITLE);
+  await page.locator('#body').fill(BODY);
+  await page.locator('.publish').click();
+
+  // 2. The selected 말머리 rides the canonical server write payload.
+  await expect.poll(() => posted.length).toBe(1);
+  expect(posted[0]).toEqual({ kind: 'question', title: TITLE, body: BODY, category: '단지시설' });
+
+  // 3. The stored server value is rendered back as the 말머리 on the detail screen.
+  await page.waitForURL(url => url.searchParams.get('post') === POST_ID);
+  await expect(page.locator('#typeLabel')).toHaveText('궁금해요 · 단지시설');
+  await expect(page.locator('#title')).toHaveText(TITLE);
+  await expect(page.locator('#body')).toHaveText(BODY);
+  await expect(page.locator('#interactionStatus')).toContainText('공개 전 확인 대기 중');
+
+  expect(unexpectedMutations).toEqual([]);
+  expect(pageErrors).toEqual([]);
+});
+
+// #767: every 함께해요 activity type must map onto its own canonical server category.
+// Collapsing the four types into one generic value was the reported defect.
+test('#767 together write exposes each canonical 유형 as an exact 말머리', async ({ page }) => {
+  const CANONICAL: Array<[string, string]> = [
+    ['walk', '산책·운동'],
+    ['hobby', '취미활동'],
+    ['parent', '육아 같이해요'],
+    ['group', '공동구매']
+  ];
+
+  await page.goto(withApi('/17_같이해요_글쓰기.html'));
+  await expect(page.locator('[data-danjion-page="17"]')).toBeVisible();
+  await expect(page.locator('.type-tab')).toHaveCount(CANONICAL.length);
+
+  for (const [kind, category] of CANONICAL) {
+    await page.locator('.type-tab[data-kind="' + kind + '"]').click();
+    await expect(page.locator('.type-tab[data-kind="' + kind + '"]')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('#categoryChip')).toHaveText('같이해요 · ' + category);
+  }
+});
