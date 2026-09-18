@@ -247,14 +247,42 @@ for (const [name, page, id, kind, chip] of [['14', page14, 'danjion-community-wr
   const wiring = wiringScript(page, id);
   assert.match(wiring, new RegExp(`kind:'${kind}'`), `${name} publishes only its v1 kind`);
   assert.match(wiring, /bridge\.createPost\(/);
-  assert.match(wiring, new RegExp(`type=${chip}&apiBase=`), `${name} returns to its board with apiBase`);
-  assert.match(wiring, /심사 후 공개됩니다/, `${name} reports review mode truthfully`);
+  assert.match(wiring, new RegExp(`type=${chip}&apiBase=`), `${name} keeps a board fallback with apiBase`);
+  assert.match(wiring, /13_이웃대화_글상세_댓글\.html/, `${name} routes accepted writes to server detail evidence`);
+  assert.match(wiring, /UUID\.test\(postId\)/, `${name} only trusts a canonical returned post id for detail routing`);
+  assert.match(wiring, /r\.status===403/, `${name} distinguishes verified-resident denial from session expiry`);
+  assert.match(wiring, /우리집 연결과 주민 확인을 완료한 뒤/, `${name} gives an actionable resident-authorization message`);
+  assert.match(wiring, /setBusy\(true\)/, `${name} disables duplicate publish while the server write is in flight`);
+  assert.match(wiring, /공개 전 상태를 확인합니다/, `${name} reports pending-review acceptance truthfully`);
   assert.match(wiring, /localStorage\.removeItem\(/, `${name} clears the demo draft after real submit`);
+}
+for (const [name, page, id] of [
+  ['14', page14, 'danjion-community-write-greeting-live-wiring-348'],
+  ['15', page15, 'danjion-community-write-story-live-wiring-329'],
+  ['16', page16, 'danjion-community-write-question-live-wiring-329']
+]) {
+  const wiring = wiringScript(page, id);
+  assert.match(wiring, /photoBtn\.disabled=true/, `${name} does not claim unsupported server photo persistence`);
+  assert.match(wiring, /현재 미지원/, `${name} makes the photo limitation visible in server mode`);
+}
+{
+  const w16 = wiringScript(page16, 'danjion-community-write-question-live-wiring-329');
+  assert.match(w16, /\.type-tab'\)\.forEach\(b=>\{b\.disabled=true/, '16 disables question subtype controls that are not persisted');
+  assert.match(w16, /toggle\.disabled=true/, '16 disables the unsupported per-post 1:1 receive setting');
 }
 {
   const w17 = wiringScript(page17, 'danjion-community-write-together-live-wiring-329');
-  assert.match(w17, /input\[required\]/, '17 keeps the required dynamic-field gate');
-  assert.match(w17, /fieldLabel\(i\)\+': '\+v/, '17 preserves dynamic form answers in the post body');
+  assert.match(w17, /dynamic\.hidden=true/, '17 hides unsupported structured persistence in canonical server mode');
+  assert.match(w17, /body:body\.value\.trim\(\)/, '17 sends only the canonical title/body contract');
+  assert.doesNotMatch(w17, /fieldLabel\(i\)\+': '\+v|function compose\(/,
+    '17 must not body-encode unsupported structured fields');
+}
+{
+  const w13 = wiringScript(page13, 'danjion-community-detail-live-wiring-329');
+  assert.match(w13, /if\(post\.status!=='published'\)/, '13 must render author-visible pending posts as a distinct state');
+  assert.match(w13, /다른 주민에게는 아직 보이지 않습니다/, '13 explains the pending visibility boundary');
+  assert.match(w13, /likeBtn\.disabled=true/, '13 blocks reactions while the post is pending');
+  assert.match(w13, /commentText\.disabled=true/, '13 blocks comments while the post is pending');
 }
 
 /* ---------- 7. demo behavior stays intact for no-apiBase visitors ---------- */
