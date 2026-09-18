@@ -64,11 +64,11 @@
     <section class="layout">
       <article class="intro">
         <small>BANGLIM ROADHILL · MY HOME</small>
-        <h2>닉네임을 정하고<br>우리집을 선택합니다.</h2>
-        <p>단지온 계정과 우리집 연결은 분리해 관리합니다. 동·호는 서버의 실제 세대 목록에서 선택하며 공개 프로필에는 표시하지 않습니다.</p>
+        <h2>우리집을<br>선택합니다.</h2>
+        <p>닉네임은 내정보에서 관리하고, 이 화면에서는 살고 있는 동·호만 선택합니다. 동·호는 공개 프로필이나 게시글에 표시하지 않습니다.</p>
         <div class="steps">
           <div class="step"><b>01</b><span>Google · Kakao · 이메일로 로그인합니다.</span></div>
-          <div class="step"><b>02</b><span>이웃에게 보일 닉네임과 동·호를 선택합니다.</span></div>
+          <div class="step"><b>02</b><span>살고 있는 동·호를 선택합니다.</span></div>
           <div class="step"><b>03</b><span>같은 세대 기본 2명까지 자동 연결하고, 3명째부터 운영팀이 확인합니다.</span></div>
         </div>
       </article>
@@ -80,12 +80,11 @@
 
         <div id="onboardingView" hidden>
           <div class="form">
-            <div class="field"><label for="nickname">닉네임</label><input id="nickname" maxlength="40" autocomplete="nickname" placeholder="이웃에게 보일 이름"></div>
             <div class="picker">
               <div class="field"><label for="buildingSelect">동</label><select id="buildingSelect" aria-label="동 선택"><option value="">동 선택</option></select></div>
               <div class="field"><label for="unitSelect">호</label><select id="unitSelect" aria-label="호 선택" disabled><option value="">호 선택</option></select></div>
             </div>
-            <button class="primary" id="connectButton" type="button">닉네임 저장하고 우리집 연결하기</button>
+            <button class="primary" id="connectButton" type="button">우리집 연결하기</button>
             <p class="live" id="connectLive" aria-live="polite"></p>
           </div>
           <div class="links"><button class="secondary" type="button" onclick="location.href='25_1대1문의.html'">연결이 안 되면 문의하기</button><button class="secondary" type="button" onclick="location.href='19_내정보_메인.html'">나중에 연결하기</button></div>
@@ -115,12 +114,12 @@
 
     const $=id=>document.getElementById(id);
     const title=$('statusTitle'),copy=$('statusCopy'),onboarding=$('onboardingView'),resultView=$('resultView'),signedOut=$('signedOutView');
-    const building=$('buildingSelect'),unit=$('unitSelect'),nickname=$('nickname'),connect=$('connectButton'),live=$('connectLive');
+    const building=$('buildingSelect'),unit=$('unitSelect'),connect=$('connectButton'),live=$('connectLive');
     let units=[];
 
     function part(value,suffix){const v=String(value||'').trim();return v.endsWith(suffix)?v:v+suffix}
     function setLive(message,kind=''){live.textContent=message||'';live.className='live'+(kind?' '+kind:'')}
-    function showSignedOut(){onboarding.hidden=true;resultView.hidden=true;signedOut.hidden=false;title.textContent='로그인이 필요해요';copy.textContent='로그인 후 닉네임과 동·호를 선택해 주세요.'}
+    function showSignedOut(){onboarding.hidden=true;resultView.hidden=true;signedOut.hidden=false;title.textContent='로그인이 필요해요';copy.textContent='로그인 후 살고 있는 동·호를 선택해 주세요.'}
     function showError(message){onboarding.hidden=true;resultView.hidden=true;signedOut.hidden=true;title.textContent='우리집 상태를 확인하지 못했습니다';copy.textContent=message||'잠시 후 다시 시도해 주세요.'}
     function showResult(data){
       onboarding.hidden=true;resultView.hidden=false;signedOut.hidden=true;
@@ -152,7 +151,7 @@
       if(!S||!household||!resident||!cfg.enabled){showError('이 환경에서는 우리집 연결을 실행하지 않습니다.');return}
       const session=await S.fetchSession(fetch);
       if(!S.nativeSessionReady(session)){showSignedOut();return}
-      const [snapshot,profile]=await Promise.all([household.getSnapshot(),resident.profile()]);
+      const snapshot=await household.getSnapshot();
       if(snapshot.ok&&snapshot.data&&snapshot.data.unit){
         const me=snapshot.data.myMembership||{};
         showResult({
@@ -172,22 +171,18 @@
       if(!master.ok){showError('동·호 목록을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.');return}
       units=master.data.units||[];
       if(!units.length){showError('연결할 수 있는 세대 목록이 아직 준비되지 않았습니다.');return}
-      if(profile.ok&&profile.profile)nickname.value=String(profile.profile.nickname||'').trim();
       fillBuildings();
-      title.textContent='닉네임과 우리집을 선택해 주세요';
+      title.textContent='우리집을 선택해 주세요';
       copy.textContent='서버에 등록된 방림명지로드힐 동·호 목록에서 선택합니다.';
       onboarding.hidden=false;resultView.hidden=true;signedOut.hidden=true;
     }
 
     connect.addEventListener('click',async()=>{
-      const nick=nickname.value.trim(),unitId=unit.value;
+      const unitId=unit.value;
       setLive('');
-      if(!nick){setLive('닉네임을 입력해 주세요.','error');nickname.focus();return}
       if(!building.value||!unitId){setLive('동과 호를 모두 선택해 주세요.','error');return}
       connect.disabled=true;connect.textContent='연결 중…';
       try{
-        const profile=await resident.updateProfile({nickname:nick});
-        if(!profile.ok){setLive(profile.mode==='auth-required'?'로그인 상태를 다시 확인해 주세요.':'닉네임을 저장하지 못했습니다. 잠시 후 다시 시도해 주세요.','error');return}
         const associated=await household.associate(unitId);
         if(!associated.ok){
           const code=associated.error&&associated.error.code;
@@ -198,7 +193,7 @@
         }
         showResult(associated.data);
       } finally {
-        connect.disabled=false;connect.textContent='닉네임 저장하고 우리집 연결하기';
+        connect.disabled=false;connect.textContent='우리집 연결하기';
       }
     });
 
