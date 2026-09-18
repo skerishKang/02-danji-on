@@ -6,12 +6,12 @@ import { readFile } from 'node:fs/promises';
 // for the canonical resident-news list/detail surfaces (10/11) and the bounded
 // resident-news-v1 bridge. Run: node frontend/tests/leaf-b10-resident-news-wiring-contract.mjs
 //
-// A. authority is resident-news-v1: exact feed + detail routes, read-only (GET only)
-// B. transport reuses the shared #324 DanjionSession runtime (credentials, envelope,
-//    401/403 -> auth-required, fail-closed on 4xx/5xx/network)
+// A. authority is resident-news-v1: exact feed/detail/submission/status routes
+// B. transport reuses the shared #324 DanjionSession runtime while preserving
+//    401 / resident-verification 403 / other 403 boundaries
 // C. server mode only when an explicit apiBase exists; static/demo fallback otherwise
-// D. no fabricated rows, no browser persistence, no mutation verbs
-// E. list carries the post id into the detail surface; detail fails closed truthfully
+// D. no fabricated rows or browser persistence; mutation scope is submission POST only
+// E. list/detail/submission surfaces fail closed truthfully
 
 const root = new URL('../', import.meta.url);
 const bridge = await import(new URL('assets/resident-news-bridge.js', root).href);
@@ -125,7 +125,7 @@ assert.throws(
   const { b } = makeBridge(() => response(403, { error: { code: 'RESIDENT_VERIFICATION_REQUIRED', message: 'no' } }));
   const result = await b.listPosts();
   assert.equal(result.ok, false);
-  assert.equal(result.reason, 'auth-required', '403 maps to auth-required');
+  assert.equal(result.reason, 'resident-verification-required', 'resident 403 maps to resident verification');
   assert.equal(result.error.code, 'RESIDENT_VERIFICATION_REQUIRED', 'backend code is preserved');
   assert.deepEqual(result.posts, [], 'a failed feed must not render rows');
 }
@@ -186,7 +186,12 @@ assert.throws(
 {
   const { b } = makeBridge(() => response(403, { error: { code: 'RESIDENT_VERIFICATION_REQUIRED' } }));
   const result = await b.getPost(POST_ID);
-  assert.equal(result.reason, 'auth-required', '403 maps to auth-required');
+  assert.equal(result.reason, 'resident-verification-required', 'resident 403 maps to resident verification');
+}
+{
+  const { b } = makeBridge(() => response(403, { error: { code: 'FORBIDDEN' } }));
+  const result = await b.getPost(POST_ID);
+  assert.equal(result.reason, 'forbidden', 'other 403 remains forbidden');
 }
 {
   const { b } = makeBridge(() => { throw new Error('offline'); });
@@ -213,7 +218,41 @@ assert.throws(
   assert.deepEqual(empty, { id: '', title: '', body: '', publishedAt: null, createdAt: null }, 'a missing row normalizes to empty strings, not fabricated copy');
 }
 
-/* --- D4. feed/detail remain read-only; submissions use one bounded POST route --- */
+/* --- D4. submission create + own-status readback are server-authoritative --- */
+{
+  let index = 0;
+  const { b, calls } = makeBridge(() => {
+    index += 1;
+    if (index === 1) return response(201, { data: { id: POST_ID, title: '주민 제보', status: 'submitted', publishedPostId: null, createdAt: 'c', updatedAt: 'u' } });
+    return response(200, { data: { submissions: [{ id: POST_ID, title: '주민 제보', status: 'reviewing', publishedPostId: null, createdAt: 'c', updatedAt: 'u2' }] } });
+  });
+  const created = await b.submit({ title: ' 주민 제보 ', body: ' 제보 본문 ' });
+  assert.equal(created.ok, true);
+  assert.equal(created.submission.status, 'submitted');
+  assert.equal(calls[0].url, `${BASE}${FEED_PATH}/submissions`);
+  assert.equal(calls[0].init.method, 'POST');
+  assert.deepEqual(JSON.parse(calls[0].init.body), { title: '주민 제보', body: '제보 본문' });
+
+  const mine = await b.listOwnSubmissions();
+  assert.equal(mine.ok, true);
+  assert.equal(mine.submissions.length, 1);
+  assert.equal(mine.submissions[0].status, 'reviewing');
+  assert.equal(calls[1].url, `${BASE}/api/v1/me/resident-news/submissions?complexSlug=${encodeURIComponent(CANON)}`);
+  assert.equal(calls[1].init.method, 'GET');
+}
+{
+  const { b } = makeBridge(() => response(403, { error: { code: 'HOUSEHOLD_ASSOCIATION_REQUIRED' } }));
+  const result = await b.submit({ title: '제보', body: '본문' });
+  assert.equal(result.reason, 'resident-verification-required');
+  assert.equal(result.ok, false);
+}
+{
+  const normalized = bridge.normalizeResidentNewsSubmission({ id: POST_ID, title: '제보', status: 'approved', published_post_id: OTHER_ID, created_at: 'c', updated_at: 'u' });
+  assert.equal(normalized.status, 'approved');
+  assert.equal(normalized.publishedPostId, OTHER_ID);
+}
+
+/* --- D5. feed/detail remain read-only; submissions use one bounded POST route --- */
 {
   const { b, calls } = makeBridge(() => response(200, { data: { posts: [] }, requestId: 'r7' }));
   await b.listPosts();
@@ -247,6 +286,16 @@ const list = wiringBlock(page10, 'resident-news-list-server-wiring-20260911');
     'list wiring must derive apiBase from the canonical #419 resolver and early-return without it (demo/static fallback preserved)');
   assert.ok(list.block.includes('createResidentNewsBridge('), 'list wiring must build the bridge');
   assert.ok(list.block.includes('listPosts('), 'list wiring must read the resident-news-v1 feed');
+  assert.ok(list.block.includes('listOwnSubmissions('), 'list wiring must read back the signed-in resident submission queue');
+  assert.ok(list.block.includes("b.submit({title,body})"), 'list wiring must submit title/body through the canonical bridge');
+  assert.ok(page10.includes('>소식 제보하기</button>'), 'canonical CTA must be a real submission action');
+  assert.ok(!page10.includes('제보 내용 확인하기'), 'prototype confirmation CTA must be removed');
+  assert.ok(!/디자인 검토용|시제품/.test(page10), 'production-reachable prototype copy must be absent');
+  assert.ok(list.block.includes("fileTrigger.disabled=true"), 'server mode must disable unsupported attachment submission');
+  assert.ok(list.block.includes("emailInput.disabled=true"), 'server mode must not accept a direct email field the backend ignores');
+  assert.ok(list.block.includes('가입 이메일로 연락'), 'server mode must explain the actual follow-up channel');
+  assert.ok(list.block.includes("setProof('verified')"), 'verified state must come from a successful server authority read');
+  assert.ok(list.block.includes("resident-verification-required"), 'resident/household 403 must stay distinct from signed-out');
   assert.ok(list.block.includes('DETAIL') && list.block.includes('?postId='), 'list wiring must carry the post id into the detail surface');
   assert.ok(list.block.includes("result.reason==='auth-required'"), 'list wiring must branch on auth-required');
   assert.ok(list.block.includes('불러오는 중'), 'list wiring must show a loading state');
@@ -283,6 +332,8 @@ const detail = wiringBlock(page11, 'resident-news-detail-server-wiring-20260911'
   assert.ok(detail.block.includes('getPost('), 'detail wiring must read the resident-news-v1 item route');
   assert.ok(detail.block.includes('소식을 찾을 수 없습니다.'), 'detail wiring must fail closed with the canonical not-found copy');
   assert.ok(detail.block.includes('로그인이 필요합니다.'), 'detail wiring must surface the auth-required copy');
+  assert.ok(detail.block.includes('우리집 연결과 주민 확인을 완료한 뒤'), 'detail wiring must surface the resident-verification boundary');
+  assert.ok(detail.block.includes('확인할 권한이 없습니다.'), 'detail wiring must surface other 403 as forbidden');
   assert.ok(detail.block.includes('불러오지 못했습니다'), 'detail wiring must surface a truthful failure copy');
   assert.ok(detail.block.includes('불러오는 중'), 'detail wiring must show a loading state');
   assert.ok(detail.block.includes('textContent'), 'detail wiring must render via textContent');
