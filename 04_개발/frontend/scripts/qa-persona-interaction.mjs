@@ -126,15 +126,19 @@ try {
       let visible = false;
       let pending = false;
       let published = false;
+      let debugNotice = '';
       try {
         await page.waitForTimeout(2_000);
         const noticeText = await page.locator('.v2-community-notice, [role="status"]').first().innerText().catch(() => '');
+        debugNotice = (noticeText || '').replace(/\s+/g, ' ').slice(0, 80);
         pending = /운영확인|접수/.test(noticeText || '');
         published = /게시했/.test(noticeText || '');
         // the new post should also be in the list for its tab (detail or list text)
         const found = page.getByText(`상호작용 점검 ${STAMP}`, { exact: false }).first();
         visible = await found.isVisible().catch(() => false);
       } catch {}
+      console.log(`DEBUG_NOTICE=[${debugNotice}]`);
+      console.log(`DEBUG_PENDING=${pending} DEBUG_PUBLISHED=${published} DEBUG_VISIBLE=${visible}`);
       record('POST_WRITE_ACCEPTED', pending || published || visible,
         pending ? 'OPERATION_REVIEW_PENDING' : published ? 'PUBLISHED_NOTICE' : visible ? 'VISIBLE_IN_LIST' : 'NO_EVIDENCE');
       record('POST_VISIBLE_IN_LIST', visible, pending && !visible ? 'OPERATION_REVIEW_PENDING' : '');
@@ -177,6 +181,7 @@ try {
   // verify cleared via API regardless of UI logout visibility
   const after = await context.request.get(`${FRONTEND}/api/auth/get-session`, { headers: { Origin: FRONTEND } });
   const afterBody = await after.json().catch(() => null);
+  console.log(`DEBUG_AFTER_SESSION=${Boolean(afterBody?.session)} DEBUG_AFTER_USER=${Boolean(afterBody?.user)}`);
   record('LOGOUT_CLEARS_SESSION', !afterBody?.session && !afterBody?.user, `HTTP_${after.status()}`);
 
   await context.close();
