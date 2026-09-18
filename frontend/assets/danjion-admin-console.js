@@ -151,11 +151,12 @@
     const value = input && typeof input === 'object' ? input : {};
     const sourceName = String(value.sourceName || '').trim();
     const category = String(value.category || '').trim();
+    const channel = String(value.channel || '').trim();
     const title = String(value.title || '').trim();
     const body = String(value.body || '').trim();
     const status = String(value.status || '').trim();
-    if (!sourceName || !category || !title || !body || !POST_STATUSES.includes(status)) return null;
-    return { sourceName, category, title, body, status };
+    if (!sourceName || !category || !['danjion_notice','apartment_news','management_office','chair_greeting'].includes(channel) || !title || !body || !POST_STATUSES.includes(status)) return null;
+    return { sourceName, category, channel, title, body, status };
   }
 
   function classifyPostMutation(result) {
