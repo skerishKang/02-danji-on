@@ -14,6 +14,7 @@ const OPERATIONAL_PRESET = [
   'inquiry.respond',
   'official-content.manage',
   'resident.verification.exempt',
+  'resident.verification.manage',
   'resident_news.review',
   'safety.report.review'
 ];
@@ -114,9 +115,9 @@ const queries = [
             and (expires_at is null or expires_at > now())
             and authority_level = 'operator'
             and array_position(scopes, '*') is null
-            and cardinality(scopes) = 8
-            and scopes @> array['benefit.manage','business.review','community.moderate','inquiry.respond','official-content.manage','resident.verification.exempt','resident_news.review','safety.report.review']::text[]
-            and array['benefit.manage','business.review','community.moderate','inquiry.respond','official-content.manage','resident.verification.exempt','resident_news.review','safety.report.review']::text[] @> scopes
+            and cardinality(scopes) = 9
+            and scopes @> array['benefit.manage','business.review','community.moderate','inquiry.respond','official-content.manage','resident.verification.exempt','resident.verification.manage','resident_news.review','safety.report.review']::text[]
+            and array['benefit.manage','business.review','community.moderate','inquiry.respond','official-content.manage','resident.verification.exempt','resident.verification.manage','resident_news.review','safety.report.review']::text[] @> scopes
         )::int as operational,
         count(*) filter (
           where status = 'active'
@@ -129,7 +130,7 @@ const queries = [
                 and array_position(scopes, '*') is null
                 and cardinality(scopes) = 8
                 and scopes @> array['benefit.manage','business.review','community.moderate','inquiry.respond','official-content.manage','resident.verification.exempt','resident_news.review','safety.report.review']::text[]
-                and array['benefit.manage','business.review','community.moderate','inquiry.respond','official-content.manage','resident.verification.exempt','resident_news.review','safety.report.review']::text[] @> scopes
+                and array['benefit.manage','business.review','community.moderate','inquiry.respond','official-content.manage','resident.verification.exempt','resident.verification.manage','resident_news.review','safety.report.review']::text[] @> scopes
               )
             )
         )::int as other,
@@ -177,29 +178,29 @@ const queries = [
       )
       select
         count(*) filter (
-          where cardinality(scopes) = 9
-            and scopes @> array['*','benefit.manage','business.review','community.moderate','inquiry.respond','official-content.manage','resident.verification.exempt','resident_news.review','safety.report.review']::text[]
-            and array['*','benefit.manage','business.review','community.moderate','inquiry.respond','official-content.manage','resident.verification.exempt','resident_news.review','safety.report.review']::text[] @> scopes
+          where cardinality(scopes) = 10
+            and scopes @> array['*','benefit.manage','business.review','community.moderate','inquiry.respond','official-content.manage','resident.verification.exempt','resident.verification.manage','resident_news.review','safety.report.review']::text[]
+            and array['*','benefit.manage','business.review','community.moderate','inquiry.respond','official-content.manage','resident.verification.exempt','resident.verification.manage','resident_news.review','safety.report.review']::text[] @> scopes
         )::int as super_users,
         count(*) filter (
           where array_position(scopes, '*') is null
-            and cardinality(scopes) = 8
-            and scopes @> array['benefit.manage','business.review','community.moderate','inquiry.respond','official-content.manage','resident.verification.exempt','resident_news.review','safety.report.review']::text[]
-            and array['benefit.manage','business.review','community.moderate','inquiry.respond','official-content.manage','resident.verification.exempt','resident_news.review','safety.report.review']::text[] @> scopes
+            and cardinality(scopes) = 9
+            and scopes @> array['benefit.manage','business.review','community.moderate','inquiry.respond','official-content.manage','resident.verification.exempt','resident.verification.manage','resident_news.review','safety.report.review']::text[]
+            and array['benefit.manage','business.review','community.moderate','inquiry.respond','official-content.manage','resident.verification.exempt','resident.verification.manage','resident_news.review','safety.report.review']::text[] @> scopes
         )::int as operational_users,
         count(*) filter (
           where not (
             (
               cardinality(scopes) = 9
               and scopes @> array['*','benefit.manage','business.review','community.moderate','inquiry.respond','official-content.manage','resident.verification.exempt','resident_news.review','safety.report.review']::text[]
-              and array['*','benefit.manage','business.review','community.moderate','inquiry.respond','official-content.manage','resident.verification.exempt','resident_news.review','safety.report.review']::text[] @> scopes
+              and array['*','benefit.manage','business.review','community.moderate','inquiry.respond','official-content.manage','resident.verification.exempt','resident.verification.manage','resident_news.review','safety.report.review']::text[] @> scopes
             )
             or
             (
               array_position(scopes, '*') is null
               and cardinality(scopes) = 8
               and scopes @> array['benefit.manage','business.review','community.moderate','inquiry.respond','official-content.manage','resident.verification.exempt','resident_news.review','safety.report.review']::text[]
-              and array['benefit.manage','business.review','community.moderate','inquiry.respond','official-content.manage','resident.verification.exempt','resident_news.review','safety.report.review']::text[] @> scopes
+              and array['benefit.manage','business.review','community.moderate','inquiry.respond','official-content.manage','resident.verification.exempt','resident.verification.manage','resident_news.review','safety.report.review']::text[] @> scopes
             )
           )
         )::int as other_users,
@@ -226,29 +227,29 @@ const queries = [
       )
       select
         count(*) filter (
-          where cardinality(scopes) = 9
-            and scopes @> array['*','benefit.manage','business.review','community.moderate','inquiry.respond','official-content.manage','resident.verification.exempt','resident_news.review','safety.report.review']::text[]
-            and array['*','benefit.manage','business.review','community.moderate','inquiry.respond','official-content.manage','resident.verification.exempt','resident_news.review','safety.report.review']::text[] @> scopes
+          where cardinality(scopes) = 10
+            and scopes @> array['*','benefit.manage','business.review','community.moderate','inquiry.respond','official-content.manage','resident.verification.exempt','resident.verification.manage','resident_news.review','safety.report.review']::text[]
+            and array['*','benefit.manage','business.review','community.moderate','inquiry.respond','official-content.manage','resident.verification.exempt','resident.verification.manage','resident_news.review','safety.report.review']::text[] @> scopes
         )::int as legacy_super_users,
         count(*) filter (
           where cardinality(scopes) = 8
             and array_position(scopes, '*') is null
             and scopes @> array['benefit.manage','business.review','community.moderate','inquiry.respond','official-content.manage','resident.verification.exempt','resident_news.review','safety.report.review']::text[]
-            and array['benefit.manage','business.review','community.moderate','inquiry.respond','official-content.manage','resident.verification.exempt','resident_news.review','safety.report.review']::text[] @> scopes
+            and array['benefit.manage','business.review','community.moderate','inquiry.respond','official-content.manage','resident.verification.exempt','resident.verification.manage','resident_news.review','safety.report.review']::text[] @> scopes
         )::int as legacy_operational_users,
         count(*) filter (
           where not (
             (
               cardinality(scopes) = 9
               and scopes @> array['*','benefit.manage','business.review','community.moderate','inquiry.respond','official-content.manage','resident.verification.exempt','resident_news.review','safety.report.review']::text[]
-              and array['*','benefit.manage','business.review','community.moderate','inquiry.respond','official-content.manage','resident.verification.exempt','resident_news.review','safety.report.review']::text[] @> scopes
+              and array['*','benefit.manage','business.review','community.moderate','inquiry.respond','official-content.manage','resident.verification.exempt','resident.verification.manage','resident_news.review','safety.report.review']::text[] @> scopes
             )
             or
             (
               cardinality(scopes) = 8
               and array_position(scopes, '*') is null
               and scopes @> array['benefit.manage','business.review','community.moderate','inquiry.respond','official-content.manage','resident.verification.exempt','resident_news.review','safety.report.review']::text[]
-              and array['benefit.manage','business.review','community.moderate','inquiry.respond','official-content.manage','resident.verification.exempt','resident_news.review','safety.report.review']::text[] @> scopes
+              and array['benefit.manage','business.review','community.moderate','inquiry.respond','official-content.manage','resident.verification.exempt','resident.verification.manage','resident_news.review','safety.report.review']::text[] @> scopes
             )
           )
         )::int as other_users,
