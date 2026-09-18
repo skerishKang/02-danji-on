@@ -83,7 +83,7 @@ assert(landing.includes('NON-PRODUCTION'), 'landing page must carry the NON-PROD
 assert(landing.includes('비운영'), 'landing page must carry the 비운영 banner');
 assert(/<meta name="robots" content="noindex, nofollow"/.test(landing), 'landing meta robots noindex');
 
-// No deploy path: exactly one workflow may reference the gateway, CI-only.
+// Approved deploy paths are explicit: gateway CI plus the two isolated non-production review deploy workflows.
 const workflowsDir = join(REPO_ROOT, '.github', 'workflows');
 const gatewayWorkflows = [];
 for (const wf of readdirSync(workflowsDir)) {
@@ -91,10 +91,11 @@ for (const wf of readdirSync(workflowsDir)) {
   if (text.includes('design-gateway')) gatewayWorkflows.push(wf);
 }
 assert(
-  gatewayWorkflows.length === 2 &&
+  gatewayWorkflows.length === 3 &&
     gatewayWorkflows.includes('design-gateway-ci.yml') &&
-    gatewayWorkflows.includes('danjion-review-auto-deploy.yml'),
-  `only gateway CI and the isolated danjion-review deploy workflow may reference the gateway (found: ${gatewayWorkflows.join(', ') || 'none'})`
+    gatewayWorkflows.includes('danjion-review-auto-deploy.yml') &&
+    gatewayWorkflows.includes('danjion-pr-review-preview.yml'),
+  `only gateway CI and the two isolated danjion-review deploy workflows may reference the gateway (found: ${gatewayWorkflows.join(', ') || 'none'})`
 );
 const ci = readFileSync(join(workflowsDir, 'design-gateway-ci.yml'), 'utf8');
 assert(!/pages deploy/i.test(ci), 'design-gateway CI must not contain a Pages deploy step');
