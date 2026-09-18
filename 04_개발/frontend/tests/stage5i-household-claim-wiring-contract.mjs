@@ -274,12 +274,13 @@ assert.equal(bridge.DANJION_HOUSEHOLD_COMPLEX_SLUG, 'banglim-myeongji-roadhill')
     'canonical page must load shared session then resident self-profile bridge');
   assert.ok(pageSource.includes("import { createHouseholdClaimBridge } from './assets/household-claim-bridge.js'"),
     'canonical page must reuse the existing household unit bridge');
-  for (const id of ['nickname','buildingSelect','unitSelect','connectButton']) {
+  for (const id of ['buildingSelect','unitSelect','connectButton']) {
     assert.ok(pageSource.includes(`id="${id}"`), `canonical owner onboarding requires #${id}`);
   }
+  assert.ok(!pageSource.includes('id="nickname"'), 'nickname editing belongs to My Info, not household association');
+  assert.ok(!pageSource.includes('resident.updateProfile({nickname:'), 'household onboarding must not mutate the resident profile');
   assert.ok(pageSource.includes('household.listUnits()'), 'dong/unit choices must come from the authenticated unit master');
   assert.ok(pageSource.includes('household.associate(unitId)'), 'selected unit must be persisted through the server association route');
-  assert.ok(pageSource.includes('resident.updateProfile({nickname:nick})'), 'nickname must be saved before household association');
   assert.ok(pageSource.includes('같은 세대 기본 2명까지 자동 연결'), 'owner 2-account auto-connect rule must be visible');
   assert.ok(pageSource.includes('3명째부터 운영팀이 확인'), 'third-account review rule must be visible');
   assert.ok(!pageSource.includes('resident-verification-code-bridge.js'), 'household SMS code must not be the canonical resident onboarding bridge');
