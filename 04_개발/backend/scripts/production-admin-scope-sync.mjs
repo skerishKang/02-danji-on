@@ -80,12 +80,12 @@ function legacyReady(s){
 }
 
 function currentReady(s){
-  return s.active_grant_rows===36
+  return s.active_grant_rows===38
     && s.current_super_users===2 && s.current_operator_users===2
     && s.legacy_super_users===0 && s.legacy_operator_users===0 && s.other_users===0
     && s.allowlist_active===4 && s.allowlist_super===2
     && s.allowlist_operator_legacy===0 && s.allowlist_operator_current===2
-    && s.principal_linked_active_grant_rows===36 && s.adoption_marked_active_grant_rows===36;
+    && s.principal_linked_active_grant_rows===38 && s.adoption_marked_active_grant_rows===38;
 }
 
 async function applySync(){
