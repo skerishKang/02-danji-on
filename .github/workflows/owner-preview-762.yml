@@ -24,6 +24,8 @@ jobs:
       PREVIEW_PAGES_URL: https://owner-preview-762.danjion-qa.pages.dev
       PREVIEW_WORKER_NAME: padiem-danjion-api-owner-preview-762
       PREVIEW_WORKER_URL: https://padiem-danjion-api-owner-preview-762.padiem.workers.dev
+      PREVIEW_CANARY_BUILDING: pv-canary-${{ github.run_id }}
+      PREVIEW_CANARY_UNIT: pv-canary-unit-${{ github.run_id }}
       CLOUDFLARE_API_TOKEN: ${{ secrets.DANJION_QA_CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.DANJION_QA_CLOUDFLARE_ACCOUNT_ID }}
       DANJION_QA_DATABASE_URL: ${{ secrets.DANJION_QA_DATABASE_URL }}
@@ -89,13 +91,37 @@ jobs:
           node --input-type=module <<'NODE'
           import { neon } from '@neondatabase/serverless';
           const sql=neon(process.env.DATABASE_URL);
+          const canaryBuilding=process.env.PREVIEW_CANARY_BUILDING;
+          const canaryUnit=process.env.PREVIEW_CANARY_UNIT;
+          if(!canaryBuilding || !canaryUnit) throw new Error('preview canary identity missing');
+
+          // Retire prior canaries first. Reusing one household across workflow runs
+          // accumulates memberships and eventually crosses the auto-connect limit.
+          await sql`
+            update complex_units cu
+            set status='inactive', updated_at=now()
+            from complexes c
+            where cu.complex_id=c.id
+              and c.slug='banglim-myeongji-roadhill'
+              and cu.building_code like 'pv-canary-%'
+          `;
+          await sql`
+            update complex_units cu
+            set status='inactive', updated_at=now()
+            from complexes c
+            where cu.complex_id=c.id
+              and c.slug='banglim-myeongji-roadhill'
+              and cu.building_code=${process.env.PREVIEW_CANARY_BUILDING}
+              and cu.unit_code=${process.env.PREVIEW_CANARY_UNIT}
+          `;
+
           await sql`
             insert into complex_units (complex_id, building_code, unit_code, status)
             select id, fixture.building_code, fixture.unit_code, 'active'
             from complexes
             cross join (values
               ('pv-user','pv-user-unit'),
-              ('pv-canary','pv-canary-unit')
+              (${canaryBuilding},${canaryUnit})
             ) as fixture(building_code,unit_code)
             where slug='banglim-myeongji-roadhill'
             on conflict (complex_id, building_code, unit_code)
@@ -115,7 +141,10 @@ jobs:
             from complex_units cu
             join complexes c on c.id=cu.complex_id
             where c.slug='banglim-myeongji-roadhill'
-              and cu.building_code in ('pv-user','pv-canary')
+              and (
+                (cu.building_code='pv-user' and cu.unit_code='pv-user-unit')
+                or (cu.building_code=${canaryBuilding} and cu.unit_code=${canaryUnit})
+              )
               and cu.status='active'
           `;
           if(rows.length!==2)throw new Error('preview household fixtures missing');
@@ -230,13 +259,17 @@ jobs:
 
           units_status="$(curl -sS -c "$jar" -b "$jar" -o "${RUNNER_TEMP}/units.json" -w '%{http_code}'             "${PREVIEW_PAGES_URL}/api/v1/complexes/banglim-myeongji-roadhill/household/units")"
           test "$units_status" = "200"
-          unit_id="$(jq -r '.data.units[] | select(.buildingCode=="pv-canary" and .unitCode=="pv-canary-unit") | .id' "${RUNNER_TEMP}/units.json" | head -n1)"
-          test -n "$unit_id"
+          unit_id="$(jq -r --arg building "$PREVIEW_CANARY_BUILDING" --arg unit "$PREVIEW_CANARY_UNIT" '.data.units[] | select(.buildingCode==$building and .unitCode==$unit) | .id' "${RUNNER_TEMP}/units.json" | head -n1)"
+          test -n "$unit_id" || { echo "::error::run-scoped canary unit missing from household picker"; exit 1; }
 
           associate_body="$(jq -nc --arg unitId "$unit_id" '{unitId:$unitId}')"
           associate_status="$(curl -sS -c "$jar" -b "$jar" -o "${RUNNER_TEMP}/associate.json" -w '%{http_code}'             -H 'content-type: application/json' -d "$associate_body"             "${PREVIEW_PAGES_URL}/api/v1/complexes/banglim-myeongji-roadhill/household/associate")"
           { [ "$associate_status" = "200" ] || [ "$associate_status" = "201" ]; } || { echo "::error::household associate failed status=$associate_status"; cat "${RUNNER_TEMP}/associate.json" | jq '{error:.error}' ; exit 1; }
-          jq -e '.data.status=="verified" and .data.autoConnected==true' "${RUNNER_TEMP}/associate.json" >/dev/null
+          jq -e '.data.status=="verified" and .data.autoConnected==true' "${RUNNER_TEMP}/associate.json" >/dev/null || {
+            echo "::error::fresh canary household did not auto-connect";
+            jq '{status:.data.status,autoConnected:.data.autoConnected,reviewRequired:.data.reviewRequired,memberPosition:.data.memberPosition,error:.error}' "${RUNNER_TEMP}/associate.json";
+            exit 1;
+          }
 
           post_body='{"kind":"greeting","title":"프리뷰 연결 검증","body":"우리집 연결 뒤 주민 글쓰기가 열리는지 확인합니다."}'
           post_status="$(curl -sS -c "$jar" -b "$jar" -o "${RUNNER_TEMP}/post.json" -w '%{http_code}'             -H 'content-type: application/json' -d "$post_body"             "${PREVIEW_PAGES_URL}/api/v1/complexes/banglim-myeongji-roadhill/community/posts")"
