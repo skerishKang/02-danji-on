@@ -226,7 +226,7 @@ for (const [name, page, id] of WIRING) {
   assert.match(w12, /hello:'greeting',story:'resident_story',question:'question',together:'together'/, '12 maps chips onto canonical v1 kinds including greeting');
   assert.match(w12, /bridge\.listPosts\(null,\{limit:50\}\)/, '12 전체보기 reads the v1 feed');
   assert.match(w12, /result\.posts\.filter\(p=>LABEL\[p\.kind\]\)/, '12 hides kinds outside the shared UI mapping');
-  assert.match(w12, /if\(!showAll&&!KIND\[selected\]\)\{[\s\S]*?return;[\s\S]*?\}/, '12 must fail closed before any server read for an unmapped future chip');
+  assert.match(w12, /if\(!showAll&&!KIND\[selected\]\)(?:\{[\s\S]*?return;[\s\S]*?\}|return;)/, '12 must fail closed before any server read for an unmapped future chip');
   assert.match(w12, /13_이웃대화_글상세_댓글\.html\?apiBase=\$\{encodeURIComponent\(apiBase\)\}&post=\$\{encodeURIComponent\(p\.id\)\}/, '12 links details with apiBase + server post id');
   assert.match(w12, /WRITE\[selected\]\+'\?apiBase='/, '12 hands apiBase to the write pages');
   assert.ok(page12.indexOf('danjion-community-list-live-wiring-329') < page12.indexOf('danjion-direct-router-v5'), '12 wiring stays ahead of the router');
@@ -261,8 +261,8 @@ for (const [name, page, id, kind, chip] of [['14', page14, 'danjion-community-wr
 {
   assert.match(page12, /const POSTS=\[/, '12 demo board data preserved');
   assert.match(page12, /id="danjion-direct-router-v5"/, '12 router preserved');
-  assert.match(page13, /const DATA=\{/, '13 demo detail data preserved');
-  assert.match(page13, /commentForm\.addEventListener\('submit'/, '13 demo comment handler preserved');
+  assert.doesNotMatch(page13, /const DATA=\{/, '13 prototype resident detail data stays retired');
+  assert.match(page13, /function enterServerLoadingState\(\)/, '13 uses the server-owned neutral loading state rather than demo resident content');
   assert.match(page14, /const key='danjionDraft:14'/, '14 demo greeting draft flow preserved');
   assert.match(page15, /const key='danjionDraft:15'/, '15 demo draft flow preserved');
   assert.match(page16, /궁금한 내용을 10자 이상 적어주세요\./, '16 demo validation preserved');

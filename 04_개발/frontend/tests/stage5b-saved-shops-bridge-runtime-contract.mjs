@@ -35,12 +35,11 @@ assert.ok(Runtime && typeof Runtime.create === 'function');
 const id1 = 'd0a1c4a1-41c5-4c51-8001-000000000001';
 const id2 = 'd0a1c4a1-41c5-4c51-8001-000000000002';
 
-// API-key parsing must never treat fallback fixture keys as canonical business IDs.
 assert.equal(Runtime.businessIdForKey(`api-${id1}`), id1);
 assert.equal(Runtime.businessIdForKey('florist'), null);
 assert.equal(Runtime.businessIdForKey('api-not-a-uuid'), null);
 
-// Authenticated GET 200 establishes server authority and ignores stale local fixture keys.
+// A successful server probe owns account state and ignores stale browser fixtures.
 {
   const calls = [];
   const local = storage({ 'danjion:savedShops': JSON.stringify(['florist']) });
@@ -57,18 +56,43 @@ assert.equal(Runtime.businessIdForKey('api-not-a-uuid'), null);
   assert.deepEqual([...state.keys].sort(), [`api-${id1}`, `api-${id2}`].sort());
   assert.equal(calls[0].url, 'https://api.example.test/api/v1/me/bookmarks');
   assert.equal(calls[0].init.credentials, 'include');
+  assert.equal(local.dump('danjion:savedShops'), JSON.stringify(['florist']),
+    'server hydration must not rewrite legacy local storage');
 }
 
-// 401/403 means unauthenticated local fallback, preserving sibling-v3 localStorage semantics.
-for (const status of [401, 403]) {
+// Canonical server mode fails closed on auth/permission errors instead of importing local state.
+for (const [status, expectedMode] of [[401, 'auth-required'], [403, 'forbidden']]) {
   const local = storage({ 'danjion:savedShops': JSON.stringify(['florist']) });
-  const bridge = Runtime.create({ apiBase: 'https://api.example.test', storage: local, fetchImpl: async () => response(status, {}) });
+  const bridge = Runtime.create({
+    apiBase: 'https://api.example.test',
+    storage: local,
+    fetchImpl: async () => response(status, {})
+  });
   const state = await bridge.load();
-  assert.equal(state.mode, 'local');
-  assert.equal(bridge.isSaved('florist'), true);
+  assert.equal(state.mode, expectedMode);
+  assert.deepEqual([...state.keys], []);
+  assert.equal(bridge.isSaved('florist'), false);
+  await assert.rejects(() => bridge.toggle('florist'), /server authority unavailable|server business id/);
+  assert.equal(local.dump('danjion:savedShops'), JSON.stringify(['florist']),
+    'failed server authority must never mutate browser bookmark state');
 }
 
-// Authenticated API-backed cards use POST/DELETE with UUID and never mutate localStorage.
+// Server/network failure is degraded + empty, never local account authority.
+{
+  const local = storage({ 'danjion:savedShops': JSON.stringify(['food']) });
+  const bridge = Runtime.create({
+    apiBase: 'https://api.example.test',
+    storage: local,
+    fetchImpl: async () => response(503, {})
+  });
+  const state = await bridge.load();
+  assert.equal(state.mode, 'degraded');
+  assert.deepEqual([...state.keys], []);
+  await assert.rejects(() => bridge.toggle(`api-${id1}`), /server authority unavailable/);
+  assert.equal(local.dump('danjion:savedShops'), JSON.stringify(['food']));
+}
+
+// Authenticated API-backed cards use POST/DELETE and never mutate localStorage.
 {
   const methods = [];
   const local = storage({ 'danjion:savedShops': JSON.stringify(['florist']) });
@@ -84,35 +108,22 @@ for (const status of [401, 403]) {
   await bridge.load();
   let result = await bridge.toggle(`api-${id1}`);
   assert.equal(result.saved, true);
-  assert.equal(bridge.isSaved(`api-${id1}`), true);
   result = await bridge.toggle(`api-${id1}`);
   assert.equal(result.saved, false);
-  assert.equal(bridge.isSaved(`api-${id1}`), false);
   assert.deepEqual(methods.slice(1).map((x) => x[1]), ['POST', 'DELETE']);
   assert.ok(methods.slice(1).every((x) => x[0].endsWith(`/api/v1/me/bookmarks/${id1}`) && x[2] === 'include'));
   assert.equal(local.dump('danjion:savedShops'), JSON.stringify(['florist']));
 }
 
-// Static fallback cards remain local even when the authenticated server probe succeeded.
+// Explicit no-api preview mode may retain the original local demo behavior.
 {
   const local = storage();
-  const bridge = Runtime.create({ apiBase: '', storage: local, fetchImpl: async () => response(200, { data: [] }) });
-  await bridge.load();
+  const bridge = Runtime.create({ apiBase: '', storage: local, fetchImpl: async () => { throw new Error('must not fetch'); } });
+  const state = await bridge.load();
+  assert.equal(state.mode, 'local');
   const result = await bridge.toggle('florist');
   assert.equal(result.saved, true);
-  assert.equal(bridge.isSaved('florist'), true);
   assert.equal(local.dump('danjion:savedShops'), JSON.stringify(['florist']));
 }
 
-// Server/network failure is explicit degraded mode; existing local behavior remains available.
-{
-  const local = storage({ 'danjion:savedShops': JSON.stringify(['food']) });
-  const bridge = Runtime.create({ apiBase: '', storage: local, fetchImpl: async () => response(503, {}) });
-  const state = await bridge.load();
-  assert.equal(state.mode, 'degraded');
-  assert.equal(bridge.isSaved('food'), true);
-  await bridge.toggle('food');
-  assert.equal(JSON.parse(local.dump('danjion:savedShops')).length, 0);
-}
-
-console.log('PASS #278 saved shops server/local bridge runtime contract');
+console.log('PASS #738 saved shops Production server-authority contract');

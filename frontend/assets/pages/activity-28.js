@@ -3,13 +3,53 @@ const shopMap={food:['식품·반찬','오늘의 반찬','매일 먹는 반찬�
 function savedSet(){let keys=[];try{keys=JSON.parse(localStorage.getItem('danjion:savedShops')||'[]')}catch(e){}return {title:'저장한 이웃가게',count:'저장 '+keys.length+'개',filters:['전체'],items:keys.map(k=>{const d=shopMap[k]||['이웃단지 가게',k,'저장한 이웃가게입니다.',''];return [d[0],'저장됨','내정보에서 관리',d[1],d[2],d[3]||'가게 보기']})}}
 const benefitsSet={title:'받은 혜택',count:'사용 가능 1개',filters:['전체','사용 가능','사용 완료'],items:[['사용 가능','2026.09.05','주민혜택','로드힐 꽃작업실 주민 혜택','꽃다발 예약 상담 시 사용할 수 있는 주민 전용 혜택입니다.','사용 전 · 상세 보기']]};
 function renderSpecial(kind){const set=kind==='saved'?savedSet():benefitsSet;document.querySelector('.summary').style.display='none';document.querySelector('.tabs').style.display='none';document.querySelector('.page-head h1').textContent=set.title;document.querySelector('.eyebrow').textContent=kind==='saved'?'SAVED NEIGHBORS':'MY BENEFITS';document.querySelector('.page-copy').innerHTML=kind==='saved'?'<b>관심 있게 저장한 이웃가게를 모아봅니다.</b>홈과 이웃가게에서 저장한 가게가 여기에 표시됩니다.':'<b>받은 주민혜택을 한곳에서 확인하세요.</b>사용 전 혜택과 이용 기록을 구분해 관리할 수 있습니다.';document.querySelector('.mobile-title').textContent=set.title;document.querySelector('.route-note').textContent='내정보에서 선택한 항목을 보고 있습니다.';data.__special=set;render('__special');document.querySelector('.activity-list').classList.add('special-list');}
-const qp=new URLSearchParams(location.search),view=qp.get('view'),tabIndex=Math.max(0,Math.min(3,parseInt(qp.get('tab')||'0',10)||0));if(view==='saved'||view==='benefits'){renderSpecial(view)}else{const btns=[...document.querySelectorAll('.tab')];btns.forEach((b,i)=>b.classList.toggle('active',i===tabIndex));render(btns[tabIndex]?.dataset.tab||'posts')}
+const qp=new URLSearchParams(location.search),view=qp.get('view'),tabIndex=Math.max(0,Math.min(3,parseInt(qp.get('tab')||'0',10)||0)),activityApiBase=(globalThis.DanjionSession&&DanjionSession.danjionApiBase())||'';
+function prepareServerSpecial(kind){document.querySelector('.summary').style.display='none';document.querySelector('.tabs').style.display='none';document.querySelector('.page-head h1').textContent=kind==='saved'?'저장한 이웃가게':'받은 혜택';document.querySelector('.eyebrow').textContent=kind==='saved'?'SAVED NEIGHBORS':'MY BENEFITS';document.querySelector('.page-copy').innerHTML=kind==='saved'?'<b>서버에 저장한 이웃가게를 모아봅니다.</b>현재 계정의 저장 상태만 표시합니다.':'<b>서버에 발급된 주민혜택을 확인하세요.</b>현재 계정에 실제로 발급된 혜택만 표시합니다.';document.querySelector('.mobile-title').textContent=kind==='saved'?'저장한 이웃가게':'받은 혜택';document.querySelector('.route-note').textContent='내정보에서 선택한 항목을 보고 있습니다.';document.querySelector('.toolbar').style.display='none';document.querySelector('.list-title').textContent=kind==='saved'?'저장한 이웃가게':'받은 혜택';document.querySelector('.list-count').textContent='—';rows.innerHTML='<div class="empty" style="display:grid;grid-column:1/-1">불러오는 중…</div>';empty.style.display='none';globalThis.__danjionActivitySpecialServerOwned=true}
+if(view==='saved'||view==='benefits'){if(activityApiBase)prepareServerSpecial(view);else renderSpecial(view)}else{const btns=[...document.querySelectorAll('.tab')];btns.forEach((b,i)=>b.classList.toggle('active',i===tabIndex));const tab=btns[tabIndex]?.dataset.tab||'posts';if(activityApiBase){data[tab].items=[];data[tab].count='—';document.querySelectorAll('.summary-stat b,.tab span').forEach(el=>el.textContent='—');const summaryName=document.querySelector('.summary-title b');if(summaryName)summaryName.textContent='나의 기록';const summarySince=document.querySelector('.summary-title span');if(summarySince)summarySince.textContent=''}render(tab)}
 
 const activityDetailModal=document.getElementById('activityDetailModal');document.getElementById('activityDetailClose')?.addEventListener('click',()=>{activityDetailModal.classList.remove('open');activityDetailModal.setAttribute('aria-hidden','true')});activityDetailModal?.addEventListener('click',e=>{if(e.target===activityDetailModal){activityDetailModal.classList.remove('open');activityDetailModal.setAttribute('aria-hidden','true')}});document.addEventListener('keydown',e=>{if(e.key==='Escape'&&activityDetailModal?.classList.contains('open')){activityDetailModal.classList.remove('open');activityDetailModal.setAttribute('aria-hidden','true')}});
+
+(async function(){
+ if(!globalThis.__danjionActivitySpecialServerOwned)return;
+ const params=new URLSearchParams(location.search),special=params.get('view'),apiBase=(globalThis.DanjionSession&&DanjionSession.danjionApiBase())||'';
+ const rows=document.querySelector('.rows'),listTitle=document.querySelector('.list-title'),listCount=document.querySelector('.list-count'),subfilters=document.querySelector('.subfilters');
+ const esc=v=>String(v??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+ const state=(title,copy)=>{listTitle.textContent=title;listCount.textContent='—';subfilters.innerHTML='';rows.innerHTML='<div class="empty" style="display:grid;grid-column:1/-1">'+esc(copy)+'</div>'};
+ if(!apiBase){state(special==='saved'?'저장한 이웃가게':'받은 혜택','서버 연결 정보를 확인할 수 없습니다.');return}
+ if(special==='saved'){
+  const Runtime=globalThis.DanJionSavedShopsBridge;
+  if(!Runtime||typeof Runtime.create!=='function'){state('저장한 이웃가게','저장 상태를 불러올 수 없습니다.');return}
+  const bridge=Runtime.create({apiBase});
+  const saved=await bridge.load();
+  if(saved.mode!=='server'){state('저장한 이웃가게',saved.mode==='auth-required'?'로그인 후 다시 시도해 주세요.':'저장한 이웃가게를 불러오지 못했습니다.');return}
+  try{
+   const response=await fetch(apiBase+'/api/v1/complexes/banglim-myeongji-roadhill/businesses?limit=50',{credentials:'omit',headers:{accept:'application/json'}});
+   if(!response.ok)throw new Error('HTTP '+response.status);
+   const payload=await response.json(),all=Array.isArray(payload&&payload.data)?payload.data:[],wanted=new Set(saved.keys.map(key=>String(key).replace(/^api-/,'').toLowerCase()));
+   const list=all.filter(item=>wanted.has(String(item&&item.id||'').toLowerCase()));
+   listTitle.textContent='저장한 이웃가게';listCount.textContent='저장 '+list.length+'개';subfilters.innerHTML='';
+   if(!list.length){rows.innerHTML='<div class="empty" style="display:grid;grid-column:1/-1">아직 저장한 이웃가게가 없습니다.<br>홈이나 이웃가게에서 ♡ 저장을 눌러보세요.</div>';return}
+   rows.innerHTML=list.map(item=>{const id=String(item.id||''),name=String(item.name||'이웃가게'),summary=String(item.summary||item.description||'등록된 소개가 아직 없습니다.'),service=String(item.price_text??item.priceText??item.availability_text??item.availabilityText??'').trim()||'가게 상세에서 확인';return '<article class="activity-row" data-server-business="'+esc(id)+'"><div class="activity-type"><b>저장한 가게</b><time>서버 저장</time></div><div class="activity-copy"><small>이웃가게</small><h2>'+esc(name)+'</h2><p>'+esc(summary)+'</p></div><div class="activity-meta"><div class="numbers">'+esc(service)+'</div><div class="row-actions"><button class="primary" type="button" data-open-server-shop="'+esc(id)+'">가게 보기</button></div></div></article>'}).join('');
+   rows.querySelectorAll('[data-open-server-shop]').forEach(button=>button.addEventListener('click',()=>{location.href='01_이웃가게_발견.html?shop=api-'+encodeURIComponent(button.dataset.openServerShop)}));
+  }catch(_){state('저장한 이웃가게','저장한 이웃가게 정보를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.')}
+  return;
+ }
+ const Runtime=globalThis.DanjionBenefitClaimBridge;
+ if(!Runtime||typeof Runtime.createBenefitClaimBridge!=='function'){state('받은 혜택','받은 혜택을 불러올 수 없습니다.');return}
+ const result=await Runtime.createBenefitClaimBridge({apiBase,complexSlug:'banglim-myeongji-roadhill'}).listMine();
+ if(result.mode!=='server'){state('받은 혜택',result.mode==='auth-required'?'로그인 후 다시 시도해 주세요.':'받은 혜택을 불러오지 못했습니다.');return}
+ const benefits=result.benefits||[];
+ listTitle.textContent='받은 혜택';listCount.textContent='전체 '+benefits.length+'개';
+ subfilters.innerHTML=['전체','사용 가능','사용 완료'].map((label,index)=>'<button class="subfilter '+(index===0?'active':'')+'" type="button" data-server-benefit-filter="'+label+'">'+label+'</button>').join('');
+ function drawBenefits(filter='전체'){const list=benefits.filter(item=>filter==='전체'||(filter==='사용 완료'?item.status==='used':item.status!=='used'));if(!list.length){rows.innerHTML='<div class="empty" style="display:grid;grid-column:1/-1">'+(filter==='전체'?'아직 받은 혜택이 없습니다.':'해당 상태의 혜택이 없습니다.')+'</div>';return}rows.innerHTML=list.map(item=>{const used=item.status==='used',status=used?'사용 완료':'사용 가능',when=String((used?item.usedAt:item.claimedAt)||'').slice(0,10),title=String(item.title||'주민 혜택'),business=String(item.businessName||''),desc=String(item.description||''),code=String(item.claimCode||'');return '<article class="activity-row" data-server-benefit-status="'+(used?'used':'stored')+'"><div class="activity-type"><b>'+status+'</b><time>'+esc(when)+'</time></div><div class="activity-copy"><small>'+esc(business)+'</small><h2>'+esc(title)+'</h2><p>'+esc(desc||'등록된 혜택 설명이 없습니다.')+'</p></div><div class="activity-meta"><div class="numbers">'+(code?'혜택번호 '+esc(code):status)+'</div></div></article>'}).join('')}
+ drawBenefits();
+ subfilters.addEventListener('click',event=>{const button=event.target.closest('[data-server-benefit-filter]');if(!button)return;subfilters.querySelectorAll('.subfilter').forEach(el=>el.classList.remove('active'));button.classList.add('active');drawBenefits(button.dataset.serverBenefitFilter||'전체')});
+})();
 
 (function(){
  const params=new URLSearchParams(location.search),special=params.get('view');
  if(special!=='saved'&&special!=='benefits')return;
+ if(globalThis.__danjionActivitySpecialServerOwned)return;
  try{sessionStorage.setItem('danjion:shopVariant','v3');localStorage.setItem('danjion:shopVariant','v3')}catch(e){}
  document.body.classList.add('visual-special');
  const rows=document.querySelector('.rows'),listTitle=document.querySelector('.list-title'),listCount=document.querySelector('.list-count'),subfilters=document.querySelector('.subfilters'),search=document.querySelector('.search'),modal=document.getElementById('danjionDetailModal'),coupon=document.getElementById('activityCouponModal');
@@ -155,6 +195,8 @@ if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt
     return '—';
   }
   var toolbar=document.querySelector('.toolbar');if(toolbar)toolbar.style.display='none';
+  var summaryName=document.querySelector('.summary-title b');if(summaryName)summaryName.textContent='나의 기록';
+  var summarySince=document.querySelector('.summary-title span');if(summarySince)summarySince.textContent='';
   document.querySelectorAll('.summary-stat small').forEach(function(s){if(/이번 달/.test(s.textContent))s.style.display='none';});
   function setStat(i,v){var b=document.querySelectorAll('.summary-stat b')[i];if(b)b.textContent=v;}
   function setTabSpan(tab,v){var el=document.querySelector('.tab[data-tab="'+tab+'"] span');if(el)el.textContent=v;}
@@ -190,6 +232,7 @@ if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt
     b.classList.add('active');
     loadTab(b.dataset.tab);
   },true);
+  applyCountsToDom();
   bridge.summary().then(function(s){
     if(s.ok&&s.summary){counts.posts=s.summary.postCount;counts.comments=s.summary.commentCount;}
     applyCountsToDom();

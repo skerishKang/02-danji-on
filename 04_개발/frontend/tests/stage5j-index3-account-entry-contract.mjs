@@ -23,8 +23,10 @@ assert.match(html, /혜택·이벤트 알림[\s\S]*<small>선택<\/small>/);
 assert.match(html, /function residentChoice\(\)\{/);
 assert.match(html, /주민코드가 없어요 · 나중에 인증/);
 assert.match(html, /주민코드가 있어요 · 지금 인증/);
-assert.match(html, /button\.dataset\.residentNow!==undefined\)\{render\('residentCode'\)\}/);
-assert.match(html, /button\.dataset\.residentLater!==undefined\)\{sessionStorage\.setItem\('danjionResidentVerification','pending'\);signupPending=null;render\('complete'\)\}/);
+assert.match(html, /button\.dataset\.residentNow!==undefined\)\{if\(serverMode\)\{authModal\.close\(\);location\.href='26_우리집연결\.html\?from=onboarding';return\}render\('residentCode'\)\}/,
+  'canonical server mode must hand resident verification to the server-backed household flow while no-api preview retains the local walkthrough');
+assert.match(html, /button\.dataset\.residentLater!==undefined\)\{if\(!serverMode\)sessionStorage\.setItem\('danjionResidentVerification','pending'\);signupPending=null;render\('complete'\)\}/,
+  'canonical server mode must not mint browser-only resident state when verification is deferred');
 
 /* resident code is optional for signup completion */
 assert.match(html, /주민코드 없이 계정 생성은 완료되었습니다/);

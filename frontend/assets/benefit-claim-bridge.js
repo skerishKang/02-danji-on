@@ -65,13 +65,13 @@
       const result=await requestJson(fetchImpl,`${apiBase}/api/v1/me/benefits/${id}/claim`,{
         method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({complexSlug})
       });
-      if(!result.ok)return {...result,mode:[401,403].includes(result.status)?'auth-required':'error'};
+      if(!result.ok)return {...result,mode:result.status===401?'auth-required':result.status===403?'resident-verification-required':'error'};
       return {ok:true,mode:'server',status:result.status,claim:normalizeClaim(result.data)};
     }
 
     async function listMine(){
       const result=await requestJson(fetchImpl,`${apiBase}/api/v1/me/benefits`,{method:'GET'});
-      if(!result.ok)return {...result,mode:[401,403].includes(result.status)?'auth-required':'error',benefits:[]};
+      if(!result.ok)return {...result,mode:result.status===401?'auth-required':result.status===403?'forbidden':'error',benefits:[]};
       const rows=Array.isArray(result.data)?result.data:[];
       return {mode:'server',status:result.status,benefits:rows.map(normalizeWalletRow).filter(Boolean)};
     }

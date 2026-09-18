@@ -1079,6 +1079,8 @@
 <script src="assets/danjion-session.js"></script>
 <script id="frontend2-b-shop-runtime-20260905">
 (function(){
+ const CANONICAL_API_BASE=DanjionSession.danjionApiBase();
+ const PRODUCTION_SERVER_MODE=Boolean(CANONICAL_API_BASE);
  let SHOP_DATA=[
   {key:'florist',category:'cafe food',name:'로드힐 꽃작업실',relation:'우리 주민 가게',image:'assets/home-florist.png',desc:'계절 꽃다발과 작은 선물을 예약 상담으로 준비합니다.',service:'꽃다발 · 작은 선물 · 예약 제작',way:'예약 상담 후 방문 수령',location:'광주 남구 방림동 일대',contact:'1:1 문의로 날짜·용도·예산 상담',reviews:[['연블리 · 방림명지로드힐 주민','2026.08.30','부모님 생신 꽃다발을 정성스럽게 준비해 주셨어요. 상담도 편안했습니다.','찾아주셔서 정말 감사합니다. 생신 꽃다발은 늘 정성껏 준비하겠습니다.','2026.08.31'],['산책메이트 · 방림명지로드힐 주민','2026.08.26','원하는 분위기를 잘 들어주시고 예약 시간에 맞춰 준비해 주셨어요.'],['하루한잔 · 방림명지로드힐 주민','2026.08.18','선물할 사람에 맞춰 꽃 구성을 설명해 주셔서 고르기 편했습니다.','감사합니다. 다음에도 예쁘게 만들어 드릴게요.','2026.08.19']],benefit:'꽃다발 예약 상담 시 주민 전용 혜택',value:'예약혜택',code:'DANJION · F052'},
   {key:'food',category:'food',name:'오늘의 반찬',relation:'우리 주민 가게',image:'assets/scene-food.webp',desc:'매일 먹기 좋은 국과 반찬, 김치를 소량으로 정성껏 준비합니다.',service:'가정식 반찬 · 국 · 김치 · 계절 메뉴',way:'전화·1:1 문의 후 예약 주문',location:'방림명지로드힐 인근',contact:'1:1 문의로 메뉴·수령 시간 상담',reviews:[['연블리 · 방림명지로드힐 주민','2026.08.28','반찬이 깔끔하고 예약해 두니 찾기 편했습니다.','예약해 주셔서 감사해요. 내일 메뉴도 알찬 걸로 준비하겠습니다.','2026.08.28']],benefit:'방림명지로드힐 주민 10% 할인',value:'10%',code:'DANJION · F010'},
@@ -1089,7 +1091,11 @@
   {key:'beauty',category:'home',name:'정다운 헤어',relation:'주민 가족 가게',image:'assets/scene-beauty.webp',desc:'가족이 운영하는 생활 미용 서비스로 커트와 기본 관리를 제공합니다.',service:'커트 · 염색 · 기본 케어',way:'화–일 예약 우선',location:'방림동 인근',contact:'1:1 문의로 예약 상담',reviews:[['산책메이트 · 방림명지로드힐 주민','2026.08.23','요청한 스타일을 잘 반영해 주셨어요.']],benefit:'입주민 커트 할인',value:'할인',code:'DANJION · B018'},
   {key:'photo',category:'pro',name:'사진하는 이웃',relation:'우리 주민 가게',image:'assets/scene-photo.webp',desc:'가족사진과 프로필을 자연스럽게 촬영하고 기본 보정을 제공합니다.',service:'가족사진 · 프로필 · 소규모 촬영',way:'주말·평일 저녁 예약',location:'광주 남구 촬영',contact:'1:1 문의로 촬영 상담',reviews:[['하루한잔 · 방림명지로드힐 주민','2026.08.17','가족사진 분위기를 편하게 잡아 주셔서 좋았습니다.']],benefit:'입주민 촬영비 할인',value:'촬영할인',code:'DANJION · PH01'}
  ];
+  const __V3_PRESENTATION=SHOP_DATA.map(s=>({key:s.key,name:s.name,image:s.image}));
+  const __V3_COPY_FALLBACK=SHOP_DATA.map(s=>({...s}));
+ if(PRODUCTION_SERVER_MODE)SHOP_DATA=[];
  let byKey=Object.fromEntries(SHOP_DATA.map(s=>[s.key,s]));
+ let businessAuthorityState=PRODUCTION_SERVER_MODE?'loading':'demo';
  const grid=document.getElementById('shopGridV2'),filters=[...document.querySelectorAll('.filter')],title=document.querySelector('.catalog-head h2'),meta=document.querySelector('.catalog-head span');
  let currentFilter='all',query='';
  const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -1125,9 +1131,9 @@
 function savedBenefits(){try{const a=JSON.parse(localStorage.getItem('danjion:savedBenefits')||'[]');return Array.isArray(a)?a:[]}catch(e){return[]}}
 function setBenefits(a){localStorage.setItem('danjion:savedBenefits',JSON.stringify(a))}
 let __savedShopsBridge=null;
-async function initSavedShopsBridge(){__savedShopsBridge=DanJionSavedShopsBridge.create({apiBase:DISCOVERY_API_BASE});await __savedShopsBridge.load();syncSaveButtons()}
-function syncSaveButtons(){if(!__savedShopsBridge){document.querySelectorAll('[data-save-key]').forEach(b=>b.textContent='♡ 저장');return}document.querySelectorAll('[data-save-key]').forEach(b=>b.textContent=__savedShopsBridge.isSaved(b.dataset.saveKey)?'♥ 저장됨':'♡ 저장')}
- function draw(){const list=filtered();title.textContent=query?`“${query}” 검색 결과`:'이웃가게 전체';meta.textContent=`총 ${list.length}곳 · 사진과 목록으로 보기`;if(!list.length){grid.innerHTML='<div style="grid-column:1/-1;padding:42px 0;border-top:1px solid #111"><b style="font-size:22px">조건에 맞는 이웃가게가 없습니다.</b><p>검색어를 줄이거나 전체 필터로 다시 확인해 주세요.</p></div>';return}const visual=list.slice(0,4).map(card).join(''),rest=list.slice(4).map(textRow).join('');grid.innerHTML=visual+(rest?`<div class="b-text-list">${rest}</div>`:'');syncSaveButtons()}
+async function initSavedShopsBridge(){__savedShopsBridge=DanJionSavedShopsBridge.create({apiBase:DISCOVERY_API_BASE});const state=await __savedShopsBridge.load();syncSaveButtons();if(PRODUCTION_SERVER_MODE&&state.mode!=='server')console.info('[danjion] saved shops server authority unavailable:',state.mode)}
+function syncSaveButtons(){document.querySelectorAll('[data-save-key]').forEach(b=>{const state=__savedShopsBridge?__savedShopsBridge.snapshot():null;const blocked=PRODUCTION_SERVER_MODE&&(!state||state.mode!=='server');const saved=!blocked&&__savedShopsBridge?__savedShopsBridge.isSaved(b.dataset.saveKey):false;b.textContent=saved?'♥ 저장됨':'♡ 저장';b.disabled=blocked})}
+ function draw(){const list=filtered();title.textContent=query?`“${query}” 검색 결과`:'이웃가게 전체';meta.textContent=PRODUCTION_SERVER_MODE&&businessAuthorityState!=='ready'?'서버에서 확인한 이웃가게만 표시합니다.':`총 ${list.length}곳 · 사진과 목록으로 보기`;if(!list.length){let heading='조건에 맞는 이웃가게가 없습니다.',copy='검색어를 줄이거나 전체 필터로 다시 확인해 주세요.';if(PRODUCTION_SERVER_MODE){if(businessAuthorityState==='loading'){heading='이웃가게를 불러오는 중입니다.';copy='잠시만 기다려 주세요.'}else if(businessAuthorityState==='empty'){heading='현재 공개된 이웃가게가 없습니다.';copy='등록·승인된 가게가 생기면 이곳에 표시됩니다.'}else if(businessAuthorityState==='error'){heading='이웃가게를 불러오지 못했습니다.';copy='잠시 후 다시 시도해 주세요.'}}grid.innerHTML='<div style="grid-column:1/-1;padding:42px 0;border-top:1px solid #111"><b style="font-size:22px">'+heading+'</b><p>'+copy+'</p></div>';syncSaveButtons();return}const visual=list.slice(0,4).map(card).join(''),rest=list.slice(4).map(textRow).join('');grid.innerHTML=visual+(rest?`<div class="b-text-list">${rest}</div>`:'');syncSaveButtons()}
  filters.forEach(b=>b.addEventListener('click',()=>{filters.forEach(x=>x.classList.remove('active'));b.classList.add('active');currentFilter=b.dataset.filter;draw()}));
  document.getElementById('searchForm').addEventListener('submit',e=>{e.preventDefault();query=document.getElementById('searchInput').value.trim();draw()});
  const initial=new URLSearchParams(location.search);query=(initial.get('q')||'').trim();if(query)document.getElementById('searchInput').value=query;draw();
@@ -1136,8 +1142,8 @@ function syncSaveButtons(){if(!__savedShopsBridge){document.querySelectorAll('[d
  function syncModalSave(){if(!__savedShopsBridge){document.getElementById('shopCompareSave').textContent='♡ 저장';return}document.getElementById('shopCompareSave').textContent=__savedShopsBridge.isSaved(active)?'♥ 저장됨':'♡ 저장'}
  let __reviewsBridge=null;
   async function initReviewsBridge(){__reviewsBridge=DanjionReviewsBridge.createReviewsBridge({apiBase:DISCOVERY_API_BASE,complexSlug:DISCOVERY_COMPLEX_SLUG})}
- let __benefitClaimBridge=null,__inquiryBridge=null;
- function initBenefitClaimBridge(){__benefitClaimBridge=DanjionBenefitClaimBridge.createBenefitClaimBridge({apiBase:DISCOVERY_API_BASE,complexSlug:DISCOVERY_COMPLEX_SLUG})}
+ let __benefitClaimBridge=null,__inquiryBridge=null,__benefitWalletMode='unknown',__benefitWallet=new Set();
+ async function initBenefitClaimBridge(){__benefitClaimBridge=DanjionBenefitClaimBridge.createBenefitClaimBridge({apiBase:DISCOVERY_API_BASE,complexSlug:DISCOVERY_COMPLEX_SLUG});if(!PRODUCTION_SERVER_MODE)return;const r=await __benefitClaimBridge.listMine();__benefitWalletMode=r.mode||'error';__benefitWallet=new Set(r.mode==='server'?(r.benefits||[]).map(x=>String(x.benefitId||'').toLowerCase()).filter(Boolean):[]);syncCouponStore()}
  function initInquiryBridge(){__inquiryBridge=DanjionInquiryBridge.createInquiryBridge({apiBase:DISCOVERY_API_BASE,complexSlug:DISCOVERY_COMPLEX_SLUG})}
 function bridgeReviewToArray(r){return[r.author?.nickname||'',r.createdAt||'',r.body||'',r.reply?.body||'',r.reply?.createdAt||'',[],r.id||'']}
 const REVIEW_ID_UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -1152,11 +1158,11 @@ async function loadServerReviews(key){if(!__reviewsBridge)return;const r=await _
  function renderReviewPreview(s){const rs=reviewData(s),first=rs[0];document.getElementById('shopCompareReviewCount').textContent=rs.length+'개';document.getElementById('shopCompareReviewSnippet').textContent=first?first[0]+' · '+first[2]:'아직 등록된 후기가 없습니다.'}
  function replyHTML(r,ri){return (r[3]?`<div class="review-reply"><div class="review-reply-head"><span class="owner-badge">가게 주인</span><time>${esc(r[4]||'')}</time></div><p>${esc(r[3])}</p></div>`:'')+(r[5]?r[5].map((c)=>`<div class="review-reply"><div class="review-reply-head"><span class="resident-badge-r">주민</span><b>${esc(c[0])}</b><time>${esc(c[1])}</time></div><p>${esc(c[2])}</p></div>`).join(''):'')+`<button type="button" class="review-comment-toggle" data-ri="${ri}">댓글 달기</button><div class="review-comment-form" data-form="${ri}"><textarea maxlength="500" placeholder="따뜻한 댓글을 남겨주세요."></textarea><button type="button" data-send="${ri}">등록</button></div>`}
 async function openReview(keepLoaded){const s=byKey[active];if(!s)return;if(!keepLoaded){try{await loadServerReviews(active)}catch(_){void 0}}
- const rs=reviewData(s);document.getElementById('shopReviewTitle').textContent=s.name;document.getElementById('shopReviewCount').textContent='후기 '+rs.length+'개';document.getElementById('shopReviewList').innerHTML=rs.length?rs.map((r,ri)=>`<article class="review-item" data-review="${ri}"><div class="review-item-head"><b>${esc(r[0])}</b><time>${esc(r[1])}</time></div><p>${esc(r[2])}</p>${replyHTML(r,ri)}</article>`).join(''):'<p class="review-item">아직 등록된 후기가 없습니다.</p>';review.classList.add('open');review.setAttribute('aria-hidden','false');document.body.style.overflow='hidden';document.getElementById('shopReviewList').querySelectorAll('.review-comment-toggle').forEach(b=>b.onclick=()=>{const f=review.querySelector(`[data-form="${b.dataset.ri}"]`);f.classList.toggle('open');if(f.classList.contains('open'))f.querySelector('textarea').focus()});document.getElementById('shopReviewList').querySelectorAll('[data-send]').forEach(b=>b.onclick=async()=>{const ri=Number(b.dataset.send);const f=review.querySelector(`[data-form="${ri}"]`);const v=f.querySelector('textarea').value.trim();if(!v){flash('댓글 내용을 입력해 주세요.');return}const s=byKey[active];if(!s)return;const rrow=(s.reviews||[])[ri];if(!rrow)return;const rid=rrow[6]||'';if(__reviewsBridge&&REVIEW_ID_UUID.test(rid)){const c=await __reviewsBridge.createComment(active,rid,v);if(c.mode==='auth-required'){flash('로그인 후 이용 가능합니다.');return}if(c.ok&&c.comment){rrow[5]=rrow[5]||[];rrow[5].push([c.comment.author.nickname,c.comment.createdAt||'',c.comment.body,c.comment.id,c.comment.isMine]);openReview(true);return}flash('댓글 등록에 실패했습니다.');return}s.reviews[ri][5]=s.reviews[ri][5]||[];s.reviews[ri][5].push(['연블리','방금',v]);openReview(true);})}
+ const rs=reviewData(s);document.getElementById('shopReviewTitle').textContent=s.name;document.getElementById('shopReviewCount').textContent='후기 '+rs.length+'개';document.getElementById('shopReviewList').innerHTML=rs.length?rs.map((r,ri)=>`<article class="review-item" data-review="${ri}"><div class="review-item-head"><b>${esc(r[0])}</b><time>${esc(r[1])}</time></div><p>${esc(r[2])}</p>${replyHTML(r,ri)}</article>`).join(''):'<p class="review-item">아직 등록된 후기가 없습니다.</p>';review.classList.add('open');review.setAttribute('aria-hidden','false');document.body.style.overflow='hidden';document.getElementById('shopReviewList').querySelectorAll('.review-comment-toggle').forEach(b=>b.onclick=()=>{const f=review.querySelector(`[data-form="${b.dataset.ri}"]`);f.classList.toggle('open');if(f.classList.contains('open'))f.querySelector('textarea').focus()});document.getElementById('shopReviewList').querySelectorAll('[data-send]').forEach(b=>b.onclick=async()=>{const ri=Number(b.dataset.send);const f=review.querySelector(`[data-form="${ri}"]`);const v=f.querySelector('textarea').value.trim();if(!v){flash('댓글 내용을 입력해 주세요.');return}const s=byKey[active];if(!s)return;const rrow=(s.reviews||[])[ri];if(!rrow)return;const rid=rrow[6]||'';if(__reviewsBridge&&REVIEW_ID_UUID.test(rid)){const c=await __reviewsBridge.createComment(active,rid,v);if(c.mode==='auth-required'){flash('로그인 후 이용 가능합니다.');return}if(c.ok&&c.comment){rrow[5]=rrow[5]||[];rrow[5].push([c.comment.author.nickname,c.comment.createdAt||'',c.comment.body,c.comment.id,c.comment.isMine]);openReview(true);return}flash('댓글 등록에 실패했습니다.');return}flash('서버에 연결된 후기에서만 댓글을 등록할 수 있습니다.');return;})}
  function closeReview(){review.classList.remove('open');review.setAttribute('aria-hidden','true');if(!coupon.classList.contains('open')&&!modal.classList.contains('open'))document.body.style.overflow=''}
  function openReviewWrite(key){const sh=byKey[key];if(!sh)return;document.getElementById('shopReviewWriteTitle').textContent=sh.name+' 후기를 남겨주세요.';document.getElementById('shopReviewInput').value='';document.getElementById('shopReviewWriteModal').classList.add('open');document.getElementById('shopReviewWriteModal').setAttribute('aria-hidden','false');document.body.style.overflow='hidden'}
  function closeReviewWrite(){const el=document.getElementById('shopReviewWriteModal');el.classList.remove('open');el.setAttribute('aria-hidden','true');if(!modal.classList.contains('open')&&!review.classList.contains('open')&&!coupon.classList.contains('open'))document.body.style.overflow=''}
- async function submitReview(){const v=document.getElementById('shopReviewInput').value.trim();if(!v){flash('후기 내용을 입력해 주세요.');return}const s=byKey[active];if(!s)return;const r=await __reviewsBridge.create(active,v);if(r.mode==='static'){s.reviews=[...(s.reviews||[]),['나도 이용한 이웃','방금',v]];closeReviewWrite();renderReviewPreview(s);flash('후기가 등록됐습니다.');return}if(!r.ok){flash(r.mode==='auth-required'?'로그인 후 이용 가능합니다.':'후기 등록 실패');return}flash('후기가 등록됐습니다.');closeReviewWrite();if(r.review)s.reviews=[bridgeReviewToArray(r.review),...(s.reviews||[])];renderReviewPreview(s)}
+ async function submitReview(){const v=document.getElementById('shopReviewInput').value.trim();if(!v){flash('후기 내용을 입력해 주세요.');return}const s=byKey[active];if(!s)return;const r=await __reviewsBridge.create(active,v);if(r.mode==='static'){flash('서버에 등록된 이웃가게에서만 후기를 남길 수 있습니다.');return}if(!r.ok){flash(r.mode==='auth-required'?'로그인 후 이용 가능합니다.':'후기 등록 실패');return}flash('후기가 등록됐습니다.');closeReviewWrite();if(r.review)s.reviews=[bridgeReviewToArray(r.review),...(s.reviews||[])];renderReviewPreview(s)}
  function openShopInquiry(key){const sh=byKey[key];if(!sh)return;document.getElementById('shopInquiryTitle').textContent=sh.name+'에 문의하세요.';document.getElementById('shopInquirySubject').value='';document.getElementById('shopInquiryText').value='';document.getElementById('shopInquiryModal').classList.add('open');document.getElementById('shopInquiryModal').setAttribute('aria-hidden','false');document.body.style.overflow='hidden'}
  function closeShopInquiry(){const el=document.getElementById('shopInquiryModal');el.classList.remove('open');el.setAttribute('aria-hidden','true');if(!modal.classList.contains('open')&&!review.classList.contains('open')&&!coupon.classList.contains('open'))document.body.style.overflow=''}
  async function sendShopInquiry(ev){ev.preventDefault();const sh=byKey[active];if(!sh)return;const subject=document.getElementById('shopInquirySubject').value.trim();const text=document.getElementById('shopInquiryText').value.trim();if(!subject||!text){flash('문의 제목과 내용을 입력해 주세요.');return}
@@ -1164,11 +1170,11 @@ async function openReview(keepLoaded){const s=byKey[active];if(!s)return;if(!kee
    if(r.mode==='auth-required'){flash('로그인 후 이용 가능합니다.');return}
    if(r.ok){closeShopInquiry();flash('문의가 접수됐습니다.');return}
    if(r.mode==='error'){flash('문의 접수에 실패했습니다.');return}}
-  let arr=[];try{arr=JSON.parse(localStorage.getItem('danjion:demo:shop-inquiries')||'[]')}catch(_){}arr.unshift({type:'shop_inquiry',shopKey:active,shopName:sh.name,recipientType:'shop_owner',recipientDisplay:sh.name,subject,text,at:new Date().toISOString()});localStorage.setItem('danjion:demo:shop-inquiries',JSON.stringify(arr.slice(0,50)));closeShopInquiry();flash('문의가 접수됐습니다.')}
+  flash('가게 문의를 서버에 접수할 수 없습니다. 잠시 후 다시 시도해 주세요.')}
  function openShop(key){const s=byKey[key]||byKey['florist']||SHOP_DATA[0];if(!s)return;active=s.key;const relTxt=s.relation;const relCls=(s.relation==='우리 주민 가게')?'rel-owner':((s.relation==='주민 가족 가게')?'rel-family':((s.relation==='이웃단지 가게'||s.relation==='이웃가게')?'rel-neighbor':'rel-family'));[['shopCompareRelation',relTxt],['shopCompareTitle',s.name],['shopCompareDesc',s.desc],['shopCompareService',s.service],['shopCompareWay',s.way],['shopCompareLocation',s.location||'단지 인근 생활권'],['shopCompareContact',s.contact||'1:1 문의로 확인'],['shopCompareBenefit',s.benefit]].forEach(([id,v])=>document.getElementById(id).textContent=v);document.getElementById('shopCompareRelation').className='shop-compare-kicker '+relCls;renderReviewPreview(s);const img=document.getElementById('shopCompareImage');img.src=s.image;img.alt=s.name+' 대표 이미지';img.style.objectPosition='50% 50%';const gallery=document.getElementById('shopCompareGallery'),positions=['50% 50%','30% 55%','75% 45%'];gallery.innerHTML=positions.map((pos,i)=>`<button type="button" class="${i===0?'active':''}" data-pos="${pos}" aria-label="사진 ${i+1}"><img src="${s.image}" alt=""></button>`).join('');gallery.querySelectorAll('button').forEach(b=>b.onclick=()=>{gallery.querySelectorAll('button').forEach(x=>x.classList.remove('active'));b.classList.add('active');img.style.objectPosition=b.dataset.pos});syncModalSave();modal.classList.add('open');modal.setAttribute('aria-hidden','false');document.body.style.overflow='hidden'}
  function closeShop(){modal.classList.remove('open');modal.setAttribute('aria-hidden','true');if(!coupon.classList.contains('open')&&!review.classList.contains('open'))document.body.style.overflow=''}
  function openCoupon(key){const s=byKey[key];if(!s)return;active=key;document.getElementById('shopCouponShop').textContent=s.name+' · '+s.relation;document.getElementById('shopCouponTitle').textContent=s.benefit;document.getElementById('shopCouponValue').textContent=s.value;document.getElementById('shopCouponCode').textContent=s.code;document.getElementById('shopCouponNote').textContent='예약·문의 또는 방문 시 방림명지로드힐 주민임을 확인한 뒤 적용합니다. 실제 제공 조건은 가게 안내를 우선합니다.';syncCouponStore();coupon.classList.add('open');coupon.setAttribute('aria-hidden','false');document.body.style.overflow='hidden'}
- function syncCouponStore(){document.getElementById('shopCouponStore').textContent=savedBenefits().includes(active)?'✓ 내 혜택에 보관됨':'내 혜택에 보관'}
+ function syncCouponStore(){const button=document.getElementById('shopCouponStore'),s=byKey[active],benefitId=String(s&&s.benefitId||'').toLowerCase();if(PRODUCTION_SERVER_MODE){const stored=benefitId&&__benefitWallet.has(benefitId);button.textContent=stored?'✓ 받은 혜택':'혜택 받기';button.disabled=__benefitWalletMode!=='server'||!benefitId;return}button.disabled=false;button.textContent=savedBenefits().includes(active)?'✓ 내 혜택에 보관됨':'내 혜택에 보관'}
  function closeCoupon(){coupon.classList.remove('open');coupon.setAttribute('aria-hidden','true');if(!modal.classList.contains('open')&&!review.classList.contains('open'))document.body.style.overflow=''}
  window.openShopCompareV2=openShop;
  const review=document.getElementById('shopReviewModal');
@@ -1206,15 +1212,13 @@ grid.addEventListener('keydown',e=>{
  document.getElementById('shopInquiryForm').addEventListener('submit',sendShopInquiry);
  document.getElementById('shopCouponClose').onclick=closeCoupon;coupon.addEventListener('click',e=>{if(e.target===coupon)closeCoupon()});
  document.getElementById('shopCouponStore').onclick=async()=>{const s=byKey[active];
-  if(s&&s.benefitId&&__benefitClaimBridge&&!savedBenefits().includes(active)){const r=await __benefitClaimBridge.claim(s.benefitId);
-   if(r.mode==='auth-required'){flash('로그인 후 이용 가능합니다.');return}
-   if(r.mode==='error'){flash('혜택 보관에 실패했습니다.');return}}
+  if(PRODUCTION_SERVER_MODE){const benefitId=String(s&&s.benefitId||'').toLowerCase();if(!__benefitClaimBridge||__benefitWalletMode!=='server'){flash('받은 혜택 정보를 불러온 뒤 다시 시도해 주세요.');return}if(!benefitId){flash('현재 서버에 등록된 주민 혜택이 없습니다.');return}if(__benefitWallet.has(benefitId)){flash('이미 받은 혜택입니다.');return}const r=await __benefitClaimBridge.claim(benefitId);if(r.mode==='auth-required'){flash('로그인 후 이용 가능합니다.');return}if(r.mode==='resident-verification-required'){flash('주민인증 후 혜택을 받을 수 있습니다.');return}if(!r.ok){flash('혜택 받기에 실패했습니다.');return}__benefitWallet.add(benefitId);syncCouponStore();flash('받은 혜택에 추가했습니다.');return}
   let a=savedBenefits();if(a.includes(active)){a=a.filter(x=>x!==active);setBenefits(a);flash('보관을 취소했습니다.')}else{a.push(active);setBenefits(a);flash('내정보의 받은 혜택에 보관했습니다.')}syncCouponStore()};
  document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(document.getElementById('shopInquiryModal').classList.contains('open'))closeShopInquiry();else if(document.getElementById('shopReviewWriteModal').classList.contains('open'))closeReviewWrite();else if(coupon.classList.contains('open'))closeCoupon();else if(review.classList.contains('open'))closeReview();else if(modal.classList.contains('open'))closeShop()}});
  const key=initial.get('shop');
 
  /* === Stage 5-A: discovery API → 가게 목록만 실데이터 교체 (저장·후기·문의·신청은 기존 데모 동작 유지) === */
- const DISCOVERY_API_BASE=DanjionSession.danjionApiBase();
+ const DISCOVERY_API_BASE=CANONICAL_API_BASE;
  const DISCOVERY_COMPLEX_SLUG='banglim-myeongji-roadhill';
  const RELATION_LABEL={'resident':'우리 주민 가게','resident_family':'주민 가족 가게','neighbor':'이웃단지 가게'};
   const CATEGORY_BY_SLUG={cafe:'cafe',food:'food',home:'home',learn:'learn',pro:'pro',car:'car'};
@@ -1237,15 +1241,15 @@ grid.addEventListener('keydown',e=>{
      relation,
      image:(b.representative_image_object_key??b.representativeImageObjectKey)||'assets/scene-car.webp',
      representativeImageObjectKey:(b.representative_image_object_key??b.representativeImageObjectKey)||'',
-     desc:desc||'등록된 소개가 아직 없습니다.',
-     service:service||'1:1 문의로 확인',
-     way:'가게 안내에 따릅니다.',
-     location:(b.service_area??b.serviceArea)||'단지 인근 생활권',
-     contact:'1:1 문의로 확인',
-     reviews:[(benefit.title?'최신 혜택 '+benefit.title:'')].filter(Boolean).map(t=>[t,'방금','DB에서 가져온 활성 혜택입니다.']),
+      desc,
+      service,
+      way:'',
+      location:(b.service_area??b.serviceArea)||'',
+      contact:'',
+     reviews:[],
       benefit:benefit.title||'주민 전용 혜택',
       value:benefit.value||benefit.conditions||'혜택',
-      code:benefit.code||'DANJION · API',
+      code:benefit.code||'',
       benefitId:BENEFIT_ID_UUID.test(benefitIdValue)?benefitIdValue:''
    };
  }
@@ -1258,28 +1262,24 @@ grid.addEventListener('keydown',e=>{
      ? DISCOVERY_API_BASE+'/api/v1/storage/public?objectKey='+encodeURIComponent(key)
      : '';
  }
- function reconcileApiShop(live,staticByName){
-   const base=staticByName.get(normalizedBusinessName(live.name));
-   const resolvedImage=liveBusinessImage(live.representativeImageObjectKey);
-   if(!base)return {...live,image:resolvedImage||live.image};
-   return {
-     ...base,
-     ...live,
-     image:resolvedImage||(live.image&&live.image!=='assets/scene-car.webp'?live.image:base.image),
-     desc:live.desc&&live.desc!=='등록된 소개가 아직 없습니다.'?live.desc:base.desc,
-     service:live.service&&live.service!=='1:1 문의로 확인'?live.service:base.service,
-     way:base.way,
-     location:live.location&&live.location!=='단지 인근 생활권'?live.location:base.location,
-     contact:base.contact,
-     reviews:Array.isArray(live.reviews)&&live.reviews.length?live.reviews:base.reviews,
-     benefit:live.benefit&&live.benefit!=='주민 전용 혜택'?live.benefit:base.benefit,
-     value:live.value&&live.value!=='혜택'?live.value:base.value,
-     code:live.code&&live.code!=='DANJION · API'?live.code:base.code,
-     presentationKey:base.key
-   };
+  function reconcileApiShop(live,staticByName){
+    const base=staticByName.get(normalizedBusinessName(live.name));
+    const resolvedImage=liveBusinessImage(live.representativeImageObjectKey);
+    return {
+      ...(base||{}),
+      ...live,
+      image:resolvedImage||(base?base.image:live.image),
+      desc:live.desc||base?.desc||'등록된 소개가 아직 없습니다.',
+      service:live.service||base?.service||'1:1 문의로 확인',
+      way:live.way||base?.way||'가게 안내에 따릅니다.',
+      location:live.location||base?.location||'단지 인근 생활권',
+      contact:live.contact||base?.contact||'1:1 문의로 확인',
+      benefit:live.benefit&&live.benefit!=='주민 전용 혜택'?live.benefit:(base?.benefit||'주민 전용 혜택'),
+      presentationKey:base?base.key:undefined
+    };
  }
  function reconcileApiShops(list){
-   const staticByName=new Map(SHOP_DATA.map(s=>[normalizedBusinessName(s.name),s]));
+    const staticByName=new Map(__V3_COPY_FALLBACK.map(s=>[normalizedBusinessName(s.name),s]));
    return list.map(live=>reconcileApiShop(live,staticByName));
  }
  function apiShops(){
@@ -1292,7 +1292,7 @@ grid.addEventListener('keydown',e=>{
      .then(res=>{if(!res.ok)throw new Error('HTTP '+res.status);return res.json()})
      .then(json=>{
        const rows=(json&&json.data)||[];
-       if(!Array.isArray(rows)||!rows.length)throw new Error('empty business list');
+       if(!Array.isArray(rows))throw new Error('invalid business list');
        if(timer)clearTimeout(timer);
        return rows.map(mapApiBusiness);
      })
@@ -1306,23 +1306,21 @@ grid.addEventListener('keydown',e=>{
      Array.prototype.push.apply(SHOP_DATA,reconciled);
      Object.keys(byKey).forEach(k=>delete byKey[k]);
      reconciled.forEach(s=>{byKey[s.key]=s;if(s.presentationKey)byKey[s.presentationKey]=s});
-     // Preserve the current route/user search and filter while replacing only
-     // the underlying live shop data. Hydration may complete after the user has
-     // already typed or changed a filter, so resetting UI state here would race
-     // and silently discard that intent (#630).
+     businessAuthorityState=reconciled.length?'ready':'empty';
      draw();
      if(key&&byKey[key])setTimeout(()=>openShop(key),0);
      console.info('[danjion] discovery API shops loaded:',list.length);
    }).catch(err=>{
+     if(PRODUCTION_SERVER_MODE){SHOP_DATA.length=0;Object.keys(byKey).forEach(k=>delete byKey[k]);businessAuthorityState='error';draw();console.info('[danjion] discovery API unavailable; canonical Production stays fail-closed:',String(err&&err.message||err));return}
      if(key&&byKey[key])setTimeout(()=>openShop(key),60);
-     console.info('[danjion] discovery API unavailable, using demo SHOP_DATA fallback:',String(err&&err.message||err));
+     console.info('[danjion] discovery preview fallback:',String(err&&err.message||err));
    });
  }catch(e){console.info('[danjion] discovery API wiring skipped:',String(e))}
   /* DANJION LOCAL B(#278): boot persistence bridges (saved-shops / reviews) */
   try{initSavedShopsBridge()}catch(e){console.info('[danjion] savedShopsBridge init skipped:',String(e))}
   try{initReviewsBridge()}catch(e){console.info('[danjion] reviewsBridge init skipped:',String(e))}
   /* GAP-6/7: benefit claim + shop inquiry bridges (server-backed shops only) */
-  try{initBenefitClaimBridge()}catch(e){console.info('[danjion] benefitClaimBridge init skipped:',String(e))}
+  void initBenefitClaimBridge().catch(e=>{__benefitWalletMode='error';__benefitWallet=new Set();syncCouponStore();console.info('[danjion] benefitClaimBridge init failed:',String(e&&e.message||e))})
   try{initInquiryBridge()}catch(e){console.info('[danjion] inquiryBridge init skipped:',String(e))}
 })();
 </script>
