@@ -214,11 +214,13 @@
 <div class="side-stack"><article class="side-card message"><span class="card-kicker">1:1 MESSAGE</span><h3>새 메시지가 있어요.<span class="unread" id="mi-unread">2</span></h3><button class="card-link" onclick="location.href='20_메시지함_목록.html'" type="button"><span>메시지함 보기</span><span>→</span></button></article><article class="side-card"><span class="card-kicker">MY HOUSEHOLD</span><h3>우리집 연결</h3><button class="card-link" onclick="location.href='26_우리집연결.html'" type="button"><span>연결 상태 보기</span><span>→</span></button></article></div>
 </section>
 <section class="panel profile-edit-panel" id="mi-profile-edit-panel" hidden aria-label="내정보 수정">
-<header class="panel-head"><div><small>PROFILE EDIT</small><h2>내정보 수정</h2></div><span>닉네임과 한 줄 소개는 서버 검증 후 저장됩니다.</span></header>
+<header class="panel-head"><div><small>PROFILE EDIT</small><h2>내정보 수정</h2></div><span>닉네임은 30일에 한 번 변경할 수 있고, 한 줄 소개는 주민 공개 프로필에 표시됩니다.</span></header>
 <div class="edit-body">
 <label class="edit-field">닉네임<input id="mi-edit-nickname" maxlength="40" autocomplete="nickname" type="text"/>
 </label>
+<p class="edit-status" id="mi-nickname-policy">닉네임은 변경 후 30일 동안 다시 변경할 수 있습니다.</p>
 <label class="edit-field">한 줄 소개<textarea id="mi-edit-bio" maxlength="300" rows="3"></textarea></label>
+<p class="edit-status">한 줄 소개는 다른 주민이 보는 공개 프로필에 표시됩니다.</p>
 <p class="edit-status" id="mi-edit-status" role="status"></p>
 <div class="edit-actions"><button class="edit-save" id="mi-edit-save" type="button">저장</button><button class="edit-cancel" id="mi-edit-cancel" type="button">취소</button></div>
 </div>
@@ -619,12 +621,21 @@ if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt
   }
   function openEditPanel(){
     var panel=$('mi-profile-edit-panel');if(!panel)return;
-    var nick=$('mi-edit-nickname'),bio=$('mi-edit-bio'),p=serverProfile||{};
+    var nick=$('mi-edit-nickname'),bio=$('mi-edit-bio'),policy=$('mi-nickname-policy'),p=serverProfile||{};
     if(nick)nick.value=String(p.nickname||'');
     if(bio)bio.value=String(p.publicBio||'');
+    var nextRaw=String(p.nicknameCanChangeAt||'');
+    var next=nextRaw?new Date(nextRaw):null;
+    var locked=!!(next&&!Number.isNaN(next.getTime())&&next.getTime()>Date.now());
+    if(nick){nick.disabled=locked;nick.title=locked?'닉네임 변경 가능일 전에는 수정할 수 없습니다.':''}
+    if(policy){
+      policy.textContent=locked
+        ? '닉네임은 '+next.toLocaleDateString('ko-KR')+'부터 다시 변경할 수 있습니다.'
+        : '닉네임을 변경하면 30일 동안 다시 변경할 수 없습니다.';
+    }
     setTxt($('mi-edit-status'),'');
     panel.hidden=false;
-    if(nick)nick.focus();
+    if(nick&&!nick.disabled)nick.focus();else if(bio)bio.focus();
   }
   function saveProfileEdit(){
     var btn=$('mi-edit-save'),status=$('mi-edit-status'),nick=$('mi-edit-nickname'),bio=$('mi-edit-bio');
@@ -644,6 +655,7 @@ if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt
       }
       var mode=r?r.mode:'error';
       if(mode==='client'&&r.error==='PROFILE_PATCH_EMPTY')setTxt(status,'변경할 내용을 입력해 주세요.');
+      else if(r&&r.error==='NICKNAME_CHANGE_COOLDOWN')setTxt(status,'닉네임은 변경 후 30일 동안 다시 변경할 수 없습니다. 한 줄 소개는 계속 수정할 수 있습니다.');
       else if(mode==='resident-verification-required')setTxt(status,'주민인증이 필요합니다.');
       else if(mode==='auth-required')setTxt(status,'로그인 후 다시 시도해 주세요.');
       else if(mode==='forbidden')setTxt(status,'이 기능을 이용할 권한이 없습니다.');
