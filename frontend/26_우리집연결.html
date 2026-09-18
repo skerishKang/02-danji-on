@@ -45,18 +45,21 @@
     @media(max-width:860px){.nav{display:none}.page-head,.layout{grid-template-columns:1fr}.page-copy{max-width:620px}.intro{min-height:350px}.card{min-height:0}.support-grid{grid-template-columns:1fr}.support-grid .wide{grid-column:auto}}
     @media(max-width:560px){.header-inner,.route-inner,main{width:min(100% - 28px,1180px)}.intro,.card{padding:24px}.route-note{display:none}.page-head h1{font-size:42px}.support-links .secondary{flex:1}}
   </style>
+  <link rel="stylesheet" href="assets/danjion-service-header.css">
 </head>
-<body>
-  <header class="site-header">
+<body data-danjion-page="26">
+  <header class="site-header danjion-service-header">
     <div class="header-inner">
-      <button class="brand" type="button" onclick="location.href='04_데일리홈.html'">단지온 <small>DANJION</small></button>
-      <nav class="nav" aria-label="주요 메뉴">
+      <a class="brand" href="./index.html?intro=1"><span class="wordmark">단지온</span><small>DANJION by PADIEM</small></a>
+      <nav aria-label="주요 메뉴" class="desktop-nav">
         <a href="04_데일리홈.html">홈</a>
+        <a href="./index.html?intro=1">인트로</a>
         <a href="01_이웃가게_발견.html">이웃가게</a>
-        <a href="12_이웃대화_첫화면.html">이웃대화</a>
-        <a href="19_내정보_메인.html">내정보</a>
+        <a href="05_우리단지_첫화면.html">우리단지</a>
+        <a aria-current="page" class="active" href="19_내정보_메인.html">내정보</a>
       </nav>
-      <div class="identity">계정 확인 중</div>
+      <div class="identity" data-account-host>계정 확인 중</div>
+      <span class="mobile-title">주민인증</span>
     </div>
   </header>
 
