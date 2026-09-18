@@ -1,0 +1,134 @@
+name: Production Neon Connectivity Diagnostic
+
+on:
+  workflow_dispatch:
+    inputs:
+      expected_main:
+        description: 'Exact origin/main SHA authorized by CENTRAL'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  connectivity:
+    name: Production Neon connectivity only
+    runs-on: ubuntu-latest
+    environment: production
+    defaults:
+      run:
+        working-directory: 04_개발/backend
+    env:
+      DANJION_PRODUCTION_DB_URL: ${{ secrets.DANJION_PRODUCTION_DB_URL }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Exact main authority guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main --no-tags
+          actual_main="$(git rev-parse origin/main)"
+          expected_main="${{ inputs.expected_main }}"
+          if [ "$GITHUB_SHA" != "$expected_main" ] || [ "$actual_main" != "$expected_main" ]; then
+            echo "::error::Exact-main authority mismatch."
+            exit 1
+          fi
+          echo "EXACT_MAIN_GUARD=PASS"
+
+      - name: Verify secret presence without output
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${DANJION_PRODUCTION_DB_URL:-}" || { echo "::error::Production DB secret is not bound."; exit 1; }
+          echo "PRODUCTION_DB_SECRET_BINDING=PASS"
+
+      - name: Install backend dependencies
+        run: npm install --ignore-scripts
+
+      - name: Connectivity diagnostic
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import dns from 'node:dns/promises';
+          import net from 'node:net';
+          import { neon } from '@neondatabase/serverless';
+
+          const raw = process.env.DANJION_PRODUCTION_DB_URL || '';
+          if (!raw) process.exit(2);
+
+          let parsed;
+          try { parsed = new URL(raw); } catch {
+            console.error('NEON_CONNECTIVITY=FAIL invalid_bound_url');
+            process.exit(1);
+          }
+
+          const host = parsed.hostname;
+          const port = Number(parsed.port || 5432);
+          if (!host || !Number.isInteger(port)) {
+            console.error('NEON_CONNECTIVITY=FAIL invalid_endpoint_shape');
+            process.exit(1);
+          }
+
+          // Never print host, URL, username, password, database, query response, or resolved IPs.
+          try {
+            const resolved = await dns.lookup(host, { all: true });
+            if (!resolved.length) throw new Error('empty');
+            console.log('DNS_RESOLUTION=PASS');
+          } catch {
+            console.error('DNS_RESOLUTION=FAIL');
+            process.exit(1);
+          }
+
+          try {
+            await new Promise((resolve, reject) => {
+              const socket = net.createConnection({ host, port });
+              const timer = setTimeout(() => {
+                socket.destroy();
+                reject(new Error('timeout'));
+              }, 10000);
+              socket.once('connect', () => {
+                clearTimeout(timer);
+                socket.destroy();
+                resolve();
+              });
+              socket.once('error', (error) => {
+                clearTimeout(timer);
+                reject(error);
+              });
+            });
+            console.log('TCP_REACHABILITY=PASS');
+          } catch {
+            console.error('TCP_REACHABILITY=FAIL');
+            process.exit(1);
+          }
+
+          try {
+            const sql = neon(raw);
+            const rows = await sql.query('select 1::int as ok', []);
+            if (Number(rows?.[0]?.ok) !== 1) throw new Error('unexpected');
+            console.log('SQL_READONLY_SELECT=PASS');
+          } catch {
+            console.error('SQL_READONLY_SELECT=FAIL');
+            process.exit(1);
+          }
+
+          console.log('NEON_CONNECTIVITY=PASS');
+          NODE
+
+      - name: Record mutation-zero disposition
+        if: always()
+        shell: bash
+        run: |
+          echo "PRODUCTION_MUTATION=0"
+          echo "DB_MUTATION=0"
+          echo "WORKER_DEPLOY=0"
+          echo "PAGES_DEPLOY=0"
+          echo "SECRET_OUTPUT=0"

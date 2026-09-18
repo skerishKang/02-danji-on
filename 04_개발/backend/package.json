@@ -94,7 +94,8 @@
     "test:security-abuse-rate-limit": "node tests/security-abuse-rate-limit-contract.mjs",
     "test:product-rate-limit-routes": "tsx tests/product-rate-limit-route.test.mjs",
     "test:cross-platform-executable-contract": "node tests/cross-platform-executable-contract.mjs",
-    "check": "node ../scripts/test-manifest-runner.mjs run --scope backend"
+    "check": "node ../scripts/test-manifest-runner.mjs run --scope backend",
+    "test:production-neon-connectivity-diagnostic": "node tests/production-neon-connectivity-diagnostic-contract.mjs"
   },
   "dependencies": {
     "@neondatabase/serverless": "1.1.0",
