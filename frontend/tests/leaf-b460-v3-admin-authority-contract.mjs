@@ -448,8 +448,8 @@ const loadAdminContext = (location) => {
     assert.ok(!/method\s*:\s*['"](?:POST|PATCH|PUT|DELETE)['"]/.test(src),
       'page/authority layers must not directly own mutation transports');
   }
-  assert.equal((consoleSrc.match(/method\s*:\s*'PATCH'/g) || []).length, 3,
-    'the console bridge may own only application-review, official-news, and benefit PATCH transports');
+  assert.equal((consoleSrc.match(/method\s*:\s*'PATCH'/g) || []).length, 4,
+    'the console bridge may own only application-review, official-news, benefit, and household-membership review PATCH transports');
   assert.equal((consoleSrc.match(/method\s*:\s*'POST'/g) || []).length, 3,
     'the console bridge may own only official-news, benefit, and household-code create POST transports');
   assert.equal((consoleSrc.match(/method\s*:\s*'DELETE'/g) || []).length, 1,
@@ -464,6 +464,8 @@ const loadAdminContext = (location) => {
     'resident-benefit create must use the admin complex benefits family');
   assert.ok(consoleSrc.includes("'/api/v1/admin/benefits/'"),
     'resident-benefit edit must use the admin benefit PATCH family');
+  assert.ok(consoleSrc.includes("'/api/v1/admin/household-memberships/'"),
+    'household membership review must use the dedicated bounded admin PATCH family');
   assert.ok(!/method\s*:\s*['"]PUT['"]/.test(consoleSrc),
     'no PUT operational mutation may be activated');
 
