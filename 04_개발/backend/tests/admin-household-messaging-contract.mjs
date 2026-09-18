@@ -2,12 +2,12 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
 const root = new URL('../', import.meta.url);
-const [api, app, adminBridge, adminPage, notifications] = await Promise.all([
+const [api, app, adminBridge, adminPage, notificationMigration] = await Promise.all([
   readFile(new URL('src/admin-household-messaging-v1.ts', root), 'utf8'),
   readFile(new URL('src/app.ts', root), 'utf8'),
   readFile(new URL('../../frontend/assets/danjion-admin-console.js', root), 'utf8'),
   readFile(new URL('../../frontend/admin/index.html', root), 'utf8'),
-  readFile(new URL('src/resident-notifications-v1.ts', root), 'utf8')
+  readFile(new URL('migrations/025_resident_notifications.sql', root), 'utf8')
 ]);
 
 assert.match(api, /const SCOPE = 'household\.message\.manage'/,
@@ -63,9 +63,9 @@ assert.match(adminPage, /Production 발송은 별도 승인 후 활성화됩니�
 assert.match(adminPage, /disabled=true/,
   'admin send control must remain disabled in this slice');
 
-assert.match(notifications, /create table if not exists notifications/i,
+assert.match(notificationMigration, /create table if not exists notifications/i,
   'existing resident in-app notification infrastructure remains reusable for a later activated dispatch slice');
-assert.doesNotMatch(notifications, /body text|message_body/i,
+assert.doesNotMatch(notificationMigration, /body text|message_body/i,
   'existing notifications table must not be misrepresented as a message-body store');
 
 console.log('PASS #756 household message target preview + send-disabled boundary');
