@@ -19,6 +19,9 @@ assert.match(migration, /primary key \(message_id, user_id\)/i);
 assert.match(migration, /create table if not exists household_message_events\b/i);
 assert.match(migration, /unique \(message_id, event_type\)/i);
 assert.match(migration, /before update or delete on household_message_events/i);
+assert.match(migration, /create or replace function resident_household_message_feed/i);
+assert.match(migration, /where d\.user_id = p_user_id/i);
+assert.match(migration, /hm\.status = 'verified'/);
 
 assert.match(adminApi, /const SCOPE = 'household\.message\.manage'/);
 assert.match(adminApi, /HOUSEHOLD_MESSAGE_SEND_MODE/);
@@ -34,8 +37,8 @@ assert.match(adminApi, /insert into notifications/i);
 assert.match(adminApi, /'household_message'/);
 assert.doesNotMatch(adminApi, /update\s+household_memberships|household_verification_codes|\bsms\b|phone|email/i);
 
-assert.match(residentApi, /where d\.user_id = \$\{actor\.id\}::uuid/i);
-assert.match(residentApi, /hm\.status = 'verified'/);
+assert.match(residentApi, /requireActor\(/);
+assert.match(residentApi, /resident_household_message_feed/);
 assert.doesNotMatch(residentApi, /target_selector|building_code|unit_code|sender_user_id|email|phone/i);
 
 assert.match(app, /handleResidentHouseholdMessageRequest/);
