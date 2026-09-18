@@ -86,16 +86,13 @@ export async function handleHouseholdCodeVerificationWithSql(
       and hm.status in ('pending','verified')
     limit 1
   `;
-  if (existing[0]) {
-    if (String(existing[0].status) === 'verified') {
-      return ok({
-        status: 'verified',
-        householdLinked: true,
-        household: { buildingCode: String(existing[0].building_code), unitCode: String(existing[0].unit_code) },
-        alreadyVerified: true
-      }, requestId);
-    }
-    return fail('HOUSEHOLD_MEMBERSHIP_EXISTS', 'An active household membership already exists', 409, requestId);
+  if (existing[0] && String(existing[0].status) === 'verified') {
+    return ok({
+      status: 'verified',
+      householdLinked: true,
+      household: { buildingCode: String(existing[0].building_code), unitCode: String(existing[0].unit_code) },
+      alreadyVerified: true
+    }, requestId);
   }
 
   const codeVerifier = await householdCodeVerifier(code, pepper);
@@ -113,42 +110,57 @@ export async function handleHouseholdCodeVerificationWithSql(
           and cu.status = 'active'
         limit 1
         for update of vc
+      ), promoted as (
+        update household_memberships hm
+        set status = 'verified', verified_at = now(), revoked_at = null, updated_at = now()
+        from target
+        where hm.user_id = ${actor.id}::uuid
+          and hm.complex_id = target.complex_id
+          and hm.household_id = target.household_id
+          and hm.status = 'pending'
+        returning hm.id, hm.complex_id, hm.household_id
       ), inserted as (
         insert into household_memberships (complex_id, household_id, user_id, membership_role, status, verified_at)
         select target.complex_id, target.household_id, ${actor.id}::uuid, 'member', 'verified', now()
         from target
-        where not exists (
-          select 1 from household_memberships hm
-          where hm.user_id = ${actor.id}::uuid
-            and hm.complex_id = target.complex_id
-            and hm.status in ('pending','verified')
-        )
+        where not exists (select 1 from promoted)
+          and not exists (
+            select 1 from household_memberships hm
+            where hm.user_id = ${actor.id}::uuid
+              and hm.complex_id = target.complex_id
+              and hm.status in ('pending','verified')
+          )
         on conflict do nothing
         returning id, complex_id, household_id
+      ), membership as (
+        select id, complex_id, household_id from promoted
+        union all
+        select id, complex_id, household_id from inserted
       ), used as (
         update household_verification_codes vc
         set use_count = vc.use_count + 1, last_used_at = now()
-        from target, inserted
+        from target
         where vc.id = target.id
+          and exists (select 1 from membership)
         returning vc.id
       ), audited as (
         insert into household_verification_code_events (
           complex_id, household_id, actor_user_id, action, request_id
         )
-        select inserted.complex_id, inserted.household_id, ${actor.id}::uuid, 'verify_success', ${requestId}
-        from inserted
+        select membership.complex_id, membership.household_id, ${actor.id}::uuid, 'verify_success', ${requestId}
+        from membership
         where exists (select 1 from used)
         returning id
       )
-      select inserted.household_id
-      from inserted
+      select membership.household_id
+      from membership
       where exists (select 1 from used) and exists (select 1 from audited)
     `,
     sql`select 1 as transaction_boundary`
   ]);
 
-  const inserted = (results[0] as Record<string, unknown>[])[0];
-  if (!inserted) {
+  const membership = (results[0] as Record<string, unknown>[])[0];
+  if (!membership) {
     await auditFailure(sql, actor.id, complexId, requestId);
     return fail('RESIDENT_CODE_INVALID', 'The resident verification code is invalid or unavailable', 409, requestId);
   }
@@ -157,7 +169,7 @@ export async function handleHouseholdCodeVerificationWithSql(
     select cu.building_code, cu.unit_code
     from households h
     join complex_units cu on cu.id = h.complex_unit_id and cu.complex_id = h.complex_id
-    where h.id = ${String(inserted.household_id)}::uuid
+    where h.id = ${String(membership.household_id)}::uuid
       and h.complex_id = ${complexId}::uuid
     limit 1
   `;
