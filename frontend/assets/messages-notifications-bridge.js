@@ -89,6 +89,27 @@
         return { mode: 'server', status: result.status, userId: String(user.id || '') };
       },
 
+      async startConversation(participantUserId, complexSlug = 'banglim-myeongji-roadhill') {
+        if (!serverOnly()) return { ok: false, mode: 'static', error: 'SERVER_MODE_REQUIRED' };
+        const target = String(participantUserId || '').toLowerCase();
+        if (!UUID.test(target)) return { ok: false, mode: 'client', error: 'PARTICIPANT_ID_INVALID' };
+        const slug = String(complexSlug || '').trim();
+        if (!slug) return { ok: false, mode: 'client', error: 'COMPLEX_SLUG_INVALID' };
+        const result = await request('/api/v1/conversations', {
+          method: 'POST',
+          body: JSON.stringify({ complexSlug: slug, participantUserId: target })
+        });
+        if (!result.ok) return { ok: false, mode: failureMode(result), status: result.status, error: result.error };
+        return {
+          ok: true,
+          mode: 'server',
+          status: result.status,
+          conversationId: String(result.data?.id || ''),
+          participantUserId: String(result.data?.participantUserId || target),
+          created: result.data?.created === true
+        };
+      },
+
       async listConversations() {
         if (!serverOnly()) return { mode: 'static', conversations: [] };
         const result = await request('/api/v1/me/conversations');
