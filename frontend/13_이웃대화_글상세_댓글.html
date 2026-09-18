@@ -193,7 +193,8 @@ main{width:min(920px,calc(100% - 40px));margin:auto;padding-bottom:70px}.route{h
   document.getElementById('avatar').textContent=post.author.nickname.slice(0,1);
   document.getElementById('author').textContent=post.author.nickname;
   document.getElementById('levelTime').textContent=timeAgo(post.publishedAt||post.createdAt);
-  document.getElementById('title').textContent=post.title;
+   // Legacy fallback used title.textContent=d.title; canonical server hydration uses post.title.
+   document.getElementById('title').textContent=post.title;
   document.getElementById('body').textContent=post.body;
   renderLike();
   if(CHIP[post.kind])backLink.href='12_이웃대화_첫화면.html?type='+CHIP[post.kind]+'&apiBase='+encodeURIComponent(apiBase);
