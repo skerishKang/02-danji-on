@@ -10,6 +10,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-
 const COMPLEX_SLUG = /^[a-z0-9][a-z0-9-]{0,119}$/;
 const MAX_BODY_BYTES = 24 * 1024;
 const STATUSES = new Set(['received', 'in_progress', 'answered', 'closed']);
+const ACCOUNT_SUPPORT_TYPES = new Set(['account_login', 'household_link', 'resident_verification_code_request']);
 
 function ok(data: unknown, requestId: string, status = 200): Response {
   return Response.json({ data, requestId }, {
@@ -98,7 +99,7 @@ async function createMine(request: Request, env: CoreEnv, sql: Sql, requestId: s
   if (body.length < 1 || body.length > 10000) return fail('VALIDATION_ERROR', 'body must be 1-10000 characters', 400, requestId);
   let actorId: string;
   let complexId: string;
-  if (inquiryType === 'resident_verification_code_request') {
+  if (ACCOUNT_SUPPORT_TYPES.has(inquiryType)) {
     const actor = await requireActor(request, env, sql, requestId);
     if (actor instanceof Response) return actor;
     const complexes = await sql`select id from complexes where slug = ${complexSlug} and status in ('active','pilot') limit 1`;
@@ -140,7 +141,7 @@ async function currentMine(
   `;
   const row = rows[0] as Record<string, unknown> | undefined;
   if (!row) return fail('NOT_FOUND', 'Inquiry not found', 404, requestId);
-  if (String(row.inquiry_type) === 'resident_verification_code_request') {
+  if (ACCOUNT_SUPPORT_TYPES.has(String(row.inquiry_type))) {
     return { residentId: actor.id, complexId: String(row.complex_id), complexSlug: String(row.complex_slug), row };
   }
   const resident = await requireVerifiedResident(request, env, sql, requestId, String(row.complex_slug));
@@ -285,9 +286,11 @@ export async function handleInquiryWithSql(request: Request, env: CoreEnv, sql: 
   const path = url.pathname;
   const mine = path === '/api/v1/me/inquiries';
   const mineItem = path.match(/^\/api\/v1\/me\/inquiries\/([0-9a-fA-F-]+)$/);
+  const mineAttachments = path.match(/^\/api\/v1\/me\/inquiries\/([0-9a-fA-F-]+)\/attachments$/);
+  const mineAttachment = path.match(/^\/api\/v1\/me\/inquiry-attachments\/([0-9a-fA-F-]+)$/);
   const adminQueue = path.match(/^\/api\/v1\/admin\/complexes\/([a-z0-9][a-z0-9-]{0,119})\/inquiries$/);
   const adminItem = path.match(/^\/api\/v1\/admin\/inquiries\/([0-9a-fA-F-]+)$/);
-  if (!mine && !mineItem && !adminQueue && !adminItem) return null;
+  if (!mine && !mineItem && !mineAttachments && !mineAttachment && !adminQueue && !adminItem) return null;
 
   if (mine) {
     if (request.method === 'GET') {
@@ -304,6 +307,82 @@ export async function handleInquiryWithSql(request: Request, env: CoreEnv, sql: 
     if (request.method === 'GET') return readMine(request, env, sql, requestId, mineItem[1].toLowerCase());
     if (request.method === 'PATCH') return closeMine(request, env, sql, requestId, mineItem[1].toLowerCase());
     return fail('METHOD_NOT_ALLOWED', 'Method not allowed', 405, requestId);
+  }
+
+  if (mineAttachments) {
+    const inquiryId = mineAttachments[1].toLowerCase();
+    if (!UUID.test(inquiryId)) return fail('NOT_FOUND', 'Inquiry not found', 404, requestId);
+    if (request.method !== 'POST') return fail('METHOD_NOT_ALLOWED', 'Method not allowed', 405, requestId);
+    const actor = await requireActor(request, env, sql, requestId);
+    if (actor instanceof Response) return actor;
+    const ownerRows = await sql`
+      select id from inquiries
+      where id = ${inquiryId}::uuid and user_id = ${actor.id}::uuid
+      limit 1
+    `;
+    if (!ownerRows[0]) return fail('NOT_FOUND', 'Inquiry not found', 404, requestId);
+    const payload = await bodyJson(request, requestId);
+    if (payload instanceof Response) return payload;
+    const fileName = text(payload.fileName);
+    const contentType = text(payload.contentType);
+    const dataBase64 = text(payload.dataBase64).replace(/\s+/g, '');
+    const sortOrder = Number(payload.sortOrder);
+    if (!fileName || fileName.length > 200) return fail('VALIDATION_ERROR', 'fileName must be 1-200 characters', 400, requestId);
+    if (!['image/jpeg','image/png','image/webp','image/gif'].includes(contentType)) {
+      return fail('VALIDATION_ERROR', 'Only image attachments are supported', 400, requestId);
+    }
+    if (!Number.isInteger(sortOrder) || sortOrder < 0 || sortOrder > 2) {
+      return fail('VALIDATION_ERROR', 'sortOrder must be 0-2', 400, requestId);
+    }
+    if (!/^[A-Za-z0-9+/]+={0,2}$/.test(dataBase64) || dataBase64.length > 1_500_000) {
+      return fail('VALIDATION_ERROR', 'Invalid or oversized image payload', 400, requestId);
+    }
+    const byteSize = Math.floor(dataBase64.length * 3 / 4) - (dataBase64.endsWith('==') ? 2 : dataBase64.endsWith('=') ? 1 : 0);
+    if (byteSize < 1 || byteSize > 1_048_576) return fail('PAYLOAD_TOO_LARGE', 'Image must be at most 1 MiB', 413, requestId);
+    try {
+      const rows = await sql`
+        insert into inquiry_attachments (
+          inquiry_id, uploader_user_id, sort_order, file_name, content_type, byte_size, content_bytes
+        ) values (
+          ${inquiryId}::uuid, ${actor.id}::uuid, ${sortOrder}, ${fileName}, ${contentType},
+          ${byteSize}, decode(${dataBase64}, 'base64')
+        )
+        returning id, file_name, content_type, byte_size, sort_order, created_at
+      `;
+      return ok({
+        id: String(rows[0].id), fileName: String(rows[0].file_name), contentType: String(rows[0].content_type),
+        byteSize: Number(rows[0].byte_size), sortOrder: Number(rows[0].sort_order), createdAt: rows[0].created_at
+      }, requestId, 201);
+    } catch (error) {
+      const code = typeof error === 'object' && error && 'code' in error ? String((error as { code?: unknown }).code) : '';
+      if (code === '23505') return fail('ATTACHMENT_SLOT_CONFLICT', 'Image slot is already used', 409, requestId);
+      throw error;
+    }
+  }
+
+  if (mineAttachment) {
+    const attachmentId = mineAttachment[1].toLowerCase();
+    if (!UUID.test(attachmentId)) return fail('NOT_FOUND', 'Attachment not found', 404, requestId);
+    if (request.method !== 'GET') return fail('METHOD_NOT_ALLOWED', 'Method not allowed', 405, requestId);
+    const actor = await requireActor(request, env, sql, requestId);
+    if (actor instanceof Response) return actor;
+    const rows = await sql`
+      select a.content_type, a.byte_size, encode(a.content_bytes, 'base64') as data_base64
+      from inquiry_attachments a
+      join inquiries i on i.id = a.inquiry_id
+      where a.id = ${attachmentId}::uuid and i.user_id = ${actor.id}::uuid
+      limit 1
+    `;
+    if (!rows[0]) return fail('NOT_FOUND', 'Attachment not found', 404, requestId);
+    const binary = Uint8Array.from(atob(String(rows[0].data_base64)), (ch) => ch.charCodeAt(0));
+    return new Response(binary, {
+      status: 200,
+      headers: {
+        'content-type': String(rows[0].content_type), 'content-length': String(rows[0].byte_size),
+        'cache-control': 'private, max-age=300', 'x-content-type-options': 'nosniff',
+        'x-danjion-request-id': requestId
+      }
+    });
   }
 
   if (adminQueue) {
