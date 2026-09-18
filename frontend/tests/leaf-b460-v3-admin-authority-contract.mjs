@@ -149,9 +149,11 @@ const loadAdminContext = (location) => {
   assert.equal(operatorViews.held.length, 0, 'the legacy resident-verification policy-hold placeholder is retired by #735');
   assert.equal(operatorViews.privileged.length, 0, 'a bounded grant must never render the privileged area');
   const verificationViews = C.consoleSections({ state: 'operator', wildcard: false, scopes: ['resident.verification.manage'] });
-  assert.deepEqual(Array.from(verificationViews.operational, (s) => String(s.id)), ['verifications'],
-    'the bounded resident-verification management scope exposes only the household-code section');
+  assert.deepEqual(Array.from(verificationViews.operational, (s) => String(s.id)), ['householdReviews', 'verifications'],
+    'the bounded resident-verification management scope exposes only the household-review and household-code sections');
   const superViews = C.consoleSections(A.normalizeAuthority({ level: 'admin', wildcard: true, scopes: ['*'] }));
+  assert.ok(superViews.operational.some((s) => String(s.id) === 'householdReviews'),
+    'the wildcard grant includes the active household-membership review section');
   assert.ok(superViews.operational.some((s) => String(s.id) === 'verifications'),
     'the wildcard grant includes the active household-code operations section');
   assert.equal(superViews.privileged.length, 3, 'the wildcard grant unlocks the placeholder-only privileged area');
@@ -446,8 +448,8 @@ const loadAdminContext = (location) => {
     assert.ok(!/method\s*:\s*['"](?:POST|PATCH|PUT|DELETE)['"]/.test(src),
       'page/authority layers must not directly own mutation transports');
   }
-  assert.equal((consoleSrc.match(/method\s*:\s*'PATCH'/g) || []).length, 3,
-    'the console bridge may own only application-review, official-news, and benefit PATCH transports');
+  assert.equal((consoleSrc.match(/method\s*:\s*'PATCH'/g) || []).length, 4,
+    'the console bridge may own only application-review, official-news, benefit, and household-membership review PATCH transports');
   assert.equal((consoleSrc.match(/method\s*:\s*'POST'/g) || []).length, 3,
     'the console bridge may own only official-news, benefit, and household-code create POST transports');
   assert.equal((consoleSrc.match(/method\s*:\s*'DELETE'/g) || []).length, 1,
@@ -462,6 +464,8 @@ const loadAdminContext = (location) => {
     'resident-benefit create must use the admin complex benefits family');
   assert.ok(consoleSrc.includes("'/api/v1/admin/benefits/'"),
     'resident-benefit edit must use the admin benefit PATCH family');
+  assert.ok(consoleSrc.includes("'/api/v1/admin/household-memberships/'"),
+    'household membership review must use the dedicated bounded admin PATCH family');
   assert.ok(!/method\s*:\s*['"]PUT['"]/.test(consoleSrc),
     'no PUT operational mutation may be activated');
 

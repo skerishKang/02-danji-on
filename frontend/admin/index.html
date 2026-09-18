@@ -161,6 +161,21 @@
       facts.forEach(([label,value])=>{const fact=el('div',undefined,'admin-fact');fact.append(el('b',label),document.createTextNode(String(value)));grid.append(fact)});
       card.append(grid);
     }
+    function appendHouseholdReviewFacts(card,row){
+      const building=String(row.buildingCode||row.building_code||'').trim();
+      const unit=String(row.unitCode||row.unit_code||'').trim();
+      const requested=String(row.requestedAt||row.requested_at||'').trim();
+      const facts=[
+        ['세대',[building?building+'동':'',unit?unit+'호':''].filter(Boolean).join(' ')],
+        ['계정 참조',row.accountReference||row.account_reference],
+        ['세대 순번',(row.memberPosition??row.member_position)?String(row.memberPosition??row.member_position)+'번째':''],
+        ['요청 시각',requested?requested.slice(0,19).replace('T',' '):'']
+      ].filter((item)=>item[1]);
+      if(!facts.length)return;
+      const grid=el('div',undefined,'admin-facts');
+      facts.forEach(([label,value])=>{const fact=el('div',undefined,'admin-fact');fact.append(el('b',label),document.createTextNode(String(value)));grid.append(fact)});
+      card.append(grid);
+    }
     function applicationReviewControls(row,panel,section,apiBase){
       if(!section.reviewActions)return null;
       const current=String(row.status||'');
@@ -422,6 +437,36 @@
       });
       return wrap;
     }
+    function householdReviewControls(row,panel,section,apiBase){
+      if(!section.householdReviewActions)return null;
+      const membershipId=String(row.membershipId||row.membership_id||'');
+      if(!membershipId)return el('p','검토할 세대 연결 식별자가 없습니다.','admin-review-complete');
+      const wrap=el('div',undefined,'admin-review-controls');
+      const actions=el('div',undefined,'admin-review-actions');
+      const live=el('p','', 'admin-review-status');live.setAttribute('aria-live','polite');
+      const specs=[
+        ['approve','승인','primary','이 계정을 해당 세대의 인증 주민으로 승인하시겠습니까?'],
+        ['reject','거절·해제','danger','이 pending 세대 연결을 거절하고 해제하시겠습니까?']
+      ];
+      const buttons=specs.map(([decision,label,cls,confirmText])=>{
+        const button=el('button',label,cls);button.type='button';
+        button.addEventListener('click',async()=>{
+          if(!window.confirm(confirmText))return;
+          buttons.forEach((item)=>item.disabled=true);live.className='admin-review-status';live.textContent=label+' 처리 중…';
+          const outcome=await consoleApi.reviewHouseholdMembership(fetch,apiBase,membershipId,decision);
+          if(outcome.state==='updated'){live.textContent=label+' 처리됐습니다. 최신 대기 목록을 다시 불러옵니다.';await renderSection(panel,section,apiBase);return}
+          if(outcome.state==='signed-out'){showRestricted('signed-out');return}
+          if(outcome.state==='scope-denied')live.textContent='현재 PADIEM 운영 권한으로 이 세대 연결을 처리할 수 없습니다.';
+          else if(outcome.state==='conflict')live.textContent='이미 처리됐거나 더 이상 검토할 수 없는 요청입니다.';
+          else if(outcome.state==='network-error')live.textContent='API 연결에 실패했습니다. 잠시 후 다시 시도해 주세요.';
+          else if(outcome.state==='invalid-request')live.textContent='세대 연결 식별자 또는 처리 값이 올바르지 않습니다.';
+          else live.textContent='처리에 실패했습니다'+(outcome.code?' · '+outcome.code:'')+'.';
+          live.className='admin-review-status error';buttons.forEach((item)=>item.disabled=false);
+        });
+        actions.append(button);return button;
+      });
+      wrap.append(actions,live);return wrap;
+    }
     function householdCodeControls(row,panel,section,apiBase){
       if(!section.householdCodeActions)return null;
       const wrap=el('div',undefined,'admin-review-controls');
@@ -461,7 +506,14 @@
         if(section.id==='posts')panel.append(postComposer(panel,section,apiBase));
         if(section.id==='benefits')panel.append(await benefitComposer(panel,section,apiBase));
         if(section.id==='verifications')panel.append(householdCodeComposer(panel,section,apiBase));
-        if(!outcome.rows.length){panel.append(el('div',section.id==='verifications'?'아직 등록된 세대가 없습니다. 위에서 동·호를 입력해 첫 코드를 발급하세요.':'표시할 항목이 없습니다.','admin-empty'));return}
+        if(!outcome.rows.length){
+          const emptyMessage=section.id==='verifications'
+            ?'아직 등록된 세대가 없습니다. 위에서 동·호를 입력해 첫 코드를 발급하세요.'
+            :section.id==='householdReviews'
+              ?'현재 운영팀 확인이 필요한 3번째 이후 세대 연결 요청이 없습니다.'
+              :'표시할 항목이 없습니다.';
+          panel.append(el('div',emptyMessage,'admin-empty'));return
+        }
         outcome.rows.forEach((row)=>{
           const card=el('article',undefined,'admin-card');
           const top=el('div',undefined,'admin-card-top');
@@ -469,13 +521,16 @@
           top.append(copy,el('span',consoleApi.rowStatus(row)||'-','admin-status'));
           card.append(top);
           if(section.id==='applications')appendApplicationFacts(card,row);
+          if(section.id==='householdReviews')appendHouseholdReviewFacts(card,row);
           const reviewControls=applicationReviewControls(row,panel,section,apiBase);
           const postControls=postEditControls(row,panel,section,apiBase);
           const benefitControls=benefitEditControls(row,panel,section,apiBase);
+          const householdReviewAction=householdReviewControls(row,panel,section,apiBase);
           const householdCodeAction=householdCodeControls(row,panel,section,apiBase);
           if(reviewControls)card.append(reviewControls);
           else if(postControls)card.append(postControls);
           else if(benefitControls)card.append(benefitControls);
+          else if(householdReviewAction)card.append(householdReviewAction);
           else if(householdCodeAction)card.append(householdCodeAction);
           else{const readonly=el('button','상태 변경 (조회 전용)');readonly.disabled=true;card.append(readonly)}
           panel.append(card);
