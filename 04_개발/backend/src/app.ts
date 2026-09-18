@@ -4,6 +4,7 @@ import { handleAdminApplicationDocumentRequest } from './admin-application-docs-
 import { handleAdminAuditRequest } from './admin-audit-v1';
 import { handleAdminBootstrapRequest } from './admin-bootstrap-v1';
 import { handleAdminGlobalAuditRequest } from './admin-global-audit-v1';
+import { handleAdminHouseholdCodeRequest, type AdminHouseholdCodeEnv } from './admin-household-codes-v1';
 import { handleAdminAuthorityRequest } from './admin-authority-v1';
 import { handleAdminOperationalRequest } from './admin-operational-v2';
 import { handleAdminPrincipalRequest } from './admin-principals-v1';
@@ -52,7 +53,7 @@ import { handleVerifiedSignupRequest } from './verified-signup-v1';
 const REQUEST_ID_HEADER = 'x-danjion-request-id';
 const SAFE_ID = /^[A-Za-z0-9._:-]{1,80}$/;
 
-type AppEnv = CoreEnv & BetterAuthEnv & SignupContactVerificationEnv & HouseholdCodeEnv & {
+type AppEnv = CoreEnv & BetterAuthEnv & SignupContactVerificationEnv & HouseholdCodeEnv & AdminHouseholdCodeEnv & {
   CORS_ALLOWED_ORIGINS?: string;
   COMMUNITY_PUBLISH_MODE?: string;
 };
@@ -172,6 +173,8 @@ export default {
       if (adminAuthorityResponse) return respond(adminAuthorityResponse);
       const adminBootstrapResponse = await handleAdminBootstrapRequest(request, env, id);
       if (adminBootstrapResponse) return respond(adminBootstrapResponse);
+      const adminHouseholdCodeResponse = await handleAdminHouseholdCodeRequest(request, env, id);
+      if (adminHouseholdCodeResponse) return respond(adminHouseholdCodeResponse);
       const adminReviewContextResponse = await handleAdminReviewContextRequest(request, env, id);
       if (adminReviewContextResponse) return respond(adminReviewContextResponse);
       const adminVerificationResponse = await handleAdminVerificationRequest(request, env, id);
