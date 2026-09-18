@@ -79,6 +79,38 @@ jobs:
           chmod 600 "$secret_file"
           echo "PREVIEW_SECRET_FILE=$secret_file" >> "$GITHUB_ENV"
 
+      - name: Ensure dedicated owner-preview household unit
+        working-directory: 04_개발/backend
+        shell: bash
+        env:
+          DATABASE_URL: ${{ secrets.DANJION_QA_DATABASE_URL }}
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import { neon } from '@neondatabase/serverless';
+          const sql=neon(process.env.DATABASE_URL);
+          await sql`
+            insert into complex_units (complex_id, building_code, unit_code, status)
+            select id, 'preview-building', 'preview-unit', 'active'
+            from complexes
+            where slug='banglim-myeongji-roadhill'
+            limit 1
+            on conflict (complex_id, building_code, unit_code)
+            do update set status='active', updated_at=now()
+          `;
+          const rows=await sql`
+            select cu.id
+            from complex_units cu
+            join complexes c on c.id=cu.complex_id
+            where c.slug='banglim-myeongji-roadhill'
+              and cu.building_code='preview-building'
+              and cu.unit_code='preview-unit'
+              and cu.status='active'
+          `;
+          if(rows.length!==1)throw new Error('preview household fixture missing');
+          console.log('OWNER_PREVIEW_762_UNIT_FIXTURE=PASS');
+          NODE
+
       - name: Deploy preview Worker
         working-directory: 04_개발/backend
         shell: bash
@@ -187,12 +219,12 @@ jobs:
 
           units_status="$(curl -sS -c "$jar" -b "$jar" -o "${RUNNER_TEMP}/units.json" -w '%{http_code}'             "${PREVIEW_PAGES_URL}/api/v1/complexes/banglim-myeongji-roadhill/household/units")"
           test "$units_status" = "200"
-          unit_id="$(jq -r '.data.units[0].id // empty' "${RUNNER_TEMP}/units.json")"
+          unit_id="$(jq -r '.data.units[] | select(.buildingCode=="preview-building" and .unitCode=="preview-unit") | .id' "${RUNNER_TEMP}/units.json" | head -n1)"
           test -n "$unit_id"
 
           associate_body="$(jq -nc --arg unitId "$unit_id" '{unitId:$unitId}')"
           associate_status="$(curl -sS -c "$jar" -b "$jar" -o "${RUNNER_TEMP}/associate.json" -w '%{http_code}'             -H 'content-type: application/json' -d "$associate_body"             "${PREVIEW_PAGES_URL}/api/v1/complexes/banglim-myeongji-roadhill/household/associate")"
-          test "$associate_status" = "200" || { echo "::error::household associate failed status=$associate_status"; cat "${RUNNER_TEMP}/associate.json" | jq '{error:.error}' ; exit 1; }
+          { [ "$associate_status" = "200" ] || [ "$associate_status" = "201" ]; } || { echo "::error::household associate failed status=$associate_status"; cat "${RUNNER_TEMP}/associate.json" | jq '{error:.error}' ; exit 1; }
           jq -e '.data.status=="verified" and .data.residentVerified==true' "${RUNNER_TEMP}/associate.json" >/dev/null
 
           post_body='{"kind":"greeting","title":"프리뷰 연결 검증","body":"우리집 연결 뒤 주민 글쓰기가 열리는지 확인합니다."}'
