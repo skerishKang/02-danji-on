@@ -164,6 +164,7 @@ const EXPECTED_FRONTEND_ORDER = [
   "test:stage5m-reviewer-private-docs",
    "test:api-endpoint-registry-contract",
    "test:v2-runtime-preview-contract",
+   "test:pr-review-preview-workflow",
    "test:admin-authority-role-contract",
  ];
 

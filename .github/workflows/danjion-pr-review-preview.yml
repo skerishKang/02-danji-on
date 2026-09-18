@@ -1,0 +1,165 @@
+name: DanjiOn PR Review Preview
+
+# Issue #769: deterministic NON-PRODUCTION preview for same-repository PRs.
+# Security boundary: PR-controlled build code never receives Cloudflare/DB/auth secrets.
+on:
+  pull_request_target:
+    branches: [main]
+    types: [opened, reopened, synchronize, ready_for_review]
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: danjion-pr-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  build-preview-artifact:
+    name: Build exact-head review artifact without deploy secrets
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          package-manager-cache: false
+
+      - name: Build and validate review artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          node design-gateway/scripts/check.mjs
+          node design-gateway/history/build-manifest.mjs
+          node design-gateway/history/validate-history.mjs
+          node design-gateway/scripts/build.mjs
+          node design-gateway/tests/build-output-contract.mjs
+          git diff --check
+          test -f design-gateway/dist/sibling-review/index.html
+          cp design-gateway/dist/sibling-review/index.html design-gateway/dist/index.html
+          printf '/*\n  X-Robots-Tag: noindex, nofollow\n' > design-gateway/dist/_headers
+
+      - name: Upload inert review artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: danjion-pr-review-${{ github.event.pull_request.number }}
+          path: design-gateway/dist
+          retention-days: 2
+          if-no-files-found: error
+
+  deploy-preview:
+    name: Deploy isolated PR review preview
+    needs: build-preview-artifact
+    if: github.event.pull_request.head.repo.full_name == github.repository && needs.build-preview-artifact.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      REVIEW_PROJECT: danjion-review
+      PREVIEW_BRANCH: pr-${{ github.event.pull_request.number }}
+      PREVIEW_URL: https://pr-${{ github.event.pull_request.number }}.danjion-review.pages.dev
+      PR_NUMBER: ${{ github.event.pull_request.number }}
+      HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+      GH_TOKEN: ${{ github.token }}
+
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          package-manager-cache: false
+
+      - name: Download exact-head artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: danjion-pr-review-${{ github.event.pull_request.number }}
+          path: review-artifact
+
+      - name: Validate isolated review authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${CLOUDFLARE_API_TOKEN:-}"
+          test -n "${CLOUDFLARE_ACCOUNT_ID:-}"
+          test "$REVIEW_PROJECT" = 'danjion-review'
+          test "$REVIEW_PROJECT" != 'danjion'
+          test "$PREVIEW_BRANCH" != 'main'
+          test "$PREVIEW_URL" != 'https://danjion.pages.dev'
+          test "$PREVIEW_URL" != 'https://danjion-review.pages.dev'
+          test -f review-artifact/index.html
+          auth_header="Authorization: Bearer ${CLOUDFLARE_API_TOKEN}"
+          account_json="$(curl --silent --show-error --fail -H "$auth_header" "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}")"
+          test "$(printf '%s' "$account_json" | jq -r '.result.name // empty')" = 'Padiem'
+          project_json="$(curl --silent --show-error --fail -H "$auth_header" "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/pages/projects/${REVIEW_PROJECT}")"
+          test "$(printf '%s' "$project_json" | jq -r '.result.name // empty')" = "$REVIEW_PROJECT"
+          test "$(printf '%s' "$project_json" | jq -r '.result.production_branch // empty')" = 'main'
+          echo 'DANJION_PR_REVIEW_AUTHORITY=PASS'
+
+      - name: Deploy exact-head branch preview
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx wrangler@4.131.0 pages deploy review-artifact \
+            --project-name "$REVIEW_PROJECT" \
+            --branch "$PREVIEW_BRANCH" \
+            --commit-hash "$HEAD_SHA" \
+            --commit-message "DanjiOn PR #${PR_NUMBER} review preview"
+          echo 'DANJION_PR_REVIEW_DEPLOY=PASS'
+
+      - name: Smoke deterministic preview URL
+        shell: bash
+        run: |
+          set -euo pipefail
+          for path in / /final/ /v3-current/ /history/ /sibling-review/; do
+            curl --silent --show-error --fail --retry 6 --retry-delay 3 --output /dev/null "${PREVIEW_URL}${path}"
+          done
+          body="$(curl --silent --show-error --fail "$PREVIEW_URL/")"
+          printf '%s' "$body" | grep -q '단지온 최종 검수'
+          echo 'DANJION_PR_REVIEW_SMOKE=PASS'
+
+      - name: Publish or refresh PR preview link
+        shell: bash
+        run: |
+          set -euo pipefail
+          marker='<!-- danjion-pr-review-preview -->'
+          short_sha="${HEAD_SHA:0:12}"
+          body="$(cat <<EOF
+          ${marker}
+          ### DanjiOn PR Review Preview
+
+          - Preview: ${PREVIEW_URL}/
+          - Exact head: \`${short_sha}\`
+          - Environment: NON-PRODUCTION review only
+          - Production Pages / Worker / DB mutation: 0
+          EOF
+          )"
+          comment_id="$(gh api --paginate "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments" --jq ".[] | select(.body | contains(\"${marker}\")) | .id" | head -n 1)"
+          if [ -n "$comment_id" ]; then
+            gh api --method PATCH "repos/${GITHUB_REPOSITORY}/issues/comments/${comment_id}" -f body="$body" >/dev/null
+          else
+            gh api --method POST "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments" -f body="$body" >/dev/null
+          fi
+
+      - name: Record preview disposition
+        shell: bash
+        run: |
+          {
+            echo '## DanjiOn PR Review Preview'
+            echo "- Preview: ${PREVIEW_URL}/"
+            echo "- Exact head: ${HEAD_SHA}"
+            echo '- Project: danjion-review (NON-PRODUCTION)'
+            echo '- Production mutation: 0'
+          } >> "$GITHUB_STEP_SUMMARY"
