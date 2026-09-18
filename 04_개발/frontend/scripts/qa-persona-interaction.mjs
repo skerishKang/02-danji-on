@@ -122,16 +122,21 @@ try {
       } catch {}
       record('POST_SUBMITTED', submitted);
 
-      // verify the post appears (search by unique stamp; handle 운영확인 pending state)
+      // verify the post: success notice, or pending notice (both prove the write flow worked)
       let visible = false;
       let pending = false;
+      let published = false;
       try {
         await page.waitForTimeout(2_000);
+        const noticeText = await page.locator('.v2-community-notice, [role="status"]').first().innerText().catch(() => '');
+        pending = /운영확인|접수/.test(noticeText || '');
+        published = /게시했/.test(noticeText || '');
+        // the new post should also be in the list for its tab (detail or list text)
         const found = page.getByText(`상호작용 점검 ${STAMP}`, { exact: false }).first();
         visible = await found.isVisible().catch(() => false);
-        const noticeText = await page.locator('.v2-community-notice, [class*="notice"]').first().innerText().catch(() => '');
-        pending = /운영확인|접수/.test(noticeText || '');
       } catch {}
+      record('POST_WRITE_ACCEPTED', pending || published || visible,
+        pending ? 'OPERATION_REVIEW_PENDING' : published ? 'PUBLISHED_NOTICE' : visible ? 'VISIBLE_IN_LIST' : 'NO_EVIDENCE');
       record('POST_VISIBLE_IN_LIST', visible, pending && !visible ? 'OPERATION_REVIEW_PENDING' : '');
 
       // ---------- comment on the post if detail view is reachable ----------
@@ -157,12 +162,19 @@ try {
     }
   }
 
-  // ---------- cleanup: sign out ----------
+  // ---------- cleanup: sign out (writer modal or detail modal may still be open) ----------
+  // close any open modal first so the topbar logout button is clickable
+  const closeBtn = page.locator('[aria-label="글쓰기 닫기"], [aria-label="게시물 닫기"]').first();
+  if (await closeBtn.isVisible().catch(() => false)) {
+    await closeBtn.click({ timeout: 4_000 }).catch(() => {});
+    await page.waitForTimeout(1_000);
+  }
   const logout = page.getByRole('button', { name: '로그아웃' }).first();
   if (await logout.isVisible().catch(() => false)) {
     await logout.click({ timeout: 8_000 }).catch(() => {});
-    await page.waitForTimeout(2_500);
+    await page.waitForTimeout(3_000);
   }
+  // verify cleared via API regardless of UI logout visibility
   const after = await context.request.get(`${FRONTEND}/api/auth/get-session`, { headers: { Origin: FRONTEND } });
   const afterBody = await after.json().catch(() => null);
   record('LOGOUT_CLEARS_SESSION', !afterBody?.session && !afterBody?.user, `HTTP_${after.status()}`);
