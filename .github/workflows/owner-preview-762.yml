@@ -94,8 +94,8 @@ jobs:
             select id, fixture.building_code, fixture.unit_code, 'active'
             from complexes
             cross join (values
-              ('preview-user-building','preview-user-unit'),
-              ('preview-canary-building','preview-canary-unit')
+              ('pv-user','pv-user-unit'),
+              ('pv-canary','pv-canary-unit')
             ) as fixture(building_code,unit_code)
             where slug='banglim-myeongji-roadhill'
             on conflict (complex_id, building_code, unit_code)
@@ -115,7 +115,7 @@ jobs:
             from complex_units cu
             join complexes c on c.id=cu.complex_id
             where c.slug='banglim-myeongji-roadhill'
-              and cu.building_code in ('preview-user-building','preview-canary-building')
+              and cu.building_code in ('pv-user','pv-canary')
               and cu.status='active'
           `;
           if(rows.length!==2)throw new Error('preview household fixtures missing');
@@ -230,7 +230,7 @@ jobs:
 
           units_status="$(curl -sS -c "$jar" -b "$jar" -o "${RUNNER_TEMP}/units.json" -w '%{http_code}'             "${PREVIEW_PAGES_URL}/api/v1/complexes/banglim-myeongji-roadhill/household/units")"
           test "$units_status" = "200"
-          unit_id="$(jq -r '.data.units[] | select(.buildingCode=="preview-canary-building" and .unitCode=="preview-canary-unit") | .id' "${RUNNER_TEMP}/units.json" | head -n1)"
+          unit_id="$(jq -r '.data.units[] | select(.buildingCode=="pv-canary" and .unitCode=="pv-canary-unit") | .id' "${RUNNER_TEMP}/units.json" | head -n1)"
           test -n "$unit_id"
 
           associate_body="$(jq -nc --arg unitId "$unit_id" '{unitId:$unitId}')"
@@ -262,8 +262,8 @@ jobs:
             from complexes c
             where cu.complex_id=c.id
               and c.slug='banglim-myeongji-roadhill'
-              and cu.building_code='preview-canary-building'
-              and cu.unit_code='preview-canary-unit'
+              and cu.building_code='pv-canary'
+              and cu.unit_code='pv-canary-unit'
           `;
           console.log('OWNER_PREVIEW_762_CANARY_UNIT_HIDDEN=PASS');
           NODE
