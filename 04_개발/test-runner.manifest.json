@@ -35,6 +35,7 @@
         {"id":"test:admin-review-privacy-rbac","npm":"test:admin-review-privacy-rbac","kind":"contract"},
         {"id":"test:admin-review-context-gallery","npm":"test:admin-review-context-gallery","kind":"contract"},
         {"id":"test:resident-verification-policy-hold","npm":"test:resident-verification-policy-hold","kind":"contract"},
+        {"id":"test:household-code-verification","npm":"test:household-code-verification","kind":"contract"},
         {"id":"test:household-family-lifecycle","npm":"test:household-family-lifecycle","kind":"contract"},
         {"id":"test:account-lifecycle","npm":"test:account-lifecycle","kind":"contract"},
         {"id":"test:resident-economy-household-v2","npm":"test:resident-economy-household-v2","kind":"contract"},
