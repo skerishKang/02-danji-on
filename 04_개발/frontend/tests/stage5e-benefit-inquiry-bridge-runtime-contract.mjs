@@ -86,12 +86,20 @@ const COMPLEX_SLUG = 'banglim-myeongji-roadhill';
     assert.equal(called, false);
   }
 
-  // 401/403 are explicit auth boundaries; bridge does not fake success.
-  for (const status of [401, 403]) {
-    const bridge = createBenefitClaimBridge({ fetchImpl: async () => makeResponse(status, 'AUTH_REQUIRED') });
+  // 401 means account auth is required; 403 means the benefit claim specifically
+  // requires verified-resident authority. Neither path may fake success.
+  {
+    const bridge = createBenefitClaimBridge({ fetchImpl: async () => makeResponse(401, 'AUTH_REQUIRED') });
     const result = await bridge.claim(BENEFIT_ID);
     assert.equal(result.mode, 'auth-required');
-    assert.equal(result.status, status);
+    assert.equal(result.status, 401);
+    assert.equal(result.ok, false);
+  }
+  {
+    const bridge = createBenefitClaimBridge({ fetchImpl: async () => makeResponse(403, 'RESIDENT_VERIFICATION_REQUIRED') });
+    const result = await bridge.claim(BENEFIT_ID);
+    assert.equal(result.mode, 'resident-verification-required');
+    assert.equal(result.status, 403);
     assert.equal(result.ok, false);
   }
 
@@ -116,11 +124,17 @@ const COMPLEX_SLUG = 'banglim-myeongji-roadhill';
     assert.equal(result.benefits[0].businessName, '로드힐 꽃작업실');
   }
 
-  // wallet list auth boundary.
+  // wallet list auth/permission boundaries.
   {
     const bridge = createBenefitClaimBridge({ fetchImpl: async () => makeResponse(401, 'AUTH_REQUIRED') });
     const result = await bridge.listMine();
     assert.equal(result.mode, 'auth-required');
+    assert.equal(result.benefits.length, 0);
+  }
+  {
+    const bridge = createBenefitClaimBridge({ fetchImpl: async () => makeResponse(403, 'FORBIDDEN') });
+    const result = await bridge.listMine();
+    assert.equal(result.mode, 'forbidden');
     assert.equal(result.benefits.length, 0);
   }
 }
