@@ -29,13 +29,13 @@ const principals = [
   {
     slot: 'operational_1',
     role: 'operator',
-    scopes: ['benefit.manage', 'business.review', 'community.moderate', 'inquiry.respond', 'official-content.manage', 'resident.verification.exempt', 'resident_news.review', 'safety.report.review'],
+    scopes: ['benefit.manage', 'business.review', 'community.moderate', 'inquiry.respond', 'official-content.manage', 'resident.verification.exempt', 'resident.verification.manage', 'resident_news.review', 'safety.report.review'],
     email: process.env.DANJION_ADMIN_OPERATIONAL_1_EMAIL
   },
   {
     slot: 'operational_2',
     role: 'operator',
-    scopes: ['benefit.manage', 'business.review', 'community.moderate', 'inquiry.respond', 'official-content.manage', 'resident.verification.exempt', 'resident_news.review', 'safety.report.review'],
+    scopes: ['benefit.manage', 'business.review', 'community.moderate', 'inquiry.respond', 'official-content.manage', 'resident.verification.exempt', 'resident.verification.manage', 'resident_news.review', 'safety.report.review'],
     email: process.env.DANJION_ADMIN_OPERATIONAL_2_EMAIL
   }
 ].map((principal) => ({
@@ -145,8 +145,8 @@ try {
       values
         ('super_1', $1::text, 'admin', array['*']::text[]),
         ('super_2', $2::text, 'admin', array['*']::text[]),
-        ('operational_1', $3::text, 'operator', array['benefit.manage','business.review','community.moderate','inquiry.respond','official-content.manage','resident.verification.exempt','resident_news.review','safety.report.review']::text[]),
-        ('operational_2', $4::text, 'operator', array['benefit.manage','business.review','community.moderate','inquiry.respond','official-content.manage','resident.verification.exempt','resident_news.review','safety.report.review']::text[])
+        ('operational_1', $3::text, 'operator', array['benefit.manage','business.review','community.moderate','inquiry.respond','official-content.manage','resident.verification.exempt','resident.verification.manage','resident_news.review','safety.report.review']::text[]),
+        ('operational_2', $4::text, 'operator', array['benefit.manage','business.review','community.moderate','inquiry.respond','official-content.manage','resident.verification.exempt','resident.verification.manage','resident_news.review','safety.report.review']::text[])
     ),
     guard as (
       select 1
