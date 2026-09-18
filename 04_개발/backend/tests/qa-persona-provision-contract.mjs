@@ -89,7 +89,7 @@ function quotedValues(source, name) {
 const policyScopes = quotedValues(policy, 'OPERATIONAL_ADMIN_SCOPES');
 const personaScopes = quotedValues(script, 'OPERATIONAL_SCOPES');
 assert.deepEqual(personaScopes, policyScopes, 'QA_OPERATIONAL scopes must exactly match canonical admin scope policy');
-assert.equal(personaScopes.length, 8, 'canonical OPERATIONAL bundle must contain exactly 8 scopes');
+assert.equal(personaScopes.length, 9, 'canonical OPERATIONAL bundle must contain exactly 9 scopes');
 assert.match(script, /name:\s*'QA_SUPER'[\s\S]{0,220}desiredScopes:\s*\['\*'\]/, 'QA_SUPER persistent grant must be wildcard only');
 assert.match(script, /name:\s*'QA_RESIDENT'[\s\S]{0,220}desiredScopes:\s*\[\]/, 'QA_RESIDENT must have no PADIEM grant');
 
