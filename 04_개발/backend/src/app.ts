@@ -36,6 +36,7 @@ import { handleResidentApplicationDocumentRequest } from './resident-application
 import { handleResidentBlockRequest } from './resident-blocks-v1';
 import { handleResidentEconomyMutationRequest } from './resident-economy-v2';
 import { handleResidentMessageRequest } from './resident-messages-v1';
+import { handleResidentHouseholdMessageRequest } from './resident-household-messages-v1';
 import { handleResidentNewsRequest } from './resident-news-v1';
 import { handleResidentNotificationRequest } from './resident-notifications-v1';
 import { handleResidentProfileRequest } from './resident-profile-v1';
@@ -232,6 +233,8 @@ export default {
       if (residentSettingsResponse) return respond(residentSettingsResponse);
       const residentProfileResponse = await handleResidentProfileRequest(request, env, id);
       if (residentProfileResponse) return respond(residentProfileResponse);
+      const residentHouseholdMessageResponse = await handleResidentHouseholdMessageRequest(request, env, id);
+      if (residentHouseholdMessageResponse) return respond(residentHouseholdMessageResponse);
       const residentNotificationResponse = await handleResidentNotificationRequest(request, env, id);
       if (residentNotificationResponse) return respond(residentNotificationResponse);
       const residentMessageResponse = await handleResidentMessageRequest(request, env, id);

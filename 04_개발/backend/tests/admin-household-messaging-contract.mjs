@@ -39,9 +39,15 @@ assert.match(api, /recipientAccountCount/,
 assert.match(api, /sendEnabled: false/,
   'source slice must keep dispatch disabled');
 assert.match(api, /disabled_pending_activation/,
-  'dispatch state must make the activation boundary explicit');
-assert.doesNotMatch(api, /insert into notifications|insert into messages|update household_memberships|household_verification_codes/i,
-  'preview slice must not send messages, mint notifications, change membership, or touch verification credentials');
+  'preview state must make the activation boundary explicit');
+assert.match(api, /HOUSEHOLD_MESSAGE_SEND_MODE/,
+  'source-level dispatch must remain behind an explicit runtime gate');
+assert.match(api, /HOUSEHOLD_MESSAGE_DISPATCH_DISABLED/,
+  'disabled dispatch must fail closed before fan-out mutation');
+assert.match(api, /insert into notifications/i,
+  'activated source-level dispatch may reuse the metadata-only notification fan-out');
+assert.doesNotMatch(api, /insert into messages|update\s+household_memberships|household_verification_codes/i,
+  'household messaging must not overload direct chat messages, change membership, or touch verification credentials');
 assert.doesNotMatch(api, /email|phone|contact/i,
   'target inventory and preview must not expose resident contact PII');
 
