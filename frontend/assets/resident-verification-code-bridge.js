@@ -30,8 +30,9 @@
       if(result.ok){
         const unit=result.data&&result.data.unit||{};
         const membership=result.data&&result.data.myMembership||{};
+        const verified=String(membership.status||'')==='verified'||membership.residentVerified===true;
         return {
-          state:'verified',
+          state:verified?'verified':'unverified-associated',
           status:result.status,
           buildingCode:String(unit.buildingCode||''),
           unitCode:String(unit.unitCode||''),
