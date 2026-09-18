@@ -29,7 +29,9 @@ assert.doesNotMatch(page, /resident-verification-code-bridge\.js|id="residentCod
 assert.match(bridge, /async associate\(unitIdInput\)/);
 assert.match(bridge, /\$\{householdPath\}\/associate/);
 assert.match(bridge, /JSON\.stringify\(\{ unitId \}\)/);
-assert.doesNotMatch(bridge, /async associate[\s\S]{0,500}token/,
+const associateFn = bridge.match(/async associate\(unitIdInput\) \{([\s\S]*?)\n    \},\n    async claim/);
+assert.ok(associateFn, 'associate function must be statically bounded before the legacy token claim function');
+assert.doesNotMatch(associateFn[1], /token/i,
   'unit association itself must not require an invitation or household code');
 
 assert.match(index, /location\.replace\('26_우리집연결\.html\?from=onboarding'\)/,
