@@ -49,7 +49,10 @@ GitHub Actions: **V2 Integration Gate #21 — SUCCESS** on `423a14d180df023d30d6
 - emitted verdict: `V2_FIDELITY_GATE_PASS`
 - flaky retries in the final run: **0**
 
-The build still prints the pre-existing warning that `/field-demo/neighbor-scenes-sprite.webp` is left for runtime resolution. This warning is not the V2 local fallback (`/field-demo/scenes-sprite.jpg`) and did not fail V1 or V2 gates.
+At the evidence commit above, the build still printed a pre-existing warning that
+`/field-demo/neighbor-scenes-sprite.webp` was left for runtime resolution. The stale
+reference has since been aligned to the canonical V2 local fallback
+(`/field-demo/scenes-sprite.jpg`); current builds no longer emit that warning.
 
 ## Other CI at the same code evidence commit
 

@@ -1,6 +1,6 @@
 # OAUTH PRODUCTION PROVISIONING v1 (Issue #422 diagnosis)
 
-## Root cause (2026-09-12 live diagnosis)
+## Root cause (historical: 2026-09-12 live diagnosis)
 
 Production probe of `https://padiem-danjion-api-production.padiem.workers.dev/api/auth/sign-in/social`
 returned `PROVIDER_NOT_FOUND` (HTTP 404) for **all three** providers — `google`, `kakao`, `naver`.
@@ -9,28 +9,38 @@ This is not a Naver-specific defect. `configuredSocialProviders()` in
 `04_개발/backend/src/auth-better-v1.ts` registers a provider only when both of its
 Worker secrets are non-empty:
 
-| Provider | Worker secret names (set by bootstrap) | GitHub secret names (must be created by owner) |
+| Provider | Worker secret names (set by bootstrap) | Production environment secret names |
 | --- | --- | --- |
 | google | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | `DANJION_GOOGLE_CLIENT_ID`, `DANJION_GOOGLE_CLIENT_SECRET` |
 | kakao | `KAKAO_CLIENT_ID`, `KAKAO_CLIENT_SECRET` | `DANJION_KAKAO_CLIENT_ID`, `DANJION_KAKAO_CLIENT_SECRET` |
 | naver | `NAVER_CLIENT_ID`, `NAVER_CLIENT_SECRET` | `DANJION_NAVER_CLIENT_ID`, `DANJION_NAVER_CLIENT_SECRET` |
 
-As of 2026-09-12 the GitHub repository secrets are only `CLOUDFLARE_API_TOKEN`,
-`CLOUDFLARE_ACCOUNT_ID`, `DATABASE_URL`, `DANJION_PREVIEW_DATABASE_URL`, and the
-`production` environment secret is only `DANJION_PRODUCTION_DB_URL`. No `DANJION_*_CLIENT_*`
-secret exists anywhere, so `add_optional_pair` in `production-worker-bootstrap.yml`
-skipped every provider silently and the deployed Worker has an empty `socialProviders` map.
+At the time of the 2026-09-12 probe, the production environment did not contain the
+`DANJION_*_CLIENT_*` secrets. The bootstrap therefore skipped every provider and the
+deployed Worker had an empty `socialProviders` map. This paragraph is historical and
+does not describe the current production state.
 
-**Status update (2026-09-15, names only):** the `production` environment now holds
-`DANJION_GOOGLE_CLIENT_ID/SECRET` and `DANJION_NAVER_CLIENT_ID/SECRET`;
-`DANJION_KAKAO_CLIENT_ID/SECRET` are the remaining pair to provision. Values never enter git,
-issues, PRs, or chat — they are set interactively via `gh secret set`.
+## Current status (verified 2026-09-16)
+
+Google, Kakao, and Naver OAuth are provisioned and registered on the production Worker.
+The production environment contains all six provider secret names:
+
+- `DANJION_GOOGLE_CLIENT_ID` / `DANJION_GOOGLE_CLIENT_SECRET`
+- `DANJION_KAKAO_CLIENT_ID` / `DANJION_KAKAO_CLIENT_SECRET`
+- `DANJION_NAVER_CLIENT_ID` / `DANJION_NAVER_CLIENT_SECRET`
+
+The 2026-09-16 `Production Worker Bootstrap` completed successfully and its readback
+reported `google`, `kakao`, and `naver` registration as `PASS`. Secret values never enter
+git, issues, PRs, or chat.
 
 better-auth is pinned at `1.7.1`, which ships built-in `naver` support; the Worker code,
 `DANJION_AUTH_BASE_URL`, and `AUTH_TRUSTED_ORIGINS` (`https://danjion.pages.dev`) are already
 correct. Nothing in the repository needs a code change to make Naver work.
 
-## Owner provisioning procedure (values stay out of git)
+## Provisioning procedure (historical reference; values stay out of git)
+
+The procedure below is retained for credential rotation or a future provider re-provision.
+It is not an outstanding Kakao setup task.
 
 ### Callback authority (updated 2026-09-15 — Stage 2 Pages auth facade)
 
