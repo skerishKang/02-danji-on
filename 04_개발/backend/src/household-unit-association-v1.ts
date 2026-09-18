@@ -154,39 +154,62 @@ export async function handleHouseholdUnitAssociationWithSql(
   if (!household) return fail('HOUSEHOLD_ASSOCIATION_UNAVAILABLE', 'Household could not be resolved', 503, requestId);
   const householdId = String(household.id);
 
-  const memberRows = await sql`
-    select count(*)::int as member_count,
-           count(*) filter (where membership_role = 'primary')::int as primary_count
-    from household_memberships
-    where household_id = ${householdId}::uuid
-      and complex_id = ${complexId}::uuid
-      and status in ('pending','verified')
-  `;
-  const currentMemberCount = Number(memberRows[0]?.member_count || 0);
-  const primaryCount = Number(memberRows[0]?.primary_count || 0);
-  const memberPosition = currentMemberCount + 1;
-  const autoConnected = memberPosition <= AUTO_CONNECT_MEMBER_LIMIT;
-  const status = autoConnected ? 'verified' : 'pending';
-  const role = primaryCount === 0 ? 'primary' : 'member';
-
+  // Serialize decisions per household so concurrent signups cannot both
+  // observe the same member count and accidentally auto-connect a third account.
   const insertedRows = await sql`
-    insert into household_memberships (
-      complex_id, household_id, user_id, membership_role, status, verified_at
-    ) values (
-      ${complexId}::uuid,
-      ${householdId}::uuid,
-      ${actor.id}::uuid,
-      ${role},
-      ${status},
-      ${autoConnected ? new Date().toISOString() : null}::timestamptz
+    with locked_household as materialized (
+      select id, complex_id
+      from households
+      where id = ${householdId}::uuid
+        and complex_id = ${complexId}::uuid
+        and status = 'active'
+      for update
+    ), counts as materialized (
+      select
+        count(*)::int as member_count,
+        count(*) filter (where hm.membership_role = 'primary')::int as primary_count
+      from household_memberships hm
+      join locked_household h on h.id = hm.household_id and h.complex_id = hm.complex_id
+      where hm.status in ('pending','verified')
+    ), decision as materialized (
+      select
+        member_count + 1 as member_position,
+        case when member_count < ${AUTO_CONNECT_MEMBER_LIMIT} then 'verified' else 'pending' end as member_status,
+        case when primary_count = 0 then 'primary' else 'member' end as member_role
+      from counts
+    ), inserted as (
+      insert into household_memberships (
+        complex_id, household_id, user_id, membership_role, status, verified_at
+      )
+      select
+        h.complex_id,
+        h.id,
+        ${actor.id}::uuid,
+        d.member_role,
+        d.member_status,
+        case when d.member_status = 'verified' then now() else null end
+      from locked_household h
+      cross join decision d
+      on conflict (complex_id, user_id) do nothing
+      returning id, membership_role, status
     )
-    on conflict (complex_id, user_id) do nothing
-    returning id, membership_role, status
+    select
+      inserted.id,
+      inserted.membership_role,
+      inserted.status,
+      decision.member_position
+    from inserted
+    cross join decision
   `;
   const inserted = insertedRows[0];
   if (!inserted) {
     return fail('HOUSEHOLD_ASSOCIATION_CONFLICT', 'Household association changed while the request was being processed', 409, requestId);
   }
+
+  const memberPosition = Number(inserted.member_position);
+  const status = String(inserted.status);
+  const role = String(inserted.membership_role);
+  const autoConnected = status === 'verified';
 
   await audit(
     sql,
