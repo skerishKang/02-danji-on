@@ -70,13 +70,15 @@ function mapDetail(row: Record<string, unknown>) {
 }
 
 async function listMine(request: Request, env: CoreEnv, sql: Sql, requestId: string, complexSlug: string): Promise<Response> {
-  const resident = await requireVerifiedResident(request, env, sql, requestId, complexSlug);
-  if (resident instanceof Response) return resident;
+  const actor = await requireActor(request, env, sql, requestId);
+  if (actor instanceof Response) return actor;
+  const complexes = await sql`select id from complexes where slug = ${complexSlug} and status in ('active','pilot') limit 1`;
+  if (!complexes[0]) return fail('NOT_FOUND', 'Complex not found', 404, requestId);
   const rows = await sql`
     select id, inquiry_type, title, status, answered_at, closed_at, created_at, updated_at
     from inquiries
-    where user_id = ${resident.id}::uuid
-      and complex_id = ${resident.complexId}::uuid
+    where user_id = ${actor.id}::uuid
+      and complex_id = ${String(complexes[0].id)}::uuid
     order by created_at desc, id desc
     limit 200
   `;
@@ -94,11 +96,24 @@ async function createMine(request: Request, env: CoreEnv, sql: Sql, requestId: s
   if (inquiryType.length < 1 || inquiryType.length > 64) return fail('VALIDATION_ERROR', 'inquiryType must be 1-64 characters', 400, requestId);
   if (title.length < 1 || title.length > 160) return fail('VALIDATION_ERROR', 'title must be 1-160 characters', 400, requestId);
   if (body.length < 1 || body.length > 10000) return fail('VALIDATION_ERROR', 'body must be 1-10000 characters', 400, requestId);
-  const resident = await requireVerifiedResident(request, env, sql, requestId, complexSlug);
-  if (resident instanceof Response) return resident;
+  let actorId: string;
+  let complexId: string;
+  if (inquiryType === 'resident_verification_code_request') {
+    const actor = await requireActor(request, env, sql, requestId);
+    if (actor instanceof Response) return actor;
+    const complexes = await sql`select id from complexes where slug = ${complexSlug} and status in ('active','pilot') limit 1`;
+    if (!complexes[0]) return fail('NOT_FOUND', 'Complex not found', 404, requestId);
+    actorId = actor.id;
+    complexId = String(complexes[0].id);
+  } else {
+    const resident = await requireVerifiedResident(request, env, sql, requestId, complexSlug);
+    if (resident instanceof Response) return resident;
+    actorId = resident.id;
+    complexId = resident.complexId;
+  }
   const rows = await sql`
     insert into inquiries (complex_id, user_id, inquiry_type, title, body)
-    values (${resident.complexId}::uuid, ${resident.id}::uuid, ${inquiryType}, ${title}, ${body})
+    values (${complexId}::uuid, ${actorId}::uuid, ${inquiryType}, ${title}, ${body})
     returning id, inquiry_type, title, body, status, response_text, answered_at, closed_at, created_at, updated_at
   `;
   return ok(mapDetail(rows[0] as Record<string, unknown>), requestId, 201);
@@ -125,6 +140,9 @@ async function currentMine(
   `;
   const row = rows[0] as Record<string, unknown> | undefined;
   if (!row) return fail('NOT_FOUND', 'Inquiry not found', 404, requestId);
+  if (String(row.inquiry_type) === 'resident_verification_code_request') {
+    return { residentId: actor.id, complexId: String(row.complex_id), complexSlug: String(row.complex_slug), row };
+  }
   const resident = await requireVerifiedResident(request, env, sql, requestId, String(row.complex_slug));
   if (resident instanceof Response) return resident;
   if (resident.complexId !== String(row.complex_id)) return fail('FORBIDDEN', 'Inquiry access is no longer available', 403, requestId);

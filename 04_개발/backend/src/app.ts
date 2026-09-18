@@ -20,6 +20,7 @@ import { handleCommunityModerationRequest } from './community-moderation-v1';
 import { handleCommunityReplyRequest } from './community-replies-v1';
 import { handleCommunityResidentRequest } from './community-resident-v1';
 import { handleHouseholdPrimaryClaimRequest } from './household-claim-v2';
+import { handleHouseholdCodeVerificationRequest, type HouseholdCodeEnv } from './household-code-verification-v1';
 import { handleHouseholdFamilyRequest } from './household-family-v2';
 import { handleHouseholdUnitMasterRequest } from './household-master-v2';
 import { handleInquiryRequest } from './inquiries-v1';
@@ -51,7 +52,7 @@ import { handleVerifiedSignupRequest } from './verified-signup-v1';
 const REQUEST_ID_HEADER = 'x-danjion-request-id';
 const SAFE_ID = /^[A-Za-z0-9._:-]{1,80}$/;
 
-type AppEnv = CoreEnv & BetterAuthEnv & SignupContactVerificationEnv & {
+type AppEnv = CoreEnv & BetterAuthEnv & SignupContactVerificationEnv & HouseholdCodeEnv & {
   CORS_ALLOWED_ORIGINS?: string;
   COMMUNITY_PUBLISH_MODE?: string;
 };
@@ -195,6 +196,8 @@ export default {
         const response = await handleAdminRequest(request, env, id);
         if (response) return respond(response);
       }
+      const householdCodeVerificationResponse = await handleHouseholdCodeVerificationRequest(request, env, id);
+      if (householdCodeVerificationResponse) return respond(householdCodeVerificationResponse);
       const householdMasterResponse = await handleHouseholdUnitMasterRequest(request, env, id);
       if (householdMasterResponse) return respond(householdMasterResponse);
       const householdClaimResponse = await handleHouseholdPrimaryClaimRequest(request, env, id);

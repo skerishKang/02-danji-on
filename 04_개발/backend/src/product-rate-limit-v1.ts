@@ -17,6 +17,7 @@ export type ProductMutationLimitKey =
   | 'business_review_create'
   | 'business_review_comment_create'
   | 'inquiry_create'
+  | 'resident_verification_code'
   | 'shop_recommendation_create';
 
 type ProductMutationPolicy = {
@@ -40,6 +41,7 @@ export const PRODUCT_MUTATION_LIMITS: Record<ProductMutationLimitKey, ProductMut
   business_review_create: { action: 'business_review_create', max: 10, windowSeconds: 24 * 60 * 60 },
   business_review_comment_create: { action: 'business_review_comment_create', max: 30, windowSeconds: 10 * 60 },
   inquiry_create: { action: 'inquiry_create', max: 10, windowSeconds: 24 * 60 * 60 },
+  resident_verification_code: { action: 'resident_verification_code', max: 10, windowSeconds: 60 * 60 },
   shop_recommendation_create: { action: 'shop_recommendation_create', max: 20, windowSeconds: 24 * 60 * 60 }
 };
 
@@ -114,6 +116,9 @@ export function productMutationLimitForRequest(request: Request): ProductMutatio
   }
   if (path === '/api/v1/me/inquiries') {
     return 'inquiry_create';
+  }
+  if (/^\/api\/v1\/complexes\/[^/]+\/resident-verification\/code$/.test(path)) {
+    return 'resident_verification_code';
   }
   if (path === '/api/v1/me/shop-recommendations') {
     return 'shop_recommendation_create';
