@@ -59,7 +59,7 @@
         method:'POST',headers:{'content-type':'application/json'},
         body:JSON.stringify({complexSlug,inquiryType:'shop_inquiry',title:subject,body})
       });
-      if(!result.ok)return {...result,mode:[401,403].includes(result.status)?'auth-required':'error'};
+       if(!result.ok)return {...result,mode:result.status===401?'auth-required':result.status===403?'resident-verification-required':'error'};
       return {ok:true,mode:'server',status:result.status,inquiry:normalizeInquiry(result.data)};
     }
 
@@ -72,13 +72,13 @@
         method:'POST',headers:{'content-type':'application/json'},
         body:JSON.stringify({complexSlug,inquiryType,title:subject,body:text})
       });
-      if(!result.ok)return {...result,mode:[401,403].includes(result.status)?'auth-required':'error'};
+       if(!result.ok)return {...result,mode:result.status===401?'auth-required':result.status===403?'resident-verification-required':'error'};
       return {ok:true,mode:'server',status:result.status,inquiry:normalizeInquiry(result.data)};
     }
 
     async function listMine(){
       const result=await requestJson(fetchImpl,`${apiBase}/api/v1/me/inquiries${listQuery}`,{method:'GET'});
-      if(!result.ok)return {...result,mode:[401,403].includes(result.status)?'auth-required':'error',inquiries:[]};
+       if(!result.ok)return {...result,mode:result.status===401?'auth-required':result.status===403?'resident-verification-required':'error',inquiries:[]};
       const rows=Array.isArray(result.data?.inquiries)?result.data.inquiries:[];
       return {mode:'server',status:result.status,inquiries:rows.map(normalizeInquiry).filter(Boolean)};
     }
