@@ -11,6 +11,8 @@ const MAX_BODY_BYTES = 16 * 1024;
 const MAX_NICKNAME_CHARS = 40;
 const MAX_BIO_CHARS = 300;
 const MAX_AVATAR_URL_CHARS = 500;
+const NICKNAME_CHANGE_COOLDOWN_DAYS = 30;
+const NICKNAME_CHANGE_COOLDOWN_MS = NICKNAME_CHANGE_COOLDOWN_DAYS * 24 * 60 * 60 * 1000;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const PROFILE_LABEL = 'verified_resident';
 const OPERATOR_PROFILE_LABEL = 'operator';
@@ -25,6 +27,7 @@ type PublicProfileRow = {
   public_bio: unknown;
   is_discoverable: unknown;
   public_activity_count: unknown;
+  nickname_changed_at: unknown;
 };
 
 function json(data: unknown, status: number, requestId: string): Response {
@@ -44,6 +47,23 @@ function ok(data: unknown, requestId: string, status = 200): Response {
 
 function fail(code: string, message: string, status: number, requestId: string): Response {
   return json({ error: { code, message }, requestId }, status, requestId);
+}
+
+function nicknameCooldownFail(nextAllowedAt: string, requestId: string): Response {
+  return json({
+    error: {
+      code: 'NICKNAME_CHANGE_COOLDOWN',
+      message: 'Nickname can be changed once every 30 days',
+      nextAllowedAt
+    },
+    requestId
+  }, 409, requestId);
+}
+
+function isoDate(value: unknown): string | null {
+  if (!value) return null;
+  const date = value instanceof Date ? value : new Date(String(value));
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
 }
 
 function sqlFor(env: CoreEnv): Sql {
@@ -112,6 +132,7 @@ async function loadPublicProfile(sql: Sql, userId: string, complexId: string): P
       u.avatar_url,
       to_char(u.created_at at time zone 'UTC', 'YYYY-MM') as joined_month,
       coalesce(p.public_bio, '') as public_bio,
+      p.nickname_changed_at,
       coalesce(p.is_discoverable, true) as is_discoverable,
       (
         (select count(*)
@@ -172,6 +193,7 @@ async function loadOwnAccountProfile(sql: Sql, userId: string): Promise<PublicPr
       u.avatar_url,
       to_char(u.created_at at time zone 'UTC', 'YYYY-MM') as joined_month,
       coalesce(p.public_bio, '') as public_bio,
+      p.nickname_changed_at,
       coalesce(p.is_discoverable, true) as is_discoverable,
       0::int as public_activity_count
     from app_users u
@@ -197,7 +219,16 @@ function presentProfile(row: PublicProfileRow): Record<string, unknown> {
 }
 
 function presentOwnProfile(row: PublicProfileRow, profileLabel: string): Record<string, unknown> {
-  return { ...presentProfile(row), residentLabel: profileLabel };
+  const changedAt = isoDate(row.nickname_changed_at);
+  const nextAllowedAt = changedAt
+    ? new Date(new Date(changedAt).getTime() + NICKNAME_CHANGE_COOLDOWN_MS).toISOString()
+    : null;
+  return {
+    ...presentProfile(row),
+    residentLabel: profileLabel,
+    nicknameChangedAt: changedAt,
+    nicknameCanChangeAt: nextAllowedAt
+  };
 }
 
 async function viewerForComplex(
@@ -305,6 +336,16 @@ async function updateOwnProfile(
       return fail('VALIDATION_ERROR', `nickname must be 1-${MAX_NICKNAME_CHARS} characters`, 400, requestId);
     }
   }
+  const nicknameChanged = payload.nickname !== undefined && nickname !== String(current.display_name);
+  if (nicknameChanged) {
+    const lastChangedAt = isoDate(current.nickname_changed_at);
+    if (lastChangedAt) {
+      const nextAllowed = new Date(new Date(lastChangedAt).getTime() + NICKNAME_CHANGE_COOLDOWN_MS);
+      if (nextAllowed.getTime() > Date.now()) {
+        return nicknameCooldownFail(nextAllowed.toISOString(), requestId);
+      }
+    }
+  }
 
   let avatarUrl = current.avatar_url ? String(current.avatar_url) : null;
   if (payload.avatarUrl !== undefined) {
@@ -326,17 +367,28 @@ async function updateOwnProfile(
     }
   }
 
+  const profileWrite = nicknameChanged
+    ? sql`
+        insert into resident_public_profiles (user_id, public_bio, nickname_changed_at)
+        values (${viewer.id}::uuid, ${publicBio}, now())
+        on conflict (user_id) do update
+        set public_bio = excluded.public_bio,
+            nickname_changed_at = excluded.nickname_changed_at
+      `
+    : sql`
+        insert into resident_public_profiles (user_id, public_bio)
+        values (${viewer.id}::uuid, ${publicBio})
+        on conflict (user_id) do update
+        set public_bio = excluded.public_bio
+      `;
+
   await sql.transaction([
     sql`
       update app_users
       set display_name = ${nickname}, avatar_url = ${avatarUrl}, updated_at = now()
       where id = ${viewer.id}::uuid and account_status = 'active'
     `,
-    sql`
-      insert into resident_public_profiles (user_id, public_bio)
-      values (${viewer.id}::uuid, ${publicBio})
-      on conflict (user_id) do update set public_bio = excluded.public_bio
-    `
+    profileWrite
   ]);
 
   const updated = await loadOwnProfile(sql, viewer);
