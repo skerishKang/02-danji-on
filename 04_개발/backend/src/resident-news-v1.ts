@@ -67,6 +67,8 @@ function mapOwnSubmission(row: Record<string, unknown>) {
     id: String(row.id),
     title: String(row.title),
     status: String(row.status),
+    category: row.submission_category ? String(row.submission_category) : null,
+    contactEmail: row.contact_email ? String(row.contact_email) : null,
     publishedPostId: row.published_post_id ? String(row.published_post_id) : null,
     createdAt: dateValue(row.created_at),
     updatedAt: dateValue(row.updated_at)
@@ -109,12 +111,23 @@ async function createSubmission(request: Request, env: CoreEnv, sql: Sql, reques
   if (payload instanceof Response) return payload;
   const title = text(payload.title);
   const body = text(payload.body);
+  const category = text(payload.category);
+  const contactEmail = text(payload.contactEmail).toLowerCase();
   if (title.length < 1 || title.length > 160) return fail('VALIDATION_ERROR', 'title must be 1-160 characters', 400, requestId);
   if (body.length < 1 || body.length > 10000) return fail('VALIDATION_ERROR', 'body must be 1-10000 characters', 400, requestId);
+  if (category && !['life_share','event','good_news','info_share'].includes(category)) return fail('VALIDATION_ERROR', 'Invalid submission category', 400, requestId);
+  if (contactEmail && (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail) || contactEmail.length > 254)) {
+    return fail('VALIDATION_ERROR', 'Invalid contact email', 400, requestId);
+  }
   const rows = await sql`
-    insert into resident_news_submissions (complex_id, submitter_user_id, title, body)
-    values (${resident.complexId}::uuid, ${resident.id}::uuid, ${title}, ${body})
-    returning id, title, status, created_at, updated_at
+    insert into resident_news_submissions (
+      complex_id, submitter_user_id, title, body, submission_category, contact_email
+    )
+    values (
+      ${resident.complexId}::uuid, ${resident.id}::uuid, ${title}, ${body},
+      ${category || null}, ${contactEmail || null}
+    )
+    returning id, title, status, submission_category, contact_email, created_at, updated_at
   `;
   const row = rows[0] as Record<string, unknown>;
   row.published_post_id = null;
@@ -125,7 +138,7 @@ async function listOwnSubmissions(request: Request, env: CoreEnv, sql: Sql, requ
   const resident = await requireVerifiedResident(request, env, sql, requestId, complexSlug);
   if (resident instanceof Response) return resident;
   const rows = await sql`
-    select s.id, s.title, s.status, s.created_at, s.updated_at, p.id as published_post_id
+    select s.id, s.title, s.status, s.submission_category, s.contact_email, s.created_at, s.updated_at, p.id as published_post_id
     from resident_news_submissions s
     left join resident_news_posts p on p.source_submission_id = s.id and p.complex_id = s.complex_id
     where s.complex_id = ${resident.complexId}::uuid
@@ -141,7 +154,7 @@ async function operatorQueue(request: Request, env: CoreEnv, sql: Sql, requestId
   const operator = await requireOperationalAuthority(request, env, sql, requestId, complexSlug, 'resident_news.review', 'council.resident_news.review');
   if (operator instanceof Response) return operator;
   const rows = await sql`
-    select s.id, s.title, s.body, s.status, s.review_note, s.created_at, s.updated_at,
+    select s.id, s.title, s.body, s.status, s.submission_category, s.contact_email, s.review_note, s.created_at, s.updated_at,
            u.display_name as submitter_nickname, p.id as published_post_id,
            coalesce((
              select json_agg(json_build_object(
@@ -165,6 +178,8 @@ async function operatorQueue(request: Request, env: CoreEnv, sql: Sql, requestId
       title: String(row.title),
       body: String(row.body),
       status: String(row.status),
+      category: row.submission_category ? String(row.submission_category) : null,
+      contactEmail: row.contact_email ? String(row.contact_email) : null,
       reviewNote: row.review_note ? String(row.review_note) : null,
       submitterNickname: String(row.submitter_nickname),
       publishedPostId: row.published_post_id ? String(row.published_post_id) : null,
