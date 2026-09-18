@@ -18,8 +18,8 @@ assert.match(workflow, /node 04_개발\/frontend\/tests\/qa-persona-interaction-
 
 for (const required of [
   'DANJION_QA_FRONTEND_URL',
-  'DANJION_QA_SUPER_EMAIL',
-  'DANJION_QA_SUPER_PASSWORD'
+  'DANJION_QA_RESIDENT_EMAIL',
+  'DANJION_QA_RESIDENT_PASSWORD'
 ]) assert.ok(workflow.includes(required), `missing QA interaction input ${required}`);
 
 assert.doesNotMatch(workflow, /DANJION_PRODUCTION|environment:\s*production/, 'interaction workflow must not target Production');
