@@ -100,7 +100,9 @@ assert.ok(f04.includes('HOME_PUBLIC_IMAGE_KEY=/^gdrive\\/public\\/business-image
 assert.ok(f04.includes('HOME_SCENE_IMAGES[i%4]'), '04 must keep the bounded local scene fallback image');
 
 /* --- runtime: homeSceneImage proxy guard is fail-closed to the local fallback --- */
-const imgHelper = f04.slice(f04.indexOf('const HOME_PUBLIC_IMAGE_KEY'), f04.indexOf('function homeSceneFromBusiness'));
+const helperHead = f04.slice(f04.indexOf('const HOME_PUBLIC_IMAGE_KEY'), f04.indexOf('function showHomeAuthorityState'));
+const helperFn = f04.slice(f04.indexOf('function homeSceneImage'), f04.indexOf('function homeSceneFromBusiness'));
+const imgHelper = helperHead + helperFn;
 assert.ok(imgHelper.length > 40 && imgHelper.includes('function homeSceneImage'), '04 image helper block must be extractable');
 const imgCtx = { HOME_API_BASE: 'https://api.test', HOME_SCENE_IMAGES: ['assets/scene-food.webp', 'assets/scene-learning.webp', 'assets/scene-home-care.webp', 'assets/scene-professional.webp'] };
 vm.runInNewContext(imgHelper + ';this.homeSceneImage=homeSceneImage;', imgCtx);
