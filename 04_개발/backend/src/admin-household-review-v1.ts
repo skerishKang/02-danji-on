@@ -136,7 +136,6 @@ async function listPending(
             order by hm.created_at asc, hm.id asc
           )::int as member_position
         from household_memberships hm
-        where hm.status in ('pending','verified')
       )
       select
         ranked.membership_id,
@@ -210,7 +209,6 @@ async function reviewPending(
             order by hm.created_at asc, hm.id asc
           )::int as member_position
         from household_memberships hm
-        where hm.status in ('pending','verified')
       ), guarded as materialized (
         select
           hm.id,
