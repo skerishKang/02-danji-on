@@ -98,11 +98,13 @@ export function createResidentNewsBridge({
     async submit(input = {}) {
       const title = text(input.title).trim();
       const body = text(input.body).trim();
+      const category = text(input.category).trim();
+      const contactEmail = text(input.contactEmail).trim();
       if (!title || !body) return validationError();
       return call(`${feedPath}/submissions`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ title, body })
+        body: JSON.stringify({ title, body, category, contactEmail })
       });
     }
   };
