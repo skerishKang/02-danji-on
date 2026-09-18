@@ -142,7 +142,15 @@ async function operatorQueue(request: Request, env: CoreEnv, sql: Sql, requestId
   if (operator instanceof Response) return operator;
   const rows = await sql`
     select s.id, s.title, s.body, s.status, s.review_note, s.created_at, s.updated_at,
-           u.display_name as submitter_nickname, p.id as published_post_id
+           u.display_name as submitter_nickname, p.id as published_post_id,
+           coalesce((
+             select json_agg(json_build_object(
+               'id', a.id, 'fileName', a.file_name, 'contentType', a.content_type,
+               'byteSize', a.byte_size, 'sortOrder', a.sort_order
+             ) order by a.sort_order)
+             from resident_news_submission_attachments a
+             where a.submission_id = s.id
+           ), '[]'::json) as attachments
     from resident_news_submissions s
     join app_users u on u.id = s.submitter_user_id
     left join resident_news_posts p on p.source_submission_id = s.id and p.complex_id = s.complex_id
@@ -161,7 +169,8 @@ async function operatorQueue(request: Request, env: CoreEnv, sql: Sql, requestId
       submitterNickname: String(row.submitter_nickname),
       publishedPostId: row.published_post_id ? String(row.published_post_id) : null,
       createdAt: dateValue(row.created_at),
-      updatedAt: dateValue(row.updated_at)
+      updatedAt: dateValue(row.updated_at),
+      attachments: Array.isArray(row.attachments) ? row.attachments : []
     }))
   }, requestId);
 }
@@ -276,10 +285,13 @@ export async function handleResidentNewsWithSql(request: Request, env: CoreEnv, 
   const feed = path.match(/^\/api\/v1\/complexes\/([a-z0-9][a-z0-9-]{0,119})\/resident-news$/);
   const detail = path.match(/^\/api\/v1\/complexes\/([a-z0-9][a-z0-9-]{0,119})\/resident-news\/([0-9a-fA-F-]+)$/);
   const submit = path.match(/^\/api\/v1\/complexes\/([a-z0-9][a-z0-9-]{0,119})\/resident-news\/submissions$/);
+  const submissionAttachments = path.match(/^\/api\/v1\/complexes\/([a-z0-9][a-z0-9-]{0,119})\/resident-news\/submissions\/([0-9a-fA-F-]+)\/attachments$/);
+  const mineAttachment = path.match(/^\/api\/v1\/me\/resident-news\/submission-attachments\/([0-9a-fA-F-]+)$/);
+  const operatorAttachment = path.match(/^\/api\/v1\/operator\/resident-news\/submission-attachments\/([0-9a-fA-F-]+)$/);
   const mine = path === '/api/v1/me/resident-news/submissions';
   const operatorQueueMatch = path.match(/^\/api\/v1\/operator\/complexes\/([a-z0-9][a-z0-9-]{0,119})\/resident-news\/submissions$/);
   const operatorItem = path.match(/^\/api\/v1\/operator\/complexes\/([a-z0-9][a-z0-9-]{0,119})\/resident-news\/submissions\/([0-9a-fA-F-]+)$/);
-  if (!feed && !detail && !submit && !mine && !operatorQueueMatch && !operatorItem) return null;
+  if (!feed && !detail && !submit && !submissionAttachments && !mineAttachment && !operatorAttachment && !mine && !operatorQueueMatch && !operatorItem) return null;
 
   if (feed) {
     if (request.method !== 'GET') return fail('METHOD_NOT_ALLOWED', 'Method not allowed', 405, requestId);
@@ -294,6 +306,101 @@ export async function handleResidentNewsWithSql(request: Request, env: CoreEnv, 
     if (request.method !== 'POST') return fail('METHOD_NOT_ALLOWED', 'Method not allowed', 405, requestId);
     return createSubmission(request, env, sql, requestId, submit[1]);
   }
+  if (submissionAttachments) {
+    const complexSlug = submissionAttachments[1];
+    const submissionId = submissionAttachments[2].toLowerCase();
+    if (!UUID.test(submissionId)) return fail('NOT_FOUND', 'Resident-news submission not found', 404, requestId);
+    if (request.method !== 'POST') return fail('METHOD_NOT_ALLOWED', 'Method not allowed', 405, requestId);
+    const resident = await requireVerifiedResident(request, env, sql, requestId, complexSlug);
+    if (resident instanceof Response) return resident;
+    const owned = await sql`
+      select id from resident_news_submissions
+      where id = ${submissionId}::uuid
+        and complex_id = ${resident.complexId}::uuid
+        and submitter_user_id = ${resident.id}::uuid
+        and status in ('submitted','reviewing')
+      limit 1
+    `;
+    if (!owned[0]) return fail('NOT_FOUND', 'Resident-news submission not found', 404, requestId);
+    const payload = await bodyJson(request, requestId);
+    if (payload instanceof Response) return payload;
+    const fileName = text(payload.fileName);
+    const contentType = text(payload.contentType) || 'application/octet-stream';
+    const dataBase64 = text(payload.dataBase64).replace(/\s+/g, '');
+    const sortOrder = Number(payload.sortOrder);
+    if (!fileName || fileName.length > 200) return fail('VALIDATION_ERROR', 'fileName must be 1-200 characters', 400, requestId);
+    if (!Number.isInteger(sortOrder) || sortOrder < 0 || sortOrder > 2) return fail('VALIDATION_ERROR', 'sortOrder must be 0-2', 400, requestId);
+    if (!/^[A-Za-z0-9+/]+={0,2}$/.test(dataBase64) || dataBase64.length > 7_200_000) {
+      return fail('VALIDATION_ERROR', 'Invalid or oversized attachment payload', 400, requestId);
+    }
+    const byteSize = Math.floor(dataBase64.length * 3 / 4) - (dataBase64.endsWith('==') ? 2 : dataBase64.endsWith('=') ? 1 : 0);
+    if (byteSize < 1 || byteSize > 5_242_880) return fail('PAYLOAD_TOO_LARGE', 'Attachment must be at most 5 MiB', 413, requestId);
+    try {
+      const rows = await sql`
+        insert into resident_news_submission_attachments (
+          submission_id, uploader_user_id, sort_order, file_name, content_type, byte_size, content_bytes
+        ) values (
+          ${submissionId}::uuid, ${resident.id}::uuid, ${sortOrder}, ${fileName}, ${contentType},
+          ${byteSize}, decode(${dataBase64}, 'base64')
+        )
+        returning id, file_name, content_type, byte_size, sort_order, created_at
+      `;
+      return ok({
+        id: String(rows[0].id), fileName: String(rows[0].file_name), contentType: String(rows[0].content_type),
+        byteSize: Number(rows[0].byte_size), sortOrder: Number(rows[0].sort_order), createdAt: dateValue(rows[0].created_at)
+      }, requestId, 201);
+    } catch (error) {
+      const code = typeof error === 'object' && error && 'code' in error ? String((error as { code?: unknown }).code) : '';
+      if (code === '23505') return fail('ATTACHMENT_SLOT_CONFLICT', 'Attachment slot is already used', 409, requestId);
+      throw error;
+    }
+  }
+  if (mineAttachment) {
+    const attachmentId = mineAttachment[1].toLowerCase();
+    if (!UUID.test(attachmentId)) return fail('NOT_FOUND', 'Attachment not found', 404, requestId);
+    if (request.method !== 'GET') return fail('METHOD_NOT_ALLOWED', 'Method not allowed', 405, requestId);
+    const actor = await requireVerifiedResident(request, env, sql, requestId, 'banglim-myeongji-roadhill');
+    if (actor instanceof Response) return actor;
+    const rows = await sql`
+      select a.content_type, a.byte_size, encode(a.content_bytes,'base64') as data_base64
+      from resident_news_submission_attachments a
+      join resident_news_submissions s on s.id = a.submission_id
+      where a.id = ${attachmentId}::uuid
+        and s.complex_id = ${actor.complexId}::uuid
+        and s.submitter_user_id = ${actor.id}::uuid
+      limit 1
+    `;
+    if (!rows[0]) return fail('NOT_FOUND', 'Attachment not found', 404, requestId);
+    const binary = Uint8Array.from(atob(String(rows[0].data_base64)), (ch) => ch.charCodeAt(0));
+    return new Response(binary, { status: 200, headers: {
+      'content-type': String(rows[0].content_type), 'content-length': String(rows[0].byte_size),
+      'content-disposition': 'inline', 'cache-control': 'private, max-age=300',
+      'x-content-type-options': 'nosniff', 'x-danjion-request-id': requestId
+    }});
+  }
+  if (operatorAttachment) {
+    const attachmentId = operatorAttachment[1].toLowerCase();
+    if (!UUID.test(attachmentId)) return fail('NOT_FOUND', 'Attachment not found', 404, requestId);
+    if (request.method !== 'GET') return fail('METHOD_NOT_ALLOWED', 'Method not allowed', 405, requestId);
+    const target = await sql`
+      select a.content_type, a.byte_size, encode(a.content_bytes,'base64') as data_base64, c.slug as complex_slug
+      from resident_news_submission_attachments a
+      join resident_news_submissions s on s.id = a.submission_id
+      join complexes c on c.id = s.complex_id
+      where a.id = ${attachmentId}::uuid
+      limit 1
+    `;
+    if (!target[0]) return fail('NOT_FOUND', 'Attachment not found', 404, requestId);
+    const operator = await requireOperationalAuthority(request, env, sql, requestId, String(target[0].complex_slug), 'resident_news.review', 'council.resident_news.review');
+    if (operator instanceof Response) return operator;
+    const binary = Uint8Array.from(atob(String(target[0].data_base64)), (ch) => ch.charCodeAt(0));
+    return new Response(binary, { status: 200, headers: {
+      'content-type': String(target[0].content_type), 'content-length': String(target[0].byte_size),
+      'content-disposition': 'inline', 'cache-control': 'private, max-age=300',
+      'x-content-type-options': 'nosniff', 'x-danjion-request-id': requestId
+    }});
+  }
+
   if (mine) {
     if (request.method !== 'GET') return fail('METHOD_NOT_ALLOWED', 'Method not allowed', 405, requestId);
     const complexSlug = (url.searchParams.get('complexSlug') || '').trim();
