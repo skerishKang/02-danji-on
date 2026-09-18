@@ -41,9 +41,11 @@ export function principalScopesForRole(role: AdminPrincipalRole): string[] {
  * Runtime authorization policy.
  *
  * SUPER keeps wildcard plus the same bounded scopes so explicit-scope features
- * such as resident.verification.exempt continue to work. This preserves the
- * existing Production 9/8 grant shape while privileged platform.* authority
- * still depends on wildcard.
+ * such as resident.verification.exempt and resident.verification.manage continue
+ * to work. Adding a bounded scope changes the source canonical runtime bundle;
+ * existing Production grants are not widened by source changes and require a
+ * separately authorized synchronization. Privileged platform.* authority still
+ * depends on wildcard.
  */
 export function runtimeScopesForRole(role: AdminPrincipalRole): string[] {
   return role === 'admin'
