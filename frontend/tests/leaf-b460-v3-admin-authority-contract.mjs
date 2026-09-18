@@ -146,9 +146,14 @@ const loadAdminContext = (location) => {
   const operatorViews = C.consoleSections({ state: 'operator', wildcard: false, scopes: ['business.review'] });
   assert.deepEqual(Array.from(operatorViews.operational, (s) => String(s.id)), ['applications', 'reports', 'reviewHistory'],
     'a bounded grant must expose only the operational sections mapped to its own server scopes');
-  assert.equal(operatorViews.held.length, 1, 'policy-held resident verification must remain separately visible as held');
+  assert.equal(operatorViews.held.length, 0, 'the legacy resident-verification policy-hold placeholder is retired by #735');
   assert.equal(operatorViews.privileged.length, 0, 'a bounded grant must never render the privileged area');
+  const verificationViews = C.consoleSections({ state: 'operator', wildcard: false, scopes: ['resident.verification.manage'] });
+  assert.deepEqual(Array.from(verificationViews.operational, (s) => String(s.id)), ['verifications'],
+    'the bounded resident-verification management scope exposes only the household-code section');
   const superViews = C.consoleSections(A.normalizeAuthority({ level: 'admin', wildcard: true, scopes: ['*'] }));
+  assert.ok(superViews.operational.some((s) => String(s.id) === 'verifications'),
+    'the wildcard grant includes the active household-code operations section');
   assert.equal(superViews.privileged.length, 3, 'the wildcard grant unlocks the placeholder-only privileged area');
 
   const calls = [];
@@ -169,11 +174,15 @@ const loadAdminContext = (location) => {
   assert.deepEqual({ ...news.rows[0] }, { id: 2 }, 'operator queue envelopes must extract from submissions');
   assert.ok(calls.at(-1).includes('/api/v1/operator/complexes/'), 'resident-news must use the operator queue path');
 
-  const beforeHeldCalls = calls.length;
-  const held = await C.loadSection(route(503, { error: { code: 'RESIDENT_VERIFICATION_POLICY_HOLD' } }), 'https://api.test', byId('verifications'));
-  assert.equal(held.state, 'policy-hold', 'the verification policy hold must render as a server-side hold');
-  assert.equal(held.code, 'RESIDENT_VERIFICATION_POLICY_HOLD');
-  assert.equal(calls.length, beforeHeldCalls, 'known policy-hold sections must not perform a misleading live fetch');
+  const verification = await C.loadSection(
+    route(200, { data: { households: [{ householdId: 'h1', buildingCode: '102', unitCode: '1802', codeStatus: 'active' }] } }),
+    'https://api.test',
+    byId('verifications')
+  );
+  assert.equal(verification.state, 'ready', 'household-code administration is an active server-decided section');
+  assert.equal(verification.rows.length, 1);
+  assert.ok(calls.at(-1).includes('/resident-verification/household-codes'),
+    'resident-verification admin section must use the bounded household-code route');
   const scopeDenied = await C.loadSection(route(403, { error: { code: 'PADIEM_GRANT_REQUIRED' } }), 'https://api.test', byId('reports'));
   assert.equal(scopeDenied.state, 'scope-denied', 'per-section access is decided by the server grant scope');
   const posts = await C.loadSection(route(200, { data: [{ id: 3, status: 'draft' }] }), 'https://api.test', byId('posts'));
@@ -389,7 +398,8 @@ const loadAdminContext = (location) => {
   assert.ok(adminPage.includes('badge.className'), 'the role badge must render the server-resolved tier label');
   assert.ok(adminPage.includes("'현재 권한: '+grant.label"), 'the main content must prominently repeat the server-resolved role');
   assert.ok(adminPage.includes("운영 범위: '+grant.scopes.join"), 'operational administrators must see their bounded scope summary');
-  assert.ok(adminPage.includes("section.title+' · 정책 대기'"), 'policy-held verification must render as an explicit disabled tab');
+  assert.ok(adminPage.includes('세대 코드 생성 · 재발급'), 'resident verification must render the active household-code management composer');
+  assert.ok(adminPage.includes('ONE-TIME DISPLAY'), 'plaintext household codes must be presented only as an explicit one-time result');
   assert.ok(adminPage.includes("outcome.state==='network-error'"), 'network/CORS failures must be distinguishable from server failures');
   assert.ok(adminPage.includes("'목록 조회 실패 ('+safeStatus+safeCode"), 'safe HTTP status/code diagnostics must be visible');
   assert.ok(adminPage.includes('button.disabled=true'), 'privileged write controls must stay disabled');
@@ -438,8 +448,10 @@ const loadAdminContext = (location) => {
   }
   assert.equal((consoleSrc.match(/method\s*:\s*'PATCH'/g) || []).length, 3,
     'the console bridge may own only application-review, official-news, and benefit PATCH transports');
-  assert.equal((consoleSrc.match(/method\s*:\s*'POST'/g) || []).length, 2,
-    'the console bridge may own only official-news and benefit create POST transports');
+  assert.equal((consoleSrc.match(/method\s*:\s*'POST'/g) || []).length, 3,
+    'the console bridge may own only official-news, benefit, and household-code create POST transports');
+  assert.equal((consoleSrc.match(/method\s*:\s*'DELETE'/g) || []).length, 1,
+    'the console bridge may own only household-code revoke DELETE transport');
   assert.ok(consoleSrc.includes("'/api/v1/admin/business-applications/'"),
     'business-application review must remain an explicitly activated mutation family');
   assert.ok(consoleSrc.includes("'/api/v1/admin/complexes/'") && consoleSrc.includes(" + '/posts'"),
@@ -450,8 +462,8 @@ const loadAdminContext = (location) => {
     'resident-benefit create must use the admin complex benefits family');
   assert.ok(consoleSrc.includes("'/api/v1/admin/benefits/'"),
     'resident-benefit edit must use the admin benefit PATCH family');
-  assert.ok(!/method\s*:\s*['"](?:PUT|DELETE)['"]/.test(consoleSrc),
-    'no PUT/DELETE operational mutation may be activated');
+  assert.ok(!/method\s*:\s*['"]PUT['"]/.test(consoleSrc),
+    'no PUT operational mutation may be activated');
 
   assert.ok(authoritySrc.includes("state: 'invalid'"), 'the resolver must carry an explicit rejection state for malformed 200s');
   assert.ok(!/state:\s*\w+\s*\?\s*'admin'\s*:\s*'operator'/.test(authoritySrc),

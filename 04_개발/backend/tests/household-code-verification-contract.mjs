@@ -2,9 +2,10 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
 const root = new URL('../', import.meta.url);
-const [migration, api, app, rate, inquiries, ledger] = await Promise.all([
+const [migration, api, crypto, app, rate, inquiries, ledger] = await Promise.all([
   readFile(new URL('migrations/050_household_verification_codes.sql', root), 'utf8'),
   readFile(new URL('src/household-code-verification-v1.ts', root), 'utf8'),
+  readFile(new URL('src/household-code-crypto.ts', root), 'utf8'),
   readFile(new URL('src/app.ts', root), 'utf8'),
   readFile(new URL('src/product-rate-limit-v1.ts', root), 'utf8'),
   readFile(new URL('src/inquiries-v1.ts', root), 'utf8'),
@@ -21,10 +22,17 @@ assert.match(migration, /use_count integer not null default 0/i,
 assert.match(migration, /verify_success','verify_failed','rotate','revoke/i);
 
 assert.match(api, /HOUSEHOLD_CODE_PEPPER/);
-assert.match(api, /HMAC.*SHA-256/s);
-assert.match(api, /replace\(\/\[\\s-\]\+\/g, ''\)/);
+assert.match(api, /householdCodeVerifier/);
+assert.match(api, /normalizeHouseholdCode/);
+assert.match(crypto, /HMAC/);
+assert.match(crypto, /SHA-256/);
+assert.match(crypto, /replace\(\/\[\\s-\]\+\/g, ''\)/);
 assert.match(api, /requireActor/);
 assert.match(api, /membership_role, status, verified_at[\s\S]*'member', 'verified', now\(\)/);
+assert.match(api, /promoted as \([\s\S]*set status = 'verified', verified_at = now\(\)[\s\S]*hm\.status = 'pending'/,
+  'a matching legacy/pending household association must be promoted by the household code');
+assert.match(api, /hm\.household_id = target\.household_id/,
+  'pending promotion must require the code to map to the same household');
 assert.match(api, /set use_count = vc\.use_count \+ 1, last_used_at = now\(\)/);
 assert.doesNotMatch(api, /status = 'redeemed'/,
   'successful verification must not consume the household credential');

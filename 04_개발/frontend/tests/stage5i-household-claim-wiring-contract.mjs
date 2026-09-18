@@ -241,36 +241,30 @@ assert.equal(bridge.DANJION_HOUSEHOLD_COMPLEX_SLUG, 'banglim-myeongji-roadhill')
   }
 }
 
-/* --- 10. static page contract: 26_우리집연결.html wiring --- */
+/* --- 10. canonical page contract after #735 code-first replacement --- */
 {
-  const wiringStart = pageSource.indexOf('<script id="household-server-wiring-20260910">');
-  assert.ok(wiringStart > -1, 'wiring script id must exist');
   const runtimeTag = pageSource.indexOf('<script src="assets/danjion-session.js"></script>');
-  assert.ok(runtimeTag > -1 && runtimeTag < wiringStart, 'shared runtime must load before wiring');
-  const wiring = pageSource.slice(wiringStart, pageSource.indexOf('</script>', wiringStart));
-  assert.ok(wiring.includes("import('./assets/household-claim-bridge.js')"), 'wiring must load the bridge module');
-  assert.ok(wiring.includes('DanjionSession.danjionApiBase()') && /if\s*\(!apiBase\)\s*return;/.test(wiring), 'wiring must early-return without apiBase (#419 hostname-gated resolver)');
+  const inquiryTag = pageSource.indexOf('<script src="assets/inquiry-bridge.js"></script>');
+  const codeBridgeTag = pageSource.indexOf('<script src="assets/resident-verification-code-bridge.js"></script>');
+  assert.ok(runtimeTag > -1 && inquiryTag > runtimeTag && codeBridgeTag > inquiryTag,
+    'canonical page must load shared session, support inquiry, then household-code bridge');
+  assert.ok(pageSource.includes('id="residentCode"') && pageSource.includes('id="verifyButton"'),
+    'canonical page must expose the household SMS-code verification controls');
+  assert.ok(pageSource.includes('인증코드 요청') && pageSource.includes('문의하기'),
+    'canonical page must provide bounded pre-verification support paths');
+  assert.ok(pageSource.includes('동·호를 다시 입력할 필요 없이'),
+    'normal verification must derive the household from the server-side code mapping');
   for (const banned of ['localStorage', 'sessionStorage', 'indexedDB', 'document.cookie']) {
-    assert.ok(!wiring.includes(banned), `wiring must never persist via ${banned}`);
+    assert.ok(!pageSource.includes(banned), `canonical page must never persist resident authority via ${banned}`);
   }
-  assert.ok(!/주민\s*확인\s*(서류|신청)/.test(wiring), 'no resident-verification UI promises (HOLD #59)');
-  assert.ok(wiring.includes('가족 초대를 수락했습니다. 세대원 상태는 확인 대기이며 주민 권한은 아직 부여되지 않습니다.'), 'redeem copy must match V2 portal');
-  for (const id of [
-    'household-banner', 'household-home-panel', 'household-home-unit', 'household-home-complex',
-    'household-member-count', 'household-my-role', 'household-leave', 'household-leave-row',
-    'household-panels-row', 'household-members', 'household-invite-new', 'household-invite-copy',
-    'household-invite-token', 'household-invite-expiry', 'household-share-kakao', 'household-share-sms',
-    'household-share-native', 'household-invite-list', 'household-invite-primary-note',
-    'household-claim-panel', 'household-claim-unit', 'household-claim-token', 'household-claim-submit',
-    'household-claim-units', 'household-claim-complex', 'household-redeem-panel', 'household-redeem-token',
-    'household-redeem-submit', 'household-redeem-note'
+  assert.ok(!pageSource.includes("import('./assets/household-claim-bridge.js')"),
+    'canonical page must no longer mount the legacy unit-selection claim bridge');
+  for (const legacyId of [
+    'household-claim-panel','household-claim-unit','household-claim-token','household-claim-submit',
+    'household-redeem-panel','household-redeem-token','household-redeem-submit'
   ]) {
-    assert.ok(pageSource.includes(`id="${id}"`), `markup must provide #${id}`);
+    assert.ok(!pageSource.includes(`id="${legacyId}"`), `legacy claim UI #${legacyId} must be retired from canonical page 26`);
   }
-  const demoGuard = pageSource.indexOf('household-share-actions-20260904');
-  assert.ok(demoGuard > -1, 'demo share IIFE must remain for demo mode');
-  const demoBlock = pageSource.slice(demoGuard, pageSource.indexOf('</script>', demoGuard));
-  assert.ok(/apiBase/.test(demoBlock), 'demo share IIFE must stand down when apiBase is present');
 }
 
-console.log('PASS #328 household claim wiring contract');
+console.log('PASS #328/#735 household bridge compatibility + code-first canonical wiring contract');

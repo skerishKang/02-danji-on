@@ -59,10 +59,11 @@
     },
     {
       id: 'verifications',
-      title: '입주민 인증 관리',
-      description: '입주민 인증·개인정보 정책 승인 전까지 사용할 수 없습니다.',
-      policyHold: true,
-      path: (slug) => `/api/v1/admin/complexes/${slug}/resident-verifications`
+      requiredScope: 'resident.verification.manage',
+      title: '주민인증 코드',
+      description: '세대별 주민인증 코드를 생성·재발급·폐기합니다. 코드는 생성 직후 한 번만 표시됩니다.',
+      path: (slug) => `/api/v1/admin/complexes/${slug}/resident-verification/household-codes`,
+      householdCodeActions: true
     }
   ];
 
@@ -82,7 +83,7 @@
   function extractRows(data) {
     if (Array.isArray(data)) return data;
     if (data && typeof data === 'object') {
-      for (const key of ['applications', 'recommendations', 'submissions', 'posts', 'benefits', 'verifications', 'events', 'rows', 'items']) {
+      for (const key of ['applications', 'recommendations', 'submissions', 'posts', 'benefits', 'verifications', 'households', 'events', 'rows', 'items']) {
         if (Array.isArray(data[key])) return data[key];
       }
     }
@@ -263,20 +264,75 @@
     return classifyBenefitMutation(result);
   }
 
+  function classifyHouseholdCodeMutation(result) {
+    const code = result && result.error && result.error.code ? String(result.error.code) : '';
+    if (result && result.ok) return { state: 'updated', data: result.data, status: result.status, code };
+    if (result && result.status === 401) return { state: 'signed-out', status: 401, code };
+    if (result && result.status === 403) return { state: 'scope-denied', status: 403, code };
+    if (result && result.status === 404) return { state: 'not-found', status: 404, code };
+    if (result && result.status === 409) return { state: 'conflict', status: 409, code };
+    if (result && result.status === 503) return { state: 'unavailable', status: 503, code };
+    if (!result || result.reason === 'network-error' || result.status === 0) return { state: 'network-error', status: 0, code };
+    return { state: 'error', status: Number(result.status || 0), code };
+  }
+
+  async function provisionHouseholdCode(fetchImpl, apiBase, input, slug) {
+    const value = input && typeof input === 'object' ? input : {};
+    const buildingCode = String(value.buildingCode || '').trim();
+    const unitCode = String(value.unitCode || '').trim();
+    if (!buildingCode || !unitCode || buildingCode.length > 20 || unitCode.length > 20) {
+      return { state: 'invalid-request', status: 0, code: 'INVALID_HOUSEHOLD_UNIT' };
+    }
+    const session = global.DanjionSession;
+    const result = await session.request(
+      fetchImpl,
+      session.joinUrl(
+        String(apiBase || ''),
+        '/api/v1/admin/complexes/' + encodeURIComponent(slug || COMPLEX_SLUG) + '/resident-verification/household-codes'
+      ),
+      { method: 'POST', body: JSON.stringify({ buildingCode, unitCode }) }
+    );
+    return classifyHouseholdCodeMutation(result);
+  }
+
+  async function revokeHouseholdCode(fetchImpl, apiBase, householdId, slug) {
+    const id = String(householdId || '').trim();
+    if (!UUID_RE.test(id)) return { state: 'invalid-request', status: 0, code: 'INVALID_HOUSEHOLD_ID' };
+    const session = global.DanjionSession;
+    const result = await session.request(
+      fetchImpl,
+      session.joinUrl(
+        String(apiBase || ''),
+        '/api/v1/admin/complexes/' + encodeURIComponent(slug || COMPLEX_SLUG)
+          + '/resident-verification/household-codes/' + encodeURIComponent(id)
+      ),
+      { method: 'DELETE' }
+    );
+    return classifyHouseholdCodeMutation(result);
+  }
+
   function rowTitle(row) {
     if (!row || typeof row !== 'object') return '';
+    if (row.buildingCode || row.building_code || row.unitCode || row.unit_code) {
+      const building = String(row.buildingCode ?? row.building_code ?? '').trim();
+      const unit = String(row.unitCode ?? row.unit_code ?? '').trim();
+      return (building ? building + '동 ' : '') + (unit ? unit + '호' : '');
+    }
     const value = row.businessName ?? row.title ?? row.name ?? row.business_name ?? '';
     return String(value).slice(0, 80);
   }
 
   function rowStatus(row) {
     if (!row || typeof row !== 'object') return '';
-    return String(row.status ?? '').slice(0, 40);
+    return String(row.codeStatus ?? row.code_status ?? row.status ?? '').slice(0, 40);
   }
 
   function rowMeta(row) {
     if (!row || typeof row !== 'object') return '';
     const parts = [];
+    if (row.generation !== undefined && row.generation !== null) parts.push('코드 ' + Number(row.generation) + '세대');
+    if (row.useCount !== undefined || row.use_count !== undefined) parts.push('인증 ' + Number(row.useCount ?? row.use_count ?? 0) + '회');
+    if (row.verifiedMemberCount !== undefined || row.verified_member_count !== undefined) parts.push('인증 계정 ' + Number(row.verifiedMemberCount ?? row.verified_member_count ?? 0) + '명');
     const applicant = row.applicantName || row.applicant_name || row.reporterNickname || row.submitterNickname || row.submitter_nickname;
     if (applicant) parts.push(String(applicant));
     const summary = row.serviceSummary || row.service_summary || row.body || row.description || '';
@@ -302,6 +358,8 @@
     loadBenefitBusinesses,
     createResidentBenefit,
     updateResidentBenefit,
+    provisionHouseholdCode,
+    revokeHouseholdCode,
     rowTitle,
     rowStatus,
     rowMeta

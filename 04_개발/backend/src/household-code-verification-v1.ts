@@ -1,5 +1,6 @@
 import { neon, type NeonQueryFunction } from '@neondatabase/serverless';
 import { requireActor, type AuthEnv } from './auth-v1';
+import { householdCodeVerifier, isHouseholdCode, normalizeHouseholdCode } from './household-code-crypto';
 
 type Sql = NeonQueryFunction<false, false>;
 
@@ -8,7 +9,6 @@ export type HouseholdCodeEnv = AuthEnv & {
 };
 
 const MAX_BODY_BYTES = 1024;
-const CODE = /^[A-Z0-9]{6,12}$/;
 const SLUG = /^[a-z0-9][a-z0-9-]{0,119}$/;
 
 function json(data: unknown, status: number, requestId: string): Response {
@@ -27,9 +27,6 @@ function sqlFor(env: HouseholdCodeEnv): Sql {
   if (!env.DATABASE_URL) throw new Error('DATABASE_URL is not configured');
   return neon(env.DATABASE_URL);
 }
-function normalizeCode(value: unknown): string {
-  return typeof value === 'string' ? value.trim().toUpperCase().replace(/[\s-]+/g, '') : '';
-}
 async function parseBody(request: Request, requestId: string): Promise<string | Response> {
   if (!(request.headers.get('content-type') || '').includes('application/json')) {
     return fail('CONTENT_TYPE_REQUIRED', 'application/json required', 415, requestId);
@@ -43,16 +40,9 @@ async function parseBody(request: Request, requestId: string): Promise<string | 
   if (!value || typeof value !== 'object' || Array.isArray(value)) return fail('INVALID_JSON', 'JSON object required', 400, requestId);
   const record = value as Record<string, unknown>;
   if (Object.keys(record).some((key) => key !== 'code')) return fail('VALIDATION_ERROR', 'Only code is accepted', 400, requestId);
-  const code = normalizeCode(record.code);
-  if (!CODE.test(code)) return fail('RESIDENT_CODE_INVALID', 'The resident verification code is invalid or unavailable', 409, requestId);
+  const code = normalizeHouseholdCode(record.code);
+  if (!isHouseholdCode(code)) return fail('RESIDENT_CODE_INVALID', 'The resident verification code is invalid or unavailable', 409, requestId);
   return code;
-}
-async function verifier(code: string, pepper: string): Promise<string> {
-  const key = await crypto.subtle.importKey(
-    'raw', new TextEncoder().encode(pepper), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']
-  );
-  const digest = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(code));
-  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
 }
 async function auditFailure(sql: Sql, actorId: string, complexId: string | null, requestId: string): Promise<void> {
   await sql`
@@ -96,19 +86,16 @@ export async function handleHouseholdCodeVerificationWithSql(
       and hm.status in ('pending','verified')
     limit 1
   `;
-  if (existing[0]) {
-    if (String(existing[0].status) === 'verified') {
-      return ok({
-        status: 'verified',
-        householdLinked: true,
-        household: { buildingCode: String(existing[0].building_code), unitCode: String(existing[0].unit_code) },
-        alreadyVerified: true
-      }, requestId);
-    }
-    return fail('HOUSEHOLD_MEMBERSHIP_EXISTS', 'An active household membership already exists', 409, requestId);
+  if (existing[0] && String(existing[0].status) === 'verified') {
+    return ok({
+      status: 'verified',
+      householdLinked: true,
+      household: { buildingCode: String(existing[0].building_code), unitCode: String(existing[0].unit_code) },
+      alreadyVerified: true
+    }, requestId);
   }
 
-  const codeVerifier = await verifier(code, pepper);
+  const codeVerifier = await householdCodeVerifier(code, pepper);
   const results = await sql.transaction([
     sql`
       with target as (
@@ -123,42 +110,57 @@ export async function handleHouseholdCodeVerificationWithSql(
           and cu.status = 'active'
         limit 1
         for update of vc
+      ), promoted as (
+        update household_memberships hm
+        set status = 'verified', verified_at = now(), revoked_at = null, updated_at = now()
+        from target
+        where hm.user_id = ${actor.id}::uuid
+          and hm.complex_id = target.complex_id
+          and hm.household_id = target.household_id
+          and hm.status = 'pending'
+        returning hm.id, hm.complex_id, hm.household_id
       ), inserted as (
         insert into household_memberships (complex_id, household_id, user_id, membership_role, status, verified_at)
         select target.complex_id, target.household_id, ${actor.id}::uuid, 'member', 'verified', now()
         from target
-        where not exists (
-          select 1 from household_memberships hm
-          where hm.user_id = ${actor.id}::uuid
-            and hm.complex_id = target.complex_id
-            and hm.status in ('pending','verified')
-        )
+        where not exists (select 1 from promoted)
+          and not exists (
+            select 1 from household_memberships hm
+            where hm.user_id = ${actor.id}::uuid
+              and hm.complex_id = target.complex_id
+              and hm.status in ('pending','verified')
+          )
         on conflict do nothing
         returning id, complex_id, household_id
+      ), membership as (
+        select id, complex_id, household_id from promoted
+        union all
+        select id, complex_id, household_id from inserted
       ), used as (
         update household_verification_codes vc
         set use_count = vc.use_count + 1, last_used_at = now()
-        from target, inserted
+        from target
         where vc.id = target.id
+          and exists (select 1 from membership)
         returning vc.id
       ), audited as (
         insert into household_verification_code_events (
           complex_id, household_id, actor_user_id, action, request_id
         )
-        select inserted.complex_id, inserted.household_id, ${actor.id}::uuid, 'verify_success', ${requestId}
-        from inserted
+        select membership.complex_id, membership.household_id, ${actor.id}::uuid, 'verify_success', ${requestId}
+        from membership
         where exists (select 1 from used)
         returning id
       )
-      select inserted.household_id
-      from inserted
+      select membership.household_id
+      from membership
       where exists (select 1 from used) and exists (select 1 from audited)
     `,
     sql`select 1 as transaction_boundary`
   ]);
 
-  const inserted = (results[0] as Record<string, unknown>[])[0];
-  if (!inserted) {
+  const membership = (results[0] as Record<string, unknown>[])[0];
+  if (!membership) {
     await auditFailure(sql, actor.id, complexId, requestId);
     return fail('RESIDENT_CODE_INVALID', 'The resident verification code is invalid or unavailable', 409, requestId);
   }
@@ -167,7 +169,7 @@ export async function handleHouseholdCodeVerificationWithSql(
     select cu.building_code, cu.unit_code
     from households h
     join complex_units cu on cu.id = h.complex_unit_id and cu.complex_id = h.complex_id
-    where h.id = ${String(inserted.household_id)}::uuid
+    where h.id = ${String(membership.household_id)}::uuid
       and h.complex_id = ${complexId}::uuid
     limit 1
   `;

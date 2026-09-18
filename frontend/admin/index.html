@@ -82,6 +82,7 @@
     .admin-bootstrap-button{min-height:46px;margin-top:12px;padding:0 20px;border:0;border-radius:999px;background:var(--navy);color:#fff;font-size:14px;font-weight:800;cursor:pointer}
     .admin-bootstrap-button:disabled{opacity:.58;cursor:wait}
     .admin-bootstrap-status{min-height:20px;margin:10px auto 0!important;font-size:12.5px!important;font-weight:700;color:var(--coral)!important}
+    .verification-code-result{margin-top:12px;padding:16px;border:1px solid var(--green);background:#eef7f2}.verification-code-result small{display:block;color:var(--green);font-weight:900;font-size:11px}.verification-code-value{font:900 28px/1.2 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;letter-spacing:.08em;margin:8px 0;color:var(--navy);overflow-wrap:anywhere}.verification-code-result p{margin:0 0 10px!important;color:var(--muted)!important;font-size:12.5px!important;line-height:1.55}.verification-code-result .admin-review-actions{margin-top:8px}.verification-unit-form{margin:14px 0 18px;padding:16px;border:1px dashed var(--green);border-radius:16px;background:var(--paper2)}.verification-unit-form h3{margin:0 0 6px}.verification-unit-form>p{margin:0 0 12px;color:var(--muted);font-size:12.5px;line-height:1.55}
     @media(max-width:720px){.admin-card-top{flex-direction:column}.admin-header{position:static}.admin-facts,.admin-form-grid{grid-template-columns:1fr}.admin-field.full{grid-column:auto}.admin-review-actions button,.admin-post-actions button{flex:1 1 calc(50% - 8px)}}
   </style>
 </head>
@@ -379,6 +380,79 @@
       });
       actions.append(save,live);editor.append(actions);return editor;
     }
+    function householdCodeError(outcome){
+      if(outcome.state==='scope-denied')return '현재 관리자 권한으로 주민인증 코드를 관리할 수 없습니다.';
+      if(outcome.state==='not-found')return '대상 세대를 찾을 수 없습니다.';
+      if(outcome.state==='unavailable')return '주민인증 코드 기능이 아직 서버에서 활성화되지 않았습니다.';
+      if(outcome.state==='conflict')return '현재 상태에서는 코드를 변경할 수 없습니다'+(outcome.code?' · '+outcome.code:'')+'.';
+      if(outcome.state==='network-error')return 'API 연결에 실패했습니다.';
+      if(outcome.state==='invalid-request')return '동·호 값을 확인해 주세요.';
+      return '코드 처리에 실패했습니다'+(outcome.code?' · '+outcome.code:'')+'.';
+    }
+    function oneTimeCodeResult(data,panel,section,apiBase){
+      const box=el('div',undefined,'verification-code-result');
+      box.append(el('small','ONE-TIME DISPLAY'));
+      const value=el('div',String(data&&data.codeDisplay||data&&data.code||''),'verification-code-value');
+      box.append(value,el('p','이 코드는 지금 한 번만 표시됩니다. 안전하게 복사해 해당 세대 안내 문자에 사용하세요. 분실하면 기존 코드를 조회하지 말고 재발급합니다.'));
+      const actions=el('div',undefined,'admin-review-actions');
+      const copy=el('button','코드 복사','primary');copy.type='button';
+      const refresh=el('button','목록 새로고침');refresh.type='button';
+      copy.addEventListener('click',async()=>{
+        try{await navigator.clipboard.writeText(String(data&&data.code||data&&data.codeDisplay||''));copy.textContent='복사 완료'}
+        catch(_){copy.textContent='직접 선택해 복사해 주세요'}
+      });
+      refresh.addEventListener('click',()=>renderSection(panel,section,apiBase));
+      actions.append(copy,refresh);box.append(actions);return box;
+    }
+    function householdCodeComposer(panel,section,apiBase){
+      const wrap=el('section',undefined,'verification-unit-form');
+      wrap.append(el('h3','세대 코드 생성 · 재발급'),el('p','동·호를 입력하면 해당 세대를 만들거나 연결하고 새 코드를 발급합니다. 기존 활성 코드는 즉시 폐기됩니다.'));
+      const building=document.createElement('input');building.maxLength=20;building.placeholder='예: 102';building.setAttribute('aria-label','동');
+      const unit=document.createElement('input');unit.maxLength=20;unit.placeholder='예: 1802';unit.setAttribute('aria-label','호');
+      const grid=el('div',undefined,'admin-form-grid');grid.append(labeledField('동',building,false),labeledField('호',unit,false));wrap.append(grid);
+      const actions=el('div',undefined,'admin-post-actions');const issue=el('button','코드 생성 · 재발급');issue.type='button';const live=el('p','', 'admin-post-status');live.setAttribute('aria-live','polite');actions.append(issue,live);wrap.append(actions);
+      issue.addEventListener('click',async()=>{
+        if(!building.value.trim()||!unit.value.trim()){live.textContent='동·호를 입력해 주세요.';live.className='admin-post-status error';return}
+        if(!window.confirm(building.value.trim()+'동 '+unit.value.trim()+'호의 새 주민인증 코드를 발급하시겠습니까? 기존 활성 코드는 사용할 수 없게 됩니다.'))return;
+        issue.disabled=true;live.className='admin-post-status';live.textContent='코드 발급 중…';
+        const outcome=await consoleApi.provisionHouseholdCode(fetch,apiBase,{buildingCode:building.value,unitCode:unit.value});
+        if(outcome.state==='updated'){live.textContent='새 코드가 발급되었습니다.';wrap.querySelector('.verification-code-result')?.remove();wrap.append(oneTimeCodeResult(outcome.data,panel,section,apiBase));issue.disabled=false;return}
+        if(outcome.state==='signed-out'){showRestricted('signed-out');return}
+        live.textContent=householdCodeError(outcome);live.className='admin-post-status error';issue.disabled=false;
+      });
+      return wrap;
+    }
+    function householdCodeControls(row,panel,section,apiBase){
+      if(!section.householdCodeActions)return null;
+      const wrap=el('div',undefined,'admin-review-controls');
+      const live=el('p','', 'admin-review-status');live.setAttribute('aria-live','polite');
+      const actions=el('div',undefined,'admin-review-actions');
+      const active=String(row.codeStatus||row.code_status||'none')==='active';
+      const issue=el('button',active?'코드 재발급':'코드 생성','primary');issue.type='button';
+      issue.addEventListener('click',async()=>{
+        if(active&&!window.confirm('이 세대의 기존 코드를 폐기하고 새 코드를 발급하시겠습니까?'))return;
+        issue.disabled=true;live.className='admin-review-status';live.textContent='처리 중…';
+        const outcome=await consoleApi.provisionHouseholdCode(fetch,apiBase,{buildingCode:row.buildingCode||row.building_code,unitCode:row.unitCode||row.unit_code});
+        if(outcome.state==='updated'){live.textContent='새 코드가 발급되었습니다.';wrap.querySelector('.verification-code-result')?.remove();wrap.append(oneTimeCodeResult(outcome.data,panel,section,apiBase));issue.disabled=false;return}
+        if(outcome.state==='signed-out'){showRestricted('signed-out');return}
+        live.textContent=householdCodeError(outcome);live.className='admin-review-status error';issue.disabled=false;
+      });
+      actions.append(issue);
+      const householdId=String(row.householdId||row.household_id||'');
+      if(active&&householdId){
+        const revoke=el('button','코드 폐기','danger');revoke.type='button';
+        revoke.addEventListener('click',async()=>{
+          if(!window.confirm('이 세대의 현재 주민인증 코드를 폐기하시겠습니까?'))return;
+          issue.disabled=true;revoke.disabled=true;live.className='admin-review-status';live.textContent='폐기 중…';
+          const outcome=await consoleApi.revokeHouseholdCode(fetch,apiBase,householdId);
+          if(outcome.state==='updated'){await renderSection(panel,section,apiBase);return}
+          if(outcome.state==='signed-out'){showRestricted('signed-out');return}
+          live.textContent=householdCodeError(outcome);live.className='admin-review-status error';issue.disabled=false;revoke.disabled=false;
+        });
+        actions.append(revoke);
+      }
+      wrap.append(actions,live);return wrap;
+    }
     async function renderSection(panel,section,apiBase){
       statePanel(panel,'불러오는 중…');
       const outcome=await consoleApi.loadSection(fetch,apiBase,section);
@@ -386,7 +460,8 @@
         panel.replaceChildren(el('h2',section.title),el('p',section.description));
         if(section.id==='posts')panel.append(postComposer(panel,section,apiBase));
         if(section.id==='benefits')panel.append(await benefitComposer(panel,section,apiBase));
-        if(!outcome.rows.length){panel.append(el('div','표시할 항목이 없습니다.','admin-empty'));return}
+        if(section.id==='verifications')panel.append(householdCodeComposer(panel,section,apiBase));
+        if(!outcome.rows.length){panel.append(el('div',section.id==='verifications'?'아직 등록된 세대가 없습니다. 위에서 동·호를 입력해 첫 코드를 발급하세요.':'표시할 항목이 없습니다.','admin-empty'));return}
         outcome.rows.forEach((row)=>{
           const card=el('article',undefined,'admin-card');
           const top=el('div',undefined,'admin-card-top');
@@ -397,9 +472,11 @@
           const reviewControls=applicationReviewControls(row,panel,section,apiBase);
           const postControls=postEditControls(row,panel,section,apiBase);
           const benefitControls=benefitEditControls(row,panel,section,apiBase);
+          const householdCodeAction=householdCodeControls(row,panel,section,apiBase);
           if(reviewControls)card.append(reviewControls);
           else if(postControls)card.append(postControls);
           else if(benefitControls)card.append(benefitControls);
+          else if(householdCodeAction)card.append(householdCodeAction);
           else{const readonly=el('button','상태 변경 (조회 전용)');readonly.disabled=true;card.append(readonly)}
           panel.append(card);
         });

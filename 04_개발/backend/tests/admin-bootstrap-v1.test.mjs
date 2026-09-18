@@ -31,6 +31,7 @@ const principalByActor = new Map([
       'inquiry.respond',
       'official-content.manage',
       'resident.verification.exempt',
+      'resident.verification.manage',
       'resident_news.review',
       'safety.report.review'
     ]
@@ -185,6 +186,7 @@ for (const subject of ['sub-unlisted', 'sub-unverified']) {
       'inquiry.respond',
       'official-content.manage',
       'resident.verification.exempt',
+      'resident.verification.manage',
       'resident_news.review',
       'safety.report.review'
     ],
@@ -197,6 +199,7 @@ for (const subject of ['sub-unlisted', 'sub-unverified']) {
     'inquiry.respond',
     'official-content.manage',
     'resident.verification.exempt',
+    'resident.verification.manage',
     'resident_news.review',
     'safety.report.review'
   ]);
@@ -230,6 +233,7 @@ for (const subject of ['sub-unlisted', 'sub-unverified']) {
       'inquiry.respond',
       'official-content.manage',
       'resident.verification.exempt',
+      'resident.verification.manage',
       'resident_news.review',
       'safety.report.review'
     ],
@@ -243,6 +247,7 @@ for (const subject of ['sub-unlisted', 'sub-unverified']) {
     'inquiry.respond',
     'official-content.manage',
     'resident.verification.exempt',
+    'resident.verification.manage',
     'resident_news.review',
     'safety.report.review'
   ]);
