@@ -176,8 +176,8 @@ jobs:
           ready=0
           for attempt in $(seq 1 18); do
             root_status="$(curl --silent --show-error --output "${RUNNER_TEMP}/root.html" --dump-header "${RUNNER_TEMP}/root.headers" --write-out '%{http_code}' "${PREVIEW_PAGES_URL}/" || true)"
-            auth_status="$(curl --silent --show-error --output "${RUNNER_TEMP}/auth.html" --write-out '%{http_code}' "${PREVIEW_PAGES_URL}/${encoded_auth}" || true)"
-            write_status="$(curl --silent --show-error --output "${RUNNER_TEMP}/write.html" --write-out '%{http_code}' "${PREVIEW_PAGES_URL}/${encoded_write}" || true)"
+            auth_status="$(curl --silent --show-error --location --output "${RUNNER_TEMP}/auth.html" --write-out '%{http_code}' "${PREVIEW_PAGES_URL}/${encoded_auth}" || true)"
+            write_status="$(curl --silent --show-error --location --output "${RUNNER_TEMP}/write.html" --write-out '%{http_code}' "${PREVIEW_PAGES_URL}/${encoded_write}" || true)"
             session_status="$(curl --silent --show-error --output "${RUNNER_TEMP}/session.json" --dump-header "${RUNNER_TEMP}/session.headers" --write-out '%{http_code}' "${PREVIEW_PAGES_URL}/api/auth/get-session" || true)"
             me_status="$(curl --silent --show-error --output "${RUNNER_TEMP}/me.json" --dump-header "${RUNNER_TEMP}/me.headers" --write-out '%{http_code}' "${PREVIEW_PAGES_URL}/api/v1/me" || true)"
 
@@ -185,6 +185,7 @@ jobs:
               ready=1
               break
             fi
+            echo "preview readiness attempt ${attempt}: root=${root_status} auth=${auth_status} write=${write_status} session=${session_status} me=${me_status}"
             sleep 3
           done
           test "$ready" = "1" || { echo "::error::Owner preview did not become ready"; exit 1; }
