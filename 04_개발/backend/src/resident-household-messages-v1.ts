@@ -51,10 +51,10 @@ async function listMessages(
   const actor = await requireActor(request, env, sql, requestId);
   if (actor instanceof Response) return actor;
 
-  const rows = await sql\`
+  const rows = await sql`
     select *
-    from resident_household_message_feed(\${actor.id}::uuid, null::uuid)
-  \`;
+    from resident_household_message_feed(${actor.id}::uuid, null::uuid)
+  `;
 
   return ok({ messages: rows.map((row) => publicMessage(row)) }, requestId);
 }
@@ -69,10 +69,10 @@ async function getMessage(
   const actor = await requireActor(request, env, sql, requestId);
   if (actor instanceof Response) return actor;
 
-  const rows = await sql\`
+  const rows = await sql`
     select *
-    from resident_household_message_feed(\${actor.id}::uuid, \${messageId}::uuid)
-  \`;
+    from resident_household_message_feed(${actor.id}::uuid, ${messageId}::uuid)
+  `;
 
   if (!rows[0]) return fail('HOUSEHOLD_MESSAGE_NOT_FOUND', 'Household message not found', 404, requestId);
   return ok(publicMessage(rows[0]), requestId);
