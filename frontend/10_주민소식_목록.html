@@ -344,6 +344,7 @@ if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt
 })();
 </script>
 <script src="assets/danjion-session.js"></script>
+<script src="assets/write-media.js"></script>
 <script id="resident-news-list-server-wiring-20260911">
 (function(){
   const apiBase=DanjionSession.danjionApiBase();
@@ -352,7 +353,8 @@ if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt
   if(!stories)return;
   const filters=document.querySelector('.filters');
   const DETAIL='11_주민소식_상세.html';
-  let bridge=null;
+  const CATEGORY={'생활 나눔':'life_share','모임·행사':'event','좋은 소식':'good_news','정보 나눔':'info_share'};
+  let bridge=null,busy=false;
   async function ensureBridge(){
     if(bridge)return bridge;
     const mod=await import('./assets/resident-news-bridge.js');
@@ -365,80 +367,72 @@ if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt
   }
   function notice(message){
     stories.textContent='';
-    const card=document.createElement('article');
-    card.className='story compact';
-    card.setAttribute('data-resident-news-empty','');
-    const copy=document.createElement('p');
-    copy.textContent=message;
-    card.append(copy);
-    stories.append(card);
+    const card=document.createElement('article');card.className='story compact';card.setAttribute('data-resident-news-empty','');
+    const copy=document.createElement('p');copy.textContent=message;card.append(copy);stories.append(card);
   }
   function render(posts){
     if(!posts.length)return;
-    stories.textContent='';
-    if(filters)filters.hidden=true;
+    stories.textContent='';if(filters)filters.hidden=true;
     for(const post of posts){
-      const card=document.createElement('article');
-      card.className='story compact';
-      card.setAttribute('data-resident-news-id',post.id);
-      const meta=document.createElement('div');
-      meta.className='story-meta';
-      const tag=document.createElement('span');
-      tag.className='tag';
-      tag.textContent='주민소식';
-      const time=document.createElement('time');
-      time.textContent=fmtDate(post.publishedAt);
-      meta.append(tag,time);
-      const heading=document.createElement('h3');
-      const titleLink=document.createElement('a');
-      titleLink.className='story-title-link';
-      titleLink.setAttribute('href',DETAIL+'?postId='+encodeURIComponent(post.id));
-      titleLink.textContent=post.title;
-      heading.append(titleLink);
-      const readLink=document.createElement('a');
-      readLink.className='story-link';
-      readLink.setAttribute('href',DETAIL+'?postId='+encodeURIComponent(post.id));
-      readLink.textContent='소식 읽기';
-      card.append(meta,heading,readLink);
-      stories.append(card);
+      const card=document.createElement('article');card.className='story compact';card.setAttribute('data-resident-news-id',post.id);
+      const meta=document.createElement('div');meta.className='story-meta';
+      const tag=document.createElement('span');tag.className='tag';tag.textContent='주민소식';
+      const time=document.createElement('time');time.textContent=fmtDate(post.publishedAt);meta.append(tag,time);
+      const heading=document.createElement('h3');const titleLink=document.createElement('a');titleLink.className='story-title-link';
+      titleLink.href=DETAIL+'?postId='+encodeURIComponent(post.id);titleLink.textContent=post.title;heading.append(titleLink);
+      const readLink=document.createElement('a');readLink.className='story-link';readLink.href=DETAIL+'?postId='+encodeURIComponent(post.id);readLink.textContent='소식 읽기';
+      card.append(meta,heading,readLink);stories.append(card);
     }
   }
-  // Server-rendered cards own their post id. The shared router otherwise drops the
-  // query when leaving the resident list, so the id is carried through here.
   window.addEventListener('click',function(ev){
-    const target=ev.target;
-    const card=target&&target.closest?target.closest('[data-resident-news-id]'):null;
-    if(!card)return;
-    ev.preventDefault();
-    ev.stopImmediatePropagation();
+    const card=ev.target&&ev.target.closest?ev.target.closest('[data-resident-news-id]'):null;
+    if(!card)return;ev.preventDefault();ev.stopImmediatePropagation();
     location.href=DETAIL+'?postId='+encodeURIComponent(card.getAttribute('data-resident-news-id'));
   },true);
   async function load(){
     notice('주민소식을 불러오는 중입니다.');
     try{
-      const b=await ensureBridge();
-      const result=await b.listPosts();
+      const b=await ensureBridge();const result=await b.listPosts();
       if(result.ok){if(result.posts.length)render(result.posts);else notice('현재 공개된 주민소식이 없습니다.');return}
-      // resident-news fallback preserved as an honest server-owned empty/error state.
-      notice(result.reason==='auth-required'?'로그인 후 주민소식을 확인할 수 있습니다.':result.reason==='resident-verification-required'?'주민인증 후 주민소식을 확인할 수 있습니다.':'주민소식을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.');
-    }catch(_){
-      notice('주민소식을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.');
-    }
+      notice(result.reason==='auth-required'?'로그인 후 주민소식을 확인할 수 있습니다.':result.status===403?'주민인증 후 주민소식을 확인할 수 있습니다.':'주민소식을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.');
+    }catch(_){notice('주민소식을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.');}
+  }
+  async function prepareFiles(){
+    const input=document.getElementById('residentFiles');
+    if(!input||!input.files||!input.files.length)return [];
+    if(!globalThis.DanjionWriteMedia||typeof DanjionWriteMedia.prepareFiles!=='function')throw new Error('FILE_HELPER_UNAVAILABLE');
+    return DanjionWriteMedia.prepareFiles(input.files,{max:3,maxBytes:5*1024*1024});
   }
   window.addEventListener('danjion:resident-news-submit',async function(){
+    if(busy)return;
     const title=document.getElementById('title')?.value.trim();
     const body=document.getElementById('content')?.value.trim();
+    const kind=document.getElementById('kind')?.value||'생활 나눔';
+    const email=document.getElementById('email')?.value.trim()||'';
+    const submitButton=document.querySelector('.preview-submit');
     if(!title||!body){showToast('제목과 내용을 입력해 주세요.');return}
+    if(email&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){showToast('연락받을 이메일을 확인해 주세요.');return}
+    busy=true;if(submitButton)submitButton.disabled=true;
     try{
+      let files=[];
+      try{files=await prepareFiles()}catch(error){showToast(error&&error.message==='FILE_TOO_LARGE'?'첨부파일은 각 5MB 이하로 선택해 주세요.':'첨부파일을 준비하지 못했습니다. 다시 선택해 주세요.');return}
       const b=await ensureBridge();
-      const result=await b.submit({title,body});
+      const result=await b.submit({title,body,category:CATEGORY[kind]||'life_share',contactEmail:email});
       if(!result.ok){showToast(result.status===401?'로그인 후 이용해 주세요.':result.status===403?'주민인증 후 제보할 수 있습니다.':'제보 접수에 실패했습니다.');return}
-      showToast('제보가 접수되었습니다. 운영진 확인 후 게시됩니다.');
+      const submissionId=String(result.data&&result.data.id||'');
+      for(let i=0;i<files.length;i++){
+        const uploaded=await b.addSubmissionAttachment(submissionId,{...files[i],sortOrder:i});
+        if(!uploaded.ok)throw new Error('ATTACHMENT_UPLOAD_FAILED');
+      }
+      showToast(files.length?'제보와 첨부자료가 접수되었습니다. 운영진 확인 후 게시됩니다.':'제보가 접수되었습니다. 운영진 확인 후 게시됩니다.');
+      document.getElementById('title').value='';document.getElementById('content').value='';document.getElementById('email').value='';
+      const input=document.getElementById('residentFiles');if(input)input.value='';
+      const list=document.getElementById('residentFileList');if(list)list.innerHTML='';
+      const trigger=document.querySelector('[data-file-trigger]');if(trigger)trigger.textContent='＋ 사진이나 안내문 첨부하기';
       document.querySelector('[data-close-drawer]')?.click();
-    }catch(_){showToast('제보 접수에 실패했습니다.');}
+    }catch(_){showToast('제보 또는 첨부자료 접수에 실패했습니다. 잠시 후 다시 시도해 주세요.');}
+    finally{busy=false;if(submitButton)submitButton.disabled=false;}
   });
-  // Canonical Production is server-owned: loading/empty/error states above replace
-  // prototype resident cards instead of reviving built-in resident identities.
   void load();
 })();
 </script>
