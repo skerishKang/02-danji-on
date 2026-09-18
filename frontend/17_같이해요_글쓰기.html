@@ -80,20 +80,39 @@ main{width:min(760px,100%);margin:auto;padding:28px 20px 34px}.category{display:
  if(!apiBase)return;
  const bridge=DanjionCommunityBridge.createCommunityBridge({apiBase});
  const title=document.getElementById('title'),body=document.getElementById('body');
- const dynamic=document.getElementById('dynamicFields');
  const key='danjionDraft:17:v2';
  const COMMUNITY='12_이웃대화_첫화면.html?type=together&apiBase='+encodeURIComponent(apiBase);
- function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(window.__toast);window.__toast=setTimeout(()=>t.classList.remove('show'),1700)}
+ const DETAIL='13_이웃대화_글상세_댓글.html';
+ const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+ const publishButtons=[...document.querySelectorAll('[data-publish]')];
+ function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(window.__toast);window.__toast=setTimeout(()=>t.classList.remove('show'),2100)}
+ function setBusy(on){publishButtons.forEach(b=>{b.disabled=on;b.setAttribute('aria-busy',String(on))})}
  function serverMessage(r){
-  if(r.mode==='auth-required')return '로그인이 만료되었습니다. 다시 로그인한 뒤 이용해 주세요.';
-  if(r.error&&r.error.message)return r.error.message;
+  if(r&&r.mode==='auth-required'){
+   if(r.status===403){
+    const code=String(r.error&&r.error.code||'');
+    if(code==='RESIDENT_VERIFICATION_REQUIRED'||code==='HOUSEHOLD_ASSOCIATION_REQUIRED')return '우리집 연결과 주민 확인을 완료한 뒤 같이해요 글을 게시할 수 있습니다.';
+    return '이 계정은 현재 같이해요 글쓰기 권한이 없습니다.';
+   }
+   return '로그인이 만료되었습니다. 다시 로그인한 뒤 이용해 주세요.';
+  }
+  if(r&&r.error&&r.error.message)return r.error.message;
   return '서버 연결에 실패했습니다. 잠시 후 다시 시도해 주세요.';
  }
- function fieldLabel(input){return input.previousElementSibling?input.previousElementSibling.textContent.replace('필수','').trim():input.name}
- function compose(){
-  const lines=[];
-  dynamic.querySelectorAll('input').forEach(i=>{const v=i.value.trim();if(v)lines.push(fieldLabel(i)+': '+v)});
-  return lines.length?body.value.trim()+'\n\n'+lines.join('\n'):body.value.trim();
+ function nextHref(post){
+  const postId=String(post&&post.id||'').toLowerCase();
+  return UUID.test(postId)
+   ? DETAIL+'?apiBase='+encodeURIComponent(apiBase)+'&post='+encodeURIComponent(postId)
+   : COMMUNITY;
+ }
+ {
+  document.querySelectorAll('.type-tab').forEach(b=>{b.disabled=true;b.setAttribute('aria-disabled','true')});
+  const help=document.getElementById('typeHelp');
+  if(help)help.textContent='같이해요 유형과 세부 모집항목은 현재 서버에 별도 저장되지 않습니다. 제목과 자세한 내용만 정상 게시됩니다.';
+  const dynamic=document.getElementById('dynamicFields');
+  if(dynamic)dynamic.hidden=true;
+  const safety=document.getElementById('safety');
+  if(safety)safety.textContent='공개 본문에는 개인 연락처나 민감한 개인정보를 적지 마세요.';
  }
  let busy=false;
  document.addEventListener('click',ev=>{
@@ -102,17 +121,15 @@ main{width:min(760px,100%);margin:auto;padding:28px 20px 34px}.category{display:
   if(busy)return;
   if(!title.value.trim()){toast('제목을 입력해주세요.');title.focus();return}
   if(body.value.trim().length<5){toast('자세한 내용을 조금 더 적어주세요.');body.focus();return}
-  const missing=[...dynamic.querySelectorAll('input[required]')].find(i=>!i.value.trim());
-  if(missing){toast(fieldLabel(missing)+'을(를) 입력해주세요.');missing.focus();return}
-  busy=true;
-  bridge.createPost({kind:'together',title:title.value.trim(),body:compose()}).then(r=>{
+  busy=true;setBusy(true);
+  bridge.createPost({kind:'together',title:title.value.trim(),body:body.value.trim()}).then(r=>{
    if(r.ok&&r.mode==='server'){
     try{localStorage.removeItem(key)}catch(e){}
-    toast(r.post&&r.post.status!=='published'?'게시 요청이 접수되었습니다. 심사 후 공개됩니다.':'게시했습니다.');
-    setTimeout(()=>{location.href=COMMUNITY},650);
+    const pending=r.post&&r.post.status!=='published';
+    toast(pending?'글이 저장되었습니다. 공개 전 상태를 확인합니다.':'게시했습니다.');
+    setTimeout(()=>{location.href=nextHref(r.post)},650);
    }else toast(serverMessage(r));
-   busy=false;
-  });
+  }).catch(()=>toast('서버 연결에 실패했습니다. 잠시 후 다시 시도해 주세요.')).finally(()=>{busy=false;setBusy(false)});
  },true);
  document.addEventListener('click',ev=>{
   if(!ev.target.closest('.back'))return;
