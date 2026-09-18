@@ -11,6 +11,15 @@ type PostKind = 'question' | 'together' | 'resident_story' | 'life_report' | 'gr
 type ReportReason = 'abuse' | 'threat' | 'privacy' | 'defamation_risk' | 'spam' | 'other';
 
 const POST_KINDS = new Set<PostKind>(['question', 'together', 'resident_story', 'life_report', 'greeting']);
+// Canonical per-kind 말머리 (category) allowlist for #767. Server-authoritative:
+// the V3 write screens only mirror these exact strings. Categories stay optional
+// so an older client cannot break its own write lane, but any supplied value must
+// belong to its kind's allowlist, and a kind with no allowlist can never store one.
+const POST_CATEGORIES: Partial<Record<PostKind, readonly string[]>> = {
+  question: ['생활·살림', '단지시설', '이웃추천', '기타'],
+  together: ['산책·운동', '취미활동', '육아 같이해요', '공동구매']
+};
+const MAX_CATEGORY_CHARS = 40;
 const REPORT_REASONS = new Set<ReportReason>(['abuse', 'threat', 'privacy', 'defamation_risk', 'spam', 'other']);
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -48,6 +57,19 @@ function validId(value: string): boolean {
   return UUID_RE.test(value);
 }
 
+// null means "no category stored"; a Response means the request failed closed.
+function resolveCategory(kind: PostKind, raw: string, requestId: string): string | null | Response {
+  if (!raw) return null;
+  const allowlist = POST_CATEGORIES[kind];
+  if (raw.length > MAX_CATEGORY_CHARS) {
+    return fail('VALIDATION_ERROR', `Category must be at most ${MAX_CATEGORY_CHARS} characters`, 400, requestId);
+  }
+  if (!allowlist || !allowlist.includes(raw)) {
+    return fail('VALIDATION_ERROR', 'Category is not part of the canonical list for this post kind', 400, requestId);
+  }
+  return raw;
+}
+
 function publishMode(env: CommunityEnv): 'immediate' | 'review' {
   return env.COMMUNITY_PUBLISH_MODE === 'immediate' ? 'immediate' : 'review';
 }
@@ -68,6 +90,7 @@ function mapPost(row: Record<string, unknown>) {
   return {
     id: String(row.id),
     kind: String(row.kind),
+    category: row.category ? String(row.category) : null,
     title: String(row.title),
     body: String(row.body),
     status: String(row.status),
@@ -140,7 +163,7 @@ export async function handleCommunityResidentRequest(
 
     const rows = kind
       ? await sql`
-          select p.id, p.kind, p.title, p.body, p.status, p.published_at, p.created_at, p.updated_at,
+          select p.id, p.kind, p.category, p.title, p.body, p.status, p.published_at, p.created_at, p.updated_at,
                  u.display_name as author_nickname,
                  (select count(*) from community_reactions r where r.post_id = p.id and r.reaction_type = 'like')::int as reaction_count,
                  (select count(*) from community_comments c where c.post_id = p.id and c.status = 'published')::int as comment_count,
@@ -155,7 +178,7 @@ export async function handleCommunityResidentRequest(
           limit ${limit}
         `
       : await sql`
-          select p.id, p.kind, p.title, p.body, p.status, p.published_at, p.created_at, p.updated_at,
+          select p.id, p.kind, p.category, p.title, p.body, p.status, p.published_at, p.created_at, p.updated_at,
                  u.display_name as author_nickname,
                  (select count(*) from community_reactions r where r.post_id = p.id and r.reaction_type = 'like')::int as reaction_count,
                  (select count(*) from community_comments c where c.post_id = p.id and c.status = 'published')::int as comment_count,
@@ -180,13 +203,16 @@ export async function handleCommunityResidentRequest(
     if (!POST_KINDS.has(kind)) return fail('VALIDATION_ERROR', 'Invalid community post kind', 400, requestId);
     if (title.length < 1 || title.length > 160) return fail('VALIDATION_ERROR', 'Title must be 1-160 characters', 400, requestId);
     if (body.length < 1 || body.length > 10000) return fail('VALIDATION_ERROR', 'Body must be 1-10000 characters', 400, requestId);
+    const categoryOrResponse = resolveCategory(kind, text(payload.category), requestId);
+    if (categoryOrResponse instanceof Response) return categoryOrResponse;
+    const category = categoryOrResponse;
 
     const mode = publishMode(env);
     const next = publication(mode);
     const rows = await sql`
-      insert into community_posts (complex_id, author_user_id, kind, title, body, status, published_at)
-      values (${resident.complexId}::uuid, ${resident.id}::uuid, ${kind}, ${title}, ${body}, ${next.status}, ${next.publishedAt})
-      returning id, kind, title, body, status, published_at, created_at, updated_at
+      insert into community_posts (complex_id, author_user_id, kind, title, body, category, status, published_at)
+      values (${resident.complexId}::uuid, ${resident.id}::uuid, ${kind}, ${title}, ${body}, ${category}, ${next.status}, ${next.publishedAt})
+      returning id, kind, category, title, body, status, published_at, created_at, updated_at
     `;
     const row = rows[0] as Record<string, unknown>;
     row.author_nickname = resident.displayName;
@@ -202,7 +228,7 @@ export async function handleCommunityResidentRequest(
 
     if (request.method === 'GET') {
       const rows = await sql`
-        select p.id, p.kind, p.title, p.body, p.status, p.published_at, p.created_at, p.updated_at,
+        select p.id, p.kind, p.category, p.title, p.body, p.status, p.published_at, p.created_at, p.updated_at,
                u.display_name as author_nickname,
                (select count(*) from community_reactions r where r.post_id = p.id and r.reaction_type = 'like')::int as reaction_count,
                (select count(*) from community_comments c where c.post_id = p.id and c.status = 'published')::int as comment_count,
@@ -236,7 +262,7 @@ export async function handleCommunityResidentRequest(
           and complex_id = ${resident.complexId}::uuid
           and author_user_id = ${resident.id}::uuid
           and status <> 'deleted'
-        returning id, kind, title, body, status, published_at, created_at, updated_at
+        returning id, kind, category, title, body, status, published_at, created_at, updated_at
       `;
       if (!rows[0]) return fail('NOT_FOUND', 'Community post not found', 404, requestId);
       const row = rows[0] as Record<string, unknown>;

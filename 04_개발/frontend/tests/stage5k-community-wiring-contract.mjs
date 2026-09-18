@@ -131,6 +131,10 @@ function serverPost(overrides = {}) {
   assert.equal(post.reactionCount, 0);
   assert.equal(post.commentCount, 0);
   assert.equal(bridge.normalizePost({ ...serverPost(), kind: 'hello' }), null, 'kinds outside canonical POST_KINDS never normalize (greeting canonical since #348)');
+  assert.deepEqual(Object.keys(bridge.POST_CATEGORIES).sort(), ['question', 'together'], 'the v1 bridge owns the canonical per-kind category allowlist (#767)');
+  assert.deepEqual([...bridge.POST_CATEGORIES.question], ['생활·살림', '단지시설', '이웃추천', '기타']);
+  assert.equal(bridge.normalizePost(serverPost({ category: '이웃추천' })).category, '이웃추천');
+  assert.equal(bridge.normalizePost(serverPost()).category, null, 'a post without a category stays truthfully null');
   const comment = bridge.normalizeComment({ id: COMMENT_ID, postId: POST_ID, body: '안녕', status: 'published', author: { nickname: '봄날' } });
   assert.equal(comment.author.nickname, '봄날');
 }
@@ -267,13 +271,17 @@ for (const [name, page, id] of [
 }
 {
   const w16 = wiringScript(page16, 'danjion-community-write-question-live-wiring-329');
-  assert.match(w16, /\.type-tab'\)\.forEach\(b=>\{b\.disabled=true/, '16 disables question subtype controls that are not persisted');
+  assert.doesNotMatch(w16, /\.type-tab'\)\.forEach\(b=>\{b\.disabled=true/,
+    '16 keeps the question 말머리 selectable because the server now stores it (#767)');
+  assert.match(w16, /kind:'question',category,/, '16 sends the selected 말머리 with the canonical write');
+  assert.match(w16, /POST_CATEGORY_INVALID/, '16 reports an unsupported 말머리 instead of dropping it');
   assert.match(w16, /toggle\.disabled=true/, '16 disables the unsupported per-post 1:1 receive setting');
 }
 {
   const w17 = wiringScript(page17, 'danjion-community-write-together-live-wiring-329');
   assert.match(w17, /dynamic\.hidden=true/, '17 hides unsupported structured persistence in canonical server mode');
   assert.match(w17, /body:body\.value\.trim\(\)/, '17 sends only the canonical title/body contract');
+  assert.match(w17, /kind:'together',category,/, '17 sends the selected 유형 말머리 with the canonical write (#767)');
   assert.doesNotMatch(w17, /fieldLabel\(i\)\+': '\+v|function compose\(/,
     '17 must not body-encode unsupported structured fields');
 }

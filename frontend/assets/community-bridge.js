@@ -6,6 +6,14 @@
   const MAX_TITLE_CHARS = 160;
   const MAX_BODY_CHARS = 10000;
   const MAX_COMMENT_CHARS = 300;
+  const MAX_CATEGORY_CHARS = 40;
+  // Canonical per-kind 말머리 allowlist (#767). Mirrors the server-authoritative
+  // list in 04_개발/backend/src/community-resident-v1.ts; the bridge never invents
+  // a category the server would reject. Kinds absent here can never send one.
+  const POST_CATEGORIES = Object.freeze({
+    question: Object.freeze(['생활·살림', '단지시설', '이웃추천', '기타']),
+    together: Object.freeze(['산책·운동', '취미활동', '육아 같이해요', '공동구매'])
+  });
   const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
   function normalizeAuthor(raw) {
@@ -22,6 +30,7 @@
     return {
       id: String(raw.id || ''),
       kind,
+      category: raw.category == null || raw.category === '' ? null : String(raw.category),
       title: String(raw.title ?? ''),
       body: String(raw.body ?? ''),
       status: String(raw.status || ''),
@@ -119,9 +128,16 @@
         if (!title || title.length > MAX_TITLE_CHARS) return { ok: false, mode: 'client', error: 'POST_TITLE_INVALID' };
         const body = String(input.body || '').trim();
         if (!body || body.length > MAX_BODY_CHARS) return { ok: false, mode: 'client', error: 'POST_BODY_INVALID' };
+        const category = input.category == null ? '' : String(input.category).trim();
+        const allowlist = POST_CATEGORIES[kind] || null;
+        if (category && (category.length > MAX_CATEGORY_CHARS || !allowlist || !allowlist.includes(category))) {
+          return { ok: false, mode: 'client', error: 'POST_CATEGORY_INVALID' };
+        }
+        const payload = { kind, title, body };
+        if (category) payload.category = category;
         const result = await request(`${base}/posts`, {
           method: 'POST',
-          body: JSON.stringify({ kind, title, body })
+          body: JSON.stringify(payload)
         });
         if (!result.ok) return { ok: false, mode: failureMode(result), status: result.status, error: result.error };
         return { ok: true, mode: 'server', status: result.status, post: normalizePost(result.data) };
@@ -198,6 +214,8 @@
     normalizeComment,
     normalizeReply,
     POST_KINDS,
+    POST_CATEGORIES,
+    MAX_CATEGORY_CHARS,
     DEFAULT_COMPLEX_SLUG
   };
 })();

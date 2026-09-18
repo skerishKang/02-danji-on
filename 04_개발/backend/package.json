@@ -63,6 +63,7 @@
     "test:application-documents-owner-list-postgres-lifecycle": "node tests/run-postgres-lifecycle.mjs tests/application-documents-owner-list-postgres-lifecycle.sh",
     "test:community-c2-schema": "node tests/community-c2-schema-contract.mjs",
     "test:community-c2-greeting-kind": "node tests/community-c2-greeting-kind-contract.mjs",
+    "test:community-c2-post-category": "node tests/community-c2-post-category-contract.mjs",
     "test:community-c3-resident-api": "node tests/community-c3-resident-api-contract.mjs",
     "test:community-c4-moderation": "node tests/community-c4-moderation-contract.mjs",
     "test:community-c6a-security": "node tests/community-c6a-security-gate.mjs",
