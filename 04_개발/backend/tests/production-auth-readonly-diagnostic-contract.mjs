@@ -48,7 +48,7 @@ assert.match(script, /cardinality\(scopes\)=9[\s\S]*array_position\(scopes,'\*'\
   'current OPERATIONAL runtime shape must be nine bounded scopes without wildcard');
 assert.match(script, /key: 'household_code_schema'[\s\S]*household_verification_codes[\s\S]*household_verification_code_events/,
   '#746 read-only preflight must report migration-050 schema presence without reading resident rows');
-assert.match(script, /active_all_grants[\s\S]*from padiem_operator_grants g[\s\S]*g\.status = 'active'/,
+assert.match(script, /key: 'all_source_runtime_authority'[\s\S]*active_all_grants[\s\S]*from padiem_operator_grants g[\s\S]*g\.status = 'active'/,
   'all-source aggregate must count all active PADIEM grants regardless metadata source');
 assert.match(script, /group by normalized_email[\s\S]*having count\(\*\) > 1/,
   'duplicate identity detection must aggregate by normalized email without returning the identity');
