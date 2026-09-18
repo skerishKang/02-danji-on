@@ -16,7 +16,8 @@ const [page, index, bridge, adminBridge, adminHtml] = await Promise.all([
 
 assert.match(page, /우리집[\s\S]*연결/);
 assert.match(page, /가입한 뒤 살고 있는 동·호를 직접 선택해 주세요/);
-assert.match(page, /id="nickname"/);
+assert.doesNotMatch(page, /id="nickname"|resident\.updateProfile\(\{nickname/,
+  'nickname editing belongs to My Info, not household association');
 assert.match(page, /id="buildingSelect"/);
 assert.match(page, /id="unitSelect"/);
 assert.match(page, /household\.listUnits\(\)/);
