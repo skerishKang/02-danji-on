@@ -64,7 +64,7 @@ async function audit(
   actorId: string,
   complexId: string,
   unitId: string,
-  decision: 'recorded' | 'denied',
+  decision: 'allowed' | 'denied',
   reasonCode: string,
   metadata: Record<string, unknown> = {}
 ): Promise<void> {
@@ -217,7 +217,7 @@ export async function handleHouseholdUnitAssociationWithSql(
     actor.id,
     complexId,
     payload.unitId,
-    'recorded',
+    'allowed',
     autoConnected ? 'HOUSEHOLD_AUTO_CONNECTED' : 'HOUSEHOLD_REVIEW_REQUIRED',
     { memberPosition, autoConnected }
   );
