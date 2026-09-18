@@ -62,11 +62,11 @@ assert.match(html, /else if\(type==='login'\)\{if\(serverMode\)\{const email=eve
 assert.doesNotMatch(html, /type==='login'\)\{if\(serverMode\)\{[^}]*\}else\{memberMode=true;sessionStorage\.setItem\('danjionMember','1'\);sessionStorage\.setItem\('danjionResidentVerification'/,
   'server-mode login must not mint resident verification state');
 
-/* --- #448 round 2 / #444: social entry starts first-party with unified continue intent --- */
-assert.match(html, /if\(serverMode\)\{const q=new URLSearchParams\(\{provider,callbackURL:location\.origin\+location\.pathname\}\);q\.set\('requestSignUp','1'\);[\s\S]*?location\.href=__session\.joinUrl\(__session\.danjionAuthBase\(\),'\/auth\/social-start'\)\+'\?'\+q\.toString\(\);return\}/,
-  '#444/#451: server-mode social must navigate top-level through the canonical auth facade and always include requestSignUp=1');
-assert.doesNotMatch(html, /if\(mode==='signup'\)q\.set\('requestSignUp'/,
-  '#444: requestSignUp must no longer depend on the login/signup UI mode');
+/* --- social entry preserves signup intent so first-time users reach household onboarding --- */
+assert.match(html, /if\(serverMode\)\{const q=new URLSearchParams\(\{provider,callbackURL:location\.origin\+location\.pathname\}\);if\(mode==='signup'\)q\.set\('requestSignUp','1'\);[\s\S]*?sessionStorage\.setItem\('danjionAuthIntent',mode\);[\s\S]*?location\.href=__session\.joinUrl\(__session\.danjionAuthBase\(\),'\/auth\/social-start'\)\+'\?'\+q\.toString\(\);return\}/,
+  'server-mode social signup must navigate through the canonical auth facade and preserve signup intent');
+assert.match(html, /if\(authIntent==='signup'\)\{[\s\S]*?location\.replace\('26_우리집연결\.html\?from=onboarding'\);/,
+  'successful social signup callback must continue to nickname + dong/unit onboarding');
 assert.doesNotMatch(html, /\/api\/auth\/sign-in\/social/,
   'frontend must never POST /api/auth/sign-in/social cross-site from Pages; the Worker start page owns the same-origin sign-in call');
 assert.match(html, /providerMap=\{'카카오':'kakao','네이버':'naver','Google':'google'\}/,

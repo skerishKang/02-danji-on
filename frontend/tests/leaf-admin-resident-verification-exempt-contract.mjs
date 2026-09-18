@@ -173,8 +173,8 @@ const wiring = wiringRaw.replace(/^\s*<script[^>]*>\s*/, '');
 
 /* ========= 9. the ordinary resident flow is unchanged (B488 invariants) ==== */
 {
-  assert.ok(wiring.includes("'주민인증 완료'") && wiring.includes("'주민인증 심사 대기 중'") && wiring.includes("'주민인증 필요'"),
-    'the three server-sourced resident states must survive');
+  assert.ok(wiring.includes("'주민인증 완료'") && wiring.includes("'우리집 연결됨 · 운영팀 확인 대기'") && wiring.includes("'우리집 연결 필요'"),
+    'the three server-sourced household/resident states must survive');
   assert.ok(wiring.includes("result.error&&result.error.code==='HOUSEHOLD_ASSOCIATION_REQUIRED'"), 'the 403-code gate must survive');
   assert.ok(wiring.includes('bridge.updateProfile({nickname:nick.value,publicBio:bio.value})'), 'the server-backed profile edit must survive');
   assert.ok(wiring.includes("renderResidentState('—',{kind:'unknown'})"), 'the fail-closed em-dash state must survive');

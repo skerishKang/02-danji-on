@@ -14,6 +14,7 @@ const MAX_AVATAR_URL_CHARS = 500;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const PROFILE_LABEL = 'verified_resident';
 const OPERATOR_PROFILE_LABEL = 'operator';
+const ACCOUNT_PROFILE_LABEL = 'account';
 const RESIDENT_VERIFICATION_EXEMPT_SCOPE = 'resident.verification.exempt';
 
 type PublicProfileRow = {
@@ -236,7 +237,11 @@ async function viewerForOwnProfile(
     if (authority.scopes.includes(RESIDENT_VERIFICATION_EXEMPT_SCOPE)) {
       return { id: actor.id, complexId: null, profileLabel: OPERATOR_PROFILE_LABEL };
     }
-    return resident;
+    // Own-account profile is intentionally available before household/resident
+    // verification so a newly authenticated social/email account can choose a
+    // DanjiOn nickname during onboarding. Public profile lookup and resident-only
+    // activity remain guarded by requireVerifiedResident().
+    return { id: actor.id, complexId: null, profileLabel: ACCOUNT_PROFILE_LABEL };
   } catch {
     return fail('AUTHORITY_DB_ERROR', 'Authorization could not be verified', 503, requestId);
   }

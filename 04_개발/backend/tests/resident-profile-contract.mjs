@@ -21,7 +21,13 @@ assert.match(api, /authority\.scopes\.includes\(RESIDENT_VERIFICATION_EXEMPT_SCO
 assert.doesNotMatch(api, /authority\.wildcard[^\n]*OPERATOR_PROFILE_LABEL/,
   'wildcard authority alone must never become the profile-edit exemption');
 assert.match(api, /loadOwnAccountProfile\(sql, viewer\.id\)/,
-  'explicitly exempt operators need a self-only account profile loader');
+  'pre-verification self profile and exempt operators use the self-only account profile loader');
+assert.match(api, /ACCOUNT_PROFILE_LABEL = 'account'/,
+  'an authenticated account must have a non-resident self-profile state before household verification');
+assert.match(api, /return \{ id: actor\.id, complexId: null, profileLabel: ACCOUNT_PROFILE_LABEL \}/,
+  'ordinary authenticated accounts may edit only their own account profile before household association');
+assert.match(api, /async function getProfile[\s\S]*viewerForComplex\(/,
+  'public profile lookup must continue to require verified-resident context');
 assert.match(api, /path === '\/api\/v1\/me\/profile'/,
   'exemption must remain limited to the self-profile route');
 assert.match(api, /hm\.complex_id = \$\{complexId\}::uuid/i, 'target must be verified in the viewer complex');

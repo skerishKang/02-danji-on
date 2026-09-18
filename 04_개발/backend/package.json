@@ -38,6 +38,7 @@
     "test:admin-review-context-gallery": "tsx tests/admin-review-context-gallery.test.mjs",
     "test:resident-verification-policy-hold": "node tests/verification-contract.mjs",
     "test:household-code-verification": "node tests/household-code-verification-contract.mjs",
+    "test:household-unit-association": "node tests/household-unit-association-contract.mjs",
     "test:admin-household-codes": "node tests/admin-household-codes-contract.mjs",
     "test:household-family-lifecycle": "node tests/household-family-lifecycle-contract.mjs",
     "test:account-lifecycle": "node tests/account-lifecycle-contract.mjs",

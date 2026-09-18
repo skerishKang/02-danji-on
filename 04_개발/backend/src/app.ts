@@ -24,6 +24,7 @@ import { handleHouseholdPrimaryClaimRequest } from './household-claim-v2';
 import { handleHouseholdCodeVerificationRequest, type HouseholdCodeEnv } from './household-code-verification-v1';
 import { handleHouseholdFamilyRequest } from './household-family-v2';
 import { handleHouseholdUnitMasterRequest } from './household-master-v2';
+import { handleHouseholdUnitAssociationRequest } from './household-unit-association-v1';
 import { handleInquiryRequest } from './inquiries-v1';
 import { validateRequestPayload } from './payload-policy';
 import { handleProductMutationRateLimitRequest } from './product-rate-limit-v1';
@@ -203,6 +204,8 @@ export default {
       if (householdCodeVerificationResponse) return respond(householdCodeVerificationResponse);
       const householdMasterResponse = await handleHouseholdUnitMasterRequest(request, env, id);
       if (householdMasterResponse) return respond(householdMasterResponse);
+      const householdUnitAssociationResponse = await handleHouseholdUnitAssociationRequest(request, env, id);
+      if (householdUnitAssociationResponse) return respond(householdUnitAssociationResponse);
       const householdClaimResponse = await handleHouseholdPrimaryClaimRequest(request, env, id);
       if (householdClaimResponse) return respond(householdClaimResponse);
       const householdFamilyResponse = await handleHouseholdFamilyRequest(request, env, id);

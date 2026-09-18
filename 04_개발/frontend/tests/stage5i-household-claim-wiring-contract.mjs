@@ -197,6 +197,31 @@ assert.equal(bridge.DANJION_HOUSEHOLD_COMPLEX_SLUG, 'banglim-myeongji-roadhill')
   assert.equal(result.data.units[0].buildingCode, '102동');
 }
 
+/* --- 7B. owner onboarding association: unit-only body, no household code/token --- */
+{
+  const { b, calls } = makeBridge(() => response(201, {
+    data: {
+      status: 'verified', membershipRole: 'primary', unitId: VALID_UNIT,
+      buildingCode: '102', unitCode: '1802', autoConnected: true,
+      reviewRequired: false, memberPosition: 1, alreadyAssociated: false
+    },
+    requestId: 'r7b'
+  }));
+  const result = await b.associate(VALID_UNIT);
+  assert.equal(result.ok, true);
+  assert.equal(calls[0].url, `${BASE}${SLUG_PATH}/associate`);
+  assert.equal(calls[0].init.method, 'POST');
+  assert.deepEqual(Object.keys(JSON.parse(calls[0].init.body)), ['unitId']);
+  assert.equal(result.data.autoConnected, true);
+  assert.equal(result.data.memberPosition, 1);
+}
+{
+  const { b, calls } = makeBridge(() => response(201, { data: {} }));
+  const result = await b.associate('not-a-uuid');
+  assert.equal(result.reason, 'validation-error');
+  assert.equal(calls.length, 0);
+}
+
 /* --- 8. failure mapping via shared runtime: 401/403/500/network fail-closed --- */
 {
   const codes = ['HOUSEHOLD_ASSOCIATION_REQUIRED', 'HOUSEHOLD_PRIMARY_REQUIRED', 'PRIMARY_HOUSEHOLD_ONLY', 'FAMILY_INVITE_UNAVAILABLE'];
@@ -241,30 +266,27 @@ assert.equal(bridge.DANJION_HOUSEHOLD_COMPLEX_SLUG, 'banglim-myeongji-roadhill')
   }
 }
 
-/* --- 10. canonical page contract after #735 code-first replacement --- */
+/* --- 10. canonical owner onboarding uses real unit master + association --- */
 {
   const runtimeTag = pageSource.indexOf('<script src="assets/danjion-session.js"></script>');
-  const inquiryTag = pageSource.indexOf('<script src="assets/inquiry-bridge.js"></script>');
-  const codeBridgeTag = pageSource.indexOf('<script src="assets/resident-verification-code-bridge.js"></script>');
-  assert.ok(runtimeTag > -1 && inquiryTag > runtimeTag && codeBridgeTag > inquiryTag,
-    'canonical page must load shared session, support inquiry, then household-code bridge');
-  assert.ok(pageSource.includes('id="residentCode"') && pageSource.includes('id="verifyButton"'),
-    'canonical page must expose the household SMS-code verification controls');
-  assert.ok(pageSource.includes('인증코드 요청') && pageSource.includes('문의하기'),
-    'canonical page must provide bounded pre-verification support paths');
-  assert.ok(pageSource.includes('동·호를 다시 입력할 필요 없이'),
-    'normal verification must derive the household from the server-side code mapping');
-  for (const banned of ['localStorage', 'sessionStorage', 'indexedDB', 'document.cookie']) {
-    assert.ok(!pageSource.includes(banned), `canonical page must never persist resident authority via ${banned}`);
+  const residentTag = pageSource.indexOf('<script src="assets/resident-bridge.js"></script>');
+  assert.ok(runtimeTag > -1 && residentTag > runtimeTag,
+    'canonical page must load shared session then resident self-profile bridge');
+  assert.ok(pageSource.includes("import { createHouseholdClaimBridge } from './assets/household-claim-bridge.js'"),
+    'canonical page must reuse the existing household unit bridge');
+  for (const id of ['nickname','buildingSelect','unitSelect','connectButton']) {
+    assert.ok(pageSource.includes(`id="${id}"`), `canonical owner onboarding requires #${id}`);
   }
-  assert.ok(!pageSource.includes("import('./assets/household-claim-bridge.js')"),
-    'canonical page must no longer mount the legacy unit-selection claim bridge');
-  for (const legacyId of [
-    'household-claim-panel','household-claim-unit','household-claim-token','household-claim-submit',
-    'household-redeem-panel','household-redeem-token','household-redeem-submit'
-  ]) {
-    assert.ok(!pageSource.includes(`id="${legacyId}"`), `legacy claim UI #${legacyId} must be retired from canonical page 26`);
+  assert.ok(pageSource.includes('household.listUnits()'), 'dong/unit choices must come from the authenticated unit master');
+  assert.ok(pageSource.includes('household.associate(unitId)'), 'selected unit must be persisted through the server association route');
+  assert.ok(pageSource.includes('resident.updateProfile({nickname:nick})'), 'nickname must be saved before household association');
+  assert.ok(pageSource.includes('같은 세대 기본 2명까지 자동 연결'), 'owner 2-account auto-connect rule must be visible');
+  assert.ok(pageSource.includes('3명째부터 운영팀이 확인'), 'third-account review rule must be visible');
+  assert.ok(!pageSource.includes('resident-verification-code-bridge.js'), 'household SMS code must not be the canonical resident onboarding bridge');
+  assert.ok(!pageSource.includes('id="residentCode"'), 'canonical page must not ask residents for a per-household SMS code');
+  for (const banned of ['localStorage', 'sessionStorage', 'indexedDB', 'document.cookie']) {
+    assert.ok(!pageSource.includes(banned), `canonical page must never persist household authority via ${banned}`);
   }
 }
 
-console.log('PASS #328/#735 household bridge compatibility + code-first canonical wiring contract');
+console.log('PASS #328 owner unit-selection household onboarding compatibility contract');

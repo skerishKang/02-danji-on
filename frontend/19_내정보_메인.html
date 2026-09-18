@@ -208,8 +208,8 @@
 <section class="page-head"><div><div class="eyebrow">MY DANJION</div><h1>내정보</h1></div><div class="page-side"><div class="page-copy"><b>내 활동과 우리집, 메시지를 한곳에서 확인하세요.</b>자주 쓰는 정보는 이 화면에서 바로 확인할 수 있습니다.</div></div></section>
 <section class="profile-grid">
 <article class="profile-hero">
-<div class="profile-main"><div class="profile-top"><span class="avatar" id="mi-avatar">—</span><div class="profile-name"><small>단지온 주민</small><div class="profile-title-line"><h2 id="mi-nickname">—</h2><a class="level-chip" href="23_이웃온기.html" title="이웃 온기 레벨 보기">LV.1 · 새 이웃</a><span class="resident-badge"><i></i><span id="mi-household">—</span></span></div><p id="mi-joined">2026년 8월 가입</p><div class="email-state-row" id="mi-email-row" hidden><span class="es-dot" aria-hidden="true"></span><b id="mi-email-state">—</b><span class="es-email" id="mi-email-address"></span><button class="email-resend" id="mi-email-resend" type="button" hidden>인증메일 다시 받기</button></div><div class="resident-state-row" id="mi-resident-row" hidden><span class="rs-dot" aria-hidden="true"></span><b id="mi-resident-state">—</b><a class="rs-cta" id="mi-resident-cta" href="26_우리집연결.html" hidden>주민인증 시작하기 →</a><button class="profile-edit-entry" id="mi-profile-edit" type="button" hidden>내정보 수정</button></div></div></div><div class="profile-stats"><div class="stat"><b id="mi-stat-posts">6</b><span>게시글</span></div><div class="stat"><b id="mi-stat-comments">18</b><span>댓글</span></div><div class="stat"><b id="mi-stat-reactions">27</b><span>받은 공감</span></div></div></div>
-<div class="level-card" onclick="location.href='23_이웃온기.html'" role="link" tabindex="0"><span class="level-label">이웃 온기</span><strong>LV.1 · 새 이웃</strong><div aria-label="이웃 온기 5단계 중 3단계" class="level-track"><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i></div><span class="level-next">다음 온기 · 도움 주는 이웃</span><span class="level-more">레벨 자세히 보기 ›</span></div>
+<div class="profile-main"><div class="profile-top"><span class="avatar" id="mi-avatar">—</span><div class="profile-name"><small>단지온 주민</small><div class="profile-title-line"><h2 id="mi-nickname">—</h2><a class="level-chip" href="23_이웃온기.html" title="이웃 온기 레벨 보기">LV.1 · 새 이웃</a><span class="resident-badge"><i></i><span id="mi-household">—</span></span></div><p id="mi-joined">2026년 8월 가입</p><div class="email-state-row" id="mi-email-row" hidden><span class="es-dot" aria-hidden="true"></span><b id="mi-email-state">—</b><span class="es-email" id="mi-email-address"></span><button class="email-resend" id="mi-email-resend" type="button" hidden>인증메일 다시 받기</button></div><div class="resident-state-row" id="mi-resident-row" hidden><span class="rs-dot" aria-hidden="true"></span><b id="mi-resident-state">—</b><a class="rs-cta" id="mi-resident-cta" href="26_우리집연결.html" hidden>우리집 연결하기 →</a><button class="profile-edit-entry" id="mi-profile-edit" type="button" hidden>내정보 수정</button></div></div></div><div class="profile-stats"><div class="stat"><b id="mi-stat-posts">6</b><span>게시글</span></div><div class="stat"><b id="mi-stat-comments">18</b><span>댓글</span></div><div class="stat"><b id="mi-stat-reactions">27</b><span>받은 공감</span></div></div></div>
+<div class="level-card" onclick="location.href='23_이웃온기.html'" role="link" tabindex="0"><span class="level-label">이웃 온기</span><strong>LV.1 · 새 이웃</strong><div aria-label="이웃 온기 5단계 중 1단계" class="level-track"><i class="on"></i><i></i><i></i><i></i><i></i></div><span class="level-next">새 이웃으로 시작합니다</span><span class="level-more">레벨 자세히 보기 ›</span></div>
 </article>
 <div class="side-stack"><article class="side-card message"><span class="card-kicker">1:1 MESSAGE</span><h3>새 메시지가 있어요.<span class="unread" id="mi-unread">2</span></h3><button class="card-link" onclick="location.href='20_메시지함_목록.html'" type="button"><span>메시지함 보기</span><span>→</span></button></article><article class="side-card"><span class="card-kicker">MY HOUSEHOLD</span><h3>우리집 연결</h3><button class="card-link" onclick="location.href='26_우리집연결.html'" type="button"><span>연결 상태 보기</span><span>→</span></button></article></div>
 </section>
@@ -494,7 +494,7 @@ if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt
     var err=(pr&&!pr.ok&&pr.mode==='error')||(sr&&!sr.ok&&sr.mode==='error');
     if(residentRequired){
       setTxt(n.household,'주민인증 필요');
-      toast('주민인증이 필요합니다.');
+      toast('우리집 연결 후 이용할 수 있습니다.');
     }else if(auth){
       var ar=(pr&&!pr.ok&&pr.mode==='auth-required')?pr:sr;
       var bridgeCode=String(ar&&ar.bridgeDisposition||'unknown');
@@ -606,10 +606,10 @@ if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt
       if(result.ok&&result.data&&result.data.myMembership){
         var m=result.data.myMembership;
         if(m.status==='verified'||m.residentVerified)renderResidentState('주민인증 완료',{kind:'verified',edit:true});
-        else if(m.status==='pending')renderResidentState('주민인증 심사 대기 중',{kind:'pending'});
+        else if(m.status==='pending')renderResidentState('우리집 연결됨 · 운영팀 확인 대기',{kind:'pending',edit:true});
         else renderResidentState(null);
       }else if(!result.ok&&result.status===403&&result.error&&result.error.code==='HOUSEHOLD_ASSOCIATION_REQUIRED'){
-        renderResidentState('주민인증 필요',{kind:'required',cta:true});
+        renderResidentState('우리집 연결 필요',{kind:'required',cta:true,edit:true});
       }else if(!result.ok&&result.status===401){
         renderResidentState(null);
       }else{

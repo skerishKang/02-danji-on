@@ -28,8 +28,8 @@ assert.ok(f19.includes('id="mi-resident-row" hidden'), 'state row must exist and
 assert.ok(f19.includes('id="mi-resident-state"'), 'state row must carry the state text node');
 assert.ok(f19.includes('id="mi-resident-cta" href="26_우리집연결.html" hidden'), 'CTA must target the real household-claim page and stay hidden by default');
 assert.ok(wiring.includes("'주민인증 완료'"), 'verified state copy');
-assert.ok(wiring.includes("'주민인증 심사 대기 중'"), 'pending state copy (backend exposes pending membership status)');
-assert.ok(wiring.includes("'주민인증 필요'"), 'not-verified state copy');
+assert.ok(wiring.includes("'우리집 연결됨 · 운영팀 확인 대기'"), 'pending association copy (third-or-later household account)');
+assert.ok(wiring.includes("'우리집 연결 필요'"), 'no-household state copy');
 assert.ok(wiring.includes("result.error&&result.error.code==='HOUSEHOLD_ASSOCIATION_REQUIRED'"), 'not-verified must key on the server 403 code, never a guess');
 assert.ok(wiring.includes('result.status===401'), '401 must be handled separately (logged-out is not a resident state)');
 assert.ok(!/status===401[\s\S]{0,120}(주민인증 필요|renderResidentState\('[^']+\{kind:'required')/.test(wiring), '401 must not render the required state');
@@ -47,6 +47,10 @@ assert.ok(f19.includes('id="mi-edit-bio" maxlength="300"'), 'bio textarea mirror
 assert.ok(f19.includes('id="mi-edit-save"') && f19.includes('id="mi-edit-cancel"'), 'panel must carry save/cancel controls');
 assert.ok(wiring.includes("flags&&flags.edit") && /renderResidentState\('주민인증 완료',\{kind:'verified',edit:true\}\)/.test(wiring),
   'verified resident snapshot must reveal the edit entry');
+assert.ok(/renderResidentState\('우리집 연결됨 · 운영팀 확인 대기',\{kind:'pending',edit:true\}\)/.test(wiring),
+  'pending household association must still allow own-account nickname editing');
+assert.ok(/renderResidentState\('우리집 연결 필요',\{kind:'required',cta:true,edit:true\}\)/.test(wiring),
+  'authenticated pre-association account must expose both household CTA and own-profile editing');
 assert.ok(/renderResidentState\('운영자 계정 · 주민인증 불필요',\{kind:'exempt',edit:true\}\)/.test(wiring),
   'an explicitly exempt operator state must reveal the self-profile edit entry');
 assert.ok(/function loadExemptIdentity[\s\S]*loadProfile\(\)[\s\S]*serverProfile=p/.test(wiring),

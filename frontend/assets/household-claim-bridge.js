@@ -71,6 +71,21 @@ export function normalizeClaimResult(value) {
   };
 }
 
+export function normalizeAssociationResult(value) {
+  const raw = row(value);
+  return {
+    status: text(raw.status) || 'pending',
+    membershipRole: text(raw.membershipRole) || 'member',
+    unitId: text(raw.unitId),
+    buildingCode: text(raw.buildingCode),
+    unitCode: text(raw.unitCode),
+    autoConnected: raw.autoConnected === true,
+    reviewRequired: raw.reviewRequired === true,
+    memberPosition: Number.isFinite(Number(raw.memberPosition)) ? Number(raw.memberPosition) : null,
+    alreadyAssociated: raw.alreadyAssociated === true
+  };
+}
+
 export function normalizeRedemption(value) {
   const raw = row(value);
   return {
@@ -120,6 +135,15 @@ export function createHouseholdClaimBridge({
       const complex = row(data.complex);
       const units = (Array.isArray(data.units) ? data.units.map(normalizeUnit) : []).filter(Boolean);
       return { ...result, data: { complex: { slug: text(complex.slug) || decodeURIComponent(slug), name: text(complex.name) }, units } };
+    },
+    async associate(unitIdInput) {
+      const unitId = text(unitIdInput);
+      if (!UUID.test(unitId)) return validationError();
+      const result = await call(`${householdPath}/associate`, {
+        method: 'POST',
+        body: JSON.stringify({ unitId })
+      });
+      return result.ok ? { ...result, data: normalizeAssociationResult(result.data) } : result;
     },
     async claim(input) {
       const unitId = text(input?.unitId);
