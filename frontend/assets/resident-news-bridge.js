@@ -81,6 +81,20 @@ export function createResidentNewsBridge({
       const post = normalizeResidentNewsPost(result.data);
       return { ...result, post: UUID.test(post.id) ? post : null };
     },
+    async addSubmissionAttachment(submissionId, input = {}) {
+      const id = text(submissionId).trim().toLowerCase();
+      if (!UUID.test(id)) return validationError();
+      const fileName = text(input.fileName).trim();
+      const contentType = text(input.contentType).trim() || 'application/octet-stream';
+      const dataBase64 = text(input.dataBase64).replace(/\s+/g, '');
+      const sortOrder = Number(input.sortOrder);
+      if (!fileName || !dataBase64 || !Number.isInteger(sortOrder) || sortOrder < 0 || sortOrder > 2) return validationError();
+      return call(`${feedPath}/submissions/${id}/attachments`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ fileName, contentType, dataBase64, sortOrder })
+      });
+    },
     async submit(input = {}) {
       const title = text(input.title).trim();
       const body = text(input.body).trim();
