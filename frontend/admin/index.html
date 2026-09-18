@@ -207,15 +207,27 @@
       statuses.forEach((value)=>{const option=document.createElement('option');option.value=value;option.textContent=labels[value];option.selected=value===current;select.append(option)});
       return select;
     }
+    function postChannelSelect(current){
+      const select=document.createElement('select');select.setAttribute('aria-label','게시 채널');
+      const options=[
+        ['danjion_notice','단지온 공지'],
+        ['apartment_news','아파트소식'],
+        ['management_office','관리사무소'],
+        ['chair_greeting','회장 인사']
+      ];
+      options.forEach(([value,label])=>{const option=document.createElement('option');option.value=value;option.textContent=label;option.selected=value===(current||'danjion_notice');select.append(option)});
+      return select;
+    }
     function postFields(row,includeArchived){
       const source=document.createElement('input');source.value=String(row?.source_name||row?.sourceName||'단지온 운영자');source.maxLength=80;source.setAttribute('aria-label','출처');
+      const channel=postChannelSelect(String(row?.channel||'danjion_notice'));
       const category=document.createElement('input');category.value=String(row?.category||'');category.maxLength=80;category.setAttribute('aria-label','분류');
       const title=document.createElement('input');title.value=String(row?.title||'');title.maxLength=200;title.setAttribute('aria-label','소식 제목');
       const body=document.createElement('textarea');body.value=String(row?.body||'');body.maxLength=10000;body.setAttribute('aria-label','소식 본문');
       const status=postStatusSelect(String(row?.status||'draft'),includeArchived);
-      return {source,category,title,body,status};
+      return {source,channel,category,title,body,status};
     }
-    function postPayload(fields){return {sourceName:fields.source.value,category:fields.category.value,title:fields.title.value,body:fields.body.value,status:fields.status.value}}
+    function postPayload(fields){return {sourceName:fields.source.value,channel:fields.channel.value,category:fields.category.value,title:fields.title.value,body:fields.body.value,status:fields.status.value}}
     function postErrorMessage(outcome){
       if(outcome.state==='scope-denied')return '현재 관리자 권한으로 단지소식을 변경할 수 없습니다.';
       if(outcome.state==='not-found')return '수정할 단지소식을 찾을 수 없습니다.';
@@ -227,6 +239,7 @@
     function appendPostFields(editor,fields){
       const grid=el('div',undefined,'admin-form-grid');
       grid.append(
+        labeledField('게시 채널',fields.channel,false),
         labeledField('출처',fields.source,false),
         labeledField('분류',fields.category,false),
         labeledField('제목',fields.title,true),
