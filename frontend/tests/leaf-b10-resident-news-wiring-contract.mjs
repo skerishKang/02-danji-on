@@ -213,13 +213,15 @@ assert.throws(
   assert.deepEqual(empty, { id: '', title: '', body: '', publishedAt: null, createdAt: null }, 'a missing row normalizes to empty strings, not fabricated copy');
 }
 
-/* --- D4. the lane is read-only and never persists --- */
+/* --- D4. feed/detail remain read-only; submissions use one bounded POST route --- */
 {
   const { b, calls } = makeBridge(() => response(200, { data: { posts: [] }, requestId: 'r7' }));
   await b.listPosts();
   await b.getPost(POST_ID);
-  assert.ok(calls.every((c) => c.init.method === 'GET'), 'the resident-news lane must issue GET requests only');
-  assert.ok(!/method:\s*'(POST|PATCH|PUT|DELETE)'/.test(bridgeSource), 'bridge must not declare any mutation verb');
+  assert.ok(calls.every((c) => c.init.method === 'GET'), 'feed/detail reads must remain GET-only');
+  assert.match(bridgeSource, /feedPath\}\/'submissions|feedPath\}\/submissions/, 'submission must use the canonical nested route');
+  assert.match(bridgeSource, /method:\s*'POST'/, 'submission must use a bounded POST');
+  assert.doesNotMatch(bridgeSource, /method:\s*'(PATCH|PUT|DELETE)'/, 'bridge must not declare unrelated mutation verbs');
 }
 for (const banned of BANNED_STORAGE) {
   assert.ok(!bridgeSource.includes(banned), `bridge must never touch ${banned}`);
