@@ -198,6 +198,21 @@ main{width:min(920px,calc(100% - 40px));margin:auto;padding-bottom:70px}.route{h
   document.getElementById('body').textContent=post.body;
   renderLike();
   if(CHIP[post.kind])backLink.href='12_이웃대화_첫화면.html?type='+CHIP[post.kind]+'&apiBase='+encodeURIComponent(apiBase);
+  if(post.status!=='published'){
+   const pendingMessage='이 글은 저장되었고 현재 공개 전 확인 대기 중입니다. 다른 주민에게는 아직 보이지 않습니다.';
+   if(interactionStatus)interactionStatus.textContent=pendingMessage;
+   if(foot)foot.textContent=pendingMessage;
+   likeBtn.disabled=true;
+   commentText.disabled=true;
+   const submit=commentForm.querySelector('button[type="submit"]');
+   if(submit)submit.disabled=true;
+   gatedCommentState('글이 공개된 뒤 댓글과 공감을 이용할 수 있습니다.');
+   return;
+  }
+  likeBtn.disabled=false;
+  commentText.disabled=false;
+  const submit=commentForm.querySelector('button[type="submit"]');
+  if(submit)submit.disabled=false;
   loadComments();
  }
  async function loadComments(){
