@@ -47,8 +47,8 @@ jobs:
     environment: qa
     env:
       DANJION_QA_FRONTEND_URL: ${{ vars.DANJION_QA_FRONTEND_URL }}
-      DANJION_QA_SUPER_EMAIL: ${{ secrets.DANJION_QA_SUPER_EMAIL }}
-      DANJION_QA_SUPER_PASSWORD: ${{ secrets.DANJION_QA_SUPER_PASSWORD }}
+      DANJION_QA_RESIDENT_EMAIL: ${{ secrets.DANJION_QA_RESIDENT_EMAIL }}
+      DANJION_QA_RESIDENT_PASSWORD: ${{ secrets.DANJION_QA_RESIDENT_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -78,7 +78,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for key in DANJION_QA_FRONTEND_URL DANJION_QA_SUPER_EMAIL DANJION_QA_SUPER_PASSWORD; do
+          for key in DANJION_QA_FRONTEND_URL DANJION_QA_RESIDENT_EMAIL DANJION_QA_RESIDENT_PASSWORD; do
             test -n "${!key:-}" || { echo "::error::Missing QA interaction input: ${key}"; exit 1; }
           done
           node - <<'NODE'

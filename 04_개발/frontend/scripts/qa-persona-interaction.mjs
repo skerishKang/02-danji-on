@@ -15,8 +15,8 @@ function record(label, pass, detail = '') {
   results.push(`${label}=${pass ? 'PASS' : 'FAIL'}${detail ? ':' + detail : ''}`);
 }
 
-const email = process.env.DANJION_QA_SUPER_EMAIL?.trim();
-const password = process.env.DANJION_QA_SUPER_PASSWORD?.trim();
+const email = process.env.DANJION_QA_RESIDENT_EMAIL?.trim();
+const password = process.env.DANJION_QA_RESIDENT_PASSWORD?.trim();
 if (!email || !password) {
   console.error('QA_INTERACTION_MISSING_CREDENTIALS');
   process.exit(1);
