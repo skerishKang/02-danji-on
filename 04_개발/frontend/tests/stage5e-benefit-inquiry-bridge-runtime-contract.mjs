@@ -197,12 +197,18 @@ const COMPLEX_SLUG = 'banglim-myeongji-roadhill';
     assert.equal(result.error, 'INQUIRY_FIELDS_REQUIRED');
   }
 
-  // 401/403 are explicit auth boundaries.
-  for (const status of [401, 403]) {
-    const bridge = createInquiryBridge({ fetchImpl: async () => makeResponse(status, 'AUTH_REQUIRED') });
+  // 401 requires account auth; 403 means resident verification is still required.
+  {
+    const bridge = createInquiryBridge({ fetchImpl: async () => makeResponse(401, 'AUTH_REQUIRED') });
     const result = await bridge.submit({ shopKey: 'api-' + BENEFIT_ID, shopName: '가게', subject: '제목', text: '내용' });
     assert.equal(result.mode, 'auth-required');
-    assert.equal(result.status, status);
+    assert.equal(result.status, 401);
+  }
+  {
+    const bridge = createInquiryBridge({ fetchImpl: async () => makeResponse(403, 'RESIDENT_VERIFICATION_REQUIRED') });
+    const result = await bridge.submit({ shopKey: 'api-' + BENEFIT_ID, shopName: '가게', subject: '제목', text: '내용' });
+    assert.equal(result.mode, 'resident-verification-required');
+    assert.equal(result.status, 403);
   }
 
   // network failure fails closed.
