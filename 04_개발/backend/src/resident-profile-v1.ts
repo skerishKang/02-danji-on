@@ -132,7 +132,13 @@ async function loadPublicProfile(sql: Sql, userId: string, complexId: string): P
       u.avatar_url,
       to_char(u.created_at at time zone 'UTC', 'YYYY-MM') as joined_month,
       coalesce(p.public_bio, '') as public_bio,
-      p.nickname_changed_at,
+      (
+        select max(ae.created_at)
+        from audit_events ae
+        where ae.actor_user_id = u.id
+          and ae.action = 'resident.profile.nickname.change'
+          and ae.decision = 'recorded'
+      ) as nickname_changed_at,
       coalesce(p.is_discoverable, true) as is_discoverable,
       (
         (select count(*)
@@ -193,7 +199,13 @@ async function loadOwnAccountProfile(sql: Sql, userId: string): Promise<PublicPr
       u.avatar_url,
       to_char(u.created_at at time zone 'UTC', 'YYYY-MM') as joined_month,
       coalesce(p.public_bio, '') as public_bio,
-      p.nickname_changed_at,
+      (
+        select max(ae.created_at)
+        from audit_events ae
+        where ae.actor_user_id = u.id
+          and ae.action = 'resident.profile.nickname.change'
+          and ae.decision = 'recorded'
+      ) as nickname_changed_at,
       coalesce(p.is_discoverable, true) as is_discoverable,
       0::int as public_activity_count
     from app_users u
@@ -367,29 +379,46 @@ async function updateOwnProfile(
     }
   }
 
-  const profileWrite = nicknameChanged
-    ? sql`
-        insert into resident_public_profiles (user_id, public_bio, nickname_changed_at)
-        values (${viewer.id}::uuid, ${publicBio}, now())
-        on conflict (user_id) do update
-        set public_bio = excluded.public_bio,
-            nickname_changed_at = excluded.nickname_changed_at
-      `
-    : sql`
-        insert into resident_public_profiles (user_id, public_bio)
-        values (${viewer.id}::uuid, ${publicBio})
-        on conflict (user_id) do update
-        set public_bio = excluded.public_bio
-      `;
-
-  await sql.transaction([
+  const profileWrite = sql`
+    insert into resident_public_profiles (user_id, public_bio)
+    values (${viewer.id}::uuid, ${publicBio})
+    on conflict (user_id) do update
+    set public_bio = excluded.public_bio
+  `;
+  const writes = [
     sql`
       update app_users
       set display_name = ${nickname}, avatar_url = ${avatarUrl}, updated_at = now()
       where id = ${viewer.id}::uuid and account_status = 'active'
     `,
     profileWrite
-  ]);
+  ];
+  if (nicknameChanged) {
+    const auditWrite = viewer.complexId
+      ? sql`
+          insert into audit_events (
+            request_id, actor_user_id, actor_kind, complex_id, action, scope,
+            resource_type, resource_id, decision, reason_code, metadata
+          ) values (
+            ${requestId}, ${viewer.id}::uuid, 'user', ${viewer.complexId}::uuid,
+            'resident.profile.nickname.change', 'resident.profile',
+            'app_user', ${viewer.id}, 'recorded', 'NICKNAME_CHANGED', '{}'::jsonb
+          )
+        `
+      : sql`
+          insert into audit_events (
+            request_id, actor_user_id, actor_kind, complex_id, action, scope,
+            resource_type, resource_id, decision, reason_code, metadata
+          ) values (
+            ${requestId}, ${viewer.id}::uuid, 'user', null,
+            'resident.profile.nickname.change', 'resident.profile',
+            'app_user', ${viewer.id}, 'recorded', 'NICKNAME_CHANGED', '{}'::jsonb
+          )
+        `;
+    writes.push(auditWrite);
+  }
+
+  await sql.transaction(writes);
 
   const updated = await loadOwnProfile(sql, viewer);
   if (!updated) return fail('PROFILE_UPDATE_FAILED', 'Profile could not be loaded after update', 500, requestId);
