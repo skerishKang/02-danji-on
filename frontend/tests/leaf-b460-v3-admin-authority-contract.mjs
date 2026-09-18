@@ -149,9 +149,11 @@ const loadAdminContext = (location) => {
   assert.equal(operatorViews.held.length, 0, 'the legacy resident-verification policy-hold placeholder is retired by #735');
   assert.equal(operatorViews.privileged.length, 0, 'a bounded grant must never render the privileged area');
   const verificationViews = C.consoleSections({ state: 'operator', wildcard: false, scopes: ['resident.verification.manage'] });
-  assert.deepEqual(Array.from(verificationViews.operational, (s) => String(s.id)), ['verifications'],
-    'the bounded resident-verification management scope exposes only the household-code section');
+  assert.deepEqual(Array.from(verificationViews.operational, (s) => String(s.id)), ['householdReviews', 'verifications'],
+    'the bounded resident-verification management scope exposes only the household-review and household-code sections');
   const superViews = C.consoleSections(A.normalizeAuthority({ level: 'admin', wildcard: true, scopes: ['*'] }));
+  assert.ok(superViews.operational.some((s) => String(s.id) === 'householdReviews'),
+    'the wildcard grant includes the active household-membership review section');
   assert.ok(superViews.operational.some((s) => String(s.id) === 'verifications'),
     'the wildcard grant includes the active household-code operations section');
   assert.equal(superViews.privileged.length, 3, 'the wildcard grant unlocks the placeholder-only privileged area');
