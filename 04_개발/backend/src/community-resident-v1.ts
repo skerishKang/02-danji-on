@@ -65,13 +65,34 @@ function asDate(value: unknown): string | null {
 }
 
 function mapPost(row: Record<string, unknown>) {
+  const rawAttachments = Array.isArray(row.attachments) ? row.attachments : [];
+  const structured = row.structured_data && typeof row.structured_data === 'object' && !Array.isArray(row.structured_data)
+    ? row.structured_data as Record<string, unknown>
+    : {};
   return {
     id: String(row.id),
     kind: String(row.kind),
     title: String(row.title),
     body: String(row.body),
     status: String(row.status),
-    author: { nickname: String(row.author_nickname ?? '') },
+    author: {
+      userId: String(row.author_user_id ?? ''),
+      nickname: String(row.author_nickname ?? '')
+    },
+    questionCategory: row.question_category ? String(row.question_category) : null,
+    allowDirectMessages: row.allow_direct_messages === true,
+    togetherType: row.together_type ? String(row.together_type) : null,
+    structuredData: structured,
+    attachments: rawAttachments.map((value) => {
+      const item = value && typeof value === 'object' ? value as Record<string, unknown> : {};
+      return {
+        id: String(item.id ?? ''),
+        fileName: String(item.fileName ?? ''),
+        contentType: String(item.contentType ?? ''),
+        byteSize: Number(item.byteSize ?? 0),
+        sortOrder: Number(item.sortOrder ?? 0)
+      };
+    }).filter((item) => validId(item.id)),
     reactionCount: Number(row.reaction_count ?? 0),
     commentCount: Number(row.comment_count ?? 0),
     viewerLiked: Boolean(row.viewer_liked),
@@ -116,15 +137,17 @@ export async function handleCommunityResidentRequest(
   const path = url.pathname;
   const feedMatch = path.match(/^\/api\/v1\/complexes\/([a-z0-9][a-z0-9-]{0,119})\/community\/posts$/);
   const postMatch = path.match(/^\/api\/v1\/complexes\/([a-z0-9][a-z0-9-]{0,119})\/community\/posts\/([0-9a-fA-F-]+)$/);
+  const attachmentsMatch = path.match(/^\/api\/v1\/complexes\/([a-z0-9][a-z0-9-]{0,119})\/community\/posts\/([0-9a-fA-F-]+)\/attachments$/);
+  const attachmentMatch = path.match(/^\/api\/v1\/complexes\/([a-z0-9][a-z0-9-]{0,119})\/community\/attachments\/([0-9a-fA-F-]+)$/);
   const commentsMatch = path.match(/^\/api\/v1\/complexes\/([a-z0-9][a-z0-9-]{0,119})\/community\/posts\/([0-9a-fA-F-]+)\/comments$/);
   const commentMatch = path.match(/^\/api\/v1\/complexes\/([a-z0-9][a-z0-9-]{0,119})\/community\/comments\/([0-9a-fA-F-]+)$/);
   const reactionsMatch = path.match(/^\/api\/v1\/complexes\/([a-z0-9][a-z0-9-]{0,119})\/community\/posts\/([0-9a-fA-F-]+)\/reactions$/);
   const reportsMatch = path.match(/^\/api\/v1\/complexes\/([a-z0-9][a-z0-9-]{0,119})\/community\/reports$/);
 
-  if (!feedMatch && !postMatch && !commentsMatch && !commentMatch && !reactionsMatch && !reportsMatch) return null;
+  if (!feedMatch && !postMatch && !attachmentsMatch && !attachmentMatch && !commentsMatch && !commentMatch && !reactionsMatch && !reportsMatch) return null;
   if (!env.DATABASE_URL) return fail('DATABASE_NOT_CONFIGURED', 'DATABASE_URL is not configured', 503, requestId);
 
-  const match = feedMatch || postMatch || commentsMatch || commentMatch || reactionsMatch || reportsMatch;
+  const match = feedMatch || postMatch || attachmentsMatch || attachmentMatch || commentsMatch || commentMatch || reactionsMatch || reportsMatch;
   const complexSlug = match![1];
   const sql: Sql = neon(env.DATABASE_URL);
   const residentOrResponse = await requireVerifiedResident(request, env, sql, requestId, complexSlug);
@@ -140,8 +163,18 @@ export async function handleCommunityResidentRequest(
 
     const rows = kind
       ? await sql`
-          select p.id, p.kind, p.title, p.body, p.status, p.published_at, p.created_at, p.updated_at,
+          select p.id, p.kind, p.title, p.body, p.status, p.author_user_id, p.question_category,
+                 p.allow_direct_messages, p.together_type, p.structured_data,
+                 p.published_at, p.created_at, p.updated_at,
                  u.display_name as author_nickname,
+                 coalesce((
+                   select json_agg(json_build_object(
+                     'id', a.id, 'fileName', a.file_name, 'contentType', a.content_type,
+                     'byteSize', a.byte_size, 'sortOrder', a.sort_order
+                   ) order by a.sort_order)
+                   from community_post_attachments a
+                   where a.post_id = p.id and a.complex_id = p.complex_id
+                 ), '[]'::json) as attachments,
                  (select count(*) from community_reactions r where r.post_id = p.id and r.reaction_type = 'like')::int as reaction_count,
                  (select count(*) from community_comments c where c.post_id = p.id and c.status = 'published')::int as comment_count,
                  exists(select 1 from community_reactions vr where vr.post_id = p.id and vr.user_id = ${resident.id}::uuid and vr.reaction_type = 'like') as viewer_liked
@@ -155,8 +188,18 @@ export async function handleCommunityResidentRequest(
           limit ${limit}
         `
       : await sql`
-          select p.id, p.kind, p.title, p.body, p.status, p.published_at, p.created_at, p.updated_at,
+          select p.id, p.kind, p.title, p.body, p.status, p.author_user_id, p.question_category,
+                 p.allow_direct_messages, p.together_type, p.structured_data,
+                 p.published_at, p.created_at, p.updated_at,
                  u.display_name as author_nickname,
+                 coalesce((
+                   select json_agg(json_build_object(
+                     'id', a.id, 'fileName', a.file_name, 'contentType', a.content_type,
+                     'byteSize', a.byte_size, 'sortOrder', a.sort_order
+                   ) order by a.sort_order)
+                   from community_post_attachments a
+                   where a.post_id = p.id and a.complex_id = p.complex_id
+                 ), '[]'::json) as attachments,
                  (select count(*) from community_reactions r where r.post_id = p.id and r.reaction_type = 'like')::int as reaction_count,
                  (select count(*) from community_comments c where c.post_id = p.id and c.status = 'published')::int as comment_count,
                  exists(select 1 from community_reactions vr where vr.post_id = p.id and vr.user_id = ${resident.id}::uuid and vr.reaction_type = 'like') as viewer_liked
@@ -177,19 +220,47 @@ export async function handleCommunityResidentRequest(
     const kind = text(payload.kind) as PostKind;
     const title = text(payload.title);
     const body = text(payload.body);
+    const questionCategory = text(payload.questionCategory);
+    const togetherType = text(payload.togetherType);
+    const allowDirectMessages = payload.allowDirectMessages === true;
+    const structuredData = payload.structuredData && typeof payload.structuredData === 'object' && !Array.isArray(payload.structuredData)
+      ? payload.structuredData as Record<string, unknown>
+      : {};
     if (!POST_KINDS.has(kind)) return fail('VALIDATION_ERROR', 'Invalid community post kind', 400, requestId);
     if (title.length < 1 || title.length > 160) return fail('VALIDATION_ERROR', 'Title must be 1-160 characters', 400, requestId);
     if (body.length < 1 || body.length > 10000) return fail('VALIDATION_ERROR', 'Body must be 1-10000 characters', 400, requestId);
+    if (questionCategory && !['living','facility','recommendation','other'].includes(questionCategory)) {
+      return fail('VALIDATION_ERROR', 'Invalid question category', 400, requestId);
+    }
+    if (kind !== 'question' && questionCategory) return fail('VALIDATION_ERROR', 'questionCategory is only valid for question posts', 400, requestId);
+    if (togetherType && !['walk','hobby','parenting','group_buy'].includes(togetherType)) {
+      return fail('VALIDATION_ERROR', 'Invalid together type', 400, requestId);
+    }
+    if (kind !== 'together' && togetherType) return fail('VALIDATION_ERROR', 'togetherType is only valid for together posts', 400, requestId);
+    const structuredJson = JSON.stringify(structuredData);
+    if (new TextEncoder().encode(structuredJson).byteLength > 8 * 1024) {
+      return fail('PAYLOAD_TOO_LARGE', 'structuredData is too large', 413, requestId);
+    }
 
     const mode = publishMode(env);
     const next = publication(mode);
     const rows = await sql`
-      insert into community_posts (complex_id, author_user_id, kind, title, body, status, published_at)
-      values (${resident.complexId}::uuid, ${resident.id}::uuid, ${kind}, ${title}, ${body}, ${next.status}, ${next.publishedAt})
-      returning id, kind, title, body, status, published_at, created_at, updated_at
+      insert into community_posts (
+        complex_id, author_user_id, kind, title, body, status, published_at,
+        question_category, allow_direct_messages, together_type, structured_data
+      )
+      values (
+        ${resident.complexId}::uuid, ${resident.id}::uuid, ${kind}, ${title}, ${body},
+        ${next.status}, ${next.publishedAt}, ${questionCategory || null},
+        ${allowDirectMessages}, ${togetherType || null}, ${structuredJson}::jsonb
+      )
+      returning id, kind, title, body, status, author_user_id, question_category,
+                allow_direct_messages, together_type, structured_data,
+                published_at, created_at, updated_at
     `;
     const row = rows[0] as Record<string, unknown>;
     row.author_nickname = resident.displayName;
+    row.attachments = [];
     row.reaction_count = 0;
     row.comment_count = 0;
     row.viewer_liked = false;
@@ -202,8 +273,18 @@ export async function handleCommunityResidentRequest(
 
     if (request.method === 'GET') {
       const rows = await sql`
-        select p.id, p.kind, p.title, p.body, p.status, p.published_at, p.created_at, p.updated_at,
+        select p.id, p.kind, p.title, p.body, p.status, p.author_user_id, p.question_category,
+               p.allow_direct_messages, p.together_type, p.structured_data,
+               p.published_at, p.created_at, p.updated_at,
                u.display_name as author_nickname,
+               coalesce((
+                 select json_agg(json_build_object(
+                   'id', a.id, 'fileName', a.file_name, 'contentType', a.content_type,
+                   'byteSize', a.byte_size, 'sortOrder', a.sort_order
+                 ) order by a.sort_order)
+                 from community_post_attachments a
+                 where a.post_id = p.id and a.complex_id = p.complex_id
+               ), '[]'::json) as attachments,
                (select count(*) from community_reactions r where r.post_id = p.id and r.reaction_type = 'like')::int as reaction_count,
                (select count(*) from community_comments c where c.post_id = p.id and c.status = 'published')::int as comment_count,
                exists(select 1 from community_reactions vr where vr.post_id = p.id and vr.user_id = ${resident.id}::uuid and vr.reaction_type = 'like') as viewer_liked
@@ -236,11 +317,14 @@ export async function handleCommunityResidentRequest(
           and complex_id = ${resident.complexId}::uuid
           and author_user_id = ${resident.id}::uuid
           and status <> 'deleted'
-        returning id, kind, title, body, status, published_at, created_at, updated_at
+        returning id, kind, title, body, status, author_user_id, question_category,
+                  allow_direct_messages, together_type, structured_data,
+                  published_at, created_at, updated_at
       `;
       if (!rows[0]) return fail('NOT_FOUND', 'Community post not found', 404, requestId);
       const row = rows[0] as Record<string, unknown>;
       row.author_nickname = resident.displayName;
+      row.attachments = [];
       row.reaction_count = 0;
       row.comment_count = 0;
       row.viewer_liked = false;
@@ -260,6 +344,94 @@ export async function handleCommunityResidentRequest(
       if (!rows[0]) return fail('NOT_FOUND', 'Community post not found', 404, requestId);
       return ok({ id: postId, status: 'deleted' }, requestId);
     }
+  }
+
+  if (attachmentsMatch) {
+    const postId = attachmentsMatch[2];
+    if (!validId(postId)) return fail('NOT_FOUND', 'Community post not found', 404, requestId);
+    if (request.method !== 'POST') return fail('METHOD_NOT_ALLOWED', 'Method not allowed', 405, requestId);
+    const payload = await bodyJson(request, requestId);
+    if (payload instanceof Response) return payload;
+    const fileName = text(payload.fileName);
+    const contentType = text(payload.contentType);
+    const dataBase64 = text(payload.dataBase64).replace(/\s+/g, '');
+    const sortOrder = Number(payload.sortOrder);
+    if (!fileName || fileName.length > 200) return fail('VALIDATION_ERROR', 'fileName must be 1-200 characters', 400, requestId);
+    if (!['image/jpeg','image/png','image/webp','image/gif'].includes(contentType)) {
+      return fail('VALIDATION_ERROR', 'Only JPEG, PNG, WEBP and GIF images are supported', 400, requestId);
+    }
+    if (!Number.isInteger(sortOrder) || sortOrder < 0 || sortOrder > 2) {
+      return fail('VALIDATION_ERROR', 'sortOrder must be 0-2', 400, requestId);
+    }
+    if (!/^[A-Za-z0-9+/]+={0,2}$/.test(dataBase64) || dataBase64.length > 1_500_000) {
+      return fail('VALIDATION_ERROR', 'Invalid or oversized image payload', 400, requestId);
+    }
+    const estimatedBytes = Math.floor(dataBase64.length * 3 / 4) - (dataBase64.endsWith('==') ? 2 : dataBase64.endsWith('=') ? 1 : 0);
+    if (estimatedBytes < 1 || estimatedBytes > 1_048_576) {
+      return fail('PAYLOAD_TOO_LARGE', 'Image must be at most 1 MiB', 413, requestId);
+    }
+    const postRows = await sql`
+      select id
+      from community_posts
+      where id = ${postId}::uuid
+        and complex_id = ${resident.complexId}::uuid
+        and author_user_id = ${resident.id}::uuid
+        and status <> 'deleted'
+      limit 1
+    `;
+    if (!postRows[0]) return fail('NOT_FOUND', 'Community post not found', 404, requestId);
+    try {
+      const rows = await sql`
+        insert into community_post_attachments (
+          complex_id, post_id, uploader_user_id, sort_order, file_name, content_type, byte_size, content_bytes
+        )
+        values (
+          ${resident.complexId}::uuid, ${postId}::uuid, ${resident.id}::uuid, ${sortOrder},
+          ${fileName}, ${contentType}, ${estimatedBytes}, decode(${dataBase64}, 'base64')
+        )
+        returning id, file_name, content_type, byte_size, sort_order, created_at
+      `;
+      return ok({
+        id: String(rows[0].id),
+        fileName: String(rows[0].file_name),
+        contentType: String(rows[0].content_type),
+        byteSize: Number(rows[0].byte_size),
+        sortOrder: Number(rows[0].sort_order),
+        createdAt: asDate(rows[0].created_at)
+      }, requestId, 201);
+    } catch (error) {
+      const code = typeof error === 'object' && error && 'code' in error ? String((error as { code?: unknown }).code) : '';
+      if (code === '23505') return fail('ATTACHMENT_SLOT_CONFLICT', 'Image slot is already used', 409, requestId);
+      throw error;
+    }
+  }
+
+  if (attachmentMatch) {
+    const attachmentId = attachmentMatch[2];
+    if (!validId(attachmentId)) return fail('NOT_FOUND', 'Attachment not found', 404, requestId);
+    if (request.method !== 'GET') return fail('METHOD_NOT_ALLOWED', 'Method not allowed', 405, requestId);
+    const rows = await sql`
+      select a.content_type, encode(a.content_bytes, 'base64') as data_base64, a.byte_size
+      from community_post_attachments a
+      join community_posts p on p.id = a.post_id and p.complex_id = a.complex_id
+      where a.id = ${attachmentId}::uuid
+        and a.complex_id = ${resident.complexId}::uuid
+        and p.status <> 'deleted'
+        and (p.status = 'published' or p.author_user_id = ${resident.id}::uuid)
+      limit 1
+    `;
+    if (!rows[0]) return fail('NOT_FOUND', 'Attachment not found', 404, requestId);
+    const binary = Uint8Array.from(atob(String(rows[0].data_base64)), (ch) => ch.charCodeAt(0));
+    return new Response(binary, {
+      status: 200,
+      headers: {
+        'content-type': String(rows[0].content_type),
+        'content-length': String(rows[0].byte_size),
+        'cache-control': 'private, max-age=300',
+        'x-content-type-options': 'nosniff',
+        'x-danjion-request-id': requestId
+      }
+    });
   }
 
   if (commentsMatch) {
