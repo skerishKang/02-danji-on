@@ -10,7 +10,23 @@
 
   function normalizeAuthor(raw) {
     const author = raw && typeof raw === 'object' ? raw : {};
-    return { nickname: String(author.nickname ?? '') };
+    return {
+      userId: String(author.userId ?? ''),
+      nickname: String(author.nickname ?? '')
+    };
+  }
+
+  function normalizeAttachment(raw) {
+    if (!raw || typeof raw !== 'object') return null;
+    const id = String(raw.id || '').toLowerCase();
+    if (!UUID.test(id)) return null;
+    return {
+      id,
+      fileName: String(raw.fileName || ''),
+      contentType: String(raw.contentType || ''),
+      byteSize: Number(raw.byteSize || 0),
+      sortOrder: Number(raw.sortOrder || 0)
+    };
   }
 
   function normalizePost(raw) {
@@ -26,6 +42,11 @@
       body: String(raw.body ?? ''),
       status: String(raw.status || ''),
       author: normalizeAuthor(raw.author),
+      questionCategory: raw.questionCategory == null ? null : String(raw.questionCategory),
+      allowDirectMessages: raw.allowDirectMessages === true,
+      togetherType: raw.togetherType == null ? null : String(raw.togetherType),
+      structuredData: raw.structuredData && typeof raw.structuredData === 'object' && !Array.isArray(raw.structuredData) ? raw.structuredData : {},
+      attachments: Array.isArray(raw.attachments) ? raw.attachments.map(normalizeAttachment).filter(Boolean) : [],
       reactionCount: Number.isFinite(reactions) && reactions > 0 ? Math.floor(reactions) : 0,
       commentCount: Number.isFinite(comments) && comments > 0 ? Math.floor(comments) : 0,
       viewerLiked: raw.viewerLiked === true,
@@ -119,12 +140,44 @@
         if (!title || title.length > MAX_TITLE_CHARS) return { ok: false, mode: 'client', error: 'POST_TITLE_INVALID' };
         const body = String(input.body || '').trim();
         if (!body || body.length > MAX_BODY_CHARS) return { ok: false, mode: 'client', error: 'POST_BODY_INVALID' };
+        const questionCategory = input.questionCategory == null ? null : String(input.questionCategory);
+        const togetherType = input.togetherType == null ? null : String(input.togetherType);
+        const allowDirectMessages = input.allowDirectMessages === true;
+        const structuredData = input.structuredData && typeof input.structuredData === 'object' && !Array.isArray(input.structuredData)
+          ? input.structuredData
+          : {};
         const result = await request(`${base}/posts`, {
           method: 'POST',
-          body: JSON.stringify({ kind, title, body })
+          body: JSON.stringify({ kind, title, body, questionCategory, togetherType, allowDirectMessages, structuredData })
         });
         if (!result.ok) return { ok: false, mode: failureMode(result), status: result.status, error: result.error };
         return { ok: true, mode: 'server', status: result.status, post: normalizePost(result.data) };
+      },
+
+      async addAttachment(postId, input = {}) {
+        const { id, valid } = postPath(postId);
+        if (!serverOnly()) return { ok: false, mode: 'static', error: 'SERVER_MODE_REQUIRED' };
+        if (!valid) return { ok: false, mode: 'client', error: 'POST_ID_INVALID' };
+        const fileName = String(input.fileName || '').trim();
+        const contentType = String(input.contentType || '').trim().toLowerCase();
+        const dataBase64 = String(input.dataBase64 || '').replace(/\s+/g, '');
+        const sortOrder = Number(input.sortOrder);
+        if (!fileName || fileName.length > 200 || !['image/jpeg','image/png','image/webp','image/gif'].includes(contentType) ||
+            !Number.isInteger(sortOrder) || sortOrder < 0 || sortOrder > 2 || !dataBase64) {
+          return { ok: false, mode: 'client', error: 'ATTACHMENT_INVALID' };
+        }
+        const result = await request(`${base}/posts/${encodeURIComponent(id)}/attachments`, {
+          method: 'POST',
+          body: JSON.stringify({ fileName, contentType, dataBase64, sortOrder })
+        });
+        if (!result.ok) return { ok: false, mode: failureMode(result), status: result.status, error: result.error };
+        return { ok: true, mode: 'server', status: result.status, attachment: normalizeAttachment(result.data) };
+      },
+
+      attachmentUrl(attachmentId) {
+        const id = String(attachmentId || '').toLowerCase();
+        if (!serverOnly() || !UUID.test(id)) return '';
+        return `${apiBase}${base}/attachments/${encodeURIComponent(id)}`;
       },
 
       async listComments(postId) {
