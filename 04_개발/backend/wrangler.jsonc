@@ -50,7 +50,8 @@
         "required": [
           "DATABASE_URL",
           "BETTER_AUTH_SECRET",
-          "DANJION_CONTACT_REF_SECRET"
+          "DANJION_CONTACT_REF_SECRET",
+          "HOUSEHOLD_CODE_PEPPER"
         ]
       },
       "vars": {

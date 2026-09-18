@@ -24,7 +24,7 @@ assert.equal(
 );
 assert.deepEqual(
   production.secrets?.required,
-  ['DATABASE_URL', 'BETTER_AUTH_SECRET', 'DANJION_CONTACT_REF_SECRET'],
+  ['DATABASE_URL', 'BETTER_AUTH_SECRET', 'DANJION_CONTACT_REF_SECRET', 'HOUSEHOLD_CODE_PEPPER'],
   'production deploy must fail closed unless core auth/database secrets are present'
 );
 assert.equal(production.vars?.BUSINESS_IMAGE_RECONCILIATION_ENABLED, 'false', 'first production bootstrap must keep background Drive reconciliation off until its runtime is fully configured');
@@ -60,12 +60,18 @@ assert.doesNotMatch(workflow, /npm ci --ignore-scripts/, 'npm ci cannot be used 
 assert.match(workflow, /CLOUDFLARE_API_TOKEN: \$\{\{ secrets\.CLOUDFLARE_API_TOKEN \}\}/);
 assert.match(workflow, /CLOUDFLARE_ACCOUNT_ID: \$\{\{ secrets\.CLOUDFLARE_ACCOUNT_ID \}\}/);
 assert.match(workflow, /DANJION_PRODUCTION_DB_URL: \$\{\{ secrets\.DANJION_PRODUCTION_DB_URL \}\}/);
+assert.match(workflow, /DANJION_HOUSEHOLD_CODE_PEPPER: \$\{\{ secrets\.DANJION_HOUSEHOLD_CODE_PEPPER \}\}/,
+  '#746: household code pepper must cross the GitHub production environment boundary explicitly');
+assert.match(workflow, /if ! has_secret HOUSEHOLD_CODE_PEPPER; then[\s\S]*DANJION_HOUSEHOLD_CODE_PEPPER[\s\S]*add_secret HOUSEHOLD_CODE_PEPPER/,
+  '#746: existing Worker pepper must be preserved; a missing binding must fail closed unless the production environment provides it');
 assert.match(workflow, /account_name.*Padiem/s, 'workflow must fail closed outside the Padiem Cloudflare account');
 assert.match(workflow, /VERIFICATION_WORKER: padiem-contact-verification/);
 assert.match(workflow, /workers\/services\/\$\{VERIFICATION_WORKER\}/, 'private Padiem verification Worker must be checked before production mutation');
 assert.match(workflow, /wrangler secret list --env production --format json/, 'existing secret names must be read without exposing values');
 assert.match(workflow, /openssl rand -hex 32/, 'missing product-only secrets must be generated with cryptographic randomness');
 assert.match(workflow, /wrangler deploy --env production --secrets-file/, 'production deploy must upload secrets through the encrypted Worker secret path');
+assert.match(workflow, /for key in DATABASE_URL BETTER_AUTH_SECRET DANJION_CONTACT_REF_SECRET HOUSEHOLD_CODE_PEPPER; do/,
+  '#746: post-deploy secret-name readback must include the household code pepper without exposing its value');
 assert.match(workflow, /OAuth providers provisioned \(names only\)/, '#422: provisioned social provider names must be reported without values');
 assert.match(workflow, /Verify social provider registration on production Worker/, '#422: post-deploy social provider registration readback must exist');
 assert.match(workflow, /PROVIDER_NOT_FOUND/, '#422: missing provider registration must fail closed, never stay silent');
