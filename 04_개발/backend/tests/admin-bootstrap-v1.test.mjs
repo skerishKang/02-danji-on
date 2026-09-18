@@ -31,6 +31,7 @@ const principalByActor = new Map([
       'inquiry.respond',
       'official-content.manage',
       'resident.verification.exempt',
+      'resident.verification.manage',
       'resident_news.review',
       'safety.report.review'
     ]

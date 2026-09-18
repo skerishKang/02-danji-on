@@ -448,8 +448,10 @@ const loadAdminContext = (location) => {
   }
   assert.equal((consoleSrc.match(/method\s*:\s*'PATCH'/g) || []).length, 3,
     'the console bridge may own only application-review, official-news, and benefit PATCH transports');
-  assert.equal((consoleSrc.match(/method\s*:\s*'POST'/g) || []).length, 2,
-    'the console bridge may own only official-news and benefit create POST transports');
+  assert.equal((consoleSrc.match(/method\s*:\s*'POST'/g) || []).length, 3,
+    'the console bridge may own only official-news, benefit, and household-code create POST transports');
+  assert.equal((consoleSrc.match(/method\s*:\s*'DELETE'/g) || []).length, 1,
+    'the console bridge may own only household-code revoke DELETE transport');
   assert.ok(consoleSrc.includes("'/api/v1/admin/business-applications/'"),
     'business-application review must remain an explicitly activated mutation family');
   assert.ok(consoleSrc.includes("'/api/v1/admin/complexes/'") && consoleSrc.includes(" + '/posts'"),
@@ -460,8 +462,8 @@ const loadAdminContext = (location) => {
     'resident-benefit create must use the admin complex benefits family');
   assert.ok(consoleSrc.includes("'/api/v1/admin/benefits/'"),
     'resident-benefit edit must use the admin benefit PATCH family');
-  assert.ok(!/method\s*:\s*['"](?:PUT|DELETE)['"]/.test(consoleSrc),
-    'no PUT/DELETE operational mutation may be activated');
+  assert.ok(!/method\s*:\s*['"]PUT['"]/.test(consoleSrc),
+    'no PUT operational mutation may be activated');
 
   assert.ok(authoritySrc.includes("state: 'invalid'"), 'the resolver must carry an explicit rejection state for malformed 200s');
   assert.ok(!/state:\s*\w+\s*\?\s*'admin'\s*:\s*'operator'/.test(authoritySrc),
