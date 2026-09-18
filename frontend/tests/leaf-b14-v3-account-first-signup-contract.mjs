@@ -41,10 +41,10 @@ assert.match(index, /data-resident-later>주민코드가 없어요 · 나중에 
   'no-code path must be a first-class action');
 assert.match(index, /data-resident-now>주민코드가 있어요 · 지금 인증/,
   'has-code path must be a first-class action');
-assert.match(index, /button\.dataset\.residentNow!==undefined\)\{render\('residentCode'\)\}/,
-  'has-code path must enter resident verification');
-assert.match(index, /button\.dataset\.residentLater!==undefined\)\{sessionStorage\.setItem\('danjionResidentVerification','pending'\);signupPending=null;render\('complete'\)\}/,
-  'no-code path must complete signup while remaining resident-unverified');
+assert.match(index, /button\.dataset\.residentNow!==undefined\)\{if\(serverMode\)\{authModal\.close\(\);location\.href='26_우리집연결\.html\?from=onboarding';return\}render\('residentCode'\)\}/,
+  'canonical server mode must hand the has-code path to the server-backed household verification flow while demo mode may keep the local preview');
+assert.match(index, /button\.dataset\.residentLater!==undefined\)\{if\(!serverMode\)sessionStorage\.setItem\('danjionResidentVerification','pending'\);signupPending=null;render\('complete'\)\}/,
+  'server mode must not mint browser-only resident state when the user defers verification');
 
 /* resident authority stays separate + demo verification hold */
 assert.doesNotMatch(index, /danjionResidentVerified/,

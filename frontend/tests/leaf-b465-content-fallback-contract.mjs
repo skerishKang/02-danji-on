@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
-// Issue #465: server-empty / server-error states must never erase built-in
-// community content that is already present in the static V3 pages.
+// Issue #740 reconciles the old #465 fallback rule for canonical Production.
+// Official/editorial launch content may remain static where explicitly intended,
+// but resident-authored lanes must never promote prototype residents/posts when
+// the server is empty, unavailable, or denies access.
 
 const read = (rel) => readFile(new URL(rel, import.meta.url), 'utf8');
 
@@ -11,7 +13,8 @@ const apartment = await read('../08_아파트소식_목록.html');
 const resident = await read('../10_주민소식_목록.html');
 const community = await read('../12_이웃대화_첫화면.html');
 
-// 1) DanjiOn notices: only non-empty arrays may take over the static list.
+// 1) DanjiOn notices: current onboarding notices are approved static editorial
+// until a non-empty server collection takes ownership.
 assert.ok(
   notice.includes("if (result.ok) {") &&
   notice.includes("Array.isArray(result.data) && result.data.length > 0") &&
@@ -20,11 +23,11 @@ assert.ok(
 );
 assert.ok(
   notice.includes('단지온 홈과 네 가지 메뉴 이용 안내'),
-  'notice built-in onboarding content must remain in the page'
+  'notice onboarding editorial must remain available'
 );
 
-// 2) Apartment news: empty collection keeps the built-in feature and rows;
-// partial server data must not blank the recent-news slot.
+// 2) Apartment news: current chair/apartment launch copy remains editorial
+// until a non-empty server collection replaces the corresponding slots.
 assert.ok(
   apartment.includes("if (result.ok) {") &&
   apartment.includes("Array.isArray(result.data) && result.data.length > 0") &&
@@ -33,40 +36,41 @@ assert.ok(
 );
 assert.ok(
   apartment.includes('if (newsList && news.length > 0)'),
-  'apartment recent-news slot must not be blanked by a server response with no news rows'
+  'apartment recent-news slot must not be blanked by a partial server response'
 );
 assert.ok(
   apartment.includes('주민 안내문자·방송·게시판 홍보 협조 논의'),
-  'apartment built-in recent-news content must remain in the page'
+  'approved apartment launch editorial must remain in the page'
 );
 
-// 3) Resident news: loading/empty/error states keep static cards and filters.
+// 3) Resident news: canonical server mode owns the lane and must replace
+// prototype resident cards with loading/empty/error truth.
 assert.ok(
-  resident.includes('if(!posts.length)return;'),
-  'resident news must not replace built-in cards with an empty server state'
+  resident.includes("if(result.ok){if(result.posts.length)render(result.posts);else notice('현재 공개된 주민소식이 없습니다.');return}"),
+  'resident news empty server collection must render an honest empty state'
 );
 assert.ok(
-  !resident.includes("notice('주민소식을 불러오는 중입니다.');"),
-  'resident news must not erase built-in cards with a loading placeholder'
+  resident.includes("notice('주민소식을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.');"),
+  'resident news server failure must fail closed instead of showing built-in resident stories'
 );
 assert.ok(
-  resident.includes("resident-news fallback preserved"),
-  'resident news failures must explicitly preserve the fallback content'
+  !resident.includes("console.info('[danjion] 주민소식을 불러오는 중입니다. 기존 콘텐츠를 유지합니다.')"),
+  'resident news production wiring must not advertise preservation of prototype resident content'
 );
 
-// 4) Community: unsupported kind, auth/network failure and empty server result
-// all keep the static board rendered by the earlier page script.
+// 4) Community: canonical server mode clears prototype residents immediately,
+// then renders only server rows or truthful loading/empty/error states.
 assert.ok(
-  community.includes("if(!posts.length)return;"),
-  'community empty server collection must preserve built-in posts'
+  community.includes("list.innerHTML=notice('이웃대화를 불러오는 중입니다.');"),
+  'community must clear prototype resident posts before awaiting server authority'
 );
 assert.ok(
-  community.includes("community fallback preserved"),
-  'community non-server outcomes must preserve built-in posts'
+  community.includes("아직 등록된 이웃대화가 없습니다."),
+  'community empty server collection must render an honest empty state'
 );
 assert.ok(
-  !community.includes("list.innerHTML=notice('가입인사 카테고리는 아직 서버 연동이 준비되지 않았습니다."),
-  'community unsupported signup-intro category must not replace built-in posts'
+  !community.includes("community fallback preserved"),
+  'community server errors must not preserve prototype resident posts'
 );
 
 console.log('leaf-b465-content-fallback-contract: PASS');
