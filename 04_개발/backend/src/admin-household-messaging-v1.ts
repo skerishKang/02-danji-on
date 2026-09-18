@@ -101,7 +101,7 @@ async function requirePadiemHouseholdMessageAuthority(
 }
 
 async function targetRows(sql: Sql, complexSlug: string): Promise<TargetRow[]> {
-  const rows = await sql\`
+  const rows = await sql`
     select
       cu.building_code,
       cu.unit_code,
@@ -117,7 +117,7 @@ async function targetRows(sql: Sql, complexSlug: string): Promise<TargetRow[]> {
       on hm.household_id = h.id
       and hm.complex_id = h.complex_id
       and hm.status = 'verified'
-    where c.slug = \${complexSlug}
+    where c.slug = ${complexSlug}
       and c.status <> 'inactive'
       and cu.status = 'active'
     group by cu.id, cu.building_code, cu.unit_code
@@ -126,7 +126,7 @@ async function targetRows(sql: Sql, complexSlug: string): Promise<TargetRow[]> {
       cu.building_code asc,
       case when cu.unit_code ~ '^[0-9]+$' then cu.unit_code::numeric else null end nulls last,
       cu.unit_code asc
-  \`;
+  `;
 
   return rows.map((row) => ({
     buildingCode: String(row.building_code),
@@ -195,7 +195,7 @@ function parseTargetRecord(record: Record<string, unknown>, requestId: string): 
     const building = unitPart(item.buildingCode);
     const unit = unitPart(item.unitCode);
     if (!building || !unit) return fail('VALIDATION_ERROR', 'Invalid buildingCode or unitCode', 400, requestId);
-    const key = \`\${building}\\u0000\${unit}\`;
+    const key = `${building}\\u0000${unit}`;
     if (!seen.has(key)) {
       seen.add(key);
       units.push({ buildingCode: building, unitCode: unit });
@@ -234,8 +234,8 @@ function selectedTargetRows(
   } else if (payload.targetType === 'building') {
     selected = rows.filter((row) => row.buildingCode === payload.buildingCode);
   } else {
-    const requested = new Set(payload.units.map((unit) => \`\${unit.buildingCode}\\u0000\${unit.unitCode}\`));
-    selected = rows.filter((row) => requested.has(\`\${row.buildingCode}\\u0000\${row.unitCode}\`));
+    const requested = new Set(payload.units.map((unit) => `${unit.buildingCode}\\u0000${unit.unitCode}`));
+    selected = rows.filter((row) => requested.has(`${row.buildingCode}\\u0000${row.unitCode}`));
     if (selected.length !== requested.size) {
       return fail('HOUSEHOLD_MESSAGE_TARGET_NOT_FOUND', 'One or more target units do not exist', 404, requestId);
     }
@@ -368,11 +368,11 @@ async function createHouseholdMessage(
       body
     }));
 
-    const persisted = await sql\`
+    const persisted = await sql`
       with selected_complex as (
         select id
         from complexes
-        where slug = \${complexSlug}
+        where slug = ${complexSlug}
           and status <> 'inactive'
         limit 1
       ),
@@ -392,16 +392,16 @@ async function createHouseholdMessage(
         )
         select
           c.id,
-          \${actor.id}::uuid,
-          \${selection.targetType},
-          \${snapshotJson}::jsonb,
-          \${title},
-          \${body},
+          ${actor.id}::uuid,
+          ${selection.targetType},
+          ${snapshotJson}::jsonb,
+          ${title},
+          ${body},
           'draft',
-          \${idempotencyKey},
-          \${fingerprint},
-          \${selected.length},
-          \${recipientCount}
+          ${idempotencyKey},
+          ${fingerprint},
+          ${selected.length},
+          ${recipientCount}
         from selected_complex c
         on conflict (complex_id, idempotency_key) do nothing
         returning id, complex_id, target_type, status, request_fingerprint,
@@ -415,7 +415,7 @@ async function createHouseholdMessage(
           request_id,
           intended_recipient_count
         )
-        select id, 'created', \${actor.id}::uuid, \${requestId}, intended_recipient_count
+        select id, 'created', ${actor.id}::uuid, ${requestId}, intended_recipient_count
         from inserted
         returning message_id
       ),
@@ -435,14 +435,14 @@ async function createHouseholdMessage(
           false as created
         from household_messages hm
         join selected_complex c on c.id = hm.complex_id
-        where hm.idempotency_key = \${idempotencyKey}
+        where hm.idempotency_key = ${idempotencyKey}
           and not exists (select 1 from inserted)
         limit 1
       )
       select chosen.*, exists(select 1 from created_event) as audit_created
       from chosen
       limit 1
-    \`;
+    `;
 
     if (!persisted[0]) return fail('COMPLEX_NOT_FOUND', 'Apartment complex not found', 404, requestId);
     if (String(persisted[0].request_fingerprint) !== fingerprint) {
@@ -486,13 +486,13 @@ async function dispatchHouseholdMessage(
   }
 
   try {
-    const rows = await sql\`
+    const rows = await sql`
       with current_message as (
         select hm.*
         from household_messages hm
         join complexes c on c.id = hm.complex_id
-        where hm.id = \${messageId}::uuid
-          and c.slug = \${complexSlug}
+        where hm.id = ${messageId}::uuid
+          and c.slug = ${complexSlug}
           and c.status <> 'inactive'
         limit 1
       ),
@@ -551,8 +551,8 @@ async function dispatchHouseholdMessage(
         select
           m.id,
           'dispatch_started',
-          \${actor.id}::uuid,
-          \${requestId},
+          ${actor.id}::uuid,
+          ${requestId},
           (select count(*)::int from candidate_recipients)
         from current_message m
         cross join ambiguity a
@@ -624,8 +624,8 @@ async function dispatchHouseholdMessage(
         select
           u.id,
           'dispatch_completed',
-          \${actor.id}::uuid,
-          \${requestId},
+          ${actor.id}::uuid,
+          ${requestId},
           u.intended_recipient_count,
           u.delivered_recipient_count,
           u.failed_recipient_count
@@ -654,7 +654,7 @@ async function dispatchHouseholdMessage(
         (select sent_at from updated limit 1) as final_sent_at
       from current_message m
       limit 1
-    \`;
+    `;
 
     const row = rows[0];
     if (!row) return fail('HOUSEHOLD_MESSAGE_NOT_FOUND', 'Household message not found', 404, requestId);
