@@ -151,7 +151,12 @@ const loadAdminContext = (location) => {
   const verificationViews = C.consoleSections({ state: 'operator', wildcard: false, scopes: ['resident.verification.manage'] });
   assert.deepEqual(Array.from(verificationViews.operational, (s) => String(s.id)), ['householdReviews', 'verifications'],
     'the bounded resident-verification management scope exposes only the household-review and household-code sections');
+  const messagingViews = C.consoleSections({ state: 'operator', wildcard: false, scopes: ['household.message.manage'] });
+  assert.deepEqual(Array.from(messagingViews.operational, (s) => String(s.id)), ['householdMessages'],
+    'the household messaging capability exposes only the send-disabled household targeting section');
   const superViews = C.consoleSections(A.normalizeAuthority({ level: 'admin', wildcard: true, scopes: ['*'] }));
+  assert.ok(superViews.operational.some((s) => String(s.id) === 'householdMessages'),
+    'the wildcard grant includes the send-disabled household message preview section');
   assert.ok(superViews.operational.some((s) => String(s.id) === 'householdReviews'),
     'the wildcard grant includes the active household-membership review section');
   assert.ok(superViews.operational.some((s) => String(s.id) === 'verifications'),
@@ -450,8 +455,8 @@ const loadAdminContext = (location) => {
   }
   assert.equal((consoleSrc.match(/method\s*:\s*'PATCH'/g) || []).length, 4,
     'the console bridge may own only application-review, official-news, benefit, and household-membership review PATCH transports');
-  assert.equal((consoleSrc.match(/method\s*:\s*'POST'/g) || []).length, 3,
-    'the console bridge may own only official-news, benefit, and household-code create POST transports');
+  assert.equal((consoleSrc.match(/method\s*:\s*'POST'/g) || []).length, 4,
+    'the console bridge may own only official-news, benefit, household-code create, and household-message dry-run preview POST transports');
   assert.equal((consoleSrc.match(/method\s*:\s*'DELETE'/g) || []).length, 1,
     'the console bridge may own only household-code revoke DELETE transport');
   assert.ok(consoleSrc.includes("'/api/v1/admin/business-applications/'"),
@@ -466,6 +471,10 @@ const loadAdminContext = (location) => {
     'resident-benefit edit must use the admin benefit PATCH family');
   assert.ok(consoleSrc.includes("'/api/v1/admin/household-memberships/'"),
     'household membership review must use the dedicated bounded admin PATCH family');
+  assert.ok(consoleSrc.includes("'/household-messages/preview'"),
+    'household message POST must remain a non-dispatch dry-run preview route');
+  assert.ok(!consoleSrc.includes("'/household-messages/send'"),
+    'household message dispatch must remain absent until a separate activation gate');
   assert.ok(!/method\s*:\s*['"]PUT['"]/.test(consoleSrc),
     'no PUT operational mutation may be activated');
 

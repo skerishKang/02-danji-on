@@ -39,6 +39,7 @@
         {"id":"test:household-unit-association","npm":"test:household-unit-association","kind":"contract"},
         {"id":"test:admin-household-codes","npm":"test:admin-household-codes","kind":"contract"},
         {"id":"test:admin-household-review","npm":"test:admin-household-review","kind":"contract"},
+        {"id":"test:admin-household-messaging","npm":"test:admin-household-messaging","kind":"contract"},
         {"id":"test:household-family-lifecycle","npm":"test:household-family-lifecycle","kind":"contract"},
         {"id":"test:account-lifecycle","npm":"test:account-lifecycle","kind":"contract"},
         {"id":"test:resident-economy-household-v2","npm":"test:resident-economy-household-v2","kind":"contract"},

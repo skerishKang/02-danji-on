@@ -50,6 +50,7 @@ const EXPECTED_BACKEND_ORDER = [
   "test:household-unit-association",
   "test:admin-household-codes",
   "test:admin-household-review",
+  "test:admin-household-messaging",
   "test:household-family-lifecycle",
   "test:account-lifecycle",
   "test:resident-economy-household-v2",

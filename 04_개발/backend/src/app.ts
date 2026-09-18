@@ -5,6 +5,7 @@ import { handleAdminAuditRequest } from './admin-audit-v1';
 import { handleAdminBootstrapRequest } from './admin-bootstrap-v1';
 import { handleAdminGlobalAuditRequest } from './admin-global-audit-v1';
 import { handleAdminHouseholdCodeRequest, type AdminHouseholdCodeEnv } from './admin-household-codes-v1';
+import { handleAdminHouseholdMessagingRequest } from './admin-household-messaging-v1';
 import { handleAdminHouseholdReviewRequest } from './admin-household-review-v1';
 import { handleAdminAuthorityRequest } from './admin-authority-v1';
 import { handleAdminOperationalRequest } from './admin-operational-v2';
@@ -177,6 +178,8 @@ export default {
       if (adminBootstrapResponse) return respond(adminBootstrapResponse);
       const adminHouseholdCodeResponse = await handleAdminHouseholdCodeRequest(request, env, id);
       if (adminHouseholdCodeResponse) return respond(adminHouseholdCodeResponse);
+      const adminHouseholdMessagingResponse = await handleAdminHouseholdMessagingRequest(request, env, id);
+      if (adminHouseholdMessagingResponse) return respond(adminHouseholdMessagingResponse);
       const adminHouseholdReviewResponse = await handleAdminHouseholdReviewRequest(request, env, id);
       if (adminHouseholdReviewResponse) return respond(adminHouseholdReviewResponse);
       const adminReviewContextResponse = await handleAdminReviewContextRequest(request, env, id);
