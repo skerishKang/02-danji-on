@@ -1,0 +1,112 @@
+name: Production Admin Scope Sync
+
+on:
+  workflow_dispatch:
+    inputs:
+      expected_main:
+        description: 'Exact origin/main SHA authorized by CENTRAL'
+        required: true
+        type: string
+      mode:
+        description: 'Read-only preflight or bounded apply'
+        required: true
+        default: preflight
+        type: choice
+        options:
+          - preflight
+          - apply
+      confirm_production:
+        description: 'Explicitly authorize bounded Production scope sync'
+        required: true
+        default: false
+        type: boolean
+      confirmation:
+        description: 'For apply only, type: SYNC FOUR ADMIN PRINCIPALS TO CURRENT SCOPE'
+        required: false
+        default: ''
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: danjion-production-admin-scope-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    environment: production
+    defaults:
+      run:
+        working-directory: 04_개발/backend
+    env:
+      DANJION_PRODUCTION_DB_URL: ${{ secrets.DANJION_PRODUCTION_DB_URL }}
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: 04_개발/backend/package.json
+
+      - name: Exact main authority guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main --no-tags
+          actual_main="$(git rev-parse origin/main)"
+          expected_main="${{ inputs.expected_main }}"
+          if [ "$GITHUB_SHA" != "$expected_main" ] || [ "$actual_main" != "$expected_main" ]; then
+            echo "::error::Exact-main authority mismatch."
+            exit 1
+          fi
+          echo "EXACT_MAIN_GUARD=PASS"
+
+      - name: Validate execution authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          mode="${{ inputs.mode }}"
+          if [ "$mode" = "apply" ]; then
+            test "${{ inputs.confirm_production }}" = "true" || { echo "::error::confirm_production=true required"; exit 1; }
+            test "${{ inputs.confirmation }}" = "SYNC FOUR ADMIN PRINCIPALS TO CURRENT SCOPE" || { echo "::error::confirmation mismatch"; exit 1; }
+          fi
+          echo "EXECUTION_AUTHORITY=PASS mode=$mode"
+
+      - name: Install backend dependencies
+        run: npm install --ignore-scripts
+
+      - name: Run source safety contract
+        run: npm run test:production-admin-scope-sync
+
+      - name: Verify Production DB binding without output
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${DANJION_PRODUCTION_DB_URL:-}" || { echo "::error::Production DB binding missing"; exit 1; }
+          echo "PRODUCTION_DB_SECRET_BINDING=PASS"
+
+      - name: Run bounded scope sync
+        env:
+          ADMIN_SCOPE_SYNC_MODE: ${{ inputs.mode }}
+        run: node scripts/production-admin-scope-sync.mjs
+
+      - name: Record disposition
+        if: always()
+        shell: bash
+        run: |
+          echo "WORKER_DEPLOY=0"
+          echo "PAGES_DEPLOY=0"
+          echo "SECRET_MUTATION=0"
+          echo "ACCOUNT_LINK_MUTATION=0"
+          echo "IDENTITY_MUTATION=0"
+          if [ "${{ inputs.mode }}" = "preflight" ]; then
+            echo "DB_MUTATION=0"
+            echo "GRANT_SCOPE_MUTATION=0"
+            echo "ALLOWLIST_SCOPE_MUTATION=0"
+          else
+            echo "GRANT_SCOPE_MUTATION=BOUNDED_CURRENT_SCOPE_SYNC"
+            echo "ALLOWLIST_SCOPE_MUTATION=BOUNDED_CURRENT_SCOPE_SYNC"
+          fi
