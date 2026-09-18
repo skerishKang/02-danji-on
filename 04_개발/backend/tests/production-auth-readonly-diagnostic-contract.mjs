@@ -36,14 +36,18 @@ assert.match(script, /g\.metadata ->> 'source' = 'admin_identity_allowlist'/,
   'bootstrap runtime aggregate must remain scoped to allowlist-origin grants');
 assert.match(script, /key: 'all_source_runtime_authority'/,
   'diagnostic must separately inspect all-source active runtime authority');
-assert.match(script, /const OPERATIONAL_PRESET = \[[\s\S]*community\.moderate[\s\S]*inquiry\.respond[\s\S]*resident\.verification\.exempt[\s\S]*safety\.report\.review/,
-  'allowlist/bootstrap diagnostic must use the full eight-scope operational preset');
-assert.match(script, /key: 'admin_bootstrap_runtime_authority'[\s\S]*cardinality\(scopes\) = 9[\s\S]*cardinality\(scopes\) = 8/,
-  'bootstrap runtime diagnostic must classify canonical SUPER 9-scope and OPERATIONAL 8-scope shapes');
-assert.match(script, /cardinality\(scopes\) = 9[\s\S]*resident\.verification\.exempt/,
-  'legacy SUPER shape must be exact wildcard plus the eight bounded scopes');
-assert.match(script, /cardinality\(scopes\) = 8[\s\S]*array_position\(scopes, '\*'\) is null/,
-  'legacy OPERATIONAL shape must be exact eight bounded scopes with no wildcard');
+assert.match(script, /const OPERATIONAL_PRESET = \[[\s\S]*resident\.verification\.exempt[\s\S]*resident\.verification\.manage[\s\S]*safety\.report\.review/,
+  'current operational preset must include the bounded household-code management scope');
+assert.match(script, /const LEGACY_OPERATIONAL_SCOPES = \[[\s\S]*resident\.verification\.exempt[\s\S]*resident_news\.review[\s\S]*safety\.report\.review/,
+  'diagnostic must retain the previous eight-scope shape for drift classification');
+assert.match(script, /key: 'admin_bootstrap_runtime_authority'[\s\S]*super_current_users[\s\S]*super_legacy_users[\s\S]*operational_current_users[\s\S]*operational_legacy_users/,
+  'runtime diagnostic must distinguish current 10\/9 shapes from legacy 9\/8 shapes');
+assert.match(script, /cardinality\(scopes\)=10[\s\S]*CURRENT_SUPER_SQL/,
+  'current SUPER runtime shape must be wildcard plus nine bounded scopes');
+assert.match(script, /cardinality\(scopes\)=9[\s\S]*array_position\(scopes,'\*'\) is null[\s\S]*CURRENT_OPERATIONAL_SQL/,
+  'current OPERATIONAL runtime shape must be nine bounded scopes without wildcard');
+assert.match(script, /key: 'household_code_schema'[\s\S]*household_verification_codes[\s\S]*household_verification_code_events/,
+  '#746 read-only preflight must report migration-050 schema presence without reading resident rows');
 assert.match(script, /active_all_grants[\s\S]*from padiem_operator_grants g[\s\S]*g\.status = 'active'/,
   'all-source aggregate must count all active PADIEM grants regardless metadata source');
 assert.match(script, /group by normalized_email[\s\S]*having count\(\*\) > 1/,
