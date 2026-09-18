@@ -71,6 +71,13 @@
     return {ok:true,status:response.status,data:payload?.data??null,payload};
   }
 
+  function failureMode(result){
+    if(result.status===401)return 'auth-required';
+    if(result.status===403&&(result.error==='RESIDENT_VERIFICATION_REQUIRED'||result.error==='HOUSEHOLD_ASSOCIATION_REQUIRED'))return 'resident-verification-required';
+    if(result.status===403)return 'forbidden';
+    return 'error';
+  }
+
   function createReviewsBridge(options={}){
     const fetchImpl=options.fetchImpl||fetch.bind(globalThis);
     const apiBase=normalizeBase(options.apiBase);
@@ -81,8 +88,7 @@
       if(!businessId)return {mode:'static',businessId:null,reviews:[]};
       const result=await requestJson(fetchImpl,endpoint(apiBase,complexSlug,businessId),{method:'GET'});
       if(!result.ok){
-        const authRequired=[401,403].includes(result.status);
-        return {mode:authRequired?'auth-required':'error',businessId,reviews:[],status:result.status,error:result.error};
+        return {mode:failureMode(result),businessId,reviews:[],status:result.status,error:result.error};
       }
       const rows=Array.isArray(result.data?.reviews)?result.data.reviews:[];
       return {mode:'server',businessId,reviews:rows.map(normalizeReview).filter(Boolean),status:result.status};
@@ -96,7 +102,7 @@
       const result=await requestJson(fetchImpl,endpoint(apiBase,complexSlug,businessId),{
         method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({body:text})
       });
-      if(!result.ok)return {...result,mode:[401,403].includes(result.status)?'auth-required':'error'};
+      if(!result.ok)return {...result,mode:failureMode(result)};
       return {ok:true,mode:'server',status:result.status,review:normalizeReview(result.data)};
     }
 
@@ -109,7 +115,7 @@
       const result=await requestJson(fetchImpl,endpoint(apiBase,complexSlug,businessId,`/${rid}`),{
         method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify({body:text})
       });
-      if(!result.ok)return {...result,mode:[401,403].includes(result.status)?'auth-required':'error'};
+      if(!result.ok)return {...result,mode:failureMode(result)};
       return {ok:true,mode:'server',status:result.status,review:normalizeReview(result.data)};
     }
 
@@ -118,7 +124,7 @@
       const rid=String(reviewId||'').toLowerCase();
       if(!businessId||!UUID.test(rid))return {ok:false,mode:'client',error:'VALID_IDS_REQUIRED'};
       const result=await requestJson(fetchImpl,endpoint(apiBase,complexSlug,businessId,`/${rid}`),{method:'DELETE'});
-      if(!result.ok)return {...result,mode:[401,403].includes(result.status)?'auth-required':'error'};
+      if(!result.ok)return {...result,mode:failureMode(result)};
       return {ok:true,mode:'server',status:result.status,deleted:Boolean(result.data?.deleted),reviewId:rid};
     }
 
@@ -131,7 +137,7 @@
       const result=await requestJson(fetchImpl,endpoint(apiBase,complexSlug,businessId,`/${rid}/reply`),{
         method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({body:text})
       });
-      if(!result.ok)return {...result,mode:[401,403].includes(result.status)?'auth-required':'error'};
+      if(!result.ok)return {...result,mode:failureMode(result)};
       return {ok:true,mode:'server',status:result.status,reply:{
         reviewId:String(result.data?.reviewId||rid),businessId:String(result.data?.businessId||businessId),
         body:String(result.data?.body||''),createdAt:result.data?.createdAt??null,updatedAt:result.data?.updatedAt??null
@@ -150,8 +156,7 @@
       if(!businessId||!UUID.test(rid))return {mode:'static',businessId,reviewId:rid,comments:[]};
       const result=await requestJson(fetchImpl,commentsEndpoint(businessId,rid),{method:'GET'});
       if(!result.ok){
-        const authRequired=[401,403].includes(result.status);
-        return {mode:authRequired?'auth-required':'error',businessId,reviewId:rid,comments:[],status:result.status,error:result.error};
+        return {mode:failureMode(result),businessId,reviewId:rid,comments:[],status:result.status,error:result.error};
       }
       const rows=Array.isArray(result.data?.comments)?result.data.comments:[];
       return {mode:'server',businessId,reviewId:String(result.data?.reviewId||rid),comments:rows.map((row)=>normalizeComment(row,businessId,rid)).filter(Boolean),status:result.status};
@@ -167,7 +172,7 @@
       const result=await requestJson(fetchImpl,commentsEndpoint(businessId,rid),{
         method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({body:text})
       });
-      if(!result.ok)return {...result,mode:[401,403].includes(result.status)?'auth-required':'error'};
+      if(!result.ok)return {...result,mode:failureMode(result)};
       return {ok:true,mode:'server',status:result.status,comment:normalizeComment(result.data,businessId,rid)};
     }
 
@@ -182,7 +187,7 @@
       const result=await requestJson(fetchImpl,commentsEndpoint(businessId,rid,cid),{
         method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify({body:text})
       });
-      if(!result.ok)return {...result,mode:[401,403].includes(result.status)?'auth-required':'error'};
+      if(!result.ok)return {...result,mode:failureMode(result)};
       return {ok:true,mode:'server',status:result.status,comment:normalizeComment(result.data,businessId,rid)};
     }
 
@@ -192,7 +197,7 @@
       const cid=String(commentId||'').toLowerCase();
       if(!businessId||!UUID.test(rid)||!UUID.test(cid))return {ok:false,mode:'client',error:'VALID_IDS_REQUIRED'};
       const result=await requestJson(fetchImpl,commentsEndpoint(businessId,rid,cid),{method:'DELETE'});
-      if(!result.ok)return {...result,mode:[401,403].includes(result.status)?'auth-required':'error'};
+      if(!result.ok)return {...result,mode:failureMode(result)};
       return {ok:true,mode:'server',status:result.status,deleted:Boolean(result.data?.deleted),reviewId:rid,commentId:cid};
     }
 
