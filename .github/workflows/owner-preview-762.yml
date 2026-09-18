@@ -24,8 +24,8 @@ jobs:
       PREVIEW_PAGES_URL: https://owner-preview-762.danjion-qa.pages.dev
       PREVIEW_WORKER_NAME: padiem-danjion-api-owner-preview-762
       PREVIEW_WORKER_URL: https://padiem-danjion-api-owner-preview-762.padiem.workers.dev
-      PREVIEW_CANARY_BUILDING: pv-canary-${{ github.run_id }}
-      PREVIEW_CANARY_UNIT: pv-canary-unit-${{ github.run_id }}
+      PREVIEW_CANARY_BUILDING: pvc-${{ github.run_id }}
+      PREVIEW_CANARY_UNIT: pvu-${{ github.run_id }}
       CLOUDFLARE_API_TOKEN: ${{ secrets.DANJION_QA_CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.DANJION_QA_CLOUDFLARE_ACCOUNT_ID }}
       DANJION_QA_DATABASE_URL: ${{ secrets.DANJION_QA_DATABASE_URL }}
@@ -103,7 +103,7 @@ jobs:
             from complexes c
             where cu.complex_id=c.id
               and c.slug='banglim-myeongji-roadhill'
-              and cu.building_code like 'pv-canary-%'
+              and cu.building_code like 'pvc-%'
           `;
           await sql`
             update complex_units cu
@@ -111,8 +111,8 @@ jobs:
             from complexes c
             where cu.complex_id=c.id
               and c.slug='banglim-myeongji-roadhill'
-              and cu.building_code=${process.env.PREVIEW_CANARY_BUILDING}
-              and cu.unit_code=${process.env.PREVIEW_CANARY_UNIT}
+              and cu.building_code='pv-canary'
+              and cu.unit_code='pv-canary-unit'
           `;
 
           await sql`
@@ -289,14 +289,17 @@ jobs:
           DATABASE_URL="${DANJION_QA_DATABASE_URL}" node --input-type=module <<'NODE'
           import { neon } from '@neondatabase/serverless';
           const sql=neon(process.env.DATABASE_URL);
+          const canaryBuilding=process.env.PREVIEW_CANARY_BUILDING;
+          const canaryUnit=process.env.PREVIEW_CANARY_UNIT;
+          if(!canaryBuilding || !canaryUnit) throw new Error('preview canary identity missing during cleanup');
           await sql`
             update complex_units cu
             set status='inactive', updated_at=now()
             from complexes c
             where cu.complex_id=c.id
               and c.slug='banglim-myeongji-roadhill'
-              and cu.building_code='pv-canary'
-              and cu.unit_code='pv-canary-unit'
+              and cu.building_code=${canaryBuilding}
+              and cu.unit_code=${canaryUnit}
           `;
           console.log('OWNER_PREVIEW_762_CANARY_UNIT_HIDDEN=PASS');
           NODE
