@@ -158,15 +158,15 @@ assert.match(index, /const r=await __session\.request\(fetch,__session\.joinUrl\
   'a failed sign-out must keep the signed-in state; only success clears it');
 assert.ok(index.includes(`danjionAuthBase(),'/api/auth/sign-out'),{method:'POST',body:JSON.stringify({})}`),
   'sign-out must be a POST carrying the Better Auth empty JSON object body');
-assert.ok(index.includes(`['danjionMember','danjionSignedUp','danjionAuthPending','danjionGuest','danjionPrototypeProvider'].forEach(key=>sessionStorage.removeItem(key));sessionUserName='';memberMode=false;sessionResolved=true;syncMemberState()`),
+assert.ok(index.includes(`['danjionMember','danjionSignedUp','danjionAuthPending','danjionAuthIntent','danjionGuest','danjionPrototypeProvider'].forEach(key=>sessionStorage.removeItem(key));sessionUserName='';memberMode=false;sessionResolved=true;syncMemberState()`),
   'logout must clear member markers, resolve the guest state, and resync the landing');
 assert.ok(index.includes(`showToast('로그아웃되었습니다.')`), 'logout success must be announced');
 
 /* ================= 4. one-time login-success toast after the OAuth round trip ================= */
-assert.ok(index.includes(`q.set('requestSignUp','1');sessionStorage.setItem('danjionAuthPending','1');location.href=__session.joinUrl(__session.danjionAuthBase(),'/auth/social-start')`),
-  'social start must arm the one-time pending marker before leaving the page');
-assert.match(index, /if\(sessionStorage\.getItem\('danjionAuthPending'\)==='1'\)\{\s*sessionStorage\.removeItem\('danjionAuthPending'\);\s*showToast\('로그인되었습니다\.'\);?\s*\}/,
-  'the confirmed session must consume the marker once and toast 로그인되었습니다.');
+assert.match(index, /if\(mode==='signup'\)q\.set\('requestSignUp','1'\);sessionStorage\.setItem\('danjionAuthPending','1'\);sessionStorage\.setItem\('danjionAuthIntent',mode\);location\.href=__session\.joinUrl\(__session\.danjionAuthBase\(\),'\/auth\/social-start'\)/,
+  'social start must preserve whether the user chose signup or login');
+assert.match(index, /if\(sessionStorage\.getItem\('danjionAuthPending'\)==='1'\)\{\s*const authIntent=sessionStorage\.getItem\('danjionAuthIntent'\)\|\|'login';\s*sessionStorage\.removeItem\('danjionAuthPending'\);\s*sessionStorage\.removeItem\('danjionAuthIntent'\);[\s\S]*?if\(authIntent==='signup'\)\{[\s\S]*?location\.replace\('26_우리집연결\.html\?from=onboarding'\);[\s\S]*?\}[\s\S]*?showToast\('로그인되었습니다\.'\);/,
+  'the confirmed social session must route signup to household onboarding while login keeps the one-time toast');
 assert.match(index, /sessionStorage\.removeItem\('danjionMember'\);\s*sessionStorage\.removeItem\('danjionSignedUp'\);\s*sessionStorage\.removeItem\('danjionAuthPending'\)/,
   'a rejected session check must drop the stale pending marker too');
 assert.match(index, /memberMode=real;sessionResolved=true;syncMemberState\(\)/,
