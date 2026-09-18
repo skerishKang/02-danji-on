@@ -7,6 +7,7 @@ export const OPERATIONAL_ADMIN_SCOPES = Object.freeze([
   'inquiry.respond',
   'official-content.manage',
   'resident.verification.exempt',
+  'resident.verification.manage',
   'resident_news.review',
   'safety.report.review'
 ] as const);
