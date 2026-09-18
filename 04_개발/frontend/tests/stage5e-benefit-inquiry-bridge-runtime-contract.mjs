@@ -102,6 +102,13 @@ const COMPLEX_SLUG = 'banglim-myeongji-roadhill';
     assert.equal(result.status, 403);
     assert.equal(result.ok, false);
   }
+  {
+    const bridge = createBenefitClaimBridge({ fetchImpl: async () => makeResponse(403, 'FORBIDDEN') });
+    const result = await bridge.claim(BENEFIT_ID);
+    assert.equal(result.mode, 'forbidden');
+    assert.equal(result.status, 403);
+    assert.equal(result.ok, false);
+  }
 
   // network failure and server errors fail closed with mode error.
   {
@@ -208,6 +215,12 @@ const COMPLEX_SLUG = 'banglim-myeongji-roadhill';
     const bridge = createInquiryBridge({ fetchImpl: async () => makeResponse(403, 'RESIDENT_VERIFICATION_REQUIRED') });
     const result = await bridge.submit({ shopKey: 'api-' + BENEFIT_ID, shopName: '가게', subject: '제목', text: '내용' });
     assert.equal(result.mode, 'resident-verification-required');
+    assert.equal(result.status, 403);
+  }
+  {
+    const bridge = createInquiryBridge({ fetchImpl: async () => makeResponse(403, 'FORBIDDEN') });
+    const result = await bridge.submit({ shopKey: 'api-' + BENEFIT_ID, shopName: '가게', subject: '제목', text: '내용' });
+    assert.equal(result.mode, 'forbidden');
     assert.equal(result.status, 403);
   }
 
