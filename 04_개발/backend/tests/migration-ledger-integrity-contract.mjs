@@ -77,7 +77,8 @@ assert.deepEqual([...new Set(inventory)].length, inventory.length, 'inventory fi
 
 // Rule 5: ordering is deterministic numeric, contiguous, and immune to ledger insertion order.
 const prodPrefixes = inventory.filter(f => !DEV_FILES.includes(f)).map(number).sort((a, b) => a - b);
-assert.deepEqual(prodPrefixes, Array.from({ length: 49 }, (_, i) => i + 1), 'production migrations must stay contiguous 001..049');
+const highestProdPrefix = prodPrefixes.at(-1) || 0;
+assert.deepEqual(prodPrefixes, Array.from({ length: highestProdPrefix }, (_, i) => i + 1), `production migrations must stay contiguous 001..${String(highestProdPrefix).padStart(3, '0')}`);
 for (const f of inventory) assert.match(f, /^\d{3}_/, `${f} must keep 3-digit zero-padded numeric ordering`);
 assert.deepEqual([...inventory].sort(), [...inventory].sort((a, b) => number(a) - number(b)), 'lexicographic order must equal numeric order');
 const reversedLedger = { ...ledger, migrations: Object.fromEntries(Object.entries(ledger.migrations).reverse()) };
