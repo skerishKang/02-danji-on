@@ -58,7 +58,7 @@ assert.match(adminBridge, /household-memberships\?status=pending/);
 assert.match(adminBridge, /reviewHouseholdMembership/);
 assert.match(adminBridge, /JSON\.stringify\(\{ decision: nextDecision \}\)/);
 
-assert.match(adminPage, /우리집 연결 승인/);
+assert.match(adminBridge, /우리집 연결 승인/);
 assert.match(adminPage, /function householdReviewControls/);
 assert.match(adminPage, /'approve','승인'/);
 assert.match(adminPage, /'reject','거절·해제'/);
