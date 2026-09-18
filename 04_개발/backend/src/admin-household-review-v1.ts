@@ -200,27 +200,33 @@ async function reviewPending(
 
   try {
     const rows = await sql`
-      with target as materialized (
+      with ranked as materialized (
         select
           hm.id,
-          hm.complex_id,
           hm.household_id,
-          hm.user_id,
+          hm.complex_id,
           row_number() over (
             partition by hm.household_id
             order by hm.created_at asc, hm.id asc
           )::int as member_position
         from household_memberships hm
+        where hm.status in ('pending','verified')
+      ), guarded as materialized (
+        select
+          hm.id,
+          hm.complex_id,
+          hm.household_id,
+          hm.user_id,
+          ranked.member_position
+        from household_memberships hm
+        join ranked on ranked.id = hm.id
         join complexes c on c.id = hm.complex_id
         where hm.id = ${membershipId}::uuid
           and hm.status = 'pending'
+          and ranked.member_position >= 3
           and c.status <> 'inactive'
         limit 1
         for update of hm
-      ), guarded as materialized (
-        select target.*
-        from target
-        where target.member_position >= 3
       ), changed as (
         update household_memberships hm
         set
