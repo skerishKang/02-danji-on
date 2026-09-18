@@ -59,143 +59,152 @@ try {
   });
   record('NAV_CANDIDATES_EXIST', navClicked);
 
-  // ---------- community: open 이웃대화 via the real nav flow ----------
-  // 1) topbar nav "우리단지" opens V2ComplexHub
-  // 2) hub card "이웃대화 들어가기" opens V2CommunityView
+  // ---------- community: exercise the canonical static multi-page flow ----------
+  // QA Pages serves the same static multi-page community surface as the canonical site.
+  // Pin the question tab so #writeMain deterministically routes to 16_궁금해요_글쓰기.html.
   let communityOpened = false;
   try {
-    await page.locator('[data-v2-nav-key="community"], button:has-text("우리단지")').first().click({ timeout: 8_000 });
-    await page.waitForTimeout(2_000);
-    await page.getByRole('button', { name: /이웃대화 들어가기/ }).first().click({ timeout: 8_000 });
+    await page.goto(`${FRONTEND}/12_%EC%9D%B4%EC%9B%83%EB%8C%80%ED%99%94_%EC%B2%AB%ED%99%94%EB%A9%B4.html?type=question`, {
+      waitUntil: 'domcontentloaded',
+      timeout: 30_000
+    });
     await page.waitForTimeout(2_500);
-    const content = await page.content();
-    communityOpened = /이웃대화|궁금해요|같이해요|가입인사|단지이야기/.test(content);
+    communityOpened = await page.locator('#writeMain, .write-main').first().isVisible().catch(() => false);
   } catch {}
   record('COMMUNITY_OPENED', communityOpened);
 
   if (communityOpened) {
-    // switch to a writable tab first (default tab is 가입인사 which is write-locked)
-    // choose 궁금해요 or 단지이야기 or 같이해요 — first visible one
-    for (const kind of ['궁금해요', '단지이야기', '같이해요']) {
-      const tabBtn = page.locator(`button:has-text("${kind}")`).first();
-      if (await tabBtn.isVisible().catch(() => false)) {
-        await tabBtn.click({ timeout: 4_000 }).catch(() => {});
-        await page.waitForTimeout(1_000);
-        break;
-      }
-    }
-
-    // ---------- write a post through the UI ----------
     let writeOpened = false;
     try {
-      const writeBtn = page.locator('.v2-community-write-main, [aria-label="현재 카테고리 글쓰기"], button:has-text("글쓰기")').first();
-      await writeBtn.click({ timeout: 8_000 });
-      await page.waitForTimeout(1_500);
-      writeOpened = true;
+      await page.locator('#writeMain, .write-main').first().click({ timeout: 8_000 });
+      await page.waitForLoadState('domcontentloaded', { timeout: 15_000 });
+      await page.waitForTimeout(2_000);
+      const titleReady = await page.locator('#title').first().isVisible().catch(() => false);
+      const bodyReady = await page.locator('#body').first().isVisible().catch(() => false);
+      const publishReady = await page.locator('[data-publish]').first().isVisible().catch(() => false);
+      writeOpened = titleReady && bodyReady && publishReady;
     } catch {}
     record('WRITE_FORM_OPENED', writeOpened);
 
     if (writeOpened) {
-      // choose a kind if a selector list exists (같이해요 is a standard writable kind)
-      for (const kind of ['같이해요', '궁금해요', '단지이야기']) {
-        const kindBtn = page.locator(`button:has-text("${kind}")`).first();
-        if (await kindBtn.isVisible().catch(() => false)) {
-          await kindBtn.click({ timeout: 4_000 }).catch(() => {});
-          await page.waitForTimeout(800);
-          break;
-        }
-      }
-      // fill title/body if present (writer form uses name=title / name=body)
       let filled = false;
       try {
-        const titleInput = page.locator('input[name="title"], input[placeholder*="제목"], input[placeholder*="무엇"]').first();
-        if (await titleInput.isVisible().catch(() => false)) {
-          await titleInput.fill(POST_TITLE, { timeout: 5_000 });
-        }
-        const bodyArea = page.locator('textarea[name="body"], textarea').first();
-        if (await bodyArea.isVisible().catch(() => false)) {
-          await bodyArea.fill(POST_BODY, { timeout: 5_000 });
-          filled = true;
-        }
+        await page.locator('#title').first().fill(POST_TITLE, { timeout: 5_000 });
+        await page.locator('#body').first().fill(POST_BODY, { timeout: 5_000 });
+        filled = true;
       } catch {}
       record('WRITE_FORM_FILLED', filled);
 
-      // submit (게시하기 primary button)
       let submitted = false;
+      let postAccepted = false;
+      let postStatus = 0;
       try {
-        // session may have expired between login and submit — refresh via API if needed
-        const s = await sessionShape(context);
-        if (!s.hasSession) {
-          console.log('DEBUG_SESSION_EXPIRED_BEFORE_SUBMIT=true — refreshing via API sign-in');
-          await context.request.post(`${FRONTEND}/api/auth/sign-in/email`, {
+        // Preserve #724: navigation can outlive the original UI session. Refresh only
+        // through the QA same-origin auth facade when the current session is absent.
+        const beforeSubmit = await sessionShape(context);
+        if (!beforeSubmit.hasSession) {
+          console.log('DEBUG_SESSION_EXPIRED_BEFORE_SUBMIT=true');
+          const refreshed = await context.request.post(`${FRONTEND}/api/auth/sign-in/email`, {
             headers: { Origin: FRONTEND, 'Content-Type': 'application/json' },
             data: { email, password }
           });
+          const afterRefresh = await sessionShape(context);
+          if (!refreshed.ok() || !afterRefresh.hasSession) throw new Error('QA_SESSION_REFRESH_FAILED');
           await page.waitForTimeout(1_000);
         }
-        const submitBtn = page.locator('button:has-text("게시하기"), button[type="submit"]').first();
-        await submitBtn.click({ timeout: 6_000 });
-        await page.waitForTimeout(3_500);
+
+        const responsePromise = page.waitForResponse((response) => {
+          if (response.request().method() !== 'POST') return false;
+          try {
+            const url = new URL(response.url());
+            return /\/api\/v1\/complexes\/[^/]+\/community\/posts$/.test(url.pathname);
+          } catch {
+            return false;
+          }
+        }, { timeout: 10_000 });
+
+        await page.locator('[data-publish]').first().click({ timeout: 6_000 });
+        const response = await responsePromise;
+        postStatus = response.status();
+        postAccepted = response.ok();
         submitted = true;
+        await page.waitForTimeout(2_500);
       } catch {}
-      record('POST_SUBMITTED', submitted);
+      record('POST_SUBMITTED', submitted, postStatus ? `HTTP_${postStatus}` : '');
+      record('POST_WRITE_ACCEPTED', postAccepted, postStatus ? `HTTP_${postStatus}` : 'NO_SERVER_RESPONSE');
 
-      // verify the post: success notice, or pending notice (both prove the write flow worked)
       let visible = false;
-      let pending = false;
-      let published = false;
-      let debugNotice = '';
-      try {
-        await page.waitForTimeout(2_000);
-        const noticeText = await page.locator('.v2-community-notice, [role="status"]').first().innerText().catch(() => '');
-        debugNotice = (noticeText || '').replace(/\s+/g, ' ').slice(0, 80);
-        pending = /운영확인|접수/.test(noticeText || '');
-        published = /게시했/.test(noticeText || '');
-        // the new post should also be in the list for its tab (detail or list text)
-        const found = page.getByText(`상호작용 점검 ${STAMP}`, { exact: false }).first();
-        visible = await found.isVisible().catch(() => false);
-      } catch {}
-      console.log(`DEBUG_NOTICE=[${debugNotice}]`);
-      console.log(`DEBUG_PENDING=${pending} DEBUG_PUBLISHED=${published} DEBUG_VISIBLE=${visible}`);
-      record('POST_WRITE_ACCEPTED', pending || published || visible,
-        pending ? 'OPERATION_REVIEW_PENDING' : published ? 'PUBLISHED_NOTICE' : visible ? 'VISIBLE_IN_LIST' : 'NO_EVIDENCE');
-      record('POST_VISIBLE_IN_LIST', visible, pending && !visible ? 'OPERATION_REVIEW_PENDING' : '');
+      if (postAccepted) {
+        try {
+          await page.waitForTimeout(1_500);
+          visible = await page.getByText(`상호작용 점검 ${STAMP}`, { exact: false }).first().isVisible().catch(() => false);
+        } catch {}
+      }
+      record(
+        'POST_VISIBILITY_DISPOSITION',
+        postAccepted,
+        visible ? 'VISIBLE_IN_LIST' : postAccepted ? 'ACCEPTED_NOT_PUBLIC' : 'NOT_ACCEPTED'
+      );
 
-      // ---------- comment on the post if detail view is reachable ----------
-      if (visible) {
+      if (postAccepted && visible) {
+        let commentAccepted = false;
+        let commentVisible = false;
+        let commentStatus = 0;
         try {
           await page.getByText(`상호작용 점검 ${STAMP}`, { exact: false }).first().click({ timeout: 6_000 });
+          await page.waitForLoadState('domcontentloaded', { timeout: 15_000 });
+          await page.waitForTimeout(1_500);
+
+          const commentBox = page.locator('#commentText').first();
+          await commentBox.fill(COMMENT_BODY, { timeout: 5_000 });
+          const responsePromise = page.waitForResponse((response) => {
+            if (response.request().method() !== 'POST') return false;
+            try {
+              const url = new URL(response.url());
+              return /\/api\/v1\/complexes\/[^/]+\/community\/posts\/[^/]+\/comments$/.test(url.pathname);
+            } catch {
+              return false;
+            }
+          }, { timeout: 10_000 });
+          await page.locator('#commentForm button[type="submit"]').first().click({ timeout: 6_000 });
+          const response = await responsePromise;
+          commentStatus = response.status();
+          commentAccepted = response.ok();
           await page.waitForTimeout(2_000);
-          const commentBox = page.locator('textarea[placeholder*="댓글"], input[placeholder*="댓글"], textarea').first();
-          if (await commentBox.isVisible().catch(() => false)) {
-            await commentBox.fill(COMMENT_BODY, { timeout: 5_000 });
-            const commentBtn = page.locator('button:has-text("댓글"), button:has-text("등록"), button:has-text("게시")').first();
-            await commentBtn.click({ timeout: 6_000 });
-            await page.waitForTimeout(2_500);
-            const commentShown = await page.getByText(`QA테스트 댓글 ${STAMP}`, { exact: false }).first().isVisible().catch(() => false);
-            record('COMMENT_POSTED_AND_VISIBLE', commentShown);
-          } else {
-            record('COMMENT_POSTED_AND_VISIBLE', false, 'NO_COMMENT_BOX');
-          }
-        } catch (error) {
-          record('COMMENT_POSTED_AND_VISIBLE', false, error instanceof Error ? error.name : 'UNKNOWN');
-        }
+          commentVisible = await page.getByText(`QA테스트 댓글 ${STAMP}`, { exact: false }).first().isVisible().catch(() => false);
+        } catch {}
+        record('COMMENT_WRITE_ACCEPTED', commentAccepted, commentStatus ? `HTTP_${commentStatus}` : 'NO_SERVER_RESPONSE');
+        record(
+          'COMMENT_VISIBILITY_DISPOSITION',
+          commentAccepted,
+          commentVisible ? 'VISIBLE_IN_DETAIL' : commentAccepted ? 'ACCEPTED_NOT_PUBLIC' : 'NOT_ACCEPTED'
+        );
+      } else if (postAccepted) {
+        // A moderation-pending post is a valid product result but cannot be commented on
+        // until it becomes public. Record the bounded disposition without pretending a
+        // comment mutation occurred.
+        record('COMMENT_FLOW_DISPOSITION', true, 'SKIPPED_POST_NOT_PUBLIC');
       }
     }
   }
 
-  // ---------- cleanup: sign out (writer modal or detail modal may still be open) ----------
-  // close any open modal first so the topbar logout button is clickable
-  const closeBtn = page.locator('[aria-label="글쓰기 닫기"], [aria-label="게시물 닫기"]').first();
-  if (await closeBtn.isVisible().catch(() => false)) {
-    await closeBtn.click({ timeout: 4_000 }).catch(() => {});
-    await page.waitForTimeout(1_000);
-  }
-  const logout = page.getByRole('button', { name: '로그아웃' }).first();
-  if (await logout.isVisible().catch(() => false)) {
-    await logout.click({ timeout: 8_000 }).catch(() => {});
-    await page.waitForTimeout(3_000);
-  }
+  // ---------- cleanup: sign out through the real static account menu ----------
+  let logoutClicked = false;
+  try {
+    const accountTrigger = page.locator('.danjion-account-trigger').first();
+    if (await accountTrigger.isVisible().catch(() => false)) {
+      await accountTrigger.click({ timeout: 5_000 });
+      await page.waitForTimeout(300);
+    }
+    const logout = page.getByRole('button', { name: '로그아웃', exact: true }).first();
+    if (await logout.isVisible().catch(() => false)) {
+      await logout.click({ timeout: 8_000 });
+      logoutClicked = true;
+      await page.waitForTimeout(3_000);
+    }
+  } catch {}
+  record('LOGOUT_UI_TRIGGERED', logoutClicked);
+
   // verify cleared via API regardless of UI logout visibility
   const after = await context.request.get(`${FRONTEND}/api/auth/get-session`, { headers: { Origin: FRONTEND } });
   const afterBody = await after.json().catch(() => null);

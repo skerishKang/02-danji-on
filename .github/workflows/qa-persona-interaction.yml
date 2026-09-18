@@ -1,6 +1,11 @@
 name: QA Persona Interaction
 
 on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-persona-interaction.yml'
+      - '04_개발/frontend/scripts/qa-persona-interaction.mjs'
+      - '04_개발/frontend/tests/qa-persona-interaction-contract.mjs'
   workflow_dispatch:
     inputs:
       expected_main:
@@ -21,8 +26,22 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  source-contract:
+    name: QA persona interaction source safety contract
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Syntax-check interaction browser script
+        run: node --check 04_개발/frontend/scripts/qa-persona-interaction.mjs
+      - name: Verify interaction source contract
+        run: node 04_개발/frontend/tests/qa-persona-interaction-contract.mjs
+
   live-interaction:
     name: Validate real post/comment write flows on QA
+    needs: source-contract
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_live }}
     runs-on: ubuntu-latest
     environment: qa
