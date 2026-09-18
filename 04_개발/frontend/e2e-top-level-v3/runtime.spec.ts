@@ -230,10 +230,11 @@ test('#604 Shops preserves adopted V3 presentation while promoting matched live 
   await expect(page.locator('#shopCompareDesc')).toHaveText('계절 꽃다발과 작은 선물을 예약 상담으로 준비합니다.');
 
   await page.locator('#shopCompareBenefitBtn').click();
-  await page.locator('#shopCouponStore').click();
+  await expect(page.locator('#shopCouponStore')).toBeDisabled();
+  await expect(page.locator('#shopCouponStore')).toHaveText('혜택 받기');
   await expect.poll(async () =>
-    page.evaluate(() => JSON.parse(localStorage.getItem('danjion:savedBenefits') || '[]'))
-  ).toContain(apiKey);
+    page.evaluate(() => localStorage.getItem('danjion:savedBenefits'))
+  ).toBeNull();
 
   await guard.assertClean();
 });
