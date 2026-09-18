@@ -36,14 +36,14 @@ const BASE_CTES = `
       scopes,
       grant_rows,
       case
-        when cardinality(scopes) = 9
-          and scopes @> array['*','benefit.manage','business.review','community.moderate','inquiry.respond','official-content.manage','resident.verification.exempt','resident_news.review','safety.report.review']::text[]
+        when cardinality(scopes) = 10
+          and scopes @> array['*','benefit.manage','business.review','community.moderate','inquiry.respond','official-content.manage','resident.verification.exempt','resident.verification.manage','resident_news.review','safety.report.review']::text[]
           and array['*','benefit.manage','business.review','community.moderate','inquiry.respond','official-content.manage','resident.verification.exempt','resident_news.review','safety.report.review']::text[] @> scopes
           then 'admin'
-        when cardinality(scopes) = 8
+        when cardinality(scopes) = 9
           and array_position(scopes, '*') is null
-          and scopes @> array['benefit.manage','business.review','community.moderate','inquiry.respond','official-content.manage','resident.verification.exempt','resident_news.review','safety.report.review']::text[]
-          and array['benefit.manage','business.review','community.moderate','inquiry.respond','official-content.manage','resident.verification.exempt','resident_news.review','safety.report.review']::text[] @> scopes
+          and scopes @> array['benefit.manage','business.review','community.moderate','inquiry.respond','official-content.manage','resident.verification.exempt','resident.verification.manage','resident_news.review','safety.report.review']::text[]
+          and array['benefit.manage','business.review','community.moderate','inquiry.respond','official-content.manage','resident.verification.exempt','resident.verification.manage','resident_news.review','safety.report.review']::text[] @> scopes
           then 'operator'
         else 'other'
       end as authority_role
@@ -132,10 +132,10 @@ async function readState() {
         where status = 'active'
           and (expires_at is null or expires_at > now())
           and authority_level = 'operator'
-          and cardinality(scopes) = 8
+          and cardinality(scopes) = 9
           and array_position(scopes, '*') is null
-          and scopes @> array['benefit.manage','business.review','community.moderate','inquiry.respond','official-content.manage','resident.verification.exempt','resident_news.review','safety.report.review']::text[]
-          and array['benefit.manage','business.review','community.moderate','inquiry.respond','official-content.manage','resident.verification.exempt','resident_news.review','safety.report.review']::text[] @> scopes
+          and scopes @> array['benefit.manage','business.review','community.moderate','inquiry.respond','official-content.manage','resident.verification.exempt','resident.verification.manage','resident_news.review','safety.report.review']::text[]
+          and array['benefit.manage','business.review','community.moderate','inquiry.respond','official-content.manage','resident.verification.exempt','resident.verification.manage','resident_news.review','safety.report.review']::text[] @> scopes
       ) as allowlist_operational,
       (select count(*)::int from active_grants) as active_grant_rows,
       (select count(*)::int from classified where authority_role = 'admin') as super_users,
@@ -443,7 +443,7 @@ async function applyAdoption() {
         i.authority_role,
         case
           when i.authority_role = 'admin' then array['*']::text[]
-          else array['benefit.manage','business.review','community.moderate','inquiry.respond','official-content.manage','resident.verification.exempt','resident_news.review','safety.report.review']::text[]
+          else array['benefit.manage','business.review','community.moderate','inquiry.respond','official-content.manage','resident.verification.exempt','resident.verification.manage','resident_news.review','safety.report.review']::text[]
         end,
         'active',
         null,
