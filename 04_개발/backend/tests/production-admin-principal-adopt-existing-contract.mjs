@@ -47,10 +47,10 @@ for (const forbiddenIdentity of [
     'adoption source must never hardcode an administrator identity');
 }
 
-assert.match(script, /cardinality\(scopes\) = 9[\s\S]*resident\.verification\.exempt/,
-  'SUPER candidates must be discovered from the exact canonical 9-scope runtime shape');
-assert.match(script, /cardinality\(scopes\) = 8[\s\S]*array_position\(scopes, '\*'\) is null/,
-  'OPERATIONAL candidates must be discovered from the exact canonical 8-scope runtime shape');
+assert.match(script, /cardinality\(scopes\) = 10[\s\S]*resident\.verification\.manage/,
+  'SUPER candidates must be discovered from the exact canonical 10-scope runtime shape');
+assert.match(script, /cardinality\(scopes\) = 9[\s\S]*array_position\(scopes, '\*'\) is null[\s\S]*resident\.verification\.manage/,
+  'OPERATIONAL candidates must be discovered from the exact canonical 9-scope runtime shape');
 assert.match(script, /left join app_users au on au\.id = c\.user_id/,
   'candidate authority must resolve through the canonical app actor');
 assert.match(script, /left join danjion_auth\."user" u on u\.id = au\.auth_user_id/,
@@ -111,8 +111,8 @@ assert.match(script, /'provider', i\.canonical_provider/,
   'existing grant tracking metadata must preserve the adopted provider');
 assert.match(script, /when i\.authority_role = 'admin' then array\['\*'\]::text\[\]/,
   'SUPER allowlist storage must remain migration-049 compatible');
-assert.match(script, /else array\['benefit\.manage','business\.review','community\.moderate','inquiry\.respond','official-content\.manage','resident\.verification\.exempt','resident_news\.review','safety\.report\.review'\]::text\[\]/,
-  'OPERATIONAL allowlist storage must preserve all eight bounded scopes');
+assert.match(script, /else array\['benefit\.manage','business\.review','community\.moderate','inquiry\.respond','official-content\.manage','resident\.verification\.exempt','resident\.verification\.manage','resident_news\.review','safety\.report\.review'\]::text\[\]/,
+  'OPERATIONAL allowlist storage must preserve all nine bounded scopes');
 
 const grantUpdate = script.match(/update padiem_operator_grants g[\s\S]*?returning g\.id, g\.user_id, g\.scope/);
 assert.ok(grantUpdate, 'apply must attach existing grants through one bounded metadata update');
