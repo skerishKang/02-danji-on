@@ -251,7 +251,8 @@ if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt
   }
   function loadList(){
     bridge.listMine().then(function(r){
-      if(r.mode==='auth-required'){note('로그인 후 이용 가능합니다.');return;}
+       if(r.mode==='auth-required'){note('로그인 후 이용 가능합니다.');return;}
+       if(r.mode==='resident-verification-required'){note('주민인증 후 이용 가능한 문의입니다. 계정·로그인 문의는 운영팀에 직접 접수해 주세요.');return;}
       if(r.ok===false||r.mode==='error'){note('잠시 후 다시 시도해 주세요.');return;}
       var rows=r.inquiries||[];
       if(!rows.length){note('등록된 문의가 없습니다.');return;}
@@ -281,7 +282,8 @@ if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt
           return;
         }
         if(r&&r.mode==='client'){notify('제목과 내용을 입력해 주세요.');return;}
-        if(r&&r.mode==='auth-required'){notify('로그인 후 이용 가능합니다.');return;}
+       if(r&&r.mode==='auth-required'){notify('로그인 후 이용 가능합니다.');return;}
+       if(r&&r.mode==='resident-verification-required'){notify(activeType()==='account'?'계정·로그인 문의는 운영팀에 직접 접수해 주세요. 주민인증이 필요한 문의는 주민인증 후 이용할 수 있습니다.':'주민인증 후 문의를 접수할 수 있습니다.');return;}
         notify('문의 접수에 실패했습니다.');
       }).catch(function(){busy=false;submit.disabled=false;notify('문의 접수에 실패했습니다.');});
     });

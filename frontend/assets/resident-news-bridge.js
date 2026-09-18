@@ -80,6 +80,16 @@ export function createResidentNewsBridge({
       if (!result.ok) return result;
       const post = normalizeResidentNewsPost(result.data);
       return { ...result, post: UUID.test(post.id) ? post : null };
+    },
+    async submit(input = {}) {
+      const title = text(input.title).trim();
+      const body = text(input.body).trim();
+      if (!title || !body) return validationError();
+      return call(`${feedPath}/submissions`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ title, body })
+      });
     }
   };
 }
