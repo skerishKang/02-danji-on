@@ -1091,7 +1091,8 @@
   {key:'beauty',category:'home',name:'정다운 헤어',relation:'주민 가족 가게',image:'assets/scene-beauty.webp',desc:'가족이 운영하는 생활 미용 서비스로 커트와 기본 관리를 제공합니다.',service:'커트 · 염색 · 기본 케어',way:'화–일 예약 우선',location:'방림동 인근',contact:'1:1 문의로 예약 상담',reviews:[['산책메이트 · 방림명지로드힐 주민','2026.08.23','요청한 스타일을 잘 반영해 주셨어요.']],benefit:'입주민 커트 할인',value:'할인',code:'DANJION · B018'},
   {key:'photo',category:'pro',name:'사진하는 이웃',relation:'우리 주민 가게',image:'assets/scene-photo.webp',desc:'가족사진과 프로필을 자연스럽게 촬영하고 기본 보정을 제공합니다.',service:'가족사진 · 프로필 · 소규모 촬영',way:'주말·평일 저녁 예약',location:'광주 남구 촬영',contact:'1:1 문의로 촬영 상담',reviews:[['하루한잔 · 방림명지로드힐 주민','2026.08.17','가족사진 분위기를 편하게 잡아 주셔서 좋았습니다.']],benefit:'입주민 촬영비 할인',value:'촬영할인',code:'DANJION · PH01'}
  ];
-  const __V3_PRESENTATION=SHOP_DATA.map(s=>({...s}));
+  const __V3_PRESENTATION=SHOP_DATA.map(s=>({key:s.key,name:s.name,image:s.image}));
+  const __V3_COPY_FALLBACK=SHOP_DATA.map(s=>({...s}));
  if(PRODUCTION_SERVER_MODE)SHOP_DATA=[];
  let byKey=Object.fromEntries(SHOP_DATA.map(s=>[s.key,s]));
  let businessAuthorityState=PRODUCTION_SERVER_MODE?'loading':'demo';
@@ -1278,7 +1279,7 @@ grid.addEventListener('keydown',e=>{
     };
  }
  function reconcileApiShops(list){
-   const staticByName=new Map(__V3_PRESENTATION.map(s=>[normalizedBusinessName(s.name),s]));
+    const staticByName=new Map(__V3_COPY_FALLBACK.map(s=>[normalizedBusinessName(s.name),s]));
    return list.map(live=>reconcileApiShop(live,staticByName));
  }
  function apiShops(){
