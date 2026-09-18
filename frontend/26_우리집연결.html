@@ -161,9 +161,12 @@
       statusTitle.textContent='주민인증 완료';statusCopy.textContent='세대 코드 확인이 완료되어 주민 권한과 우리집 연결이 활성화되었습니다.';
       document.getElementById('houseLabel').textContent=(result.buildingCode||'—')+'동 '+(result.unitCode||'—')+'호';
     }
-    function showUnverified(){
+    function showUnverified(result){
       verifiedView.hidden=true;verifyView.hidden=false;signedOutView.hidden=true;
-      statusTitle.textContent='주민인증이 필요해요';statusCopy.textContent='문자로 안내받은 세대별 코드를 입력하면 우리집 연결까지 한 번에 완료됩니다.';
+      statusTitle.textContent='주민인증이 필요해요';
+      statusCopy.textContent=result&&result.state==='unverified-associated'
+        ? '우리집 연결 기록은 있지만 주민인증은 아직 완료되지 않았습니다. 해당 세대의 문자 코드를 입력해 주세요.'
+        : '문자로 안내받은 세대별 코드를 입력하면 우리집 연결까지 한 번에 완료됩니다.';
     }
     function showSignedOut(){
       verifiedView.hidden=true;verifyView.hidden=true;signedOutView.hidden=false;supportPanel.hidden=true;
@@ -177,7 +180,7 @@
       if(!api){showError('주민인증 기능을 불러오지 못했습니다.');return}
       const result=await api.status();
       if(result.state==='verified'){showVerified(result);return}
-      if(result.state==='unverified'){showUnverified();return}
+      if(result.state==='unverified'||result.state==='unverified-associated'){showUnverified(result);return}
       if(result.state==='signed-out'){showSignedOut();return}
       if(result.state==='unbound'){showError('이 환경에서는 주민인증을 실행하지 않습니다.');return}
       showError(result.state==='network-error'?'서버 연결에 실패했습니다. 잠시 후 다시 시도해 주세요.':'주민인증 상태를 확인할 수 없습니다.');
