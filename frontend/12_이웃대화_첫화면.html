@@ -112,26 +112,15 @@ const TYPES={
  question:{label:'궁금해요',write:'16_궁금해요_글쓰기.html'},
  together:{label:'같이해요',write:'17_같이해요_글쓰기.html'}
 };
-const POSTS=[
- {id:'hello1',type:'hello',author:'초록문',level:'새 이웃',time:'18분 전',title:'안녕하세요. 오늘 단지온에 처음 가입했어요.',likes:12,comments:4},
- {id:'story1',type:'story',author:'길고양이',level:'도움 주는 이웃',time:'41분 전',title:'오늘 분리수거장이 깨끗하게 정리되어 있네요.',likes:19,comments:3},
- {id:'question1',type:'question',author:'연블리',level:'참여하는 이웃',time:'1시간 전',title:'세탁기 청소 맡겨보신 분 계실까요?',likes:4,comments:4},
- {id:'together1',type:'together',author:'봄날',level:'인사하는 이웃',time:'2시간 전',title:'평일 저녁에 단지 주변 같이 걸으실 분 계세요?',likes:7,comments:3}
-];
 const params=new URLSearchParams(location.search);let selected=params.get('type')||'hello';
 if(!TYPES[selected])selected='hello'; let showAll=params.get('view')==='all';
 const list=document.getElementById('postList'), writeMain=document.getElementById('writeMain'), mobileWrite=document.getElementById('mobileWrite'), allBtn=document.querySelector('.all-filter');
-function initials(name){return name.slice(0,1)}
 function writeTarget(){location.href=TYPES[selected].write}
 function render(){
  document.querySelectorAll('.topic').forEach(b=>b.classList.toggle('active',b.dataset.type===selected));
  writeMain.childNodes[0].nodeValue=TYPES[selected].label+' 글쓰기 ';
  allBtn.classList.toggle('active',showAll);
- const data=showAll?POSTS:POSTS.filter(p=>p.type===selected);
- list.innerHTML=data.map(p=>`<article class="post-row" data-type="${p.type}">
- <div class="author"><span class="avatar">${initials(p.author)}</span><div><b>${p.author}</b><small>${p.level} · ${p.time}</small></div></div>
- <div class="post-title"><span class="type">${TYPES[p.type].label}</span><a href="13_이웃대화_글상세_댓글.html?type=${p.type}&post=${p.id}${showAll?'&from=all':''}">${p.title}</a></div>
- <div class="meta-actions"><span>♡ 공감 ${p.likes}</span><span>댓글 ${p.comments}</span></div></article>`).join('');
+ list.innerHTML='<article class="post-row" data-server-placeholder="true"><div class="post-title"><span class="type">알림</span><b>이웃대화를 불러오는 중입니다.</b></div></article>';
 }
 document.querySelectorAll('.topic').forEach(b=>b.addEventListener('click',()=>{selected=b.dataset.type;showAll=false;try{history.replaceState(null,'','?type='+selected)}catch(e){}render()}));
 allBtn.addEventListener('click',()=>{showAll=!showAll;try{history.replaceState(null,'',showAll?'?view=all&type='+selected:'?type='+selected)}catch(e){}render()});
@@ -144,7 +133,6 @@ render();
 <script id="danjion-community-list-live-wiring-329">
 (()=>{
  const apiBase=(window.DanjionSession&&DanjionSession.danjionApiBase())||'';
- if(!apiBase)return;
  const bridge=DanjionCommunityBridge.createCommunityBridge({apiBase});
  const list=document.getElementById('postList');
  const KIND={hello:'greeting',story:'resident_story',question:'question',together:'together'};
