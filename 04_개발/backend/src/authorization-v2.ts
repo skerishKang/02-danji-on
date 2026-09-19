@@ -1,6 +1,7 @@
 import type { NeonQueryFunction } from '@neondatabase/serverless';
 import { requireActor, type Actor, type AuthEnv } from './auth-v1';
 import { resolvePadiemAuthority } from './padiem-authority-v1';
+import { resolveOrdinaryTestResidentExemption } from './resident-verification-ordinary-exemption-v1';
 
 type Sql = NeonQueryFunction<false, false>;
 
@@ -154,7 +155,14 @@ export async function requireVerifiedResident(
     if (!row) {
       const authority = await resolvePadiemAuthority(sql, actor.id);
       if (!authority.scopes.includes(RESIDENT_VERIFICATION_EXEMPT_SCOPE)) {
-        return fail('RESIDENT_VERIFICATION_REQUIRED', 'Verified resident access required', 403, requestId);
+        // #823 fallback: the source-pinned ordinary test-resident allowlist.
+        // It creates no grants, so the account keeps authority level 'none'
+        // (never operator/admin), and the admission below keeps the same
+        // null-household semantics as the explicit grant path.
+        const ordinaryExempt = await resolveOrdinaryTestResidentExemption(sql, actor);
+        if (!ordinaryExempt) {
+          return fail('RESIDENT_VERIFICATION_REQUIRED', 'Verified resident access required', 403, requestId);
+        }
       }
 
       const complexRows = await sql`

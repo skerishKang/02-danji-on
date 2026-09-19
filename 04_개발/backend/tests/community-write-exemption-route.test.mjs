@@ -43,11 +43,17 @@ const ENV = {
 // ------------------------------------------------------------------ stub sql
 // Answers exactly the queries the route + gate issue. `scopes` controls the
 // authorization outcome; `membership` controls whether a household exists.
-function stubSql({ scopes = [], membership = null } = {}) {
+function stubSql({ scopes = [], membership = null, authUser = null } = {}) {
   const seen = [];
   const sql = async (strings, ...values) => {
     const text = strings.join('?');
     seen.push({ text, values });
+
+    // authorization-v2 #823: the ordinary test-resident fallback reads the
+    // actor's auth email; no other scenario in this file needs a row.
+    if (text.includes('from danjion_auth."user" u')) {
+      return authUser ? [authUser] : [];
+    }
 
     // auth-v1: actor by dev subject
     if (text.includes('from app_users') && text.includes('where auth_user_id =')) {
@@ -213,6 +219,47 @@ const EXEMPT = 'resident.verification.exempt';
   assert.equal(res.status, 403,
     'a non-exempt operator scope must not open the community write route');
   console.log('PASS UNRELATED_SCOPE_POST=403 (exemption is scope-exact, not any-operator)');
+}
+
+/* ===== F/G. #823 ordinary allowlisted test email — zero grants -> 201 ===== */
+const ORDINARY_EMAIL_USER = { email: 'skerish1@naver.com', email_verified: false, credential_account: true };
+{
+  const { sql, seen } = stubSql({ scopes: [], membership: null, authUser: ORDINARY_EMAIL_USER });
+  const res = await handleCommunityResidentRequest(
+    jsonRequest(postUrl, 'POST', { kind: 'greeting', title: '테스트 글', body: '일반 테스트계정 게시' }),
+    ENV,
+    'req-f'
+  );
+  assert.equal(res.status, 201, `ORDINARY_TEST_EMAIL_POST must be admitted (got ${res.status})`);
+  const insert = seen.find((q) => q.text.includes('insert into community_posts'));
+  assert.ok(insert, 'the ordinary exempt post must be written');
+  assert.equal(insert.values[1], ACTOR_ID, 'author is the ordinary actor itself, no impersonation');
+  console.log('PASS ORDINARY_TEST_EMAIL_POST=201 (zero grants, zero household)');
+}
+{
+  const { seen } = stubSql({ scopes: [], membership: null, authUser: ORDINARY_EMAIL_USER });
+  const res = await handleCommunityResidentRequest(
+    jsonRequest(commentUrl, 'POST', { body: '일반 테스트계정 댓글' }),
+    ENV,
+    'req-g'
+  );
+  assert.equal(res.status, 201, `ORDINARY_TEST_EMAIL_COMMENT must be admitted (got ${res.status})`);
+  assert.ok(seen.some((q) => q.text.includes('insert into community_comments')), 'the comment must be written');
+  console.log('PASS ORDINARY_TEST_EMAIL_COMMENT=201 (reply lane same boundary)');
+}
+{
+  // The same email over an unverified social provider is NOT the test account.
+  const { sql } = stubSql({
+    scopes: [], membership: null,
+    authUser: { email: 'skerish1@naver.com', email_verified: false, credential_account: false }
+  });
+  const res = await handleCommunityResidentRequest(
+    jsonRequest(postUrl, 'POST', { kind: 'greeting', title: 'x', body: 'y' }),
+    ENV,
+    'req-h'
+  );
+  assert.equal(res.status, 403, 'ORDINARY_TEST_EMAIL_UNVERIFIED_SOCIAL_POST must stay refused');
+  console.log('PASS ORDINARY_TEST_EMAIL_UNVERIFIED_SOCIAL_POST=403 (provider rule mirrors admin-bootstrap)');
 }
 
 console.log('PASS community write route-level exemption boundary (post + comment)');

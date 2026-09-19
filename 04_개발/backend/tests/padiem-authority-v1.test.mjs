@@ -76,9 +76,15 @@ async function sql(strings, ...values) {
       .map((g) => ({ id: g.id, scope: g.scope }));
   }
 
+  // #823: the ordinary test-resident fallback reads the auth-side email only
+  // after an explicit-scope grant check has failed. None of the actors in this
+  // file is the allowlisted test account, so the lookup finds no row.
+  if (query.includes('from danjion_auth."user" u')) {
+    return [];
+  }
+
   if (query.startsWith('insert into audit_events')) {
-    assert.ok(query.includes('authorization.padiem-authority-check'), 'authority decisions must use the dedicated audit action');
-    auditEvents.push({
+    assert.ok(query.includes('authorization.padiem-authority-check'), 'authority decisions must use the dedicated audit action');    auditEvents.push({
       requestId: String(values[0]),
       actorUserId: String(values[1]),
       scope: String(values[3]),

@@ -47,6 +47,7 @@
     "test:admin-unit-master": "tsx tests/admin-unit-master-contract.mjs",
     "test:household-message-lifecycle": "node tests/household-message-lifecycle-contract.mjs",
     "test:resident-verification-exempt-household-boundary": "node tests/resident-verification-exempt-household-boundary-contract.mjs",
+    "test:resident-verification-ordinary-exemption": "tsx tests/resident-verification-ordinary-exemption.test.mjs",
     "test:household-family-lifecycle": "node tests/household-family-lifecycle-contract.mjs",
     "test:account-lifecycle": "node tests/account-lifecycle-contract.mjs",
     "test:resident-economy-household-v2": "node tests/resident-economy-household-v2-contract.mjs",
