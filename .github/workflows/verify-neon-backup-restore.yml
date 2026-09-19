@@ -1,0 +1,158 @@
+name: Verify Neon Encrypted Backup Restore (isolated non-production drill)
+
+on:
+  workflow_dispatch:
+    inputs:
+      expected_main:
+        description: 'Exact origin/main SHA authorized by CENTRAL'
+        required: true
+        type: string
+      backup_filename:
+        description: 'Exact encrypted Drive object name danjion-prod-<UTC>-<sha>.dump.gpg'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: danjion-neon-backup-restore-drill
+  cancel-in-progress: false
+
+jobs:
+  drill-gate:
+    name: Drill activation and source guard
+    runs-on: ubuntu-latest
+    environment: production
+    outputs:
+      enabled: ${{ steps.activation.outputs.enabled }}
+      expected_main: ${{ steps.authority.outputs.expected_main }}
+    env:
+      DANJION_RESTORE_SOURCE_ARMED: 'false'
+      DANJION_BACKUP_RESTORE_DRILL_ENABLED: ${{ secrets.DANJION_BACKUP_RESTORE_DRILL_ENABLED }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Exact main authority guard
+        id: authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main --no-tags
+          actual_main="$(git rev-parse origin/main)"
+          expected_main="${{ inputs.expected_main }}"
+
+          if [ "${GITHUB_SHA}" != "${expected_main}" ] || [ "${actual_main}" != "${expected_main}" ]; then
+            echo "::error::Exact-main authority mismatch."
+            exit 1
+          fi
+
+          echo "expected_main=${expected_main}" >> "${GITHUB_OUTPUT}"
+          echo "EXACT_MAIN_GUARD=PASS"
+
+      - name: Restore source safety contract
+        run: node 04_개발/backend/tests/verify-neon-backup-restore-contract.mjs
+
+      - name: Drill activation gate
+        id: activation
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ "${DANJION_RESTORE_SOURCE_ARMED}" != "true" ] || [ "${DANJION_BACKUP_RESTORE_DRILL_ENABLED:-}" != "true" ]; then
+            echo "enabled=false" >> "${GITHUB_OUTPUT}"
+            echo "RESTORE_DRILL_ACTIVATION=DISABLED"
+            exit 0
+          fi
+
+          echo "enabled=true" >> "${GITHUB_OUTPUT}"
+          echo "RESTORE_DRILL_ACTIVATION=ENABLED"
+
+  isolated-restore-verification:
+    name: Restore encrypted dump into isolated non-production drill target
+    needs: drill-gate
+    if: needs.drill-gate.outputs.enabled == 'true'
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      DANJION_BACKUP_ENCRYPTION_PASSPHRASE: ${{ secrets.DANJION_BACKUP_ENCRYPTION_PASSPHRASE }}
+      DANJION_DRIVE_RCLONE_CONFIG: ${{ secrets.DANJION_DRIVE_RCLONE_CONFIG }}
+      DANJION_DRIVE_FOLDER_ID: ${{ secrets.DANJION_DRIVE_FOLDER_ID }}
+      DANJION_RESTORE_DRILL_DB_URL: ${{ secrets.DANJION_RESTORE_DRILL_DB_URL }}
+      DANJION_RESTORE_BACKUP_FILENAME: ${{ inputs.backup_filename }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Reconfirm exact main immediately before drill
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main --no-tags
+          actual_main="$(git rev-parse origin/main)"
+          expected_main="${{ needs.drill-gate.outputs.expected_main }}"
+
+          if [ "${GITHUB_SHA}" != "${expected_main}" ] || [ "${actual_main}" != "${expected_main}" ]; then
+            echo "::error::Exact-main authority changed before restore drill."
+            exit 1
+          fi
+
+          echo "PREDRILL_EXACT_MAIN_GUARD=PASS"
+
+      - name: Verify required drill secret bindings without output
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          missing=0
+          keys=(
+            DANJION_BACKUP_ENCRYPTION_PASSPHRASE
+            DANJION_DRIVE_RCLONE_CONFIG
+            DANJION_DRIVE_FOLDER_ID
+            DANJION_RESTORE_DRILL_DB_URL
+            DANJION_RESTORE_BACKUP_FILENAME
+          )
+
+          for key in "${keys[@]}"; do
+            if [ -z "${!key:-}" ]; then
+              missing=1
+            fi
+          done
+
+          if [ "${missing}" -ne 0 ]; then
+            echo "::error::One or more required restore drill bindings are missing."
+            exit 1
+          fi
+
+          echo "DRILL_SECRET_BINDINGS=PASS"
+
+      - name: Install bounded drill tooling
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq rclone gnupg
+          docker --version >/dev/null
+          echo "DRILL_TOOLING=READY"
+
+      - name: Fetch, decrypt, restore, and verify against the isolated drill target
+        shell: bash
+        run: bash 04_개발/backend/scripts/verify-neon-backup-restore.sh
+
+  disabled-disposition:
+    name: Restore drill disabled no-op
+    needs: drill-gate
+    if: needs.drill-gate.outputs.enabled != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Record disabled disposition
+        shell: bash
+        run: |
+          echo "RESTORE_DRILL_RESULT=NOOP_DISABLED"
+          echo "RESTORE_EXECUTION=0"
+          echo "PRODUCTION_DB_WRITE=0"
+          echo "SHARED_QA_WRITE=0"
+          echo "DRIVE_WRITE=0"
+          echo "DRIVE_DELETE=0"
+          echo "SENSITIVE_RESTORE_SECRET_MATERIALIZED=0"
