@@ -15,7 +15,7 @@ assert.match(workflow, /steps\.activation\.outputs\.enabled == 'true'/, 'active 
 assert.match(workflow, /Exact main authority guard/, 'exact-main guard is required');
 assert.match(workflow, /DANJION_PRODUCTION_DB_URL/, 'must reuse canonical production DB secret name');
 assert.match(workflow, /DANJION_BACKUP_ENCRYPTION_PASSPHRASE/, 'encryption secret binding is required');
-assert.match(workflow, /DANJION_DRIVE_SERVICE_ACCOUNT_JSON/, 'Drive service-account secret binding is required');
+assert.match(workflow, /DANJION_DRIVE_RCLONE_CONFIG/, 'owner OAuth rclone config secret binding is required');
 assert.match(workflow, /DANJION_DRIVE_FOLDER_ID/, 'dedicated Drive folder binding is required');
 assert.doesNotMatch(workflow, /actions\/upload-artifact/i, 'database backup must never become a GitHub artifact');
 
@@ -29,14 +29,16 @@ assert.match(script, /gpg[\s\S]*--passphrase-fd 0[\s\S]*--symmetric[\s\S]*AES256
 assert.doesNotMatch(script, /--passphrase\s+["']?\$\{?DANJION_BACKUP_ENCRYPTION_PASSPHRASE/i, 'passphrase must never be a process argument');
 
 const shredPos = script.indexOf('shred -u "${plain_dump}"');
-const driveCredentialPos = script.indexOf('DANJION_DRIVE_SERVICE_ACCOUNT_JSON');
+const driveCredentialPos = script.indexOf('printf \'%s\' "${DANJION_DRIVE_RCLONE_CONFIG}" > "${rclone_config}"');
 const uploadPos = script.indexOf('rclone --config "${rclone_config}" copyto');
-assert.ok(shredPos >= 0 && driveCredentialPos >= 0 && uploadPos >= 0, 'plaintext cleanup, Drive credential, and upload markers must exist');
-assert.ok(shredPos < uploadPos, 'plaintext dump must be destroyed before upload');
+assert.ok(shredPos >= 0 && driveCredentialPos >= 0 && uploadPos >= 0, 'plaintext cleanup, Drive credential materialization, and upload markers must exist');
+assert.ok(shredPos < driveCredentialPos, 'plaintext dump must be destroyed before Drive OAuth config is materialized');
+assert.ok(driveCredentialPos < uploadPos, 'Drive OAuth config must be materialized only after plaintext destruction and before upload');
 assert.match(script, /if \[ -e "\$\{plain_dump\}" \]/, 'plaintext absence must be asserted before upload');
 
-assert.match(script, /service_account_file/, 'Drive auth must use service account file');
-assert.match(script, /root_folder_id/, 'Drive access must be rooted to the dedicated folder');
+assert.match(script, /DANJION_DRIVE_RCLONE_CONFIG/, 'Drive auth must use owner OAuth rclone config');
+assert.doesNotMatch(script, /service_account_file/, 'ordinary My Drive path must not depend on service-account ownership');
+assert.match(script, /--drive-root-folder-id/, 'Drive access must be rooted to the dedicated folder');
 assert.match(script, /copyto[\s\S]*"\$\{encrypted_dump\}"/, 'only encrypted dump variable may be uploaded');
 assert.doesNotMatch(script, /copyto[\s\S]{0,180}plain_dump/, 'plaintext dump must never be an upload source');
 assert.match(script, /\^danjion-prod-\[0-9\]\{8\}T\[0-9\]\{6\}Z-/, 'retention deletion must be strict-prefix bounded');
@@ -45,11 +47,14 @@ assert.match(script, /deletefile "danjion_backup:\$\{backups\[\$i\]\}"/, 'retent
 for (const forbidden of [
   'DANJION_PRODUCTION_DB_URL}"',
   'DANJION_BACKUP_ENCRYPTION_PASSPHRASE}"',
-  'DANJION_DRIVE_SERVICE_ACCOUNT_JSON}"',
+  'DANJION_DRIVE_RCLONE_CONFIG}"',
 ]) {
   assert.ok(!script.includes(`echo "${forbidden}`), 'secret values must never be echoed');
 }
 
+assert.match(script, /--env DATABASE_URL/, 'DB URL must be inherited into Docker through environment, not embedded in argv');
+assert.doesNotMatch(script, /(?:-e|--env)\s+DATABASE_URL=/, 'DB URL value must never appear in docker command arguments');
+assert.match(script, /--drive-use-trash=false/, 'retention must permanently remove generations beyond the bounded 30-file policy');
 assert.doesNotMatch(script, /\bpsql\b[\s\S]*(insert|update|delete|alter|drop|create)\b/i, 'backup script must not contain Production SQL writes');
 
 process.stdout.write('backup-neon-to-drive-contract: PASS\n');
