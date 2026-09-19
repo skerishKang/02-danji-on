@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import vm from 'node:vm';
 
 // Issue #790: Prepare exact-origin auth/app runtime for danjion.padiem.net
-// Verifies all 10 domain source readiness invariants:
+// Verifies domain source readiness invariants:
 // 1. danjion.padiem.net -> app API and auth same-origin
 // 2. danjion.pages.dev -> legacy fallback normal
 // 3. danjion-qa.pages.dev -> QA isolation normal
@@ -13,7 +13,8 @@ import vm from 'node:vm';
 // 7. backend public-base resolver -> marker + exact origin dual guard
 // 8. forged client Origin/internal marker -> stripped/rewritten, cannot gain authority
 // 9. OAuth callback -> matches approved origin
-// 10. legacy Pages fallback not removed
+// 10. production Worker source policy includes primary + bounded legacy origins
+// 11. legacy Pages fallback not removed
 
 const read = (rel) => readFile(new URL(rel, import.meta.url), 'utf8');
 
@@ -22,6 +23,7 @@ const authFacadeSrc = await read('../../functions/_lib/auth-facade.js');
 const appFacadeSrc = await read('../../functions/_lib/app-facade.js');
 const backendSrc = await read('../../04_개발/backend/src/auth-better-v1.ts');
 const releaseWorkflow = await read('../../.github/workflows/pages-production-release.yml');
+const wranglerSource = await read('../../04_개발/backend/wrangler.jsonc');
 
 const PRIMARY_HOST = 'danjion.padiem.net';
 const PRIMARY_ORIGIN = 'https://danjion.padiem.net';
@@ -158,7 +160,27 @@ const loadSession = (location) => {
   assert.ok(authFacadeSrc.includes("export const EXPECTED_GOOGLE_REDIRECT_URI = `${CANONICAL_PAGES_ORIGIN}/api/auth/callback/google`;"));
 }
 
-/* --- 10. legacy Pages fallback not removed --- */
+/* --- 10. production Worker origin policy is source-ready and exact --- */
+{
+  const wrangler = JSON.parse(wranglerSource);
+  const productionVars = wrangler.env?.production?.vars || {};
+  assert.equal(
+    productionVars.CORS_ALLOWED_ORIGINS,
+    'https://danjion.padiem.net,https://danjion.pages.dev',
+    'production CORS must include primary + bounded legacy origins only'
+  );
+  assert.equal(
+    productionVars.AUTH_TRUSTED_ORIGINS,
+    'https://danjion.padiem.net,https://danjion.pages.dev',
+    'production Better Auth trusted origins must include primary + bounded legacy origins only'
+  );
+  assert.ok(!String(productionVars.CORS_ALLOWED_ORIGINS || '').includes('*'),
+    'production CORS must not use wildcard trust');
+  assert.ok(!String(productionVars.AUTH_TRUSTED_ORIGINS || '').includes('*'),
+    'production trusted origins must not use wildcard trust');
+}
+
+/* --- 11. legacy Pages fallback not removed --- */
 {
   assert.ok(sessionSrc.includes("const LEGACY_PRODUCTION_HOSTNAME = 'danjion.pages.dev';"));
   assert.ok(sessionSrc.includes("const PRODUCTION_PAGES_HOSTNAME = 'danjion.pages.dev';"));
