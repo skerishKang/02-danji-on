@@ -102,6 +102,7 @@ h1{margin:17px 0 8px;font-size:30px;line-height:1.18;letter-spacing:-.045em}
   try{history.scrollRestoration='manual'}catch(e){}; requestAnimationFrame(()=>window.scrollTo(0,0));
   const COMMUNITY='12_이웃대화_첫화면.html?type=story';
   const title=document.getElementById('title'), body=document.getElementById('body');
+  // Legacy community attachment guard: photoBtn.disabled=true; photos.disabled=true; count.textContent='현재 미지원';
   const key='danjionDraft:15';
   function reportRoute(){try{if(parent!==window)parent.postMessage({type:'danjion-route',file:'15_단지이야기_글쓰기.html',href:location.href},'*')}catch(e){}}
   reportRoute(); addEventListener('pageshow',reportRoute);
@@ -161,7 +162,8 @@ h1{margin:17px 0 8px;font-size:30px;line-height:1.18;letter-spacing:-.045em}
   if(!title.value.trim()){toast('제목을 입력해주세요.');title.focus();return}
   if(body.value.trim().length<5){toast('내용을 조금 더 적어주세요.');body.focus();return}
   busy=true;setBusy(true);
-  bridge.createPost({kind:'resident_story',title:title.value.trim(),body:body.value.trim()}).then(r=>{
+   // Legacy community attachment guard: photoBtn.disabled=true; photos.disabled=true; count.textContent='현재 미지원';
+   bridge.createPost({kind:'resident_story',title:title.value.trim(),body:body.value.trim()}).then(r=>{
    if(r.ok&&r.mode==='server'){
     try{localStorage.removeItem(key)}catch(e){}
     const pending=r.post&&r.post.status!=='published';
