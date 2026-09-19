@@ -282,8 +282,10 @@ for (const [name, page] of [
 }
 {
   const wiring = wiringScript(page16, 'danjion-community-write-question-live-wiring-329');
-  assert.match(wiring, /photoBtn\.disabled=true/, '16 does not claim unsupported server photo persistence');
-  assert.match(wiring, /현재 미지원/, '16 makes the photo limitation visible in server mode');
+  assert.doesNotMatch(page16, /id="photoBtn"|id="photos"|type="file"/,
+    '16 removes unsupported question photo controls instead of presenting a fake upload promise');
+  assert.doesNotMatch(wiring, /photoBtn|photoCount|photos\./,
+    '16 no longer claims unsupported server photo persistence in server mode');
 }
 {
   const w16 = wiringScript(page16, 'danjion-community-write-question-live-wiring-329');
