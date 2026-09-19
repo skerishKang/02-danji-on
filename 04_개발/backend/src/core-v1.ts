@@ -1,6 +1,7 @@
 import { neon, type NeonQueryFunction } from '@neondatabase/serverless';
 import { requireActor, type AuthEnv } from './auth-v1';
 import { requireVerifiedResident } from './authorization-v2';
+import { authorityFor } from './complex-news-channel';
 
 export type CoreEnv = AuthEnv;
 
@@ -72,6 +73,12 @@ export const NEWS_CHANNELS = ['danjion_notice', 'apartment_news', 'management_of
 function channelFilter(value: string | null): string | null {
   if (!value || value === 'all') return null;
   return NEWS_CHANNELS.includes(value.trim()) ? value.trim() : '__invalid__';
+}
+
+// #768: official apartment-news posts expose the server-derived authoring
+// authority and the server-authoritative 공감 count alongside the raw columns.
+function mapNewsPost(row: Record<string, unknown>): Record<string, unknown> {
+  return { ...row, authority: authorityFor(row.channel) };
 }
 
 async function handlePublicGet(sql: Sql, id: string, url: URL): Promise<Response | null> {
@@ -264,8 +271,10 @@ async function handlePublicGet(sql: Sql, id: string, url: URL): Promise<Response
     if (channel === '__invalid__') return fail('INVALID_CHANNEL', 'Invalid channel filter', 400, id);
     const limit = clampLimit(url.searchParams.get('limit'), 20, 50);
     const rows = await sql`
-      select p.id, p.source_name, p.category, p.channel, p.title, p.body,
-             p.attachment_object_key, p.published_at
+      select p.id, p.source_name, p.category, p.channel, p.display_mode, p.title, p.body,
+             p.attachment_object_key, p.published_at,
+             (select count(*) from complex_post_reactions r
+               where r.post_id = p.id and r.reaction_type = 'like')::int as reaction_count
       from complex_posts p
       join complexes c on c.id = p.complex_id
       where c.slug = ${slug}
@@ -275,7 +284,7 @@ async function handlePublicGet(sql: Sql, id: string, url: URL): Promise<Response
       order by p.published_at desc nulls last, p.created_at desc
       limit ${limit}
     `;
-    return ok(rows, id);
+    return ok(rows.map((row) => mapNewsPost(row as Record<string, unknown>)), id);
   }
 
   match = path.match(/^\/api\/v1\/complexes\/([^/]+)\/posts\/([0-9a-fA-F-]+)$/);
@@ -283,8 +292,10 @@ async function handlePublicGet(sql: Sql, id: string, url: URL): Promise<Response
     const slug = decodeURIComponent(match[1]);
     const postId = match[2];
     const rows = await sql`
-      select p.id, p.source_name, p.category, p.channel, p.title, p.body,
-             p.attachment_object_key, p.published_at
+      select p.id, p.source_name, p.category, p.channel, p.display_mode, p.title, p.body,
+             p.attachment_object_key, p.published_at,
+             (select count(*) from complex_post_reactions r
+               where r.post_id = p.id and r.reaction_type = 'like')::int as reaction_count
       from complex_posts p
       join complexes c on c.id = p.complex_id
       where c.slug = ${slug}
@@ -293,7 +304,7 @@ async function handlePublicGet(sql: Sql, id: string, url: URL): Promise<Response
       limit 1
     `;
     if (!rows[0]) return fail('NOT_FOUND', 'Post not found', 404, id);
-    return ok(rows[0], id);
+    return ok(mapNewsPost(rows[0] as Record<string, unknown>), id);
   }
 
   return null;

@@ -29,8 +29,8 @@ assert.match(core, /channelFilter\(url\.searchParams\.get\('channel'\)\)/,
   'posts list must accept a ?channel= filter');
 assert.match(core, /INVALID_CHANNEL[\s\S]*Invalid channel filter[\s\S]*400/,
   'an unknown channel value must return 400');
-assert.match(core, /select p\.id, p\.source_name, p\.category, p\.channel, p\.title, p\.body,/,
-  'list/detail selects must expose the server-authoritative channel');
+assert.match(core, /select p\.id, p\.source_name, p\.category, p\.channel, (?:p\.display_mode, )?p\.title, p\.body,/,
+  'list/detail selects must expose the server-authoritative channel (#768 allows the additive display_mode projection)');
 assert.match(core, /or p\.channel = \$\{channel\}/,
   'list route must filter rows by the channel value');
 assert.doesNotMatch(core, /resident_news_posts/i,
