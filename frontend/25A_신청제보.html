@@ -154,16 +154,16 @@ body{min-height:100vh;overflow-x:hidden}.request-underlay{position:fixed;inset:0
 <section class="section owner-only">
 <h2>확인서류</h2>
 <div class="upload-grid">
-<label class="upload"><b>운영 확인서류 <span class="req">1개 이상 필수</span></b><p>사업자등록증, 영업신고증·허가증, 업종 관련 자격증 등 실제 운영을 확인할 수 있는 서류</p><input accept=".pdf,.jpg,.jpeg,.png,.webp,.hwp,.hwpx,application/pdf,image/*" id="ownerProof" name="ownerProof" required="" type="file"/><span class="file-status" id="ownerProofStatus">선택된 파일 없음</span></label>
-<label class="upload"><b>기타 증빙자료</b><p>메뉴판, 가격표, 자격증 추가본, 소개자료 등 필요한 경우만 첨부</p><input accept=".pdf,.jpg,.jpeg,.png,.webp,.hwp,.hwpx,application/pdf,image/*" id="ownerOtherDocs" multiple="" name="ownerOtherDocs" type="file"/><span class="file-status" id="ownerOtherStatus">선택된 파일 없음</span></label>
+<label class="upload"><b>운영 확인서류 <span class="req">1~3개 필수</span></b><p>사업자등록증, 영업신고증·허가증, 업종 관련 자격증 등 실제 운영을 확인할 수 있는 서류. 파일 선택을 다시 눌러 최대 3개까지 추가할 수 있습니다.</p><input accept=".pdf,.jpg,.jpeg,.png,.webp,.hwp,.hwpx,application/pdf,image/*" id="ownerProof" multiple="" name="ownerProof" type="file"/><span class="file-status" id="ownerProofStatus">0 / 3개</span></label>
+<label class="upload"><b>기타 증빙자료 <span class="req">최대 3개</span></b><p>메뉴판, 가격표, 자격증 추가본, 소개자료 등 필요한 경우만 첨부. 파일 선택을 다시 눌러 추가할 수 있습니다.</p><input accept=".pdf,.jpg,.jpeg,.png,.webp,.hwp,.hwpx,application/pdf,image/*" id="ownerOtherDocs" multiple="" name="ownerOtherDocs" type="file"/><span class="file-status" id="ownerOtherStatus">0 / 3개</span></label>
 </div>
 <p class="hint">확인서류는 주민에게 공개하지 않고 등록 확인에만 사용합니다.</p>
 </section>
 <section class="section">
 <h2>가게 사진</h2>
 <div class="upload-grid">
-<label class="upload"><b>가게·작업 사진 <span class="req">최대 3장</span></b><p>대문/대표 이미지로 쓸 외관 또는 대표 사진, 상품·메뉴·작업 장면 등을 올려주세요.</p><input accept="image/*" id="photos" multiple="" name="photos" type="file"/><span class="file-status" id="photoStatus">0 / 3장</span></label>
-<label class="upload owner-only"><b>추가 참고자료</b><p>가격표·메뉴판·소개 이미지 등 사진 외에 꼭 필요한 자료가 있을 때만 첨부</p><input accept=".pdf,.jpg,.jpeg,.png,.webp,.hwp,.hwpx,application/pdf,image/*" id="extraDocs" multiple="" name="extraDocs" type="file"/><span class="file-status" id="extraDocsStatus">선택된 파일 없음</span></label>
+<label class="upload"><b>가게·작업 사진 <span class="req">최대 3장</span></b><p>대문/대표 이미지로 쓸 외관 또는 대표 사진, 상품·메뉴·작업 장면 등을 올려주세요. 사진 선택을 다시 눌러 한 장씩 추가할 수도 있습니다.</p><input accept="image/*" id="photos" multiple="" name="photos" type="file"/><span class="file-status" id="photoStatus">0 / 3장</span></label>
+<label class="upload owner-only"><b>추가 참고자료 <span class="req">최대 3개</span></b><p>가격표·메뉴판·소개 이미지 등 사진 외에 꼭 필요한 자료가 있을 때만 첨부. 파일 선택을 다시 눌러 추가할 수 있습니다.</p><input accept=".pdf,.jpg,.jpeg,.png,.webp,.hwp,.hwpx,application/pdf,image/*" id="extraDocs" multiple="" name="extraDocs" type="file"/><span class="file-status" id="extraDocsStatus">0 / 3개</span></label>
 <div class="upload report-only"><b>제보자는 확인서류가 없어도 됩니다.</b><p>사진이 있으면 최대 3장까지 첨부해 주세요. 사업자등록증·허가증·자격증 등 확인서류는 가게 운영자가 <b>ceo@padiem.net</b> 으로 별도 제출합니다.</p></div>
 </div>
 </section>
@@ -197,19 +197,39 @@ reportRelation.addEventListener('change',()=>toggleEtc(reportRelation,reportEtcW
 owner.onclick=()=>setMode('owner');report.onclick=()=>setMode('report');
 
 const MAX_PHOTOS=3;
+const MAX_OWNER_DOCS=3;
 const photos=document.querySelector('#photos'),photoStatus=document.querySelector('#photoStatus');
-photos.addEventListener('change',()=>{
-  if(photos.files.length>MAX_PHOTOS){alert(`가게 사진은 최대 ${MAX_PHOTOS}장까지 첨부할 수 있습니다.`);photos.value='';}
-  photoStatus.textContent=`${photos.files.length} / ${MAX_PHOTOS}장`;
-});
-function bindFile(inputId,statusId,max=null){
-  const input=document.querySelector(inputId),status=document.querySelector(statusId);
+function fileKey(file){return [file.name,file.size,file.lastModified].join(':')}
+function bindAccumulatingFiles(input,status,max,unit){
+  let selected=[];
+  function sync(){
+    const dt=new DataTransfer();
+    selected.forEach(file=>dt.items.add(file));
+    input.files=dt.files;
+    const names=selected.map(file=>file.name).join(', ');
+    status.textContent=`${selected.length} / ${max}${unit}${names?' · '+names:''}`;
+  }
   input.addEventListener('change',()=>{
-    if(max && input.files.length>max){alert(`파일은 최대 ${max}개까지 첨부할 수 있습니다.`);input.value='';}
-    status.textContent=input.files.length?Array.from(input.files).map(f=>f.name).join(', '):'선택된 파일 없음';
+    const incoming=Array.from(input.files||[]);
+    const map=new Map(selected.map(file=>[fileKey(file),file]));
+    incoming.forEach(file=>{if(!map.has(fileKey(file)))map.set(fileKey(file),file)});
+    const merged=[...map.values()];
+    if(merged.length>max){
+      alert(`최대 ${max}${unit}까지 첨부할 수 있습니다.`);
+      selected=merged.slice(0,max);
+    }else selected=merged;
+    sync();
   });
+  input.addEventListener('dblclick',()=>{
+    if(!selected.length)return;
+    if(confirm('선택한 파일을 모두 지울까요?')){selected=[];sync()}
+  });
+  sync();
 }
-bindFile('#ownerProof','#ownerProofStatus');bindFile('#ownerOtherDocs','#ownerOtherStatus',3);bindFile('#extraDocs','#extraDocsStatus',3);
+bindAccumulatingFiles(photos,photoStatus,MAX_PHOTOS,'장');
+bindAccumulatingFiles(document.querySelector('#ownerProof'),document.querySelector('#ownerProofStatus'),MAX_OWNER_DOCS,'개');
+bindAccumulatingFiles(document.querySelector('#ownerOtherDocs'),document.querySelector('#ownerOtherStatus'),3,'개');
+bindAccumulatingFiles(document.querySelector('#extraDocs'),document.querySelector('#extraDocsStatus'),3,'개');
 
 let timer;
 function showToast(msg){toast.textContent=msg;toast.classList.add('show');clearTimeout(timer);timer=setTimeout(()=>toast.classList.remove('show'),2300)}
@@ -245,6 +265,22 @@ async function uploadBusinessImage(file){
     return objectKey?{ok:true,objectKey}:{ok:false,reason:'server-error'};
   }catch(_){return {ok:false,reason:'network-error'}}
 }
+async function uploadApplicationDocument(file){
+  const body=new FormData();
+  body.set('kind','application-document');
+  body.set('complexSlug',__applicationReportComplexSlug);
+  body.set('file',file);
+  try{
+    const response=await fetch(danjionApiBase()+'/api/v1/storage/objects',{method:'POST',credentials:'include',body});
+    const payload=await response.json().catch(()=>null);
+    if(!response.ok){
+      const code=payload&&payload.error&&payload.error.code;
+      return {ok:false,reason:response.status===401?'auth-required':response.status===403?'resident-verification-required':'server-error',code};
+    }
+    const objectKey=payload&&payload.data&&payload.data.objectKey;
+    return objectKey?{ok:true,objectKey}:{ok:false,reason:'server-error'};
+  }catch(_){return {ok:false,reason:'network-error'}}
+}
 // Report R-B lane (backend #308 is authority): raw relation text is always
 // preserved (family/neighbor/nearby/etc untouched, nearby never mapped to
 // local), category is never synthesized, price/hours/detail are forwarded.
@@ -273,7 +309,11 @@ async function submitReport(){
       serviceArea:reportInput('reportLocation'),reporterNote:reportInput('reportReason'),
       relationDetail,reportPrice:reportInput('reportPrice'),reportHours:reportInput('reportHours')});
     if(!result.ok){
-      showToast(result.reason==='auth-required'?'로그인 후 이용 가능합니다.':'접수를 완료하지 못했습니다. 잠시 후 다시 시도해 주세요.');
+      showToast(result.reason==='auth-required'
+        ?'로그인 후 이용 가능합니다.'
+        :result.reason==='resident-verification-required'
+          ?'우리집 연결을 완료한 뒤 제보할 수 있습니다.'
+          :'접수를 완료하지 못했습니다. 잠시 후 다시 시도해 주세요.');
       return;
     }
     showToast('제보가 접수됐습니다. 확인 후 등록됩니다.');
@@ -301,27 +341,43 @@ f.addEventListener('submit',async e=>{
   __ownerSubmitting=true;
   try{
     const bridge=await ensureApplicationReportBridge();
-    const photoFiles=Array.from(photos.files||[]).slice(0,MAX_PHOTOS);
-    if((photos.files||[]).length>MAX_PHOTOS){showToast(`가게 사진은 최대 ${MAX_PHOTOS}장까지 첨부할 수 있습니다.`);return}
+    const photoFiles=Array.from(photos.files||[]);
+    const proofFiles=Array.from(document.querySelector('#ownerProof').files||[]);
+    const otherFiles=Array.from(document.querySelector('#ownerOtherDocs').files||[]);
+    const extraFiles=Array.from(document.querySelector('#extraDocs').files||[]);
+    if(photoFiles.length>MAX_PHOTOS){showToast(`가게 사진은 최대 ${MAX_PHOTOS}장까지 첨부할 수 있습니다.`);return}
+    if(proofFiles.length<1||proofFiles.length>MAX_OWNER_DOCS){showToast('운영 확인서류는 1~3개를 첨부해 주세요.');return}
+    if(otherFiles.length>3||extraFiles.length>3){showToast('증빙·참고자료는 각 최대 3개까지 첨부할 수 있습니다.');return}
     const uploadedKeys=[];
     for(const file of photoFiles){
       const upload=await uploadBusinessImage(file);
       if(!upload.ok){
-        showToast(upload.reason==='auth-required'?'로그인 후 이용 가능합니다.':'사진 업로드에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+        showToast(upload.reason==='auth-required'?'로그인 후 이용 가능합니다.':upload.reason==='resident-verification-required'?'우리집 연결을 완료한 뒤 사진을 올릴 수 있습니다.':'사진 업로드에 실패했습니다. 잠시 후 다시 시도해 주세요.');
         return;
       }
       uploadedKeys.push(upload.objectKey);
     }
+    const documents=[];
+    for(const [kind,files] of [['operation_proof',proofFiles],['other_evidence',otherFiles],['additional_reference',extraFiles]]){
+      for(let i=0;i<files.length;i++){
+        const upload=await uploadApplicationDocument(files[i]);
+        if(!upload.ok){
+          showToast(upload.reason==='auth-required'?'로그인 후 이용 가능합니다.':upload.reason==='resident-verification-required'?'우리집 연결을 완료한 뒤 확인서류를 올릴 수 있습니다.':'확인서류 업로드에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+          return;
+        }
+        documents.push({objectKey:upload.objectKey,kind,sortOrder:i});
+      }
+    }
     const result=await bridge.createOwnerApplication({relationRaw,businessName,categoryName,serviceSummary,
       priceText:serviceSummary,serviceArea:ownerInput('locationUse'),benefitText:ownerInput('benefit'),
-      availabilityText:ownerInput('hours'),contactMethod:ownerInput('contact'),photoObjectKeys:uploadedKeys},
+      availabilityText:ownerInput('hours'),contactMethod:ownerInput('contact'),photoObjectKeys:uploadedKeys,documents},
       {idempotencyKey:ownerSubmissionKey()});
     if(!result.ok){
       showToast(result.reason==='auth-required'?'로그인 후 이용 가능합니다.':'접수를 완료하지 못했습니다. 잠시 후 다시 시도해 주세요.');
       return;
     }
     resetOwnerSubmissionKey();
-    showToast('신청이 접수됐습니다. 확인서류는 ceo@padiem.net 으로 보내주시면 승인 후 등록됩니다.');
+    showToast('신청과 확인서류가 접수됐습니다. 검토 후 승인 상태를 내정보에서 확인할 수 있습니다.');
   }finally{__ownerSubmitting=false}
 });
 function autoSize(el){el.style.height='auto';el.style.height=Math.max(108,el.scrollHeight)+'px'}

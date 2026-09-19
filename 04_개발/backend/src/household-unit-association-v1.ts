@@ -157,12 +157,17 @@ export async function handleHouseholdUnitAssociationWithSql(
   // Serialize decisions per household so concurrent signups cannot both
   // observe the same member count and accidentally auto-connect a third account.
   const insertedRows = await sql`
-    with locked_household as materialized (
-      select id, complex_id
-      from households
-      where id = ${householdId}::uuid
-        and complex_id = ${complexId}::uuid
-        and status = 'active'
+    with user_lock as materialized (
+      select pg_advisory_xact_lock(
+        hashtextextended(${actor.id} || ':' || ${complexId}, 0)
+      ) as locked
+    ), locked_household as materialized (
+      select h.id, h.complex_id
+      from households h
+      cross join user_lock
+      where h.id = ${householdId}::uuid
+        and h.complex_id = ${complexId}::uuid
+        and h.status = 'active'
       for update
     ), counts as materialized (
       select
@@ -190,7 +195,14 @@ export async function handleHouseholdUnitAssociationWithSql(
         case when d.member_status = 'verified' then now() else null end
       from locked_household h
       cross join decision d
-      on conflict (complex_id, user_id) do nothing
+      where not exists (
+        select 1
+        from household_memberships existing
+        where existing.complex_id = h.complex_id
+          and existing.user_id = ${actor.id}::uuid
+          and existing.status in ('pending','verified')
+      )
+      on conflict do nothing
       returning id, membership_role, status
     )
     select

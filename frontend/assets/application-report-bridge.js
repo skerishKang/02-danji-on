@@ -44,8 +44,14 @@ async function parseJson(response) {
 }
 
 function failure(status, payload) {
-  if (status === 401 || status === 403) return { ok: false, reason: 'auth-required', status, error: payload?.error || null };
-  return { ok: false, reason: 'server-error', status, error: payload?.error || null };
+  const error = payload?.error || null;
+  const code = error && typeof error === 'object' ? String(error.code || '') : '';
+  if (status === 401) return { ok: false, reason: 'auth-required', status, error };
+  if (status === 403 && (code === 'RESIDENT_VERIFICATION_REQUIRED' || code === 'HOUSEHOLD_ASSOCIATION_REQUIRED')) {
+    return { ok: false, reason: 'resident-verification-required', status, error };
+  }
+  if (status === 403) return { ok: false, reason: 'forbidden', status, error };
+  return { ok: false, reason: 'server-error', status, error };
 }
 
 async function request(fetchImpl, url, init = {}) {
@@ -102,6 +108,22 @@ function photoObjectKeysFrom(input) {
   return raw.map((entry) => String(entry ?? '').trim()).filter((entry) => entry.length > 0);
 }
 
+function documentsFrom(input) {
+  if (input?.documents === undefined) return undefined;
+  if (!Array.isArray(input.documents)) return null;
+  const allowed = new Set(['operation_proof','other_evidence','additional_reference']);
+  const docs = [];
+  for (const value of input.documents) {
+    if (!value || typeof value !== 'object') return null;
+    const objectKey = String(value.objectKey || '').trim();
+    const kind = String(value.kind || '').trim();
+    const sortOrder = Number(value.sortOrder);
+    if (!objectKey || !allowed.has(kind) || !Number.isInteger(sortOrder) || sortOrder < 0 || sortOrder > 2) return null;
+    docs.push({ objectKey, kind, sortOrder });
+  }
+  return docs;
+}
+
 function ownerPayload(input, complexSlug) {
   const relationRaw = clean(input?.relationRaw);
   const relationType = clean(input?.relationType);
@@ -118,6 +140,8 @@ function ownerPayload(input, complexSlug) {
   const representativeImageObjectKey = photoKeys !== null
     ? (photoKeys.length > 0 ? photoKeys[0] : null)
     : clean(input?.representativeImageObjectKey);
+  const documents = documentsFrom(input);
+  if (documents === null) return null;
   return {
     complexSlug,
     ...(relationRaw ? { relationRaw } : { relationType }),
@@ -130,7 +154,8 @@ function ownerPayload(input, complexSlug) {
     benefitText: clean(input?.benefitText),
     availabilityText: clean(input?.availabilityText),
     representativeImageObjectKey,
-    photoObjectKeys: photoKeys
+    photoObjectKeys: photoKeys,
+    ...(documents !== undefined ? { documents } : {})
   };
 }
 

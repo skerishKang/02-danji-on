@@ -10,8 +10,10 @@ const [page, bridge, myInfo] = await Promise.all([
 
 assert.match(bridge, /async getSnapshot\(\)/,
   'household status must be read from the canonical server snapshot');
-assert.match(page, /const \[snapshot,profile\]=await Promise\.all\(\[household\.getSnapshot\(\),resident\.profile\(\)\]\)/,
-  'page 26 must reconcile household and self-profile state from the server');
+assert.match(page, /const snapshot=await household\.getSnapshot\(\)/,
+  'page 26 must reconcile household state from the canonical server snapshot');
+assert.doesNotMatch(page, /resident\.updateProfile|id="nickname"/,
+  'household association must not duplicate nickname/profile editing owned by My Info');
 assert.match(page, /reviewRequired:me\.status==='pending'&&!me\.residentVerified/,
   'pending household association must remain distinct from verified resident access');
 assert.match(page, /운영팀 확인 대기/,

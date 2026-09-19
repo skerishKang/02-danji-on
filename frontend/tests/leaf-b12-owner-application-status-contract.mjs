@@ -227,8 +227,8 @@ for (const [label, appId, docId] of [
   assert.equal(called, 0, `${label} must fail closed before any network call`);
 }
 
-/* --- auth / server / network failures map to the shared closed reasons --- */
-for (const [status, reason] of [[401, 'auth-required'], [403, 'auth-required'], [404, 'server-error'], [409, 'server-error'], [400, 'server-error'], [503, 'server-error']]) {
+/* --- auth / authorization / server / network failures stay distinct and fail closed --- */
+for (const [status, reason] of [[401, 'auth-required'], [403, 'forbidden'], [404, 'server-error'], [409, 'server-error'], [400, 'server-error'], [503, 'server-error']]) {
   const bridge = createApplicationReportBridge({
     apiBase: 'https://api.example',
     fetchImpl: async () => ({

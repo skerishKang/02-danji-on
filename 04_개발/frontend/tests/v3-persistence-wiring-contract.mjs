@@ -81,10 +81,12 @@ assert.match(apply25a, /if\(!OWNER_RELATIONS\.has\(relationRaw\)\)\{showToast\('
   'H: unsupported relation must fail closed with an honest notice instead of a guessed relation');
 /* photo handling: never silently dropped, canonical storage contract only, sibling visual authority kept */
 assert.match(apply25a, /const MAX_PHOTOS=3;/, 'PHOTO: selection must cap at the backend 0..3 photo contract');
-assert.match(apply25a, /photos\.files\.length>MAX_PHOTOS\)\{alert\(/,
-  'PHOTO: over-cap selection must be rejected at the existing file input, not silently trimmed');
-assert.match(apply25a, /const photoFiles=Array\.from\(photos\.files\|\|\[\]\)\.slice\(0,MAX_PHOTOS\);/,
-  'PHOTO: submit must consume the existing file input selection order (no parallel gallery state)');
+assert.match(apply25a, /bindAccumulatingFiles\(photos,photoStatus,MAX_PHOTOS,'장'\)/,
+  'PHOTO: the existing file input must support repeated selection while keeping a total max of three');
+assert.match(apply25a, /if\(merged\.length>max\)\{[\s\S]*?alert\([\s\S]*?selected=merged\.slice\(0,max\)/,
+  'PHOTO: repeated selections over the cap must warn and retain only the bounded selection');
+assert.match(apply25a, /const photoFiles=Array\.from\(photos\.files\|\|\[\]\);/,
+  'PHOTO: submit must consume the accumulated file input selection order without a second hidden trim');
 assert.match(apply25a, /for\(const file of photoFiles\)\{[\s\S]*?await uploadBusinessImage\(file\)/,
   'PHOTO: submit must upload every selected photo file in order, never silently discard extras');
 assert.match(apply25a, /body\.set\('kind','business-image'\)/, 'PHOTO: upload must use the canonical business-image kind');
