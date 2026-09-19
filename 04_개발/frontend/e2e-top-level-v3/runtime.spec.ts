@@ -2019,3 +2019,54 @@ test('#768 reaction boundary states: login-required vs resident-verification-req
   await expect(page.locator('.story-boundary')).toContainText('주민인증을 마친 뒤 공감할 수 있습니다.');
 });
 
+
+// #817: 08A is only the long-form surface of the two official news channels.
+test('#817 08A direct deep-link fails closed for highlight and foreign channels', async ({ page }) => {
+  const HL = '11111111-1111-4111-8111-111111111111';
+  const NOTICE = '44444444-4444-4444-8444-444444444444';
+  const CHAIR = '55555555-5555-4555-8555-555555555555';
+  const ART = '22222222-2222-4222-8222-222222222222';
+  const OFF = '66666666-6666-4666-8666-666666666666';
+  const mk = (id: string, channel: string, mode: string, title: string) => ({
+    id, source_name: null, category: 'progress', channel, authority: 'resident_council',
+    display_mode: mode, title, body: '본문 1\n\n본문 2', reaction_count: 0,
+    published_at: '2026-09-10T00:00:00.000Z'
+  });
+  const byId: Record<string, ReturnType<typeof mk>> = {
+    [HL]: mk(HL, 'apartment_news', 'highlight', '하이라이트 직접 링크'),
+    [NOTICE]: mk(NOTICE, 'danjion_notice', 'article', '단지온 공지 글'),
+    [CHAIR]: mk(CHAIR, 'chair_greeting', 'article', '회장 인사 글'),
+    [ART]: mk(ART, 'apartment_news', 'article', '장문 소식'),
+    [OFF]: mk(OFF, 'management_office', 'article', '관리사무소 장문 소식')
+  };
+
+  await page.route('**/*', async route => {
+    const url = new URL(route.request().url());
+    if (url.origin !== BASE) { await route.fulfill({ status: 204, body: '' }); return; }
+    if (!url.pathname.startsWith('/api/')) { await route.continue(); return; }
+    if (url.pathname === '/api/auth/get-session') {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: 'null' }); return;
+    }
+    if (url.pathname.startsWith('/api/v1/complexes/' + COMPLEX + '/posts/')) {
+      const row = byId[url.pathname.split('/').at(-1) || ''];
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: row ?? null }) }); return;
+    }
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [] }) });
+  });
+
+  for (const [id, label] of [[HL, 'highlight'], [NOTICE, 'danjion_notice'], [CHAIR, 'chair_greeting']] as const) {
+    await page.goto(withApi('/08A_아파트소식_상세.html?post=' + id));
+    await expect(page.locator('#articleState'), label + ' must never render as a 08A article').toBeVisible();
+    await expect(page.locator('.article-body p')).toHaveCount(0);
+    await expect(page.locator('#articleTitle')).toHaveText('아파트소식');
+    await expect(page.locator('#reactionZone')).toBeHidden();
+  }
+
+  await page.goto(withApi('/08A_아파트소식_상세.html?post=' + ART));
+  await expect(page.locator('#articleTitle')).toHaveText('장문 소식');
+  await expect(page.locator('.article-body p')).toHaveCount(2);
+
+  await page.goto(withApi('/08A_아파트소식_상세.html?post=' + OFF));
+  await expect(page.locator('#articleTitle')).toHaveText('관리사무소 장문 소식');
+  await expect(page.locator('.article-body p')).toHaveCount(2);
+});

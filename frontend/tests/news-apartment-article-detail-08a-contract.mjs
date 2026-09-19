@@ -68,6 +68,16 @@ assert.ok(detail.includes("new URLSearchParams(location.search).get('post')"),
   'ARTICLE_DEEP_LINK/ARTICLE_REFRESH: the detail page hydrates from the stable ?post= uuid on every load');
 assert.ok(detail.includes('bridge.getPost(postId)') && detail.includes('if (!POST_UUID.test'),
   'the body renders from server getPost data and malformed ids fail closed');
+assert.ok(detail.includes("const ARTICLE_CHANNELS = new Set(['apartment_news', 'management_office']);") &&
+          detail.includes("if (!ARTICLE_CHANNELS.has(post.channel) || post.displayMode !== 'article')"),
+  'ARTICLE_CHANNEL_GUARD/ARTICLE_DISPLAY_MODE_GUARD: 08A only renders article posts from the two official news channels');
+assert.ok(detail.includes("ARTICLE_CHANNELS.has('apartment_news')") === false &&
+          !detail.match(/ARTICLE_CHANNELS\s*=\s*new Set\([^)]*danjion_notice/) &&
+          !detail.match(/ARTICLE_CHANNELS\s*=\s*new Set\([^)]*chair_greeting/),
+  'DANJION_NOTICE_BLOCKED/CHAIR_GREETING_BLOCKED: excluded channels are not allowlisted by the 08A surface');
+assert.ok(detail.includes('post.channel') && detail.includes("post.displayMode !== 'article'") &&
+          detail.indexOf('post.displayMode !== \'article\'') < detail.indexOf('renderParagraphs(post.body'),
+  'HIGHLIGHT_NOT_RENDERED_AS_ARTICLE: direct 08A deep-links fail closed before body rendering');
 assert.ok(detail.includes('function notFound()') &&
           detail.includes('이 소식을 찾을 수 없거나 공개되지 않았습니다') &&
           detail.includes('아파트소식 목록으로 돌아가기'),
@@ -82,12 +92,18 @@ assert.ok(detail.includes('categoryLabel(post.category)') &&
           detail.includes('INTERNAL_CATEGORY'),
   'ARTICLE_CATEGORY: human labels render, internal slugs fall back to 아파트소식 (RAW_CATEGORY_SLUG_HIDDEN)');
 assert.ok(detail.includes('formatDate(post.publishedAt)') &&
-          detail.includes('renderParagraphs(post.body'),
+           detail.includes('renderParagraphs(post.body'),
   'ARTICLE_BODY: 게시일 and the long-form body render from server data');
+assert.ok(detail.includes('if (!ARTICLE_CHANNELS.has(post.channel)') &&
+          detail.includes("post.displayMode !== 'article'") &&
+          detail.includes('renderParagraphs(post.body || \'\')'),
+  'ARTICLE_RENDERED_IN_08A: only a valid article reaches the dedicated body renderer');
 assert.ok(detail.includes('node.textContent = paragraph'),
   'article paragraphs are text nodes, never re-injected HTML');
 assert.ok(detail.includes('replace(/\\\\r\\\\n|\\\\n|\\\\r/g'),
   'literal and real newline forms are both honoured as paragraph boundaries');
+assert.ok(detail.includes('.reaction-zone[hidden]{display:none}'),
+  'a hidden reaction zone must not be forced visible by the flex display rule (not-found state)');
 assert.equal(detail.includes('.innerHTML ='), false,
   'the detail page must not use an innerHTML write path');
 
@@ -123,4 +139,10 @@ const detailRouter = detail.match(/<script id="danjion-direct-router-v5">([\s\S]
 assert.ok(detailRouter && detailRouter[1].includes('"08A_아파트소식_상세.html"'),
   'the shared router registers the new detail file');
 
+console.log('ARTICLE_CHANNEL_APARTMENT_NEWS=PASS');
+console.log('ARTICLE_CHANNEL_MANAGEMENT_OFFICE=PASS');
+console.log('DANJION_NOTICE_BLOCKED_FROM_08A=PASS');
+console.log('CHAIR_GREETING_BLOCKED_FROM_08A=PASS');
+console.log('HIGHLIGHT_NOT_RENDERED_AS_ARTICLE=PASS');
+console.log('ARTICLE_RENDERED_IN_08A=PASS');
 console.log('news-apartment-article-detail-08a-contract: PASS #817 highlight popup vs article detail + dual channels + reused reaction contract');

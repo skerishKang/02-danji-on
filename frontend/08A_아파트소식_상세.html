@@ -15,6 +15,7 @@
     .article-body{padding:34px 0 8px;font-size:18px;line-height:1.95;color:#35383c;word-break:keep-all}.article-body p{margin:0 0 24px}
     .article-state{padding:60px 0;text-align:center;color:var(--muted);font-size:16px;font-weight:780}
     .reaction-zone{display:flex;align-items:center;gap:14px;margin-top:26px;border-top:1px solid var(--line);padding-top:22px}
+    .reaction-zone[hidden]{display:none}
     .react{display:inline-flex;align-items:center;gap:9px;min-height:48px;padding:0 20px;border:1px solid var(--line);background:var(--paper2);font-size:15px;font-weight:850}
     .react[aria-pressed="true"]{border-color:var(--coral);color:var(--coral)}
     .react[aria-disabled="true"]{opacity:.6}
@@ -78,6 +79,7 @@ const bridge = createNewsBridge({ apiBase, complexSlug: DANJION_COMPLEX_SLUG });
 
 const POST_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const LIST_PAGE = '08_아파트소식_목록.html';
+const ARTICLE_CHANNELS = new Set(['apartment_news', 'management_office']);
 
 const titleEl = document.getElementById('articleTitle');
 const bodyEl = document.getElementById('articleBody');
@@ -207,6 +209,10 @@ async function loadArticle(postId) {
   const result = await bridge.getPost(postId);
   if (!result.ok || !result.data) { notFound(); return; }
   const post = result.data;
+  if (!ARTICLE_CHANNELS.has(post.channel) || post.displayMode !== 'article') {
+    notFound();
+    return;
+  }
   stateEl.hidden = true;
   const kindLabel = categoryLabel(post.category);
   authorityEl.textContent = post.authorityLabel ? `${post.authorityLabel} · ${kindLabel}` : kindLabel;
