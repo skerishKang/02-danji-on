@@ -25,6 +25,7 @@
     "test:auth-facade-public-base": "tsx tests/auth-facade-public-base-contract.mjs",
     "test:qa-persona-auth-target": "node tests/qa-persona-auth-target-contract.mjs",
     "test:authz-v2": "tsx tests/authorization-v2.test.mjs",
+    "test:community-write-exemption-route": "tsx --import ./tests/helpers/neon-stub-loader.mjs tests/community-write-exemption-route.test.mjs",
     "test:authz-v2-schema": "node tests/authorization-v2-schema-contract.mjs",
     "test:authz-v2-migrations": "node tests/authorization-v2-migration-contract.mjs",
     "test:operational-authz-v2": "tsx tests/operational-authz-v2.test.mjs",

@@ -36,6 +36,7 @@ const EXPECTED_BACKEND_ORDER = [
   "test:production-admin-principal-adopt-existing",
   "test:auth-facade-public-base",
   "test:authz-v2",
+  "test:community-write-exemption-route",
   "test:authz-v2-schema",
   "test:authz-v2-migrations",
   "test:operational-authz-v2",
