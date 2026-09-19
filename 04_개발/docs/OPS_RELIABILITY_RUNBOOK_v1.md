@@ -169,7 +169,7 @@ Activation prerequisites are owner-controlled and are not created by repository 
 
 Safety boundaries:
 
-- scheduled workflow is a no-op while the enable secret is absent/not exactly `true`;
+- scheduled workflow is a no-op unless **both** source arm and enable secret are true; #793 keeps `DANJION_BACKUP_SOURCE_ARMED=false`, so merge cannot activate backups by itself;
 - Production database access is dump/read only;
 - the dump session sets `default_transaction_read_only=on`;
 - plaintext dump is destroyed before the rclone OAuth config is materialized and before any upload;
