@@ -1,0 +1,111 @@
+name: Production Neon Encrypted Drive Backup
+
+on:
+  schedule:
+    # Candidate RPO=24h. 18:17 UTC = 03:17 KST.
+    # This schedule is inert until DANJION_BACKUP_ENABLED=true is explicitly provisioned.
+    - cron: '17 18 * * *'
+  workflow_dispatch:
+    inputs:
+      expected_main:
+        description: 'Exact origin/main SHA authorized by CENTRAL'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: danjion-production-neon-backup
+  cancel-in-progress: false
+
+jobs:
+  encrypted-backup:
+    name: Encrypted pg_dump to bounded Google Drive folder
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      DANJION_BACKUP_ENABLED: ${{ secrets.DANJION_BACKUP_ENABLED }}
+      DANJION_PRODUCTION_DB_URL: ${{ secrets.DANJION_PRODUCTION_DB_URL }}
+      DANJION_BACKUP_ENCRYPTION_PASSPHRASE: ${{ secrets.DANJION_BACKUP_ENCRYPTION_PASSPHRASE }}
+      DANJION_DRIVE_SERVICE_ACCOUNT_JSON: ${{ secrets.DANJION_DRIVE_SERVICE_ACCOUNT_JSON }}
+      DANJION_DRIVE_FOLDER_ID: ${{ secrets.DANJION_DRIVE_FOLDER_ID }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Exact main authority guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main --no-tags
+          actual_main="$(git rev-parse origin/main)"
+          if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
+            expected_main="${{ inputs.expected_main }}"
+          else
+            expected_main="${GITHUB_SHA}"
+          fi
+          if [ "${GITHUB_SHA}" != "${expected_main}" ] || [ "${actual_main}" != "${expected_main}" ]; then
+            echo "::error::Exact-main authority mismatch."
+            exit 1
+          fi
+          echo "EXACT_MAIN_GUARD=PASS"
+
+      - name: Source safety contract
+        run: node 04_개발/backend/tests/backup-neon-to-drive-contract.mjs
+
+      - name: Backup activation gate
+        id: activation
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${DANJION_BACKUP_ENABLED:-}" != "true" ]; then
+            echo "enabled=false" >> "${GITHUB_OUTPUT}"
+            echo "BACKUP_ACTIVATION=DISABLED"
+            exit 0
+          fi
+          echo "enabled=true" >> "${GITHUB_OUTPUT}"
+          echo "BACKUP_ACTIVATION=ENABLED"
+
+      - name: Verify required secret bindings without output
+        if: steps.activation.outputs.enabled == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          missing=0
+          for key in             DANJION_PRODUCTION_DB_URL             DANJION_BACKUP_ENCRYPTION_PASSPHRASE             DANJION_DRIVE_SERVICE_ACCOUNT_JSON             DANJION_DRIVE_FOLDER_ID; do
+            if [ -z "${!key:-}" ]; then
+              missing=1
+            fi
+          done
+          if [ "${missing}" -ne 0 ]; then
+            echo "::error::One or more required backup secret bindings are missing."
+            exit 1
+          fi
+          echo "BACKUP_SECRET_BINDINGS=PASS"
+
+      - name: Install bounded backup tooling
+        if: steps.activation.outputs.enabled == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq rclone gnupg
+          docker --version >/dev/null
+          echo "BACKUP_TOOLING=READY"
+
+      - name: Create encrypted dump, upload, and enforce retention
+        if: steps.activation.outputs.enabled == 'true'
+        shell: bash
+        run: bash 04_개발/backend/scripts/backup-neon-to-drive.sh
+
+      - name: Record disabled disposition
+        if: steps.activation.outputs.enabled != 'true'
+        shell: bash
+        run: |
+          echo "BACKUP_RESULT=NOOP_DISABLED"
+          echo "PRODUCTION_DB_READ=0"
+          echo "PRODUCTION_DB_WRITE=0"
+          echo "DRIVE_WRITE=0"
+          echo "DRIVE_DELETE=0"
+          echo "SECRET_OUTPUT=0"
