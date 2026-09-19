@@ -1,6 +1,10 @@
 export const DANJION_RESIDENT_NEWS_COMPLEX_SLUG = 'banglim-myeongji-roadhill';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const PRIVATE_ATTACHMENT_KEY = /^gdrive\/private\/application-document\/[A-Za-z0-9_-]{10,200}$/;
+const ATTACHMENT_TYPES = new Set(['application/pdf','image/jpeg','image/png','image/webp']);
+const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024;
+const MAX_ATTACHMENTS = 3;
 
 function row(value) {
   return value && typeof value === 'object' ? value : {};
@@ -45,6 +49,7 @@ export function normalizeResidentNewsSubmission(value) {
     title: text(raw.title),
     status: text(raw.status),
     publishedPostId: optionalText(raw.publishedPostId != null ? raw.publishedPostId : raw.published_post_id),
+    attachmentCount: Number(raw.attachmentCount != null ? raw.attachmentCount : raw.attachment_count || 0),
     createdAt: optionalText(raw.createdAt != null ? raw.createdAt : raw.created_at),
     updatedAt: optionalText(raw.updatedAt != null ? raw.updatedAt : raw.updated_at)
   };
@@ -84,6 +89,60 @@ export function createResidentNewsBridge({
     });
   }
 
+  async function uploadAttachment(file, idempotencyKey) {
+    if (!file || typeof file.size !== 'number' || typeof file.type !== 'string') return validationError();
+    if (file.size <= 0 || file.size > MAX_ATTACHMENT_BYTES) {
+      return { ok: false, reason: 'file-too-large', status: 413, error: null };
+    }
+    if (!ATTACHMENT_TYPES.has(file.type)) {
+      return { ok: false, reason: 'file-type', status: 415, error: null };
+    }
+    const key = text(idempotencyKey).trim();
+    if (!/^[A-Za-z0-9._:-]{8,80}$/.test(key)) return validationError();
+
+    const form = new FormData();
+    form.set('kind', 'application-document');
+    form.set('complexSlug', complex);
+    form.set('file', file);
+    const uploadHeaders = new Headers(headers);
+    uploadHeaders.delete('content-type');
+    uploadHeaders.set('idempotency-key', key);
+
+    try {
+      const response = await fetchImpl(Session.joinUrl(base, '/api/v1/storage/objects'), {
+        method: 'POST',
+        credentials: 'include',
+        headers: uploadHeaders,
+        body: form
+      });
+      const payload = await response.json().catch(() => null);
+      const error = payload && payload.error ? payload.error : null;
+      if (!response.ok) {
+        const code = text(error?.code);
+        if (response.status === 401) return { ok: false, reason: 'auth-required', status: 401, error };
+        if (response.status === 403 && (code === 'RESIDENT_VERIFICATION_REQUIRED' || code === 'HOUSEHOLD_ASSOCIATION_REQUIRED')) {
+          return { ok: false, reason: 'resident-verification-required', status: 403, error };
+        }
+        if (response.status === 403) return { ok: false, reason: 'forbidden', status: 403, error };
+        if (response.status === 413 || code === 'FILE_TOO_LARGE' || code === 'PAYLOAD_TOO_LARGE') {
+          return { ok: false, reason: 'file-too-large', status: response.status, error };
+        }
+        if (response.status === 415 || code === 'UNSUPPORTED_MEDIA_TYPE') {
+          return { ok: false, reason: 'file-type', status: response.status, error };
+        }
+        return { ok: false, reason: 'server-error', status: response.status, error };
+      }
+      const data = row(payload?.data);
+      const objectKey = text(data.objectKey);
+      if (!PRIVATE_ATTACHMENT_KEY.test(objectKey)) {
+        return { ok: false, reason: 'server-error', status: response.status, error: null };
+      }
+      return { ok: true, status: response.status, objectKey, data, requestId: payload?.requestId ?? null };
+    } catch (error) {
+      return { ok: false, reason: 'network-error', status: 0, error };
+    }
+  }
+
   return {
     // Published feed only; rows without a server-issued UUID are dropped rather
     // than rendered with a fabricated identity.
@@ -105,14 +164,22 @@ export function createResidentNewsBridge({
       const post = normalizeResidentNewsPost(result.data);
       return { ...result, post: UUID.test(post.id) ? post : null };
     },
+    uploadAttachment,
     async submit(input = {}) {
       const title = text(input.title).trim();
       const body = text(input.body).trim();
-      if (!title || !body) return validationError();
+      const attachmentObjectKeys = Array.isArray(input.attachmentObjectKeys)
+        ? input.attachmentObjectKeys.map((value) => text(value).trim())
+        : [];
+      if (!title || !body || attachmentObjectKeys.length > MAX_ATTACHMENTS) return validationError();
+      if (new Set(attachmentObjectKeys).size !== attachmentObjectKeys.length || attachmentObjectKeys.some((value) => !PRIVATE_ATTACHMENT_KEY.test(value))) {
+        return validationError();
+      }
+      const submissionPayload = attachmentObjectKeys.length ? { title, body, attachmentObjectKeys } : { title, body };
       const result = authorizationBoundary(await call(`${feedPath}/submissions`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ title, body })
+        body: JSON.stringify(submissionPayload)
       }));
       if (!result.ok) return result;
       const submission = normalizeResidentNewsSubmission(result.data);
