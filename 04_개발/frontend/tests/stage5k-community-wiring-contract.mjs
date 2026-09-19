@@ -260,14 +260,19 @@ for (const [name, page, id, kind, chip] of [['14', page14, 'danjion-community-wr
   assert.match(wiring, /공개 전 상태를 확인합니다/, `${name} reports pending-review acceptance truthfully`);
   assert.match(wiring, /localStorage\.removeItem\(/, `${name} clears the demo draft after real submit`);
 }
-for (const [name, page, id] of [
-  ['14', page14, 'danjion-community-write-greeting-live-wiring-348'],
-  ['15', page15, 'danjion-community-write-story-live-wiring-329'],
-  ['16', page16, 'danjion-community-write-question-live-wiring-329']
+for (const [name, page] of [
+  ['14', page14],
+  ['15', page15]
 ]) {
-  const wiring = wiringScript(page, id);
-  assert.match(wiring, /photoBtn\.disabled=true/, `${name} does not claim unsupported server photo persistence`);
-  assert.match(wiring, /현재 미지원/, `${name} makes the photo limitation visible in server mode`);
+  assert.doesNotMatch(page, /id="photoBtn"|id="photos"/,
+    `${name} removes unsupported community photo controls instead of presenting a fake upload promise`);
+  assert.match(page, /서버 사진 첨부를 지원하지 않습니다/,
+    `${name} makes the unsupported photo boundary visible and truthful`);
+}
+{
+  const wiring = wiringScript(page16, 'danjion-community-write-question-live-wiring-329');
+  assert.match(wiring, /photoBtn\.disabled=true/, '16 does not claim unsupported server photo persistence');
+  assert.match(wiring, /현재 미지원/, '16 makes the photo limitation visible in server mode');
 }
 {
   const w16 = wiringScript(page16, 'danjion-community-write-question-live-wiring-329');
