@@ -38,11 +38,13 @@ for (const name of ['greeting','story']) {
   assert.match(pages[name], /서버 사진 첨부를 지원하지 않습니다/,
     `${name}: unsupported attachment state must be explained truthfully`);
 }
+// The question surface no longer renders a photo control at all: the server has
+// no community post photo persistence, so a disabled placeholder is not shipped.
+assert.doesNotMatch(pages.question, /id="photoBtn"|id="photos"|type="file"/,
+  'question: the unsupported photo control must not be rendered at source');
 const questionWrite = writeScripts.find(([n]) => n === 'question')[1];
-assert.match(questionWrite, /photoBtn\.disabled=true/,
-  'question: unsupported photo control remains disabled');
-assert.match(questionWrite, /현재 미지원/,
-  'question: unsupported photo state remains explicit');
+assert.doesNotMatch(questionWrite, /photoBtn|photoCount|photos\./,
+  'question: no dead photo wiring may remain in the server write script');
 
 const question = writeScripts.find(([n]) => n === 'question')[1];
 assert.match(question, /toggle\.disabled=true/, 'question: the unsupported per-post 1:1 receive setting stays disabled');
