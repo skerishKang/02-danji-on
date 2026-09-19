@@ -84,8 +84,8 @@ assert.match(apply25a, /const MAX_PHOTOS=3;/,
   'PHOTO: selection must cap at the backend 0..3 photo contract');
 assert.match(apply25a, /data-file-add="photos"/,
   'PHOTO: the owner form must expose an explicit incremental add control');
-assert.match(apply25a, /class="file-remove"/,
-  'PHOTO: selected files must support per-file removal');
+assert.match(apply25a, /remove\.className='file-remove'/,
+  'PHOTO: selected files must support per-file removal through the runtime list renderer');
 assert.match(apply25a, /bindAccumulatingFiles\(document\.querySelector\('#photos'\),document\.querySelector\('#photoStatus'\),MAX_PHOTOS,'장','photo'\)/,
   'PHOTO: business photos must use the bounded stateful accumulation contract');
 assert.match(apply25a, /const photoFiles=fileGroups\.photos\.entries;/,
