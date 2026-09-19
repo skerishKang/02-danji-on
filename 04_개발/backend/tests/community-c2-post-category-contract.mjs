@@ -50,7 +50,10 @@ assert.match(markerToSql(entry.marker), /'category'/);
 
 /* 6. the resident API owns the canonical per-kind allowlist. */
 const api = read('src/community-resident-v1.ts');
-assert.match(api, /const POST_CATEGORIES: Partial<Record<PostKind, readonly string\[\]>> = \{\n  question: \['생활·살림', '단지시설', '이웃추천', '기타'\],\n  together: \['산책·운동', '취미활동', '육아 같이해요', '공동구매'\]\n\};/);
+assert.match(api, /const POST_CATEGORIES: Partial<Record<PostKind, readonly string\[\]>> = \{\n  question: \['생활·살림', '단지시설', '이웃추천', '기타'\],\n  together: \['산책·운동', '취미활동', '육아 같이해요', '공동구매', '강아지 산책 같이해요'\]\n\};/);
+// #767: the owner-requested dog-walk option must stay a pure allowlist addition.
+assert.match(api, /'강아지 산책 같이해요'\]/);
+assert.doesNotMatch(api, /강아지 산책 같이해요'[^\]]*\]\s*\n\s*\};\s*\n[\s\S]{0,80}new Set<PostKind>/, 'no new PostKind may be introduced for an additive category');
 assert.match(api, /const MAX_CATEGORY_CHARS = 40;/);
 assert.match(api, /function resolveCategory\(kind: PostKind, raw: string, requestId: string\): string \| null \| Response \{/);
 assert.match(api, /if \(!allowlist \|\| !allowlist\.includes\(raw\)\) \{/, 'a value outside the kind allowlist must fail closed');

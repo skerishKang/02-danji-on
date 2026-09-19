@@ -12,7 +12,7 @@
   // a category the server would reject. Kinds absent here can never send one.
   const POST_CATEGORIES = Object.freeze({
     question: Object.freeze(['생활·살림', '단지시설', '이웃추천', '기타']),
-    together: Object.freeze(['산책·운동', '취미활동', '육아 같이해요', '공동구매'])
+    together: Object.freeze(['산책·운동', '취미활동', '육아 같이해요', '공동구매', '강아지 산책 같이해요'])
   });
   const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
