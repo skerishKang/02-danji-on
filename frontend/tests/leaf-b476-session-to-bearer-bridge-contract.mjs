@@ -15,6 +15,8 @@ assert.ok(facade.includes("AUTH_FACADE_MARKER_HEADER = 'x-danjion-auth-facade'")
   'token exchange must use the canonical auth-facade marker');
 assert.ok(facade.includes("AUTH_FACADE_MARKER_VALUE = 'canonical-pages-v1'"),
   'token exchange marker value must stay pinned');
+assert.ok(facade.includes("PRIMARY_PRODUCTION_ORIGIN = 'https://danjion.padiem.net'"),
+  'Primary Production custom domain origin must stay fixed');
 assert.ok(facade.includes("CANONICAL_PAGES_ORIGIN = 'https://danjion.pages.dev'"),
   'Production Pages origin must stay fixed');
 assert.ok(facade.includes("WORKER_API_BASE = 'https://padiem-danjion-api-production.padiem.workers.dev'"),
@@ -29,16 +31,16 @@ assert.ok(facade.includes("new URL(AUTH_SESSION_PATH, upstreamBase)"),
   'session bridge must use the already-selected fixed upstream');
 assert.ok(facade.includes("new URL(AUTH_TOKEN_PATH, upstreamBase)"),
   'fallback token exchange must use the already-selected fixed upstream');
-assert.ok(facade.includes("const upstreamBase = url.origin === CANONICAL_PAGES_ORIGIN"),
-  'upstream selection must begin from the exact Production Pages origin');
+assert.ok(facade.includes("url.origin === PRIMARY_PRODUCTION_ORIGIN || url.origin === LEGACY_PRODUCTION_ORIGIN"),
+  'upstream selection must support primary custom domain and legacy fallback origin');
 assert.ok(facade.includes("url.origin === QA_PAGES_ORIGIN"),
   'upstream selection may include only the explicit QA Pages origin');
 assert.ok(facade.includes("if (!upstreamBase)"),
   'unknown origins must fail closed before any Worker call');
 assert.ok(facade.includes("headers.set('cookie', cookie)"),
   'server-side token exchange must use the first-party session cookie');
-assert.ok(facade.includes("headers.set('origin', url.origin === QA_PAGES_ORIGIN ? QA_PAGES_ORIGIN : CANONICAL_PAGES_ORIGIN)"),
-  'token exchange and app request Origin must be server-pinned to the selected Pages origin');
+assert.ok(facade.includes("headers.set('origin', url.origin)"),
+  'token exchange and app request Origin must be server-pinned to the selected exact origin');
 assert.ok(facade.includes("'authorization'"),
   'client Authorization must be in the guarded-header set');
 assert.ok(facade.includes("if (HOP_BY_HOP.has(lower) || GUARDED_HEADERS.has(lower)) continue;"),

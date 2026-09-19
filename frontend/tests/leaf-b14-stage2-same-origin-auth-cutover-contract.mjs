@@ -48,8 +48,23 @@ const loadSession = (location) => {
     'canonical application API base must be same-origin so the first-party session cookie is observable');
 }
 {
+  const PRIMARY_HOST = 'danjion.padiem.net';
+  const PRIMARY_API_BASE = 'https://danjion.padiem.net';
+  const s = loadSession({ search: '', hostname: PRIMARY_HOST });
+  assert.equal(s.danjionAuthBase(), '', 'primary custom domain auth base must be same-origin');
+  assert.equal(s.joinUrl(s.danjionAuthBase(), '/api/auth/get-session'), '/api/auth/get-session',
+    'primary get-session must be a same-origin relative URL');
+  assert.equal(s.danjionApiBase(), PRIMARY_API_BASE,
+    'primary application API base must be same-origin');
+}
+{
   const s = loadSession({ search: '', hostname: PRODUCTION_HOST.toUpperCase() });
   assert.equal(s.danjionAuthBase(), '', 'canonical auth same-origin must be hostname case-insensitive');
+}
+{
+  const s = loadSession({ search: '', hostname: 'DANJION.PADIEM.NET' });
+  assert.equal(s.danjionAuthBase(), '', 'primary auth same-origin must be hostname case-insensitive');
+  assert.equal(s.danjionApiBase(), 'https://danjion.padiem.net', 'primary api base must be hostname case-insensitive');
 }
 {
   for (const hostname of ['danjion-review.pages.dev', 'localhost', '127.0.0.1', '[::1]', 'kilo1.danjion-preview.pages.dev', 'demo.test']) {
@@ -61,6 +76,21 @@ const loadSession = (location) => {
 {
   const s = loadSession({ search: '', hostname: `evil-${PRODUCTION_HOST}` });
   assert.equal(s.danjionAuthBase(), '', 'suffix-spoofed hostnames must not bind the production auth facade');
+}
+{
+  for (const hostname of ['evil-danjion.padiem.net', 'danjion.padiem.net.evil.example', 'padiem.net', 'sub.danjion.padiem.net', 'danjion.pages.dev.evil.example']) {
+    const s = loadSession({ search: '', hostname });
+    assert.equal(s.danjionAuthBase(), '', `${hostname} must not bind production auth facade`);
+    assert.equal(s.danjionApiBase(), '', `${hostname} must stay fail-closed on general API`);
+  }
+}
+{
+  const crafted = `?apiBase=${encodeURIComponent('https://attacker.example/collect')}`;
+  const s = loadSession({ search: crafted, hostname: 'danjion.padiem.net' });
+  assert.equal(s.danjionAuthBase(), '',
+    'primary production auth must ignore a crafted ?apiBase= and remain same-origin');
+  assert.equal(s.danjionApiBase(), 'https://danjion.padiem.net',
+    'primary production general API must ignore a crafted ?apiBase= and remain same-origin');
 }
 {
   const s = loadSession({ search: '?apiBase=', hostname: PRODUCTION_HOST });
@@ -159,11 +189,15 @@ assert.ok(!index.includes('네이버로 계속하기'), '#586: Naver must stay o
 
 /* ================= 5. Stage-1 facade authority stays intact ================= */
 const facade = await read('../../functions/_lib/auth-facade.js');
+assert.ok(facade.includes("export const PRIMARY_PRODUCTION_ORIGIN = 'https://danjion.padiem.net';"),
+  'facade must export the primary production custom origin');
 assert.ok(facade.includes(`export const EXPECTED_GOOGLE_REDIRECT_URI = \`\${CANONICAL_PAGES_ORIGIN}/api/auth/callback/google\`;`),
   'Google callback contract must remain the canonical Pages callback');
 assert.ok(facade.includes(`export const CANONICAL_PAGES_ORIGIN = '${CANONICAL_PAGES_ORIGIN}';`),
   'the facade must keep failing closed outside the canonical Pages origin');
 const backend = await read('../../04_개발/backend/src/auth-better-v1.ts');
+assert.ok(backend.includes("export const PRIMARY_PRODUCTION_AUTH_BASE_URL = 'https://danjion.padiem.net';"),
+  'backend must export primary production auth base constant');
 assert.ok(backend.includes("export const AUTH_FACADE_MARKER_VALUE = 'canonical-pages-v1';"),
   'Stage-1 backend resolver marker must be unchanged');
 assert.ok(backend.includes("export const CANONICAL_PAGES_AUTH_BASE_URL = 'https://danjion.pages.dev';"),

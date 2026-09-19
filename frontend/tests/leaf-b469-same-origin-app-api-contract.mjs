@@ -30,6 +30,19 @@ assert.equal(S.joinUrl(S.danjionApiBase(), '/api/v1/me/profile'),
 assert.equal(S.PRODUCTION_API_BASE, 'https://padiem-danjion-api-production.padiem.workers.dev',
   'fixed Worker upstream constant remains pinned for infrastructure contracts');
 
+const primaryCtx = {
+  location: { hostname: 'danjion.padiem.net', search: '' },
+  URLSearchParams,
+  console
+};
+vm.createContext(primaryCtx);
+vm.runInContext(sessionSrc, primaryCtx);
+assert.equal(primaryCtx.DanjionSession.danjionApiBase(), 'https://danjion.padiem.net',
+  'primary application API base must be first-party custom domain');
+assert.equal(primaryCtx.DanjionSession.joinUrl(primaryCtx.DanjionSession.danjionApiBase(), '/api/v1/me/profile'),
+  'https://danjion.padiem.net/api/v1/me/profile',
+  'protected profile calls must remain same-origin on primary custom domain');
+
 for (const hostname of ['danjion-review.pages.dev', 'localhost', '127.0.0.1']) {
   const c = { location: { hostname, search: '' }, URLSearchParams, console };
   vm.createContext(c);
@@ -38,6 +51,8 @@ for (const hostname of ['danjion-review.pages.dev', 'localhost', '127.0.0.1']) {
     hostname + ' must not auto-bind the production app facade');
 }
 
+assert.ok(facadeSrc.includes("PRIMARY_PRODUCTION_ORIGIN = 'https://danjion.padiem.net'"),
+  'app facade must be pinned to primary custom domain');
 assert.ok(facadeSrc.includes("CANONICAL_PAGES_ORIGIN = 'https://danjion.pages.dev'"),
   'app facade must be pinned to canonical Pages');
 assert.ok(facadeSrc.includes("WORKER_API_BASE = 'https://padiem-danjion-api-production.padiem.workers.dev'"),
@@ -50,8 +65,8 @@ assert.ok(facadeSrc.includes("QA_WORKER_API_BASE"),
   'QA facade upstream must be fixed');
 assert.ok(facadeSrc.includes("headers.set(name, value)"),
   'incoming first-party request headers, including Cookie, must be forwarded');
-assert.ok(facadeSrc.includes("headers.set('origin', url.origin === QA_PAGES_ORIGIN ? QA_PAGES_ORIGIN : CANONICAL_PAGES_ORIGIN)"),
-  'upstream Origin must be pinned to the exact facade origin');
+assert.ok(facadeSrc.includes("headers.set('origin', url.origin)"),
+  'upstream Origin must be pinned to the exact verified facade origin');
 assert.ok(!facadeSrc.includes('x-danjion-dev-auth-user'),
   'app facade must never carry the development auth bypass header');
 assert.ok(facadeSrc.includes("'authorization'"),

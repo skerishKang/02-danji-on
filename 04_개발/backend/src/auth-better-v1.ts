@@ -68,6 +68,8 @@ function trustedOrigins(env: BetterAuthEnv, baseUrl: string): string[] {
  */
 export const AUTH_FACADE_MARKER_HEADER = 'x-danjion-auth-facade';
 export const AUTH_FACADE_MARKER_VALUE = 'canonical-pages-v1';
+export const PRIMARY_PRODUCTION_AUTH_BASE_URL = 'https://danjion.padiem.net';
+export const LEGACY_PRODUCTION_AUTH_BASE_URL = 'https://danjion.pages.dev';
 export const CANONICAL_PAGES_AUTH_BASE_URL = 'https://danjion.pages.dev';
 export const QA_PAGES_AUTH_BASE_URL = 'https://danjion-qa.pages.dev';
 
@@ -76,7 +78,8 @@ export function resolveAuthPublicBaseUrl(env: BetterAuthEnv, request?: Request):
   if (!request) return envBase;
   if (request.headers.get(AUTH_FACADE_MARKER_HEADER) !== AUTH_FACADE_MARKER_VALUE) return envBase;
   const origin = request.headers.get('origin');
-  if (origin === new URL(CANONICAL_PAGES_AUTH_BASE_URL).origin) return CANONICAL_PAGES_AUTH_BASE_URL;
+  if (origin === new URL(PRIMARY_PRODUCTION_AUTH_BASE_URL).origin) return PRIMARY_PRODUCTION_AUTH_BASE_URL;
+  if (origin === new URL(LEGACY_PRODUCTION_AUTH_BASE_URL).origin) return LEGACY_PRODUCTION_AUTH_BASE_URL;
   if (env.APP_ENV === 'qa' && origin === new URL(QA_PAGES_AUTH_BASE_URL).origin) return QA_PAGES_AUTH_BASE_URL;
   return envBase;
 }

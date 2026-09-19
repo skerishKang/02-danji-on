@@ -6,6 +6,12 @@
   // forwards /api/v1/* to the fixed production Worker with the first-party
   // session cookie. Preview/local origins remain fail-closed unless an explicit
   // ?apiBase= is supplied.
+  // Issue #790: canonical custom domain is primary Production authority,
+  // while legacy Pages hostname is retained as fallback during migration.
+  // Both bind the same-origin Pages Function facade for Better Auth and application API.
+  const PRIMARY_PRODUCTION_HOSTNAME = 'danjion.padiem.net';
+  const PRIMARY_PRODUCTION_API_BASE = 'https://danjion.padiem.net';
+  const LEGACY_PRODUCTION_HOSTNAME = 'danjion.pages.dev';
   const PRODUCTION_PAGES_HOSTNAME = 'danjion.pages.dev';
   const CANONICAL_PAGES_API_BASE = 'https://danjion.pages.dev';
   const PRODUCTION_API_BASE = 'https://padiem-danjion-api-production.padiem.workers.dev';
@@ -13,6 +19,10 @@
   function danjionApiBase(loc) {
     const where = loc || (typeof location !== 'undefined' ? location : {});
     const hostname = String(where.hostname || '').toLowerCase();
+
+    // Security boundary: primary custom production always stays same-origin. Query
+    // parameters can never redirect application API traffic off the primary host.
+    if (hostname === PRIMARY_PRODUCTION_HOSTNAME) return PRIMARY_PRODUCTION_API_BASE;
 
     // Security boundary: canonical production always stays same-origin. Query
     // parameters can never redirect application API traffic off the Pages host.
@@ -49,6 +59,10 @@
   function danjionAuthBase(loc) {
     const where = loc || (typeof location !== 'undefined' ? location : {});
     const hostname = String(where.hostname || '').toLowerCase();
+
+    // Security boundary: primary custom production Better Auth must remain on the
+    // same-origin facade even if a crafted link supplies ?apiBase=.
+    if (hostname === PRIMARY_PRODUCTION_HOSTNAME) return '';
 
     // Security boundary: production Better Auth must remain on the canonical
     // same-origin Pages facade even if a crafted link supplies ?apiBase=.
@@ -256,7 +270,8 @@
     // product shell. Reuse the existing header slot as a navigation-only entry
     // to the canonical landing auth modal; never duplicate auth or carry PII.
     if (!nativeSessionReady(session)) {
-      const canonicalProduction = String(loc.hostname || '').toLowerCase() === PRODUCTION_PAGES_HOSTNAME;
+      const hostname = String(loc.hostname || '').toLowerCase();
+      const canonicalProduction = hostname === PRIMARY_PRODUCTION_HOSTNAME || hostname === PRODUCTION_PAGES_HOSTNAME;
       if (!canonicalProduction) return null;
       host.classList.remove('danjion-account-host');
       host.classList.add('danjion-guest-auth-host');
@@ -440,6 +455,9 @@
     accountStripEligible,
     initAccountStrip,
     loadServiceFooterRuntime,
+    PRIMARY_PRODUCTION_HOSTNAME,
+    PRIMARY_PRODUCTION_API_BASE,
+    LEGACY_PRODUCTION_HOSTNAME,
     PRODUCTION_PAGES_HOSTNAME,
     CANONICAL_PAGES_API_BASE,
     PRODUCTION_API_BASE

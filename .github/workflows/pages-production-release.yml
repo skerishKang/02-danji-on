@@ -35,6 +35,8 @@ jobs:
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       API_BASE_URL: https://padiem-danjion-api-production.padiem.workers.dev
       AUTH_BASE_URL: https://padiem-danjion-api-production.padiem.workers.dev
+      PRIMARY_PUBLIC_ORIGIN: https://danjion.padiem.net
+      LEGACY_PUBLIC_ORIGIN: https://danjion.pages.dev
       PRODUCTION_PAGES_HOSTNAME: danjion.pages.dev
       PAGES_PROJECT: danjion
       PAGES_PRODUCTION_BRANCH: main
@@ -137,6 +139,10 @@ jobs:
           set -euo pipefail
           if ! grep -R -q 'padiem-danjion-api-production.padiem.workers.dev' dist/assets/danjion-session.js; then
             echo "::error::V3 resolver does not carry the canonical production API binding."
+            exit 1
+          fi
+          if ! grep -R -q 'danjion.padiem.net' dist/assets/danjion-session.js; then
+            echo "::error::V3 resolver does not gate on the primary production hostname."
             exit 1
           fi
           if ! grep -R -q 'danjion.pages.dev' dist/assets/danjion-session.js; then
@@ -354,7 +360,9 @@ jobs:
             echo '- Project: `danjion`'
             echo '- Production branch: `main`'
             echo '- UI artifact: V3 top-level `frontend/` static site (entry: `index.html`)'
-            echo '- API binding: runtime hostname gate; only `danjion.pages.dev` auto-binds'
+            echo '- Primary public origin: `https://danjion.padiem.net`'
+            echo '- Legacy public origin: `https://danjion.pages.dev`'
+            echo '- API binding: runtime hostname gate; `danjion.padiem.net` and `danjion.pages.dev` auto-bind'
             echo '- API/Auth origin: `padiem-danjion-api-production.padiem.workers.dev`'
             echo '- Controlled preview: explicit `?apiBase=` only'
             echo '- Production API/JWKS preflight: PASS'

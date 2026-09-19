@@ -10,10 +10,14 @@ const session = await readFile(new URL('../../frontend/assets/danjion-session.js
 /* --- Stage 1 is a dormant Pages Function facade: fixed marker + fixed canonical origin --- */
 assert.match(facade, /export const AUTH_FACADE_MARKER = 'danjion-auth-facade\/v1';/,
   'facade must export a fixed stage-1 marker');
+assert.match(facade, /export const PRIMARY_PRODUCTION_ORIGIN = 'https:\/\/danjion\.padiem\.net';/,
+  'facade must declare the primary production custom domain origin');
 assert.match(facade, /export const CANONICAL_PAGES_ORIGIN = 'https:\/\/danjion\.pages\.dev';/,
   'facade must pin the canonical Pages origin');
 assert.match(facade, /export const WORKER_API_BASE = 'https:\/\/padiem-danjion-api-production\.padiem\.workers\.dev';/,
   'facade must proxy to the canonical production Worker base');
+assert.match(facade, /export const PRIMARY_GOOGLE_REDIRECT_URI = `\$\{PRIMARY_PRODUCTION_ORIGIN\}\/api\/auth\/callback\/google`;/,
+  'primary Google redirect URI contract must be the custom domain callback path');
 assert.match(facade, /export const EXPECTED_GOOGLE_REDIRECT_URI = `\$\{CANONICAL_PAGES_ORIGIN\}\/api\/auth\/callback\/google`;/,
   'Google redirect URI contract must be the canonical Pages callback path');
 assert.match(facade, /export const FACADE_REQUEST_MARKER_HEADER = 'x-danjion-auth-facade';/,
@@ -145,6 +149,33 @@ assert.match(session, /PRODUCTION_API_BASE/,
   assert.equal(qa.status, 302, 'QA auth facade must proxy');
   assert.ok(calls[0].url.startsWith('https://padiem-danjion-api-qa.padiem.workers.dev/'), 'QA facade must use the fixed QA Worker');
 
+  calls.length = 0;
+  const primary = await authFacadeFetch(makeContext('https://danjion.padiem.net/api/auth/get-session', {
+    headers: {
+      origin: 'https://evil-attacker.example',
+      [mod.FACADE_REQUEST_MARKER_HEADER]: 'attacker-controlled-v9',
+      cookie: 'a=b'
+    }
+  }), { fetchImpl });
+  assert.equal(calls.length, 1, 'primary custom domain auth request must proxy to the Worker');
+  assert.equal(primary.status, 302);
+  const primaryCall = calls[0];
+  assert.ok(primaryCall.url.startsWith('https://padiem-danjion-api-production.padiem.workers.dev/api/auth/get-session'),
+    'primary custom domain must proxy to production Worker');
+  assert.equal(primaryCall.headers.get('origin'), 'https://danjion.padiem.net',
+    'origin must be re-pinned to exact primary custom domain');
+  assert.equal(primaryCall.headers.get('x-forwarded-host'), 'danjion.padiem.net',
+    'x-forwarded-host must carry the primary custom domain');
+  assert.equal(primaryCall.headers.get(mod.FACADE_REQUEST_MARKER_HEADER), mod.FACADE_REQUEST_MARKER_VALUE,
+    'client-forged marker must be replaced with canonical marker');
+
+  calls.length = 0;
+  const primarySpoof = await authFacadeFetch(makeContext('https://danjion.padiem.net.evil.example/api/auth/get-session'), { fetchImpl });
+  assert.equal(primarySpoof.status, 404, 'spoofed primary origin must fail closed');
+  assert.equal(calls.length, 0, 'spoofed origin must never reach the Worker');
+
+  assert.equal(mod.PRIMARY_GOOGLE_REDIRECT_URI, 'https://danjion.padiem.net/api/auth/callback/google',
+    'the primary Google redirect URI must be the custom domain callback');
   assert.equal(mod.EXPECTED_GOOGLE_REDIRECT_URI, 'https://danjion.pages.dev/api/auth/callback/google',
     'the Google console redirect contract must be the canonical Pages callback');
 }
