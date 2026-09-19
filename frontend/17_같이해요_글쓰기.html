@@ -70,7 +70,8 @@ main{width:min(760px,100%);margin:auto;padding:28px 20px 34px}.category{display:
  function render(){const item=data[selected];document.querySelectorAll('.type-tab').forEach(b=>{const on=b.dataset.kind===selected;b.classList.toggle('active',on);b.setAttribute('aria-pressed',String(on))});document.getElementById('typeHelp').textContent=item.description;const chip=document.getElementById('categoryChip');if(chip)chip.textContent='같이해요 · '+item.title;document.getElementById('safety').textContent=item.safety;dynamic.innerHTML=item.fields.map(fieldMarkup).join('');const d=drafts[selected]||{};title.value=d.title||'';body.value=d.body||'';document.getElementById('bodyCount').textContent=body.value.length;dynamic.querySelectorAll('input').forEach(i=>{if(d.fields&&Object.prototype.hasOwnProperty.call(d.fields,i.name))i.value=d.fields[i.name];i.addEventListener('input',save);i.addEventListener('change',save)})}
  document.querySelectorAll('.type-tab').forEach(b=>b.addEventListener('click',()=>{if(b.dataset.kind===selected)return;save();selected=b.dataset.kind;drafts.__selected=selected;render();save()}));
  title.addEventListener('input',save);body.addEventListener('input',()=>{document.getElementById('bodyCount').textContent=body.value.length;save()});document.querySelector('.back').addEventListener('click',()=>{save();location.href=COMMUNITY});
- function publish(){save();if(!title.value.trim()){toast('제목을 입력해주세요.');title.focus();return}if(body.value.trim().length<5){toast('자세한 내용을 조금 더 적어주세요.');body.focus();return}const missing=[...dynamic.querySelectorAll('input[required]')].find(i=>!i.value.trim());if(missing){toast(missing.previousElementSibling?.textContent?.replace('필수','').trim()+'을(를) 입력해주세요.');missing.focus();return}delete drafts[selected];try{localStorage.setItem(key,JSON.stringify(drafts))}catch(e){}toast(data[selected].title+' 글을 게시했습니다.');setTimeout(()=>location.href=COMMUNITY,650)}document.querySelectorAll('[data-publish]').forEach(b=>b.addEventListener('click',publish));render();
+ // Publishing is owned exclusively by the server-backed handler below.
+ render();
 })();
 </script>
 <script src="assets/danjion-session.js"></script>
@@ -78,7 +79,6 @@ main{width:min(760px,100%);margin:auto;padding:28px 20px 34px}.category{display:
 <script id="danjion-community-write-together-live-wiring-329">
 (()=>{
  const apiBase=(window.DanjionSession&&DanjionSession.danjionApiBase())||'';
- if(!apiBase)return;
  const bridge=DanjionCommunityBridge.createCommunityBridge({apiBase});
  const title=document.getElementById('title'),body=document.getElementById('body');
  const key='danjionDraft:17:v2';
