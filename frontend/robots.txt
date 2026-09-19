@@ -1,0 +1,43 @@
+# 단지온 (DanJiOn) robots.txt
+#
+# Domain-independent on purpose: the canonical hostname for this project is
+# not yet attached (deferred). Do not add a Sitemap directive until the
+# production domain is confirmed, and never hard-code a temporary
+# *.pages.dev host here.
+#
+# Policy:
+#   - allow the public landing and public informational surfaces
+#   - do not advertise private / personalized surfaces to crawlers
+#   - the public landing itself must never be blocked
+
+User-agent: *
+Allow: /
+
+# Private / personalized member surfaces. These are already marked
+# noindex,nofollow in their own document heads; the entries below keep
+# well-behaved crawlers from probing them at all.
+Disallow: /19_내정보_메인.html
+Disallow: /20_메시지함_목록.html
+Disallow: /21_메시지_대화상세.html
+Disallow: /23_이웃온기.html
+Disallow: /24_설정.html
+Disallow: /25_1대1문의.html
+Disallow: /26_우리집연결.html
+Disallow: /27_알림함.html
+Disallow: /28_나의활동.html
+
+# Internal review / authoring tools that are not part of the public service.
+Disallow: /00_APP_390_통합검토.html
+Disallow: /00_주민혜택_AB비교.html
+Disallow: /01_이웃가게_발견_v2.html
+Disallow: /01_이웃가게_발견_v3.html
+Disallow: /03_주민혜택_쿠폰_v2.html
+Disallow: /app.html
+Disallow: /app2.html
+Disallow: /index2.html
+
+# Operator console. Never indexable.
+Disallow: /admin/
+
+# NOTE: no Sitemap directive. See the header — deferred until the canonical
+# production domain is attached.
