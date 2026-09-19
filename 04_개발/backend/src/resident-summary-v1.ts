@@ -93,16 +93,22 @@ export async function handleResidentSummaryWithSql(
   `;
 
   const row = rows[0] || {};
+  // Household reporting must stay truthful. An exempt administrator principal
+  // (explicit resident.verification.exempt grant, no household membership) is
+  // allowed through requireVerifiedResident so operator surfaces keep working,
+  // but it must never be reported as a verified household member: the exemption
+  // is a resident-verification bypass, not a household. Ordinary residents keep
+  // the verified status + real membershipRole exactly as before.
+  const household = resident.residentVerificationExempt
+    ? { status: 'exempt', membershipRole: null }
+    : { status: 'verified', membershipRole: resident.membershipRole };
   return ok({
     postCount: Number(row.post_count || 0),
     commentCount: Number(row.comment_count || 0),
     receivedReactionCount: Number(row.received_reaction_count || 0),
     savedBusinessCount: Number(row.saved_business_count || 0),
     unreadMessageCount: Number(row.unread_message_count || 0),
-    household: {
-      status: 'verified',
-      membershipRole: resident.membershipRole
-    }
+    household
   }, requestId);
 }
 
