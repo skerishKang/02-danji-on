@@ -30,6 +30,19 @@ assert.equal(S.joinUrl(S.danjionApiBase(), '/api/v1/me/profile'),
 assert.equal(S.PRODUCTION_API_BASE, 'https://padiem-danjion-api-production.padiem.workers.dev',
   'fixed Worker upstream constant remains pinned for infrastructure contracts');
 
+const primaryCtx = {
+  location: { hostname: 'danjion.padiem.net', search: '' },
+  URLSearchParams,
+  console
+};
+vm.createContext(primaryCtx);
+vm.runInContext(sessionSrc, primaryCtx);
+assert.equal(primaryCtx.DanjionSession.danjionApiBase(), 'https://danjion.padiem.net',
+  'primary application API base must be first-party custom domain');
+assert.equal(primaryCtx.DanjionSession.joinUrl(primaryCtx.DanjionSession.danjionApiBase(), '/api/v1/me/profile'),
+  'https://danjion.padiem.net/api/v1/me/profile',
+  'protected profile calls must remain same-origin on primary custom domain');
+
 for (const hostname of ['danjion-review.pages.dev', 'localhost', '127.0.0.1']) {
   const c = { location: { hostname, search: '' }, URLSearchParams, console };
   vm.createContext(c);
@@ -38,6 +51,8 @@ for (const hostname of ['danjion-review.pages.dev', 'localhost', '127.0.0.1']) {
     hostname + ' must not auto-bind the production app facade');
 }
 
+assert.ok(facadeSrc.includes("PRIMARY_PRODUCTION_ORIGIN = 'https://danjion.padiem.net'"),
+  'app facade must be pinned to primary custom domain');
 assert.ok(facadeSrc.includes("CANONICAL_PAGES_ORIGIN = 'https://danjion.pages.dev'"),
   'app facade must be pinned to canonical Pages');
 assert.ok(facadeSrc.includes("WORKER_API_BASE = 'https://padiem-danjion-api-production.padiem.workers.dev'"),
@@ -50,8 +65,8 @@ assert.ok(facadeSrc.includes("QA_WORKER_API_BASE"),
   'QA facade upstream must be fixed');
 assert.ok(facadeSrc.includes("headers.set(name, value)"),
   'incoming first-party request headers, including Cookie, must be forwarded');
-assert.ok(facadeSrc.includes("headers.set('origin', url.origin === QA_PAGES_ORIGIN ? QA_PAGES_ORIGIN : CANONICAL_PAGES_ORIGIN)"),
-  'upstream Origin must be pinned to the exact facade origin');
+assert.ok(facadeSrc.includes("headers.set('origin', url.origin)"),
+  'upstream Origin must be pinned to the exact verified facade origin');
 assert.ok(!facadeSrc.includes('x-danjion-dev-auth-user'),
   'app facade must never carry the development auth bypass header');
 assert.ok(facadeSrc.includes("'authorization'"),
@@ -66,5 +81,68 @@ assert.ok(workflow.includes('functions/_lib/auth-facade.js'),
   'production release must still assert the auth facade');
 assert.ok(workflow.includes('confirm_production'),
   'manual production deployment gate must remain');
+
+/* executable exact-origin facade routing: source-string checks alone are insufficient */
+{
+  const mod = await import(new URL('../../functions/_lib/app-facade.js', import.meta.url).href);
+  const { appFacadeFetch } = mod;
+  const calls = [];
+  const fetchImpl = async (req) => {
+    calls.push(req);
+    return new Response('{"data":{"ok":true}}', {
+      status: 200,
+      headers: { 'content-type': 'application/json' }
+    });
+  };
+  const makeContext = (href, init = {}) => ({
+    request: new Request(href, init),
+    env: { ASSETS: { fetch: async () => new Response('asset', { status: 418 }) } }
+  });
+
+  const primary = await appFacadeFetch(makeContext('https://danjion.padiem.net/api/v1/me/profile?x=1', {
+    headers: {
+      origin: 'https://evil-attacker.example',
+      authorization: 'Bearer attacker-controlled',
+      'x-forwarded-host': 'evil-attacker.example',
+      'x-forwarded-proto': 'http'
+    }
+  }), { fetchImpl });
+  assert.equal(primary.status, 200);
+  assert.equal(calls.length, 1, 'primary custom-domain app request must reach production Worker exactly once');
+  assert.equal(calls[0].url,
+    'https://padiem-danjion-api-production.padiem.workers.dev/api/v1/me/profile?x=1',
+    'primary app facade must route only to the fixed production Worker');
+  assert.equal(calls[0].headers.get('origin'), 'https://danjion.padiem.net',
+    'primary app facade must re-pin Origin to the accepted exact request origin');
+  assert.equal(calls[0].headers.get('x-forwarded-host'), 'danjion.padiem.net',
+    'primary app facade must re-pin forwarded host');
+  assert.equal(calls[0].headers.get('x-forwarded-proto'), 'https',
+    'primary app facade must re-pin forwarded protocol');
+  assert.equal(calls[0].headers.get('authorization'), null,
+    'client Authorization must never pass through the app facade');
+
+  calls.length = 0;
+  await appFacadeFetch(makeContext('https://danjion.pages.dev/api/v1/me/profile'), { fetchImpl });
+  assert.equal(calls.length, 1, 'legacy Pages fallback must still reach the production Worker');
+  assert.ok(calls[0].url.startsWith('https://padiem-danjion-api-production.padiem.workers.dev/'));
+  assert.equal(calls[0].headers.get('origin'), 'https://danjion.pages.dev');
+
+  calls.length = 0;
+  await appFacadeFetch(makeContext('https://danjion-qa.pages.dev/api/v1/me/profile'), { fetchImpl });
+  assert.equal(calls.length, 1, 'QA exact origin must reach only the QA Worker');
+  assert.ok(calls[0].url.startsWith('https://padiem-danjion-api-qa.padiem.workers.dev/'));
+  assert.equal(calls[0].headers.get('origin'), 'https://danjion-qa.pages.dev');
+
+  for (const href of [
+    'https://danjion.padiem.net.evil.example/api/v1/me/profile',
+    'https://evil-danjion.padiem.net/api/v1/me/profile',
+    'https://danjion.pages.dev.evil.example/api/v1/me/profile'
+  ]) {
+    calls.length = 0;
+    const rejected = await appFacadeFetch(makeContext(href), { fetchImpl });
+    assert.equal(rejected.status, 404, href + ' must fail closed');
+    assert.equal(calls.length, 0, href + ' must never reach any Worker');
+  }
+}
 
 console.log('leaf-b469-same-origin-app-api-contract: PASS');

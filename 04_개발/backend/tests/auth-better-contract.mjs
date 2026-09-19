@@ -125,13 +125,23 @@ assert.equal(production?.name, 'padiem-danjion-api-production', 'production Work
 assert.equal(production?.workers_dev, true, 'production must expose a stable workers.dev endpoint until a custom API domain is introduced');
 assert.equal(
   production?.vars?.CORS_ALLOWED_ORIGINS,
-  'https://danjion.pages.dev',
-  'production CORS must be limited to the canonical Danjion Pages origin'
+  'https://danjion.padiem.net,https://danjion.pages.dev',
+  'production CORS must include only the primary custom origin plus bounded legacy Pages fallback'
 );
 assert.equal(
   production?.vars?.AUTH_TRUSTED_ORIGINS,
-  'https://danjion.pages.dev',
-  'Better Auth trusted origins must match the canonical production frontend boundary'
+  'https://danjion.padiem.net,https://danjion.pages.dev',
+  'Better Auth trusted origins must include only the primary custom origin plus bounded legacy Pages fallback'
+);
+assert.doesNotMatch(
+  production?.vars?.CORS_ALLOWED_ORIGINS || '',
+  /\*/,
+  'production CORS must never use wildcard origin trust'
+);
+assert.doesNotMatch(
+  production?.vars?.AUTH_TRUSTED_ORIGINS || '',
+  /\*/,
+  'production Better Auth trusted origins must never use wildcard origin trust'
 );
 assert.equal(production?.vars?.AUTH_REQUIRE_EMAIL_VERIFICATION, 'false', 'demo stabilization must keep Production email verification dormant');
 assert.equal(production?.vars?.DEV_AUTH_BYPASS, 'false', 'production must never enable the dev auth bypass');

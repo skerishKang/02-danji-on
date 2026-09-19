@@ -41,4 +41,12 @@ assert.match(workflow, /test -f 'functions\/api\/auth\/\[\[path\]\]\.js'/,
 assert.match(workflow, /test -f functions\/auth\/social-start\.js/,
   'assembly must require the /auth/social-start facade route at the repository root');
 
+/* #790: workflow source contract must recognize PRIMARY_PUBLIC_ORIGIN and LEGACY_PUBLIC_ORIGIN */
+assert.match(workflow, /PRIMARY_PUBLIC_ORIGIN:\s*https:\/\/danjion\.padiem\.net/,
+  'production workflow must declare the primary public custom origin');
+assert.match(workflow, /LEGACY_PUBLIC_ORIGIN:\s*https:\/\/danjion\.pages\.dev/,
+  'production workflow must declare the legacy public Pages fallback origin');
+assert.match(workflow, /grep -R -q 'danjion\.padiem\.net' dist\/assets\/danjion-session\.js/,
+  'scan step must verify primary production hostname in artifact');
+
 console.log('leaf-b14-pages-production-release-contract: PASS');

@@ -15,10 +15,13 @@
 //     and cookie hardening — the facade forwards bytes, it never mints auth.
 
 export const AUTH_FACADE_MARKER = 'danjion-auth-facade/v1';
+export const PRIMARY_PRODUCTION_ORIGIN = 'https://danjion.padiem.net';
+export const LEGACY_PRODUCTION_ORIGIN = 'https://danjion.pages.dev';
 export const CANONICAL_PAGES_ORIGIN = 'https://danjion.pages.dev';
 export const QA_PAGES_ORIGIN = 'https://danjion-qa.pages.dev';
 export const WORKER_API_BASE = 'https://padiem-danjion-api-production.padiem.workers.dev';
 export const QA_WORKER_API_BASE = 'https://padiem-danjion-api-qa.padiem.workers.dev';
+export const PRIMARY_GOOGLE_REDIRECT_URI = `${PRIMARY_PRODUCTION_ORIGIN}/api/auth/callback/google`;
 export const EXPECTED_GOOGLE_REDIRECT_URI = `${CANONICAL_PAGES_ORIGIN}/api/auth/callback/google`;
 
 // Fixed internal request marker: the Worker's bounded public-base resolver only
@@ -49,7 +52,7 @@ export async function authFacadeFetch(context, deps = {}) {
   const { request, env } = context;
   const url = new URL(request.url);
 
-  const upstreamBase = url.origin === CANONICAL_PAGES_ORIGIN
+  const upstreamBase = (url.origin === PRIMARY_PRODUCTION_ORIGIN || url.origin === LEGACY_PRODUCTION_ORIGIN)
     ? WORKER_API_BASE
     : url.origin === QA_PAGES_ORIGIN
       ? QA_WORKER_API_BASE
@@ -71,7 +74,9 @@ export async function authFacadeFetch(context, deps = {}) {
     if (HOP_BY_HOP.has(lower) || FORGED_GUARDED_HEADERS.has(lower)) continue;
     headers.set(name, value);
   }
-  headers.set('origin', url.origin === QA_PAGES_ORIGIN ? QA_PAGES_ORIGIN : CANONICAL_PAGES_ORIGIN);
+  // Worker request Origin is re-pinned to the approved incoming exact origin:
+  // url.origin is guaranteed to be one of PRIMARY_PRODUCTION_ORIGIN, LEGACY_PRODUCTION_ORIGIN, or QA_PAGES_ORIGIN.
+  headers.set('origin', url.origin);
   headers.set(FACADE_REQUEST_MARKER_HEADER, FACADE_REQUEST_MARKER_VALUE);
   headers.set('x-forwarded-host', url.host);
   headers.set('x-forwarded-proto', url.protocol.replace(':', ''));

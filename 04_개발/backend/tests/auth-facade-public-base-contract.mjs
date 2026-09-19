@@ -4,6 +4,8 @@ import {
   resolveAuthPublicBaseUrl,
   AUTH_FACADE_MARKER_HEADER,
   AUTH_FACADE_MARKER_VALUE,
+  PRIMARY_PRODUCTION_AUTH_BASE_URL,
+  LEGACY_PRODUCTION_AUTH_BASE_URL,
   CANONICAL_PAGES_AUTH_BASE_URL
 } from '../src/auth-better-v1.ts';
 
@@ -32,8 +34,16 @@ assert.equal(resolveAuthPublicBaseUrl(env), WORKER_BASE, 'no request must keep t
 assert.equal(resolveAuthPublicBaseUrl(env, makeSignInSocialRequest()), WORKER_BASE, 'direct Worker request must keep the env base');
 assert.equal(resolveAuthPublicBaseUrl(env, makeSignInSocialRequest({
   [AUTH_FACADE_MARKER_HEADER]: AUTH_FACADE_MARKER_VALUE,
+  origin: PRIMARY_PRODUCTION_AUTH_BASE_URL
+})), PRIMARY_PRODUCTION_AUTH_BASE_URL, 'facade marker + primary custom Origin must select primary custom base');
+assert.equal(resolveAuthPublicBaseUrl(env, makeSignInSocialRequest({
+  [AUTH_FACADE_MARKER_HEADER]: AUTH_FACADE_MARKER_VALUE,
   origin: CANONICAL_PAGES_AUTH_BASE_URL
 })), CANONICAL_PAGES_AUTH_BASE_URL, 'facade marker + canonical Origin must select the canonical Pages base');
+assert.equal(resolveAuthPublicBaseUrl(env, makeSignInSocialRequest({
+  [AUTH_FACADE_MARKER_HEADER]: AUTH_FACADE_MARKER_VALUE,
+  origin: LEGACY_PRODUCTION_AUTH_BASE_URL
+})), LEGACY_PRODUCTION_AUTH_BASE_URL, 'facade marker + legacy Origin must select legacy Pages base');
 assert.equal(resolveAuthPublicBaseUrl({ ...env, APP_ENV: 'qa' }, makeSignInSocialRequest({
   [AUTH_FACADE_MARKER_HEADER]: AUTH_FACADE_MARKER_VALUE,
   origin: 'https://danjion-qa.pages.dev'
@@ -42,8 +52,18 @@ assert.equal(resolveAuthPublicBaseUrl(env, makeSignInSocialRequest({
   [AUTH_FACADE_MARKER_HEADER]: AUTH_FACADE_MARKER_VALUE,
   origin: 'https://danjion-qa.pages.dev'
 })), WORKER_BASE, 'QA facade origin must remain disabled outside APP_ENV=qa');
+assert.equal(resolveAuthPublicBaseUrl(env, makeSignInSocialRequest({ origin: PRIMARY_PRODUCTION_AUTH_BASE_URL })),
+  WORKER_BASE, 'primary Origin without the marker must not flip the base');
 assert.equal(resolveAuthPublicBaseUrl(env, makeSignInSocialRequest({ origin: CANONICAL_PAGES_AUTH_BASE_URL })),
   WORKER_BASE, 'canonical Origin without the marker must not flip the base');
+assert.equal(resolveAuthPublicBaseUrl(env, makeSignInSocialRequest({
+  [AUTH_FACADE_MARKER_HEADER]: AUTH_FACADE_MARKER_VALUE,
+  origin: 'https://evil-danjion.padiem.net'
+})), WORKER_BASE, 'spoofed primary origin must not flip the base');
+assert.equal(resolveAuthPublicBaseUrl(env, makeSignInSocialRequest({
+  [AUTH_FACADE_MARKER_HEADER]: AUTH_FACADE_MARKER_VALUE,
+  origin: 'https://danjion.padiem.net.evil.example'
+})), WORKER_BASE, 'suffix-spoofed primary origin must not flip the base');
 assert.equal(resolveAuthPublicBaseUrl(env, makeSignInSocialRequest({ [AUTH_FACADE_MARKER_HEADER]: AUTH_FACADE_MARKER_VALUE })),
   WORKER_BASE, 'marker without the canonical Origin must not flip the base');
 assert.equal(resolveAuthPublicBaseUrl(env, makeSignInSocialRequest({
@@ -121,6 +141,19 @@ assert.equal(facadeAuthUrl.searchParams.get('redirect_uri'),
   'https://danjion.pages.dev/api/auth/callback/google',
   'facade-mode Better Auth callback base must be exactly the canonical Pages base');
 
+const primaryFacadeRequest = makeSignInSocialRequest({
+  [AUTH_FACADE_MARKER_HEADER]: AUTH_FACADE_MARKER_VALUE,
+  origin: PRIMARY_PRODUCTION_AUTH_BASE_URL
+}, PRIMARY_PRODUCTION_AUTH_BASE_URL);
+const primaryFacadeAuthUrl = await readAuthUrl(
+  createDanjionAuth(env, resolveAuthPublicBaseUrl(env, primaryFacadeRequest)),
+  primaryFacadeRequest
+);
+assert.equal(primaryFacadeAuthUrl.origin, 'https://accounts.google.com', 'primary facade mode must still reach Google');
+assert.equal(primaryFacadeAuthUrl.searchParams.get('redirect_uri'),
+  'https://danjion.padiem.net/api/auth/callback/google',
+  'primary facade-mode callback base must be exactly the custom domain base');
+
 const directAuthUrl = await readAuthUrl(
   createDanjionAuth(env, resolveAuthPublicBaseUrl(env, directRequest)),
   directRequest
@@ -143,6 +176,19 @@ assert.equal(kakaoFacadeAuthUrl.origin, 'https://kauth.kakao.com', 'facade mode 
 assert.equal(kakaoFacadeAuthUrl.searchParams.get('redirect_uri'),
   'https://danjion.pages.dev/api/auth/callback/kakao',
   'Kakao facade-mode callback base must be exactly the canonical Pages base');
+
+const primaryKakaoFacadeRequest = makeSignInSocialRequest({
+  [AUTH_FACADE_MARKER_HEADER]: AUTH_FACADE_MARKER_VALUE,
+  origin: PRIMARY_PRODUCTION_AUTH_BASE_URL
+}, PRIMARY_PRODUCTION_AUTH_BASE_URL, 'kakao');
+const primaryKakaoFacadeAuthUrl = await readAuthUrl(
+  createDanjionAuth(env, resolveAuthPublicBaseUrl(env, primaryKakaoFacadeRequest)),
+  primaryKakaoFacadeRequest
+);
+assert.equal(primaryKakaoFacadeAuthUrl.origin, 'https://kauth.kakao.com', 'primary facade mode must still reach Kakao');
+assert.equal(primaryKakaoFacadeAuthUrl.searchParams.get('redirect_uri'),
+  'https://danjion.padiem.net/api/auth/callback/kakao',
+  'Kakao primary facade callback base must be exactly the custom domain base');
 
 const kakaoDirectRequest = makeSignInSocialRequest({ origin: WORKER_BASE }, `${WORKER_BASE}/`, 'kakao');
 const kakaoDirectAuthUrl = await readAuthUrl(

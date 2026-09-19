@@ -16,6 +16,8 @@
 //   * Worker remains final authentication/authorization authority.
 
 export const APP_FACADE_MARKER = 'danjion-app-facade/v1';
+export const PRIMARY_PRODUCTION_ORIGIN = 'https://danjion.padiem.net';
+export const LEGACY_PRODUCTION_ORIGIN = 'https://danjion.pages.dev';
 export const CANONICAL_PAGES_ORIGIN = 'https://danjion.pages.dev';
 export const QA_PAGES_ORIGIN = 'https://danjion-qa.pages.dev';
 export const WORKER_API_BASE = 'https://padiem-danjion-api-production.padiem.workers.dev';
@@ -57,7 +59,7 @@ async function bearerFromSessionCookie(fetchImpl, request, url, upstreamBase) {
 
   const headers = new Headers();
   headers.set('cookie', cookie);
-  headers.set('origin', url.origin === QA_PAGES_ORIGIN ? QA_PAGES_ORIGIN : CANONICAL_PAGES_ORIGIN);
+  headers.set('origin', url.origin);
   headers.set(AUTH_FACADE_MARKER_HEADER, AUTH_FACADE_MARKER_VALUE);
   headers.set('x-forwarded-host', url.host);
   headers.set('x-forwarded-proto', 'https');
@@ -113,7 +115,7 @@ export async function appFacadeFetch(context, deps = {}) {
   const { request, env } = context;
   const url = new URL(request.url);
 
-  const upstreamBase = url.origin === CANONICAL_PAGES_ORIGIN
+  const upstreamBase = (url.origin === PRIMARY_PRODUCTION_ORIGIN || url.origin === LEGACY_PRODUCTION_ORIGIN)
     ? WORKER_API_BASE
     : url.origin === QA_PAGES_ORIGIN
       ? QA_WORKER_API_BASE
@@ -135,7 +137,7 @@ export async function appFacadeFetch(context, deps = {}) {
     if (HOP_BY_HOP.has(lower) || GUARDED_HEADERS.has(lower)) continue;
     headers.set(name, value);
   }
-  headers.set('origin', url.origin === QA_PAGES_ORIGIN ? QA_PAGES_ORIGIN : CANONICAL_PAGES_ORIGIN);
+  headers.set('origin', url.origin);
   headers.set('x-forwarded-host', url.host);
   headers.set('x-forwarded-proto', 'https');
 
