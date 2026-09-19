@@ -110,14 +110,7 @@ h1{margin:17px 0 8px;font-size:30px;line-height:1.18;letter-spacing:-.045em}
   try{const d=JSON.parse(localStorage.getItem(key)||'null');if(d){title.value=d.title||'';body.value=d.body||''}}catch(e){}
   title.addEventListener('input',save);body.addEventListener('input',save);
   document.querySelector('.back').addEventListener('click',()=>location.href=COMMUNITY);
-  function publish(){
-    if(!title.value.trim()){toast('제목을 입력해주세요.');title.focus();return}
-    if(body.value.trim().length<5){toast('내용을 조금 더 적어주세요.');body.focus();return}
-    try{localStorage.removeItem(key)}catch(e){}
-    toast('게시했습니다.');
-    setTimeout(()=>location.href=COMMUNITY,650);
-  }
-  document.querySelectorAll('[data-publish]').forEach(b=>b.addEventListener('click',publish));
+  // Publishing is owned exclusively by the server-backed handler below.
 })();
 </script>
 <script src="assets/danjion-session.js"></script>
@@ -125,7 +118,6 @@ h1{margin:17px 0 8px;font-size:30px;line-height:1.18;letter-spacing:-.045em}
 <script id="danjion-community-write-story-live-wiring-329">
 (()=>{
  const apiBase=(window.DanjionSession&&DanjionSession.danjionApiBase())||'';
- if(!apiBase)return;
  const bridge=DanjionCommunityBridge.createCommunityBridge({apiBase});
  const title=document.getElementById('title'),body=document.getElementById('body');
  const key='danjionDraft:15';
