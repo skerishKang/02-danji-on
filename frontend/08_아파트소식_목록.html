@@ -217,7 +217,16 @@ function mergeNewsResults(results) {
     const failed = (results || []).find(r => !r || !r.ok);
     return { ok: false, data: [], error: (failed && failed.error) || 'NEWS_CHANNEL_READ_FAILED' };
   }
-  const merged = results.flatMap(r => r.data);
+  // A post belongs to exactly one server channel; an id seen twice can only be a
+  // duplicated read of the same post (e.g. a channel-insensitive fixture), and
+  // residents must never meet the same 소식 as two rows.
+  const seen = new Set();
+  const merged = [];
+  for (const row of results.flatMap(r => r.data)) {
+    if (!row || seen.has(row.id)) continue;
+    seen.add(row.id);
+    merged.push(row);
+  }
   merged.sort((a, b) => (Date.parse(b.publishedAt || '') || 0) - (Date.parse(a.publishedAt || '') || 0));
   return { ok: true, data: merged, error: null };
 }

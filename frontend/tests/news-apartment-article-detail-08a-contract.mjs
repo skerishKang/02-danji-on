@@ -45,6 +45,8 @@ assert.ok(list.includes('mergeNewsResults'),
   'the merged feed must have one named merge owner');
 assert.ok(list.includes("(Date.parse(b.publishedAt || '') || 0) - (Date.parse(a.publishedAt || '') || 0)"),
   'the merged feed is ordered by server publishedAt, newest first');
+assert.ok(list.includes('seen.has(row.id)'),
+  'a duplicated id across channel reads must collapse to one row (one post, one channel)');
 assert.ok(list.includes("posts.find(p => p.channel === 'chair_greeting')") &&
           list.includes("posts.filter(p => p.channel !== 'chair_greeting')"),
   'CHAIR_GREETING_PRESERVED: the chair feature lane keeps its server-channel contract');
