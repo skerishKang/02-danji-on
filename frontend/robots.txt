@@ -1,0 +1,37 @@
+# 단지온 (DanJiOn) robots.txt
+#
+# Domain-independent on purpose: the canonical hostname for this project is
+# not yet attached (deferred). Do not add a Sitemap directive until the
+# production domain is confirmed, and never hard-code a temporary
+# *.pages.dev host here.
+#
+# Policy:
+#   - allow the public landing and public informational surfaces
+#   - the public landing itself must never be blocked
+#
+# Deliberately NOT listed here: the private / personalized member surfaces
+# (내정보, 메시지함, 대화상세, 공개프로필, 이웃온기, 설정, 1:1 문의, 우리집
+# 연결, 알림함, 나의 활동). robots.txt is a crawl-hint file, not an access
+# control or security boundary. The authority that keeps those surfaces out
+# of search results is the `noindex,nofollow` meta tag in each document
+# head. Listing them here would only advertise private routes and would
+# wrongly imply robots.txt is what protects them.
+
+User-agent: *
+Allow: /
+
+# Internal review / authoring tools that are not part of the public service.
+Disallow: /00_APP_390_통합검토.html
+Disallow: /00_주민혜택_AB비교.html
+Disallow: /01_이웃가게_발견_v2.html
+Disallow: /01_이웃가게_발견_v3.html
+Disallow: /03_주민혜택_쿠폰_v2.html
+Disallow: /app.html
+Disallow: /app2.html
+Disallow: /index2.html
+
+# Operator console. Never indexable.
+Disallow: /admin/
+
+# NOTE: no Sitemap directive. See the header — deferred until the canonical
+# production domain is attached.
