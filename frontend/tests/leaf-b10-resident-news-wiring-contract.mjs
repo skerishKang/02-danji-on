@@ -323,7 +323,12 @@ const list = wiringBlock(page10, 'resident-news-list-server-wiring-20260911');
   assert.ok(page10.includes("remove.textContent='삭제'"), 'page 10 must expose per-file removal before upload');
   assert.ok(list.block.includes("emailInput.disabled=true"), 'server mode must not accept a direct email field the backend ignores');
   assert.ok(list.block.includes('가입 이메일로 연락'), 'server mode must explain the actual follow-up channel');
-  assert.ok(list.block.includes("setProof('verified')"), 'verified state must come from a successful server authority read');
+  assert.ok(page10.includes('운영진 확인 후'), 'the submission note must state the 운영진 확인 후 게시 intent');
+  assert.ok(!page10.includes('제보 내용 확인하기'), 'the prototype confirmation CTA must never be revived');
+  assert.ok(!/resident-proof|residentProofState|residentProofTitle/.test(page10),
+    'the resident-verification proof surface must not be presented in the submission UI');
+  assert.ok(!list.block.includes('setProof'),
+    'no UI proof updater may remain; server authorization stays authoritative and untouched');
   assert.ok(list.block.includes("resident-verification-required"), 'resident/household 403 must stay distinct from signed-out');
   assert.ok(list.block.includes('DETAIL') && list.block.includes('?postId='), 'list wiring must carry the post id into the detail surface');
   assert.ok(list.block.includes("result.reason==='auth-required'"), 'list wiring must branch on auth-required');
