@@ -11,13 +11,20 @@ const script = readFileSync(join(here, '..', 'scripts', 'backup-neon-to-drive.sh
 assert.match(workflow, /cron:\s*'17 18 \* \* \*'/, 'daily candidate schedule must remain 24h');
 assert.match(workflow, /environment:\s*production/, 'backup must use the production environment boundary');
 assert.match(workflow, /DANJION_BACKUP_ENABLED/, 'explicit activation secret gate is required');
-assert.match(workflow, /steps\.activation\.outputs\.enabled == 'true'/, 'active steps must depend on enable gate');
+assert.match(workflow, /needs\.activation-gate\.outputs\.enabled == 'true'/, 'backup job must depend on enable gate');
 assert.match(workflow, /Exact main authority guard/, 'exact-main guard is required');
 assert.match(workflow, /DANJION_PRODUCTION_DB_URL/, 'must reuse canonical production DB secret name');
 assert.match(workflow, /DANJION_BACKUP_ENCRYPTION_PASSPHRASE/, 'encryption secret binding is required');
 assert.match(workflow, /DANJION_DRIVE_RCLONE_CONFIG/, 'owner OAuth rclone config secret binding is required');
 assert.match(workflow, /DANJION_DRIVE_FOLDER_ID/, 'dedicated Drive folder binding is required');
 assert.doesNotMatch(workflow, /actions\/upload-artifact/i, 'database backup must never become a GitHub artifact');
+const activationBlock = workflow.split(/\n  encrypted-backup:/)[0];
+assert.match(activationBlock, /DANJION_BACKUP_ENABLED/, 'activation job must receive only the enable secret');
+assert.doesNotMatch(activationBlock, /DANJION_PRODUCTION_DB_URL/, 'disabled activation job must not materialize DB URL');
+assert.doesNotMatch(activationBlock, /DANJION_BACKUP_ENCRYPTION_PASSPHRASE/, 'disabled activation job must not materialize encryption secret');
+assert.doesNotMatch(activationBlock, /DANJION_DRIVE_RCLONE_CONFIG/, 'disabled activation job must not materialize Drive OAuth secret');
+assert.match(workflow, /Reconfirm exact main immediately before backup/, 'exact-main must be rechecked immediately before backup');
+assert.match(workflow, /SENSITIVE_BACKUP_SECRET_MATERIALIZED=0/, 'disabled disposition must explicitly prove sensitive backup secrets were not materialized');
 
 assert.match(script, /RETENTION_GENERATIONS=30/, 'retention must remain bounded to 30 generations');
 assert.match(script, /POSTGRES_IMAGE="postgres:18"/, 'pg_dump client must be pinned to a non-older major');
@@ -28,7 +35,8 @@ assert.match(script, /--no-acl/, 'dump must not preserve ACL coupling');
 assert.match(script, /gpg[\s\S]*--passphrase-fd 0[\s\S]*--symmetric[\s\S]*AES256/, 'dump must be encrypted from stdin-provided passphrase');
 assert.doesNotMatch(script, /--passphrase\s+["']?\$\{?DANJION_BACKUP_ENCRYPTION_PASSPHRASE/i, 'passphrase must never be a process argument');
 
-const shredPos = script.indexOf('shred -u "${plain_dump}"');
+const plaintextBoundary = script.indexOf('Plaintext must be destroyed');
+const shredPos = script.indexOf('shred -u "${plain_dump}"', plaintextBoundary);
 const driveCredentialPos = script.indexOf('printf \'%s\' "${DANJION_DRIVE_RCLONE_CONFIG}" > "${rclone_config}"');
 const uploadPos = script.indexOf('rclone --config "${rclone_config}" copyto');
 assert.ok(shredPos >= 0 && driveCredentialPos >= 0 && uploadPos >= 0, 'plaintext cleanup, Drive credential materialization, and upload markers must exist');
