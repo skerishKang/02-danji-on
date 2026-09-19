@@ -115,7 +115,7 @@ Severity / owner / retention:
 
 | Metric | Target |
 |---|---|
-| RPO | Owner decision required. Current platform ceiling: **6 hours** (Neon history retention). Candidate: confirm acceptable RPO ≥ 6h, or raise retention / add scheduled dumps for identity·audit data |
+| RPO | Current platform PITR window: **6 hours**. Source-ready candidate mitigation: encrypted logical dump to Google Drive once daily (**24h candidate RPO**), retaining 30 generations. Activation remains owner-gated under #714/#793; this document does not assert the schedule is live. |
 | RTO | Owner decision required. Candidate inputs: branch-restore time (drill, §5) + Worker deploy time |
 
 Both require owner confirmation; the drill (§5) is the measurement instrument.
@@ -135,8 +135,45 @@ Both require owner confirmation; the drill (§5) is the measurement instrument.
 
 ## 10. Follow-up implementation issues (separate approval gates)
 
-1. **Backup hardening** — decide RPO; if 6h retention is insufficient: upgrade Neon plan / raise history retention / schedule logical dumps of auth·grant·audit tables to R2. (Enabled by §3.1 facts.)
+1. **Backup hardening** — #714 / source child #793. Source path: scheduled encrypted PostgreSQL custom-format logical dump to a dedicated Google Drive folder, candidate cadence once daily (24h), retention 30 encrypted generations. The merged source must remain fail-closed unless `DANJION_BACKUP_ENABLED=true` and all required production/Drive/encryption secret bindings are explicitly provisioned. No plaintext dump may leave the runner; no GitHub backup artifact is permitted. **Status: source implementation in progress; activation pending owner approval and credential provisioning.**
 2. **Uptime/error alerting** — add Cloudflare account notifications (or external monitor) for Worker + Pages health. (Enabled by §3.2 facts — none configured today.)
 3. **Recovery drill execution** — restore PITR candidate into a private child branch, verify schema/aggregates/read-smoke, record RTO evidence, tear down.
 4. **RPO/RTO confirmation** — record owner-approved targets after drill results.
 5. **Branch hygiene** (housekeeping, low priority) — owner-approved cleanup of the 3 stale sandbox branches.
+
+
+## 11. Logical backup activation boundary (#714 / #793)
+
+The backup source is intentionally separable from activation.
+
+Source contract:
+
+```text
+NEON_ORG=Padiem
+PRODUCTION_PROJECT=Danjion
+PRODUCTION_PROJECT_ID=old-shape-61609481
+BACKUP_FORMAT=pg_dump custom
+ENCRYPTION=GPG AES256 symmetric
+CANDIDATE_RPO=24h
+RETENTION_GENERATIONS=30
+DESTINATION=dedicated Google Drive folder
+```
+
+Activation prerequisites are owner-controlled and are not created by repository code:
+
+- `DANJION_BACKUP_ENABLED=true`
+- existing `DANJION_PRODUCTION_DB_URL` production environment secret
+- `DANJION_BACKUP_ENCRYPTION_PASSPHRASE`
+- `DANJION_DRIVE_SERVICE_ACCOUNT_JSON`
+- `DANJION_DRIVE_FOLDER_ID`
+
+Safety boundaries:
+
+- scheduled workflow is a no-op while the enable secret is absent/not exactly `true`;
+- Production database access is dump/read only;
+- the dump session sets `default_transaction_read_only=on`;
+- plaintext dump is destroyed before Drive credentials are materialized and before any upload;
+- only the encrypted `.dump.gpg` object is uploaded;
+- retention deletion is restricted to the exact `danjion-prod-<UTC>-<sha>.dump.gpg` filename family;
+- database material is never uploaded as a GitHub Actions artifact;
+- restore verification remains a separate explicit mutation gate and must target a private non-production restore surface, never the shared QA environment by default.
