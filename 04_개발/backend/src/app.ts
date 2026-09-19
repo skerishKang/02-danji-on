@@ -1,6 +1,7 @@
 import core, { type CoreEnv } from './core-v1';
 import { handleAccountLifecycleRequest } from './account-lifecycle-v1';
 import { handleAdminApplicationDocumentRequest } from './admin-application-docs-v1';
+import { handleAdminUnitMasterRequest } from './admin-unit-master-v1';
 import { handleAdminAuditRequest } from './admin-audit-v1';
 import { handleAdminBootstrapRequest } from './admin-bootstrap-v1';
 import { handleAdminGlobalAuditRequest } from './admin-global-audit-v1';
@@ -194,6 +195,8 @@ export default {
       if (adminPrincipalResponse) return respond(adminPrincipalResponse);
       const adminApplicationDocumentResponse = await handleAdminApplicationDocumentRequest(request, env, id);
       if (adminApplicationDocumentResponse) return respond(adminApplicationDocumentResponse);
+      const adminUnitMasterResponse = await handleAdminUnitMasterRequest(request, env, id);
+      if (adminUnitMasterResponse) return respond(adminUnitMasterResponse);
       const communityModerationResponse = await handleCommunityModerationRequest(request, env, id);
       if (communityModerationResponse) return respond(communityModerationResponse);
       const residentNewsResponse = await handleResidentNewsRequest(request, env, id);

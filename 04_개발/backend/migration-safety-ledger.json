@@ -62,6 +62,7 @@
     "052_community_post_category.sql": { "class": "schema", "marker": { "kind": "column", "table": "community_posts", "name": "category" } },
     "053_complex_news_article_reactions.sql": { "class": "schema", "marker": { "kind": "table", "schema": "public", "name": "complex_post_reactions" } },
     "054_application_document_upload_idempotency.sql": { "class": "schema", "marker": { "kind": "index", "schema": "public", "name": "uq_application_document_upload_idempotency" } },
+    "055_complex_unit_master_provenance.sql": { "class": "schema", "marker": { "kind": "column", "table": "complex_units", "name": "deactivated_at" } },
     "900_dev_seed.sql": { "class": "dev_seed_prohibited", "reason": "DEVELOPMENT ONLY. Deterministic dev IDs must never reach production." },
     "901_dev_contacts.sql": { "class": "dev_seed_prohibited", "reason": "DEVELOPMENT ONLY. Fake contact values must never reach production." },
     "902_dev_unverified_resident.sql": { "class": "dev_seed_prohibited", "reason": "DEVELOPMENT ONLY. Dev unverified resident fixture must never reach production." }
