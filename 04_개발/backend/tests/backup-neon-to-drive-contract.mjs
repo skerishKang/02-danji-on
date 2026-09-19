@@ -11,6 +11,7 @@ const script = readFileSync(join(here, '..', 'scripts', 'backup-neon-to-drive.sh
 assert.match(workflow, /cron:\s*'17 18 \* \* \*'/, 'daily candidate schedule must remain 24h');
 assert.match(workflow, /environment:\s*production/, 'backup must use the production environment boundary');
 assert.match(workflow, /DANJION_BACKUP_ENABLED/, 'explicit activation secret gate is required');
+assert.match(workflow, /DANJION_BACKUP_SOURCE_ARMED:\s*'false'/, 'source-only PR must stay hard-disabled until a later owner-authorized arm change');
 assert.match(workflow, /needs\.activation-gate\.outputs\.enabled == 'true'/, 'backup job must depend on enable gate');
 assert.match(workflow, /Exact main authority guard/, 'exact-main guard is required');
 assert.match(workflow, /DANJION_PRODUCTION_DB_URL/, 'must reuse canonical production DB secret name');
