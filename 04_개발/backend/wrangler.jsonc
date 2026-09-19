@@ -56,6 +56,7 @@
       },
       "vars": {
         "APP_ENV": "production",
+        "STORAGE_MODE": "drive",
         "DEV_AUTH_BYPASS": "false",
         "BUSINESS_IMAGE_RECONCILIATION_ENABLED": "false",
         "DANJION_AUTH_BASE_URL": "https://padiem-danjion-api-production.padiem.workers.dev",
