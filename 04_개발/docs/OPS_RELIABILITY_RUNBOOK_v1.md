@@ -135,9 +135,9 @@ Both require owner confirmation; the drill (§5) is the measurement instrument.
 
 ## 10. Follow-up implementation issues (separate approval gates)
 
-1. **Backup hardening** — #714 / source child #793. Source path: scheduled encrypted PostgreSQL custom-format logical dump to a dedicated Google Drive folder, candidate cadence once daily (24h), retention 30 encrypted generations. The merged source must remain fail-closed unless `DANJION_BACKUP_ENABLED=true` and all required production/Drive/encryption secret bindings are explicitly provisioned. No plaintext dump may leave the runner; no GitHub backup artifact is permitted. **Status: source implementation in progress; activation pending owner approval and credential provisioning.**
+1. **Backup hardening** — #714 / source child #793. Source path: scheduled encrypted PostgreSQL custom-format logical dump to a dedicated Google Drive folder, candidate cadence once daily (24h), retention 30 encrypted generations. The merged source must remain fail-closed unless `DANJION_BACKUP_ENABLED=true` and all required production/Drive/encryption secret bindings are explicitly provisioned. No plaintext dump may leave the runner; no GitHub backup artifact is permitted. **Status: source implementation complete (#793 CLOSED); activation pending owner approval and credential provisioning (#797).**
 2. **Uptime/error alerting** — add Cloudflare account notifications (or external monitor) for Worker + Pages health. (Enabled by §3.2 facts — none configured today.)
-3. **Recovery drill execution** — restore PITR candidate into a private child branch, verify schema/aggregates/read-smoke, record RTO evidence, tear down.
+3. **Recovery drill execution** — restore one encrypted logical backup candidate into an isolated private non-production target, verify schema/aggregates/read-smoke, record RTO evidence, and tear down. **Design/implementation child: #796.**
 4. **RPO/RTO confirmation** — record owner-approved targets after drill results.
 5. **Branch hygiene** (housekeeping, low priority) — owner-approved cleanup of the 3 stale sandbox branches.
 
@@ -180,3 +180,22 @@ Safety boundaries:
 
 
 Service-account note: Google documents that service accounts do not have Drive storage quota and cannot own ordinary Drive files. Therefore the free-path implementation uses an owner-authorized OAuth/rclone configuration for ordinary My Drive. A service-account variant is appropriate only when the destination is a supported Shared Drive or another ownership model explicitly designed for it.
+
+## 12. Current #714 disposition
+
+```text
+SOURCE_IMPLEMENTATION=#793 CLOSED_COMPLETED
+ACTIVATION_CHILD=#797 OPEN_OWNER_GATED
+RESTORE_CHILD=#796 OPEN_ISOLATED_NON_PRODUCTION_ONLY
+DANJION_BACKUP_SOURCE_ARMED=false
+BACKUP_ACTIVATION=NO
+PRODUCTION_DB_READ=0
+PRODUCTION_DB_WRITE=0
+DRIVE_WRITE=0
+DRIVE_DELETE=0
+SECRET_MUTATION=0
+RESTORE_EXECUTION=0
+PRODUCTION_MUTATION=0
+```
+
+The source merge does not constitute activation. A separate owner-authorized source-arm change, explicit Production environment secret provisioning, and CENTRAL exact-head review are required before any live backup run. Restore verification is independently gated by #796 and must use a temporary private non-production target; Production and the shared QA project remain out of scope.
