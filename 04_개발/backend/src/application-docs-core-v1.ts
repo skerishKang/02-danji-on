@@ -149,25 +149,6 @@ async function streamDriveFile(
   return new Response(fileResponse.body, { status: 200, headers });
 }
 
-// Bounded reuse for an already-authorized private product lane. The caller must
-// establish product AuthZ, tenant binding, registry kind/state and any audit
-// requirement before calling this function. Object keys remain restricted to
-// the canonical private application-document namespace.
-export async function serveActivePrivateApplicationDocumentObject(
-  env: ApplicationDocumentEnv,
-  objectKey: string,
-  resourceId: string,
-  requestId: string
-): Promise<Response> {
-  const fileId = parseFileId(objectKey);
-  if (!fileId) return fail('INVALID_OBJECT_KEY', 'Invalid storage object key', 400, requestId);
-  try {
-    return await streamDriveFile(env, fileId, resourceId, requestId);
-  } catch {
-    return fail('STORAGE_UNAVAILABLE', 'Private attachment could not be read from storage', 503, requestId);
-  }
-}
-
 export async function serveApplicationDocument(
   request: Request,
   env: ApplicationDocumentEnv,
@@ -236,3 +217,23 @@ export async function serveApplicationDocument(
 
   return streamDriveFile(env, fileId, documentId, requestId);
 }
+
+// Bounded reuse for an already-authorized private product lane. The caller must
+// establish product AuthZ, tenant binding, registry kind/state and any audit
+// requirement before calling this function. Object keys remain restricted to
+// the canonical private application-document namespace.
+export async function serveActivePrivateApplicationDocumentObject(
+  env: ApplicationDocumentEnv,
+  objectKey: string,
+  resourceId: string,
+  requestId: string
+): Promise<Response> {
+  const fileId = parseFileId(objectKey);
+  if (!fileId) return fail('INVALID_OBJECT_KEY', 'Invalid storage object key', 400, requestId);
+  try {
+    return await streamDriveFile(env, fileId, resourceId, requestId);
+  } catch {
+    return fail('STORAGE_UNAVAILABLE', 'Private attachment could not be read from storage', 503, requestId);
+  }
+}
+
