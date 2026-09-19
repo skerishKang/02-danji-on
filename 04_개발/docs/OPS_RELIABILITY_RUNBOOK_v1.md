@@ -156,7 +156,7 @@ BACKUP_FORMAT=pg_dump custom
 ENCRYPTION=GPG AES256 symmetric
 CANDIDATE_RPO=24h
 RETENTION_GENERATIONS=30
-DESTINATION=dedicated Google Drive folder
+DESTINATION=dedicated Google Drive folder via owner OAuth rclone config
 ```
 
 Activation prerequisites are owner-controlled and are not created by repository code:
@@ -164,7 +164,7 @@ Activation prerequisites are owner-controlled and are not created by repository 
 - `DANJION_BACKUP_ENABLED=true`
 - existing `DANJION_PRODUCTION_DB_URL` production environment secret
 - `DANJION_BACKUP_ENCRYPTION_PASSPHRASE`
-- `DANJION_DRIVE_SERVICE_ACCOUNT_JSON`
+- `DANJION_DRIVE_RCLONE_CONFIG` (owner-authorized rclone OAuth config for Google Drive)
 - `DANJION_DRIVE_FOLDER_ID`
 
 Safety boundaries:
@@ -172,8 +172,11 @@ Safety boundaries:
 - scheduled workflow is a no-op while the enable secret is absent/not exactly `true`;
 - Production database access is dump/read only;
 - the dump session sets `default_transaction_read_only=on`;
-- plaintext dump is destroyed before Drive credentials are materialized and before any upload;
+- plaintext dump is destroyed before the rclone OAuth config is materialized and before any upload;
 - only the encrypted `.dump.gpg` object is uploaded;
 - retention deletion is restricted to the exact `danjion-prod-<UTC>-<sha>.dump.gpg` filename family;
 - database material is never uploaded as a GitHub Actions artifact;
 - restore verification remains a separate explicit mutation gate and must target a private non-production restore surface, never the shared QA environment by default.
+
+
+Service-account note: Google documents that service accounts do not have Drive storage quota and cannot own ordinary Drive files. Therefore the free-path implementation uses an owner-authorized OAuth/rclone configuration for ordinary My Drive. A service-account variant is appropriate only when the destination is a supported Shared Drive or another ownership model explicitly designed for it.
