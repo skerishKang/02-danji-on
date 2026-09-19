@@ -433,10 +433,11 @@ async function runSweep() {
       const cards = document.querySelectorAll('.coupon-card, .benefit-card, [data-coupon]');
       return { title, cardCount: cards.length };
     });
+    const canonicalBenefitPass = benefitPageCheck.cardCount > 0;
     results.checklistResults['canonical_benefit_route'] = {
-      pass: benefitPageCheck.cardCount >= 0,
+      pass: canonicalBenefitPass,
       details: benefitPageCheck,
-      classification: 'PASS_CURRENT_MAIN'
+      classification: canonicalBenefitPass ? 'PASS_CURRENT_MAIN' : 'REAL_REMAINING_DEFECT'
     };
 
     // 3.2 My Info -> 받은 혜택 -> 28_나의활동.html?view=benefits
@@ -514,7 +515,7 @@ async function runSweep() {
     for (const ws of writeScreens) {
       await mobilePage.goto(`${server.base}/${encodeURIComponent(ws)}`);
       const closeInfo = await mobilePage.evaluate(() => {
-        const closeBtn = document.querySelector('#closeBtn, .close-btn, .btn-close, [data-route], button.close');
+        const closeBtn = document.querySelector('.writebar .back.close-task, #closeBtn, .close-btn, .btn-close, button.close');
         return {
           hasCloseBtn: !!closeBtn,
           text: closeBtn ? closeBtn.textContent.trim() : '',
@@ -541,10 +542,11 @@ async function runSweep() {
       const menuRows = document.querySelectorAll('.menu-row, .action-item');
       return { hasNickNotice, hasHousehold, menuRowCount: menuRows.length };
     });
+    const myInfoPass = myInfoCheck.hasNickNotice && myInfoCheck.hasHousehold && myInfoCheck.menuRowCount >= 4;
     results.checklistResults['my_info_hierarchy_copy'] = {
-      pass: myInfoCheck.menuRowCount >= 4,
+      pass: myInfoPass,
       details: myInfoCheck,
-      classification: 'PASS_CURRENT_MAIN'
+      classification: myInfoPass ? 'PASS_CURRENT_MAIN' : 'REAL_REMAINING_DEFECT'
     };
 
     // 5.2 1:1 Inquiry (25_1대1문의.html) reply email & return context
@@ -560,10 +562,11 @@ async function runSweep() {
         hasBackBtn: !!backBtn
       };
     });
+    const inquiryPass = inquiryCheck.hasForm && inquiryCheck.hasEmailField && inquiryCheck.hasBackBtn;
     results.checklistResults['inquiry_form_presentation'] = {
-      pass: inquiryCheck.hasForm && inquiryCheck.hasBackBtn,
+      pass: inquiryPass,
       details: inquiryCheck,
-      classification: 'PASS_CURRENT_MAIN'
+      classification: inquiryPass ? 'PASS_CURRENT_MAIN' : 'REAL_REMAINING_DEFECT'
     };
 
     // Take screenshots of representative screens at key viewports for visual confirmation
@@ -613,9 +616,12 @@ async function runSweep() {
   }
 
   console.log('\nChecklist Results:');
+  const failedChecklist = [];
   for (const [key, val] of Object.entries(results.checklistResults)) {
     console.log(`  - [${val.classification}] ${key}: ${val.pass ? 'PASS' : 'FAIL'}`);
+    if (!val.pass) failedChecklist.push({ type: 'CHECKLIST_FAILURE', key, details: val.details || null });
   }
+  results.defects.push(...failedChecklist);
 
   console.log(`\nDefects Found: ${results.defects.length}`);
   console.log('========================================\n');
@@ -625,6 +631,7 @@ async function runSweep() {
     JSON.stringify(results, null, 2)
   );
 
+  if (results.defects.length > 0) process.exitCode = 1;
   return results;
 }
 
