@@ -5,12 +5,13 @@
 # 2. Historical units from before 055 survive with null provenance & null deactivated_at.
 # 3. 055 applies cleanly, rerun is idempotent.
 # 4. Provenance columns exist and reject resident PII columns.
-# 5. Active unit creation stores operator provenance, duplicate (complex_id, building_code, unit_code) is rejected.
-# 6. Deactivation sets deactivated_at and keeps identical UUID.
-# 7. Reactivation clears deactivated_at and keeps identical UUID.
-# 8. Audit events (unit-master.create, unit-master.update, unit-master.status) are written.
-# 9. Household FK constraint remains intact on status changes; hard delete is restricted.
-# 10. Active filter (as used in household-master-v2) excludes deactivated units.
+# 5. Atomic CTE failure injection: forced audit failure on create rolls back unit row.
+# 6. Atomic CTE failure injection: forced audit failure on update rolls back unit code/status.
+# 7. Atomic CTE create writes exactly 1 unit-master.create audit row.
+# 8. Atomic CTE code update writes exactly 1 unit-master.update audit row.
+# 9. Atomic CTE status transition writes unit-master.status audit rows.
+# 10. Household FK constraint remains intact on status changes; hard delete is restricted.
+# 11. Active filter (as used in household-master-v2) excludes deactivated units.
 set -euo pipefail
 
 : "${DATABASE_URL:?DATABASE_URL is required (scratch database only)}"
@@ -112,54 +113,249 @@ expect_scalar 'historical unit has null provenance and null deactivated_at' \
    from complex_units
    where id = '72000000-0000-4000-8000-000000000001'"
 
-# ------------------------------------------------------------------ 5. Operator create unit
+# ------------------------------------------------------------------ 5. Setup failure injection trigger
 "${psql_cmd[@]}" <<'SQL'
-insert into complex_units (
-  id, complex_id, building_code, unit_code, status,
-  created_by_user_id, updated_by_user_id
-) values (
-  '72000000-0000-4000-8000-000000000002',
-  '70000000-0000-4000-8000-000000000001',
-  '101', '102', 'active',
-  '71000000-0000-4000-8000-000000000001',
-  '71000000-0000-4000-8000-000000000001'
-);
+create or replace function trg_audit_events_fail_injection()
+returns trigger as $$
+begin
+  if new.request_id like 'fail-audit-%' then
+    raise exception 'FORCED_AUDIT_FAILURE_INJECTION: request_id=%', new.request_id;
+  end if;
+  return new;
+end;
+$$ language plpgsql;
 
-insert into audit_events (
-  request_id, actor_user_id, actor_kind, complex_id, action, scope,
-  resource_type, resource_id, decision, metadata
-) values (
-  'req-test-pg-1', '71000000-0000-4000-8000-000000000001', 'operator',
-  '70000000-0000-4000-8000-000000000001', 'unit-master.create', 'resident.verification.manage',
-  'complex_unit', '72000000-0000-4000-8000-000000000002', 'recorded',
-  '{"buildingCode": "101", "unitCode": "102", "status": "active"}'::jsonb
-);
+drop trigger if exists trg_audit_events_fail_injection on audit_events;
+create trigger trg_audit_events_fail_injection
+  before insert on audit_events
+  for each row execute function trg_audit_events_fail_injection();
 SQL
-echo "PASS operator created active unit with provenance and audit log"
+echo "PASS audit failure-injection trigger installed"
+
+# ------------------------------------------------------------------ 6. Failure injection: Create + forced audit failure
+expect_fail 'create + forced audit failure aborts CTE transaction' \
+"with inserted as (
+  insert into complex_units (
+    id, complex_id, building_code, unit_code, status,
+    created_by_user_id, updated_by_user_id
+  ) values (
+    '72000000-0000-4000-8000-000000000099',
+    '70000000-0000-4000-8000-000000000001',
+    '999', '999', 'active',
+    '71000000-0000-4000-8000-000000000001',
+    '71000000-0000-4000-8000-000000000001'
+  )
+  returning id, complex_id, building_code, unit_code, status, created_at, updated_at, deactivated_at
+), audited as (
+  insert into audit_events (
+    request_id, actor_user_id, actor_kind, complex_id, action, scope,
+    resource_type, resource_id, decision, metadata
+  )
+  select
+    'fail-audit-create',
+    '71000000-0000-4000-8000-000000000001'::uuid,
+    'operator',
+    inserted.complex_id,
+    'unit-master.create',
+    'resident.verification.manage',
+    'complex_unit',
+    inserted.id::text,
+    'recorded',
+    '{\"buildingCode\": \"999\", \"unitCode\": \"999\", \"status\": \"active\"}'::jsonb
+  from inserted
+  returning id
+)
+select inserted.id from inserted join audited on true;"
+
+expect_scalar 'unit 999/999 was not inserted into complex_units' \
+  '0' \
+  "select count(*) from complex_units where building_code = '999' and unit_code = '999'"
+
+expect_scalar 'no audit event recorded for fail-audit-create' \
+  '0' \
+  "select count(*) from audit_events where request_id = 'fail-audit-create'"
+
+# ------------------------------------------------------------------ 7. Failure injection: Update + forced audit failure
+expect_fail 'update + forced audit failure aborts CTE transaction' \
+"with changed as (
+  update complex_units
+  set building_code = '101',
+      unit_code = '888',
+      status = 'inactive',
+      deactivated_at = now(),
+      updated_by_user_id = '71000000-0000-4000-8000-000000000001',
+      updated_at = now()
+  where id = '72000000-0000-4000-8000-000000000001'
+  returning id, complex_id, building_code, unit_code, status, created_at, updated_at, deactivated_at
+), audited as (
+  insert into audit_events (
+    request_id, actor_user_id, actor_kind, complex_id, action, scope,
+    resource_type, resource_id, decision, metadata
+  )
+  select
+    'fail-audit-update',
+    '71000000-0000-4000-8000-000000000001'::uuid,
+    'operator',
+    changed.complex_id,
+    'unit-master.update',
+    'resident.verification.manage',
+    'complex_unit',
+    changed.id::text,
+    'recorded',
+    '{\"previousUnitCode\": \"101\", \"newUnitCode\": \"888\"}'::jsonb
+  from changed
+  returning id
+)
+select changed.id from changed join audited on true;"
+
+expect_scalar 'historical unit remains unchanged after aborted update' \
+  '101|101|active|||' \
+  "select building_code || '|' || unit_code || '|' || status || '|' ||
+          coalesce(created_by_user_id::text, '') || '|' ||
+          coalesce(updated_by_user_id::text, '') || '|' ||
+          coalesce(deactivated_at::text, '')
+   from complex_units
+   where id = '72000000-0000-4000-8000-000000000001'"
+
+expect_scalar 'no audit event recorded for fail-audit-update' \
+  '0' \
+  "select count(*) from audit_events where request_id = 'fail-audit-update'"
+
+# ------------------------------------------------------------------ 8. Operator create unit via atomic CTE
+"${psql_cmd[@]}" <<'SQL'
+with inserted as (
+  insert into complex_units (
+    id, complex_id, building_code, unit_code, status,
+    created_by_user_id, updated_by_user_id
+  ) values (
+    '72000000-0000-4000-8000-000000000002',
+    '70000000-0000-4000-8000-000000000001',
+    '101', '102', 'active',
+    '71000000-0000-4000-8000-000000000001',
+    '71000000-0000-4000-8000-000000000001'
+  )
+  returning id, complex_id, building_code, unit_code, status, created_at, updated_at, deactivated_at
+), audited as (
+  insert into audit_events (
+    request_id, actor_user_id, actor_kind, complex_id, action, scope,
+    resource_type, resource_id, decision, metadata
+  )
+  select
+    'req-test-pg-create',
+    '71000000-0000-4000-8000-000000000001'::uuid,
+    'operator',
+    inserted.complex_id,
+    'unit-master.create',
+    'resident.verification.manage',
+    'complex_unit',
+    inserted.id::text,
+    'recorded',
+    '{"buildingCode": "101", "unitCode": "102", "status": "active"}'::jsonb
+  from inserted
+  returning id
+)
+select inserted.id, inserted.building_code, inserted.unit_code, inserted.status
+from inserted
+join audited on true;
+SQL
+echo "PASS operator created active unit with atomic provenance and audit log"
+
+expect_scalar 'unit 101/102 exists with active status' \
+  '101|102|active' \
+  "select building_code || '|' || unit_code || '|' || status
+   from complex_units
+   where id = '72000000-0000-4000-8000-000000000002'"
+
+expect_scalar 'exactly 1 unit-master.create audit row exists' \
+  '1' \
+  "select count(*) from audit_events where action = 'unit-master.create'"
 
 # Reject duplicate unit in same complex
 expect_fail 'duplicate unit code rejected by unique constraint' \
   "insert into complex_units (complex_id, building_code, unit_code, status) values
    ('70000000-0000-4000-8000-000000000001', '101', '102', 'active')"
 
-# ------------------------------------------------------------------ 6. Unit deactivation
+# ------------------------------------------------------------------ 9. Unit code update via atomic CTE
 "${psql_cmd[@]}" <<'SQL'
-update complex_units
-set status = 'inactive',
-    deactivated_at = now(),
-    updated_by_user_id = '71000000-0000-4000-8000-000000000001',
-    updated_at = now()
-where id = '72000000-0000-4000-8000-000000000002';
+with changed as (
+  update complex_units
+  set building_code = '101',
+      unit_code = '103',
+      status = 'active',
+      deactivated_at = null,
+      updated_by_user_id = '71000000-0000-4000-8000-000000000001',
+      updated_at = now()
+  where id = '72000000-0000-4000-8000-000000000002'
+  returning id, complex_id, building_code, unit_code, status, created_at, updated_at, deactivated_at
+), audited as (
+  insert into audit_events (
+    request_id, actor_user_id, actor_kind, complex_id, action, scope,
+    resource_type, resource_id, decision, metadata
+  )
+  select
+    'req-test-pg-update',
+    '71000000-0000-4000-8000-000000000001'::uuid,
+    'operator',
+    changed.complex_id,
+    'unit-master.update',
+    'resident.verification.manage',
+    'complex_unit',
+    changed.id::text,
+    'recorded',
+    '{"previousUnitCode": "102", "newUnitCode": "103"}'::jsonb
+  from changed
+  returning id
+)
+select changed.id, changed.building_code, changed.unit_code, changed.status
+from changed
+join audited on true;
+SQL
+echo "PASS unit code updated via atomic CTE"
 
-insert into audit_events (
-  request_id, actor_user_id, actor_kind, complex_id, action, scope,
-  resource_type, resource_id, decision, metadata
-) values (
-  'req-test-pg-2', '71000000-0000-4000-8000-000000000001', 'operator',
-  '70000000-0000-4000-8000-000000000001', 'unit-master.status', 'resident.verification.manage',
-  'complex_unit', '72000000-0000-4000-8000-000000000002', 'recorded',
-  '{"previousStatus": "active", "newStatus": "inactive"}'::jsonb
-);
+expect_scalar 'unit code updated to 103' \
+  '101|103|active' \
+  "select building_code || '|' || unit_code || '|' || status
+   from complex_units
+   where id = '72000000-0000-4000-8000-000000000002'"
+
+expect_scalar 'exactly 1 unit-master.update audit row exists' \
+  '1' \
+  "select count(*) from audit_events where action = 'unit-master.update'"
+
+# ------------------------------------------------------------------ 10. Unit deactivation via atomic CTE
+"${psql_cmd[@]}" <<'SQL'
+with changed as (
+  update complex_units
+  set building_code = '101',
+      unit_code = '103',
+      status = 'inactive',
+      deactivated_at = now(),
+      updated_by_user_id = '71000000-0000-4000-8000-000000000001',
+      updated_at = now()
+  where id = '72000000-0000-4000-8000-000000000002'
+  returning id, complex_id, building_code, unit_code, status, created_at, updated_at, deactivated_at
+), audited as (
+  insert into audit_events (
+    request_id, actor_user_id, actor_kind, complex_id, action, scope,
+    resource_type, resource_id, decision, metadata
+  )
+  select
+    'req-test-pg-deactivate',
+    '71000000-0000-4000-8000-000000000001'::uuid,
+    'operator',
+    changed.complex_id,
+    'unit-master.status',
+    'resident.verification.manage',
+    'complex_unit',
+    changed.id::text,
+    'recorded',
+    '{"previousStatus": "active", "newStatus": "inactive"}'::jsonb
+  from changed
+  returning id
+)
+select changed.id, changed.status, changed.deactivated_at
+from changed
+join audited on true;
 SQL
 
 expect_scalar 'deactivated unit has inactive status and non-null deactivated_at with same UUID' \
@@ -168,24 +364,44 @@ expect_scalar 'deactivated unit has inactive status and non-null deactivated_at 
    from complex_units
    where id = '72000000-0000-4000-8000-000000000002'"
 
-# ------------------------------------------------------------------ 7. Unit reactivation
-"${psql_cmd[@]}" <<'SQL'
-update complex_units
-set status = 'active',
-    deactivated_at = null,
-    updated_by_user_id = '71000000-0000-4000-8000-000000000001',
-    updated_at = now()
-where id = '72000000-0000-4000-8000-000000000002';
+expect_scalar 'exactly 1 unit-master.status audit row exists after deactivation' \
+  '1' \
+  "select count(*) from audit_events where action = 'unit-master.status'"
 
-insert into audit_events (
-  request_id, actor_user_id, actor_kind, complex_id, action, scope,
-  resource_type, resource_id, decision, metadata
-) values (
-  'req-test-pg-3', '71000000-0000-4000-8000-000000000001', 'operator',
-  '70000000-0000-4000-8000-000000000001', 'unit-master.status', 'resident.verification.manage',
-  'complex_unit', '72000000-0000-4000-8000-000000000002', 'recorded',
-  '{"previousStatus": "inactive", "newStatus": "active"}'::jsonb
-);
+# ------------------------------------------------------------------ 11. Unit reactivation via atomic CTE
+"${psql_cmd[@]}" <<'SQL'
+with changed as (
+  update complex_units
+  set building_code = '101',
+      unit_code = '103',
+      status = 'active',
+      deactivated_at = null,
+      updated_by_user_id = '71000000-0000-4000-8000-000000000001',
+      updated_at = now()
+  where id = '72000000-0000-4000-8000-000000000002'
+  returning id, complex_id, building_code, unit_code, status, created_at, updated_at, deactivated_at
+), audited as (
+  insert into audit_events (
+    request_id, actor_user_id, actor_kind, complex_id, action, scope,
+    resource_type, resource_id, decision, metadata
+  )
+  select
+    'req-test-pg-reactivate',
+    '71000000-0000-4000-8000-000000000001'::uuid,
+    'operator',
+    changed.complex_id,
+    'unit-master.status',
+    'resident.verification.manage',
+    'complex_unit',
+    changed.id::text,
+    'recorded',
+    '{"previousStatus": "inactive", "newStatus": "active"}'::jsonb
+  from changed
+  returning id
+)
+select changed.id, changed.status, changed.deactivated_at
+from changed
+join audited on true;
 SQL
 
 expect_scalar 'reactivated unit has active status and null deactivated_at' \
@@ -194,7 +410,11 @@ expect_scalar 'reactivated unit has active status and null deactivated_at' \
    from complex_units
    where id = '72000000-0000-4000-8000-000000000002'"
 
-# ------------------------------------------------------------------ 8. Household FK integrity
+expect_scalar 'exactly 2 unit-master.status audit rows exist after reactivation' \
+  '2' \
+  "select count(*) from audit_events where action = 'unit-master.status'"
+
+# ------------------------------------------------------------------ 12. Household FK integrity
 "${psql_cmd[@]}" <<'SQL'
 -- Connect household to unit
 insert into households (id, complex_id, complex_unit_id, status) values
@@ -214,9 +434,9 @@ echo "PASS unit status toggle does not violate household FK constraint"
 expect_fail 'hard delete on occupied complex_unit is restricted' \
   "delete from complex_units where id = '72000000-0000-4000-8000-000000000002'"
 
-# ------------------------------------------------------------------ 9. Resident onboarding query
+# ------------------------------------------------------------------ 13. Resident onboarding query
 # household-master-v2 query: select ... from complex_units where complex_id = ... and status = 'active'
-# Unit 101 is active, Unit 102 is inactive
+# Unit 101 is active, Unit 103 is inactive
 expect_scalar 'active filter excludes inactive unit from resident picker' \
   '1' \
   "select count(*)
@@ -230,9 +450,9 @@ expect_scalar 'total count includes both active and inactive units' \
    from complex_units
    where complex_id = '70000000-0000-4000-8000-000000000001'"
 
-# ------------------------------------------------------------------ 10. Audit log completeness
-expect_scalar 'all three unit-master audit actions exist in audit_events' \
-  '3' \
+# ------------------------------------------------------------------ 14. Audit log completeness
+expect_scalar 'all four unit-master audit actions exist in audit_events' \
+  '4' \
   "select count(*)
    from audit_events
    where action in ('unit-master.create', 'unit-master.update', 'unit-master.status')"

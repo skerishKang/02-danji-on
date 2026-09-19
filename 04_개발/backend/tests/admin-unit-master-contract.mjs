@@ -22,6 +22,13 @@ assert.match(api, /update complex_units/, 'unit master must update canonical com
 assert.doesNotMatch(api, /create table (?:if not exists )?unit_registry|create table (?:if not exists )?real_units/i,
   'must not create a duplicate unit registry table (SECOND_UNIT_REGISTRY=NO)');
 
+// Invariant 1b: Atomic CTE mutation + audit coupling
+assert.match(api, /with inserted as \([\s\S]*?insert into complex_units[\s\S]*?\), audited as \([\s\S]*?insert into audit_events[\s\S]*?\)[\s\S]*?select[\s\S]*?from inserted[\s\S]*?join audited on true/s,
+  'POST must couple unit insert and audit insert atomically in a single CTE');
+assert.match(api, /with changed as \([\s\S]*?update complex_units[\s\S]*?\), audited as \([\s\S]*?insert into audit_events[\s\S]*?\)[\s\S]*?select[\s\S]*?from changed[\s\S]*?join audited on true/s,
+  'PATCH must couple unit update and audit insert atomically in a single CTE');
+
+
 // Invariant 2: Minimal operator provenance without resident PII (RESIDENT_PII_IN_UNIT_MASTER=NO)
 assert.match(migration055, /add column if not exists created_by_user_id uuid/i);
 assert.match(migration055, /add column if not exists updated_by_user_id uuid/i);
@@ -132,8 +139,61 @@ function createMockSql(scenario = {}) {
     if (query.includes('padiem_authority_decisions')) {
       return [{ id: 'dec-1' }];
     }
+    // Atomic POST CTE: with inserted as (insert into complex_units ...), audited as (insert into audit_events ...)
+    if (query.includes('with inserted as')) {
+      if (scenario.failAuditOnCreate || scenario.failAudit) {
+        throw new Error('INJECTED_AUDIT_FAILURE: create audit insert failed in CTE');
+      }
+      const [cId, bCode, uCode, cActorId, uActorId, rId, aActorId, scope, metaStr] = values;
+      const newUnit = {
+        id: '33333333-3333-4333-8333-333333333333',
+        complex_id: cId || complexId,
+        building_code: bCode,
+        unit_code: uCode,
+        status: 'active',
+        created_by_user_id: cActorId,
+        updated_by_user_id: uActorId,
+        created_at: new Date('2026-09-19T00:00:00Z'),
+        updated_at: new Date('2026-09-19T00:00:00Z'),
+        deactivated_at: null
+      };
+      unitsDb.push(newUnit);
+      auditRows.push({
+        query,
+        values: [rId, aActorId, 'operator', cId, 'unit-master.create', scope, 'complex_unit', newUnit.id, 'recorded', metaStr],
+        action: 'unit-master.create',
+        metadata: JSON.parse(metaStr || '{}')
+      });
+      return [newUnit];
+    }
+
+    // Atomic PATCH CTE: with changed as (update complex_units ...), audited as (insert into audit_events ...)
+    if (query.includes('with changed as')) {
+      if (scenario.failAuditOnUpdate || scenario.failAudit) {
+        throw new Error('INJECTED_AUDIT_FAILURE: update audit insert failed in CTE');
+      }
+      const [targetB, targetU, targetS, deactAt, uActorId, uId, rId, aActorId, auditAct, scope, metaStr] = values;
+      const match = unitsDb.find((u) => u.id === uId);
+      if (match) {
+        match.building_code = targetB;
+        match.unit_code = targetU;
+        match.status = targetS;
+        match.deactivated_at = deactAt ? new Date(deactAt) : null;
+        match.updated_by_user_id = uActorId;
+        match.updated_at = new Date('2026-09-19T01:00:00Z');
+        auditRows.push({
+          query,
+          values: [rId, aActorId, 'operator', match.complex_id, auditAct, scope, 'complex_unit', match.id, 'recorded', metaStr],
+          action: auditAct,
+          metadata: JSON.parse(metaStr || '{}')
+        });
+        return [match];
+      }
+      return [];
+    }
+
     if (query.includes('audit_events')) {
-      auditRows.push({ query, values });
+      auditRows.push({ query, values, action: 'authorization.padiem-authority-check' });
       return [{ id: 'audit-1' }];
     }
 
@@ -164,25 +224,6 @@ function createMockSql(scenario = {}) {
       return match ? [{ id: match.id }] : [];
     }
 
-    // Insert unit
-    if (query.startsWith('insert into complex_units')) {
-      const [, bCode, uCode, , actorId] = values;
-      const newUnit = {
-        id: '33333333-3333-4333-8333-333333333333',
-        complex_id: complexId,
-        building_code: bCode,
-        unit_code: uCode,
-        status: 'active',
-        created_by_user_id: actorId,
-        updated_by_user_id: actorId,
-        created_at: new Date('2026-09-19T00:00:00Z'),
-        updated_at: new Date('2026-09-19T00:00:00Z'),
-        deactivated_at: null
-      };
-      unitsDb.push(newUnit);
-      return [newUnit];
-    }
-
     // Select single unit by ID
     if (query.startsWith('select id, complex_id, building_code, unit_code, status, deactivated_at\n      from complex_units\n      where id = ?::uuid')) {
       const [uId] = values;
@@ -195,22 +236,6 @@ function createMockSql(scenario = {}) {
       const [, bCode, uCode, uId] = values;
       const match = unitsDb.find((u) => u.building_code === bCode && u.unit_code === uCode && u.id !== uId);
       return match ? [{ id: match.id }] : [];
-    }
-
-    // Update unit
-    if (query.startsWith('update complex_units')) {
-      const [targetB, targetU, targetS, deactAt, actorId, uId] = values;
-      const match = unitsDb.find((u) => u.id === uId);
-      if (match) {
-        match.building_code = targetB;
-        match.unit_code = targetU;
-        match.status = targetS;
-        match.deactivated_at = deactAt ? new Date(deactAt) : null;
-        match.updated_by_user_id = actorId;
-        match.updated_at = new Date('2026-09-19T01:00:00Z');
-        return [match];
-      }
-      return [];
     }
 
     return [];
@@ -287,6 +312,8 @@ function authHeaders(extra = {}) {
   assert.equal(json.data.unit.status, 'active');
   assert.ok(sql.auditRows.some((r) => r.query.includes('unit-master.create') || r.values.includes('unit-master.create')),
     'audit action unit-master.create must be recorded');
+  assert.equal(sql.auditRows.filter((r) => r.action === 'unit-master.create').length, 1,
+    'successful create must record exactly 1 unit-master.create audit row');
 }
 
 // Test 5: 409 POST duplicate unit
@@ -340,6 +367,8 @@ function authHeaders(extra = {}) {
   assert.equal(json.data.unit.unitCode, '102');
   assert.ok(sql.auditRows.some((r) => r.query.includes('unit-master.update') || r.values.includes('unit-master.update')),
     'audit action unit-master.update must be recorded');
+  assert.equal(sql.auditRows.filter((r) => r.action === 'unit-master.update').length, 1,
+    'successful code update must record exactly 1 unit-master.update audit row');
 }
 
 // Test 9: 200 PATCH deactivate unit (status -> inactive) + audit event logged
@@ -358,6 +387,8 @@ function authHeaders(extra = {}) {
   assert.ok(json.data.unit.deactivatedAt !== null, 'deactivatedAt must be set');
   assert.ok(sql.auditRows.some((r) => r.query.includes('unit-master.status') || r.values.includes('unit-master.status')),
     'audit action unit-master.status must be recorded');
+  assert.equal(sql.auditRows.filter((r) => r.action === 'unit-master.status').length, 1,
+    'successful status transition must record exactly 1 unit-master.status audit row');
 }
 
 // Test 10: 200 PATCH reactivate unit (status -> active) + deactivated_at cleared
@@ -401,4 +432,61 @@ function authHeaders(extra = {}) {
   assert.equal(res?.status, 405, 'DELETE on complex-units/:unitId must fail closed with 405');
 }
 
+// Test 12: Injected audit failure on create -> unit row NOT inserted (atomic CTE rollback)
+{
+  const sql = createMockSql({ failAuditOnCreate: true });
+  const initialCount = sql.unitsDb.length;
+  const req = new Request('http://localhost/api/v1/admin/complexes/banglim-myeongji-roadhill/unit-master', {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ buildingCode: '999', unitCode: '999' })
+  });
+  const res = await handleAdminUnitMasterWithSql(req, testEnv, sql, requestId);
+  assert.equal(res?.status, 500, 'forced audit failure on create must return 500');
+  const json = await res?.json();
+  assert.equal(json.error.code, 'DATABASE_ERROR');
+  assert.equal(sql.unitsDb.length, initialCount, 'unit must NOT be inserted when audit fails');
+  assert.ok(!sql.unitsDb.some((u) => u.building_code === '999' && u.unit_code === '999'), 'unit 999-999 must not exist');
+  assert.equal(sql.auditRows.filter((r) => r.action?.startsWith('unit-master.')).length, 0, 'no unit-master audit rows must be recorded when CTE aborts');
+}
+
+// Test 13: Injected audit failure on code update -> unit code unchanged (atomic CTE rollback)
+{
+  const sql = createMockSql({ failAuditOnUpdate: true });
+  const originalUnit = { ...sql.unitsDb.find((u) => u.id === unitId1) };
+  const req = new Request(`http://localhost/api/v1/admin/complex-units/${unitId1}`, {
+    method: 'PATCH',
+    headers: authHeaders(),
+    body: JSON.stringify({ buildingCode: '101', unitCode: '888' })
+  });
+  const res = await handleAdminUnitMasterWithSql(req, testEnv, sql, requestId);
+  assert.equal(res?.status, 500, 'forced audit failure on update must return 500');
+  const json = await res?.json();
+  assert.equal(json.error.code, 'DATABASE_ERROR');
+  const currentUnit = sql.unitsDb.find((u) => u.id === unitId1);
+  assert.equal(currentUnit.unit_code, originalUnit.unit_code, 'unitCode must remain unchanged when audit fails');
+  assert.equal(currentUnit.building_code, originalUnit.building_code, 'buildingCode must remain unchanged when audit fails');
+  assert.equal(sql.auditRows.filter((r) => r.action?.startsWith('unit-master.')).length, 0, 'no unit-master audit rows must be recorded when CTE aborts');
+}
+
+// Test 14: Injected audit failure on status toggle -> unit status unchanged (atomic CTE rollback)
+{
+  const sql = createMockSql({ failAuditOnUpdate: true });
+  const originalUnit = { ...sql.unitsDb.find((u) => u.id === unitId1) };
+  const req = new Request(`http://localhost/api/v1/admin/complex-units/${unitId1}`, {
+    method: 'PATCH',
+    headers: authHeaders(),
+    body: JSON.stringify({ status: 'inactive' })
+  });
+  const res = await handleAdminUnitMasterWithSql(req, testEnv, sql, requestId);
+  assert.equal(res?.status, 500, 'forced audit failure on status toggle must return 500');
+  const json = await res?.json();
+  assert.equal(json.error.code, 'DATABASE_ERROR');
+  const currentUnit = sql.unitsDb.find((u) => u.id === unitId1);
+  assert.equal(currentUnit.status, originalUnit.status, 'status must remain unchanged when audit fails');
+  assert.equal(currentUnit.deactivated_at, originalUnit.deactivated_at, 'deactivated_at must remain unchanged');
+  assert.equal(sql.auditRows.filter((r) => r.action?.startsWith('unit-master.')).length, 0, 'no unit-master audit rows must be recorded when CTE aborts');
+}
+
 console.log('PASS #776 authoritative unit master and bounded admin console management contract');
+

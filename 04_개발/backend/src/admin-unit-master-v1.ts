@@ -219,29 +219,49 @@ export async function handleAdminUnitMasterWithSql(
 
       try {
         const rows = await sql`
-          insert into complex_units (
-            complex_id, building_code, unit_code, status,
-            created_by_user_id, updated_by_user_id
-          ) values (
-            ${String(complex.id)}::uuid, ${buildingCode}, ${unitCode}, 'active',
-            ${actor.id}::uuid, ${actor.id}::uuid
+          with inserted as (
+            insert into complex_units (
+              complex_id, building_code, unit_code, status,
+              created_by_user_id, updated_by_user_id
+            ) values (
+              ${String(complex.id)}::uuid, ${buildingCode}, ${unitCode}, 'active',
+              ${actor.id}::uuid, ${actor.id}::uuid
+            )
+            returning id, complex_id, building_code, unit_code, status, created_at, updated_at, deactivated_at
+          ), audited as (
+            insert into audit_events (
+              request_id, actor_user_id, actor_kind, complex_id, action, scope,
+              resource_type, resource_id, decision, metadata
+            )
+            select
+              ${requestId},
+              ${actor.id}::uuid,
+              'operator',
+              inserted.complex_id,
+              'unit-master.create',
+              ${SCOPE},
+              'complex_unit',
+              inserted.id::text,
+              'recorded',
+              ${JSON.stringify({ buildingCode, unitCode, status: 'active' })}::jsonb
+            from inserted
+            returning id
           )
-          returning id, building_code, unit_code, status, created_at, updated_at, deactivated_at
+          select
+            inserted.id,
+            inserted.building_code,
+            inserted.unit_code,
+            inserted.status,
+            inserted.created_at,
+            inserted.updated_at,
+            inserted.deactivated_at
+          from inserted
+          join audited on true
         `;
         const unit = rows[0];
-
-        // Audit insert must be committed; fail-closed if audit fails
-        await sql`
-          insert into audit_events (
-            request_id, actor_user_id, actor_kind, complex_id, action, scope,
-            resource_type, resource_id, decision, metadata
-          ) values (
-            ${requestId}, ${actor.id}::uuid, 'operator', ${String(complex.id)}::uuid,
-            'unit-master.create', ${SCOPE},
-            'complex_unit', ${String(unit.id)}, 'recorded',
-            ${JSON.stringify({ buildingCode, unitCode, status: 'active' })}::jsonb
-          )
-        `;
+        if (!unit) {
+          return fail('UNIT_CREATE_FAILED', 'Failed to create canonical unit', 500, requestId);
+        }
 
         return ok({
           unit: {
@@ -258,7 +278,7 @@ export async function handleAdminUnitMasterWithSql(
         if (err?.code === '23505') {
           return fail('UNIT_ALREADY_EXISTS', 'Unit already exists in this complex', 409, requestId);
         }
-        throw err;
+        return fail('DATABASE_ERROR', 'Failed to create unit atomically', 500, requestId);
       }
     }
 
@@ -360,42 +380,63 @@ export async function handleAdminUnitMasterWithSql(
       }
     }
 
+    // Audit action: status change gets unit-master.status, code update gets unit-master.update
+    const auditAction = (statusChanged && !codeChanged) ? 'unit-master.status' : 'unit-master.update';
+    const metadata: Record<string, unknown> = {
+      previousBuildingCode: String(current.building_code),
+      newBuildingCode: targetBuilding,
+      previousUnitCode: String(current.unit_code),
+      newUnitCode: targetUnit,
+      previousStatus: String(current.status),
+      newStatus: targetStatus
+    };
+
     try {
       const updatedRows = await sql`
-        update complex_units
-        set building_code = ${targetBuilding},
-            unit_code = ${targetUnit},
-            status = ${targetStatus},
-            deactivated_at = ${newDeactivatedAt ? newDeactivatedAt : null},
-            updated_by_user_id = ${actor.id}::uuid,
-            updated_at = now()
-        where id = ${rawUnitId}::uuid
-        returning id, complex_id, building_code, unit_code, status, created_at, updated_at, deactivated_at
+        with changed as (
+          update complex_units
+          set building_code = ${targetBuilding},
+              unit_code = ${targetUnit},
+              status = ${targetStatus},
+              deactivated_at = ${newDeactivatedAt ? newDeactivatedAt : null},
+              updated_by_user_id = ${actor.id}::uuid,
+              updated_at = now()
+          where id = ${rawUnitId}::uuid
+          returning id, complex_id, building_code, unit_code, status, created_at, updated_at, deactivated_at
+        ), audited as (
+          insert into audit_events (
+            request_id, actor_user_id, actor_kind, complex_id, action, scope,
+            resource_type, resource_id, decision, metadata
+          )
+          select
+            ${requestId},
+            ${actor.id}::uuid,
+            'operator',
+            changed.complex_id,
+            ${auditAction},
+            ${SCOPE},
+            'complex_unit',
+            changed.id::text,
+            'recorded',
+            ${JSON.stringify(metadata)}::jsonb
+          from changed
+          returning id
+        )
+        select
+          changed.id,
+          changed.building_code,
+          changed.unit_code,
+          changed.status,
+          changed.created_at,
+          changed.updated_at,
+          changed.deactivated_at
+        from changed
+        join audited on true
       `;
       const updated = updatedRows[0];
-
-      // Audit action: status change gets unit-master.status, code update gets unit-master.update
-      const auditAction = (statusChanged && !codeChanged) ? 'unit-master.status' : 'unit-master.update';
-      const metadata: Record<string, unknown> = {
-        previousBuildingCode: String(current.building_code),
-        newBuildingCode: targetBuilding,
-        previousUnitCode: String(current.unit_code),
-        newUnitCode: targetUnit,
-        previousStatus: String(current.status),
-        newStatus: targetStatus
-      };
-
-      await sql`
-        insert into audit_events (
-          request_id, actor_user_id, actor_kind, complex_id, action, scope,
-          resource_type, resource_id, decision, metadata
-        ) values (
-          ${requestId}, ${actor.id}::uuid, 'operator', ${String(current.complex_id)}::uuid,
-          ${auditAction}, ${SCOPE},
-          'complex_unit', ${rawUnitId}, 'recorded',
-          ${JSON.stringify(metadata)}::jsonb
-        )
-      `;
+      if (!updated) {
+        return fail('UNIT_UPDATE_FAILED', 'Failed to update canonical unit', 500, requestId);
+      }
 
       return ok({
         unit: {
@@ -412,7 +453,7 @@ export async function handleAdminUnitMasterWithSql(
       if (err?.code === '23505') {
         return fail('UNIT_ALREADY_EXISTS', 'Unit already exists in this complex', 409, requestId);
       }
-      throw err;
+      return fail('DATABASE_ERROR', 'Failed to update unit atomically', 500, requestId);
     }
   }
 
