@@ -1519,7 +1519,8 @@ test('#767 together write exposes each canonical 유형 as an exact 말머리', 
     ['walk', '산책·운동'],
     ['hobby', '취미활동'],
     ['parent', '육아 같이해요'],
-    ['group', '공동구매']
+    ['group', '공동구매'],
+    ['dog', '강아지 산책 같이해요']
   ];
 
   await page.goto(withApi('/17_같이해요_글쓰기.html'));
@@ -1531,4 +1532,49 @@ test('#767 together write exposes each canonical 유형 as an exact 말머리', 
     await expect(page.locator('.type-tab[data-kind="' + kind + '"]')).toHaveAttribute('aria-pressed', 'true');
     await expect(page.locator('#categoryChip')).toHaveText('같이해요 · ' + category);
   }
+
+  // The additive 5th 유형 must not degrade the tab strip: one row on desktop, no
+  // accepted-label truncation, and usable hit targets.
+  const boxes = await page.locator('.type-tab').evaluateAll(tabs =>
+    tabs.map(tab => tab.getBoundingClientRect())
+  );
+  expect(boxes).toHaveLength(CANONICAL.length);
+  for (const box of boxes) {
+    expect(Math.abs(box.top - boxes[0].top), 'all five 유형 stay on one row').toBeLessThan(2);
+    expect(box.height, 'tab hit target height').toBeGreaterThanOrEqual(44);
+    expect(box.width, 'tab cell width').toBeGreaterThanOrEqual(100);
+  }
+  const overflow = await page.locator('.type-tabs').evaluate(nav => ({
+    scroll: nav.scrollWidth,
+    client: nav.clientWidth
+  }));
+  expect(overflow.scroll, 'tab strip must not overflow horizontally').toBeLessThanOrEqual(overflow.client + 1);
+  expect(overflow.client, 'tab strip uses the full app column').toBeGreaterThanOrEqual(320);
+
+  // Mobile keeps the same five 유형 in two columns with explicit cell separators
+  // (rows 1-2 above a divider, the lone fifth cell closed).
+  await page.setViewportSize({ width: 390, height: 844 });
+  const mobile = await page.locator('.type-tab').evaluateAll(tabs => tabs.map(tab => {
+    const rect = tab.getBoundingClientRect();
+    const style = getComputedStyle(tab);
+    return {
+      top: rect.top,
+      height: rect.height,
+      borderRight: style.borderRightWidth,
+      borderBottom: style.borderBottomWidth
+    };
+  }));
+  expect(mobile).toHaveLength(CANONICAL.length);
+  expect(mobile[0].top).toBe(mobile[1].top);
+  expect(mobile[2].top).toBe(mobile[3].top);
+  expect(mobile[4].top, 'the additive fifth 유형 starts its own mobile row').toBeGreaterThan(mobile[3].top);
+  expect(mobile[0].borderRight, 'left column keeps its cell divider').toBe('1px');
+  expect(mobile[1].borderRight, 'right column never trails a divider').toBe('0px');
+  expect(mobile[2].borderRight).toBe('1px');
+  expect(mobile[3].borderRight).toBe('0px');
+  expect(mobile[4].borderRight, 'the lone last cell closes the grid instead of dividing an empty cell').toBe('0px');
+  expect(mobile[1].borderBottom, 'the first row keeps its divider').toBe('1px');
+  expect(mobile[3].borderBottom, 'the populated second row keeps its divider').toBe('1px');
+  expect(mobile[4].borderBottom, 'the lone last cell closes the grid').toBe('0px');
+  for (const tab of mobile) expect(tab.height).toBeGreaterThanOrEqual(44);
 });

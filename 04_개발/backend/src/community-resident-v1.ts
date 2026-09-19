@@ -17,7 +17,7 @@ const POST_KINDS = new Set<PostKind>(['question', 'together', 'resident_story', 
 // belong to its kind's allowlist, and a kind with no allowlist can never store one.
 const POST_CATEGORIES: Partial<Record<PostKind, readonly string[]>> = {
   question: ['생활·살림', '단지시설', '이웃추천', '기타'],
-  together: ['산책·운동', '취미활동', '육아 같이해요', '공동구매']
+  together: ['산책·운동', '취미활동', '육아 같이해요', '공동구매', '강아지 산책 같이해요']
 };
 const MAX_CATEGORY_CHARS = 40;
 const REPORT_REASONS = new Set<ReportReason>(['abuse', 'threat', 'privacy', 'defamation_risk', 'spam', 'other']);

@@ -26,7 +26,7 @@ assert.ok(bridgeBlock, 'bridge keeps a canonical POST_CATEGORIES allowlist');
 const quoted = s => [...s.matchAll(/'([^']+)'/g)].map(m => m[1]);
 assert.deepEqual(quoted(bridgeBlock[1]), quoted(backendBlock[1]),
   'the frontend category strings must mirror the server-authoritative list, in order');
-assert.deepEqual(quoted(bridgeBlock[1]), ['생활·살림', '단지시설', '이웃추천', '기타', '산책·운동', '취미활동', '육아 같이해요', '공동구매']);
+assert.deepEqual(quoted(bridgeBlock[1]), ['생활·살림', '단지시설', '이웃추천', '기타', '산책·운동', '취미활동', '육아 같이해요', '공동구매', '강아지 산책 같이해요']);
 assert.equal(/최대 3장/.test(bridgeSource), false, 'no arbitrary frontend attachment promise enters the bridge');
 
 /* 2. bridge behaviour: category is optional for compatibility but never invented. */
@@ -102,8 +102,14 @@ function wiring(page, id) {
   assert.match(page17, /id="categoryChip"/);
   assert.match(page17, /'같이해요 · '\+item\.title/, '17 mirrors the selected 유형 into the 말머리 chip');
   const w17 = wiring(page17, 'danjion-community-write-together-live-wiring-329');
-  assert.match(w17, /TOGETHER_CATEGORY=\{walk:'산책·운동',hobby:'취미활동',parent:'육아 같이해요',group:'공동구매'\}/,
+  assert.match(w17, /TOGETHER_CATEGORY=\{walk:'산책·운동',hobby:'취미활동',parent:'육아 같이해요',group:'공동구매',dog:'강아지 산책 같이해요'\}/,
     '17 maps each canonical activity type onto its server category');
+  assert.match(page17, /data-kind="dog" type="button">강아지 산책 같이해요</,
+    '17 exposes the additive 강아지 산책 같이해요 option the owner requested (#767)');
+  assert.match(page17, /repeat\(5,1fr\)/,
+    '17 keeps one tab row for all five 유형 instead of wrapping into an accidental empty column');
+  assert.match(page17, /dog:\{title:'강아지 산책 같이해요'/,
+    '17 mirrors the selected 유형 into the 말머리 chip from the same canonical list');
   assert.equal(w17.includes("querySelectorAll('.type-tab').forEach(b=>{b.disabled=true"), false,
     '17 must not disable the now-persisted 유형');
   assert.match(w17, /kind:'together',category,/, '17 sends the selected 유형');
