@@ -23,9 +23,16 @@ expect_fail() {
 apply_schema() {
   "${psql_cmd[@]}" -f migrations/001_initial_schema.sql
   "${psql_cmd[@]}" -f migrations/009_household_foundation.sql
+  "${psql_cmd[@]}" -f migrations/019_business_image_lifecycle_registry.sql
+  "${psql_cmd[@]}" -f migrations/020_business_image_upload_pending.sql
+  "${psql_cmd[@]}" -f migrations/021_business_image_reconciliation_lease.sql
+  "${psql_cmd[@]}" -f migrations/022_business_image_upload_idempotency.sql
   "${psql_cmd[@]}" -f migrations/024_resident_messages.sql
   "${psql_cmd[@]}" -f migrations/025_resident_notifications.sql
   "${psql_cmd[@]}" -f migrations/036_resident_news.sql
+  "${psql_cmd[@]}" -f migrations/045_application_documents.sql
+  "${psql_cmd[@]}" -f migrations/054_application_document_upload_idempotency.sql
+  "${psql_cmd[@]}" -f migrations/056_resident_news_attachments.sql
 }
 
 seed_fixture() {
@@ -63,7 +70,27 @@ insert into resident_news_submissions (
   'PRIVATE SUBMISSION BODY MUST NOT BE COPIED INTO NOTIFICATIONS'
 );
 
-do $$
+insert into business_image_objects (
+  object_key, uploader_user_id, complex_id, state, kind
+) values (
+  'gdrive/private/application-document/resident_news_file_1234567890',
+  '20000000-0000-4000-8000-000000000001',
+  '10000000-0000-4000-8000-000000000001',
+  'active',
+  'application-document'
+);
+
+insert into resident_news_submission_attachments (
+  id, submission_id, complex_id, object_key, sort_order
+) values (
+  '80000000-0000-4000-8000-000000000001',
+  '60000000-0000-4000-8000-000000000001',
+  '10000000-0000-4000-8000-000000000001',
+  'gdrive/private/application-document/resident_news_file_1234567890',
+  0
+);
+
+do $
 declare
   post_count integer;
   notification_count integer;
@@ -119,6 +146,7 @@ declare
   review_count integer;
   post_title text;
   original_title text;
+  attachment_count integer;
 begin
   select count(*) into notification_count from notifications;
   if notification_count <> 2 then
@@ -148,6 +176,11 @@ begin
   select title into post_title from resident_news_posts where id = '70000000-0000-4000-8000-000000000001';
   select title into original_title from resident_news_submissions where id = '60000000-0000-4000-8000-000000000001';
   if post_title = original_title then raise exception 'test must prove source/publication rows can diverge'; end if;
+
+  select count(*) into attachment_count
+  from resident_news_submission_attachments
+  where submission_id = '60000000-0000-4000-8000-000000000001'::uuid;
+  if attachment_count <> 1 then raise exception 'private resident-news attachment relation missing'; end if;
 end $$;
 SQL
   echo "PASS resident-news routing assertions: verified-only fanout, linkage, privacy and audit"
@@ -162,7 +195,13 @@ assert_negative_constraints() {
     "publication cannot cross complex boundary" \
     "insert into resident_news_submissions (id, complex_id, submitter_user_id, title, body) values ('60000000-0000-4000-8000-000000000002', '10000000-0000-4000-8000-000000000001', '20000000-0000-4000-8000-000000000001', 'cross', 'cross'); insert into resident_news_posts (complex_id, source_submission_id, title, body) values ('10000000-0000-4000-8000-000000000002', '60000000-0000-4000-8000-000000000002', 'cross', 'cross')"
 
-  echo "PASS resident-news negative constraints: publication dedupe and tenant FK"
+  "${psql_cmd[@]}" -c "insert into business_image_objects (object_key, uploader_user_id, complex_id, state, kind) values ('gdrive/private/application-document/another_private_file_1234567890', '20000000-0000-4000-8000-000000000001', '10000000-0000-4000-8000-000000000001', 'active', 'application-document')"
+
+  expect_fail \
+    "resident-news attachment sort order stays max-three bounded" \
+    "insert into resident_news_submission_attachments (submission_id, complex_id, object_key, sort_order) values ('60000000-0000-4000-8000-000000000001', '10000000-0000-4000-8000-000000000001', 'gdrive/private/application-document/another_private_file_1234567890', 3)"
+
+  echo "PASS resident-news negative constraints: publication dedupe, tenant FK and attachment bound"
 }
 
 case "$stage" in

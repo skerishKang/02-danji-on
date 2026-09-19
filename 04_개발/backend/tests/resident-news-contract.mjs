@@ -2,11 +2,13 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
 const root = new URL('../', import.meta.url);
-const [migration, api, app, core] = await Promise.all([
+const [migration, attachmentMigration, api, app, core, privateDocsCore] = await Promise.all([
   readFile(new URL('migrations/036_resident_news.sql', root), 'utf8'),
+  readFile(new URL('migrations/056_resident_news_attachments.sql', root), 'utf8'),
   readFile(new URL('src/resident-news-v1.ts', root), 'utf8'),
   readFile(new URL('src/app.ts', root), 'utf8'),
-  readFile(new URL('src/core-v1.ts', root), 'utf8')
+  readFile(new URL('src/core-v1.ts', root), 'utf8'),
+  readFile(new URL('src/application-docs-core-v1.ts', root), 'utf8')
 ]);
 
 for (const table of ['resident_news_submissions', 'resident_news_posts', 'resident_news_review_events']) {
@@ -33,6 +35,27 @@ assert.match(api, /from resident_news_posts[\s\S]*status = 'published'/i,
   'resident feed must read only published resident-news rows');
 assert.match(api, /insert into resident_news_submissions/i,
   'resident submission must persist separately from publication');
+assert.match(attachmentMigration, /create table if not exists resident_news_submission_attachments/i,
+  'resident-news attachments need a dedicated submission relation');
+assert.match(attachmentMigration, /references business_image_objects\(object_key\)/i,
+  'attachment bytes must reuse the canonical private storage lifecycle registry');
+assert.match(attachmentMigration, /sort_order between 0 and 2/i,
+  'resident-news attachments must stay bounded to three files');
+assert.match(attachmentMigration, /gdrive\/private\/application-document\/%/i,
+  'resident-news attachments must stay in the existing private application-document namespace');
+assert.match(api, /attachmentObjectKeys/,
+  'submission API must accept bounded server-issued private attachment references');
+assert.match(api, /r\.uploader_user_id = \$\{resident\.id\}::uuid[\s\S]*r\.complex_id = \$\{resident\.complexId\}::uuid[\s\S]*r\.state = 'active'[\s\S]*r\.kind = 'application-document'/,
+  'attachment acquisition must prove owner, complex, active state and private kind');
+assert.match(api, /resident_news_attachment\.read/,
+  'operator attachment reads must be audit-logged before bytes are served');
+assert.match(api, /operatorAttachmentMatch/,
+  'operator-only attachment retrieval route must exist');
+assert.match(api, /serveActivePrivateApplicationDocumentObject/,
+  'resident-news retrieval must reuse the bounded private Drive serving core');
+assert.match(privateDocsCore, /export async function serveActivePrivateApplicationDocumentObject/,
+  'shared private document core must expose the bounded object streamer');
+
 assert.match(api, /insert into resident_news_posts/i,
   'approval must create a separate publication record');
 assert.match(api, /insert into resident_news_review_events/i,
@@ -48,7 +71,8 @@ for (const route of [
   String.raw`\/resident-news$`,
   String.raw`\/resident-news\/submissions$`,
   '/api/v1/me/resident-news/submissions',
-  String.raw`\/operator\/complexes\/([a-z0-9][a-z0-9-]{0,119})\/resident-news\/submissions`
+  String.raw`\/operator\/complexes\/([a-z0-9][a-z0-9-]{0,119})\/resident-news\/submissions`,
+  String.raw`\/attachments\/`
 ]) {
   assert.ok(api.includes(route), `missing resident-news route contract ${route}`);
 }
