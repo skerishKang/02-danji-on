@@ -32,6 +32,15 @@ const PUBLIC_PAGES = [
   '06_단지온공지_목록.html',
   '07_단지온공지_상세.html',
   /*
+   * 08_아파트소식_목록.html — public apartment-news list. No personal /
+   * personalized surface (no ?userId=, publicProfile, nickname, joinedMonth,
+   * publicBio). The only personal-ish string is a demo-shell screen route
+   * (settings -> 1:1 문의), which is navigation, not resident data.
+   * Was excluded earlier only because of the #819 collision guard, which is
+   * now released (#819 merged).
+   */
+  '08_아파트소식_목록.html',
+  /*
    * 08A_아파트소식_상세.html — added by #819. It is a public apartment-news
    * article detail: no personal data surface, so it must stay indexable.
    * The only "로그인이 필요" string on the page is the reaction (공감) toast,
@@ -232,7 +241,26 @@ for (const page of [...PUBLIC_PAGES, ...PRIVATE_PAGES, 'index2.html', '00_APP_39
   );
 }
 
-/* ---------- 9. #819 public article detail stays public ---------- */
+/* ---------- 9. apartment-news surfaces stay public ---------- */
+{
+  const list = await read('08_아파트소식_목록.html');
+  assert.equal(
+    titleOf(list),
+    '단지온 · 아파트소식',
+    '08: public apartment-news list must keep its service title'
+  );
+  assert.doesNotMatch(
+    list,
+    /<meta[^>]*name=["']robots["'][^>]*noindex/i,
+    '08: a public apartment-news list must not be noindexed'
+  );
+  assert.doesNotMatch(list, PREMATURE_HOST, '08: no temporary *.pages.dev host');
+  assert.ok(
+    !PRIVATE_PAGES.includes('08_아파트소식_목록.html'),
+    '08: must never be classified as a private member surface'
+  );
+}
+
 {
   const article = await read('08A_아파트소식_상세.html');
   assert.equal(
