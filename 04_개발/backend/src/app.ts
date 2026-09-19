@@ -22,6 +22,7 @@ import { handleBusinessShareRequest } from './business-share-v1';
 import { handleCommunityModerationRequest } from './community-moderation-v1';
 import { handleCommunityReplyRequest } from './community-replies-v1';
 import { handleCommunityResidentRequest } from './community-resident-v1';
+import { handleComplexNewsReactionRequest } from './complex-news-reactions-v1';
 import { handleHouseholdPrimaryClaimRequest } from './household-claim-v2';
 import { handleHouseholdCodeVerificationRequest, type HouseholdCodeEnv } from './household-code-verification-v1';
 import { handleHouseholdFamilyRequest } from './household-family-v2';
@@ -243,6 +244,8 @@ export default {
       if (communityReplyResponse) return respond(communityReplyResponse);
       const communityResidentResponse = await handleCommunityResidentRequest(request, env, id);
       if (communityResidentResponse) return respond(communityResidentResponse);
+      const complexNewsReactionResponse = await handleComplexNewsReactionRequest(request, env, id);
+      if (complexNewsReactionResponse) return respond(complexNewsReactionResponse);
       const residentVerificationResponse = await handleResidentVerificationRequest(request, env, id);
       if (residentVerificationResponse) return respond(residentVerificationResponse);
       const residentEconomyResponse = await handleResidentEconomyMutationRequest(request, env, id);

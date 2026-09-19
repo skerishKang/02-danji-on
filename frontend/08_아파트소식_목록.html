@@ -52,6 +52,32 @@
 }
 @media (min-width:761px){.mobile-bottom{display:none!important}}
 </style>
+<style id="ownerpass-apartment-article-20260919">
+/* #768: two server-authoritative presentation modes under one Apartment News
+   authority. 'highlight' keeps the lightweight popup above; 'article' opens the
+   same native dialog in a wide long-form reader so Escape/back semantics stay. */
+#storyDialog.reader{width:min(980px,calc(100% - 40px))}
+#storyDialog.reader .dialog-body{padding:44px 52px 52px}
+#storyDialog.reader .dialog-body h2{font-size:40px;line-height:1.24;margin:20px 0 22px}
+.article-body{margin-top:30px;max-width:760px}
+.article-body p{font-size:18px;line-height:1.9;color:#35383c;margin:0 0 24px;word-break:keep-all}
+.article-body p+p{margin-top:0}
+.story-actions{display:flex;align-items:center;gap:14px;margin-top:32px;border-top:1px solid var(--line);padding-top:22px}
+.story-actions[hidden]{display:none!important}
+.story-react{display:inline-flex;align-items:center;gap:9px;min-height:48px;padding:0 20px;border:1px solid var(--line);background:var(--paper2);font-size:15px;font-weight:850}
+.story-react[aria-pressed="true"]{border-color:var(--coral);color:var(--coral)}
+.story-react[aria-disabled="true"]{opacity:.6}
+.story-react-count{font-size:15px;font-weight:900}
+.story-boundary{font-size:14px;line-height:1.5;color:var(--muted)}
+.mode-badge{display:block;font-style:normal;font-size:12px;font-weight:900;letter-spacing:.02em;color:var(--coral);margin-bottom:5px}
+@media(max-width:760px){
+ #storyDialog.reader .dialog-body{padding:26px 20px 42px!important}
+ #storyDialog.reader .dialog-body h2{font-size:30px!important}
+ .article-body p{font-size:17px;line-height:1.82}
+ .story-actions{flex-direction:column;align-items:stretch;gap:10px}
+ .story-react{justify-content:center}
+}
+</style>
 <style id="ownerpass-apartment-story-20260904">
 
 .news-row{grid-template-columns:125px minmax(0,1fr) 96px!important;cursor:pointer}
@@ -78,7 +104,7 @@
 <article class="feature" data-kind="chair"><div class="feature-photo"><img alt="방림명지로드힐 아파트 전경" src="assets/bangnim-road-hill.png"/><span class="photo-label">우리 아파트 전경</span></div><div class="feature-copy"><div class="feature-meta"><span>회장 인사 · 아파트소식 첫 글</span><time>2026.08.31</time></div><h2>1년 넘게 늦어진 주민생활 개선,<br/>이제 시작합니다.</h2><p>주민생활에 필요한 일을 더 미룰 수 없다는 마음으로 단지온을 시작합니다. 그동안의 과정과 앞으로 만들고 싶은 변화를 주민 여러분께 말씀드립니다.</p><a class="feature-link" href="09_회장인사_상세.html"><span>회장말씀 전체 보기</span><span>→</span></a></div></article>
 <section class="news-area"><header class="section-title"><span>ROADHILL TODAY</span><h2>최근 소식</h2></header><div class="news-list"><button class="news-row" data-kind="progress" data-story="meeting"><span class="type">회의 후 진행</span><strong>주민 안내문자·방송·게시판 홍보 협조 논의</strong><time>2026.08.28</time></button><button class="news-row" data-kind="life" data-story="business"><span class="type">생활소식</span><strong>단지 내 주민 사업자 소개자료 접수 준비</strong><time>2026.08.25</time></button><button class="news-row" data-kind="record" data-story="record"><span class="type">현장기록</span><strong>우리 단지에서 달라진 일을 사진으로 기록합니다</strong><time>2026.08.22</time></button></div></section>
 </main>
-<dialog id="storyDialog"><header class="dialog-top"><button aria-label="아파트소식 목록으로 돌아가기" class="dialog-back modal-back" data-close-story="" type="button">← 아파트소식</button><button aria-label="닫기" class="dialog-close" data-close-story="" type="button">×</button></header><div class="dialog-body"><span class="dialog-type"></span><h2></h2><time></time><p></p><div class="dialog-note">아파트소식은 입대의가 중요하다고 판단한 진행사항과 현장기록을 선별해 전합니다.</div></div></dialog>
+<dialog id="storyDialog"><header class="dialog-top"><button aria-label="아파트소식 목록으로 돌아가기" class="dialog-back modal-back" data-close-story="" type="button">← 아파트소식</button><button aria-label="닫기" class="dialog-close" data-close-story="" type="button">×</button></header><div class="dialog-body"><span class="dialog-type"></span><h2></h2><time></time><p></p><div class="article-body" hidden></div><div class="story-actions" hidden><button aria-pressed="false" class="story-react" type="button"><span class="story-react-label">공감</span><b class="story-react-count">0</b></button><span aria-live="polite" class="story-boundary" role="status"></span></div><div class="dialog-note">아파트소식은 입대의가 중요하다고 판단한 진행사항과 현장기록을 선별해 전합니다.</div></div></dialog>
 <nav aria-label="모바일 주요 메뉴" class="mobile-bottom"><button aria-label="홈" data-route="04_데일리홈.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><path d="m3 10 9-7 9 7v10h-6v-6H9v6H3z"></path></svg><span>홈</span></button><button aria-label="이웃가게" data-route="01_이웃가게_발견.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><path d="M4 7h16l-1 13H5L4 7Z"></path><path d="M8 7V5a4 4 0 0 1 8 0v2"></path></svg><span>이웃가게</span></button><button aria-label="우리단지" class="active" data-route="05_우리단지_첫화면.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><path d="M4 21V9l8-6 8 6v12"></path><path d="M8 13h8M8 17h8"></path></svg><span>우리단지</span></button><button aria-label="내정보" data-route="19_내정보_메인.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><circle cx="12" cy="8" r="4"></circle><path d="M4 21a8 8 0 0 1 16 0"></path></svg><span>내정보</span></button></nav>
 <script src="assets/danjion-session.js"></script>
 <script type="module">
@@ -90,10 +116,49 @@ const bridge = createNewsBridge({ apiBase, complexSlug: DANJION_COMPLEX_SLUG });
 const dialog = document.querySelector('#storyDialog');
 const newsList = document.querySelector('.news-list');
 const featureEl = document.querySelector('.feature');
+const articleBody = dialog.querySelector('.article-body');
+const storyActions = dialog.querySelector('.story-actions');
+const storyReact = dialog.querySelector('.story-react');
+const storyCount = dialog.querySelector('.story-react-count');
+const storyBoundary = dialog.querySelector('.story-boundary');
+
+// #768: 공감 is resident-authoritative. The screen renders only the count the
+// server returned, mutates only through the canonical bridge, and never invents
+// a count or a successful toggle. 401 / verification 403 / other 403 stay
+// distinguishable so a verification boundary is never shown as "log in" (#765).
+const REACTION_MESSAGES = {
+  'login-required': '공감하려면 로그인이 필요합니다.',
+  'resident-verification-required': '주민인증을 마친 뒤 공감할 수 있습니다.',
+  forbidden: '공감 권한이 없습니다.',
+  'not-found': '이 소식을 찾을 수 없습니다.',
+  'server-mode-required': '서버 연결 후 공감할 수 있습니다.',
+  'network-error': '공감을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.',
+  'server-error': '공감을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.'
+};
+const POST_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const POST_PARAM = 'post';
+
+let activePost = null;
+let boundaryReason = null;
+
+function isServerPostId(value) {
+  return POST_UUID.test(String(value || ''));
+}
 
 function formatDate(ts) {
   if (!ts) return '';
   try { return new Date(ts).toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' }); } catch { return ''; }
+}
+
+// #768: server-owned category values are internal slugs (e.g. "progress").
+// Residents are never shown a raw key: human-authored labels (the static
+// stories and curated server rows) render as-is, everything else falls back
+// to the service name.
+const INTERNAL_CATEGORY = /^[a-z0-9][a-z0-9 ._-]*$/i;
+function categoryLabel(value) {
+  const raw = String(value || '').trim();
+  if (!raw || INTERNAL_CATEGORY.test(raw)) return '아파트소식';
+  return raw;
 }
 
 function renderStories(posts) {
@@ -105,7 +170,7 @@ function renderStories(posts) {
     featureEl.innerHTML = `
       <div class="feature-photo"><img alt="${chair.title}" src="assets/bangnim-road-hill.png"/><span class="photo-label">우리 아파트 전경</span></div>
       <div class="feature-copy">
-        <div class="feature-meta"><span>회장 인사 · 아파트소식 첫 글</span><time>${formatDate(chair.publishedAt)}</time></div>
+        <div class="feature-meta"><span>${chair.authorityLabel || '입주대표회장'} · 아파트소식 첫 글</span><time>${formatDate(chair.publishedAt)}</time></div>
         <h2>${chair.title}</h2>
         <p>${(chair.body || '').slice(0, 200)}...</p>
         <a class="feature-link" href="09_회장인사_상세.html?postId=${chair.id}">
@@ -117,9 +182,9 @@ function renderStories(posts) {
 
   // News rows
   const rows = news.map(p => `
-    <button class="news-row" data-post-id="${p.id}" type="button">
-      <span class="type">${p.category || '아파트소식'}</span>
-      <strong>${p.title}</strong>
+    <button class="news-row" data-post-id="${p.id}" data-display-mode="${p.displayMode || 'highlight'}" type="button">
+      <span class="type">${categoryLabel(p.category)}</span>
+      <strong>${p.displayMode === 'article' ? '<i class="mode-badge">장문</i>' : ''}${p.title}</strong>
       <time>${formatDate(p.publishedAt)}</time>
       <span class="arrow">→</span>
     </button>
@@ -146,16 +211,134 @@ const stories = {
   record: { type: '현장기록', title: '우리 단지에서 달라진 일을 사진으로 기록합니다', date: '2026.08.22', body: '공지에 그치지 않고 실제로 달라진 시설과 생활편의, 주민 의견이 반영된 결과를 사진과 함께 남길 예정입니다.' }
 };
 
-function openStoryDialog({ type, title, date, body }) {
-  dialog.querySelector('.dialog-type').textContent = type;
+function renderArticleBody(body) {
+  if (!articleBody) return;
+  articleBody.replaceChildren();
+  const paragraphs = String(body || '').split(/\n+/).map(line => line.trim()).filter(Boolean);
+  for (const paragraph of paragraphs) {
+    const node = document.createElement('p');
+    node.textContent = paragraph;
+    articleBody.append(node);
+  }
+}
+
+function resetReaction() {
+  activePost = null;
+  boundaryReason = null;
+  if (storyActions) storyActions.hidden = true;
+  if (storyReact) storyReact.setAttribute('aria-pressed', 'false');
+  if (storyCount) storyCount.textContent = '0';
+  if (storyBoundary) storyBoundary.textContent = '';
+}
+
+function paintReaction() {
+  if (!activePost) return;
+  if (storyReact) storyReact.setAttribute('aria-pressed', activePost.active ? 'true' : 'false');
+  if (storyCount) storyCount.textContent = String(activePost.count);
+}
+
+// The viewer's own 공감 state is only read when a native session exists; a
+// signed-out visitor is never pre-emptively told to verify.
+async function loadViewerReaction(postId) {
+  const session = globalThis.DanjionSession;
+  if (!session || typeof session.fetchSession !== 'function') { boundaryReason = 'login-required'; return; }
+  let signedIn = false;
+  try {
+    const probe = await session.fetchSession(fetch);
+    signedIn = typeof session.nativeSessionReady === 'function' && session.nativeSessionReady(probe);
+  } catch { signedIn = false; }
+  if (!signedIn) { boundaryReason = 'login-required'; return; }
+  const result = await bridge.getReaction(postId);
+  if (!activePost || activePost.id !== postId) return;
+  if (!result.ok) { boundaryReason = result.reason; return; }
+  boundaryReason = null;
+  activePost.active = result.data?.active === true;
+  activePost.count = Number.isFinite(result.data?.reactionCount) ? result.data.reactionCount : activePost.count;
+  paintReaction();
+}
+
+async function toggleReaction() {
+  if (!activePost) return;
+  if (boundaryReason) {
+    if (storyBoundary) storyBoundary.textContent = REACTION_MESSAGES[boundaryReason] || REACTION_MESSAGES['server-error'];
+    return;
+  }
+  if (storyBoundary) storyBoundary.textContent = '';
+  if (storyReact) storyReact.setAttribute('aria-disabled', 'true');
+  const result = await bridge.setReaction(activePost.id, !activePost.active);
+  if (storyReact) storyReact.removeAttribute('aria-disabled');
+  if (!result.ok) {
+    boundaryReason = result.reason;
+    if (storyBoundary) storyBoundary.textContent = REACTION_MESSAGES[result.reason] || REACTION_MESSAGES['server-error'];
+    return;
+  }
+  activePost.active = result.data?.active === true;
+  activePost.count = Number.isFinite(result.data?.reactionCount) ? result.data.reactionCount : activePost.count;
+  paintReaction();
+}
+
+if (storyReact) storyReact.addEventListener('click', toggleReaction);
+
+function openStoryDialog({ type, title, date, body, mode = 'highlight', postId = '', authorityLabel = '', reactionCount = null }) {
+  const article = mode === 'article';
+  dialog.classList.toggle('reader', article);
+  dialog.querySelector('.dialog-type').textContent = authorityLabel ? `${authorityLabel} · ${type}` : type;
   dialog.querySelector('h2').textContent = title;
   dialog.querySelector('time').textContent = date;
-  dialog.querySelector('p').textContent = body;
+  const paragraph = dialog.querySelector('p');
+  paragraph.hidden = article;
+  paragraph.textContent = article ? '' : body;
+  // #768: the reader lane is the only owner of the article body. Highlight
+  // popups must never leak the previous article's paragraphs.
+  if (articleBody) {
+    articleBody.hidden = !article;
+    if (article) renderArticleBody(body); else articleBody.replaceChildren();
+  }
+  resetReaction();
+  if (storyActions && isServerPostId(postId)) {
+    const initial = Number.isFinite(reactionCount) ? Math.max(0, Math.floor(reactionCount)) : 0;
+    storyActions.hidden = false;
+    activePost = { id: postId, active: false, count: initial };
+    paintReaction();
+    loadViewerReaction(postId);
+  }
   if (window.matchMedia('(max-width:760px)').matches) dialog.show(); else dialog.showModal();
 }
 
 // Delegated: sibling-final-v3 static [data-story] rows and server-rendered [data-post-id] rows
 // open the same dialog. Server rows are injected after render, so binding must not be one-shot.
+function pushPostUrl(postId) {
+  const url = new URL(location.href);
+  if (url.searchParams.get(POST_PARAM) === postId) return;
+  url.searchParams.set(POST_PARAM, postId);
+  history.pushState({ danjionApartmentPost: postId }, '', url);
+}
+
+function clearPostUrl() {
+  const url = new URL(location.href);
+  if (!url.searchParams.has(POST_PARAM)) return;
+  url.searchParams.delete(POST_PARAM);
+  history.replaceState(null, '', url);
+}
+
+// The renderer is chosen from the server-authored display_mode, never from the
+// length of the title/body in the browser.
+async function openServerPost(pid) {
+  const result = await bridge.getPost(pid);
+  if (!result.ok || !result.data) return false;
+  const post = result.data;
+  openStoryDialog({
+    type: categoryLabel(post.category),
+    title: post.title,
+    date: formatDate(post.publishedAt),
+    body: post.body || '',
+    mode: post.displayMode,
+    postId: post.id,
+    authorityLabel: post.authorityLabel || '',
+    reactionCount: post.reactionCount
+  });
+  return true;
+}
 document.addEventListener('click', event => {
   const row = event.target.closest('[data-story], [data-post-id]');
   if (!row) return;
@@ -168,21 +351,21 @@ document.addEventListener('click', event => {
 
   const pid = row.dataset.postId || '';
   if (!pid) return;
-  bridge.getPost(pid).then(result => {
-    if (result.ok && result.data) {
-      const post = result.data;
-      openStoryDialog({
-        type: post.category || '아파트소식',
-        title: post.title,
-        date: formatDate(post.publishedAt),
-        body: post.body || ''
-      });
-    }
-  });
+  // #768: every server post gets a stable, shareable URL and a real back step.
+  pushPostUrl(pid);
+  openServerPost(pid);
 });
 
 dialog.querySelectorAll('[data-close-story]').forEach(button => button.addEventListener('click', () => dialog.close()));
 dialog.addEventListener('click', event => { if (event.target === dialog && !window.matchMedia('(max-width:760px)').matches) dialog.close(); });
+// Closing the reader (button, Escape, backdrop or back) drops ?post= so a shared
+// link and the address bar always describe the screen that is actually open.
+dialog.addEventListener('close', clearPostUrl);
+window.addEventListener('popstate', () => {
+  const param = new URLSearchParams(location.search).get(POST_PARAM);
+  if (param && isServerPostId(param)) { openServerPost(param); return; }
+  if (dialog.open) dialog.close();
+});
 
 function storyFilterItems() {
   // Static sibling-final-v3 rows expose data-kind; server rows expose data-post-id.
@@ -215,6 +398,10 @@ loadPosts().then(() => {
   const active = filters.find(button => button.classList.contains('active')) || filters[0];
   if (active) applyStoryFilter(active);
 });
+
+// A shared ?post= link opens exactly the post its row would have opened.
+const initialPost = new URLSearchParams(location.search).get(POST_PARAM);
+if (isServerPostId(initialPost)) openServerPost(initialPost);
 </script>
 <script id="danjion-direct-router-v5">
 (function(){

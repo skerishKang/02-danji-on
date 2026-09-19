@@ -61,6 +61,7 @@
     "test:stage5i-report-reviewer-resolution": "node tests/stage5i-report-reviewer-resolution-contract.mjs",
     "test:stage5i-account-session-entry": "node tests/stage5i-account-session-entry-contract.mjs",
     "test:stage5i-danjion-news-bridge-contract": "node tests/stage5i-danjion-news-bridge-contract.mjs",
+    "test:complex-news-article-reactions-bridge": "node tests/complex-news-article-reactions-bridge-contract.mjs",
     "test:stage5i-household-claim-wiring": "node tests/stage5i-household-claim-wiring-contract.mjs",
     "test:stage5j-index3-account-entry": "node tests/stage5j-index3-account-entry-contract.mjs",
     "test:stage5j-messages-notifications-wiring": "node tests/stage5j-messages-notifications-wiring-contract.mjs",

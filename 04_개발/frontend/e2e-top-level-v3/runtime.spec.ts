@@ -1578,3 +1578,440 @@ test('#767 together write exposes each canonical 유형 as an exact 말머리', 
   expect(mobile[4].borderBottom, 'the lone last cell closes the grid').toBe('0px');
   for (const tab of mobile) expect(tab.height).toBeGreaterThanOrEqual(44);
 });
+// #768 [Owner Product][Apartment News V3]: display-mode readback, authority label,
+// and the resident-scoped 공감 lane (highlight→popup, article→reader, count readback,
+// boundary messages). This gate proves the server contract surfaces correctly in V3.
+test('#768 display-mode readback + authority label + reaction toggle with boundaries', async ({ page }) => {
+  const POST_A = '11111111-1111-4111-8111-111111111111';
+  const POST_B = '22222222-2222-4222-8222-222222222222';
+
+  // Server-authoritative reaction state is tracked per post, mirroring the
+  // production contract: the browser count only ever changes through the
+  // readback the endpoint returns for that post.
+  const reactionState: Record<string, { active: boolean; count: number }> = {
+    [POST_A]: { active: false, count: 2 },
+    [POST_B]: { active: false, count: 4 }
+  };
+  let reactionCalls: string[] = [];
+  const pageErrors: string[] = [];
+  const unexpectedMutations: string[] = [];
+
+  page.on('pageerror', error => pageErrors.push(error.stack || error.message));
+
+  await page.route('**/*', async route => {
+    const request = route.request();
+    const url = new URL(request.url());
+    const method = request.method().toUpperCase();
+    const local = url.origin === BASE;
+
+    if (!local) {
+      if (!['GET', 'HEAD', 'OPTIONS'].includes(method)) unexpectedMutations.push(method + ' ' + request.url());
+      await route.fulfill({ status: 204, body: '' });
+      return;
+    }
+
+    if (!url.pathname.startsWith('/api/')) {
+      await route.continue();
+      return;
+    }
+
+    // Auth routes for DanjionSession nativeSessionReady
+    if (url.pathname === '/api/auth/get-session') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          session: { id: 'runtime-session', userId: 'runtime-member', expiresAt: '2099-01-01T00:00:00.000Z' },
+          user: {
+            id: 'runtime-member',
+            name: '런타임 주민',
+            email: 'runtime-member@example.invalid',
+            emailVerified: true,
+            createdAt: '2026-01-01T00:00:00.000Z'
+          }
+        })
+      });
+      return;
+    }
+
+    if (url.pathname === '/api/auth/list-accounts') {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([{ providerId: 'credential' }]) });
+      return;
+    }
+
+    // List posts: display_mode + authority readback
+    if (url.pathname === '/api/v1/complexes/' + COMPLEX + '/posts' && method === 'GET') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          data: [
+            {
+              id: POST_A,
+              source_name: null,
+              category: 'progress',
+              channel: 'apartment_news',
+              display_mode: 'highlight',
+              authority: 'resident_council',
+              title: '회의 후 진행 소식',
+              body: '본문',
+              reaction_count: 2,
+              published_at: '2026-09-10T00:00:00.000Z'
+            },
+            {
+              id: POST_B,
+              source_name: null,
+              category: 'life',
+              channel: 'apartment_news',
+              display_mode: 'article',
+              authority: 'resident_council',
+              title: '장문 소식',
+              body: '문단 1\\n문단 2\\n문단 3',
+              reaction_count: 4,
+              published_at: '2026-09-11T00:00:00.000Z'
+            }
+          ]
+        })
+      });
+      return;
+    }
+
+    // Detail post
+    if (url.pathname.startsWith('/api/v1/complexes/' + COMPLEX + '/posts/') && method === 'GET') {
+      const parts = url.pathname.split('/');
+      const postId = parts.at(-1) || '';
+      const row = [
+        {
+          id: POST_A,
+          source_name: null,
+          category: 'progress',
+          channel: 'apartment_news',
+          display_mode: 'highlight',
+          authority: 'resident_council',
+          title: '회의 후 진행 소식',
+          body: '본문',
+          reaction_count: 2,
+          published_at: '2026-09-10T00:00:00.000Z'
+        },
+        {
+          id: POST_B,
+          source_name: null,
+          category: 'life',
+          channel: 'apartment_news',
+          display_mode: 'article',
+          authority: 'resident_council',
+          title: '장문 소식',
+          body: '문단 1\\n문단 2\\n문단 3',
+          reaction_count: 4,
+          published_at: '2026-09-11T00:00:00.000Z'
+        }
+      ].find(p => p.id === postId);
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: row ?? null })
+      });
+      return;
+    }
+
+    // Reaction endpoint: GET/POST/DELETE
+    if (url.pathname.startsWith('/api/v1/complexes/' + COMPLEX + '/news/posts/') && url.pathname.endsWith('/reaction')) {
+      const parts = url.pathname.split('/');
+      const postId = parts.at(-2) || '';
+      const path = url.pathname;
+      const key = method + ' ' + path;
+
+      reactionCalls.push(key);
+      const state = reactionState[postId] || null;
+
+      if (method === 'GET') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            data: { postId, reactionType: 'like', active: state?.active === true, reactionCount: state ? state.count : 0 }
+          })
+        });
+        return;
+      }
+
+      if (method === 'POST' && state) {
+        state.active = true;
+        state.count++;
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ data: { postId, reactionType: 'like', active: state.active, reactionCount: state.count } })
+        });
+        return;
+      }
+
+      if (method === 'DELETE' && state) {
+        state.active = false;
+        state.count--;
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ data: { postId, reactionType: 'like', active: state.active, reactionCount: state.count } })
+        });
+        return;
+      }
+
+      await route.fulfill({ status: 405, body: '' });
+      return;
+    }
+
+    // Block all other mutations
+    if (!['GET', 'HEAD', 'OPTIONS'].includes(method)) {
+      unexpectedMutations.push(method + ' ' + url.pathname);
+      await route.fulfill({
+        status: 409,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: { code: 'TEST_MUTATION_BLOCKED' } })
+      });
+      return;
+    }
+
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [] }) });
+  });
+
+  await page.goto(withApi('/08_아파트소식_목록.html'));
+  await expect(page.locator('[data-danjion-page="8"]')).toBeVisible();
+  await expect(page.locator('.feature')).toBeVisible();
+
+  const rows = page.locator('.news-row');
+  await expect(rows).toHaveCount(2);
+
+  // === Highlight post → popup dialog (not reader) ===
+  await rows.first().click();
+  await expect(page.locator('dialog')).toBeVisible();
+  await expect(page.locator('dialog.reader')).toHaveCount(0);
+  await expect(page.locator('.dialog-type')).toHaveText('입주자대표회의 · 아파트소식');
+  await expect(page.locator('dialog p')).toBeVisible();
+  await expect(page.locator('.article-body')).toBeHidden();
+  await expect(page.locator('.story-actions')).toBeVisible();
+  await expect(page.locator('.story-react')).toHaveAttribute('aria-pressed', 'false');
+  await expect(page.locator('.story-react-count')).toHaveText('2');
+
+  // === Reaction toggle (authenticated) → POST captured, count updates ===
+  await page.locator('.story-react').click();
+  await expect(page.locator('.story-react')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('.story-react-count')).toHaveText('3');
+  expect(reactionCalls.filter(c => c.startsWith('POST'))).toHaveLength(1);
+
+  await page.locator('[data-close-story]').first().click();
+  await expect(page.locator('dialog')).toBeHidden();
+
+  // === Article post → reader dialog (with article-body, 장문 badge) ===
+  await rows.last().click();
+  await expect(page.locator('dialog.reader')).toHaveCount(1);
+  await expect(page.locator('.article-body')).toBeVisible();
+  await expect(page.locator('.mode-badge')).toHaveText('장문');
+  await expect(page.locator('.story-react')).toHaveAttribute('aria-pressed', 'false');
+  await expect(page.locator('.story-react-count')).toHaveText('4');
+
+  // === URL has ?post= after opening ===
+  expect(page.url()).toContain('post=' + POST_B);
+
+  // === Close clears URL (the dialog 'close' event and URL scrub are async) ===
+  await page.locator('[data-close-story]').first().click();
+  await expect(page.locator('dialog')).toBeHidden();
+  await expect.poll(() => page.url()).not.toContain('post=');
+
+  // === No unexpected mutations ===
+  expect(unexpectedMutations).toEqual([]);
+  expect(pageErrors).toEqual([]);
+});
+
+// #768: login-required boundary for signed-out residents; resident-verification-required for unverified.
+test('#768 reaction boundary states: login-required vs resident-verification-required', async ({ page }) => {
+  const POST_X = '33333333-3333-4333-8333-333333333333';
+
+  await page.route('**/*', async route => {
+    const request = route.request();
+    const url = new URL(request.url());
+    const method = request.method().toUpperCase();
+    const local = url.origin === BASE;
+
+    if (!local) {
+      await route.fulfill({ status: 204, body: '' });
+      return;
+    }
+
+    if (!url.pathname.startsWith('/api/')) {
+      await route.continue();
+      return;
+    }
+
+    // No session (signed-out)
+    if (url.pathname === '/api/auth/get-session') {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: 'null' });
+      return;
+    }
+
+    if (url.pathname === '/api/auth/list-accounts') {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) });
+      return;
+    }
+
+    if (url.pathname === '/api/v1/complexes/' + COMPLEX + '/posts') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          data: [{
+            id: POST_X,
+            source_name: null,
+            category: 'progress',
+            channel: 'apartment_news',
+            display_mode: 'highlight',
+            authority: 'resident_council',
+            title: '테스트',
+            body: '본문',
+            reaction_count: 0,
+            published_at: '2026-09-10T00:00:00.000Z'
+          }]
+        })
+      });
+      return;
+    }
+
+    if (url.pathname.startsWith('/api/v1/complexes/' + COMPLEX + '/posts/') && method === 'GET') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          data: {
+            id: POST_X,
+            source_name: null,
+            category: 'progress',
+            channel: 'apartment_news',
+            display_mode: 'highlight',
+            authority: 'resident_council',
+            title: '테스트',
+            body: '본문',
+            reaction_count: 0,
+            published_at: '2026-09-10T00:00:00.000Z'
+          }
+        })
+      });
+      return;
+    }
+
+    // Reaction endpoint
+    if (url.pathname.startsWith('/api/v1/complexes/' + COMPLEX + '/news/posts/') && url.pathname.endsWith('/reaction')) {
+      const parts = url.pathname.split('/');
+      const postId = parts.at(-2) || '';
+
+      if (method === 'GET') {
+        // Verification required: 403 with RESIDENT_VERIFICATION_REQUIRED
+        await route.fulfill({
+          status: 403,
+          contentType: 'application/json',
+          body: JSON.stringify({ error: { code: 'RESIDENT_VERIFICATION_REQUIRED' } })
+        });
+        return;
+      }
+
+      await route.fulfill({ status: 409, body: '' });
+      return;
+    }
+
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [] }) });
+  });
+
+  await page.goto(withApi('/08_아파트소식_목록.html'));
+  await expect(page.locator('.news-row')).toBeVisible();
+
+  // === Opening a row loads viewer reaction; click 공감 shows login-required ===
+  await page.locator('.news-row').click();
+  await expect(page.locator('dialog')).toBeVisible();
+  await page.locator('.story-react').click();
+  await expect(page.locator('.story-boundary')).toContainText('공감하려면 로그인이 필요합니다.');
+
+  // === Verification boundary test (same page, session mock for authenticated but unverified) ===
+  await page.route('**/*', async route => {
+    const request = route.request();
+    const url = new URL(request.url());
+    const method = request.method().toUpperCase();
+    const local = url.origin === BASE;
+
+    if (!local) {
+      await route.fulfill({ status: 204, body: '' });
+      return;
+    }
+
+    if (!url.pathname.startsWith('/api/')) {
+      await route.continue();
+      return;
+    }
+
+    // Authenticated session (nativeSessionReady passes) but verification required
+    if (url.pathname === '/api/auth/get-session') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          session: { id: 'runtime-session', userId: 'runtime-member', expiresAt: '2099-01-01T00:00:00.000Z' },
+          user: {
+            id: 'runtime-member',
+            name: '런타임 주민',
+            email: 'runtime-member@example.invalid',
+            emailVerified: false,
+            createdAt: '2026-01-01T00:00:00.000Z'
+          }
+        })
+      });
+      return;
+    }
+
+    if (url.pathname === '/api/auth/list-accounts') {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([{ providerId: 'credential' }]) });
+      return;
+    }
+
+    if (url.pathname === '/api/v1/complexes/' + COMPLEX + '/posts') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: [{ id: POST_X, source_name: null, category: 'progress', channel: 'apartment_news', display_mode: 'highlight', authority: 'resident_council', title: '테스트', body: '본문', reaction_count: 0, published_at: '2026-09-10T00:00:00.000Z' }] })
+      });
+      return;
+    }
+
+    if (url.pathname.startsWith('/api/v1/complexes/' + COMPLEX + '/posts/') && method === 'GET') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: { id: POST_X, source_name: null, category: 'progress', channel: 'apartment_news', display_mode: 'highlight', authority: 'resident_council', title: '테스트', body: '본문', reaction_count: 0, published_at: '2026-09-10T00:00:00.000Z' } })
+      });
+      return;
+    }
+
+    if (url.pathname.startsWith('/api/v1/complexes/' + COMPLEX + '/news/posts/') && url.pathname.endsWith('/reaction')) {
+      const parts = url.pathname.split('/');
+      const postId = parts.at(-2) || '';
+
+      if (method === 'GET') {
+        await route.fulfill({
+          status: 403,
+          contentType: 'application/json',
+          body: JSON.stringify({ error: { code: 'RESIDENT_VERIFICATION_REQUIRED' } })
+        });
+        return;
+      }
+
+      await route.fulfill({ status: 409, body: '' });
+      return;
+    }
+
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [] }) });
+  });
+
+  // Re-goto to refresh state
+  await page.goto(withApi('/08_아파트소식_목록.html'));
+  await page.locator('.news-row').click();
+  await page.locator('.story-react').click();
+  await expect(page.locator('.story-boundary')).toContainText('주민인증을 마친 뒤 공감할 수 있습니다.');
+});
+
