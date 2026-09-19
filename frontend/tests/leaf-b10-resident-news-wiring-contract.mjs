@@ -218,6 +218,20 @@ assert.throws(
   assert.deepEqual(empty, { id: '', title: '', body: '', publishedAt: null, createdAt: null }, 'a missing row normalizes to empty strings, not fabricated copy');
 }
 
+/* --- D3b. private attachment upload is bounded and never uses browser persistence --- */
+{
+  assert.match(bridgeSource, /form\.set\('kind', 'application-document'\)/,
+    'resident-news attachments must reuse the canonical private application-document upload lane');
+  assert.match(bridgeSource, /MAX_ATTACHMENT_BYTES = 10 \* 1024 \* 1024/,
+    'resident-news attachment client limit must match the server private-document 10MiB policy');
+  assert.match(bridgeSource, /MAX_ATTACHMENTS = 3/,
+    'resident-news submission must stay bounded to three attachments');
+  assert.match(bridgeSource, /credentials:\s*'include'/,
+    'private upload must retain the authenticated cookie boundary');
+  assert.match(bridgeSource, /idempotency-key/,
+    'each private file upload must carry a stable retry key');
+}
+
 /* --- D4. submission create + own-status readback are server-authoritative --- */
 {
   let index = 0;
@@ -239,6 +253,16 @@ assert.throws(
   assert.equal(mine.submissions[0].status, 'reviewing');
   assert.equal(calls[1].url, `${BASE}/api/v1/me/resident-news/submissions?complexSlug=${encodeURIComponent(CANON)}`);
   assert.equal(calls[1].init.method, 'GET');
+}
+{
+  const attachmentKey = 'gdrive/private/application-document/resident_news_file_1234567890';
+  const { b, calls } = makeBridge(() => response(201, {
+    data: { id: POST_ID, title: '첨부 제보', status: 'submitted', attachmentCount: 1, publishedPostId: null, createdAt: 'c', updatedAt: 'u' }
+  }));
+  const created = await b.submit({ title: '첨부 제보', body: '본문', attachmentObjectKeys: [attachmentKey] });
+  assert.equal(created.ok, true);
+  assert.equal(created.submission.attachmentCount, 1);
+  assert.deepEqual(JSON.parse(calls[0].init.body), { title: '첨부 제보', body: '본문', attachmentObjectKeys: [attachmentKey] });
 }
 {
   const { b } = makeBridge(() => response(403, { error: { code: 'HOUSEHOLD_ASSOCIATION_REQUIRED' } }));
@@ -287,11 +311,16 @@ const list = wiringBlock(page10, 'resident-news-list-server-wiring-20260911');
   assert.ok(list.block.includes('createResidentNewsBridge('), 'list wiring must build the bridge');
   assert.ok(list.block.includes('listPosts('), 'list wiring must read the resident-news-v1 feed');
   assert.ok(list.block.includes('listOwnSubmissions('), 'list wiring must read back the signed-in resident submission queue');
-  assert.ok(list.block.includes("b.submit({title,body})"), 'list wiring must submit title/body through the canonical bridge');
+  assert.ok(list.block.includes("b.uploadAttachment("), 'list wiring must upload selected private attachments through the bounded bridge');
+  assert.ok(list.block.includes("attachmentObjectKeys"), 'list wiring must bind uploaded object keys to the resident-news submission');
+  assert.ok(list.block.includes("b.submit({title,body,attachmentObjectKeys})"), 'list wiring must submit title/body plus bounded attachment references');
   assert.ok(page10.includes('>소식 제보하기</button>'), 'canonical CTA must be a real submission action');
   assert.ok(!page10.includes('제보 내용 확인하기'), 'prototype confirmation CTA must be removed');
   assert.ok(!/디자인 검토용|시제품/.test(page10), 'production-reachable prototype copy must be absent');
-  assert.ok(list.block.includes("fileTrigger.disabled=true"), 'server mode must disable unsupported attachment submission');
+  assert.ok(!list.block.includes("fileTrigger.disabled=true"), 'server mode must no longer disable the now-supported private attachment lane');
+  assert.ok(page10.includes("DanjionResidentNewsAttachments"), 'page 10 must keep bounded incremental attachment state outside browser storage');
+  assert.ok(page10.includes("파일 추가하기") && page10.includes("/3"), 'page 10 must expose incremental add and explicit max-three count');
+  assert.ok(page10.includes("remove.textContent='삭제'"), 'page 10 must expose per-file removal before upload');
   assert.ok(list.block.includes("emailInput.disabled=true"), 'server mode must not accept a direct email field the backend ignores');
   assert.ok(list.block.includes('가입 이메일로 연락'), 'server mode must explain the actual follow-up channel');
   assert.ok(list.block.includes("setProof('verified')"), 'verified state must come from a successful server authority read');

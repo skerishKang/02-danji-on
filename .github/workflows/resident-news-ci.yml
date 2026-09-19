@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - '04_개발/backend/migrations/036_resident_news.sql'
+      - '04_개발/backend/migrations/056_resident_news_attachments.sql'
       - '04_개발/backend/src/resident-news-v1.ts'
       - '04_개발/backend/tests/resident-news-*'
       - '.github/workflows/resident-news-ci.yml'
@@ -40,12 +41,24 @@ jobs:
         run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -q -f migrations/001_initial_schema.sql
       - name: Apply Household-v2 schema
         run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -q -f migrations/009_household_foundation.sql
+      - name: Apply private object lifecycle dependencies
+        run: |
+          psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -q -f migrations/019_business_image_lifecycle_registry.sql
+          psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -q -f migrations/020_business_image_upload_pending.sql
+          psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -q -f migrations/021_business_image_reconciliation_lease.sql
+          psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -q -f migrations/022_business_image_upload_idempotency.sql
       - name: Apply resident message dependency
         run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -q -f migrations/024_resident_messages.sql
       - name: Apply notification schema
         run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -q -f migrations/025_resident_notifications.sql
       - name: Apply resident news schema
         run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -q -f migrations/036_resident_news.sql
+      - name: Apply canonical private document namespace
+        run: |
+          psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -q -f migrations/045_application_documents.sql
+          psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -q -f migrations/054_application_document_upload_idempotency.sql
+      - name: Apply resident news attachment relation
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -q -f migrations/056_resident_news_attachments.sql
       - name: Run resident news lifecycle assertions
         env:
           RESIDENT_NEWS_SCHEMA_READY: '1'

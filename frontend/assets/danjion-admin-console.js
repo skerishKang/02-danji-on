@@ -516,6 +516,7 @@
     if (applicant) parts.push(String(applicant));
     const summary = row.serviceSummary || row.service_summary || row.body || row.description || '';
     if (summary) parts.push(String(summary).slice(0, 60));
+    if (Array.isArray(row.attachments) && row.attachments.length) parts.push('첨부 '+row.attachments.length+'개');
     const createdAt = row.createdAt || row.created_at || '';
     if (createdAt) parts.push(String(createdAt).slice(0, 16));
     const deactivatedAt = row.deactivatedAt || row.deactivated_at || '';

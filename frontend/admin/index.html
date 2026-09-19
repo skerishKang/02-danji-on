@@ -626,6 +626,25 @@
       });
       actions.append(toggleBtn);wrap.append(actions,live);return wrap;
     }
+    function appendResidentNewsAttachments(card,row,apiBase){
+      const attachments=Array.isArray(row&&row.attachments)?row.attachments:[];
+      if(!attachments.length)return;
+      const wrap=el('div',undefined,'admin-review-actions');
+      const label=el('strong','첨부자료 '+attachments.length+'개');
+      wrap.append(label);
+      attachments.forEach((attachment,index)=>{
+        const path=String(attachment&&attachment.downloadPath||'');
+        if(!path.startsWith('/api/v1/operator/'))return;
+        const link=document.createElement('a');
+        link.textContent='첨부 '+(index+1)+' 열기';
+        link.href=window.DanjionSession.joinUrl(String(apiBase||''),path);
+        link.target='_blank';
+        link.rel='noopener noreferrer';
+        wrap.append(link);
+      });
+      card.append(wrap);
+    }
+
     async function renderSection(panel,section,apiBase){
       statePanel(panel,'불러오는 중…');
       const outcome=await consoleApi.loadSection(fetch,apiBase,section);
@@ -654,6 +673,7 @@
           card.append(top);
           if(section.id==='applications')appendApplicationFacts(card,row);
           if(section.id==='householdReviews')appendHouseholdReviewFacts(card,row);
+          if(section.id==='residentNews')appendResidentNewsAttachments(card,row,apiBase);
           const reviewControls=applicationReviewControls(row,panel,section,apiBase);
           const postControls=postEditControls(row,panel,section,apiBase);
           const benefitControls=benefitEditControls(row,panel,section,apiBase);

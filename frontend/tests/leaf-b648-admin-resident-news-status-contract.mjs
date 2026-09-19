@@ -8,6 +8,7 @@ import { readFile } from 'node:fs/promises';
 // validation before the server evaluates resident_news.review authority.
 
 const frontend = await readFile(new URL('../assets/danjion-admin-console.js', import.meta.url), 'utf8');
+const adminPage = await readFile(new URL('../admin/index.html', import.meta.url), 'utf8');
 const backend = await readFile(new URL('../../04_개발/backend/src/resident-news-v1.ts', import.meta.url), 'utf8');
 
 const canonicalPath = '/resident-news/submissions?status=submitted';
@@ -28,6 +29,28 @@ assert.ok(
 assert.ok(
   backend.includes("(url.searchParams.get('status') || 'submitted').trim()"),
   'backend queue GET must retain submitted as its default status'
+);
+
+assert.ok(
+  frontend.includes("parts.push('첨부 '+row.attachments.length+'개')"),
+  'resident-news queue metadata must expose only the bounded attachment count'
+);
+assert.ok(
+  backend.includes('downloadPath:'),
+  'backend must issue an operator-only private attachment download path'
+);
+assert.ok(
+  adminPage.includes('appendResidentNewsAttachments') && adminPage.includes('attachment.downloadPath'),
+  'admin console must render server-issued resident-news attachment links'
+);
+assert.ok(
+  adminPage.includes("path.startsWith('/api/v1/operator/')"),
+  'admin console must reject non-operator attachment paths'
+);
+assert.equal(
+  adminPage.includes('object_key'),
+  false,
+  'admin console must never receive or render raw private storage object keys'
 );
 
 console.log('leaf-b648-admin-resident-news-status-contract: PASS');
