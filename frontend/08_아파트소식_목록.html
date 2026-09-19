@@ -138,6 +138,16 @@ const REACTION_MESSAGES = {
 };
 const POST_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const POST_PARAM = 'post';
+// #817: 'article' is its own canonical surface; only 'highlight' keeps the
+// lightweight popup. The mode always comes from the server row, never from a
+// length guess in the browser.
+const ARTICLE_DETAIL_PAGE = '08A_아파트소식_상세.html';
+
+function articleDetailHref(postId) {
+  let href = ARTICLE_DETAIL_PAGE + '?' + POST_PARAM + '=' + encodeURIComponent(postId);
+  if (apiBase) href += '&apiBase=' + encodeURIComponent(apiBase);
+  return href;
+}
 
 let activePost = null;
 let boundaryReason = null;
@@ -181,10 +191,12 @@ function renderStories(posts) {
     `;
   }
 
-  // News rows
+  // News rows. #817: with apartment_news and management_office sharing one feed,
+  // each row carries its server-mirrored authority label so residents can tell
+  // 입주자대표회의 from 관리사무소 at a glance (label only, never an inference).
   const rows = news.map(p => `
     <button class="news-row" data-post-id="${p.id}" data-display-mode="${p.displayMode || 'highlight'}" type="button">
-      <span class="type">${categoryLabel(p.category)}</span>
+      <span class="type">${p.authorityLabel ? p.authorityLabel + ' · ' + categoryLabel(p.category) : categoryLabel(p.category)}</span>
       <strong>${p.displayMode === 'article' ? '<i class="mode-badge">장문</i>' : ''}${p.title}</strong>
       <time>${formatDate(p.publishedAt)}</time>
       <span class="arrow">→</span>
@@ -195,8 +207,35 @@ function renderStories(posts) {
   }
 }
 
+// #817: 아파트소식 carries two official channels side by side — 입주자대표회의
+// (apartment_news) and 관리사무소 (management_office). Both are read in parallel
+// through the existing single-channel server contract and merged by publishedAt
+// (newest first). The channel value stays server-authored; the browser never
+// infers an authority from sourceName/category strings.
+function mergeNewsResults(results) {
+  if (!Array.isArray(results) || !results.every(r => r && r.ok && Array.isArray(r.data))) {
+    const failed = (results || []).find(r => !r || !r.ok);
+    return { ok: false, data: [], error: (failed && failed.error) || 'NEWS_CHANNEL_READ_FAILED' };
+  }
+  // A post belongs to exactly one server channel; an id seen twice can only be a
+  // duplicated read of the same post (e.g. a channel-insensitive fixture), and
+  // residents must never meet the same 소식 as two rows.
+  const seen = new Set();
+  const merged = [];
+  for (const row of results.flatMap(r => r.data)) {
+    if (!row || seen.has(row.id)) continue;
+    seen.add(row.id);
+    merged.push(row);
+  }
+  merged.sort((a, b) => (Date.parse(b.publishedAt || '') || 0) - (Date.parse(a.publishedAt || '') || 0));
+  return { ok: true, data: merged, error: null };
+}
+
 async function loadPosts() {
-  const result = await bridge.listPosts('apartment_news');
+  const result = mergeNewsResults(await Promise.all([
+    bridge.listPosts('apartment_news'),
+    bridge.listPosts('management_office')
+  ]));
   if (result.ok) {
     if (Array.isArray(result.data) && result.data.length > 0) renderStories(result.data);
     return;
@@ -323,11 +362,18 @@ function clearPostUrl() {
 }
 
 // The renderer is chosen from the server-authored display_mode, never from the
-// length of the title/body in the browser.
-async function openServerPost(pid) {
+// length of the title/body in the browser. #817: an 'article' never opens the
+// popup — it navigates to its own detail surface instead.
+async function openServerPost(pid, { pushUrl = true } = {}) {
   const result = await bridge.getPost(pid);
   if (!result.ok || !result.data) return false;
   const post = result.data;
+  if (post.displayMode === 'article') {
+    location.href = articleDetailHref(post.id);
+    return true;
+  }
+  // #768: every highlight post gets a stable, shareable URL and a real back step.
+  if (pushUrl) pushPostUrl(pid);
   openStoryDialog({
     type: categoryLabel(post.category),
     title: post.title,
@@ -352,8 +398,14 @@ document.addEventListener('click', event => {
 
   const pid = row.dataset.postId || '';
   if (!pid) return;
-  // #768: every server post gets a stable, shareable URL and a real back step.
-  pushPostUrl(pid);
+  if (row.dataset.displayMode === 'article') {
+    // #817: the row's mode is server-authored in the list feed, so the article
+    // lane navigates straight to its detail page without a popup round-trip.
+    location.href = articleDetailHref(pid);
+    return;
+  }
+  // The URL only gains ?post= once the server has confirmed the popup render;
+  // article rows navigate away instead (openServerPost above).
   openServerPost(pid);
 });
 
@@ -364,7 +416,7 @@ dialog.addEventListener('click', event => { if (event.target === dialog && !wind
 dialog.addEventListener('close', clearPostUrl);
 window.addEventListener('popstate', () => {
   const param = new URLSearchParams(location.search).get(POST_PARAM);
-  if (param && isServerPostId(param)) { openServerPost(param); return; }
+  if (param && isServerPostId(param)) { openServerPost(param, { pushUrl: false }); return; }
   if (dialog.open) dialog.close();
 });
 
@@ -400,9 +452,10 @@ loadPosts().then(() => {
   if (active) applyStoryFilter(active);
 });
 
-// A shared ?post= link opens exactly the post its row would have opened.
+// A shared ?post= link opens exactly the post its row would have opened:
+// highlight opens the popup, article navigates to 08A (#817).
 const initialPost = new URLSearchParams(location.search).get(POST_PARAM);
-if (isServerPostId(initialPost)) openServerPost(initialPost);
+if (isServerPostId(initialPost)) openServerPost(initialPost, { pushUrl: false });
 </script>
 <script id="danjion-direct-router-v5">
 (function(){
