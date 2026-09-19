@@ -233,18 +233,14 @@ assert.ok(!/josa|particle|을를/.test(home),
   'the copy fix must not introduce a particle-resolution engine');
 
 /* ------------------------------------------------------------------ *
- * Items deferred to a separate lane (judgment only, no code change here)
+ * Items deferred to a separate lane — intentionally NOT asserted here.
+ *
+ * The build stamp (`/app build=20260907`) and the `먼저 둘러보기` label/behaviour
+ * mismatch are still REAL_REMAINING defects. They are owned by the landing/root
+ * lane (#802 collision) and this lane does not fix them. A regression contract
+ * must pin accepted behaviour only: pinning a known defect would make CI fail
+ * the moment another lane legitimately fixes it. Their disposition is recorded
+ * in the PR body instead.
  * ------------------------------------------------------------------ */
-
-// 1. Build stamp is still hardcoded in app.html -> REAL_REMAINING, owned by the
-//    landing/root lane (#802 collision). This contract asserts we did not touch it.
-const appHtml = await read('app.html');
-assert.match(appHtml, /index\.html\?variant=v3&amp;build=20260907/,
-  'build stamp stays untouched by this lane (owned by the landing/root lane)');
-
-// 2. `먼저 둘러보기` label/behaviour mismatch is real but index.html is out of scope.
-const indexHtml = await read('index.html');
-assert.match(indexHtml, /data-preview[^>]*>먼저 둘러보기</,
-  'preview label stays untouched by this lane (index.html is out of scope)');
 
 console.log('leaf-b804-qa-reliability-repass-contract: PASS');
