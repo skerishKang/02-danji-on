@@ -87,12 +87,38 @@ jobs:
         run: |
           set -euo pipefail
 
-          pulls="$(gh api             -H 'Accept: application/vnd.github+json'             "/repos/$REPO/commits/$MAIN_SHA/pulls?per_page=20")"
+          # Bounded association grace: a squash merge lands a new main commit whose
+          # commits/{sha}/pulls index can lag the merge by well under a minute. Retry
+          # ONLY while the merged-PR count is zero, up to max_attempts at a fixed interval;
+          # any non-zero count proceeds immediately. Genuine pushes with no associated
+          # merged PR still fail closed with reason ..._after_grace. The authorization
+          # contract itself is NOT relaxed: count must still equal exactly one merged PR
+          # into main, head must equal the authorized head, and the final exit 1 is intact.
+          max_attempts=6
+          grace_seconds=15
+          attempt=0
+          pulls='[]'
+          count=0
+          while [ "$attempt" -lt "$max_attempts" ]; do
+            attempt=$((attempt+1))
+            if api_pulls="$(gh api \
+              -H 'Accept: application/vnd.github+json' \
+              "/repos/$REPO/commits/$MAIN_SHA/pulls?per_page=20" 2>/dev/null)"; then
+              pulls="$api_pulls"
+            fi
+            count="$(jq '[.[] | select(.merged_at != null and .base.ref == "main")] | length' <<<"$pulls" 2>/dev/null || echo 0)"
+            if [ "$count" -ne 0 ]; then break; fi
+            if [ "$attempt" -lt "$max_attempts" ]; then
+              echo "association not visible yet (attempt ${attempt}/${max_attempts}); waiting ${grace_seconds}s for post-merge index propagation"
+              sleep "$grace_seconds"
+            fi
+          done
 
-          count="$(jq '[.[] | select(.merged_at != null and .base.ref == "main")] | length' <<<"$pulls")"
           if [ "$count" -ne 1 ]; then
             echo "authorized=false" >> "$GITHUB_OUTPUT"
-            echo "reason=associated_merged_pr_count_$count" >> "$GITHUB_OUTPUT"
+            reason_suffix=''
+            if [ "$count" -eq 0 ]; then reason_suffix='_after_grace'; fi
+            echo "reason=associated_merged_pr_count_${count}${reason_suffix}" >> "$GITHUB_OUTPUT"
             echo "::error::main change is not attributable to exactly one merged PR."
             exit 0
           fi
@@ -135,18 +161,21 @@ jobs:
           set -euo pipefail
 
           title="[Governance Incident] Unauthorized main integration $MAIN_SHA"
-          body="$(cat <<EOF
-          An integration into `main` did not satisfy the CENTRAL authorization contract.
+          # Built with escaped literal backticks (no heredoc): the previous
+          # unquoted two-angle-bracket EOF heredoc executed every markdown
+          # backtick as a command substitution, which both spammed
+          # "command not found" and blanked the main / SHA / doc-path tokens
+          # in the rendered incident.
+          # Variables still interpolate so the incident records the exact values.
+          body="An integration into \`main\` did not satisfy the CENTRAL authorization contract.
 
-          - main SHA: `$MAIN_SHA`
-          - associated PR: `${PR_NUMBER:-none}`
-          - reason: `${REASON:-unknown}`
+          - main SHA: \`${MAIN_SHA}\`
+          - associated PR: \`${PR_NUMBER:-none}\`
+          - reason: \`${REASON:-unknown}\`
 
           Do not auto-revert. CENTRAL must fresh-read the new main, inspect semantic/file overlap, preserve valid unrelated work, and decide a bounded reconciliation.
 
-          See `docs/operations/CENTRAL_CHANGE_CONTROL.md`.
-          EOF
-          )"
+          See \`docs/operations/CENTRAL_CHANGE_CONTROL.md\`."
 
           existing="$(gh issue list --repo "$REPO" --state all --search "$MAIN_SHA in:title" --json number --jq 'length')"
           if [ "$existing" = "0" ]; then
