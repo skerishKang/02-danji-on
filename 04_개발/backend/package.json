@@ -20,6 +20,7 @@
     "test:production-bootstrap-safety": "node tests/production-bootstrap-safety-contract.mjs",
     "test:production-db-secret-bootstrap": "node tests/production-db-secret-bootstrap-contract.mjs",
     "test:production-auth-readonly-diagnostic": "node tests/production-auth-readonly-diagnostic-contract.mjs",
+    "test:central-governance-main-audit": "node tests/central-governance-main-audit-contract.mjs",
     "test:production-admin-principal-provision": "node tests/production-admin-principal-provision-contract.mjs",
     "test:production-admin-principal-adopt-existing": "node tests/production-admin-principal-adopt-existing-contract.mjs",
     "test:auth-facade-public-base": "tsx tests/auth-facade-public-base-contract.mjs",
