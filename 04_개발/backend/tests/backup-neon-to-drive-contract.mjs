@@ -2,11 +2,18 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import { spawnSync } from 'node:child_process';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(here, '..', '..', '..');
 const workflow = readFileSync(join(repoRoot, '.github', 'workflows', 'backup-neon-to-drive.yml'), 'utf8');
-const script = readFileSync(join(here, '..', 'scripts', 'backup-neon-to-drive.sh'), 'utf8');
+const scriptPath = join(here, '..', 'scripts', 'backup-neon-to-drive.sh');
+const script = readFileSync(scriptPath, 'utf8');
+
+if (process.platform !== 'win32') {
+  const syntax = spawnSync('bash', ['-n', scriptPath], { encoding: 'utf8' });
+  assert.equal(syntax.status, 0, `backup shell syntax invalid: ${syntax.stderr || syntax.stdout}`);
+}
 
 assert.match(workflow, /cron:\s*'17 18 \* \* \*'/, 'daily candidate schedule must remain 24h');
 assert.match(workflow, /environment:\s*production/, 'backup must use the production environment boundary');
