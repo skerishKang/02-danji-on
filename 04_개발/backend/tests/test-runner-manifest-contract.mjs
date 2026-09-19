@@ -76,6 +76,7 @@ const EXPECTED_BACKEND_ORDER = [
   "test:community-c2-schema",
   "test:community-c3-resident-api",
   "test:community-c4-moderation",
+  "test:community-784-immediate-publish",
   "test:community-c6a-security",
   "test:complex-news-channel",
   "test:complex-news-channel-write",

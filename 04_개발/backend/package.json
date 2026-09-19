@@ -73,6 +73,7 @@
     "test:complex-news-article-reactions": "node tests/complex-news-article-reactions-contract.mjs",
     "test:community-c3-resident-api": "node tests/community-c3-resident-api-contract.mjs",
     "test:community-c4-moderation": "node tests/community-c4-moderation-contract.mjs",
+    "test:community-784-immediate-publish": "node tests/community-784-immediate-publish-contract.mjs",
     "test:community-c6a-security": "node tests/community-c6a-security-gate.mjs",
     "test:complex-news-channel": "node tests/complex-news-channel-contract.mjs",
     "test:complex-news-channel-write": "tsx tests/complex-news-channel-write-contract.mjs",
