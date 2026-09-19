@@ -92,7 +92,7 @@ function serverPost(overrides = {}) {
   assert.equal(fetched, 0, 'static mode never reaches the network');
 }
 
-/* ---------- 4. page 14 wiring: server mode submits greeting, demo fallback preserved ---------- */
+/* ---------- 4. page 14 wiring: server mode submits greeting, fail-closed without apiBase ---------- */
 function wiringScript(page, id) {
   const match = page.match(new RegExp(`<script id="${id}">([\\s\\S]*?)<\\/script>`));
   assert.ok(match, `page must contain wiring script ${id}`);
@@ -103,7 +103,10 @@ function wiringScript(page, id) {
   assert.match(page14, /<script src="assets\/community-bridge\.js"><\/script>/, 'page 14 loads the community bridge');
   const wiring = wiringScript(page14, 'danjion-community-write-greeting-live-wiring-348');
   assert.match(wiring, /DanjionSession\.danjionApiBase\(\)/, 'page 14 reuses canonical apiBase parsing');
-  assert.match(wiring, /if\(!apiBase\)return;/, 'page 14 keeps the no-apiBase demo fallback untouched');
+  // #806 removed the prototype board: the write surface is server-only, so it must
+  // no longer short-circuit into a demo submit when apiBase is absent.
+  assert.doesNotMatch(wiring, /if\(!apiBase\)return;/, 'page 14 no longer short-circuits into a demo fallback when apiBase is absent (#806 server-only)');
+  assert.match(page14, /assets\/community-bridge\.js/, 'page 14 still routes submits through the canonical bridge (which itself fails closed)');
   assert.match(wiring, /createPost\(\{kind:'greeting'/, 'page 14 submits only the canonical greeting kind');
   for (const other of ['resident_story', 'question', 'together', 'life_report', 'hello']) {
     assert.equal(new RegExp(`kind:\\s*'${other}'`).test(wiring), false, `page 14 never coerces greeting into ${other}`);

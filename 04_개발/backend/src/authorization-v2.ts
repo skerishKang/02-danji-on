@@ -1,15 +1,28 @@
 import type { NeonQueryFunction } from '@neondatabase/serverless';
 import { requireActor, type Actor, type AuthEnv } from './auth-v1';
+import { resolvePadiemAuthority } from './padiem-authority-v1';
 
 type Sql = NeonQueryFunction<false, false>;
 
 export type VerifiedResident = Actor & {
   complexId: string;
   complexSlug: string;
-  householdId: string;
-  membershipId: string;
-  membershipRole: 'primary' | 'member';
-};
+} & (
+  | {
+      residentVerificationExempt: false;
+      householdId: string;
+      membershipId: string;
+      membershipRole: 'primary' | 'member';
+    }
+  | {
+      residentVerificationExempt: true;
+      householdId: null;
+      membershipId: null;
+      membershipRole: null;
+    }
+);
+
+const RESIDENT_VERIFICATION_EXEMPT_SCOPE = 'resident.verification.exempt';
 
 export type PadiemOperator = Actor & {
   operatorGrantId: string;
@@ -139,7 +152,32 @@ export async function requireVerifiedResident(
 
     const row = rows[0];
     if (!row) {
-      return fail('RESIDENT_VERIFICATION_REQUIRED', 'Verified resident access required', 403, requestId);
+      const authority = await resolvePadiemAuthority(sql, actor.id);
+      if (!authority.scopes.includes(RESIDENT_VERIFICATION_EXEMPT_SCOPE)) {
+        return fail('RESIDENT_VERIFICATION_REQUIRED', 'Verified resident access required', 403, requestId);
+      }
+
+      const complexRows = await sql`
+        select id as complex_id, slug as complex_slug
+        from complexes
+        where slug = ${complexSlug}
+          and status <> 'inactive'
+        limit 1
+      `;
+      const complex = complexRows[0];
+      if (!complex) {
+        return fail('COMPLEX_NOT_FOUND', 'Apartment complex not found', 404, requestId);
+      }
+
+      return {
+        ...actor,
+        complexId: String(complex.complex_id),
+        complexSlug: String(complex.complex_slug),
+        residentVerificationExempt: true,
+        householdId: null,
+        membershipId: null,
+        membershipRole: null
+      };
     }
 
     const membershipRole = String(row.membership_role);
@@ -151,6 +189,7 @@ export async function requireVerifiedResident(
       ...actor,
       complexId: String(row.complex_id),
       complexSlug: String(row.complex_slug),
+      residentVerificationExempt: false,
       householdId: String(row.household_id),
       membershipId: String(row.membership_id),
       membershipRole
