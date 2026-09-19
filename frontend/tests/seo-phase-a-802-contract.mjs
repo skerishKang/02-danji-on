@@ -31,6 +31,13 @@ const PUBLIC_PAGES = [
   '05_우리단지_첫화면.html',
   '06_단지온공지_목록.html',
   '07_단지온공지_상세.html',
+  /*
+   * 08A_아파트소식_상세.html — added by #819. It is a public apartment-news
+   * article detail: no personal data surface, so it must stay indexable.
+   * The only "로그인이 필요" string on the page is the reaction (공감) toast,
+   * an interaction gate — not a page-level private surface.
+   */
+  '08A_아파트소식_상세.html',
   '09_회장인사_상세.html',
   '10_주민소식_목록.html',
   '11_주민소식_상세.html',
@@ -222,6 +229,26 @@ for (const page of [...PUBLIC_PAGES, ...PRIVATE_PAGES, 'index2.html', '00_APP_39
   assert.ok(
     /userId/.test(profile),
     '22: per-resident ?userId= routing must remain intact (noindex does not remove in-app access)'
+  );
+}
+
+/* ---------- 9. #819 public article detail stays public ---------- */
+{
+  const article = await read('08A_아파트소식_상세.html');
+  assert.equal(
+    titleOf(article),
+    '단지온 · 아파트소식 상세',
+    '08A: public apartment-news article detail must keep its service title'
+  );
+  assert.doesNotMatch(
+    article,
+    /<meta[^>]*name=["']robots["'][^>]*noindex/i,
+    '08A: a public article detail must not be noindexed'
+  );
+  assert.doesNotMatch(article, PREMATURE_HOST, '08A: no temporary *.pages.dev host');
+  assert.ok(
+    !PRIVATE_PAGES.includes('08A_아파트소식_상세.html'),
+    '08A: must never be classified as a private member surface'
   );
 }
 
