@@ -22,6 +22,20 @@ assert.doesNotMatch(home, /keeping demo scenes|keeping demo copy/);
 assert.match(home, /if\(HOME_SERVER_MODE\)\{const state=__homeBridge\?__homeBridge\.snapshot\(\):null/);
 
 assert.match(shops, /if\(PRODUCTION_SERVER_MODE\)SHOP_DATA=\[\]/);
+const shopDataStart=shops.indexOf(" let SHOP_DATA=[");
+const shopDataEnd=shops.indexOf(" const __V3_PRESENTATION",shopDataStart);
+assert.ok(shopDataStart>=0&&shopDataEnd>shopDataStart,'SHOP_DATA bounds must remain inspectable');
+const shopFallback=shops.slice(shopDataStart,shopDataEnd);
+assert.equal((shopFallback.match(/reviews:\[\]/g)||[]).length,8,
+  'presentation fallback may keep shop copy but must not ship resident-authored review facts');
+assert.doesNotMatch(shopFallback,/연블리|산책메이트|하루한잔|방림회관|방림생활/,
+  'prototype resident identities must not exist in shop review fallback');
+assert.match(shops,/const __V3_COPY_FALLBACK=SHOP_DATA\.map\(s=>\(\{\.\.\.s,reviews:\[\]\}\)\);/,
+  'copy fallback must defensively scrub review authority');
+assert.match(shops,/cm\.author\.nickname/,
+  'server review comments must render the server-returned author nickname');
+assert.match(shops,/c\.comment\.author\.nickname/,
+  'new review comments must append the server-returned author nickname');
 assert.doesNotMatch(shops, /danjion:demo:shop-inquiries/);
 assert.doesNotMatch(shops, /push\(\['연블리','방금',v\]\)/);
 assert.match(shops, /r\.mode==='static'\)\{flash\('서버에 등록된 이웃가게에서만 후기를 남길 수 있습니다\.'/);
