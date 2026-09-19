@@ -131,11 +131,20 @@ const moduleRaw = f26.slice(scriptStart + '  <script type="module">'.length, f26
   const viewMarkup = f26.slice(viewAt, viewEnd);
   assert.ok(!/<select|<option|connectButton|buildingSelect|unitSelect/.test(viewMarkup),
     'the exempt view must offer no 동·호 selection or connect control');
-  // The household-required boundary stays a server concern, untouched.
-  assert.ok(householdSrc.includes('HOUSEHOLD_ASSOCIATION_REQUIRED') === false || true,
-    'the page must not synthesize a household-required boundary of its own');
+  // The household-required boundary is a server concern: the page may only ever
+  // COMPARE the server's own code (the canonical '!==' gate), never define or
+  // return that boundary itself. A definition/return/assignment of the literal is
+  // a synthesized boundary and must fail this contract.
+  assert.doesNotMatch(moduleRaw, /\bHOUSEHOLD_ASSOCIATION_REQUIRED\b\s*(=[^=]|\)\s*\{|;)/,
+    'the page must never define or assign the household boundary code itself');
+  assert.doesNotMatch(moduleRaw, /return\s+['"]HOUSEHOLD_ASSOCIATION_REQUIRED['"]/,
+    'the page must never return the household boundary code itself');
+  assert.match(moduleRaw, /code!==['"]HOUSEHOLD_ASSOCIATION_REQUIRED['"]/,
+    'the page must only ever compare the server-provided household code');
   assert.ok(/async associate\(unitIdInput\)/.test(householdSrc),
     'the household bridge keeps its real associate path for ordinary residents');
+  assert.ok(!/exempt/i.test(householdSrc),
+    'the household-claim bridge must know nothing about the exemption (no exemption-shaped household bypass)');
 }
 
 /* ==== 7. F: ordinary residents keep the unchanged onboarding lane ======== */
