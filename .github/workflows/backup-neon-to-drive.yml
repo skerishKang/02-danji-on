@@ -109,8 +109,14 @@ jobs:
           set -euo pipefail
 
           missing=0
-          for key in             DANJION_PRODUCTION_DB_URL             DANJION_BACKUP_ENCRYPTION_PASSPHRASE             DANJION_DRIVE_RCLONE_CONFIG             DANJION_DRIVE_FOLDER_ID
-          do
+          keys=(
+            DANJION_PRODUCTION_DB_URL
+            DANJION_BACKUP_ENCRYPTION_PASSPHRASE
+            DANJION_DRIVE_RCLONE_CONFIG
+            DANJION_DRIVE_FOLDER_ID
+          )
+
+          for key in "${keys[@]}"; do
             if [ -z "${!key:-}" ]; then
               missing=1
             fi
