@@ -28,6 +28,7 @@ assert.deepEqual(
   'production deploy must fail closed unless core auth/database secrets are present'
 );
 assert.equal(production.vars?.BUSINESS_IMAGE_RECONCILIATION_ENABLED, 'false', 'first production bootstrap must keep background Drive reconciliation off until its runtime is fully configured');
+assert.equal(production.vars?.STORAGE_MODE, 'drive', '#809: production must declare the Drive storage runtime while credentials stay fail-closed until provisioned');
 assert.deepEqual(production.triggers?.crons, ['*/15 * * * *'], 'the production schedule remains declared for later activation');
 
 assert.match(worker, /BUSINESS_IMAGE_RECONCILIATION_ENABLED\?: string/);
@@ -73,6 +74,10 @@ assert.match(workflow, /wrangler deploy --env production --secrets-file/, 'produ
 assert.match(workflow, /for key in DATABASE_URL BETTER_AUTH_SECRET DANJION_CONTACT_REF_SECRET HOUSEHOLD_CODE_PEPPER; do/,
   '#746: post-deploy secret-name readback must include the household code pepper without exposing its value');
 assert.match(workflow, /OAuth providers provisioned \(names only\)/, '#422: provisioned social provider names must be reported without values');
+assert.match(workflow, /\$\{\{ secrets\.DANJION_DRIVE_CLIENT_ID \}\}/, '#809: Drive client id must cross the production environment boundary explicitly');
+assert.match(workflow, /Partial Google Drive binding set detected[\s\S]*exit 1/, '#809: a partial Drive credential set must fail closed before deploy');
+assert.match(workflow, /Google Drive runtime bindings provisioned \(names only\)/, '#809: provisioning may report Drive binding names only');
+assert.match(workflow, /Google Drive storage bindings: NOT_PROVISIONED/, '#809: absent Drive bindings must be reported, never stay silent, and keep uploads fail-closed');
 assert.match(workflow, /Verify social provider registration on production Worker/, '#422: post-deploy social provider registration readback must exist');
 assert.match(workflow, /PROVIDER_NOT_FOUND/, '#422: missing provider registration must fail closed, never stay silent');
 assert.ok(
