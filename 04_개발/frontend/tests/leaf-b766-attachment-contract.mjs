@@ -18,6 +18,12 @@ assert.match(apply, /idempotency-key/);
 assert.match(apply, /entry\.key/);
 assert.match(apply, /파일당 최대 8MB/);
 assert.match(apply, /파일당 최대 10MB/);
+assert.match(apply, /사진은 JPG, PNG, WebP만 첨부할 수 있습니다/);
+assert.match(apply, /storage-unavailable/);
+assert.match(apply, /STORAGE_NOT_CONFIGURED/);
+assert.match(apply, /response\.status===503\|\|code==='STORAGE_NOT_CONFIGURED'\?'storage-unavailable'/);
+assert.match(apply, /사진 저장 서버가 아직 준비되지 않았습니다/);
+assert.match(apply, /서류 저장 서버가 아직 준비되지 않았습니다/);
 assert.match(apply, /ceo@padiem\.net/);
 assert.doesNotMatch(apply, /\.hwp|\.hwpx|accept="image\/\*"/);
 

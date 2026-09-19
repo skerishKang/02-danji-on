@@ -164,6 +164,22 @@ GOOGLE_DRIVE_PRIVATE_RESIDENT_VERIFICATION_FOLDER_ID=...
 
 9. frontend에는 credential을 넣지 않고 `VITE_STORAGE_MODE=drive`만 설정한다.
 
+### Production/QA 배포 배선 (Issue #809)
+
+- `04_개발/backend/wrangler.jsonc`의 production env `vars`에 `STORAGE_MODE: "drive"`를 선언한다. credential 주입 전에는 업로드가 계속 `503 STORAGE_NOT_CONFIGURED`로 fail-closed된다.
+- `.github/workflows/production-worker-bootstrap.yml`이 GitHub production environment의 아래 5개 secret을 encrypted secrets-file 경로로 주입한다 (값은 로그에 남기지 않고 이름만 보고한다):
+
+| GitHub environment secret | Worker binding |
+| --- | --- |
+| `DANJION_DRIVE_CLIENT_ID` | `GOOGLE_DRIVE_CLIENT_ID` |
+| `DANJION_DRIVE_CLIENT_SECRET` | `GOOGLE_DRIVE_CLIENT_SECRET` |
+| `DANJION_DRIVE_REFRESH_TOKEN` | `GOOGLE_DRIVE_REFRESH_TOKEN` |
+| `DANJION_DRIVE_PUBLIC_FOLDER_ID` | `GOOGLE_DRIVE_PUBLIC_BUSINESS_FOLDER_ID` |
+| `DANJION_DRIVE_PRIVATE_FOLDER_ID` | `GOOGLE_DRIVE_PRIVATE_RESIDENT_VERIFICATION_FOLDER_ID` |
+
+- 5개 전부 또는 전무만 허용한다. 부분 구성은 deploy 전에 실패하고, 전무라면 `NOT_PROVISIONED` warning으로 기존처럼 503 상태를 유지한다.
+- QA Worker(`qa-worker-deploy.yml`)는 아직 `STORAGE_MODE`/Drive binding을 주입하지 않아 `danjion-qa`면의 업로드도 503이다. QA 배선은 production credential 주입 확정 후 별도 follow-up로 처리한다.
+
 실제 secret/token은 GitHub에 commit하지 않는다.
 
 ## 8. 실제 Drive write 상태
