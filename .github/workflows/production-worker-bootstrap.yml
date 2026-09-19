@@ -61,6 +61,11 @@ jobs:
       DANJION_NAVER_CLIENT_ID: ${{ secrets.DANJION_NAVER_CLIENT_ID }}
       DANJION_NAVER_CLIENT_SECRET: ${{ secrets.DANJION_NAVER_CLIENT_SECRET }}
       DANJION_HOUSEHOLD_CODE_PEPPER: ${{ secrets.DANJION_HOUSEHOLD_CODE_PEPPER }}
+      DANJION_DRIVE_CLIENT_ID: ${{ secrets.DANJION_DRIVE_CLIENT_ID }}
+      DANJION_DRIVE_CLIENT_SECRET: ${{ secrets.DANJION_DRIVE_CLIENT_SECRET }}
+      DANJION_DRIVE_REFRESH_TOKEN: ${{ secrets.DANJION_DRIVE_REFRESH_TOKEN }}
+      DANJION_DRIVE_PUBLIC_FOLDER_ID: ${{ secrets.DANJION_DRIVE_PUBLIC_FOLDER_ID }}
+      DANJION_DRIVE_PRIVATE_FOLDER_ID: ${{ secrets.DANJION_DRIVE_PRIVATE_FOLDER_ID }}
       TARGET_WORKER: padiem-danjion-api-production
       VERIFICATION_WORKER: padiem-contact-verification
       HEALTH_URL: https://padiem-danjion-api-production.padiem.workers.dev/api/health
@@ -281,6 +286,28 @@ jobs:
           add_optional_pair "$DANJION_KAKAO_CLIENT_ID" "$DANJION_KAKAO_CLIENT_SECRET" KAKAO_CLIENT_ID KAKAO_CLIENT_SECRET
           add_optional_pair "$DANJION_NAVER_CLIENT_ID" "$DANJION_NAVER_CLIENT_SECRET" NAVER_CLIENT_ID NAVER_CLIENT_SECRET
 
+          # Issue #809: Google Drive storage runtime. All five Worker bindings must cross
+          # the GitHub production environment boundary together; a partial set fails closed
+          # and none stays fail-closed at request time (503 STORAGE_NOT_CONFIGURED).
+          drive_worker_names=(GOOGLE_DRIVE_CLIENT_ID GOOGLE_DRIVE_CLIENT_SECRET GOOGLE_DRIVE_REFRESH_TOKEN GOOGLE_DRIVE_PUBLIC_BUSINESS_FOLDER_ID GOOGLE_DRIVE_PRIVATE_RESIDENT_VERIFICATION_FOLDER_ID)
+          drive_github_names=(DANJION_DRIVE_CLIENT_ID DANJION_DRIVE_CLIENT_SECRET DANJION_DRIVE_REFRESH_TOKEN DANJION_DRIVE_PUBLIC_FOLDER_ID DANJION_DRIVE_PRIVATE_FOLDER_ID)
+          drive_worker_values=("$DANJION_DRIVE_CLIENT_ID" "$DANJION_DRIVE_CLIENT_SECRET" "$DANJION_DRIVE_REFRESH_TOKEN" "$DANJION_DRIVE_PUBLIC_FOLDER_ID" "$DANJION_DRIVE_PRIVATE_FOLDER_ID")
+          drive_present=0
+          for value in "${drive_worker_values[@]}"; do
+            if [ -n "$value" ]; then drive_present=$((drive_present+1)); fi
+          done
+          if [ "$drive_present" -eq "${#drive_worker_names[@]}" ]; then
+            for index in "${!drive_worker_names[@]}"; do
+              add_secret "${drive_worker_names[$index]}" "${drive_worker_values[$index]}"
+            done
+            echo "Google Drive runtime bindings provisioned (names only): ${drive_worker_names[*]}"
+          elif [ "$drive_present" -gt 0 ]; then
+            echo "::error::Partial Google Drive binding set detected (${drive_present} of ${#drive_worker_names[@]}). Configure all five GitHub production environment secrets or none: ${drive_github_names[*]}"
+            exit 1
+          else
+            echo "::warning::Google Drive runtime bindings are not configured in the GitHub production environment. Expected secret names: ${drive_github_names[*]}. Storage uploads stay STORAGE_NOT_CONFIGURED (503) until a complete Drive credential set is provisioned."
+          fi
+
           # Issue #422: never skip social providers silently. Report the provisioned
           # provider names only; values are never printed.
           oauth_provisioned=""
@@ -316,6 +343,22 @@ jobs:
             fi
           done
            echo "Required Worker secret-name readback: PASS"
+
+          # Issue #809: report Google Drive binding state by name only, never values.
+          drive_bound=0
+          for key in GOOGLE_DRIVE_CLIENT_ID GOOGLE_DRIVE_CLIENT_SECRET GOOGLE_DRIVE_REFRESH_TOKEN GOOGLE_DRIVE_PUBLIC_BUSINESS_FOLDER_ID GOOGLE_DRIVE_PRIVATE_RESIDENT_VERIFICATION_FOLDER_ID; do
+            if printf '%s' "$secret_names" | jq -e --arg key "$key" '.[] | select(.name == $key)' >/dev/null; then
+              drive_bound=$((drive_bound+1))
+            fi
+          done
+          if [ "$drive_bound" -eq 5 ]; then
+            echo "Google Drive storage bindings: PRESENT (names only)"
+          elif [ "$drive_bound" -eq 0 ]; then
+            echo "::warning::Google Drive storage bindings: NOT_PROVISIONED. Uploads stay fail-closed 503 STORAGE_NOT_CONFIGURED until DANJION_DRIVE_* production secrets are configured (Issue #809)."
+          else
+            echo "::error::Google Drive storage bindings are partial (${drive_bound} of 5); refusing an inconsistent production storage runtime."
+            exit 1
+          fi
 
       - name: Verify social provider registration on production Worker
         shell: bash
