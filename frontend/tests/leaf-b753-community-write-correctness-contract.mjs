@@ -32,11 +32,17 @@ for (const [name, script] of writeScripts) {
     `${name}: submit buttons recover after success or failure`);
 }
 
-for (const name of ['greeting','story','question']) {
-  const script = writeScripts.find(([n]) => n === name)[1];
-  assert.match(script, /photoBtn\.disabled=true/);
-  assert.match(script, /현재 미지원/);
+for (const name of ['greeting','story']) {
+  assert.doesNotMatch(pages[name], /id="photoBtn"|id="photos"/,
+    `${name}: unsupported photo controls must not be rendered`);
+  assert.match(pages[name], /서버 사진 첨부를 지원하지 않습니다/,
+    `${name}: unsupported attachment state must be explained truthfully`);
 }
+const questionWrite = writeScripts.find(([n]) => n === 'question')[1];
+assert.match(questionWrite, /photoBtn\.disabled=true/,
+  'question: unsupported photo control remains disabled');
+assert.match(questionWrite, /현재 미지원/,
+  'question: unsupported photo state remains explicit');
 
 const question = writeScripts.find(([n]) => n === 'question')[1];
 assert.match(question, /toggle\.disabled=true/, 'question: the unsupported per-post 1:1 receive setting stays disabled');
