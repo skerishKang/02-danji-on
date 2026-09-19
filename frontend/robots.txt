@@ -7,24 +7,18 @@
 #
 # Policy:
 #   - allow the public landing and public informational surfaces
-#   - do not advertise private / personalized surfaces to crawlers
 #   - the public landing itself must never be blocked
+#
+# Deliberately NOT listed here: the private / personalized member surfaces
+# (내정보, 메시지함, 대화상세, 공개프로필, 이웃온기, 설정, 1:1 문의, 우리집
+# 연결, 알림함, 나의 활동). robots.txt is a crawl-hint file, not an access
+# control or security boundary. The authority that keeps those surfaces out
+# of search results is the `noindex,nofollow` meta tag in each document
+# head. Listing them here would only advertise private routes and would
+# wrongly imply robots.txt is what protects them.
 
 User-agent: *
 Allow: /
-
-# Private / personalized member surfaces. These are already marked
-# noindex,nofollow in their own document heads; the entries below keep
-# well-behaved crawlers from probing them at all.
-Disallow: /19_내정보_메인.html
-Disallow: /20_메시지함_목록.html
-Disallow: /21_메시지_대화상세.html
-Disallow: /23_이웃온기.html
-Disallow: /24_설정.html
-Disallow: /25_1대1문의.html
-Disallow: /26_우리집연결.html
-Disallow: /27_알림함.html
-Disallow: /28_나의활동.html
 
 # Internal review / authoring tools that are not part of the public service.
 Disallow: /00_APP_390_통합검토.html

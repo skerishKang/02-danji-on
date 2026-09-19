@@ -40,14 +40,22 @@ const PUBLIC_PAGES = [
   '15_단지이야기_글쓰기.html',
   '16_궁금해요_글쓰기.html',
   '17_같이해요_글쓰기.html',
-  '22_주민_공개프로필.html',
   '25A_신청제보.html'
 ];
 
+/*
+ * NOTE on 22_주민_공개프로필.html: "공개프로필" means other residents can
+ * view it inside the app. It is NOT a policy decision to publish it to
+ * search engines — it renders a per-resident surface (?userId=, publicProfile
+ * API, nickname, joinedMonth, publicBio, publicActivityCount). Issue #59
+ * (Privacy gate) is still OPEN/HOLD, so this surface stays noindex until
+ * the privacy policy is settled. App-internal access is unchanged.
+ */
 const PRIVATE_PAGES = [
   '19_내정보_메인.html',
   '20_메시지함_목록.html',
   '21_메시지_대화상세.html',
+  '22_주민_공개프로필.html',
   '23_이웃온기.html',
   '24_설정.html',
   '25_1대1문의.html',
@@ -183,12 +191,38 @@ for (const page of [...PUBLIC_PAGES, ...PRIVATE_PAGES, 'index2.html', '00_APP_39
   assert.match(robots, /^\s*User-agent:\s*\*/im, 'robots.txt must declare a wildcard user-agent');
   assert.match(robots, /^\s*Allow:\s*\/\s*$/im, 'robots.txt must allow the public landing');
 
+  /*
+   * robots.txt is a crawl hint, not an access-control or security boundary.
+   * The authority for keeping private surfaces out of search results is the
+   * noindex meta tag asserted above. Listing private member routes here
+   * would advertise them and would wrongly imply robots.txt protects them.
+   */
   for (const page of PRIVATE_PAGES) {
     assert.ok(
-      robots.includes(page),
-      `robots.txt should keep private surface ${page} out of crawler reach`
+      !robots.includes(page),
+      `robots.txt must not list private surface ${page} — noindex in the document head is the authority`
     );
   }
+
+  /* internal-only surfaces may still be disallowed */
+  for (const path of ['/admin/', '/index2.html', '/app2.html', '/00_APP_390_통합검토.html']) {
+    assert.ok(robots.includes(path), `robots.txt should keep internal-only ${path} out of crawler reach`);
+  }
+}
+
+/* ---------- 8. resident public profile stays out of search ---------- */
+{
+  const profile = await read('22_주민_공개프로필.html');
+  assert.match(
+    profile,
+    /<meta\s+name="robots"\s+content="noindex,nofollow"\s*\/?>/,
+    '22: resident public profile must not be published to search engines while #59 privacy gate is OPEN'
+  );
+  /* app-internal access must be untouched */
+  assert.ok(
+    /userId/.test(profile),
+    '22: per-resident ?userId= routing must remain intact (noindex does not remove in-app access)'
+  );
 }
 
 console.log(
