@@ -71,6 +71,17 @@
     return result.reason === 'auth-required' ? 'auth-required' : 'error';
   }
 
+  // Issue #810: carry the bounded server-side auth-bridge disposition through
+  // the bridge so the page can distinguish "your session really ended" from
+  // "the server-side session->bearer bridge failed". The value is a closed
+  // non-sensitive enum from the facade (`x-danjion-auth-bridge`); it is never a
+  // credential and this bridge still persists nothing.
+  function failureDetail(result) {
+    if (!result || result.reason !== 'auth-required') return {};
+    const authBridge = typeof result.authBridge === 'string' ? result.authBridge : null;
+    return authBridge ? { authBridge } : {};
+  }
+
   // Canonical apiBase/session semantics come from DanjionSession (#324).
   // This bridge never parses location.search itself and never persists state.
   function createCommunityBridge(options = {}) {
@@ -106,7 +117,7 @@
         const limit = Number(options.limit);
         params.set('limit', String(Number.isInteger(limit) && limit >= 1 && limit <= 50 ? limit : 20));
         const result = await request(`${base}/posts?${params.toString()}`);
-        if (!result.ok) return { mode: failureMode(result), status: result.status, error: result.error, posts: [] };
+        if (!result.ok) return { mode: failureMode(result), status: result.status, error: result.error, ...failureDetail(result), posts: [] };
         const rows = Array.isArray(result.data) ? result.data : [];
         return { mode: 'server', status: result.status, posts: rows.map(normalizePost).filter(Boolean) };
       },
@@ -116,7 +127,7 @@
         if (!serverOnly()) return { mode: 'static', error: 'SERVER_MODE_REQUIRED', post: null };
         if (!valid) return { mode: 'client', error: 'POST_ID_INVALID', post: null };
         const result = await request(`${base}/posts/${encodeURIComponent(id)}`);
-        if (!result.ok) return { mode: failureMode(result), status: result.status, error: result.error, post: null };
+        if (!result.ok) return { mode: failureMode(result), status: result.status, error: result.error, ...failureDetail(result), post: null };
         return { mode: 'server', status: result.status, post: normalizePost(result.data) };
       },
 
@@ -139,7 +150,7 @@
           method: 'POST',
           body: JSON.stringify(payload)
         });
-        if (!result.ok) return { ok: false, mode: failureMode(result), status: result.status, error: result.error };
+        if (!result.ok) return { ok: false, mode: failureMode(result), status: result.status, error: result.error, ...failureDetail(result) };
         return { ok: true, mode: 'server', status: result.status, post: normalizePost(result.data) };
       },
 
@@ -148,7 +159,7 @@
         if (!serverOnly()) return { mode: 'static', postId: id, comments: [] };
         if (!valid) return { mode: 'client', error: 'POST_ID_INVALID', postId: id, comments: [] };
         const result = await request(`${base}/posts/${encodeURIComponent(id)}/comments`);
-        if (!result.ok) return { mode: failureMode(result), status: result.status, error: result.error, postId: id, comments: [] };
+        if (!result.ok) return { mode: failureMode(result), status: result.status, error: result.error, ...failureDetail(result), postId: id, comments: [] };
         const rows = Array.isArray(result.data) ? result.data : [];
         return { mode: 'server', status: result.status, postId: id, comments: rows.map(normalizeComment).filter(Boolean) };
       },
@@ -163,7 +174,7 @@
           method: 'POST',
           body: JSON.stringify({ body: text })
         });
-        if (!result.ok) return { ok: false, mode: failureMode(result), status: result.status, error: result.error };
+        if (!result.ok) return { ok: false, mode: failureMode(result), status: result.status, error: result.error, ...failureDetail(result) };
         return { ok: true, mode: 'server', status: result.status, comment: normalizeComment(result.data) };
       },
 
@@ -174,7 +185,7 @@
         if (!post.valid) return { mode: 'client', error: 'POST_ID_INVALID', postId: post.id, parentCommentId: parent.id, replies: [] };
         if (!parent.valid) return { mode: 'client', error: 'COMMENT_ID_INVALID', postId: post.id, parentCommentId: parent.id, replies: [] };
         const result = await request(`${base}/posts/${encodeURIComponent(post.id)}/comments/${encodeURIComponent(parent.id)}/replies`);
-        if (!result.ok) return { mode: failureMode(result), status: result.status, error: result.error, postId: post.id, parentCommentId: parent.id, replies: [] };
+        if (!result.ok) return { mode: failureMode(result), status: result.status, error: result.error, ...failureDetail(result), postId: post.id, parentCommentId: parent.id, replies: [] };
         const rows = Array.isArray(result.data) ? result.data : [];
         return { mode: 'server', status: result.status, postId: post.id, parentCommentId: parent.id, replies: rows.map(normalizeReply).filter(Boolean) };
       },
@@ -191,7 +202,7 @@
           method: 'POST',
           body: JSON.stringify({ body: text })
         });
-        if (!result.ok) return { ok: false, mode: failureMode(result), status: result.status, error: result.error };
+        if (!result.ok) return { ok: false, mode: failureMode(result), status: result.status, error: result.error, ...failureDetail(result) };
         return { ok: true, mode: 'server', status: result.status, reply: normalizeReply(result.data) };
       },
 
@@ -202,7 +213,7 @@
         const result = await request(`${base}/posts/${encodeURIComponent(id)}/reactions`, {
           method: active ? 'POST' : 'DELETE'
         });
-        if (!result.ok) return { ok: false, mode: failureMode(result), status: result.status, error: result.error };
+        if (!result.ok) return { ok: false, mode: failureMode(result), status: result.status, error: result.error, ...failureDetail(result) };
         return { ok: true, mode: 'server', status: result.status, active: result.data?.active === true };
       }
     };

@@ -76,6 +76,34 @@
     return '';
   }
 
+  // Issue #810: the Pages app facade answers every request with a bounded,
+  // non-sensitive `x-danjion-auth-bridge` disposition so a real auth-bridge
+  // failure is distinguishable from an ordinary authorization denial.
+  // The header carries only a closed enum value -- never a cookie, session
+  // token, JWT, Authorization header, or any user-identifying value -- so it is
+  // safe to surface to the browser and to observability.
+  const AUTH_BRIDGE_DISPOSITIONS = Object.freeze([
+    'no-cookie', 'session-failed', 'session-invalid', 'direct-jwt',
+    'no-session-token', 'token-failed', 'token-invalid', 'fallback-jwt'
+  ]);
+  const AUTH_BRIDGE_DISPOSITION_SET = new Set(AUTH_BRIDGE_DISPOSITIONS);
+  // Dispositions that mean the bridge could not resolve a valid session into
+  // bearer authority. `no-cookie` and `session-invalid` are the guest/signed-out
+  // and stale-session cases; the rest are server-side exchange failures.
+  const AUTH_BRIDGE_FAILURES = Object.freeze([
+    'no-cookie', 'session-failed', 'session-invalid',
+    'no-session-token', 'token-failed', 'token-invalid'
+  ]);
+  const AUTH_BRIDGE_FAILURE_SET = new Set(AUTH_BRIDGE_FAILURES);
+
+  function authBridgeDisposition(response) {
+    let raw = null;
+    try { raw = response.headers?.get?.('x-danjion-auth-bridge') || null; } catch { raw = null; }
+    const value = String(raw || '').trim().toLowerCase();
+    if (!value || !AUTH_BRIDGE_DISPOSITION_SET.has(value)) return null;
+    return value;
+  }
+
   async function request(fetchImpl, url, init = {}) {
     try {
       const response = await fetchImpl(url, {
@@ -88,17 +116,35 @@
       });
       let payload;
       try { payload = await response.json(); } catch { payload = null; }
+      const authBridge = authBridgeDisposition(response);
       if (!response.ok) {
         const error = payload?.error || null;
         if (response.status === 401 || response.status === 403) {
-          return { ok: false, reason: 'auth-required', status: response.status, error };
+          return { ok: false, reason: 'auth-required', status: response.status, error, authBridge };
         }
-        return { ok: false, reason: 'server-error', status: response.status, error };
+        return { ok: false, reason: 'server-error', status: response.status, error, authBridge };
       }
-      return { ok: true, status: response.status, data: payload?.data ?? null, raw: payload, requestId: payload?.requestId ?? null };
+      return { ok: true, status: response.status, data: payload?.data ?? null, raw: payload, requestId: payload?.requestId ?? null, authBridge };
     } catch (error) {
       return { ok: false, reason: 'network-error', status: 0, error };
     }
+  }
+
+  // #810: a 401 on an application API call is only a genuine "your session
+  // really is gone" when the bridge could not resolve a session at all. When the
+  // bridge resolved a session but the exchange failed, the honest cause is a
+  // server-side bridge fault, not an expired login. Both still fail closed; this
+  // only selects the truthful user-facing explanation.
+  function authFailureKind(result) {
+    if (!result || result.reason !== 'auth-required') return null;
+    const disposition = result.authBridge;
+    if (result.status === 403) return 'forbidden';
+    if (disposition && AUTH_BRIDGE_FAILURE_SET.has(disposition)) {
+      return disposition === 'no-cookie' || disposition === 'session-invalid'
+        ? 'signed-out'
+        : 'bridge-fault';
+    }
+    return 'auth-required';
   }
 
   function createSessionFetch(apiBase) {
@@ -452,6 +498,10 @@
     emailVerificationCallbackURL,
     sendVerificationEmail,
     nativeSessionReady,
+    authBridgeDisposition,
+    authFailureKind,
+    AUTH_BRIDGE_DISPOSITIONS,
+    AUTH_BRIDGE_FAILURES,
     accountStripEligible,
     initAccountStrip,
     loadServiceFooterRuntime,
