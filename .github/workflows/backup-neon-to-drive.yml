@@ -3,7 +3,7 @@ name: Production Neon Encrypted Drive Backup
 on:
   schedule:
     # Candidate RPO=24h. 18:17 UTC = 03:17 KST.
-    # This schedule is inert until DANJION_BACKUP_ENABLED=true is explicitly provisioned.
+    # Inert until DANJION_BACKUP_ENABLED=true is explicitly provisioned.
     - cron: '17 18 * * *'
   workflow_dispatch:
     inputs:
@@ -40,15 +40,18 @@ jobs:
           set -euo pipefail
           git fetch origin main --no-tags
           actual_main="$(git rev-parse origin/main)"
+
           if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
             expected_main="${{ inputs.expected_main }}"
           else
             expected_main="${GITHUB_SHA}"
           fi
+
           if [ "${GITHUB_SHA}" != "${expected_main}" ] || [ "${actual_main}" != "${expected_main}" ]; then
             echo "::error::Exact-main authority mismatch."
             exit 1
           fi
+
           echo "EXACT_MAIN_GUARD=PASS"
 
       - name: Source safety contract
@@ -59,11 +62,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+
           if [ "${DANJION_BACKUP_ENABLED:-}" != "true" ]; then
             echo "enabled=false" >> "${GITHUB_OUTPUT}"
             echo "BACKUP_ACTIVATION=DISABLED"
             exit 0
           fi
+
           echo "enabled=true" >> "${GITHUB_OUTPUT}"
           echo "BACKUP_ACTIVATION=ENABLED"
 
@@ -72,16 +77,20 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+
           missing=0
-          for key in             DANJION_PRODUCTION_DB_URL             DANJION_BACKUP_ENCRYPTION_PASSPHRASE             DANJION_DRIVE_RCLONE_CONFIG             DANJION_DRIVE_FOLDER_ID; do
+          for key in             DANJION_PRODUCTION_DB_URL             DANJION_BACKUP_ENCRYPTION_PASSPHRASE             DANJION_DRIVE_RCLONE_CONFIG             DANJION_DRIVE_FOLDER_ID
+          do
             if [ -z "${!key:-}" ]; then
               missing=1
             fi
           done
+
           if [ "${missing}" -ne 0 ]; then
             echo "::error::One or more required backup secret bindings are missing."
             exit 1
           fi
+
           echo "BACKUP_SECRET_BINDINGS=PASS"
 
       - name: Install bounded backup tooling
