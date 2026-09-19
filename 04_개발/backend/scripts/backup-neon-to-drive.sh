@@ -4,7 +4,7 @@ umask 077
 
 : "${DANJION_PRODUCTION_DB_URL:?required}"
 : "${DANJION_BACKUP_ENCRYPTION_PASSPHRASE:?required}"
-: "${DANJION_DRIVE_SERVICE_ACCOUNT_JSON:?required}"
+: "${DANJION_DRIVE_RCLONE_CONFIG:?required}"
 : "${DANJION_DRIVE_FOLDER_ID:?required}"
 : "${GITHUB_SHA:?required}"
 
@@ -18,7 +18,6 @@ fi
 
 tmpdir="$(mktemp -d)"
 plain_dump="${tmpdir}/danjion.dump"
-service_account_file="${tmpdir}/drive-service-account.json"
 rclone_config="${tmpdir}/rclone.conf"
 
 cleanup() {
@@ -37,7 +36,16 @@ encrypted_dump="${tmpdir}/${backup_name}"
 # pg_dump is read-only. PGOPTIONS makes the session fail closed if any command
 # attempts to write. A PostgreSQL 18 client is used so the client is not older
 # than the current supported Neon server family.
-docker run --rm   -e DATABASE_URL="${DANJION_PRODUCTION_DB_URL}"   -e PGOPTIONS="-c default_transaction_read_only=on"   -v "${tmpdir}:/backup"   "${POSTGRES_IMAGE}"   sh -ceu 'pg_dump --dbname="$DATABASE_URL" --format=custom --no-owner --no-acl --file=/backup/danjion.dump'   >/dev/null
+export DATABASE_URL="${DANJION_PRODUCTION_DB_URL}"
+export PGOPTIONS="-c default_transaction_read_only=on"
+docker run --rm \
+  --env DATABASE_URL \
+  --env PGOPTIONS \
+  -v "${tmpdir}:/backup" \
+  "${POSTGRES_IMAGE}" \
+  sh -ceu 'pg_dump --dbname="$DATABASE_URL" --format=custom --no-owner --no-acl --file=/backup/danjion.dump' \
+  >/dev/null
+unset DATABASE_URL PGOPTIONS
 
 if [ ! -s "${plain_dump}" ]; then
   echo "BACKUP_RESULT=FAIL"
@@ -63,22 +71,64 @@ if [ -e "${plain_dump}" ]; then
   exit 1
 fi
 
-printf '%s' "${DANJION_DRIVE_SERVICE_ACCOUNT_JSON}" > "${service_account_file}"
-python3 - "${service_account_file}" <<'PY' >/dev/null
-import json, sys
-with open(sys.argv[1], 'r', encoding='utf-8') as f:
-    data = json.load(f)
-if data.get('type') != 'service_account':
-    raise SystemExit(1)
-PY
+printf '%s' "${DANJION_DRIVE_RCLONE_CONFIG}" > "${rclone_config}"
+if ! grep -Eq '^\[danjion_backup\][[:space:]]*
+# Only the encrypted file is uploaded.
+rclone --config "${rclone_config}" copyto \
+  "${encrypted_dump}" "danjion_backup:${backup_name}" \
+  --drive-root-folder-id "${DANJION_DRIVE_FOLDER_ID}" \
+  --immutable --quiet
 
-cat > "${rclone_config}" <<EOF
-[danjion_backup]
-type = drive
-scope = drive
-service_account_file = ${service_account_file}
-root_folder_id = ${DANJION_DRIVE_FOLDER_ID}
-EOF
+# Retention is filename-bounded. Never delete unrelated files from the shared
+# folder even if they are visible to the service account.
+mapfile -t backups < <(
+  rclone --config "${rclone_config}" lsf "danjion_backup:" \
+    --drive-root-folder-id "${DANJION_DRIVE_FOLDER_ID}" \
+    --files-only --format p --quiet |
+    grep -E '^danjion-prod-[0-9]{8}T[0-9]{6}Z-[0-9a-fA-F]{12}\.dump\.gpg$' |
+    LC_ALL=C sort -r
+)
+
+if [ "${#backups[@]}" -gt "${RETENTION_GENERATIONS}" ]; then
+  for ((i=RETENTION_GENERATIONS; i<${#backups[@]}; i++)); do
+    rclone --config "${rclone_config}" deletefile "danjion_backup:${backups[$i]}" \
+      --drive-root-folder-id "${DANJION_DRIVE_FOLDER_ID}" \
+      --drive-use-trash=false --quiet
+  done
+fi
+
+echo "BACKUP_RESULT=PASS"
+echo "DUMP_BYTES=${dump_bytes}"
+echo "ENCRYPTED_BYTES=${encrypted_bytes}"
+ "${rclone_config}"; then
+  echo "BACKUP_RESULT=FAIL"
+  exit 1
+fi
+if ! grep -Eq '^[[:space:]]*type[[:space:]]*=[[:space:]]*drive[[:space:]]*
+# Only the encrypted file is uploaded.
+rclone --config "${rclone_config}" copyto   "${encrypted_dump}" "danjion_backup:${backup_name}"   --immutable --quiet
+
+# Retention is filename-bounded. Never delete unrelated files from the shared
+# folder even if they are visible to the service account.
+mapfile -t backups < <(
+  rclone --config "${rclone_config}" lsf "danjion_backup:" --files-only --format p --quiet |
+    grep -E '^danjion-prod-[0-9]{8}T[0-9]{6}Z-[0-9a-fA-F]{12}\.dump\.gpg$' |
+    LC_ALL=C sort -r
+)
+
+if [ "${#backups[@]}" -gt "${RETENTION_GENERATIONS}" ]; then
+  for ((i=RETENTION_GENERATIONS; i<${#backups[@]}; i++)); do
+    rclone --config "${rclone_config}" deletefile "danjion_backup:${backups[$i]}" --quiet
+  done
+fi
+
+echo "BACKUP_RESULT=PASS"
+echo "DUMP_BYTES=${dump_bytes}"
+echo "ENCRYPTED_BYTES=${encrypted_bytes}"
+ "${rclone_config}"; then
+  echo "BACKUP_RESULT=FAIL"
+  exit 1
+fi
 
 # Only the encrypted file is uploaded.
 rclone --config "${rclone_config}" copyto   "${encrypted_dump}" "danjion_backup:${backup_name}"   --immutable --quiet
