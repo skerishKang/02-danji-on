@@ -30,7 +30,7 @@ assert.equal((shopFallback.match(/reviews:\[\]/g)||[]).length,8,
   'presentation fallback may keep shop copy but must not ship resident-authored review facts');
 assert.doesNotMatch(shopFallback,/연블리|산책메이트|하루한잔|방림회관|방림생활/,
   'prototype resident identities must not exist in shop review fallback');
-assert.match(shops,/const __V3_COPY_FALLBACK=SHOP_DATA\.map\(s=>\(\{\.\.\.s,reviews:\[\]\}\)\)\);/,
+assert.match(shops,/const __V3_COPY_FALLBACK=SHOP_DATA\.map\(s=>\(\{\.\.\.s,reviews:\[\]\}\)\);/,
   'copy fallback must defensively scrub review authority');
 assert.match(shops,/cm\.author\.nickname/,
   'server review comments must render the server-returned author nickname');
