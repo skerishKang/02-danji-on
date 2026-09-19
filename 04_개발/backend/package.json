@@ -103,7 +103,8 @@
     "test:product-rate-limit-routes": "tsx tests/product-rate-limit-route.test.mjs",
     "test:cross-platform-executable-contract": "node tests/cross-platform-executable-contract.mjs",
     "check": "node ../scripts/test-manifest-runner.mjs run --scope backend",
-    "test:production-neon-connectivity-diagnostic": "node tests/production-neon-connectivity-diagnostic-contract.mjs"
+    "test:production-neon-connectivity-diagnostic": "node tests/production-neon-connectivity-diagnostic-contract.mjs",
+    "test:backup-neon-to-drive": "node tests/backup-neon-to-drive-contract.mjs"
   },
   "dependencies": {
     "@neondatabase/serverless": "1.1.0",
