@@ -51,6 +51,8 @@ function failure(status, payload) {
     return { ok: false, reason: 'resident-verification-required', status, error };
   }
   if (status === 403) return { ok: false, reason: 'forbidden', status, error };
+  if (status === 413 || code === 'FILE_TOO_LARGE' || code === 'PAYLOAD_TOO_LARGE') return { ok: false, reason: 'file-too-large', status, error };
+  if (status === 415 || code === 'UNSUPPORTED_MEDIA_TYPE') return { ok: false, reason: 'file-type', status, error };
   return { ok: false, reason: 'server-error', status, error };
 }
 

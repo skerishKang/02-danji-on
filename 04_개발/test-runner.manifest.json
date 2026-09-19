@@ -141,6 +141,7 @@
         {"id":"test:stage5b-saved-shops-bridge-runtime","npm":"test:stage5b-saved-shops-bridge-runtime","kind":"contract"},
         {"id":"test:stage5c-reviews-bridge-runtime","npm":"test:stage5c-reviews-bridge-runtime","kind":"contract"},
         {"id":"test:stage5d-application-report-bridge-runtime","npm":"test:stage5d-application-report-bridge-runtime","kind":"contract"},
+        {"id":"test:leaf-b766-attachment-contract","npm":"test:leaf-b766-attachment-contract","kind":"contract"},
         {"id":"test:v3-persistence-wiring-contract","npm":"test:v3-persistence-wiring-contract","kind":"contract"},
         {"id":"test:stage5e-benefit-inquiry-bridge-runtime","npm":"test:stage5e-benefit-inquiry-bridge-runtime","kind":"contract"},
         {"id":"test:stage5f-gap67-wiring-contract","npm":"test:stage5f-gap67-wiring-contract","kind":"contract"},

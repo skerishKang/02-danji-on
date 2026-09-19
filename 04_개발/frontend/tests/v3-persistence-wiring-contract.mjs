@@ -79,27 +79,31 @@ assert.match(apply25a, /createOwnerApplication\(\{relationRaw,/,
   'H: owner submit must send the canonical relationRaw verbatim (no frontend pre-resolution)');
 assert.match(apply25a, /if\(!OWNER_RELATIONS\.has\(relationRaw\)\)\{showToast\('선택한 관계로는 아직 서버 신청을 연결할 수 없습니다\.'\);return\}/,
   'H: unsupported relation must fail closed with an honest notice instead of a guessed relation');
-/* photo handling: never silently dropped, canonical storage contract only, sibling visual authority kept */
-assert.match(apply25a, /const MAX_PHOTOS=3;/, 'PHOTO: selection must cap at the backend 0..3 photo contract');
-assert.match(apply25a, /bindAccumulatingFiles\(photos,photoStatus,MAX_PHOTOS,'장'\)/,
-  'PHOTO: the existing file input must support repeated selection while keeping a total max of three');
-assert.match(apply25a, /if\(merged\.length>max\)\{[\s\S]*?alert\([\s\S]*?selected=merged\.slice\(0,max\)/,
-  'PHOTO: repeated selections over the cap must warn and retain only the bounded selection');
-assert.match(apply25a, /const photoFiles=Array\.from\(photos\.files\|\|\[\]\);/,
-  'PHOTO: submit must consume the accumulated file input selection order without a second hidden trim');
-assert.match(apply25a, /for\(const file of photoFiles\)\{[\s\S]*?await uploadBusinessImage\(file\)/,
-  'PHOTO: submit must upload every selected photo file in order, never silently discard extras');
-assert.match(apply25a, /body\.set\('kind','business-image'\)/, 'PHOTO: upload must use the canonical business-image kind');
-assert.match(apply25a, /\/api\/v1\/storage\/objects',\{method:'POST',credentials:'include'/,
-  'PHOTO: upload must hit POST /api/v1/storage/objects with credentials');
-assert.match(apply25a, /if\(!upload\.ok\)\{[\s\S]*?return;[\s\S]*?uploadedKeys\.push\(upload\.objectKey\);/,
-  'PHOTO: upload failure must abort the submit (fail closed, no keyless fake); success collects object keys in order');
+/* photo handling: #766 bounded accumulation + retry state + canonical storage contract */
+assert.match(apply25a, /const MAX_PHOTOS=3;/,
+  'PHOTO: selection must cap at the backend 0..3 photo contract');
+assert.match(apply25a, /data-file-add="photos"/,
+  'PHOTO: the owner form must expose an explicit incremental add control');
+assert.match(apply25a, /remove\.className='file-remove'/,
+  'PHOTO: selected files must support per-file removal through the runtime list renderer');
+assert.match(apply25a, /bindAccumulatingFiles\(document\.querySelector\('#photos'\),document\.querySelector\('#photoStatus'\),MAX_PHOTOS,'장','photo'\)/,
+  'PHOTO: business photos must use the bounded stateful accumulation contract');
+assert.match(apply25a, /const photoFiles=fileGroups\.photos\.entries;/,
+  'PHOTO: submit must consume the stateful ordered photo entries');
+assert.match(apply25a, /if\(entry\.key\)\{uploadedKeys\.push\(entry\.key\);continue\}/,
+  'PHOTO: successful uploaded object keys must be retained across retry');
+assert.match(apply25a, /await uploadBusinessImage\(entry\.file,entry\.idempotencyKey\)/,
+  'PHOTO: each pending photo upload must carry its stable per-selection idempotency key');
+assert.match(apply25a, /entry\.key=upload\.objectKey;uploadedKeys\.push\(entry\.key\)/,
+  'PHOTO: successful upload must persist the returned key before application submit');
+assert.match(apply25a, /body\.set\('kind','business-image'\)/,
+  'PHOTO: upload must use the canonical business-image kind');
+assert.match(apply25a, /\/api\/v1\/storage\/objects',\{method:'POST',credentials:'include',headers:\{'idempotency-key':idempotencyKey\}/,
+  'PHOTO: upload must hit the canonical credentialed storage route with an idempotency key');
 assert.match(apply25a, /photoObjectKeys:uploadedKeys/,
-  'PHOTO: submit payload must carry the canonical photoObjectKeys array (representative mirrors keys[0] in the bridge)');
+  'PHOTO: submit payload must carry the canonical photoObjectKeys array');
 assert.doesNotMatch(apply25a, /gallery[A-Za-z]*\s*:|imageObjectKeys/,
-  'PHOTO: only the canonical photoObjectKeys field may be added to the payload');
-assert.doesNotMatch(apply25a, /photo-gallery|photoGallery|photo-thumb|photo-remove|renderPhotoGallery/,
-  'PHOTO: no new gallery presentation may be added; persistence uses the sibling file-input UI unchanged');
+  'PHOTO: only the canonical photoObjectKeys field may be added to the application payload');
 
 /* --- I. product parity guard: copy / labels / SHOP_DATA unchanged --- */
 assert.match(html, /♡ 저장/, 'unsaved save label must be preserved');

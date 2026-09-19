@@ -90,12 +90,7 @@ h1{margin:17px 0 8px;font-size:30px;line-height:1.18;letter-spacing:-.045em}
 <label for="body">내용</label>
 <textarea class="body-input" id="body" maxlength="2000" placeholder="사진이나 상황 설명이 필요하면 내용에 함께 적어주세요."></textarea>
 </div>
-<div class="tools">
-<button class="photo" id="photoBtn" type="button">사진 추가</button>
-<span class="photo-count" id="photoCount">0 / 3</span>
-<input accept="image/*" hidden="" id="photos" multiple="" type="file"/>
-</div>
-<p class="rule">댓글은 기본으로 열립니다. 필요한 설정은 게시 후에도 바꿀 수 있습니다.</p>
+<p class="rule">단지이야기에는 현재 서버 사진 첨부를 지원하지 않습니다. 사진이 필요하면 내용에 상황을 적어 주세요. 댓글은 기본으로 열립니다.</p>
 </section>
 </form>
 </main>
@@ -106,7 +101,7 @@ h1{margin:17px 0 8px;font-size:30px;line-height:1.18;letter-spacing:-.045em}
 (function(){
   try{history.scrollRestoration='manual'}catch(e){}; requestAnimationFrame(()=>window.scrollTo(0,0));
   const COMMUNITY='12_이웃대화_첫화면.html?type=story';
-  const title=document.getElementById('title'), body=document.getElementById('body'), photos=document.getElementById('photos');
+  const title=document.getElementById('title'), body=document.getElementById('body');
   const key='danjionDraft:15';
   function reportRoute(){try{if(parent!==window)parent.postMessage({type:'danjion-route',file:'15_단지이야기_글쓰기.html',href:location.href},'*')}catch(e){}}
   reportRoute(); addEventListener('pageshow',reportRoute);
@@ -115,8 +110,6 @@ h1{margin:17px 0 8px;font-size:30px;line-height:1.18;letter-spacing:-.045em}
   try{const d=JSON.parse(localStorage.getItem(key)||'null');if(d){title.value=d.title||'';body.value=d.body||''}}catch(e){}
   title.addEventListener('input',save);body.addEventListener('input',save);
   document.querySelector('.back').addEventListener('click',()=>location.href=COMMUNITY);
-  document.getElementById('photoBtn').addEventListener('click',()=>photos.click());
-  photos.addEventListener('change',()=>{const n=Math.min(photos.files.length,3);document.getElementById('photoCount').textContent=n+' / 3'});
   function publish(){
     if(!title.value.trim()){toast('제목을 입력해주세요.');title.focus();return}
     if(body.value.trim().length<5){toast('내용을 조금 더 적어주세요.');body.focus();return}
@@ -160,12 +153,6 @@ h1{margin:17px 0 8px;font-size:30px;line-height:1.18;letter-spacing:-.045em}
    ? DETAIL+'?apiBase='+encodeURIComponent(apiBase)+'&post='+encodeURIComponent(postId)
    : COMMUNITY;
  }
- {
-  const photoBtn=document.getElementById('photoBtn'),photos=document.getElementById('photos'),count=document.getElementById('photoCount');
-  if(photoBtn){photoBtn.disabled=true;photoBtn.textContent='사진 첨부 준비 중';photoBtn.title='현재 서버 게시에는 사진 첨부가 아직 저장되지 않습니다.'}
-  if(photos)photos.disabled=true;
-  if(count)count.textContent='현재 미지원';
- }
  let busy=false;
  document.addEventListener('click',ev=>{
   if(!ev.target.closest('[data-publish]'))return;
@@ -174,7 +161,7 @@ h1{margin:17px 0 8px;font-size:30px;line-height:1.18;letter-spacing:-.045em}
   if(!title.value.trim()){toast('제목을 입력해주세요.');title.focus();return}
   if(body.value.trim().length<5){toast('내용을 조금 더 적어주세요.');body.focus();return}
   busy=true;setBusy(true);
-  bridge.createPost({kind:'resident_story',title:title.value.trim(),body:body.value.trim()}).then(r=>{
+   bridge.createPost({kind:'resident_story',title:title.value.trim(),body:body.value.trim()}).then(r=>{
    if(r.ok&&r.mode==='server'){
     try{localStorage.removeItem(key)}catch(e){}
     const pending=r.post&&r.post.status!=='published';

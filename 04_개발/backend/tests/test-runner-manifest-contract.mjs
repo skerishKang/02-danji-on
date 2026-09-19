@@ -149,6 +149,7 @@ const EXPECTED_FRONTEND_ORDER = [
   "test:stage5b-saved-shops-bridge-runtime",
   "test:stage5c-reviews-bridge-runtime",
   "test:stage5d-application-report-bridge-runtime",
+  "test:leaf-b766-attachment-contract",
   "test:v3-persistence-wiring-contract",
   "test:stage5e-benefit-inquiry-bridge-runtime",
   "test:stage5f-gap67-wiring-contract",

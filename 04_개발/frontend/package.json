@@ -53,6 +53,7 @@
     "test:stage5b-saved-shops-bridge-runtime": "node tests/stage5b-saved-shops-bridge-runtime-contract.mjs",
     "test:stage5c-reviews-bridge-runtime": "node tests/stage5c-reviews-bridge-runtime-contract.mjs",
     "test:stage5d-application-report-bridge-runtime": "node tests/stage5d-application-report-bridge-runtime-contract.mjs",
+    "test:leaf-b766-attachment-contract": "node tests/leaf-b766-attachment-contract.mjs",
     "test:stage5h-report-rb-frontend-wiring": "node tests/stage5h-report-rb-frontend-wiring-contract.mjs",
     "test:stage5e-benefit-inquiry-bridge-runtime": "node tests/stage5e-benefit-inquiry-bridge-runtime-contract.mjs",
     "test:stage5f-gap67-wiring-contract": "node tests/stage5f-gap67-wiring-contract.mjs",
