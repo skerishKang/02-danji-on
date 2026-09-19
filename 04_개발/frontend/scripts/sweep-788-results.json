@@ -1,0 +1,2585 @@
+{
+  "viewports": [
+    {
+      "name": "mobile-320",
+      "width": 320,
+      "height": 640
+    },
+    {
+      "name": "mobile-360",
+      "width": 360,
+      "height": 780
+    },
+    {
+      "name": "mobile-390",
+      "width": 390,
+      "height": 844
+    },
+    {
+      "name": "mobile-430",
+      "width": 430,
+      "height": 932
+    },
+    {
+      "name": "desktop-1440",
+      "width": 1440,
+      "height": 900
+    }
+  ],
+  "overflowResults": [
+    {
+      "page": "index.html",
+      "viewport": "mobile-320",
+      "pass": true,
+      "docScrollWidth": 320,
+      "docClientWidth": 320,
+      "bodyScrollWidth": 320,
+      "winInnerWidth": 320,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": null,
+      "bodyPaddingBottom": 72,
+      "mainPaddingBottom": 0
+    },
+    {
+      "page": "01_이웃가게_발견.html",
+      "viewport": "mobile-320",
+      "pass": true,
+      "docScrollWidth": 320,
+      "docClientWidth": 320,
+      "bodyScrollWidth": 320,
+      "winInnerWidth": 320,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 2520.140625,
+        "bottom": 2745.109375,
+        "height": 224.96875
+      },
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 48
+    },
+    {
+      "page": "03_주민혜택_쿠폰.html",
+      "viewport": "mobile-320",
+      "pass": true,
+      "docScrollWidth": 320,
+      "docClientWidth": 320,
+      "bodyScrollWidth": 320,
+      "winInnerWidth": 320,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 2312.765625,
+        "bottom": 2537.734375,
+        "height": 224.96875
+      },
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 48
+    },
+    {
+      "page": "04_데일리홈.html",
+      "viewport": "mobile-320",
+      "pass": true,
+      "docScrollWidth": 320,
+      "docClientWidth": 320,
+      "bodyScrollWidth": 320,
+      "winInnerWidth": 320,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 1871.03125,
+        "bottom": 2096,
+        "height": 224.96875
+      },
+      "bodyPaddingBottom": 72,
+      "mainPaddingBottom": 0
+    },
+    {
+      "page": "05_우리단지_첫화면.html",
+      "viewport": "mobile-320",
+      "pass": true,
+      "docScrollWidth": 320,
+      "docClientWidth": 320,
+      "bodyScrollWidth": 320,
+      "winInnerWidth": 320,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 1415.671875,
+        "bottom": 1640.640625,
+        "height": 224.96875
+      },
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 46
+    },
+    {
+      "page": "06_단지온공지_목록.html",
+      "viewport": "mobile-320",
+      "pass": true,
+      "docScrollWidth": 320,
+      "docClientWidth": 320,
+      "bodyScrollWidth": 320,
+      "winInnerWidth": 320,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 1443.59375,
+        "bottom": 1668.5625,
+        "height": 224.96875
+      },
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 45
+    },
+    {
+      "page": "07_단지온공지_상세.html",
+      "viewport": "mobile-320",
+      "pass": true,
+      "docScrollWidth": 320,
+      "docClientWidth": 320,
+      "bodyScrollWidth": 320,
+      "winInnerWidth": 320,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 2564.96875,
+        "bottom": 2789.9375,
+        "height": 224.96875
+      },
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 40
+    },
+    {
+      "page": "08_아파트소식_목록.html",
+      "viewport": "mobile-320",
+      "pass": true,
+      "docScrollWidth": 320,
+      "docClientWidth": 320,
+      "bodyScrollWidth": 320,
+      "winInnerWidth": 320,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 1638.40625,
+        "bottom": 1863.375,
+        "height": 224.96875
+      },
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 42
+    },
+    {
+      "page": "09_회장인사_상세.html",
+      "viewport": "mobile-320",
+      "pass": true,
+      "docScrollWidth": 320,
+      "docClientWidth": 320,
+      "bodyScrollWidth": 320,
+      "winInnerWidth": 320,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 3317.859375,
+        "bottom": 3427.8125,
+        "height": 109.953125
+      },
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 54
+    },
+    {
+      "page": "10_주민소식_목록.html",
+      "viewport": "mobile-320",
+      "pass": true,
+      "docScrollWidth": 320,
+      "docClientWidth": 320,
+      "bodyScrollWidth": 320,
+      "winInnerWidth": 320,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 2059.078125,
+        "bottom": 2284.046875,
+        "height": 224.96875
+      },
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 48
+    },
+    {
+      "page": "11_주민소식_상세.html",
+      "viewport": "mobile-320",
+      "pass": true,
+      "docScrollWidth": 320,
+      "docClientWidth": 320,
+      "bodyScrollWidth": 320,
+      "winInnerWidth": 320,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 2036.390625,
+        "bottom": 2261.359375,
+        "height": 224.96875
+      },
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 44
+    },
+    {
+      "page": "12_이웃대화_첫화면.html",
+      "viewport": "mobile-320",
+      "pass": true,
+      "docScrollWidth": 320,
+      "docClientWidth": 320,
+      "bodyScrollWidth": 320,
+      "winInnerWidth": 320,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 878.65625,
+        "bottom": 1103.625,
+        "height": 224.96875
+      },
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 35
+    },
+    {
+      "page": "13_이웃대화_글상세_댓글.html",
+      "viewport": "mobile-320",
+      "pass": true,
+      "docScrollWidth": 320,
+      "docClientWidth": 320,
+      "bodyScrollWidth": 320,
+      "winInnerWidth": 320,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 787.234375,
+        "bottom": 1012.203125,
+        "height": 224.96875
+      },
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 30
+    },
+    {
+      "page": "14_가입인사_글쓰기.html",
+      "viewport": "mobile-320",
+      "pass": true,
+      "docScrollWidth": 320,
+      "docClientWidth": 320,
+      "bodyScrollWidth": 320,
+      "winInnerWidth": 320,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": null,
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 170
+    },
+    {
+      "page": "15_단지이야기_글쓰기.html",
+      "viewport": "mobile-320",
+      "pass": true,
+      "docScrollWidth": 320,
+      "docClientWidth": 320,
+      "bodyScrollWidth": 320,
+      "winInnerWidth": 320,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": null,
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 170
+    },
+    {
+      "page": "16_궁금해요_글쓰기.html",
+      "viewport": "mobile-320",
+      "pass": true,
+      "docScrollWidth": 320,
+      "docClientWidth": 320,
+      "bodyScrollWidth": 320,
+      "winInnerWidth": 320,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": null,
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 170
+    },
+    {
+      "page": "17_같이해요_글쓰기.html",
+      "viewport": "mobile-320",
+      "pass": true,
+      "docScrollWidth": 320,
+      "docClientWidth": 320,
+      "bodyScrollWidth": 320,
+      "winInnerWidth": 320,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": null,
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 170
+    },
+    {
+      "page": "19_내정보_메인.html",
+      "viewport": "mobile-320",
+      "pass": true,
+      "docScrollWidth": 320,
+      "docClientWidth": 320,
+      "bodyScrollWidth": 320,
+      "winInnerWidth": 320,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 680,
+        "bottom": 904.96875,
+        "height": 224.96875
+      },
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 48
+    },
+    {
+      "page": "20_메시지함_목록.html",
+      "viewport": "mobile-320",
+      "pass": true,
+      "docScrollWidth": 320,
+      "docClientWidth": 320,
+      "bodyScrollWidth": 320,
+      "winInnerWidth": 320,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 2023.90625,
+        "bottom": 2248.875,
+        "height": 224.96875
+      },
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 88
+    },
+    {
+      "page": "21_메시지_대화상세.html",
+      "viewport": "mobile-320",
+      "pass": true,
+      "docScrollWidth": 320,
+      "docClientWidth": 320,
+      "bodyScrollWidth": 320,
+      "winInnerWidth": 320,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 1257.71875,
+        "bottom": 1304.71875,
+        "height": 47
+      },
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 90
+    },
+    {
+      "page": "22_주민_공개프로필.html",
+      "viewport": "mobile-320",
+      "pass": true,
+      "docScrollWidth": 320,
+      "docClientWidth": 320,
+      "bodyScrollWidth": 320,
+      "winInnerWidth": 320,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 2103.015625,
+        "bottom": 2327.984375,
+        "height": 224.96875
+      },
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 54
+    },
+    {
+      "page": "23_이웃온기.html",
+      "viewport": "mobile-320",
+      "pass": true,
+      "docScrollWidth": 320,
+      "docClientWidth": 320,
+      "bodyScrollWidth": 335,
+      "winInnerWidth": 320,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 2397.703125,
+        "bottom": 2622.671875,
+        "height": 224.96875
+      },
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 50
+    },
+    {
+      "page": "24_설정.html",
+      "viewport": "mobile-320",
+      "pass": true,
+      "docScrollWidth": 320,
+      "docClientWidth": 320,
+      "bodyScrollWidth": 320,
+      "winInnerWidth": 320,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 2805.78125,
+        "bottom": 3030.75,
+        "height": 224.96875
+      },
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 45
+    },
+    {
+      "page": "25_1대1문의.html",
+      "viewport": "mobile-320",
+      "pass": true,
+      "docScrollWidth": 320,
+      "docClientWidth": 320,
+      "bodyScrollWidth": 320,
+      "winInnerWidth": 320,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 1969.375,
+        "bottom": 2194.34375,
+        "height": 224.96875
+      },
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 48
+    },
+    {
+      "page": "25A_신청제보.html",
+      "viewport": "mobile-320",
+      "pass": true,
+      "docScrollWidth": 320,
+      "docClientWidth": 320,
+      "bodyScrollWidth": 320,
+      "winInnerWidth": 320,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": null,
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 62
+    },
+    {
+      "page": "26_우리집연결.html",
+      "viewport": "mobile-320",
+      "pass": true,
+      "docScrollWidth": 320,
+      "docClientWidth": 320,
+      "bodyScrollWidth": 320,
+      "winInnerWidth": 320,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 1477.03125,
+        "bottom": 1698.109375,
+        "height": 221.078125
+      },
+      "bodyPaddingBottom": 0,
+      "mainPaddingBottom": 100
+    },
+    {
+      "page": "27_알림함.html",
+      "viewport": "mobile-320",
+      "pass": true,
+      "docScrollWidth": 320,
+      "docClientWidth": 320,
+      "bodyScrollWidth": 320,
+      "winInnerWidth": 320,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 1667.0625,
+        "bottom": 1892.03125,
+        "height": 224.96875
+      },
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 48
+    },
+    {
+      "page": "28_나의활동.html",
+      "viewport": "mobile-320",
+      "pass": true,
+      "docScrollWidth": 320,
+      "docClientWidth": 320,
+      "bodyScrollWidth": 320,
+      "winInnerWidth": 320,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 1899.4375,
+        "bottom": 2124.40625,
+        "height": 224.96875
+      },
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 48
+    },
+    {
+      "page": "index.html",
+      "viewport": "mobile-360",
+      "pass": true,
+      "docScrollWidth": 360,
+      "docClientWidth": 360,
+      "bodyScrollWidth": 360,
+      "winInnerWidth": 360,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": null,
+      "bodyPaddingBottom": 72,
+      "mainPaddingBottom": 0
+    },
+    {
+      "page": "01_이웃가게_발견.html",
+      "viewport": "mobile-360",
+      "pass": true,
+      "docScrollWidth": 360,
+      "docClientWidth": 360,
+      "bodyScrollWidth": 360,
+      "winInnerWidth": 360,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 2337.515625,
+        "bottom": 2540.390625,
+        "height": 202.875
+      },
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 48
+    },
+    {
+      "page": "03_주민혜택_쿠폰.html",
+      "viewport": "mobile-360",
+      "pass": true,
+      "docScrollWidth": 360,
+      "docClientWidth": 360,
+      "bodyScrollWidth": 360,
+      "winInnerWidth": 360,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 2272.453125,
+        "bottom": 2475.328125,
+        "height": 202.875
+      },
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 48
+    },
+    {
+      "page": "04_데일리홈.html",
+      "viewport": "mobile-360",
+      "pass": true,
+      "docScrollWidth": 360,
+      "docClientWidth": 360,
+      "bodyScrollWidth": 360,
+      "winInnerWidth": 360,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 1794.3125,
+        "bottom": 1997.1875,
+        "height": 202.875
+      },
+      "bodyPaddingBottom": 72,
+      "mainPaddingBottom": 0
+    },
+    {
+      "page": "05_우리단지_첫화면.html",
+      "viewport": "mobile-360",
+      "pass": true,
+      "docScrollWidth": 360,
+      "docClientWidth": 360,
+      "bodyScrollWidth": 360,
+      "winInnerWidth": 360,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 1391.875,
+        "bottom": 1594.75,
+        "height": 202.875
+      },
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 46
+    },
+    {
+      "page": "06_단지온공지_목록.html",
+      "viewport": "mobile-360",
+      "pass": true,
+      "docScrollWidth": 360,
+      "docClientWidth": 360,
+      "bodyScrollWidth": 360,
+      "winInnerWidth": 360,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 1443.59375,
+        "bottom": 1646.46875,
+        "height": 202.875
+      },
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 45
+    },
+    {
+      "page": "07_단지온공지_상세.html",
+      "viewport": "mobile-360",
+      "pass": true,
+      "docScrollWidth": 360,
+      "docClientWidth": 360,
+      "bodyScrollWidth": 360,
+      "winInnerWidth": 360,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 2453.75,
+        "bottom": 2656.625,
+        "height": 202.875
+      },
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 40
+    },
+    {
+      "page": "08_아파트소식_목록.html",
+      "viewport": "mobile-360",
+      "pass": true,
+      "docScrollWidth": 360,
+      "docClientWidth": 360,
+      "bodyScrollWidth": 360,
+      "winInnerWidth": 360,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 1612.15625,
+        "bottom": 1815.03125,
+        "height": 202.875
+      },
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 42
+    },
+    {
+      "page": "09_회장인사_상세.html",
+      "viewport": "mobile-360",
+      "pass": true,
+      "docScrollWidth": 360,
+      "docClientWidth": 360,
+      "bodyScrollWidth": 360,
+      "winInnerWidth": 360,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 3136.734375,
+        "bottom": 3246.6875,
+        "height": 109.953125
+      },
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 54
+    },
+    {
+      "page": "10_주민소식_목록.html",
+      "viewport": "mobile-360",
+      "pass": true,
+      "docScrollWidth": 360,
+      "docClientWidth": 360,
+      "bodyScrollWidth": 360,
+      "winInnerWidth": 360,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 2005.078125,
+        "bottom": 2207.953125,
+        "height": 202.875
+      },
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 48
+    },
+    {
+      "page": "11_주민소식_상세.html",
+      "viewport": "mobile-360",
+      "pass": true,
+      "docScrollWidth": 360,
+      "docClientWidth": 360,
+      "bodyScrollWidth": 360,
+      "winInnerWidth": 360,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 1905.828125,
+        "bottom": 2108.703125,
+        "height": 202.875
+      },
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 44
+    },
+    {
+      "page": "12_이웃대화_첫화면.html",
+      "viewport": "mobile-360",
+      "pass": true,
+      "docScrollWidth": 360,
+      "docClientWidth": 360,
+      "bodyScrollWidth": 360,
+      "winInnerWidth": 360,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 839.359375,
+        "bottom": 1042.234375,
+        "height": 202.875
+      },
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 35
+    },
+    {
+      "page": "13_이웃대화_글상세_댓글.html",
+      "viewport": "mobile-360",
+      "pass": true,
+      "docScrollWidth": 360,
+      "docClientWidth": 360,
+      "bodyScrollWidth": 360,
+      "winInnerWidth": 360,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 787.234375,
+        "bottom": 990.109375,
+        "height": 202.875
+      },
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 30
+    },
+    {
+      "page": "14_가입인사_글쓰기.html",
+      "viewport": "mobile-360",
+      "pass": true,
+      "docScrollWidth": 360,
+      "docClientWidth": 360,
+      "bodyScrollWidth": 360,
+      "winInnerWidth": 360,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": null,
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 170
+    },
+    {
+      "page": "15_단지이야기_글쓰기.html",
+      "viewport": "mobile-360",
+      "pass": true,
+      "docScrollWidth": 360,
+      "docClientWidth": 360,
+      "bodyScrollWidth": 360,
+      "winInnerWidth": 360,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": null,
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 170
+    },
+    {
+      "page": "16_궁금해요_글쓰기.html",
+      "viewport": "mobile-360",
+      "pass": true,
+      "docScrollWidth": 360,
+      "docClientWidth": 360,
+      "bodyScrollWidth": 360,
+      "winInnerWidth": 360,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": null,
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 170
+    },
+    {
+      "page": "17_같이해요_글쓰기.html",
+      "viewport": "mobile-360",
+      "pass": true,
+      "docScrollWidth": 360,
+      "docClientWidth": 360,
+      "bodyScrollWidth": 360,
+      "winInnerWidth": 360,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": null,
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 170
+    },
+    {
+      "page": "19_내정보_메인.html",
+      "viewport": "mobile-360",
+      "pass": true,
+      "docScrollWidth": 360,
+      "docClientWidth": 360,
+      "bodyScrollWidth": 360,
+      "winInnerWidth": 360,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 820,
+        "bottom": 1022.875,
+        "height": 202.875
+      },
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 48
+    },
+    {
+      "page": "20_메시지함_목록.html",
+      "viewport": "mobile-360",
+      "pass": true,
+      "docScrollWidth": 360,
+      "docClientWidth": 360,
+      "bodyScrollWidth": 360,
+      "winInnerWidth": 360,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 1973.90625,
+        "bottom": 2176.78125,
+        "height": 202.875
+      },
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 88
+    },
+    {
+      "page": "21_메시지_대화상세.html",
+      "viewport": "mobile-360",
+      "pass": true,
+      "docScrollWidth": 360,
+      "docClientWidth": 360,
+      "bodyScrollWidth": 360,
+      "winInnerWidth": 360,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 1195.8125,
+        "bottom": 1242.8125,
+        "height": 47
+      },
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 90
+    },
+    {
+      "page": "22_주민_공개프로필.html",
+      "viewport": "mobile-360",
+      "pass": true,
+      "docScrollWidth": 360,
+      "docClientWidth": 360,
+      "bodyScrollWidth": 360,
+      "winInnerWidth": 360,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 2041.6875,
+        "bottom": 2244.5625,
+        "height": 202.875
+      },
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 54
+    },
+    {
+      "page": "23_이웃온기.html",
+      "viewport": "mobile-360",
+      "pass": true,
+      "docScrollWidth": 360,
+      "docClientWidth": 360,
+      "bodyScrollWidth": 367,
+      "winInnerWidth": 360,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 2348.90625,
+        "bottom": 2551.78125,
+        "height": 202.875
+      },
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 50
+    },
+    {
+      "page": "24_설정.html",
+      "viewport": "mobile-360",
+      "pass": true,
+      "docScrollWidth": 360,
+      "docClientWidth": 360,
+      "bodyScrollWidth": 360,
+      "winInnerWidth": 360,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 2805.78125,
+        "bottom": 3008.65625,
+        "height": 202.875
+      },
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 45
+    },
+    {
+      "page": "25_1대1문의.html",
+      "viewport": "mobile-360",
+      "pass": true,
+      "docScrollWidth": 360,
+      "docClientWidth": 360,
+      "bodyScrollWidth": 360,
+      "winInnerWidth": 360,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 1969.375,
+        "bottom": 2172.25,
+        "height": 202.875
+      },
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 48
+    },
+    {
+      "page": "25A_신청제보.html",
+      "viewport": "mobile-360",
+      "pass": true,
+      "docScrollWidth": 360,
+      "docClientWidth": 360,
+      "bodyScrollWidth": 360,
+      "winInnerWidth": 360,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": null,
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 62
+    },
+    {
+      "page": "26_우리집연결.html",
+      "viewport": "mobile-360",
+      "pass": true,
+      "docScrollWidth": 360,
+      "docClientWidth": 360,
+      "bodyScrollWidth": 360,
+      "winInnerWidth": 360,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 1406,
+        "bottom": 1604.984375,
+        "height": 198.984375
+      },
+      "bodyPaddingBottom": 0,
+      "mainPaddingBottom": 100
+    },
+    {
+      "page": "27_알림함.html",
+      "viewport": "mobile-360",
+      "pass": true,
+      "docScrollWidth": 360,
+      "docClientWidth": 360,
+      "bodyScrollWidth": 360,
+      "winInnerWidth": 360,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 1624.3125,
+        "bottom": 1827.1875,
+        "height": 202.875
+      },
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 48
+    },
+    {
+      "page": "28_나의활동.html",
+      "viewport": "mobile-360",
+      "pass": true,
+      "docScrollWidth": 360,
+      "docClientWidth": 360,
+      "bodyScrollWidth": 360,
+      "winInnerWidth": 360,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 1851.65625,
+        "bottom": 2054.53125,
+        "height": 202.875
+      },
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 48
+    },
+    {
+      "page": "index.html",
+      "viewport": "mobile-390",
+      "pass": true,
+      "docScrollWidth": 390,
+      "docClientWidth": 390,
+      "bodyScrollWidth": 390,
+      "winInnerWidth": 390,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": null,
+      "bodyPaddingBottom": 72,
+      "mainPaddingBottom": 0
+    },
+    {
+      "page": "01_이웃가게_발견.html",
+      "viewport": "mobile-390",
+      "pass": true,
+      "docScrollWidth": 390,
+      "docClientWidth": 390,
+      "bodyScrollWidth": 390,
+      "winInnerWidth": 390,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 2261.59375,
+        "bottom": 2464.46875,
+        "height": 202.875
+      },
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 48
+    },
+    {
+      "page": "03_주민혜택_쿠폰.html",
+      "viewport": "mobile-390",
+      "pass": true,
+      "docScrollWidth": 390,
+      "docClientWidth": 390,
+      "bodyScrollWidth": 390,
+      "winInnerWidth": 390,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 2248.453125,
+        "bottom": 2451.328125,
+        "height": 202.875
+      },
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 48
+    },
+    {
+      "page": "04_데일리홈.html",
+      "viewport": "mobile-390",
+      "pass": true,
+      "docScrollWidth": 390,
+      "docClientWidth": 390,
+      "bodyScrollWidth": 390,
+      "winInnerWidth": 390,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 1692.625,
+        "bottom": 1895.5,
+        "height": 202.875
+      },
+      "bodyPaddingBottom": 72,
+      "mainPaddingBottom": 0
+    },
+    {
+      "page": "05_우리단지_첫화면.html",
+      "viewport": "mobile-390",
+      "pass": true,
+      "docScrollWidth": 390,
+      "docClientWidth": 390,
+      "bodyScrollWidth": 390,
+      "winInnerWidth": 390,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 1369.484375,
+        "bottom": 1572.359375,
+        "height": 202.875
+      },
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 46
+    },
+    {
+      "page": "06_단지온공지_목록.html",
+      "viewport": "mobile-390",
+      "pass": true,
+      "docScrollWidth": 390,
+      "docClientWidth": 390,
+      "bodyScrollWidth": 390,
+      "winInnerWidth": 390,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 1430.09375,
+        "bottom": 1632.96875,
+        "height": 202.875
+      },
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 45
+    },
+    {
+      "page": "07_단지온공지_상세.html",
+      "viewport": "mobile-390",
+      "pass": true,
+      "docScrollWidth": 390,
+      "docClientWidth": 390,
+      "bodyScrollWidth": 390,
+      "winInnerWidth": 390,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 2328.375,
+        "bottom": 2531.25,
+        "height": 202.875
+      },
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 40
+    },
+    {
+      "page": "08_아파트소식_목록.html",
+      "viewport": "mobile-390",
+      "pass": true,
+      "docScrollWidth": 390,
+      "docClientWidth": 390,
+      "bodyScrollWidth": 390,
+      "winInnerWidth": 390,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 1557.765625,
+        "bottom": 1760.640625,
+        "height": 202.875
+      },
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 42
+    },
+    {
+      "page": "09_회장인사_상세.html",
+      "viewport": "mobile-390",
+      "pass": true,
+      "docScrollWidth": 390,
+      "docClientWidth": 390,
+      "bodyScrollWidth": 390,
+      "winInnerWidth": 390,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 2888.5,
+        "bottom": 2998.453125,
+        "height": 109.953125
+      },
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 54
+    },
+    {
+      "page": "10_주민소식_목록.html",
+      "viewport": "mobile-390",
+      "pass": true,
+      "docScrollWidth": 390,
+      "docClientWidth": 390,
+      "bodyScrollWidth": 390,
+      "winInnerWidth": 390,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 1920.390625,
+        "bottom": 2123.265625,
+        "height": 202.875
+      },
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 48
+    },
+    {
+      "page": "11_주민소식_상세.html",
+      "viewport": "mobile-390",
+      "pass": true,
+      "docScrollWidth": 390,
+      "docClientWidth": 390,
+      "bodyScrollWidth": 390,
+      "winInnerWidth": 390,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 1862.15625,
+        "bottom": 2065.03125,
+        "height": 202.875
+      },
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 44
+    },
+    {
+      "page": "12_이웃대화_첫화면.html",
+      "viewport": "mobile-390",
+      "pass": true,
+      "docScrollWidth": 390,
+      "docClientWidth": 390,
+      "bodyScrollWidth": 390,
+      "winInnerWidth": 390,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 815.0625,
+        "bottom": 1017.9375,
+        "height": 202.875
+      },
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 35
+    },
+    {
+      "page": "13_이웃대화_글상세_댓글.html",
+      "viewport": "mobile-390",
+      "pass": true,
+      "docScrollWidth": 390,
+      "docClientWidth": 390,
+      "bodyScrollWidth": 390,
+      "winInnerWidth": 390,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 787.234375,
+        "bottom": 990.109375,
+        "height": 202.875
+      },
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 30
+    },
+    {
+      "page": "14_가입인사_글쓰기.html",
+      "viewport": "mobile-390",
+      "pass": true,
+      "docScrollWidth": 390,
+      "docClientWidth": 390,
+      "bodyScrollWidth": 390,
+      "winInnerWidth": 390,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": null,
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 170
+    },
+    {
+      "page": "15_단지이야기_글쓰기.html",
+      "viewport": "mobile-390",
+      "pass": true,
+      "docScrollWidth": 390,
+      "docClientWidth": 390,
+      "bodyScrollWidth": 390,
+      "winInnerWidth": 390,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": null,
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 170
+    },
+    {
+      "page": "16_궁금해요_글쓰기.html",
+      "viewport": "mobile-390",
+      "pass": true,
+      "docScrollWidth": 390,
+      "docClientWidth": 390,
+      "bodyScrollWidth": 390,
+      "winInnerWidth": 390,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": null,
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 170
+    },
+    {
+      "page": "17_같이해요_글쓰기.html",
+      "viewport": "mobile-390",
+      "pass": true,
+      "docScrollWidth": 390,
+      "docClientWidth": 390,
+      "bodyScrollWidth": 390,
+      "winInnerWidth": 390,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": null,
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 170
+    },
+    {
+      "page": "19_내정보_메인.html",
+      "viewport": "mobile-390",
+      "pass": true,
+      "docScrollWidth": 390,
+      "docClientWidth": 390,
+      "bodyScrollWidth": 390,
+      "winInnerWidth": 390,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 884,
+        "bottom": 1086.875,
+        "height": 202.875
+      },
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 48
+    },
+    {
+      "page": "20_메시지함_목록.html",
+      "viewport": "mobile-390",
+      "pass": true,
+      "docScrollWidth": 390,
+      "docClientWidth": 390,
+      "bodyScrollWidth": 390,
+      "winInnerWidth": 390,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 1877.90625,
+        "bottom": 2080.78125,
+        "height": 202.875
+      },
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 88
+    },
+    {
+      "page": "21_메시지_대화상세.html",
+      "viewport": "mobile-390",
+      "pass": true,
+      "docScrollWidth": 390,
+      "docClientWidth": 390,
+      "bodyScrollWidth": 390,
+      "winInnerWidth": 390,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 1195.8125,
+        "bottom": 1242.8125,
+        "height": 47
+      },
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 90
+    },
+    {
+      "page": "22_주민_공개프로필.html",
+      "viewport": "mobile-390",
+      "pass": true,
+      "docScrollWidth": 390,
+      "docClientWidth": 390,
+      "bodyScrollWidth": 390,
+      "winInnerWidth": 390,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 2041.6875,
+        "bottom": 2244.5625,
+        "height": 202.875
+      },
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 54
+    },
+    {
+      "page": "23_이웃온기.html",
+      "viewport": "mobile-390",
+      "pass": true,
+      "docScrollWidth": 390,
+      "docClientWidth": 390,
+      "bodyScrollWidth": 391,
+      "winInnerWidth": 390,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 2215.375,
+        "bottom": 2418.25,
+        "height": 202.875
+      },
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 50
+    },
+    {
+      "page": "24_설정.html",
+      "viewport": "mobile-390",
+      "pass": true,
+      "docScrollWidth": 390,
+      "docClientWidth": 390,
+      "bodyScrollWidth": 390,
+      "winInnerWidth": 390,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 2805.78125,
+        "bottom": 3008.65625,
+        "height": 202.875
+      },
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 45
+    },
+    {
+      "page": "25_1대1문의.html",
+      "viewport": "mobile-390",
+      "pass": true,
+      "docScrollWidth": 390,
+      "docClientWidth": 390,
+      "bodyScrollWidth": 390,
+      "winInnerWidth": 390,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 1969.375,
+        "bottom": 2172.25,
+        "height": 202.875
+      },
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 48
+    },
+    {
+      "page": "25A_신청제보.html",
+      "viewport": "mobile-390",
+      "pass": true,
+      "docScrollWidth": 390,
+      "docClientWidth": 390,
+      "bodyScrollWidth": 390,
+      "winInnerWidth": 390,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": null,
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 62
+    },
+    {
+      "page": "26_우리집연결.html",
+      "viewport": "mobile-390",
+      "pass": true,
+      "docScrollWidth": 390,
+      "docClientWidth": 390,
+      "bodyScrollWidth": 390,
+      "winInnerWidth": 390,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 1386.625,
+        "bottom": 1585.609375,
+        "height": 198.984375
+      },
+      "bodyPaddingBottom": 0,
+      "mainPaddingBottom": 100
+    },
+    {
+      "page": "27_알림함.html",
+      "viewport": "mobile-390",
+      "pass": true,
+      "docScrollWidth": 390,
+      "docClientWidth": 390,
+      "bodyScrollWidth": 390,
+      "winInnerWidth": 390,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 1545.6875,
+        "bottom": 1748.5625,
+        "height": 202.875
+      },
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 48
+    },
+    {
+      "page": "28_나의활동.html",
+      "viewport": "mobile-390",
+      "pass": true,
+      "docScrollWidth": 390,
+      "docClientWidth": 390,
+      "bodyScrollWidth": 390,
+      "winInnerWidth": 390,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 1829.96875,
+        "bottom": 2032.84375,
+        "height": 202.875
+      },
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 48
+    },
+    {
+      "page": "index.html",
+      "viewport": "mobile-430",
+      "pass": true,
+      "docScrollWidth": 430,
+      "docClientWidth": 430,
+      "bodyScrollWidth": 430,
+      "winInnerWidth": 430,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": null,
+      "bodyPaddingBottom": 72,
+      "mainPaddingBottom": 0
+    },
+    {
+      "page": "01_이웃가게_발견.html",
+      "viewport": "mobile-430",
+      "pass": true,
+      "docScrollWidth": 430,
+      "docClientWidth": 430,
+      "bodyScrollWidth": 430,
+      "winInnerWidth": 430,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 2286.59375,
+        "bottom": 2489.46875,
+        "height": 202.875
+      },
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 48
+    },
+    {
+      "page": "03_주민혜택_쿠폰.html",
+      "viewport": "mobile-430",
+      "pass": true,
+      "docScrollWidth": 430,
+      "docClientWidth": 430,
+      "bodyScrollWidth": 430,
+      "winInnerWidth": 430,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 2202.90625,
+        "bottom": 2405.78125,
+        "height": 202.875
+      },
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 48
+    },
+    {
+      "page": "04_데일리홈.html",
+      "viewport": "mobile-430",
+      "pass": true,
+      "docScrollWidth": 430,
+      "docClientWidth": 430,
+      "bodyScrollWidth": 430,
+      "winInnerWidth": 430,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 1670.9375,
+        "bottom": 1873.8125,
+        "height": 202.875
+      },
+      "bodyPaddingBottom": 72,
+      "mainPaddingBottom": 0
+    },
+    {
+      "page": "05_우리단지_첫화면.html",
+      "viewport": "mobile-430",
+      "pass": true,
+      "docScrollWidth": 430,
+      "docClientWidth": 430,
+      "bodyScrollWidth": 430,
+      "winInnerWidth": 430,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 1342.296875,
+        "bottom": 1545.171875,
+        "height": 202.875
+      },
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 46
+    },
+    {
+      "page": "06_단지온공지_목록.html",
+      "viewport": "mobile-430",
+      "pass": true,
+      "docScrollWidth": 430,
+      "docClientWidth": 430,
+      "bodyScrollWidth": 430,
+      "winInnerWidth": 430,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 1405.34375,
+        "bottom": 1608.21875,
+        "height": 202.875
+      },
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 45
+    },
+    {
+      "page": "07_단지온공지_상세.html",
+      "viewport": "mobile-430",
+      "pass": true,
+      "docScrollWidth": 430,
+      "docClientWidth": 430,
+      "bodyScrollWidth": 430,
+      "winInnerWidth": 430,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 2215.640625,
+        "bottom": 2418.515625,
+        "height": 202.875
+      },
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 40
+    },
+    {
+      "page": "08_아파트소식_목록.html",
+      "viewport": "mobile-430",
+      "pass": true,
+      "docScrollWidth": 430,
+      "docClientWidth": 430,
+      "bodyScrollWidth": 430,
+      "winInnerWidth": 430,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 1536.9375,
+        "bottom": 1739.8125,
+        "height": 202.875
+      },
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 42
+    },
+    {
+      "page": "09_회장인사_상세.html",
+      "viewport": "mobile-430",
+      "pass": true,
+      "docScrollWidth": 430,
+      "docClientWidth": 430,
+      "bodyScrollWidth": 430,
+      "winInnerWidth": 430,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 2756.78125,
+        "bottom": 2866.734375,
+        "height": 109.953125
+      },
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 54
+    },
+    {
+      "page": "10_주민소식_목록.html",
+      "viewport": "mobile-430",
+      "pass": true,
+      "docScrollWidth": 430,
+      "docClientWidth": 430,
+      "bodyScrollWidth": 430,
+      "winInnerWidth": 430,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 1873.796875,
+        "bottom": 2076.671875,
+        "height": 202.875
+      },
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 48
+    },
+    {
+      "page": "11_주민소식_상세.html",
+      "viewport": "mobile-430",
+      "pass": true,
+      "docScrollWidth": 430,
+      "docClientWidth": 430,
+      "bodyScrollWidth": 430,
+      "winInnerWidth": 430,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 1862.15625,
+        "bottom": 2065.03125,
+        "height": 202.875
+      },
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 44
+    },
+    {
+      "page": "12_이웃대화_첫화면.html",
+      "viewport": "mobile-430",
+      "pass": true,
+      "docScrollWidth": 430,
+      "docClientWidth": 430,
+      "bodyScrollWidth": 430,
+      "winInnerWidth": 430,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 797.515625,
+        "bottom": 1000.390625,
+        "height": 202.875
+      },
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 35
+    },
+    {
+      "page": "13_이웃대화_글상세_댓글.html",
+      "viewport": "mobile-430",
+      "pass": true,
+      "docScrollWidth": 430,
+      "docClientWidth": 430,
+      "bodyScrollWidth": 430,
+      "winInnerWidth": 430,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 787.234375,
+        "bottom": 990.109375,
+        "height": 202.875
+      },
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 30
+    },
+    {
+      "page": "14_가입인사_글쓰기.html",
+      "viewport": "mobile-430",
+      "pass": true,
+      "docScrollWidth": 430,
+      "docClientWidth": 430,
+      "bodyScrollWidth": 430,
+      "winInnerWidth": 430,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": null,
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 170
+    },
+    {
+      "page": "15_단지이야기_글쓰기.html",
+      "viewport": "mobile-430",
+      "pass": true,
+      "docScrollWidth": 430,
+      "docClientWidth": 430,
+      "bodyScrollWidth": 430,
+      "winInnerWidth": 430,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": null,
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 170
+    },
+    {
+      "page": "16_궁금해요_글쓰기.html",
+      "viewport": "mobile-430",
+      "pass": true,
+      "docScrollWidth": 430,
+      "docClientWidth": 430,
+      "bodyScrollWidth": 430,
+      "winInnerWidth": 430,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": null,
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 170
+    },
+    {
+      "page": "17_같이해요_글쓰기.html",
+      "viewport": "mobile-430",
+      "pass": true,
+      "docScrollWidth": 430,
+      "docClientWidth": 430,
+      "bodyScrollWidth": 430,
+      "winInnerWidth": 430,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": null,
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 170
+    },
+    {
+      "page": "19_내정보_메인.html",
+      "viewport": "mobile-430",
+      "pass": true,
+      "docScrollWidth": 430,
+      "docClientWidth": 430,
+      "bodyScrollWidth": 430,
+      "winInnerWidth": 430,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 972,
+        "bottom": 1174.875,
+        "height": 202.875
+      },
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 48
+    },
+    {
+      "page": "20_메시지함_목록.html",
+      "viewport": "mobile-430",
+      "pass": true,
+      "docScrollWidth": 430,
+      "docClientWidth": 430,
+      "bodyScrollWidth": 430,
+      "winInnerWidth": 430,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 1853.90625,
+        "bottom": 2056.78125,
+        "height": 202.875
+      },
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 88
+    },
+    {
+      "page": "21_메시지_대화상세.html",
+      "viewport": "mobile-430",
+      "pass": true,
+      "docScrollWidth": 430,
+      "docClientWidth": 430,
+      "bodyScrollWidth": 430,
+      "winInnerWidth": 430,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 1164.859375,
+        "bottom": 1211.859375,
+        "height": 47
+      },
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 90
+    },
+    {
+      "page": "22_주민_공개프로필.html",
+      "viewport": "mobile-430",
+      "pass": true,
+      "docScrollWidth": 430,
+      "docClientWidth": 430,
+      "bodyScrollWidth": 430,
+      "winInnerWidth": 430,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 1921.25,
+        "bottom": 2124.125,
+        "height": 202.875
+      },
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 54
+    },
+    {
+      "page": "23_이웃온기.html",
+      "viewport": "mobile-430",
+      "pass": true,
+      "docScrollWidth": 430,
+      "docClientWidth": 430,
+      "bodyScrollWidth": 430,
+      "winInnerWidth": 430,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 2215.375,
+        "bottom": 2418.25,
+        "height": 202.875
+      },
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 50
+    },
+    {
+      "page": "24_설정.html",
+      "viewport": "mobile-430",
+      "pass": true,
+      "docScrollWidth": 430,
+      "docClientWidth": 430,
+      "bodyScrollWidth": 430,
+      "winInnerWidth": 430,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 2781.78125,
+        "bottom": 2984.65625,
+        "height": 202.875
+      },
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 45
+    },
+    {
+      "page": "25_1대1문의.html",
+      "viewport": "mobile-430",
+      "pass": true,
+      "docScrollWidth": 430,
+      "docClientWidth": 430,
+      "bodyScrollWidth": 430,
+      "winInnerWidth": 430,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 1969.375,
+        "bottom": 2172.25,
+        "height": 202.875
+      },
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 48
+    },
+    {
+      "page": "25A_신청제보.html",
+      "viewport": "mobile-430",
+      "pass": true,
+      "docScrollWidth": 430,
+      "docClientWidth": 430,
+      "bodyScrollWidth": 430,
+      "winInnerWidth": 430,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": null,
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 62
+    },
+    {
+      "page": "26_우리집연결.html",
+      "viewport": "mobile-430",
+      "pass": true,
+      "docScrollWidth": 430,
+      "docClientWidth": 430,
+      "bodyScrollWidth": 430,
+      "winInnerWidth": 430,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 1366,
+        "bottom": 1564.984375,
+        "height": 198.984375
+      },
+      "bodyPaddingBottom": 0,
+      "mainPaddingBottom": 100
+    },
+    {
+      "page": "27_알림함.html",
+      "viewport": "mobile-430",
+      "pass": true,
+      "docScrollWidth": 430,
+      "docClientWidth": 430,
+      "bodyScrollWidth": 430,
+      "winInnerWidth": 430,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 1463.28125,
+        "bottom": 1666.15625,
+        "height": 202.875
+      },
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 48
+    },
+    {
+      "page": "28_나의활동.html",
+      "viewport": "mobile-430",
+      "pass": true,
+      "docScrollWidth": 430,
+      "docClientWidth": 430,
+      "bodyScrollWidth": 430,
+      "winInnerWidth": 430,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 1794.96875,
+        "bottom": 1997.84375,
+        "height": 202.875
+      },
+      "bodyPaddingBottom": 68,
+      "mainPaddingBottom": 48
+    },
+    {
+      "page": "index.html",
+      "viewport": "desktop-1440",
+      "pass": true,
+      "docScrollWidth": 1440,
+      "docClientWidth": 1440,
+      "bodyScrollWidth": 1440,
+      "winInnerWidth": 1440,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": null,
+      "bodyPaddingBottom": 0,
+      "mainPaddingBottom": 0
+    },
+    {
+      "page": "01_이웃가게_발견.html",
+      "viewport": "desktop-1440",
+      "pass": true,
+      "docScrollWidth": 1440,
+      "docClientWidth": 1440,
+      "bodyScrollWidth": 1440,
+      "winInnerWidth": 1440,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 2003.46875,
+        "bottom": 2120.359375,
+        "height": 116.890625
+      },
+      "bodyPaddingBottom": 0,
+      "mainPaddingBottom": 90
+    },
+    {
+      "page": "03_주민혜택_쿠폰.html",
+      "viewport": "desktop-1440",
+      "pass": true,
+      "docScrollWidth": 1440,
+      "docClientWidth": 1440,
+      "bodyScrollWidth": 1440,
+      "winInnerWidth": 1440,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 1369.125,
+        "bottom": 1486.015625,
+        "height": 116.890625
+      },
+      "bodyPaddingBottom": 0,
+      "mainPaddingBottom": 100
+    },
+    {
+      "page": "04_데일리홈.html",
+      "viewport": "desktop-1440",
+      "pass": true,
+      "docScrollWidth": 1440,
+      "docClientWidth": 1440,
+      "bodyScrollWidth": 1440,
+      "winInnerWidth": 1440,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 1248.453125,
+        "bottom": 1365.34375,
+        "height": 116.890625
+      },
+      "bodyPaddingBottom": 0,
+      "mainPaddingBottom": 0
+    },
+    {
+      "page": "05_우리단지_첫화면.html",
+      "viewport": "desktop-1440",
+      "pass": true,
+      "docScrollWidth": 1440,
+      "docClientWidth": 1440,
+      "bodyScrollWidth": 1440,
+      "winInnerWidth": 1440,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 1007.171875,
+        "bottom": 1124.0625,
+        "height": 116.890625
+      },
+      "bodyPaddingBottom": 0,
+      "mainPaddingBottom": 100
+    },
+    {
+      "page": "06_단지온공지_목록.html",
+      "viewport": "desktop-1440",
+      "pass": true,
+      "docScrollWidth": 1440,
+      "docClientWidth": 1440,
+      "bodyScrollWidth": 1440,
+      "winInnerWidth": 1440,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 1445.921875,
+        "bottom": 1562.8125,
+        "height": 116.890625
+      },
+      "bodyPaddingBottom": 0,
+      "mainPaddingBottom": 100
+    },
+    {
+      "page": "07_단지온공지_상세.html",
+      "viewport": "desktop-1440",
+      "pass": true,
+      "docScrollWidth": 1440,
+      "docClientWidth": 1440,
+      "bodyScrollWidth": 1440,
+      "winInnerWidth": 1440,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 1741.640625,
+        "bottom": 1858.53125,
+        "height": 116.890625
+      },
+      "bodyPaddingBottom": 0,
+      "mainPaddingBottom": 110
+    },
+    {
+      "page": "08_아파트소식_목록.html",
+      "viewport": "desktop-1440",
+      "pass": true,
+      "docScrollWidth": 1440,
+      "docClientWidth": 1440,
+      "bodyScrollWidth": 1440,
+      "winInnerWidth": 1440,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 1463.5625,
+        "bottom": 1580.453125,
+        "height": 116.890625
+      },
+      "bodyPaddingBottom": 0,
+      "mainPaddingBottom": 100
+    },
+    {
+      "page": "09_회장인사_상세.html",
+      "viewport": "desktop-1440",
+      "pass": true,
+      "docScrollWidth": 1440,
+      "docClientWidth": 1440,
+      "bodyScrollWidth": 1440,
+      "winInnerWidth": 1440,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 2726.25,
+        "bottom": 2848.890625,
+        "height": 122.640625
+      },
+      "bodyPaddingBottom": 0,
+      "mainPaddingBottom": 110
+    },
+    {
+      "page": "10_주민소식_목록.html",
+      "viewport": "desktop-1440",
+      "pass": true,
+      "docScrollWidth": 1440,
+      "docClientWidth": 1440,
+      "bodyScrollWidth": 1440,
+      "winInnerWidth": 1440,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 1512.328125,
+        "bottom": 1629.21875,
+        "height": 116.890625
+      },
+      "bodyPaddingBottom": 0,
+      "mainPaddingBottom": 100
+    },
+    {
+      "page": "11_주민소식_상세.html",
+      "viewport": "desktop-1440",
+      "pass": true,
+      "docScrollWidth": 1440,
+      "docClientWidth": 1440,
+      "bodyScrollWidth": 1440,
+      "winInnerWidth": 1440,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 1955.78125,
+        "bottom": 2072.671875,
+        "height": 116.890625
+      },
+      "bodyPaddingBottom": 0,
+      "mainPaddingBottom": 100
+    },
+    {
+      "page": "12_이웃대화_첫화면.html",
+      "viewport": "desktop-1440",
+      "pass": true,
+      "docScrollWidth": 1440,
+      "docClientWidth": 1440,
+      "bodyScrollWidth": 1440,
+      "winInnerWidth": 1440,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 791.765625,
+        "bottom": 908.65625,
+        "height": 116.890625
+      },
+      "bodyPaddingBottom": 78,
+      "mainPaddingBottom": 80
+    },
+    {
+      "page": "13_이웃대화_글상세_댓글.html",
+      "viewport": "desktop-1440",
+      "pass": true,
+      "docScrollWidth": 1440,
+      "docClientWidth": 1440,
+      "bodyScrollWidth": 1440,
+      "winInnerWidth": 1440,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 890.03125,
+        "bottom": 1006.921875,
+        "height": 116.890625
+      },
+      "bodyPaddingBottom": 78,
+      "mainPaddingBottom": 70
+    },
+    {
+      "page": "14_가입인사_글쓰기.html",
+      "viewport": "desktop-1440",
+      "pass": true,
+      "docScrollWidth": 1440,
+      "docClientWidth": 1440,
+      "bodyScrollWidth": 1440,
+      "winInnerWidth": 1440,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": null,
+      "bodyPaddingBottom": 96,
+      "mainPaddingBottom": 34
+    },
+    {
+      "page": "15_단지이야기_글쓰기.html",
+      "viewport": "desktop-1440",
+      "pass": true,
+      "docScrollWidth": 1440,
+      "docClientWidth": 1440,
+      "bodyScrollWidth": 1440,
+      "winInnerWidth": 1440,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": null,
+      "bodyPaddingBottom": 96,
+      "mainPaddingBottom": 34
+    },
+    {
+      "page": "16_궁금해요_글쓰기.html",
+      "viewport": "desktop-1440",
+      "pass": true,
+      "docScrollWidth": 1440,
+      "docClientWidth": 1440,
+      "bodyScrollWidth": 1440,
+      "winInnerWidth": 1440,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": null,
+      "bodyPaddingBottom": 96,
+      "mainPaddingBottom": 34
+    },
+    {
+      "page": "17_같이해요_글쓰기.html",
+      "viewport": "desktop-1440",
+      "pass": true,
+      "docScrollWidth": 1440,
+      "docClientWidth": 1440,
+      "bodyScrollWidth": 1440,
+      "winInnerWidth": 1440,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": null,
+      "bodyPaddingBottom": 96,
+      "mainPaddingBottom": 34
+    },
+    {
+      "page": "19_내정보_메인.html",
+      "viewport": "desktop-1440",
+      "pass": true,
+      "docScrollWidth": 1440,
+      "docClientWidth": 1440,
+      "bodyScrollWidth": 1440,
+      "winInnerWidth": 1440,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 956,
+        "bottom": 1072.890625,
+        "height": 116.890625
+      },
+      "bodyPaddingBottom": 0,
+      "mainPaddingBottom": 110
+    },
+    {
+      "page": "20_메시지함_목록.html",
+      "viewport": "desktop-1440",
+      "pass": true,
+      "docScrollWidth": 1440,
+      "docClientWidth": 1440,
+      "bodyScrollWidth": 1440,
+      "winInnerWidth": 1440,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 1678.8125,
+        "bottom": 1795.703125,
+        "height": 116.890625
+      },
+      "bodyPaddingBottom": 0,
+      "mainPaddingBottom": 110
+    },
+    {
+      "page": "21_메시지_대화상세.html",
+      "viewport": "desktop-1440",
+      "pass": true,
+      "docScrollWidth": 1440,
+      "docClientWidth": 1440,
+      "bodyScrollWidth": 1440,
+      "winInnerWidth": 1440,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 1009.078125,
+        "bottom": 1058.078125,
+        "height": 49
+      },
+      "bodyPaddingBottom": 0,
+      "mainPaddingBottom": 110
+    },
+    {
+      "page": "22_주민_공개프로필.html",
+      "viewport": "desktop-1440",
+      "pass": true,
+      "docScrollWidth": 1440,
+      "docClientWidth": 1440,
+      "bodyScrollWidth": 1440,
+      "winInnerWidth": 1440,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 1435.828125,
+        "bottom": 1552.71875,
+        "height": 116.890625
+      },
+      "bodyPaddingBottom": 0,
+      "mainPaddingBottom": 110
+    },
+    {
+      "page": "23_이웃온기.html",
+      "viewport": "desktop-1440",
+      "pass": true,
+      "docScrollWidth": 1440,
+      "docClientWidth": 1440,
+      "bodyScrollWidth": 1440,
+      "winInnerWidth": 1440,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 1341.78125,
+        "bottom": 1458.671875,
+        "height": 116.890625
+      },
+      "bodyPaddingBottom": 0,
+      "mainPaddingBottom": 110
+    },
+    {
+      "page": "24_설정.html",
+      "viewport": "desktop-1440",
+      "pass": true,
+      "docScrollWidth": 1440,
+      "docClientWidth": 1440,
+      "bodyScrollWidth": 1440,
+      "winInnerWidth": 1440,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 2082.921875,
+        "bottom": 2199.8125,
+        "height": 116.890625
+      },
+      "bodyPaddingBottom": 0,
+      "mainPaddingBottom": 110
+    },
+    {
+      "page": "25_1대1문의.html",
+      "viewport": "desktop-1440",
+      "pass": true,
+      "docScrollWidth": 1440,
+      "docClientWidth": 1440,
+      "bodyScrollWidth": 1440,
+      "winInnerWidth": 1440,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 1553.5625,
+        "bottom": 1670.453125,
+        "height": 116.890625
+      },
+      "bodyPaddingBottom": 0,
+      "mainPaddingBottom": 110
+    },
+    {
+      "page": "25A_신청제보.html",
+      "viewport": "desktop-1440",
+      "pass": true,
+      "docScrollWidth": 1440,
+      "docClientWidth": 1440,
+      "bodyScrollWidth": 1440,
+      "winInnerWidth": 1440,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": null,
+      "bodyPaddingBottom": 0,
+      "mainPaddingBottom": 70
+    },
+    {
+      "page": "26_우리집연결.html",
+      "viewport": "desktop-1440",
+      "pass": true,
+      "docScrollWidth": 1440,
+      "docClientWidth": 1440,
+      "bodyScrollWidth": 1440,
+      "winInnerWidth": 1440,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 1014.34375,
+        "bottom": 1127.34375,
+        "height": 113
+      },
+      "bodyPaddingBottom": 0,
+      "mainPaddingBottom": 100
+    },
+    {
+      "page": "27_알림함.html",
+      "viewport": "desktop-1440",
+      "pass": true,
+      "docScrollWidth": 1440,
+      "docClientWidth": 1440,
+      "bodyScrollWidth": 1440,
+      "winInnerWidth": 1440,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 1470.3125,
+        "bottom": 1587.203125,
+        "height": 116.890625
+      },
+      "bodyPaddingBottom": 0,
+      "mainPaddingBottom": 110
+    },
+    {
+      "page": "28_나의활동.html",
+      "viewport": "desktop-1440",
+      "pass": true,
+      "docScrollWidth": 1440,
+      "docClientWidth": 1440,
+      "bodyScrollWidth": 1440,
+      "winInnerWidth": 1440,
+      "horizontalOverflow": 0,
+      "bottomNavMetrics": null,
+      "footerMetrics": {
+        "top": 1374.765625,
+        "bottom": 1491.65625,
+        "height": 116.890625
+      },
+      "bodyPaddingBottom": 0,
+      "mainPaddingBottom": 110
+    }
+  ],
+  "checklistResults": {
+    "global_shell_logo_intro_separation": {
+      "pass": true,
+      "targetUrl": "http://127.0.0.1:4180/index.html?intro=1",
+      "classification": "PASS_CURRENT_MAIN"
+    },
+    "desktop_navigation_rhythm": {
+      "pass": true,
+      "header": {
+        "height": 76,
+        "display": "flex",
+        "position": "sticky",
+        "visible": true
+      },
+      "classification": "PASS_CURRENT_MAIN"
+    },
+    "mobile_bottom_nav_geometry": {
+      "pass": true,
+      "details": {
+        "itemCount": 4,
+        "itemLabels": [
+          "홈",
+          "이웃가게",
+          "우리단지",
+          "내정보"
+        ],
+        "height": 68,
+        "position": "fixed",
+        "bottom": "0px",
+        "zIndex": 990,
+        "fixedAtBottom": true
+      },
+      "classification": "PASS_CURRENT_MAIN"
+    },
+    "footer_bottom_nav_clearance": {
+      "pass": true,
+      "details": {
+        "padB": 72,
+        "mainPadB": 0,
+        "navHeight": 68,
+        "clearance": true
+      },
+      "classification": "PASS_CURRENT_MAIN"
+    },
+    "shop_v3_popup_presentation": {
+      "pass": true,
+      "details": {
+        "hasModal": true,
+        "isOpen": true,
+        "titleText": "오늘의 반찬",
+        "hasCloseBtn": true,
+        "saveText": "♡ 저장"
+      },
+      "classification": "PASS_CURRENT_MAIN"
+    },
+    "shop_save_heart_state": {
+      "pass": true,
+      "details": {
+        "initial": "♡ 저장"
+      },
+      "classification": "PASS_CURRENT_MAIN"
+    },
+    "shop_popup_close_affordance": {
+      "pass": true,
+      "classification": "PASS_CURRENT_MAIN"
+    },
+    "canonical_benefit_route": {
+      "pass": true,
+      "details": {
+        "title": "단지온 · 주민혜택",
+        "cardCount": 2
+      },
+      "classification": "PASS_CURRENT_MAIN"
+    },
+    "my_info_received_benefits_route": {
+      "pass": true,
+      "route": "28_나의활동.html?view=benefits",
+      "classification": "PASS_CURRENT_MAIN"
+    },
+    "activity_benefit_filters": {
+      "pass": true,
+      "details": {
+        "tabCount": 3,
+        "texts": [
+          "전체",
+          "사용 가능",
+          "사용 완료"
+        ],
+        "hasAll": true,
+        "hasAvailable": true,
+        "hasUsed": true
+      },
+      "classification": "PASS_CURRENT_MAIN"
+    },
+    "complex_4_channel_hub": {
+      "pass": true,
+      "details": {
+        "hasNotice": true,
+        "hasAptNews": true,
+        "hasResidentNews": true,
+        "hasTalk": true
+      },
+      "classification": "PASS_CURRENT_MAIN"
+    },
+    "community_write_close_affordance": {
+      "pass": true,
+      "details": [
+        {
+          "page": "14_가입인사_글쓰기.html",
+          "hasCloseBtn": true,
+          "text": "홈",
+          "route": "04_데일리홈.html"
+        },
+        {
+          "page": "15_단지이야기_글쓰기.html",
+          "hasCloseBtn": true,
+          "text": "홈",
+          "route": "04_데일리홈.html"
+        },
+        {
+          "page": "16_궁금해요_글쓰기.html",
+          "hasCloseBtn": true,
+          "text": "홈",
+          "route": "04_데일리홈.html"
+        },
+        {
+          "page": "17_같이해요_글쓰기.html",
+          "hasCloseBtn": true,
+          "text": "홈",
+          "route": "04_데일리홈.html"
+        }
+      ],
+      "classification": "PASS_CURRENT_MAIN"
+    },
+    "my_info_hierarchy_copy": {
+      "pass": true,
+      "details": {
+        "hasNickNotice": true,
+        "hasHousehold": true,
+        "menuRowCount": 5
+      },
+      "classification": "PASS_CURRENT_MAIN"
+    },
+    "inquiry_form_presentation": {
+      "pass": true,
+      "details": {
+        "hasForm": true,
+        "hasEmailField": true,
+        "hasBackBtn": true
+      },
+      "classification": "PASS_CURRENT_MAIN"
+    }
+  },
+  "defects": []
+}
