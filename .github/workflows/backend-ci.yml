@@ -85,6 +85,9 @@ jobs:
           - name: application-document-upload-idempotency-postgres
             database: danjion_app_doc_idempotency
             script: bash tests/application-document-upload-idempotency-postgres.sh
+          - name: unit-master-postgres-lifecycle
+            database: danjion_unit_master
+            script: bash tests/unit-master-postgres-lifecycle.sh
     services:
       postgres:
         image: postgres:18

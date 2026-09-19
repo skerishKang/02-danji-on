@@ -42,6 +42,7 @@
     "test:admin-household-codes": "node tests/admin-household-codes-contract.mjs",
     "test:admin-household-review": "node tests/admin-household-review-contract.mjs",
     "test:admin-household-messaging": "node tests/admin-household-messaging-contract.mjs",
+    "test:admin-unit-master": "tsx tests/admin-unit-master-contract.mjs",
     "test:household-message-lifecycle": "node tests/household-message-lifecycle-contract.mjs",
     "test:household-family-lifecycle": "node tests/household-family-lifecycle-contract.mjs",
     "test:account-lifecycle": "node tests/account-lifecycle-contract.mjs",

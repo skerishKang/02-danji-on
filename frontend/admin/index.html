@@ -581,6 +581,51 @@
       }
       wrap.append(actions,live);return wrap;
     }
+    function unitMasterComposer(panel,section,apiBase){
+      const wrap=el('section',undefined,'verification-unit-form');
+      wrap.append(el('h3','새 세대 기준정보 등록'),el('p','동·호를 입력해 세대 기준정보를 등록합니다. 입주민 성명, 연락처 등 개인정보는 저장되지 않습니다.'));
+      const building=document.createElement('input');building.maxLength=20;building.placeholder='예: 101';building.setAttribute('aria-label','동');
+      const unit=document.createElement('input');unit.maxLength=20;unit.placeholder='예: 101';unit.setAttribute('aria-label','호');
+      const grid=el('div',undefined,'admin-form-grid');grid.append(labeledField('동',building,false),labeledField('호',unit,false));wrap.append(grid);
+      const actions=el('div',undefined,'admin-post-actions');const createBtn=el('button','세대 등록','primary');createBtn.type='button';const live=el('p','', 'admin-post-status');live.setAttribute('aria-live','polite');actions.append(createBtn,live);wrap.append(actions);
+      createBtn.addEventListener('click',async()=>{
+        const b=building.value.trim();const u=unit.value.trim();
+        if(!b||!u){live.textContent='동·호를 모두 입력해 주세요.';live.className='admin-post-status error';return}
+        createBtn.disabled=true;live.className='admin-post-status';live.textContent='세대 등록 중…';
+        const outcome=await consoleApi.createUnitMaster(fetch,apiBase,{buildingCode:b,unitCode:u});
+        if(outcome.state==='updated'){live.textContent='새 세대가 등록되었습니다.';await renderSection(panel,section,apiBase);return}
+        if(outcome.state==='signed-out'){showRestricted('signed-out');return}
+        if(outcome.state==='conflict')live.textContent='이미 등록된 세대(동·호)입니다.';
+        else if(outcome.state==='scope-denied')live.textContent='현재 관리자 권한으로 세대를 등록할 수 없습니다.';
+        else if(outcome.state==='invalid-request')live.textContent='동·호 형식을 확인해 주세요 (1~20자).';
+        else live.textContent='등록에 실패했습니다'+(outcome.code?' · '+outcome.code:'')+'.';
+        live.className='admin-post-status error';createBtn.disabled=false;
+      });
+      return wrap;
+    }
+    function unitMasterControls(row,panel,section,apiBase){
+      if(!section.unitMasterActions)return null;
+      const unitId=String(row.id||'');if(!unitId)return null;
+      const wrap=el('div',undefined,'admin-review-controls');
+      const live=el('p','', 'admin-review-status');live.setAttribute('aria-live','polite');
+      const actions=el('div',undefined,'admin-review-actions');
+      const isActive=String(row.status||'').toLowerCase()==='active';
+      const toggleBtn=el('button',isActive?'비활성화':'활성화',isActive?'danger':'primary');toggleBtn.type='button';
+      toggleBtn.addEventListener('click',async()=>{
+        const nextStatus=isActive?'inactive':'active';
+        const msg=isActive?'이 세대를 비활성화하시겠습니까? 비활성화된 세대는 입주민 연결 선택지에 표시되지 않습니다.':'이 세대를 다시 활성화하시겠습니까?';
+        if(!window.confirm(msg))return;
+        toggleBtn.disabled=true;live.className='admin-review-status';live.textContent='상태 변경 중…';
+        const outcome=await consoleApi.updateUnitMaster(fetch,apiBase,unitId,{status:nextStatus});
+        if(outcome.state==='updated'){await renderSection(panel,section,apiBase);return}
+        if(outcome.state==='signed-out'){showRestricted('signed-out');return}
+        if(outcome.state==='scope-denied')live.textContent='현재 권한으로 세대 상태를 변경할 수 없습니다.';
+        else if(outcome.state==='not-found')live.textContent='해당 세대를 찾을 수 없습니다.';
+        else live.textContent='상태 변경에 실패했습니다'+(outcome.code?' · '+outcome.code:'')+'.';
+        live.className='admin-review-status error';toggleBtn.disabled=false;
+      });
+      actions.append(toggleBtn);wrap.append(actions,live);return wrap;
+    }
     async function renderSection(panel,section,apiBase){
       statePanel(panel,'불러오는 중…');
       const outcome=await consoleApi.loadSection(fetch,apiBase,section);
@@ -590,12 +635,15 @@
         if(section.id==='benefits')panel.append(await benefitComposer(panel,section,apiBase));
         if(section.id==='householdMessages'){panel.append(householdMessageComposer(outcome.rows,apiBase));return}
         if(section.id==='verifications')panel.append(householdCodeComposer(panel,section,apiBase));
+        if(section.id==='unitMaster')panel.append(unitMasterComposer(panel,section,apiBase));
         if(!outcome.rows.length){
           const emptyMessage=section.id==='verifications'
             ?'아직 등록된 세대가 없습니다. 위에서 동·호를 입력해 첫 코드를 발급하세요.'
-            :section.id==='householdReviews'
-              ?'현재 운영팀 확인이 필요한 3번째 이후 세대 연결 요청이 없습니다.'
-              :'표시할 항목이 없습니다.';
+            :section.id==='unitMaster'
+              ?'등록된 세대 기준정보가 없습니다. 위에서 동·호를 입력해 첫 세대를 등록하세요.'
+              :section.id==='householdReviews'
+                ?'현재 운영팀 확인이 필요한 3번째 이후 세대 연결 요청이 없습니다.'
+                :'표시할 항목이 없습니다.';
           panel.append(el('div',emptyMessage,'admin-empty'));return
         }
         outcome.rows.forEach((row)=>{
@@ -611,11 +659,13 @@
           const benefitControls=benefitEditControls(row,panel,section,apiBase);
           const householdReviewAction=householdReviewControls(row,panel,section,apiBase);
           const householdCodeAction=householdCodeControls(row,panel,section,apiBase);
+          const unitMasterAction=unitMasterControls(row,panel,section,apiBase);
           if(reviewControls)card.append(reviewControls);
           else if(postControls)card.append(postControls);
           else if(benefitControls)card.append(benefitControls);
           else if(householdReviewAction)card.append(householdReviewAction);
           else if(householdCodeAction)card.append(householdCodeAction);
+          else if(unitMasterAction)card.append(unitMasterAction);
           else{const readonly=el('button','상태 변경 (조회 전용)');readonly.disabled=true;card.append(readonly)}
           panel.append(card);
         });

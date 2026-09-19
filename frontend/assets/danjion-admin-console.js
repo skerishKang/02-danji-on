@@ -66,6 +66,14 @@
       householdMessageActions: true
     },
     {
+      id: 'unitMaster',
+      requiredScope: 'resident.verification.manage',
+      title: '세대 기준정보',
+      description: '단지의 실 세대(동·호) 기준정보를 등록하고 활성·비활성 상태를 관리합니다.',
+      path: (slug) => `/api/v1/admin/complexes/${slug}/unit-master?status=all`,
+      unitMasterActions: true
+    },
+    {
       id: 'householdReviews',
       requiredScope: 'resident.verification.manage',
       title: '우리집 연결 승인',
@@ -409,6 +417,73 @@
     return classifyHouseholdCodeMutation(result);
   }
 
+  function classifyUnitMasterMutation(result) {
+    const code = result && result.error && result.error.code ? String(result.error.code) : '';
+    if (result && result.ok) return { state: 'updated', data: result.data, status: result.status, code };
+    if (result && result.status === 401) return { state: 'signed-out', status: 401, code };
+    if (result && result.status === 403) return { state: 'scope-denied', status: 403, code };
+    if (result && result.status === 404) return { state: 'not-found', status: 404, code };
+    if (result && result.status === 409) return { state: 'conflict', status: 409, code };
+    if (result && result.status === 405) return { state: 'method-not-allowed', status: 405, code };
+    if (result && result.status === 503) return { state: 'unavailable', status: 503, code };
+    if (!result || result.reason === 'network-error' || result.status === 0) return { state: 'network-error', status: 0, code };
+    return { state: 'error', status: Number(result.status || 0), code };
+  }
+
+  async function createUnitMaster(fetchImpl, apiBase, input, slug) {
+    const value = input && typeof input === 'object' ? input : {};
+    const buildingCode = String(value.buildingCode || '').trim();
+    const unitCode = String(value.unitCode || '').trim();
+    if (!buildingCode || !unitCode || buildingCode.length > 20 || unitCode.length > 20) {
+      return { state: 'invalid-request', status: 0, code: 'INVALID_UNIT_PARAMS' };
+    }
+    const session = global.DanjionSession;
+    const result = await session.request(
+      fetchImpl,
+      session.joinUrl(
+        String(apiBase || ''),
+        '/api/v1/admin/complexes/' + encodeURIComponent(slug || COMPLEX_SLUG) + '/unit-master'
+      ),
+      { method: 'POST', body: JSON.stringify({ buildingCode, unitCode }) }
+    );
+    return classifyUnitMasterMutation(result);
+  }
+
+  async function updateUnitMaster(fetchImpl, apiBase, unitId, input) {
+    const id = String(unitId || '').trim();
+    if (!UUID_RE.test(id)) return { state: 'invalid-request', status: 0, code: 'INVALID_UNIT_ID' };
+    const value = input && typeof input === 'object' ? input : {};
+    const payload = {};
+    if (value.buildingCode !== undefined) {
+      const b = String(value.buildingCode || '').trim();
+      if (!b || b.length > 20) return { state: 'invalid-request', status: 0, code: 'INVALID_UNIT_PARAMS' };
+      payload.buildingCode = b;
+    }
+    if (value.unitCode !== undefined) {
+      const u = String(value.unitCode || '').trim();
+      if (!u || u.length > 20) return { state: 'invalid-request', status: 0, code: 'INVALID_UNIT_PARAMS' };
+      payload.unitCode = u;
+    }
+    if (value.status !== undefined) {
+      const s = String(value.status || '').trim().toLowerCase();
+      if (s !== 'active' && s !== 'inactive') return { state: 'invalid-request', status: 0, code: 'INVALID_STATUS' };
+      payload.status = s;
+    }
+    if (Object.keys(payload).length === 0) {
+      return { state: 'invalid-request', status: 0, code: 'NO_UPDATES' };
+    }
+    const session = global.DanjionSession;
+    const result = await session.request(
+      fetchImpl,
+      session.joinUrl(
+        String(apiBase || ''),
+        '/api/v1/admin/complex-units/' + encodeURIComponent(id)
+      ),
+      { method: 'PATCH', body: JSON.stringify(payload) }
+    );
+    return classifyUnitMasterMutation(result);
+  }
+
   function rowTitle(row) {
     if (!row || typeof row !== 'object') return '';
     if (row.nickname || row.accountReference) {
@@ -443,6 +518,8 @@
     if (summary) parts.push(String(summary).slice(0, 60));
     const createdAt = row.createdAt || row.created_at || '';
     if (createdAt) parts.push(String(createdAt).slice(0, 16));
+    const deactivatedAt = row.deactivatedAt || row.deactivated_at || '';
+    if (deactivatedAt) parts.push('비활성 ' + String(deactivatedAt).slice(0, 10));
     return parts.join(' · ');
   }
 
@@ -466,6 +543,8 @@
     reviewHouseholdMembership,
     provisionHouseholdCode,
     revokeHouseholdCode,
+    createUnitMaster,
+    updateUnitMaster,
     rowTitle,
     rowStatus,
     rowMeta

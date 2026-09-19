@@ -149,12 +149,14 @@ const loadAdminContext = (location) => {
   assert.equal(operatorViews.held.length, 0, 'the legacy resident-verification policy-hold placeholder is retired by #735');
   assert.equal(operatorViews.privileged.length, 0, 'a bounded grant must never render the privileged area');
   const verificationViews = C.consoleSections({ state: 'operator', wildcard: false, scopes: ['resident.verification.manage'] });
-  assert.deepEqual(Array.from(verificationViews.operational, (s) => String(s.id)), ['householdReviews', 'verifications'],
-    'the bounded resident-verification management scope exposes only the household-review and household-code sections');
+  assert.deepEqual(Array.from(verificationViews.operational, (s) => String(s.id)), ['unitMaster', 'householdReviews', 'verifications'],
+    'the bounded resident-verification management scope exposes unit-master, household-review, and household-code sections');
   const messagingViews = C.consoleSections({ state: 'operator', wildcard: false, scopes: ['household.message.manage'] });
   assert.deepEqual(Array.from(messagingViews.operational, (s) => String(s.id)), ['householdMessages'],
     'the household messaging capability exposes only the send-disabled household targeting section');
   const superViews = C.consoleSections(A.normalizeAuthority({ level: 'admin', wildcard: true, scopes: ['*'] }));
+  assert.ok(superViews.operational.some((s) => String(s.id) === 'unitMaster'),
+    'the wildcard grant includes the unit-master section');
   assert.ok(superViews.operational.some((s) => String(s.id) === 'householdMessages'),
     'the wildcard grant includes the send-disabled household message preview section');
   assert.ok(superViews.operational.some((s) => String(s.id) === 'householdReviews'),
@@ -453,12 +455,16 @@ const loadAdminContext = (location) => {
     assert.ok(!/method\s*:\s*['"](?:POST|PATCH|PUT|DELETE)['"]/.test(src),
       'page/authority layers must not directly own mutation transports');
   }
-  assert.equal((consoleSrc.match(/method\s*:\s*'PATCH'/g) || []).length, 4,
-    'the console bridge may own only application-review, official-news, benefit, and household-membership review PATCH transports');
-  assert.equal((consoleSrc.match(/method\s*:\s*'POST'/g) || []).length, 4,
-    'the console bridge may own only official-news, benefit, household-code create, and household-message dry-run preview POST transports');
+  assert.equal((consoleSrc.match(/method\s*:\s*'PATCH'/g) || []).length, 5,
+    'the console bridge may own only application-review, official-news, benefit, household-membership review, and unit-master PATCH transports');
+  assert.equal((consoleSrc.match(/method\s*:\s*'POST'/g) || []).length, 5,
+    'the console bridge may own only official-news, benefit, household-code create, household-message dry-run preview, and unit-master create POST transports');
   assert.equal((consoleSrc.match(/method\s*:\s*'DELETE'/g) || []).length, 1,
     'the console bridge may own only household-code revoke DELETE transport');
+  assert.ok(consoleSrc.includes(" + '/unit-master'"),
+    'unit-master create must use the admin complex unit-master family');
+  assert.ok(consoleSrc.includes("'/api/v1/admin/complex-units/'"),
+    'unit-master edit must use the admin complex-units PATCH family');
   assert.ok(consoleSrc.includes("'/api/v1/admin/business-applications/'"),
     'business-application review must remain an explicitly activated mutation family');
   assert.ok(consoleSrc.includes("'/api/v1/admin/complexes/'") && consoleSrc.includes(" + '/posts'"),
