@@ -36,11 +36,18 @@ alter table business_image_objects
   add constraint chk_application_document_object_kind
   check (kind in ('business-image', 'application-document'));
 
--- 3. Application-document idempotency scope: one uploader may bind one
---    Idempotency-Key to exactly one durable application-document object key.
---    The verified complex is part of the reservation fingerprint contract and
---    is enforced at replay time: same key with a different complex is a
---    deterministic 409 scope conflict, never a second private object.
+-- 3. Idempotency lanes: separate business-image and application-document unique indexes.
+-- Historical migration 022 indexed (uploader_user_id, upload_idempotency_key) without
+-- filtering by kind. Scope both indexes by kind so callers using the same Idempotency-Key
+-- across kinds do not conflict.
+drop index if exists uq_business_image_upload_idempotency;
+
+create unique index if not exists uq_business_image_upload_idempotency
+  on business_image_objects (uploader_user_id, upload_idempotency_key)
+  where kind = 'business-image' and upload_idempotency_key is not null;
+
+drop index if exists uq_application_document_upload_idempotency;
+
 create unique index if not exists uq_application_document_upload_idempotency
   on business_image_objects (uploader_user_id, upload_idempotency_key)
   where kind = 'application-document' and upload_idempotency_key is not null;
@@ -50,6 +57,9 @@ create unique index if not exists uq_application_document_upload_idempotency
 create index if not exists idx_application_document_upload_pending
   on business_image_objects (uploader_user_id, complex_id, state, updated_at)
   where kind = 'application-document' and state = 'upload_pending';
+
+comment on index uq_business_image_upload_idempotency is
+  'Business-image idempotency scope: (uploader, Idempotency-Key) binds to exactly one durable public business-image object key.';
 
 comment on index uq_application_document_upload_idempotency is
   'Application-document idempotency scope: (uploader, Idempotency-Key) binds to exactly one durable private object key. The reservation row also records the complex; replay with the same key but a different verified complex is a deterministic 409 scope conflict.';

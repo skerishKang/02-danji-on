@@ -1,4 +1,4 @@
-﻿import { neon, type NeonQueryFunction } from '@neondatabase/serverless';
+import { neon, type NeonQueryFunction } from '@neondatabase/serverless';
 import { requireActor as requireCanonicalActor, type Actor } from './auth-v1';
 import { requireVerifiedResident } from './authorization-v2';
 import type { CoreEnv } from './core-v1';
@@ -284,6 +284,7 @@ async function readIdempotentRegistryRow(
       from business_image_objects
       where uploader_user_id = ${uploaderUserId}::uuid
         and upload_idempotency_key = ${idempotencyKey}
+        and kind = 'business-image'
       limit 1
     `;
     return (rows[0] as RegistryRow | undefined) ?? null;
@@ -309,10 +310,10 @@ export async function reserveIdempotentBusinessImageUpload(
   try {
     const rows = await sql`
       insert into business_image_objects (
-        object_key, uploader_user_id, complex_id, state,
+        object_key, uploader_user_id, complex_id, state, kind,
         upload_idempotency_key, upload_request_fingerprint
       ) values (
-        ${objectKeyValue}, ${uploaderUserId}::uuid, ${complexId}::uuid, 'upload_pending',
+        ${objectKeyValue}, ${uploaderUserId}::uuid, ${complexId}::uuid, 'upload_pending', 'business-image',
         ${idempotencyKey}, ${requestFingerprint}
       )
       on conflict do nothing
@@ -329,6 +330,7 @@ export async function reserveIdempotentBusinessImageUpload(
       from business_image_objects
       where uploader_user_id = ${uploaderUserId}::uuid
         and upload_idempotency_key = ${idempotencyKey}
+        and kind = 'business-image'
       limit 1
     `;
     const row = existing[0] as RegistryRow | undefined;

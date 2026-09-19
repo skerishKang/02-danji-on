@@ -82,6 +82,9 @@ jobs:
           - name: application-documents-owner-list-postgres-lifecycle
             database: danjion_owner_doc_list
             script: bash tests/application-documents-owner-list-postgres-lifecycle.sh
+          - name: application-document-upload-idempotency-postgres
+            database: danjion_app_doc_idempotency
+            script: bash tests/application-document-upload-idempotency-postgres.sh
     services:
       postgres:
         image: postgres:18

@@ -118,12 +118,13 @@ Migration `054_application_document_upload_idempotency.sql` is additive:
 
 - Extends the 019 namespace constraint to cover `gdrive/private/application-document/%` keys.
 - Adds `chk_application_document_object_kind` (`business-image | application-document`).
-- Adds unique index `uq_application_document_upload_idempotency` on `(uploader_user_id, upload_idempotency_key)` where `kind = 'application-document'`.
+- Safely replaces the historical 022 un-scoped `uq_business_image_upload_idempotency` index with a kind-scoped index (`where kind = 'business-image' and upload_idempotency_key is not null`) without modifying historical migration 022.
+- Adds unique index `uq_application_document_upload_idempotency` on `(uploader_user_id, upload_idempotency_key)` where `kind = 'application-document' and upload_idempotency_key is not null`.
 - Adds `idx_application_document_upload_pending` for pending-row lookup.
 
 No production DB apply, no historical migration rewrite, no renumbering.
 
-## 12. Tests
+## 12. Unit & Integration Tests
 
 `tests/application-document-upload-idempotency.test.mjs` proves:
 
@@ -141,3 +142,20 @@ No production DB apply, no historical migration rewrite, no renumbering.
 12. Failed upload cannot leave `state=active`
 13. Private visibility preserved
 14. #59 resident-evidence HOLD preserved
+15. Cross-kind idempotency lane isolation (same uploader + same key K can be used independently by business-image and application-document without cross-kind replay or conflict)
+
+## 13. Real PostgreSQL 18 Concurrency & Constraint Verification
+
+`tests/application-document-upload-idempotency-postgres.sh` runs against ephemeral PostgreSQL 18 in CI:
+
+1. Migrations 019 -> 020 -> 021 -> 022 -> 045 -> 054 apply in order cleanly
+2. Private application-document namespace insert succeeds, invalid prefix rejected
+3. Business-image namespace remains normal, invalid prefix rejected
+4. Application-document same uploader + same key = one durable winner
+5. Concurrent same-key insert = exactly one winner
+6. Loser cannot replace winner object
+7. Same key + different uploader is allowed
+8. Business-image and application-document can use the same uploader/key independently
+9. Invalid key/fingerprint pair constraints fail closed
+10. Application-document upload_pending -> active state transition is normal and guarded by schema constraints
+

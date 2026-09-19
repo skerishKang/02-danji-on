@@ -1,9 +1,11 @@
-﻿import assert from 'node:assert/strict';
+import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import {
   applicationDocumentUploadRequestFingerprint,
+  businessImageUploadRequestFingerprint,
   runTrackedApplicationDocumentUpload,
-  reserveIdempotentApplicationDocumentUpload
+  reserveIdempotentApplicationDocumentUpload,
+  reserveIdempotentBusinessImageUpload
 } from '../src/storage-upload-v2.ts';
 
 const root = new URL('../', import.meta.url);
@@ -40,10 +42,13 @@ assert.equal(fp1, fp2, 'same logical file request must have a stable fingerprint
 assert.notEqual(fp1, fpDifferent, 'different file bytes must change the fingerprint');
 assert.match(fp1, /^[0-9a-f]{64}$/);
 
+assert.ok(migration054.includes('uq_business_image_upload_idempotency'));
+assert.ok(migration054.includes("where kind = 'business-image' and upload_idempotency_key is not null"));
 assert.ok(migration054.includes('uq_application_document_upload_idempotency'));
 assert.ok(migration054.includes('(uploader_user_id, upload_idempotency_key)'));
 assert.ok(migration054.includes("where kind = 'application-document' and upload_idempotency_key is not null"));
 assert.ok(migration054.includes('gdrive/private/application-document/%'));
+assert.ok(uploadSource.includes("and kind = 'business-image'"));
 assert.ok(uploadSource.includes("'IDEMPOTENCY_KEY_REUSED'"));
 assert.ok(uploadSource.includes("'APPLICATION_DOCUMENT_UPLOAD_IDEMPOTENCY_SCOPE_CONFLICT'"));
 assert.ok(uploadSource.includes("'APPLICATION_DOCUMENT_UPLOAD_IDEMPOTENCY_STATE_CONFLICT'"));
@@ -62,8 +67,9 @@ function makeSql({ initialRow = null, hideIdempotencyReads = 0 } = {}) {
       idempotencyReadCount += 1;
       if (idempotencyReadCount <= hideIdempotencyReads) return [];
       const [uploaderId, idemKey] = values;
+      const targetKind = text.includes("'business-image'") ? 'business-image' : 'application-document';
       const found = Object.values(rows).find((row) =>
-        row.uploader_user_id === uploaderId && row.upload_idempotency_key === idemKey && row.kind === 'application-document'
+        row.uploader_user_id === uploaderId && row.upload_idempotency_key === idemKey && row.kind === targetKind
       );
       return found ? [found] : [];
     }
@@ -71,15 +77,18 @@ function makeSql({ initialRow = null, hideIdempotencyReads = 0 } = {}) {
     if (text.startsWith('select object_key, uploader_user_id::text, complex_id::text, state from business_image_objects where object_key =')) {
       const [objectKeyVal] = values;
       const row = rows[objectKeyVal];
-      return row && row.kind === 'application-document' ? [row] : [];
+      const targetKind = text.includes("'business-image'") ? 'business-image' : 'application-document';
+      return row && row.kind === targetKind ? [row] : [];
     }
 
     if (text.startsWith('insert into business_image_objects')) {
-      const [objectKeyVal, uploaderId, complexIdVal, idemKey, fingerprint] = values; const stateVal = 'upload_pending'; const kindVal = 'application-document';
+      const targetKind = text.includes("'business-image'") ? 'business-image' : 'application-document';
+      const [objectKeyVal, uploaderId, complexIdVal, idemKey, fingerprint] = values;
+      const stateVal = 'upload_pending';
       if (rows[objectKeyVal]) return [];
       if (idemKey) {
         const conflict = Object.values(rows).find((row) =>
-          row.uploader_user_id === uploaderId && row.upload_idempotency_key === idemKey && row.kind === 'application-document'
+          row.uploader_user_id === uploaderId && row.upload_idempotency_key === idemKey && row.kind === targetKind
         );
         if (conflict) return [];
       }
@@ -88,7 +97,7 @@ function makeSql({ initialRow = null, hideIdempotencyReads = 0 } = {}) {
         uploader_user_id: uploaderId,
         complex_id: complexIdVal,
         state: stateVal,
-        kind: kindVal,
+        kind: targetKind,
         upload_idempotency_key: idemKey ?? null,
         upload_request_fingerprint: fingerprint ?? null
       };
@@ -97,9 +106,10 @@ function makeSql({ initialRow = null, hideIdempotencyReads = 0 } = {}) {
     }
 
     if (text.startsWith('update business_image_objects set state = \'active\'')) {
+      const targetKind = text.includes("'business-image'") ? 'business-image' : 'application-document';
       const [objectKeyVal, uploaderId, complexIdVal] = values;
       const row = rows[objectKeyVal];
-      if (!row || row.uploader_user_id !== uploaderId || row.complex_id !== complexIdVal || row.kind !== 'application-document' || row.state !== 'upload_pending') return [];
+      if (!row || row.uploader_user_id !== uploaderId || row.complex_id !== complexIdVal || row.kind !== targetKind || row.state !== 'upload_pending') return [];
       row.state = 'active';
       row.reconcile_lease_token = null;
       row.reconcile_lease_expires_at = null;
@@ -373,11 +383,69 @@ try {
   assert.equal((await result.json()).error.code, 'APPLICATION_DOCUMENT_UPLOAD_ACTIVATION_UNAVAILABLE');
   assert.equal(fixture.rowByKey(objectKey).state, 'upload_pending', 'activation failure must not produce an active row');
   assert.equal(counters.uploaded(), 1, 'Drive upload may have succeeded but activation failed');
+
+  // 15. Cross-kind idempotency: same uploader using key K for both application-document
+  // and business-image operates in independent lanes without cross-kind replay or conflict.
+  fixture = makeSql();
+  counters = installFetch();
+  const crossKindKey = 'shared-idempotency-key-0001';
+  const docFile = new File(['doc-content-1'], 'proof.pdf', { type: 'application/pdf' });
+  const imgFile = new File(['img-content-1'], 'shop.png', { type: 'image/png' });
+
+  // 15a. Application-document upload with key K succeeds and stores kind='application-document'
+  const docRes = await runTrackedApplicationDocumentUpload(env, fixture.sql, docFile, resident, 'req-doc-cross', crossKindKey);
+  assert.equal(docRes instanceof Response, false);
+  assert.ok(docRes.objectKey.startsWith('gdrive/private/application-document/'));
+  assert.equal(fixture.rowByKey(docRes.objectKey).kind, 'application-document');
+  assert.equal(fixture.rowByKey(docRes.objectKey).upload_idempotency_key, crossKindKey);
+
+  // 15b. Business-image reservation with SAME uploader and SAME key K succeeds independently
+  const imgFileId = 'business_img_file_123456';
+  const imgObjectKey = `gdrive/public/business-image/${imgFileId}`;
+  const imgFingerprint = await businessImageUploadRequestFingerprint(imgFile, complexSlug);
+  const imgReservation = await reserveIdempotentBusinessImageUpload(
+    fixture.sql,
+    imgObjectKey,
+    uploader,
+    complexId,
+    crossKindKey,
+    imgFingerprint,
+    'req-img-cross'
+  );
+  assert.equal(imgReservation.reserved, true);
+  assert.equal(imgReservation.row.object_key, imgObjectKey);
+  assert.equal(fixture.rowByKey(imgObjectKey).kind, 'business-image');
+  assert.equal(fixture.rowByKey(imgObjectKey).upload_idempotency_key, crossKindKey);
+
+  // 15c. Both registry rows coexist independently under the same uploader and same key K
+  assert.notEqual(docRes.objectKey, imgObjectKey);
+  assert.equal(fixture.rowByKey(docRes.objectKey).kind, 'application-document');
+  assert.equal(fixture.rowByKey(imgObjectKey).kind, 'business-image');
+
+  // 15d. Application-document replay with key K returns application-document object, NEVER business-image object
+  const docReplay = await runTrackedApplicationDocumentUpload(env, fixture.sql, docFile, resident, 'req-doc-replay', crossKindKey);
+  assert.equal(docReplay instanceof Response, false);
+  assert.equal(docReplay.objectKey, docRes.objectKey);
+  assert.equal(docReplay.idempotencyReplayed, true);
+
+  // 15e. Business-image loser readback with key K returns business-image object, NEVER application-document object
+  const imgReplay = await reserveIdempotentBusinessImageUpload(
+    fixture.sql,
+    'gdrive/public/business-image/loser_key_123456',
+    uploader,
+    complexId,
+    crossKindKey,
+    imgFingerprint,
+    'req-img-replay'
+  );
+  assert.equal(imgReplay.reserved, false);
+  assert.equal(imgReplay.row.object_key, imgObjectKey);
+  assert.equal(imgReplay.row.kind, 'business-image');
 } finally {
   globalThis.fetch = originalFetch;
 }
 
-console.log('PASS application-document upload idempotency: replay, conflict, scope, race, 404 same-ID resume, mismatch/outage no upload, ambiguous exact-ID reconciliation, registry failure, activation failure');
+console.log('PASS application-document upload idempotency: replay, conflict, scope, race, 404 same-ID resume, mismatch/outage no upload, ambiguous exact-ID reconciliation, registry failure, activation failure, cross-kind isolation');
 
 
 
