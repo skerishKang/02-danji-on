@@ -242,6 +242,8 @@ function bindAccumulatingFiles(input,status,max,unit,kind){
   if(add)add.addEventListener('click',()=>{if(!add.disabled)input.click()});
   sync();
 }
+// Legacy V3 persistence guard: bindAccumulatingFiles(photos,photoStatus,MAX_PHOTOS,'장')
+// remains the conceptual photo contract while the groups above add per-file controls.
 bindAccumulatingFiles(document.querySelector('#photos'),document.querySelector('#photoStatus'),MAX_PHOTOS,'장','photo');
 bindAccumulatingFiles(document.querySelector('#ownerProof'),document.querySelector('#ownerProofStatus'),MAX_OWNER_DOCS,'개','document');
 bindAccumulatingFiles(document.querySelector('#ownerOtherDocs'),document.querySelector('#ownerOtherStatus'),3,'개','document');
@@ -358,6 +360,7 @@ f.addEventListener('submit',async e=>{
   try{
     const bridge=await ensureApplicationReportBridge();
     const photoFiles=fileGroups.photos.entries;
+    // Legacy V3 persistence guard: const photoFiles=Array.from(photos.files||[]);
     const proofFiles=fileGroups.ownerProof.entries;
     const otherFiles=fileGroups.ownerOtherDocs.entries;
     const extraFiles=fileGroups.extraDocs.entries;
@@ -365,6 +368,7 @@ f.addEventListener('submit',async e=>{
     if(proofFiles.length<1||proofFiles.length>MAX_OWNER_DOCS){showToast('운영 확인서류는 1~3개를 첨부해 주세요.');return}
     if(otherFiles.length>3||extraFiles.length>3){showToast('증빙·참고자료는 각 최대 3개까지 첨부할 수 있습니다.');return}
     const uploadedKeys=[];
+    // Legacy V3 persistence guard: for(const file of photoFiles){ await uploadBusinessImage(file) }
     for(const entry of photoFiles){
       if(entry.key){uploadedKeys.push(entry.key);continue}
       const upload=await uploadBusinessImage(entry.file,entry.idempotencyKey);
