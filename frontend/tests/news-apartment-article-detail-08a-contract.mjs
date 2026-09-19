@@ -86,6 +86,8 @@ assert.ok(detail.includes('formatDate(post.publishedAt)') &&
   'ARTICLE_BODY: 게시일 and the long-form body render from server data');
 assert.ok(detail.includes('node.textContent = paragraph'),
   'article paragraphs are text nodes, never re-injected HTML');
+assert.ok(detail.includes('replace(/\\\\r\\\\n|\\\\n|\\\\r/g'),
+  'literal and real newline forms are both honoured as paragraph boundaries');
 assert.equal(detail.includes('.innerHTML ='), false,
   'the detail page must not use an innerHTML write path');
 

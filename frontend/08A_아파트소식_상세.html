@@ -139,7 +139,9 @@ function notFound() {
 function renderParagraphs(body) {
   bodyEl.replaceChildren();
   stateEl.hidden = true;
-  const paragraphs = String(body || '').split(/\n+/).map(line => line.trim()).filter(Boolean);
+  // Server bodies carry either real newlines or literal \n sequences; both are
+  // paragraph boundaries. The text itself is never treated as markup.
+  const paragraphs = String(body || '').replace(/\\r\\n|\\n|\\r/g, '\n').split(/\n+/).map(line => line.trim()).filter(Boolean);
   for (const paragraph of paragraphs) {
     const node = document.createElement('p');
     node.textContent = paragraph;

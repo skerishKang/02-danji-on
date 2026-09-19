@@ -1783,7 +1783,7 @@ test('#768 display-mode readback + authority label + reaction toggle with bounda
   await expect(rows).toHaveCount(2);
 
   // === Highlight post → popup dialog (not reader) ===
-  await rows.first().click();
+  await page.locator('.news-row[data-post-id="' + POST_A + '"]').click();
   await expect(page.locator('dialog')).toBeVisible();
   await expect(page.locator('dialog.reader')).toHaveCount(0);
   await expect(page.locator('.dialog-type')).toHaveText('입주자대표회의 · 아파트소식');
@@ -1792,6 +1792,8 @@ test('#768 display-mode readback + authority label + reaction toggle with bounda
   await expect(page.locator('.story-actions')).toBeVisible();
   await expect(page.locator('.story-react')).toHaveAttribute('aria-pressed', 'false');
   await expect(page.locator('.story-react-count')).toHaveText('2');
+  // #817: highlight keeps the stable ?post= semantics (pushed on open, scrubbed on close).
+  expect(page.url()).toContain('post=' + POST_A);
 
   // === Reaction toggle (authenticated) → POST captured, count updates ===
   await page.locator('.story-react').click();
@@ -1801,22 +1803,24 @@ test('#768 display-mode readback + authority label + reaction toggle with bounda
 
   await page.locator('[data-close-story]').first().click();
   await expect(page.locator('dialog')).toBeHidden();
-
-  // === Article post → reader dialog (with article-body, 장문 badge) ===
-  await rows.last().click();
-  await expect(page.locator('dialog.reader')).toHaveCount(1);
-  await expect(page.locator('.article-body')).toBeVisible();
-  await expect(page.locator('.mode-badge')).toHaveText('장문');
-  await expect(page.locator('.story-react')).toHaveAttribute('aria-pressed', 'false');
-  await expect(page.locator('.story-react-count')).toHaveText('4');
-
-  // === URL has ?post= after opening ===
-  expect(page.url()).toContain('post=' + POST_B);
-
-  // === Close clears URL (the dialog 'close' event and URL scrub are async) ===
-  await page.locator('[data-close-story]').first().click();
-  await expect(page.locator('dialog')).toBeHidden();
   await expect.poll(() => page.url()).not.toContain('post=');
+
+  // === #817: article post → dedicated 08A detail page, never the widened dialog ===
+  await page.locator('.news-row[data-post-id="' + POST_B + '"]').click();
+  await expect.poll(() => decodeURIComponent(page.url())).toContain('08A_아파트소식_상세.html?post=' + POST_B);
+  await expect(page.locator('dialog')).toHaveCount(0);
+  await expect(page.locator('#authorityLabel')).toHaveText('입주자대표회의 · 아파트소식');
+  await expect(page.locator('#articleTitle')).toHaveText('장문 소식');
+  await expect(page.locator('.article-body p')).toHaveCount(3);
+  await expect(page.locator('.article-body p').first()).toHaveText('문단 1');
+  await expect(page.locator('#reactBtn')).toHaveAttribute('aria-pressed', 'false');
+  await expect(page.locator('#reactCount')).toHaveText('4');
+
+  // === Article page reaction reuses the same server contract ===
+  await page.locator('#reactBtn').click();
+  await expect(page.locator('#reactBtn')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('#reactCount')).toHaveText('5');
+  expect(reactionCalls.filter(c => c.startsWith('POST'))).toHaveLength(2);
 
   // === No unexpected mutations ===
   expect(unexpectedMutations).toEqual([]);
