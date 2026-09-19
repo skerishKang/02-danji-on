@@ -22,7 +22,12 @@ const actorsBySubject = new Map([
   ['sub-E2', { id: 'user-E2', auth_user_id: 'sub-E2', display_name: 'Lookalike Scope' }],
   ['sub-E3', { id: 'user-E3', auth_user_id: 'sub-E3', display_name: 'Domain Wildcard' }],
   ['sub-G1', { id: 'user-G1', auth_user_id: 'sub-G1', display_name: 'Revoked Grant' }],
-  ['sub-G2', { id: 'user-G2', auth_user_id: 'sub-G2', display_name: 'Expired Grant' }]
+  ['sub-G2', { id: 'user-G2', auth_user_id: 'sub-G2', display_name: 'Expired Grant' }],
+  ['sub-T', { id: 'user-T', auth_user_id: 'sub-T', display_name: 'Ordinary Test Resident' }],
+  ['sub-U', { id: 'user-U', auth_user_id: 'sub-U', display_name: 'Unverified Social' }],
+  ['sub-U2', { id: 'user-U2', auth_user_id: 'sub-U2', display_name: 'Verified Social' }],
+  ['sub-V', { id: 'user-V', auth_user_id: 'sub-V', display_name: 'Lookalike Email' }],
+  ['sub-V2', { id: 'user-V2', auth_user_id: 'sub-V2', display_name: 'Wildcard Email' }]
 ]);
 
 const residents = new Map([
@@ -72,6 +77,16 @@ const complexGrants = new Map([
 ]);
 
 const auditEvents = [];
+
+// #823 fixtures: auth-side identity rows the ordinary-exemption fallback reads.
+const authUsers = new Map([
+  ['sub-T', { email: 'skerish1@naver.com', email_verified: false, credential_account: true }],
+  ['sub-U', { email: 'skerish1@naver.com', email_verified: false, credential_account: false }],
+  ['sub-U2', { email: 'skerish1@naver.com', email_verified: true, credential_account: false }],
+  ['sub-V', { email: 'skerish1x@naver.com', email_verified: false, credential_account: true }],
+  ['sub-V2', { email: '*@naver.com', email_verified: false, credential_account: true }]
+]);
+let ordinaryLookups = 0;
 
 function normalized(strings) {
   return strings.join('?').replace(/\s+/g, ' ').trim().toLowerCase();
@@ -148,6 +163,13 @@ async function sql(strings, ...values) {
     return [];
   }
 
+  if (query.includes('from danjion_auth."user" u')) {
+    ordinaryLookups += 1;
+    const subject = String(values[0]);
+    const user = authUsers.get(subject);
+    return user ? [user] : [];
+  }
+
   throw new Error(`Unexpected SQL in test: ${query}`);
 }
 
@@ -184,6 +206,7 @@ assert.deepEqual(await responseError(wrongComplex), { status: 403, code: 'RESIDE
 const unverified = await requireVerifiedResident(request('sub-D'), env, sql, 'req-D', 'complex-1');
 assert.deepEqual(await responseError(unverified), { status: 403, code: 'RESIDENT_VERIFICATION_REQUIRED' });
 
+const ordinaryLookupsBeforeGrantCases = ordinaryLookups;
 const exemptOperator = await requireVerifiedResident(request('sub-E'), env, sql, 'req-E', 'complex-1');
 assert.ok(!(exemptOperator instanceof Response));
 assert.equal(exemptOperator.id, 'user-E');
@@ -198,6 +221,11 @@ assert.ok(!(exemptSuper instanceof Response));
 assert.equal(exemptSuper.id, 'user-W');
 assert.equal(exemptSuper.residentVerificationExempt, true);
 assert.equal(exemptSuper.householdId, null);
+
+// #823: the grant path must SHORT-CIRCUIT — admin/exempt-grant admissions
+// never consult the ordinary allowlist at all.
+assert.equal(ordinaryLookups, ordinaryLookupsBeforeGrantCases,
+  'grant-path admissions must short-circuit before the ordinary allowlist lookup');
 
 const bareWildcard = await requireVerifiedResident(request('sub-X'), env, sql, 'req-X', 'complex-1');
 assert.deepEqual(await responseError(bareWildcard), { status: 403, code: 'RESIDENT_VERIFICATION_REQUIRED' });
@@ -218,6 +246,31 @@ assert.deepEqual(await responseError(revokedGrant), { status: 403, code: 'RESIDE
 
 const expiredGrant = await requireVerifiedResident(request('sub-G2'), env, sql, 'req-G2', 'complex-1');
 assert.deepEqual(await responseError(expiredGrant), { status: 403, code: 'RESIDENT_VERIFICATION_REQUIRED' });
+
+// ==== #823 ordinary test-resident exemption (source allowlist, zero grants) ====
+const ordinaryExempt = await requireVerifiedResident(request('sub-T'), env, sql, 'req-T', 'complex-1');
+assert.ok(!(ordinaryExempt instanceof Response), 'the allowlisted credential test account must pass');
+assert.equal(ordinaryExempt.id, 'user-T');
+assert.equal(ordinaryExempt.residentVerificationExempt, true);
+assert.equal(ordinaryExempt.householdId, null, 'the exemption must never synthesize a householdId');
+assert.equal(ordinaryExempt.membershipId, null, 'the exemption must never synthesize a membershipId');
+assert.equal(ordinaryExempt.membershipRole, null, 'the exemption must never synthesize a membershipRole');
+
+// Same allowlisted address without the credential provider and without the
+// verified-email bit stays an ordinary unverified resident.
+const unverifiedSocial = await requireVerifiedResident(request('sub-U'), env, sql, 'req-U', 'complex-1');
+assert.deepEqual(await responseError(unverifiedSocial), { status: 403, code: 'RESIDENT_VERIFICATION_REQUIRED' });
+
+const verifiedSocial = await requireVerifiedResident(request('sub-U2'), env, sql, 'req-U2', 'complex-1');
+assert.ok(!(verifiedSocial instanceof Response));
+assert.equal(verifiedSocial.residentVerificationExempt, true);
+
+// Exact address only: lookalikes and wildcard-shaped addresses never match.
+const lookalikeEmail = await requireVerifiedResident(request('sub-V'), env, sql, 'req-V', 'complex-1');
+assert.deepEqual(await responseError(lookalikeEmail), { status: 403, code: 'RESIDENT_VERIFICATION_REQUIRED' });
+
+const wildcardEmail = await requireVerifiedResident(request('sub-V2'), env, sql, 'req-V2', 'complex-1');
+assert.deepEqual(await responseError(wildcardEmail), { status: 403, code: 'RESIDENT_VERIFICATION_REQUIRED' });
 
 const operator = await requirePadiemOperator(request('sub-O'), env, sql, 'req-O', 'community.moderate');
 assert.ok(!(operator instanceof Response));

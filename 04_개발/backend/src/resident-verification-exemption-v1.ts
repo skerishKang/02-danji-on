@@ -2,6 +2,7 @@ import { neon, type NeonQueryFunction } from '@neondatabase/serverless';
 import { requireActor } from './auth-v1';
 import type { CoreEnv } from './core-v1';
 import { resolvePadiemAuthority } from './padiem-authority-v1';
+import { resolveOrdinaryTestResidentExemption } from './resident-verification-ordinary-exemption-v1';
 
 type Sql = NeonQueryFunction<false, false>;
 
@@ -61,7 +62,12 @@ export async function resolveResidentVerificationExemptionResponse(
 
   try {
     const authority = await resolvePadiemAuthority(sql, actor.id);
-    return ok(authority.scopes.includes(RESIDENT_VERIFICATION_EXEMPT_SCOPE), requestId);
+    if (authority.scopes.includes(RESIDENT_VERIFICATION_EXEMPT_SCOPE)) {
+      return ok(true, requestId);
+    }
+    // #823: the ordinary test-resident allowlist is a fallback of the same
+    // exact-scope decision, never a new authority source.
+    return ok(await resolveOrdinaryTestResidentExemption(sql, actor), requestId);
   } catch {
     return fail(
       'RESIDENT_VERIFICATION_EXEMPTION_DB_ERROR',
