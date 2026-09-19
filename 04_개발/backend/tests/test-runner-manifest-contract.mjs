@@ -171,6 +171,7 @@ const EXPECTED_FRONTEND_ORDER = [
    "test:v2-runtime-preview-contract",
    "test:pr-review-preview-workflow",
    "test:admin-authority-role-contract",
+   "test:leaf-b788-visual-syntax-integrity",
  ];
 
 const EXPECTED_CI_ONLY = [
