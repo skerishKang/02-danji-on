@@ -15,7 +15,10 @@ const actorsBySubject = new Map([
   ['sub-O', { id: 'user-O', auth_user_id: 'sub-O', display_name: 'O' }],
   ['sub-M', { id: 'user-M', auth_user_id: 'sub-M', display_name: 'M' }],
   ['sub-R', { id: 'user-R', auth_user_id: 'sub-R', display_name: 'R' }],
-  ['sub-S', { id: 'user-S', auth_user_id: 'sub-S', display_name: 'S' }]
+  ['sub-S', { id: 'user-S', auth_user_id: 'sub-S', display_name: 'S' }],
+  ['sub-E', { id: 'user-E', auth_user_id: 'sub-E', display_name: 'Exempt Operator' }],
+  ['sub-W', { id: 'user-W', auth_user_id: 'sub-W', display_name: 'Exempt Super' }],
+  ['sub-X', { id: 'user-X', auth_user_id: 'sub-X', display_name: 'Bare Wildcard' }]
 ]);
 
 const residents = new Map([
@@ -32,6 +35,12 @@ const complexes = new Map([
 
 const padiemGrants = new Map([
   ['user-O|community.moderate', { id: 'grant-O', scope: 'community.moderate' }]
+]);
+
+const authorityScopes = new Map([
+  ['user-E', ['resident.verification.exempt']],
+  ['user-W', ['*', 'resident.verification.exempt']],
+  ['user-X', ['*']]
 ]);
 
 const complexGrants = new Map([
@@ -65,12 +74,23 @@ async function sql(strings, ...values) {
     return resident ? [resident] : [];
   }
 
+  if (query.includes('from padiem_operator_grants') && query.includes('order by scope')) {
+    const actorId = String(values[0]);
+    return (authorityScopes.get(actorId) || []).map((scope, index) => ({ id: `authority-${index}`, scope }));
+  }
+
   if (query.includes('from padiem_operator_grants')) {
     const actorId = String(values[0]);
     const requestedScope = String(values[1]);
     return padiemGrants.has(`${actorId}|${requestedScope}`)
       ? [padiemGrants.get(`${actorId}|${requestedScope}`)]
       : [];
+  }
+
+  if (query.includes('from complexes') && !query.includes('left join complex_operator_grants g')) {
+    const complexSlug = String(values[0]);
+    const complex = complexes.get(complexSlug);
+    return complex ? [complex] : [];
   }
 
   if (query.includes('left join complex_operator_grants g')) {
@@ -125,6 +145,7 @@ assert.ok(!(residentA instanceof Response));
 assert.equal(residentA.id, 'user-A');
 assert.equal(residentA.householdId, 'house-1');
 assert.equal(residentA.membershipRole, 'primary');
+assert.equal(residentA.residentVerificationExempt, false);
 
 const residentB = await requireVerifiedResident(request('sub-B'), env, sql, 'req-B', 'complex-1');
 assert.ok(!(residentB instanceof Response));
@@ -136,6 +157,24 @@ assert.deepEqual(await responseError(wrongComplex), { status: 403, code: 'RESIDE
 
 const unverified = await requireVerifiedResident(request('sub-D'), env, sql, 'req-D', 'complex-1');
 assert.deepEqual(await responseError(unverified), { status: 403, code: 'RESIDENT_VERIFICATION_REQUIRED' });
+
+const exemptOperator = await requireVerifiedResident(request('sub-E'), env, sql, 'req-E', 'complex-1');
+assert.ok(!(exemptOperator instanceof Response));
+assert.equal(exemptOperator.id, 'user-E');
+assert.equal(exemptOperator.complexId, 'complex-id-1');
+assert.equal(exemptOperator.residentVerificationExempt, true);
+assert.equal(exemptOperator.householdId, null);
+assert.equal(exemptOperator.membershipId, null);
+assert.equal(exemptOperator.membershipRole, null);
+
+const exemptSuper = await requireVerifiedResident(request('sub-W'), env, sql, 'req-W', 'complex-1');
+assert.ok(!(exemptSuper instanceof Response));
+assert.equal(exemptSuper.id, 'user-W');
+assert.equal(exemptSuper.residentVerificationExempt, true);
+assert.equal(exemptSuper.householdId, null);
+
+const bareWildcard = await requireVerifiedResident(request('sub-X'), env, sql, 'req-X', 'complex-1');
+assert.deepEqual(await responseError(bareWildcard), { status: 403, code: 'RESIDENT_VERIFICATION_REQUIRED' });
 
 const operator = await requirePadiemOperator(request('sub-O'), env, sql, 'req-O', 'community.moderate');
 assert.ok(!(operator instanceof Response));
