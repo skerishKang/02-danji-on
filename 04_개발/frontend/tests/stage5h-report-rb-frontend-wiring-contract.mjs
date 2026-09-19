@@ -122,12 +122,22 @@ for (const raw of ['family', 'neighbor']) {
   assert.equal(sent.categoryName, '자동차', 'supplied category passes through verbatim');
 }
 
-// 6: 401/403 fail closed
-for (const status of [401, 403]) {
-  const bridge = createApplicationReportBridge({ fetchImpl: async () => response(status, { error: { code: 'X' } }) });
+// 6: 401/403 fail closed with their canonical discriminated reasons
+// #763 split the old blanket 'auth-required' into distinct fail-closed reasons:
+// 401 keeps 'auth-required', while 403 resolves to 'resident-verification-required'
+// for the resident gates and 'forbidden' otherwise. Every one of them is a
+// fail-closed rejection — none of them may ever report ok:true.
+for (const [status, code, reason] of [
+  [401, null, 'auth-required'],
+  [403, 'RESIDENT_VERIFICATION_REQUIRED', 'resident-verification-required'],
+  [403, 'HOUSEHOLD_ASSOCIATION_REQUIRED', 'resident-verification-required'],
+  [403, 'FORBIDDEN', 'forbidden'],
+  [403, null, 'forbidden']
+]) {
+  const bridge = createApplicationReportBridge({ fetchImpl: async () => response(status, { error: { code } }) });
   const result = await bridge.createRecommendation({ relationRaw: 'neighbor', businessName: '가게', serviceSummary: '설명' });
-  assert.equal(result.ok, false, `${status} must not succeed`);
-  assert.equal(result.reason, 'auth-required', `${status} must fail closed as auth-required`);
+  assert.equal(result.ok, false, `${status}/${code} must not succeed`);
+  assert.equal(result.reason, reason, `${status}/${code} must fail closed as ${reason}`);
 }
 
 // 7: 5xx / network fail closed, never ok:true
@@ -171,7 +181,15 @@ for (const status of [401, 403]) {
   assert.ok(successIdx > callIdx, '8. success copy only after the real server call');
   const failIdx = html.indexOf('접수를 완료하지 못했습니다');
   assert.ok(failIdx > callIdx, '8. failure toast must exist on the report server path');
-  assert.ok(!/미분류|UNCATEGORIZED|fake|가짜/.test(html), '8. no synthetic/fake category markers');
+  // The marker scan targets real category synthesis, so it must look at executable
+  // code only. `fake` legitimately appears in prose assertions such as
+  // "no local fake persistence", which is the opposite of a synthetic marker.
+  const htmlCode = html
+    .split('\n')
+    .filter((line) => !/^\s*(\/\/|\*|\/\*|<!--)/.test(line))
+    .join('\n');
+  assert.ok(!/미분류|UNCATEGORIZED|가짜/.test(htmlCode), '8. no synthetic/fake category markers');
+  assert.ok(!/\bfake[A-Za-z]*\s*[:=(]/.test(htmlCode), '8. no fabricated category/identifier assignment');
 }
 
 console.log('PASS KILO3 stage5h report R-B frontend wiring contract');

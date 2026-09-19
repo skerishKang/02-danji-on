@@ -18,7 +18,11 @@ const actorsBySubject = new Map([
   ['sub-S', { id: 'user-S', auth_user_id: 'sub-S', display_name: 'S' }],
   ['sub-E', { id: 'user-E', auth_user_id: 'sub-E', display_name: 'Exempt Operator' }],
   ['sub-W', { id: 'user-W', auth_user_id: 'sub-W', display_name: 'Exempt Super' }],
-  ['sub-X', { id: 'user-X', auth_user_id: 'sub-X', display_name: 'Bare Wildcard' }]
+  ['sub-X', { id: 'user-X', auth_user_id: 'sub-X', display_name: 'Bare Wildcard' }],
+  ['sub-E2', { id: 'user-E2', auth_user_id: 'sub-E2', display_name: 'Lookalike Scope' }],
+  ['sub-E3', { id: 'user-E3', auth_user_id: 'sub-E3', display_name: 'Domain Wildcard' }],
+  ['sub-G1', { id: 'user-G1', auth_user_id: 'sub-G1', display_name: 'Revoked Grant' }],
+  ['sub-G2', { id: 'user-G2', auth_user_id: 'sub-G2', display_name: 'Expired Grant' }]
 ]);
 
 const residents = new Map([
@@ -37,10 +41,25 @@ const padiemGrants = new Map([
   ['user-O|community.moderate', { id: 'grant-O', scope: 'community.moderate' }]
 ]);
 
-const authorityScopes = new Map([
-  ['user-E', ['resident.verification.exempt']],
-  ['user-W', ['*', 'resident.verification.exempt']],
-  ['user-X', ['*']]
+// Case C/D fixtures: the canonical resolver selects only grants whose row is
+// `status = 'active'` AND (`expires_at is null` OR `expires_at > now()`).
+// A near-miss scope string and a revoked/expired grant must therefore both stay
+// outside the exemption, so the mock models the row shape the SQL actually reads.
+const authorityGrants = new Map([
+  ['user-E', [{ id: 'grant-E', scope: 'resident.verification.exempt', status: 'active', expires_at: null }]],
+  ['user-W', [
+    { id: 'grant-W0', scope: '*', status: 'active', expires_at: null },
+    { id: 'grant-W1', scope: 'resident.verification.exempt', status: 'active', expires_at: null }
+  ]],
+  ['user-X', [{ id: 'grant-X', scope: '*', status: 'active', expires_at: null }]],
+  // Similar-name scopes: only the exact string exempts.
+  ['user-E2', [{ id: 'grant-E2', scope: 'resident.verification.exempt.extra', status: 'active', expires_at: null }]],
+  // Domain-level wildcard lookalike.
+  ['user-E3', [{ id: 'grant-E3', scope: 'resident.verification.*', status: 'active', expires_at: null }]],
+  // Revoked grant: same exact scope, but not active.
+  ['user-G1', [{ id: 'grant-G1', scope: 'resident.verification.exempt', status: 'revoked', expires_at: null }]],
+  // Expired grant: active status but expires_at in the past.
+  ['user-G2', [{ id: 'grant-G2', scope: 'resident.verification.exempt', status: 'active', expires_at: '2020-01-01T00:00:00Z' }]]
 ]);
 
 const complexGrants = new Map([
@@ -76,7 +95,14 @@ async function sql(strings, ...values) {
 
   if (query.includes('from padiem_operator_grants') && query.includes('order by scope')) {
     const actorId = String(values[0]);
-    return (authorityScopes.get(actorId) || []).map((scope, index) => ({ id: `authority-${index}`, scope }));
+    // Mirror the canonical predicate: active + (no expiry OR expiry in the future).
+    // `now` is read from the same source the runtime uses, never hardcoded.
+    const nowMs = Date.now();
+    return (authorityGrants.get(actorId) || [])
+      .filter((grant) => String(grant.status) === 'active')
+      .filter((grant) => grant.expires_at == null || Date.parse(String(grant.expires_at)) > nowMs)
+      .sort((a, b) => String(a.scope).localeCompare(String(b.scope)))
+      .map((grant) => ({ id: grant.id, scope: grant.scope }));
   }
 
   if (query.includes('from padiem_operator_grants')) {
@@ -175,6 +201,23 @@ assert.equal(exemptSuper.householdId, null);
 
 const bareWildcard = await requireVerifiedResident(request('sub-X'), env, sql, 'req-X', 'complex-1');
 assert.deepEqual(await responseError(bareWildcard), { status: 403, code: 'RESIDENT_VERIFICATION_REQUIRED' });
+
+// Case C — similar-name scopes must never exempt. Only the exact canonical
+// string 'resident.verification.exempt' exempts; prefixed extensions and
+// domain-level wildcards stay ordinary residents.
+const lookalikeScope = await requireVerifiedResident(request('sub-E2'), env, sql, 'req-E2', 'complex-1');
+assert.deepEqual(await responseError(lookalikeScope), { status: 403, code: 'RESIDENT_VERIFICATION_REQUIRED' });
+
+const domainWildcard = await requireVerifiedResident(request('sub-E3'), env, sql, 'req-E3', 'complex-1');
+assert.deepEqual(await responseError(domainWildcard), { status: 403, code: 'RESIDENT_VERIFICATION_REQUIRED' });
+
+// Case D — an inactive or expired grant carrying the exact scope must not
+// exempt: exemption is bound to a currently-valid, non-revoked grant.
+const revokedGrant = await requireVerifiedResident(request('sub-G1'), env, sql, 'req-G1', 'complex-1');
+assert.deepEqual(await responseError(revokedGrant), { status: 403, code: 'RESIDENT_VERIFICATION_REQUIRED' });
+
+const expiredGrant = await requireVerifiedResident(request('sub-G2'), env, sql, 'req-G2', 'complex-1');
+assert.deepEqual(await responseError(expiredGrant), { status: 403, code: 'RESIDENT_VERIFICATION_REQUIRED' });
 
 const operator = await requirePadiemOperator(request('sub-O'), env, sql, 'req-O', 'community.moderate');
 assert.ok(!(operator instanceof Response));

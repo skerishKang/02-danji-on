@@ -216,14 +216,25 @@ const WIRING = [
   ['16', page16, 'danjion-community-write-question-live-wiring-329'],
   ['17', page17, 'danjion-community-write-together-live-wiring-329']
 ];
+// #806 removed the prototype community board: the list and write surfaces are
+// now server-only / fail-closed. Page 13 keeps its `if(!apiBase)return;` guard
+// on purpose so server post ids keep mapping onto the static demo ids (asserted
+// in the 13-specific block below), so it is excluded from the two assertions
+// that pin the server-only contract.
+const SERVER_ONLY_COMMUNITY_PAGES = WIRING.filter(([name]) => name !== '13');
+assert.equal(SERVER_ONLY_COMMUNITY_PAGES.length, 5, 'five community surfaces are server-only after #806');
 for (const [name, page, id] of WIRING) {
   assert.match(page, /<script src="assets\/danjion-session\.js"><\/script>/, `${name} loads canonical session runtime`);
   assert.match(page, /<script src="assets\/community-bridge\.js"><\/script>/, `${name} loads the community bridge`);
   const wiring = wiringScript(page, id);
   assert.match(wiring, /DanjionSession\.danjionApiBase\(\)/, `${name} reuses canonical apiBase parsing`);
-  assert.match(wiring, /if\(!apiBase\)return;/, `${name} keeps static demo when no apiBase`);
   assert.doesNotMatch(wiring, /localStorage\.setItem|sessionStorage|indexedDB/, `${name} wiring never writes local persistence`);
   new vm.Script(wiring, { filename: `page-${name}-wiring` });
+}
+for (const [name, page, id] of SERVER_ONLY_COMMUNITY_PAGES) {
+  const wiring = wiringScript(page, id);
+  assert.doesNotMatch(wiring, /if\(!apiBase\)return;/, `${name} no longer short-circuits into a demo fallback when apiBase is absent (#806 server-only)`);
+  assert.doesNotMatch(page, /const POSTS=\[/, `${name} no static demo community data survives (#806 removed the prototype board)`);
 }
 {
   const w12 = wiringScript(page12, 'danjion-community-list-live-wiring-329');
@@ -298,9 +309,17 @@ for (const [name, page] of [
   assert.match(w13, /commentText\.disabled=true/, '13 blocks comments while the post is pending');
 }
 
-/* ---------- 7. demo behavior stays intact for no-apiBase visitors ---------- */
+/* ---------- 7. no-apiBase visitors get the fail-closed server-only contract ---------- */
 {
-  assert.match(page12, /const POSTS=\[/, '12 demo board data preserved');
+  // #806 removed the prototype board: page 12 must no longer carry static demo
+  // posts, and its live wiring must not fall back to a demo list when apiBase is
+  // absent. Page 13 is the one surface that keeps demo ids static on purpose.
+  assert.doesNotMatch(page12, /const POSTS=\[/, '12 static demo board data stays retired (#806)');
+  assert.doesNotMatch(
+    wiringScript(page12, 'danjion-community-list-live-wiring-329'),
+    /if\(!apiBase\)return;/,
+    '12 does not short-circuit into a demo list when apiBase is absent (#806 server-only)'
+  );
   assert.match(page12, /id="danjion-direct-router-v5"/, '12 router preserved');
   assert.doesNotMatch(page13, /const DATA=\{/, '13 prototype resident detail data stays retired');
   assert.match(page13, /function enterServerLoadingState\(\)/, '13 uses the server-owned neutral loading state rather than demo resident content');
