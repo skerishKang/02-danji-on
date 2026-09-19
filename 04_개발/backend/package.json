@@ -52,6 +52,7 @@
     "test:business-image-upload-pending": "tsx tests/business-image-upload-pending.test.mjs",
     "test:business-image-background-reconciliation": "tsx tests/business-image-background-reconciliation.test.mjs",
     "test:business-image-upload-idempotency": "tsx tests/business-image-upload-idempotency.test.mjs",
+    "test:application-document-upload-idempotency": "tsx tests/application-document-upload-idempotency.test.mjs",
     "test:business-application-photos": "node tests/business-application-photos-contract.mjs",
     "test:business-application-photos-replay": "tsx tests/business-application-photos-replay.test.mjs",
     "test:application-documents-gap5": "node tests/application-documents-gap5-contract.mjs",

@@ -194,6 +194,7 @@ const EXPECTED_CI_ONLY = [
   "resident-summary-postgres-lifecycle",
   "run-live-db-integration",
   "business-review-comments-postgres-lifecycle",
+  "application-document-upload-idempotency-postgres",
 ];
 
 const backendIds = manifest.scopes.backend.run.map((s) => s.id);

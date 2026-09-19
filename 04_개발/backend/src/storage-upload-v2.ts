@@ -284,6 +284,7 @@ async function readIdempotentRegistryRow(
       from business_image_objects
       where uploader_user_id = ${uploaderUserId}::uuid
         and upload_idempotency_key = ${idempotencyKey}
+        and kind = 'business-image'
       limit 1
     `;
     return (rows[0] as RegistryRow | undefined) ?? null;
@@ -309,10 +310,10 @@ export async function reserveIdempotentBusinessImageUpload(
   try {
     const rows = await sql`
       insert into business_image_objects (
-        object_key, uploader_user_id, complex_id, state,
+        object_key, uploader_user_id, complex_id, state, kind,
         upload_idempotency_key, upload_request_fingerprint
       ) values (
-        ${objectKeyValue}, ${uploaderUserId}::uuid, ${complexId}::uuid, 'upload_pending',
+        ${objectKeyValue}, ${uploaderUserId}::uuid, ${complexId}::uuid, 'upload_pending', 'business-image',
         ${idempotencyKey}, ${requestFingerprint}
       )
       on conflict do nothing
@@ -329,6 +330,7 @@ export async function reserveIdempotentBusinessImageUpload(
       from business_image_objects
       where uploader_user_id = ${uploaderUserId}::uuid
         and upload_idempotency_key = ${idempotencyKey}
+        and kind = 'business-image'
       limit 1
     `;
     const row = existing[0] as RegistryRow | undefined;
@@ -841,118 +843,699 @@ export async function runTrackedBusinessImageUpload(
    return { objectKey: objectKeyValue, metadata };
  }
 
-  async function uploadApplicationDocumentFile(
-    env: DriveEnv,
-    file: File,
-    fileId: string,
-    uploaderUserId: string,
-    complexSlug: string
-  ): Promise<DriveMetadata> {
-    const folderId = env.GOOGLE_DRIVE_PRIVATE_RESIDENT_VERIFICATION_FOLDER_ID?.trim();
-    if (!folderId) throw new Error('Google Drive private folder is not configured for application documents');
-    const boundary = `danjion-${crypto.randomUUID()}`;
-    const metadata = {
-      name: `${new Date().toISOString().slice(0, 10)}-${crypto.randomUUID()}-${safeStorageFileName(file.name)}`,
-      parents: [folderId],
-      appProperties: {
-        danjionKind: 'application-document',
-        danjionVisibility: 'private',
-        danjionUploaderUserId: uploaderUserId,
-        danjionComplexSlug: complexSlug
-      }
-    };
-   const body = new Blob([
-     `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n`,
-     `--${boundary}\r\nContent-Type: ${file.type}\r\n\r\n`,
-     file,
-     `\r\n--${boundary}--\r\n`
-   ]);
-   const response = await googleFetch(
-     env,
-     `${DRIVE_UPLOAD_API}/files?uploadType=multipart&fields=id,name,mimeType,size,parents,appProperties&supportsAllDrives=true`,
-     {
-       method: 'POST',
-       headers: { 'content-type': `multipart/related; boundary=${boundary}` },
-       body
-     }
-   );
-   if (!response.ok) {
-     const detail = await response.text().catch(() => '');
-     throw new Error(`Google Drive application-document upload failed (${response.status})${detail ? `: ${detail.slice(0, 240)}` : ''}`);
-   }
-   return response.json() as Promise<DriveMetadata>;
- }
+export async function applicationDocumentUploadRequestFingerprint(
+  file: File,
+  complexSlug: string
+): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', await file.arrayBuffer());
+  const contentSha256 = hexDigest(digest);
+  const canonical = [
+    'application-document',
+    complexSlug,
+    file.name,
+    file.type,
+    String(file.size),
+    contentSha256
+  ].join('\n');
+  const fingerprintDigest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(canonical));
+  return hexDigest(fingerprintDigest);
+}
 
- async function registerApplicationDocumentObject(
-   sql: Sql,
-   objectKeyValue: string,
-   uploaderUserId: string,
-   complexId: string,
-   requestId: string
- ): Promise<Response | null> {
-   try {
-     const rows = await sql`
-       insert into business_image_objects (
-         object_key, uploader_user_id, complex_id, state, kind
-       ) values (
-         ${objectKeyValue}, ${uploaderUserId}::uuid, ${complexId}::uuid, 'active', 'application-document'
-       )
-       on conflict (object_key) do nothing
-       returning object_key
-     `;
-     if (rows[0]) return null;
-     return fail(
-       'APPLICATION_DOCUMENT_REGISTRY_CONFLICT',
-       'Application document object key is already registered',
-       409,
-       requestId
-     );
-   } catch {
-     return fail(
-       'APPLICATION_DOCUMENT_REGISTRY_UNAVAILABLE',
-       'Application document lifecycle registry is unavailable',
-       503,
-       requestId
-     );
-   }
- }
+function applicationDocumentMetadataMatches(
+  env: DriveEnv,
+  metadata: DriveMetadata,
+  fileId: string,
+  uploaderUserId: string,
+  complexSlug: string
+): boolean {
+  const folderId = env.GOOGLE_DRIVE_PRIVATE_RESIDENT_VERIFICATION_FOLDER_ID?.trim();
+  const props = metadata.appProperties || {};
+  return Boolean(folderId) &&
+    metadata.id === fileId &&
+    metadata.trashed !== true &&
+    metadata.parents?.includes(folderId!) === true &&
+    props.danjionKind === 'application-document' &&
+    props.danjionVisibility === 'private' &&
+    props.danjionUploaderUserId === uploaderUserId &&
+    props.danjionComplexSlug === complexSlug;
+}
 
- async function runTrackedApplicationDocumentUpload(
-   env: CoreEnv,
-   sql: Sql,
-   file: File,
-   resident: TrackedResident,
-   requestId: string,
-   idempotencyKey: string | null
- ): Promise<UploadSuccess | Response> {
-   let fileId: string;
-   try {
-     fileId = await generateDriveFileId(env as DriveEnv);
-   } catch {
-     return fail('APPLICATION_DOCUMENT_ID_RESERVATION_UNAVAILABLE', 'Google Drive could not reserve an upload id', 503, requestId);
-   }
-   const objectKeyValue = applicationDocumentObjectKey(fileId);
+async function uploadApplicationDocumentFile(
+  env: DriveEnv,
+  file: File,
+  fileId: string,
+  uploaderUserId: string,
+  complexSlug: string
+): Promise<Response> {
+  const folderId = env.GOOGLE_DRIVE_PRIVATE_RESIDENT_VERIFICATION_FOLDER_ID?.trim();
+  if (!folderId) throw new Error('Google Drive private folder is not configured for application documents');
+  const boundary = `danjion-${crypto.randomUUID()}`;
+  const metadata = {
+    id: fileId,
+    name: `${new Date().toISOString().slice(0, 10)}-${crypto.randomUUID()}-${safeStorageFileName(file.name)}`,
+    parents: [folderId],
+    appProperties: {
+      danjionKind: 'application-document',
+      danjionVisibility: 'private',
+      danjionUploaderUserId: uploaderUserId,
+      danjionComplexSlug: complexSlug
+    }
+  };
+  const body = new Blob([
+    `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n`,
+    `--${boundary}\r\nContent-Type: ${file.type}\r\n\r\n`,
+    file,
+    `\r\n--${boundary}--\r\n`
+  ]);
+  return googleFetch(
+    env,
+    `${DRIVE_UPLOAD_API}/files?uploadType=multipart&fields=id,name,mimeType,size,trashed,parents,appProperties&supportsAllDrives=true`,
+    {
+      method: 'POST',
+      headers: { 'content-type': `multipart/related; boundary=${boundary}` },
+      body
+    }
+  );
+}
+async function readApplicationDocumentRegistryRow(
+  sql: Sql,
+  objectKeyValue: string,
+  requestId: string
+): Promise<RegistryRow | Response | null> {
+  try {
+    const rows = await sql`
+      select object_key, uploader_user_id::text, complex_id::text, state
+      from business_image_objects
+      where object_key = ${objectKeyValue}
+        and kind = 'application-document'
+      limit 1
+    `;
+    return (rows[0] as RegistryRow | undefined) ?? null;
+  } catch {
+    return fail(
+      'APPLICATION_DOCUMENT_REGISTRY_UNAVAILABLE',
+      'Application document lifecycle registry could not be read',
+      503,
+      requestId
+    );
+  }
+}
 
-   const registrationError = await registerApplicationDocumentObject(
-     sql, objectKeyValue, resident.id, resident.complexId, requestId
-   );
-   if (registrationError) return registrationError;
+async function readIdempotentApplicationDocumentRegistryRow(
+  sql: Sql,
+  uploaderUserId: string,
+  idempotencyKey: string,
+  requestId: string
+): Promise<RegistryRow | Response | null> {
+  try {
+    const rows = await sql`
+      select object_key, uploader_user_id::text, complex_id::text, state,
+             upload_idempotency_key, upload_request_fingerprint
+      from business_image_objects
+      where uploader_user_id = ${uploaderUserId}::uuid
+        and upload_idempotency_key = ${idempotencyKey}
+        and kind = 'application-document'
+      limit 1
+    `;
+    return (rows[0] as RegistryRow | undefined) ?? null;
+  } catch {
+    return fail(
+      'APPLICATION_DOCUMENT_REGISTRY_UNAVAILABLE',
+      'Application document upload idempotency registry could not be read',
+      503,
+      requestId
+    );
+  }
+}
 
-     let metadata: DriveMetadata;
-     try {
-       metadata = await uploadApplicationDocumentFile(
-         env as DriveEnv, file, fileId, resident.id, resident.complexSlug
-       );
-     } catch {
-       return fail('APPLICATION_DOCUMENT_UPLOAD_FAILED', 'Application document upload to Google Drive failed', 502, requestId);
-     }
-    if (!metadata || metadata.trashed) {
-      return fail('APPLICATION_DOCUMENT_NOT_FOUND', 'Application document is missing after upload', 404, requestId);
+export async function reserveApplicationDocumentUpload(
+  sql: Sql,
+  objectKeyValue: string,
+  uploaderUserId: string,
+  complexId: string,
+  requestId: string
+): Promise<Response | null> {
+  try {
+    const rows = await sql`
+      insert into business_image_objects (
+        object_key, uploader_user_id, complex_id, state, kind
+      ) values (
+        ${objectKeyValue}, ${uploaderUserId}::uuid, ${complexId}::uuid, 'upload_pending', 'application-document'
+      )
+      on conflict (object_key) do nothing
+      returning object_key
+    `;
+    if (rows[0]) return null;
+    return fail(
+      'APPLICATION_DOCUMENT_UPLOAD_RESERVATION_CONFLICT',
+      'Application document upload id is already reserved',
+      409,
+      requestId
+    );
+  } catch {
+    return fail(
+      'APPLICATION_DOCUMENT_REGISTRY_UNAVAILABLE',
+      'Application document lifecycle registry is unavailable before upload',
+      503,
+      requestId
+    );
+  }
+}
+
+export async function reserveIdempotentApplicationDocumentUpload(
+  sql: Sql,
+  objectKeyValue: string,
+  uploaderUserId: string,
+  complexId: string,
+  idempotencyKey: string,
+  requestFingerprint: string,
+  requestId: string
+): Promise<IdempotentReservation | Response> {
+  try {
+    const rows = await sql`
+      insert into business_image_objects (
+        object_key, uploader_user_id, complex_id, state, kind,
+        upload_idempotency_key, upload_request_fingerprint
+      ) values (
+        ${objectKeyValue}, ${uploaderUserId}::uuid, ${complexId}::uuid, 'upload_pending', 'application-document',
+        ${idempotencyKey}, ${requestFingerprint}
+      )
+      on conflict do nothing
+      returning object_key, uploader_user_id::text, complex_id::text, state,
+                upload_idempotency_key, upload_request_fingerprint
+    `;
+    if (rows[0]) {
+      return { reserved: true, row: rows[0] as RegistryRow };
     }
 
+    const existing = await sql`
+      select object_key, uploader_user_id::text, complex_id::text, state,
+             upload_idempotency_key, upload_request_fingerprint
+      from business_image_objects
+      where uploader_user_id = ${uploaderUserId}::uuid
+        and upload_idempotency_key = ${idempotencyKey}
+        and kind = 'application-document'
+      limit 1
+    `;
+    const row = existing[0] as RegistryRow | undefined;
+    if (row) return { reserved: false, row };
+
+    return fail(
+      'APPLICATION_DOCUMENT_UPLOAD_RESERVATION_CONFLICT',
+      'Application document upload id could not be reserved safely',
+      409,
+      requestId
+    );
+  } catch {
+    return fail(
+      'APPLICATION_DOCUMENT_REGISTRY_UNAVAILABLE',
+      'Application document upload idempotency reservation is unavailable',
+      503,
+      requestId
+    );
+  }
+}
+
+export async function activateApplicationDocumentUpload(
+  sql: Sql,
+  objectKeyValue: string,
+  uploaderUserId: string,
+  complexId: string,
+  requestId: string
+): Promise<Response | null> {
+  try {
+    const rows = await sql`
+      update business_image_objects
+      set state = 'active',
+          reconcile_lease_token = null,
+          reconcile_lease_expires_at = null,
+          reconcile_next_attempt_at = null,
+          reconcile_last_error_code = null,
+          updated_at = now()
+      where object_key = ${objectKeyValue}
+        and uploader_user_id = ${uploaderUserId}::uuid
+        and complex_id = ${complexId}::uuid
+        and kind = 'application-document'
+        and state = 'upload_pending'
+      returning state
+    `;
+    if (rows[0]) return null;
+
+    const current = await sql`
+      select uploader_user_id::text, complex_id::text, state
+      from business_image_objects
+      where object_key = ${objectKeyValue}
+        and kind = 'application-document'
+      limit 1
+    `;
+    const row = current[0] as RegistryRow | undefined;
+    if (row && row.state === 'active' &&
+        row.uploader_user_id === uploaderUserId && row.complex_id === complexId) {
+      return null;
+    }
+    return fail(
+      'APPLICATION_DOCUMENT_UPLOAD_STATE_CONFLICT',
+      'Application document upload could not be activated from its reserved state',
+      409,
+      requestId
+    );
+  } catch {
+    return fail(
+      'APPLICATION_DOCUMENT_UPLOAD_ACTIVATION_UNAVAILABLE',
+      'Application document is durably reserved but activation could not be confirmed',
+      503,
+      requestId
+    );
+  }
+}
+
+
+export async function reconcileApplicationDocumentUploadPending(
+  env: CoreEnv,
+  sql: Sql,
+  objectKeyValue: string,
+  uploaderUserId: string,
+  complexId: string,
+  complexSlug: string,
+  requestId: string
+): Promise<UploadSuccess | Response> {
+  const driveEnv = env as DriveEnv;
+  const fileId = fileIdFromApplicationDocumentObjectKey(objectKeyValue);
+  if (!fileId) {
+    return fail('INVALID_APPLICATION_DOCUMENT_REFERENCE', 'Reserved application document object key is invalid', 400, requestId);
+  }
+
+  const registry = await readApplicationDocumentRegistryRow(sql, objectKeyValue, requestId);
+  if (registry instanceof Response) return registry;
+  if (!registry) {
+    return fail('APPLICATION_DOCUMENT_NOT_REGISTERED', 'Reserved application document lifecycle row is missing', 503, requestId);
+  }
+  if (registry.uploader_user_id !== uploaderUserId || registry.complex_id !== complexId) {
+    return fail('APPLICATION_DOCUMENT_UPLOAD_STATE_CONFLICT', 'Reserved application document owner or complex does not match', 409, requestId);
+  }
+  if (registry.state === 'active') {
+    let activeMetadata: DriveMetadata | null;
+    try {
+      activeMetadata = await readDriveMetadata(driveEnv, fileId);
+    } catch {
+      return fail('APPLICATION_DOCUMENT_UPLOAD_RECONCILIATION_PENDING', 'Active upload metadata could not be confirmed', 503, requestId);
+    }
+    if (!activeMetadata || !applicationDocumentMetadataMatches(driveEnv, activeMetadata, fileId, uploaderUserId, complexSlug)) {
+      return fail('APPLICATION_DOCUMENT_UPLOAD_RECONCILIATION_PENDING', 'Active upload metadata could not be confirmed safely', 503, requestId);
+    }
+    return { objectKey: objectKeyValue, metadata: activeMetadata };
+  }
+  if (registry.state !== 'upload_pending') {
+    return fail('APPLICATION_DOCUMENT_UPLOAD_STATE_CONFLICT', 'Application document is not in an upload-reconcilable state', 409, requestId);
+  }
+
+  let metadata: DriveMetadata | null;
+  try {
+    metadata = await readDriveMetadata(driveEnv, fileId);
+  } catch {
+    return fail(
+      'APPLICATION_DOCUMENT_UPLOAD_RECONCILIATION_PENDING',
+      'Reserved application document remains pending because Google Drive state is unavailable',
+      503,
+      requestId
+    );
+  }
+  if (!metadata || !applicationDocumentMetadataMatches(driveEnv, metadata, fileId, uploaderUserId, complexSlug)) {
+    return fail(
+      'APPLICATION_DOCUMENT_UPLOAD_RECONCILIATION_PENDING',
+      'Reserved application document remains pending until exact Google Drive state can be confirmed',
+      503,
+      requestId
+    );
+  }
+
+  const activationError = await activateApplicationDocumentUpload(
+    sql, objectKeyValue, uploaderUserId, complexId, requestId
+  );
+  if (activationError) return activationError;
+  return { objectKey: objectKeyValue, metadata };
+}
+
+async function persistIdempotentReservedApplicationDocumentUpload(
+  env: CoreEnv,
+  sql: Sql,
+  file: File,
+  resident: TrackedResident,
+  objectKeyValue: string,
+  requestId: string
+): Promise<UploadSuccess | Response> {
+  const driveEnv = env as DriveEnv;
+  const fileId = fileIdFromApplicationDocumentObjectKey(objectKeyValue);
+  if (!fileId) {
+    return fail('INVALID_APPLICATION_DOCUMENT_REFERENCE', 'Reserved application document object key is invalid', 400, requestId);
+  }
+
+  let uploadResponse: Response;
+  try {
+    uploadResponse = await uploadApplicationDocumentFile(
+      driveEnv, file, fileId, resident.id, resident.complexSlug
+    );
+  } catch {
+    return reconcileApplicationDocumentUploadPending(
+      env, sql, objectKeyValue, resident.id, resident.complexId, resident.complexSlug, requestId
+    );
+  }
+
+  if (!uploadResponse.ok) {
+    if (uploadResponse.status === 409 || uploadResponse.status >= 500) {
+      return reconcileApplicationDocumentUploadPending(
+        env, sql, objectKeyValue, resident.id, resident.complexId, resident.complexSlug, requestId
+      );
+    }
+    return fail(
+      'APPLICATION_DOCUMENT_UPLOAD_FAILED',
+      'Application document remains durably reserved but Google Drive rejected the upload',
+      502,
+      requestId
+    );
+  }
+
+  let metadata: DriveMetadata | null;
+  try {
+    metadata = await readDriveMetadata(driveEnv, fileId);
+  } catch {
+    return fail(
+      'APPLICATION_DOCUMENT_UPLOAD_RECONCILIATION_PENDING',
+      'Application document remains reserved because persisted metadata could not be confirmed',
+      503,
+      requestId
+    );
+  }
+  if (!metadata || !applicationDocumentMetadataMatches(driveEnv, metadata, fileId, resident.id, resident.complexSlug)) {
+    return fail(
+      'APPLICATION_DOCUMENT_UPLOAD_RECONCILIATION_PENDING',
+      'Application document remains reserved because persisted metadata does not match the reservation',
+      503,
+      requestId
+    );
+  }
+
+  const activationError = await activateApplicationDocumentUpload(
+    sql, objectKeyValue, resident.id, resident.complexId, requestId
+  );
+  if (activationError) return activationError;
+  return { objectKey: objectKeyValue, metadata };
+}
+async function resumeIdempotentApplicationDocumentUploadPending(
+  env: CoreEnv,
+  sql: Sql,
+  file: File,
+  resident: TrackedResident,
+  objectKeyValue: string,
+  requestId: string
+): Promise<UploadSuccess | Response> {
+  const driveEnv = env as DriveEnv;
+  const fileId = fileIdFromApplicationDocumentObjectKey(objectKeyValue);
+  if (!fileId) {
+    return fail('INVALID_APPLICATION_DOCUMENT_REFERENCE', 'Reserved application document object key is invalid', 400, requestId);
+  }
+
+  const registry = await readApplicationDocumentRegistryRow(sql, objectKeyValue, requestId);
+  if (registry instanceof Response) return registry;
+  if (!registry) {
+    return fail('APPLICATION_DOCUMENT_NOT_REGISTERED', 'Reserved application document lifecycle row is missing', 503, requestId);
+  }
+  if (registry.uploader_user_id !== resident.id || registry.complex_id !== resident.complexId) {
+    return fail(
+      'APPLICATION_DOCUMENT_UPLOAD_IDEMPOTENCY_SCOPE_CONFLICT',
+      'The idempotent application document reservation no longer matches the verified resident scope',
+      409,
+      requestId
+    );
+  }
+  if (registry.state === 'active') {
+    return reconcileApplicationDocumentUploadPending(
+      env, sql, objectKeyValue, resident.id, resident.complexId, resident.complexSlug, requestId
+    );
+  }
+  if (registry.state !== 'upload_pending') {
+    return fail(
+      'APPLICATION_DOCUMENT_UPLOAD_IDEMPOTENCY_STATE_CONFLICT',
+      'The original idempotent application document upload is no longer resumable',
+      409,
+      requestId
+    );
+  }
+
+  let metadata: DriveMetadata | null;
+  try {
+    metadata = await readDriveMetadata(driveEnv, fileId);
+  } catch {
+    return fail(
+      'APPLICATION_DOCUMENT_UPLOAD_RECONCILIATION_PENDING',
+      'Reserved application document could not prove exact Google Drive absence for safe resume',
+      503,
+      requestId
+    );
+  }
+
+  if (metadata) {
+    if (!applicationDocumentMetadataMatches(driveEnv, metadata, fileId, resident.id, resident.complexSlug)) {
+      return fail(
+        'APPLICATION_DOCUMENT_UPLOAD_RECONCILIATION_PENDING',
+        'An object exists at the reserved Drive id but does not match the DanjiOn reservation',
+        503,
+        requestId
+      );
+    }
+    const activationError = await activateApplicationDocumentUpload(
+      sql, objectKeyValue, resident.id, resident.complexId, requestId
+    );
+    if (activationError) return activationError;
     return { objectKey: objectKeyValue, metadata };
   }
 
+  // The exact reserved ID returned 404. Re-read lifecycle state before I/O;
+  // no database lock is held across the subsequent Google Drive request.
+  const freshRegistry = await readApplicationDocumentRegistryRow(sql, objectKeyValue, requestId);
+  if (freshRegistry instanceof Response) return freshRegistry;
+  if (!freshRegistry) {
+    return fail('APPLICATION_DOCUMENT_NOT_REGISTERED', 'Reserved application document lifecycle row is missing', 503, requestId);
+  }
+  if (freshRegistry.uploader_user_id !== resident.id || freshRegistry.complex_id !== resident.complexId) {
+    return fail(
+      'APPLICATION_DOCUMENT_UPLOAD_IDEMPOTENCY_SCOPE_CONFLICT',
+      'The idempotent application document reservation changed scope before resume',
+      409,
+      requestId
+    );
+  }
+  if (freshRegistry.state === 'active') {
+    return reconcileApplicationDocumentUploadPending(
+      env, sql, objectKeyValue, resident.id, resident.complexId, resident.complexSlug, requestId
+    );
+  }
+  if (freshRegistry.state !== 'upload_pending') {
+    return fail(
+      'APPLICATION_DOCUMENT_UPLOAD_IDEMPOTENCY_STATE_CONFLICT',
+      'The original idempotent application document upload changed lifecycle before resume',
+      409,
+      requestId
+    );
+  }
+
+  return persistIdempotentReservedApplicationDocumentUpload(
+    env, sql, file, resident, objectKeyValue, requestId
+  );
+}
+async function idempotentApplicationDocumentReplay(
+  env: CoreEnv,
+  sql: Sql,
+  file: File,
+  row: RegistryRow,
+  resident: TrackedResident,
+  requestFingerprint: string,
+  requestId: string
+): Promise<UploadSuccess | Response> {
+  const objectKeyValue = String(row.object_key || '');
+  if (!objectKeyValue) {
+    return fail('APPLICATION_DOCUMENT_UPLOAD_STATE_CONFLICT', 'The idempotent application document reservation is malformed', 409, requestId);
+  }
+  if (row.uploader_user_id !== resident.id || row.complex_id !== resident.complexId) {
+    return fail(
+      'APPLICATION_DOCUMENT_UPLOAD_IDEMPOTENCY_SCOPE_CONFLICT',
+      'The Idempotency-Key was already used for a different application document upload scope',
+      409,
+      requestId
+    );
+  }
+  if (row.upload_request_fingerprint !== requestFingerprint) {
+    return fail(
+      'IDEMPOTENCY_KEY_REUSED',
+      'The Idempotency-Key was already used with a different application document upload',
+      409,
+      requestId
+    );
+  }
+  if (row.state !== 'upload_pending' && row.state !== 'active') {
+    return fail(
+      'APPLICATION_DOCUMENT_UPLOAD_IDEMPOTENCY_STATE_CONFLICT',
+      'The original idempotent application document upload is no longer replayable',
+      409,
+      requestId
+    );
+  }
+
+  const replay = row.state === 'upload_pending'
+    ? await resumeIdempotentApplicationDocumentUploadPending(
+        env, sql, file, resident, objectKeyValue, requestId
+      )
+    : await reconcileApplicationDocumentUploadPending(
+        env, sql, objectKeyValue, resident.id, resident.complexId, resident.complexSlug, requestId
+      );
+  if (replay instanceof Response) return replay;
+  return { ...replay, idempotencyReplayed: true };
+}
+
+async function runIdempotentTrackedApplicationDocumentUpload(
+  env: CoreEnv,
+  sql: Sql,
+  file: File,
+  resident: TrackedResident,
+  requestId: string,
+  idempotencyKey: string
+): Promise<UploadSuccess | Response> {
+  let requestFingerprint: string;
+  try {
+    requestFingerprint = await applicationDocumentUploadRequestFingerprint(file, resident.complexSlug);
+  } catch {
+    return fail(
+      'APPLICATION_DOCUMENT_UPLOAD_FINGERPRINT_UNAVAILABLE',
+      'Application document upload fingerprint could not be calculated',
+      503,
+      requestId
+    );
+  }
+
+  const existing = await readIdempotentApplicationDocumentRegistryRow(
+    sql, resident.id, idempotencyKey, requestId
+  );
+  if (existing instanceof Response) return existing;
+  if (existing) {
+    return idempotentApplicationDocumentReplay(
+      env, sql, file, existing, resident, requestFingerprint, requestId
+    );
+  }
+
+  let fileId: string;
+  try {
+    fileId = await generateDriveFileId(env as DriveEnv);
+  } catch {
+    return fail('APPLICATION_DOCUMENT_ID_RESERVATION_UNAVAILABLE', 'Google Drive could not reserve an upload id', 503, requestId);
+  }
+  const candidateObjectKey = applicationDocumentObjectKey(fileId);
+  const reservation = await reserveIdempotentApplicationDocumentUpload(
+    sql,
+    candidateObjectKey,
+    resident.id,
+    resident.complexId,
+    idempotencyKey,
+    requestFingerprint,
+    requestId
+  );
+  if (reservation instanceof Response) return reservation;
+  if (!reservation.reserved) {
+    return idempotentApplicationDocumentReplay(
+      env, sql, file, reservation.row, resident, requestFingerprint, requestId
+    );
+  }
+
+  return persistIdempotentReservedApplicationDocumentUpload(
+    env, sql, file, resident, candidateObjectKey, requestId
+  );
+}
+export async function runTrackedApplicationDocumentUpload(
+  env: CoreEnv,
+  sql: Sql,
+  file: File,
+  resident: TrackedResident,
+  requestId: string,
+  idempotencyKey: string | null = null
+): Promise<UploadSuccess | Response> {
+  if (idempotencyKey) {
+    if (!validBusinessImageUploadIdempotencyKey(idempotencyKey)) {
+      return fail(
+        'INVALID_IDEMPOTENCY_KEY',
+        'Idempotency-Key must be 8-80 characters using letters, numbers, dot, underscore, colon or dash',
+        400,
+        requestId
+      );
+    }
+    return runIdempotentTrackedApplicationDocumentUpload(
+      env, sql, file, resident, requestId, idempotencyKey
+    );
+  }
+
+  const driveEnv = env as DriveEnv;
+  let fileId: string;
+  try {
+    fileId = await generateDriveFileId(driveEnv);
+  } catch {
+    return fail('APPLICATION_DOCUMENT_ID_RESERVATION_UNAVAILABLE', 'Google Drive could not reserve an upload id', 503, requestId);
+  }
+
+  const objectKeyValue = applicationDocumentObjectKey(fileId);
+  const reservationError = await reserveApplicationDocumentUpload(
+    sql, objectKeyValue, resident.id, resident.complexId, requestId
+  );
+  if (reservationError) return reservationError;
+
+  let uploadResponse: Response;
+  try {
+    uploadResponse = await uploadApplicationDocumentFile(
+      driveEnv, file, fileId, resident.id, resident.complexSlug
+    );
+  } catch {
+    return reconcileApplicationDocumentUploadPending(
+      env, sql, objectKeyValue, resident.id, resident.complexId, resident.complexSlug, requestId
+    );
+  }
+
+  if (!uploadResponse.ok) {
+    if (uploadResponse.status === 409 || uploadResponse.status >= 500) {
+      return reconcileApplicationDocumentUploadPending(
+        env, sql, objectKeyValue, resident.id, resident.complexId, resident.complexSlug, requestId
+      );
+    }
+    return fail(
+      'APPLICATION_DOCUMENT_UPLOAD_FAILED',
+      'Application document remains durably reserved but Google Drive rejected the upload',
+      502,
+      requestId
+    );
+  }
+
+  let metadata: DriveMetadata | null;
+  try {
+    metadata = await readDriveMetadata(driveEnv, fileId);
+  } catch {
+    return fail(
+      'APPLICATION_DOCUMENT_UPLOAD_RECONCILIATION_PENDING',
+      'Application document remains reserved because persisted metadata could not be confirmed',
+      503,
+      requestId
+    );
+  }
+  if (!metadata || !applicationDocumentMetadataMatches(driveEnv, metadata, fileId, resident.id, resident.complexSlug)) {
+    return fail(
+      'APPLICATION_DOCUMENT_UPLOAD_RECONCILIATION_PENDING',
+      'Application document remains reserved because persisted metadata does not match the reservation',
+      503,
+      requestId
+    );
+  }
+
+  const activationError = await activateApplicationDocumentUpload(
+    sql, objectKeyValue, resident.id, resident.complexId, requestId
+  );
+  if (activationError) return activationError;
+  return { objectKey: objectKeyValue, metadata };
+}
  export async function handleTrackedStorageUploadRequest(
   request: Request,
   env: CoreEnv,

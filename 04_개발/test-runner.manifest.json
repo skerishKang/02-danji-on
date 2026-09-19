@@ -209,7 +209,8 @@
         {"id":"resident-news-postgres-lifecycle","sh":"tests/resident-news-postgres-lifecycle.sh","job":"resident-news-postgres-lifecycle"},
         {"id":"resident-summary-postgres-lifecycle","sh":"tests/resident-summary-postgres-lifecycle.sh","job":"resident-summary-postgres-lifecycle"},
         {"id":"run-live-db-integration","sh":"tests/run-live-db-integration.sh","job":"live-db-child"},
-        {"id":"business-review-comments-postgres-lifecycle","sh":"tests/business-review-comments-postgres-lifecycle.sh","job":"business-review-comments-postgres-lifecycle"}
+        {"id":"business-review-comments-postgres-lifecycle","sh":"tests/business-review-comments-postgres-lifecycle.sh","job":"business-review-comments-postgres-lifecycle"},
+        {"id":"application-document-upload-idempotency-postgres","sh":"tests/application-document-upload-idempotency-postgres.sh","job":"application-document-upload-idempotency-postgres"}
       ]
     }
   }

@@ -9,6 +9,7 @@ type ReconciliationEnv = CoreEnv & {
   GOOGLE_DRIVE_CLIENT_SECRET?: string;
   GOOGLE_DRIVE_REFRESH_TOKEN?: string;
   GOOGLE_DRIVE_PUBLIC_BUSINESS_FOLDER_ID?: string;
+  GOOGLE_DRIVE_PRIVATE_RESIDENT_VERIFICATION_FOLDER_ID?: string;
 };
 
 export type BusinessImageReconciliationClaim = {
@@ -17,6 +18,7 @@ export type BusinessImageReconciliationClaim = {
   complex_id: string;
   complex_slug: string;
   state: 'upload_pending' | 'delete_pending';
+  kind: string;
   reconcile_attempt_count: number;
 };
 
@@ -42,6 +44,7 @@ export type BusinessImageReconciliationSummary = {
 const DRIVE_API = 'https://www.googleapis.com/drive/v3';
 const TOKEN_ENDPOINT = 'https://oauth2.googleapis.com/token';
 const BUSINESS_IMAGE_PREFIX = 'gdrive/public/business-image/';
+const APPLICATION_DOCUMENT_PREFIX = 'gdrive/private/application-document/';
 const DRIVE_FILE_ID = /^[A-Za-z0-9_-]{10,200}$/;
 const MAX_BATCH_SIZE = 25;
 const LEASE_SECONDS = 5 * 60;
@@ -105,9 +108,13 @@ async function googleFetch(env: ReconciliationEnv, url: string, init: RequestIni
 }
 
 function fileIdFromObjectKey(objectKey: string): string | null {
-  if (!objectKey.startsWith(BUSINESS_IMAGE_PREFIX)) return null;
-  const fileId = objectKey.slice(BUSINESS_IMAGE_PREFIX.length);
-  return DRIVE_FILE_ID.test(fileId) ? fileId : null;
+  for (const prefix of [BUSINESS_IMAGE_PREFIX, APPLICATION_DOCUMENT_PREFIX]) {
+    if (objectKey.startsWith(prefix)) {
+      const fileId = objectKey.slice(prefix.length);
+      return DRIVE_FILE_ID.test(fileId) ? fileId : null;
+    }
+  }
+  return null;
 }
 
 function metadataIdentityMatches(
@@ -116,8 +123,18 @@ function metadataIdentityMatches(
   fileId: string,
   metadata: DriveMetadata
 ): boolean {
-  const folderId = env.GOOGLE_DRIVE_PUBLIC_BUSINESS_FOLDER_ID?.trim();
   const props = metadata.appProperties || {};
+  if (claim.kind === 'application-document') {
+    const folderId = env.GOOGLE_DRIVE_PRIVATE_RESIDENT_VERIFICATION_FOLDER_ID?.trim();
+    return Boolean(folderId)
+      && metadata.id === fileId
+      && metadata.parents?.includes(folderId!) === true
+      && props.danjionKind === 'application-document'
+      && props.danjionVisibility === 'private'
+      && props.danjionUploaderUserId === claim.uploader_user_id
+      && props.danjionComplexSlug === claim.complex_slug;
+  }
+  const folderId = env.GOOGLE_DRIVE_PUBLIC_BUSINESS_FOLDER_ID?.trim();
   return Boolean(folderId)
     && metadata.id === fileId
     && metadata.parents?.includes(folderId!) === true
@@ -190,6 +207,7 @@ export async function claimBusinessImageReconciliationBatch(
                 bio.uploader_user_id::text as uploader_user_id,
                 bio.complex_id,
                 bio.state,
+                bio.kind,
                 bio.reconcile_attempt_count
     )
     select claimed.object_key,
@@ -197,6 +215,7 @@ export async function claimBusinessImageReconciliationBatch(
            claimed.complex_id::text as complex_id,
            c.slug as complex_slug,
            claimed.state,
+           claimed.kind,
            claimed.reconcile_attempt_count
     from claimed
     join complexes c on c.id = claimed.complex_id
@@ -301,6 +320,14 @@ export async function reconcileClaimedBusinessImage(
       return deferOutcome(sql, claim, leaseToken, 'UPLOAD_METADATA_MISMATCH');
     }
     return await finalizeUploadActive(sql, claim, leaseToken) ? 'activated' : 'stale';
+  }
+
+  if (claim.kind === 'application-document') {
+    // Application documents are private evidence. Reconciliation may activate
+    // a proven upload_pending row, but it must never trash or retire a
+    // private Drive object; delete_pending is reserved for public
+    // business-image retirement only.
+    return deferOutcome(sql, claim, leaseToken, 'UNSUPPORTED_PRIVATE_STATE');
   }
 
   if (claim.state !== 'delete_pending') {
