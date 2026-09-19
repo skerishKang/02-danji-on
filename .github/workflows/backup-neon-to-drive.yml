@@ -20,21 +20,21 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  encrypted-backup:
-    name: Encrypted pg_dump to bounded Google Drive folder
+  activation-gate:
+    name: Backup activation and source guard
     runs-on: ubuntu-latest
     environment: production
+    outputs:
+      enabled: ${{ steps.activation.outputs.enabled }}
+      expected_main: ${{ steps.authority.outputs.expected_main }}
     env:
       DANJION_BACKUP_ENABLED: ${{ secrets.DANJION_BACKUP_ENABLED }}
-      DANJION_PRODUCTION_DB_URL: ${{ secrets.DANJION_PRODUCTION_DB_URL }}
-      DANJION_BACKUP_ENCRYPTION_PASSPHRASE: ${{ secrets.DANJION_BACKUP_ENCRYPTION_PASSPHRASE }}
-      DANJION_DRIVE_RCLONE_CONFIG: ${{ secrets.DANJION_DRIVE_RCLONE_CONFIG }}
-      DANJION_DRIVE_FOLDER_ID: ${{ secrets.DANJION_DRIVE_FOLDER_ID }}
 
     steps:
       - uses: actions/checkout@v4
 
       - name: Exact main authority guard
+        id: authority
         shell: bash
         run: |
           set -euo pipefail
@@ -52,6 +52,7 @@ jobs:
             exit 1
           fi
 
+          echo "expected_main=${expected_main}" >> "${GITHUB_OUTPUT}"
           echo "EXACT_MAIN_GUARD=PASS"
 
       - name: Source safety contract
@@ -72,8 +73,37 @@ jobs:
           echo "enabled=true" >> "${GITHUB_OUTPUT}"
           echo "BACKUP_ACTIVATION=ENABLED"
 
+  encrypted-backup:
+    name: Encrypted pg_dump to bounded Google Drive folder
+    needs: activation-gate
+    if: needs.activation-gate.outputs.enabled == 'true'
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      DANJION_PRODUCTION_DB_URL: ${{ secrets.DANJION_PRODUCTION_DB_URL }}
+      DANJION_BACKUP_ENCRYPTION_PASSPHRASE: ${{ secrets.DANJION_BACKUP_ENCRYPTION_PASSPHRASE }}
+      DANJION_DRIVE_RCLONE_CONFIG: ${{ secrets.DANJION_DRIVE_RCLONE_CONFIG }}
+      DANJION_DRIVE_FOLDER_ID: ${{ secrets.DANJION_DRIVE_FOLDER_ID }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Reconfirm exact main immediately before backup
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main --no-tags
+          actual_main="$(git rev-parse origin/main)"
+          expected_main="${{ needs.activation-gate.outputs.expected_main }}"
+
+          if [ "${GITHUB_SHA}" != "${expected_main}" ] || [ "${actual_main}" != "${expected_main}" ]; then
+            echo "::error::Exact-main authority changed before backup."
+            exit 1
+          fi
+
+          echo "PREBACKUP_EXACT_MAIN_GUARD=PASS"
+
       - name: Verify required secret bindings without output
-        if: steps.activation.outputs.enabled == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -94,7 +124,6 @@ jobs:
           echo "BACKUP_SECRET_BINDINGS=PASS"
 
       - name: Install bounded backup tooling
-        if: steps.activation.outputs.enabled == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -104,12 +133,16 @@ jobs:
           echo "BACKUP_TOOLING=READY"
 
       - name: Create encrypted dump, upload, and enforce retention
-        if: steps.activation.outputs.enabled == 'true'
         shell: bash
         run: bash 04_개발/backend/scripts/backup-neon-to-drive.sh
 
+  disabled-disposition:
+    name: Backup disabled no-op
+    needs: activation-gate
+    if: needs.activation-gate.outputs.enabled != 'true'
+    runs-on: ubuntu-latest
+    steps:
       - name: Record disabled disposition
-        if: steps.activation.outputs.enabled != 'true'
         shell: bash
         run: |
           echo "BACKUP_RESULT=NOOP_DISABLED"
@@ -117,4 +150,4 @@ jobs:
           echo "PRODUCTION_DB_WRITE=0"
           echo "DRIVE_WRITE=0"
           echo "DRIVE_DELETE=0"
-          echo "SECRET_OUTPUT=0"
+          echo "SENSITIVE_BACKUP_SECRET_MATERIALIZED=0"
