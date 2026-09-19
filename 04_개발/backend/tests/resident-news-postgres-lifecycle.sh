@@ -90,7 +90,7 @@ insert into resident_news_submission_attachments (
   0
 );
 
-do $
+do $resident_news$
 declare
   post_count integer;
   notification_count integer;
@@ -99,7 +99,7 @@ begin
   select count(*) into notification_count from notifications;
   if post_count <> 0 then raise exception 'submission leaked into publication store'; end if;
   if notification_count <> 0 then raise exception 'submission created premature notifications'; end if;
-end $$;
+end $resident_news$;
 SQL
   echo "PASS resident-news fixture: pending source exists with no publication/notification"
 }
