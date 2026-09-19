@@ -83,8 +83,7 @@ main{width:min(760px,100%);margin:auto;padding:28px 20px 34px}.category{display:
  function counts(){document.getElementById('titleCount').textContent=title.value.length;document.getElementById('bodyCount').textContent=body.value.length} counts(); title.addEventListener('input',()=>{counts();save()});body.addEventListener('input',()=>{counts();save()});
  toggle.addEventListener('click',()=>{const on=toggle.classList.toggle('on');toggle.setAttribute('aria-checked',String(on));save()});
  document.querySelector('.back').addEventListener('click',()=>location.href=COMMUNITY);document.getElementById('photoBtn').addEventListener('click',()=>photos.click());photos.addEventListener('change',()=>{document.getElementById('photoCount').textContent=Math.min(photos.files.length,3)+' / 3'});
- function publish(){if(!title.value.trim()){toast('질문 제목을 입력해주세요.');title.focus();return}if(body.value.trim().length<10){toast('궁금한 내용을 10자 이상 적어주세요.');body.focus();return}try{localStorage.removeItem(key)}catch(e){}toast(selected+' 질문을 게시했습니다.');setTimeout(()=>location.href=COMMUNITY,650)}
- document.querySelectorAll('[data-publish]').forEach(b=>b.addEventListener('click',publish));
+ // Publishing is owned exclusively by the server-backed handler below.
 })();
 </script>
 <script src="assets/danjion-session.js"></script>
@@ -92,7 +91,6 @@ main{width:min(760px,100%);margin:auto;padding:28px 20px 34px}.category{display:
 <script id="danjion-community-write-question-live-wiring-329">
 (()=>{
  const apiBase=(window.DanjionSession&&DanjionSession.danjionApiBase())||'';
- if(!apiBase)return;
  const bridge=DanjionCommunityBridge.createCommunityBridge({apiBase});
  const title=document.getElementById('title'),body=document.getElementById('body');
  const key='danjionDraft:16:v2';
