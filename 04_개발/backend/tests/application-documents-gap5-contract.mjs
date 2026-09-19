@@ -77,25 +77,26 @@ assert.ok(economy.includes("String(registry.complex_id ?? '') !== expectedComple
 assert.equal((economy.match(/state, kind\s+from business_image_objects/g) ?? []).length, 1,
   'document registry validation must use exactly one SELECT that includes kind');
 
-// upload contract (REQ D): uploadApplicationDocumentFile returns DriveMetadata
-// directly, throws on a failed Drive response, and the caller never treats it
-// as a Response. Success path answers 201.
-assert.ok(/async function uploadApplicationDocumentFile\([\s\S]*?\): Promise<DriveMetadata> \{/.test(upload),
-  'uploadApplicationDocumentFile must be typed to return DriveMetadata');
-assert.ok(upload.includes('return response.json() as Promise<DriveMetadata>;'),
-  'uploadApplicationDocumentFile must return the parsed Drive metadata');
-assert.ok(/if \(!response\.ok\) \{[\s\S]*?throw new Error\(`Google Drive application-document upload failed/.test(upload),
-  'uploadApplicationDocumentFile must throw when Drive rejects the upload');
+// upload contract (REQ D): uploadApplicationDocumentFile returns a raw Response
+// so the caller can branch on 409/5xx for reconciliation. The pre-generated
+// Drive file ID must be bound into the create metadata, and the success path
+// answers 201.
+assert.ok(/async function uploadApplicationDocumentFile\([\s\S]*?\): Promise<Response> \{/.test(upload),
+  'uploadApplicationDocumentFile must be typed to return Response');
+assert.ok(upload.includes('id: fileId,'),
+  'uploadApplicationDocumentFile must bind the reserved Drive file ID into the create metadata');
+assert.ok(upload.includes("danjionVisibility: 'private'"),
+  'uploadApplicationDocumentFile must preserve private visibility');
 const appUploadBody = upload.slice(
   upload.indexOf('async function runTrackedApplicationDocumentUpload('),
   upload.indexOf('export async function handleTrackedStorageUploadRequest(')
 );
-assert.equal(appUploadBody.includes('readDriveMetadata'), false,
+assert.equal(appUploadBody.includes('async function readDriveMetadata'), false,
   'application-document upload must not redeclare metadata via a second read path');
-assert.equal(appUploadBody.includes('.ok'), false,
-  'caller must not test DriveMetadata.ok');
-assert.ok(appUploadBody.includes('metadata = await uploadApplicationDocumentFile('),
-  'caller must consume DriveMetadata directly from uploadApplicationDocumentFile');
+assert.ok(appUploadBody.includes('uploadResponse = await uploadApplicationDocumentFile('),
+  'caller must consume the raw Response from uploadApplicationDocumentFile');
+assert.ok(appUploadBody.includes("if (!uploadResponse.ok) {"),
+  'caller must branch on uploadResponse.ok for Drive failure handling');
 assert.ok(upload.includes('GOOGLE_DRIVE_PRIVATE_RESIDENT_VERIFICATION_FOLDER_ID?: string;'),
   'DriveEnv must declare the private folder used for application documents');
 assert.ok(upload.includes("validation.kind !== 'application-document'"),
