@@ -28,6 +28,7 @@ jobs:
       enabled: ${{ steps.activation.outputs.enabled }}
       expected_main: ${{ steps.authority.outputs.expected_main }}
     env:
+      DANJION_BACKUP_SOURCE_ARMED: 'false'
       DANJION_BACKUP_ENABLED: ${{ secrets.DANJION_BACKUP_ENABLED }}
 
     steps:
@@ -64,7 +65,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          if [ "${DANJION_BACKUP_ENABLED:-}" != "true" ]; then
+          if [ "${DANJION_BACKUP_SOURCE_ARMED}" != "true" ] || [ "${DANJION_BACKUP_ENABLED:-}" != "true" ]; then
             echo "enabled=false" >> "${GITHUB_OUTPUT}"
             echo "BACKUP_ACTIVATION=DISABLED"
             exit 0
