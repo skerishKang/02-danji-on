@@ -11,6 +11,18 @@ assert.equal(validateStorageUpload('business-image', [fake('a.jpg', 'image/jpeg'
 assert.equal(validateStorageUpload('resident-evidence', [fake('proof.pdf', 'application/pdf', 1024)]).ok, true);
 assert.equal(validateStorageUpload('resident-evidence', [fake('proof.pdf', 'application/pdf', 10 * 1024 * 1024 + 1)]).code, 'FILE_TOO_LARGE');
 assert.equal(validateStorageUpload('unknown', [fake('x.jpg', 'image/jpeg', 1)]).code, 'INVALID_STORAGE_KIND');
+
+// #844: official apartment-news public image kind — bounded public image envelope.
+assert.equal(validateStorageUpload('official-news-image', [fake('news.jpg', 'image/jpeg', 1024)]).ok, true);
+assert.equal(validateStorageUpload('official-news-image', [fake('news.webp', 'image/webp', 1024)]).ok, true);
+assert.equal(validateStorageUpload('official-news-image', [fake('news.png', 'image/png', 1024)]).ok, true);
+const officialNewsPolicy = validateStorageUpload('official-news-image', [fake('news.jpg', 'image/jpeg', 1)]);
+assert.equal(officialNewsPolicy.policy.visibility, 'public', 'official-news-image must be a public kind');
+assert.equal(officialNewsPolicy.policy.maxFiles, 1, 'official-news-image first slice accepts exactly one file');
+assert.equal(validateStorageUpload('official-news-image', [fake('news.pdf', 'application/pdf', 1024)]).code, 'UNSUPPORTED_MEDIA_TYPE');
+assert.equal(validateStorageUpload('official-news-image', [fake('huge.jpg', 'image/jpeg', 8 * 1024 * 1024 + 1)]).code, 'FILE_TOO_LARGE');
+assert.equal(validateStorageUpload('official-news-image', []).code, 'INVALID_FILE_COUNT');
+assert.equal(validateStorageUpload('official-news-image', [fake('a.jpg', 'image/jpeg', 1), fake('b.jpg', 'image/jpeg', 1)]).code, 'INVALID_FILE_COUNT');
 assert.equal(safeStorageFileName('../../동호수 증빙 101동.pdf'), '101-.pdf');
 
 console.log('PASS storage upload policy: MIME, size, count and filename rules');

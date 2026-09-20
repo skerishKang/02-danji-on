@@ -141,7 +141,8 @@ const legacyApplicationRoute = app.indexOf('handleResidentApplicationRequest(req
 assert.ok(economyRoute >= 0 && legacyApplicationRoute > economyRoute,
   'current economy mutation handler must intercept resubmit before legacy application handler');
 
-assert.ok(admin.includes("import { validateBusinessImageReference } from './storage-reference-v1';"));
+assert.ok(admin.includes("from './storage-reference-v1'") && admin.includes('validateBusinessImageReference'),
+  'admin lane must still consume the shared reference module, not the storage route owner');
 assert.ok(economy.includes("import { validateBusinessImageReference } from './storage-reference-v1';"),
   'resident economy lane must consume the shared reference module, not the storage route owner');
 assert.ok(admin.includes('a.applicant_user_id'));

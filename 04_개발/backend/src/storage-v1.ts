@@ -1,5 +1,6 @@
 import { neon, type NeonQueryFunction } from '@neondatabase/serverless';
 import { requireActor as requireCanonicalActor, type Actor } from './auth-v1';
+import { requireOperationalAuthority } from './operational-authz-v2';
 import type { CoreEnv } from './core-v1';
 import {
   type StorageKind,
@@ -116,14 +117,21 @@ async function googleFetch(env: DriveEnv, url: string, init: RequestInit = {}): 
   return fetch(url, { ...init, headers });
 }
 
+// #844 Amendment A: official-news-image is a public kind, but it keeps its own kind, objectKey
+// namespace and Drive appProperties lane. It physically reuses the existing public business
+// folder so no new Drive folder binding/secret is introduced (#809 activation contract stays).
+function isPublicStorageKind(kind: StorageKind): boolean {
+  return kind === 'business-image' || kind === 'official-news-image';
+}
+
 function folderFor(env: DriveEnv, kind: StorageKind): string | null {
-  return kind === 'business-image'
+  return isPublicStorageKind(kind)
     ? env.GOOGLE_DRIVE_PUBLIC_BUSINESS_FOLDER_ID?.trim() || null
     : env.GOOGLE_DRIVE_PRIVATE_RESIDENT_VERIFICATION_FOLDER_ID?.trim() || null;
 }
 
 function storageVisibility(kind: StorageKind): StorageVisibility {
-  return kind === 'business-image' ? 'public' : 'private';
+  return isPublicStorageKind(kind) ? 'public' : 'private';
 }
 
 // #372 D2/D5 / #375 F6: the generic upload path (objectKey scheme builder,
@@ -138,9 +146,12 @@ export function parseObjectKey(value: string): ParsedObjectKey | null {
   const kind = parts[2];
   const fileId = parts[3];
   if ((visibility !== 'public' && visibility !== 'private') ||
-      (kind !== 'business-image' && kind !== 'resident-evidence' && kind !== 'application-document')) return null;
+      (kind !== 'business-image' && kind !== 'resident-evidence' && kind !== 'application-document' &&
+       kind !== 'official-news-image')) return null;
   if (kind === 'application-document') {
     if (visibility !== 'private' || !DRIVE_FILE_ID.test(fileId)) return null;
+  } else if (kind === 'official-news-image') {
+    if (visibility !== 'public' || !DRIVE_FILE_ID.test(fileId)) return null;
   } else if (storageVisibility(kind) !== visibility) return null;
   return { objectKey: value.trim(), visibility, kind, fileId };
 }
@@ -273,6 +284,259 @@ export async function applicationDocumentDeleteConflict(
     );
   }
   return null;
+}
+
+type OfficialNewsDeleteIntentDecision = {
+  state?: string;
+  post_in_use?: boolean;
+  delete_intent_acquired?: boolean;
+};
+
+/**
+ * #844 BLOCKER 1: durable delete intent for official-news images.
+ *
+ * The reference check and the active -> delete_pending acquisition run inside ONE PostgreSQL
+ * serialization boundary (row lock + conditional update in the same transaction). A concurrent new
+ * post reference therefore either lands before the intent (delete is denied) or after it (the
+ * reference validator only accepts state='active', so acquisition is refused). There is no window in
+ * which a published article points at an object that is being retired.
+ *
+ * After Drive trash succeeds the row is finalized to 'retired'; if Drive or the finalize step fails,
+ * the durable 'delete_pending' state remains and retirement stays retryable/reconcilable.
+ */
+export async function acquireOfficialNewsImageDeleteIntent(
+  sql: Sql,
+  objectKeyValue: string,
+  requestId: string
+): Promise<{ acquired: boolean; state: string } | Response> {
+  let lockedRows;
+  let decisionRows;
+  try {
+    [lockedRows, decisionRows] = await sql.transaction([
+      sql`
+        select object_key, complex_id, state
+        from business_image_objects
+        where object_key = ${objectKeyValue}
+          and kind = 'official-news-image'
+        for update
+      `,
+      sql`
+        with usage as (
+          select exists (
+            select 1 from complex_posts p
+            where p.attachment_object_key = ${objectKeyValue}
+          ) as post_in_use
+        ),
+        updated as (
+          update business_image_objects bio
+          set state = 'delete_pending',
+              delete_requested_at = coalesce(bio.delete_requested_at, now()),
+              updated_at = now()
+          from usage u
+          where bio.object_key = ${objectKeyValue}
+            and bio.kind = 'official-news-image'
+            and bio.state = 'active'
+            and not u.post_in_use
+          returning bio.object_key
+        )
+        select
+          (select state from business_image_objects where object_key = ${objectKeyValue}) as state,
+          u.post_in_use,
+          exists (select 1 from updated) as delete_intent_acquired
+        from usage u
+      `
+    ]);
+  } catch {
+    return fail(
+      'OFFICIAL_NEWS_IMAGE_REFERENCE_CHECK_UNAVAILABLE',
+      'Official news image lifecycle/reference state could not be verified before deletion',
+      503,
+      requestId
+    );
+  }
+
+  const locked = (lockedRows as { object_key?: string; state?: string }[])[0];
+  if (!locked) {
+    return fail(
+      'OFFICIAL_NEWS_IMAGE_NOT_REGISTERED',
+      'Official news image is not registered for lifecycle mutation',
+      409,
+      requestId
+    );
+  }
+
+  const decision = (decisionRows as OfficialNewsDeleteIntentDecision[])[0];
+  if (decision?.post_in_use) {
+    return fail(
+      'OFFICIAL_NEWS_IMAGE_IN_USE',
+      'Official news image is still attached to an apartment-news post',
+      409,
+      requestId
+    );
+  }
+  if (decision?.delete_intent_acquired) return { acquired: true, state: 'delete_pending' };
+  return { acquired: false, state: String(decision?.state ?? locked.state ?? '') };
+}
+
+async function finalizeOfficialNewsImageRetired(
+  sql: Sql,
+  objectKeyValue: string,
+  requestId: string
+): Promise<Response | null> {
+  try {
+    const rows = await sql`
+      update business_image_objects
+      set state = 'retired',
+          retired_at = coalesce(retired_at, now()),
+          reconcile_lease_token = null,
+          reconcile_lease_expires_at = null,
+          reconcile_next_attempt_at = null,
+          reconcile_last_error_code = null,
+          updated_at = now()
+      where object_key = ${objectKeyValue}
+        and kind = 'official-news-image'
+        and state = 'delete_pending'
+      returning state
+    `;
+    if (rows[0]) return null;
+    const current = await sql`
+      select state from business_image_objects
+      where object_key = ${objectKeyValue}
+        and kind = 'official-news-image'
+      limit 1
+    `;
+    if (String((current[0] as { state?: string } | undefined)?.state ?? '') === 'retired') return null;
+    return fail(
+      'OFFICIAL_NEWS_IMAGE_RETIREMENT_STATE_UNAVAILABLE',
+      'Official news image retirement could not be finalized safely',
+      503,
+      requestId
+    );
+  } catch {
+    return fail(
+      'OFFICIAL_NEWS_IMAGE_REGISTRY_UNAVAILABLE',
+      'Official news image lifecycle registry is unavailable',
+      503,
+      requestId
+    );
+  }
+}
+
+async function trashOfficialNewsImageAndFinalize(
+  env: DriveEnv,
+  sql: Sql,
+  parsed: ParsedObjectKey,
+  requestId: string
+): Promise<Response> {
+  let response: Response;
+  try {
+    response = await googleFetch(env, `${DRIVE_API}/files/${encodeURIComponent(parsed.fileId)}?supportsAllDrives=true`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ trashed: true })
+    });
+  } catch {
+    return fail(
+      'OFFICIAL_NEWS_IMAGE_RETIREMENT_RECONCILABLE',
+      'Official news image is marked for deletion but Google Drive could not be reached; retirement stays reconcilable',
+      503,
+      requestId
+    );
+  }
+  if (!response.ok && response.status !== 404) {
+    return fail(
+      'OFFICIAL_NEWS_IMAGE_RETIREMENT_RECONCILABLE',
+      'Official news image is marked for deletion but Google Drive rejected the trash request; retirement stays reconcilable',
+      503,
+      requestId
+    );
+  }
+
+  const finalized = await finalizeOfficialNewsImageRetired(sql, parsed.objectKey, requestId);
+  if (finalized) return finalized;
+  return ok({ objectKey: parsed.objectKey, deleted: true, retired: true }, requestId);
+}
+
+async function reconcileOfficialNewsImageRetirement(
+  env: DriveEnv,
+  sql: Sql,
+  parsed: ParsedObjectKey,
+  requestId: string
+): Promise<Response> {
+  const rows = await sql`
+    select state from business_image_objects
+    where object_key = ${parsed.objectKey}
+      and kind = 'official-news-image'
+    limit 1
+  `;
+  const state = String((rows[0] as { state?: string } | undefined)?.state ?? '');
+  if (state === 'retired') {
+    return ok({ objectKey: parsed.objectKey, deleted: true, retired: true, alreadyRetired: true }, requestId);
+  }
+  if (state !== 'delete_pending') {
+    return fail(
+      'OFFICIAL_NEWS_IMAGE_NOT_ACTIVE',
+      'Official news image is not in a reconcilable deletion state',
+      409,
+      requestId
+    );
+  }
+
+  const blocking = await sql`
+    select exists (
+      select 1 from complex_posts p
+      where p.attachment_object_key = ${parsed.objectKey}
+    ) as post_in_use
+  `;
+  if ((blocking[0] as { post_in_use?: boolean } | undefined)?.post_in_use) {
+    return fail(
+      'OFFICIAL_NEWS_IMAGE_IN_USE',
+      'Official news image is still attached to an apartment-news post',
+      409,
+      requestId
+    );
+  }
+  return trashOfficialNewsImageAndFinalize(env, sql, parsed, requestId);
+}
+
+/**
+ * #844 Amendment D: public streaming of an official-news image requires an active registry row
+ * AND a published complex_posts reference bound to the same complex. Fail closed when the
+ * reference authority cannot be read.
+ */
+async function officialNewsImagePubliclyVisible(
+  env: CoreEnv,
+  objectKeyValue: string,
+  requestId: string
+): Promise<boolean | Response> {
+  if (!env.DATABASE_URL) {
+    return fail('STORAGE_NOT_CONFIGURED', 'Storage reference authority is not configured', 503, requestId);
+  }
+  const sql: Sql = neon(env.DATABASE_URL);
+  try {
+    const rows = await sql`
+      select exists (
+        select 1
+        from business_image_objects o
+        join complex_posts p
+          on p.attachment_object_key = o.object_key
+         and p.complex_id = o.complex_id
+         and p.status = 'published'
+         and p.channel in ('apartment_news', 'management_office')
+        where o.object_key = ${objectKeyValue}
+          and o.kind = 'official-news-image'
+          and o.state = 'active'
+      ) as visible
+    `;
+    return (rows[0] as { visible?: boolean } | undefined)?.visible === true;
+  } catch {
+    return fail(
+      'STORAGE_REFERENCE_UNAVAILABLE',
+      'Official news image reference could not be verified',
+      503,
+      requestId
+    );
+  }
 }
 
 export async function registerBusinessImageObject(
@@ -500,12 +764,22 @@ async function streamObject(request: Request, env: DriveEnv, requestId: string, 
     if (parsed.visibility !== 'private' || parsed.kind !== 'resident-evidence') {
       return fail('FORBIDDEN', 'Private storage route only serves resident evidence', 403, requestId);
     }
-  } else if (parsed.visibility !== 'public' || parsed.kind !== 'business-image') {
+  } else if (parsed.visibility !== 'public' ||
+             (parsed.kind !== 'business-image' && parsed.kind !== 'official-news-image')) {
     return fail('NOT_FOUND', 'Public storage object not found', 404, requestId);
   }
 
   const metadata = await readDriveMetadata(env, parsed);
   if (!metadata || !metadataMatches(env, parsed, metadata)) return fail('NOT_FOUND', 'Storage object not found', 404, requestId);
+
+  // #844 Amendment D: an official-news image is publicly streamed only while it is an active
+  // registry object that a *published* official-news post actually references. An uploaded but
+  // not-yet-published image stays private even if its object key is known.
+  if (parsed.kind === 'official-news-image') {
+    const visible = await officialNewsImagePubliclyVisible(env, parsed.objectKey, requestId);
+    if (visible instanceof Response) return visible;
+    if (!visible) return fail('NOT_FOUND', 'Storage object not found', 404, requestId);
+  }
 
   if (privateRoute) {
     const auth = await requireStorageActor(request, env, requestId);
@@ -745,6 +1019,70 @@ async function removeObject(request: Request, env: DriveEnv, requestId: string):
      });
      if (!response.ok) throw new Error(`Google Drive delete failed (${response.status})`);
      return ok({ objectKey: parsed.objectKey, deleted: true }, requestId);
+   }
+
+   if (parsed.kind === 'official-news-image') {
+     const registry = await readBusinessImageRegistry(auth.sql, parsed.objectKey, requestId);
+     if (registry instanceof Response) return registry;
+     if (!registry) return fail('NOT_FOUND', 'Storage object not found', 404, requestId);
+
+     const state = String(registry.state ?? '');
+     if (state === 'retired') {
+       return ok({ objectKey: parsed.objectKey, deleted: true, retired: true, alreadyRetired: true }, requestId);
+     }
+
+     // Deletion authority is official-content authority for the owning complex. Uploader identity
+     // is intentionally not required (Amendment B: SAME_UPLOADER_REQUIRED=NO).
+     const complexRows = await auth.sql`
+       select slug
+       from complexes
+       where id = ${String(registry.complex_id)}::uuid
+       limit 1
+     `;
+     const owningSlug = complexRows[0] ? String((complexRows[0] as { slug?: string }).slug ?? '') : '';
+     if (!owningSlug) return fail('NOT_FOUND', 'Storage object not found', 404, requestId);
+     const authority = await requireOperationalAuthority(
+       request,
+       env,
+       auth.sql,
+       requestId,
+       owningSlug,
+       'official-content.manage',
+       'council.official-content.manage'
+     );
+     if (authority instanceof Response) return authority;
+
+     if (state === 'delete_pending') {
+       return reconcileOfficialNewsImageRetirement(env, auth.sql, parsed, requestId);
+     }
+     if (state !== 'active') {
+       return fail('OFFICIAL_NEWS_IMAGE_NOT_ACTIVE', 'Official news image is not active for lifecycle mutation', 409, requestId);
+     }
+
+     let metadata: DriveMetadata | null;
+     try {
+       metadata = await readDriveMetadata(env, parsed);
+     } catch {
+       return fail('STORAGE_UNAVAILABLE', 'Storage object could not be verified', 503, requestId);
+     }
+     if (!metadata || !metadataMatches(env, parsed, metadata)) return fail('NOT_FOUND', 'Storage object not found', 404, requestId);
+
+     // BLOCKER 1: the reference check and the active -> delete_pending acquisition share one DB
+     // serialization boundary, so a concurrent post reference can never land in between.
+     const intent = await acquireOfficialNewsImageDeleteIntent(auth.sql, parsed.objectKey, requestId);
+     if (intent instanceof Response) return intent;
+     if (!intent.acquired) {
+       if (intent.state === 'delete_pending') {
+         return reconcileOfficialNewsImageRetirement(env, auth.sql, parsed, requestId);
+       }
+       if (intent.state === 'retired') {
+         return ok({ objectKey: parsed.objectKey, deleted: true, retired: true, alreadyRetired: true }, requestId);
+       }
+       return fail('OFFICIAL_NEWS_IMAGE_NOT_ACTIVE', 'Official news image is not active for deletion', 409, requestId);
+     }
+
+     // The durable delete_pending intent is committed before this external Drive side effect.
+     return trashOfficialNewsImageAndFinalize(env, auth.sql, parsed, requestId);
    }
 
    return fail('INVALID_OBJECT_KEY', 'Invalid storage object key', 400, requestId);

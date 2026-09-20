@@ -5,6 +5,15 @@ export const STORAGE_UPLOAD_POLICIES = Object.freeze({
     maxFiles: 1,
     mimeTypes: Object.freeze(['image/jpeg', 'image/png', 'image/webp'])
   }),
+  // #844: official apartment-news public attachment image. Same bounded public
+  // image envelope as business-image, but a distinct kind/namespace/lifecycle
+  // lane (gdrive/public/official-news-image/<fileId>).
+  'official-news-image': Object.freeze({
+    visibility: 'public',
+    maxBytes: 8 * 1024 * 1024,
+    maxFiles: 1,
+    mimeTypes: Object.freeze(['image/jpeg', 'image/png', 'image/webp'])
+  }),
   'resident-evidence': Object.freeze({
     visibility: 'private',
     maxBytes: 10 * 1024 * 1024,

@@ -13,7 +13,7 @@
     main{width:min(880px,calc(100% - 64px));margin:auto;padding-bottom:110px}.route{height:58px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--line)}.route a{display:flex;align-items:center;gap:8px;font-size:15px;font-weight:850}.route svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8}.route span{font-size:14px;color:var(--muted)}.route span::before{content:"/";margin-right:9px;color:#aaa49b}
     .article-head{padding:48px 0 30px;border-bottom:1px solid var(--line)}.eyebrow{display:flex;align-items:center;gap:10px;font-size:14px;font-weight:900;color:var(--coral);margin-bottom:14px}.eyebrow::before{content:"";width:28px;height:2px;background:var(--coral)}h1{font-size:42px;line-height:1.3;letter-spacing:-.045em;margin:0 0 20px;word-break:keep-all;font-weight:900}.meta{display:flex;align-items:center;gap:12px;font-size:14px;color:var(--muted);font-weight:750}.meta time{font-size:14px}
     .article-body{padding:34px 0 8px;font-size:18px;line-height:1.95;color:#35383c;word-break:keep-all}.article-body p{margin:0 0 24px}
-    .article-state{padding:60px 0;text-align:center;color:var(--muted);font-size:16px;font-weight:780}
+    .article-state{padding:60px 0;text-align:center;color:var(--muted);font-size:16px;font-weight:780}.article-media{margin:0 0 30px}.article-media img{display:block;max-width:100%;height:auto;border-radius:12px}
     .reaction-zone{display:flex;align-items:center;gap:14px;margin-top:26px;border-top:1px solid var(--line);padding-top:22px}
     .reaction-zone[hidden]{display:none}
     .react{display:inline-flex;align-items:center;gap:9px;min-height:48px;padding:0 20px;border:1px solid var(--line);background:var(--paper2);font-size:15px;font-weight:850}
@@ -63,6 +63,7 @@
 <div class="route"><a href="08_아파트소식_목록.html"><svg viewbox="0 0 24 24"><path d="M19 12H5M10 7l-5 5 5 5"></path></svg>아파트소식</a><span>상세</span></div>
 <article>
 <header class="article-head"><div class="eyebrow" id="authorityLabel"></div><h1 id="articleTitle">아파트소식을 불러오는 중입니다.</h1><div class="meta"><time id="articleDate"></time></div></header>
+<figure class="article-media" id="articleMedia" hidden></figure>
 <div class="article-body" id="articleBody"></div>
 <p class="article-state" id="articleState" hidden></p>
 <div class="reaction-zone" id="reactionZone" hidden><button aria-pressed="false" class="react" id="reactBtn" type="button"><span class="react-label">공감</span><b class="react-count" id="reactCount">0</b></button><span aria-live="polite" class="boundary" id="reactionBoundary" role="status"></span></div>
@@ -72,7 +73,7 @@
 <nav aria-label="모바일 주요 메뉴" class="mobile-bottom"><button aria-label="홈" data-route="04_데일리홈.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><path d="m3 10 9-7 9 7v10h-6v-6H9v6H3z"></path></svg><span>홈</span></button><button aria-label="이웃가게" data-route="01_이웃가게_발견.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><path d="M4 7h16l-1 13H5L4 7Z"></path><path d="M8 7V5a4 4 0 0 1 8 0v2"></path></svg><span>이웃가게</span></button><button aria-label="우리단지" class="active" data-route="05_우리단지_첫화면.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><path d="M4 21V9l8-6 8 6v12"></path><path d="M8 13h8M8 17h8"></path></svg><span>우리단지</span></button><button aria-label="내정보" data-route="19_내정보_메인.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><circle cx="12" cy="8" r="4"></circle><path d="M4 21a8 8 0 0 1 16 0"></path></svg><span>내정보</span></button></nav>
 <script src="assets/danjion-session.js"></script>
 <script type="module">
-import { createNewsBridge, DANJION_COMPLEX_SLUG } from './assets/danjion-news-bridge.js';
+import { createNewsBridge, DANJION_COMPLEX_SLUG, resolveOfficialNewsImageUrl } from './assets/danjion-news-bridge.js';
 
 const apiBase = DanjionSession.danjionApiBase();
 const bridge = createNewsBridge({ apiBase, complexSlug: DANJION_COMPLEX_SLUG });
@@ -83,6 +84,7 @@ const ARTICLE_CHANNELS = new Set(['apartment_news', 'management_office']);
 
 const titleEl = document.getElementById('articleTitle');
 const bodyEl = document.getElementById('articleBody');
+const mediaEl = document.getElementById('articleMedia');
 const stateEl = document.getElementById('articleState');
 const dateEl = document.getElementById('articleDate');
 const authorityEl = document.getElementById('authorityLabel');
@@ -125,6 +127,7 @@ function categoryLabel(value) {
 function showState(message) {
   stateEl.textContent = message;
   stateEl.hidden = false;
+  clearMedia();
   bodyEl.replaceChildren();
 }
 
@@ -132,6 +135,7 @@ function notFound() {
   titleEl.textContent = '아파트소식';
   authorityEl.textContent = '';
   dateEl.textContent = '';
+  clearMedia();
   bodyEl.replaceChildren();
   reactionZone.hidden = true;
   activePost = null;
@@ -199,10 +203,28 @@ async function toggleReaction() {
 
 reactBtn.addEventListener('click', toggleReaction);
 
-// #817: attachments — official news rows still carry the legacy single storage
-// key column, and there is no existing contract that resolves an official-news
-// storage key to a public asset URL (private resident keys are operator-download
-// only, #795). So no image surface is invented here; MULTI_IMAGE stays out of scope.
+// #844: the official-news photo is rendered only when the post carries a valid public
+// official-news image key. The page never fabricates a key, never builds a Drive URL, and a
+// failed load removes only the figure — the article text is never destroyed. Text-only posts
+// simply render no figure. (MULTI_IMAGE stays out of scope; #817 kept the popup/article split.)
+function clearMedia() {
+  mediaEl.replaceChildren();
+  mediaEl.hidden = true;
+}
+
+function renderMedia(post) {
+  clearMedia();
+  const url = resolveOfficialNewsImageUrl(apiBase, post.attachmentObjectKey);
+  if (!url) return;
+  const image = document.createElement('img');
+  image.loading = 'lazy';
+  image.decoding = 'async';
+  image.alt = String(post.title || '아파트소식 사진');
+  image.addEventListener('error', clearMedia);
+  image.src = url;
+  mediaEl.append(image);
+  mediaEl.hidden = false;
+}
 
 async function loadArticle(postId) {
   if (!POST_UUID.test(String(postId || ''))) { notFound(); return; }
@@ -220,6 +242,7 @@ async function loadArticle(postId) {
   document.title = '단지온 · 아파트소식 · ' + post.title;
   dateEl.textContent = formatDate(post.publishedAt);
   renderParagraphs(post.body || '');
+  renderMedia(post);
   const initial = Number.isFinite(post.reactionCount) ? Math.max(0, Math.floor(post.reactionCount)) : 0;
   reactionZone.hidden = false;
   activePost = { id: post.id, active: false, count: initial };

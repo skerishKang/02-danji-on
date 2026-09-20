@@ -13,8 +13,37 @@ if (!email || !password) {
 
 const results = [];
 const events = [];
+/*
+ * Stream every evidence line as it is produced. The run can hang or be
+ * cancelled mid-flow, and GitHub only publishes logs after a job finishes —
+ * buffering everything until flushEvidence made two consecutive hangs
+ * completely unreadable. flushEvidence still replays the whole set at the end.
+ */
+function emit(line) {
+  console.log(line);
+  return line;
+}
 function record(label, pass, detail = '') {
-  results.push(`${label}=${pass ? 'PASS' : 'FAIL'}${detail ? `:${detail}` : ''}`);
+  const line = `${label}=${pass ? 'PASS' : 'FAIL'}${detail ? `:${detail}` : ''}`;
+  results.push(line);
+  emit(line);
+}
+
+/* A locator.evaluate() call has no timeout of its own: if the page function
+   never settles the run hangs forever. Every action that cannot carry an
+   explicit timeout is raced against one here. */
+async function withTimeout(promise, ms, label) {
+  let timer;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error(`QA_830_STEP_TIMEOUT:${label}:${ms}ms`)), ms);
+      })
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 function classify(status, body) {
@@ -285,7 +314,7 @@ async function call(request, label, path, init = {}) {
     headers: { accept: 'application/json', Origin: FRONTEND, ...(init.headers || {}) }
   });
   const body = await json(response);
-  events.push(`${label}:HTTP_${response.status()}:API_PATH=${new URL(response.url()).pathname}:${headerEvidence(response.headers())}`);
+  events.push(emit(`${label}:HTTP_${response.status()}:API_PATH=${new URL(response.url()).pathname}:${headerEvidence(response.headers())}`));
   return { response, body, ...classify(response.status(), body) };
 }
 
@@ -297,7 +326,7 @@ async function pageCall(page, label, method, path, action) {
   await action();
   const response = await responsePromise;
   const body = await response.json().catch(() => null);
-  events.push(`${label}:HTTP_${response.status()}:API_PATH=${path}:${headerEvidence(response.headers())}`);
+  events.push(emit(`${label}:HTTP_${response.status()}:API_PATH=${path}:${headerEvidence(response.headers())}`));
   return { response, body, ...classify(response.status(), body) };
 }
 
@@ -322,6 +351,9 @@ function emitBookmarkMarkers() {
 }
 try {
   const context = await browser.newContext();
+  /* Bound every locator action that carries no explicit timeout (fill, click,
+     etc.) so a stuck step cannot hold the job open indefinitely. */
+  context.setDefaultTimeout(15_000);
   const page = await context.newPage();
   installPageDiagnostics(page);
   await page.goto(`${FRONTEND}/01_%EC%9D%B4%EC%9B%83%EA%B0%80%EA%B2%8C_%EB%B0%9C%EA%B2%AC.html`, { waitUntil: 'domcontentloaded', timeout: 30_000 });
@@ -346,6 +378,7 @@ try {
      intercepted). Enter without the deep link so the card click is the thing that
      opens the modal — that is the real user gesture this acceptance must prove. */
   await page.goto(`${FRONTEND}/01_%EC%9D%B4%EC%9B%83%EA%B0%80%EA%B2%8C_%EB%B0%9C%EA%B2%AC.html`, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+  emit('STEP=ENTER_SHOP_REVIEW_FLOW');
   await waitShopHydrated(page, shopKey, 'SHOP_HYDRATION');
   await page.locator(shopKeySelector(shopKey)).first().click({ timeout: 15_000 });
   await page.locator('#shopReviewOpen2').click({ timeout: 10_000 });
@@ -356,6 +389,7 @@ try {
   authenticated = await session(context.request, 'REVIEW_AFTER');
   if (!authenticated) record('REVIEW_SESSION_PRESERVED', false, 'SESSION_LOST');
 
+  emit('STEP=ENTER_BOOKMARK_FLOW');
   /* --- bookmark: state-independent toggle + proven restore via final readback --- */
   const togglePath = `/api/v1/me/bookmarks/${businessId}`;
   const saveToggle = () => page.locator('#shopCompareSave').click({ timeout: 10_000 });
@@ -408,6 +442,7 @@ try {
   /* Same reason as the first entry: no ?shop= deep link, so the card click below
      opens the compare modal instead of being blocked by an already-open one. */
   await page.goto(`${FRONTEND}/01_%EC%9D%B4%EC%9B%83%EA%B0%80%EA%B2%8C_%EB%B0%9C%EA%B2%AC.html`, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+  emit('STEP=ENTER_SHOP_INQUIRY_FLOW');
   await waitShopHydrated(page, shopKey, 'SHOP_HYDRATION_REVISIT');
   await page.locator(shopKeySelector(shopKey)).first().click({ timeout: 10_000 });
   await page.locator('#shopCompareInquiry').click({ timeout: 10_000 });
@@ -418,13 +453,18 @@ try {
   record('INQUIRY_ACCEPTANCE', inquiry.auth, inquiry.disposition);
   authenticated = await session(context.request, 'INQUIRY_AFTER');
 
+  emit('STEP=ENTER_SHOP_REPORT_FLOW');
   await page.goto(`${FRONTEND}/25A_%EC%8B%A0%EC%B2%AD%EC%A0%9C%EB%B3%B4.html?mode=report`, { waitUntil: 'domcontentloaded', timeout: 30_000 });
   await page.locator('[name="reportShopName"]').fill(`[QA #830] report ${stamp}`);
   await page.locator('[name="reportWhat"]').fill('QA authenticated report acceptance');
   await page.locator('[name="reportLocation"]').fill('QA only');
   await page.locator('[name="reportReason"]').fill(`[QA #830] ${stamp}`);
   const report = await pageCall(page, 'REPORT', 'POST', '/api/v1/me/shop-recommendations',
-    () => page.locator('#requestForm').evaluate((form) => form.requestSubmit()));
+    () => withTimeout(
+      page.locator('#requestForm').evaluate((form) => form.requestSubmit()),
+      10_000,
+      'REPORT_FORM_SUBMIT'
+    ));
   record('REPORT_ACCEPTANCE', report.auth, report.disposition);
   authenticated = await session(context.request, 'REPORT_AFTER');
 
@@ -435,6 +475,7 @@ try {
     ['TOGETHER', '17_%EA%B0%99%EC%9D%B4%ED%95%B4%EC%9A%94_%EA%B8%80%EC%93%B0%EA%B8%B0.html', 'together']
   ];
   for (const [label, route, kind] of community) {
+    emit(`STEP=ENTER_COMMUNITY_${label}`);
     await page.goto(`${FRONTEND}/${route}`, { waitUntil: 'domcontentloaded', timeout: 30_000 });
     if (kind === 'question') await page.locator('[data-type="생활·살림"]').click({ timeout: 10_000 });
     // selector mismatch must fail the run — no silent catch, no fail-open skip.
@@ -455,7 +496,13 @@ try {
   console.log('SECRET_OUTPUT=NO');
   console.log(`QA_MUTATION_SCOPE=STAMP_${stamp}`);
   if (results.some((line) => line.includes('=FAIL'))) process.exitCode = 1;
-  await context.close();
+  /* Evidence is already streamed and flushed above. Teardown must never be the
+     thing that keeps the job open: a hung close() hides an otherwise complete run. */
+  try {
+    await withTimeout(context.close(), 10_000, 'CONTEXT_CLOSE');
+  } catch {
+    emit('TEARDOWN=CONTEXT_CLOSE_TIMEOUT_FORCED');
+  }
 } catch (error) {
   flushEvidence('=== QA #830 AUTHENTICATED ACCEPTANCE FAILURE EVIDENCE ===');
   emitBookmarkMarkers();
@@ -464,5 +511,12 @@ try {
   console.error(`QA_830_DIAGNOSTICS=${boundedText(diagnosisSummary(), 400)}`);
   process.exitCode = 1;
 } finally {
-  await browser.close();
+  try {
+    await withTimeout(browser.close(), 10_000, 'BROWSER_CLOSE');
+  } catch {
+    emit('TEARDOWN=BROWSER_CLOSE_TIMEOUT_FORCED');
+  }
+  /* Every evidence line has been streamed already; do not let a lingering
+     browser handle keep the process — and therefore the job — alive. */
+  process.exit(typeof process.exitCode === 'number' ? process.exitCode : 0);
 }
