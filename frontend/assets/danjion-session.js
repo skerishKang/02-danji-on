@@ -256,7 +256,10 @@
 
   async function fetchAccountAuthority(fetchImpl, loc) {
     const apiBase = danjionApiBase(loc);
-    if (!apiBase) return Object.freeze({ state: 'unbound', label: '', canAdmin: false, wildcard: false, scopes: [] });
+    const where = loc || (typeof location !== 'undefined' ? location : {});
+    const hostname = String(where.hostname || '').toLowerCase();
+    const canonicalProduction = hostname === PRIMARY_PRODUCTION_HOSTNAME || hostname === PRODUCTION_PAGES_HOSTNAME;
+    if (!apiBase && !canonicalProduction) return Object.freeze({ state: 'unbound', label: '', canAdmin: false, wildcard: false, scopes: [] });
     return normalizeAccountAuthority(
       await request(fetchImpl || global.fetch, joinUrl(apiBase, '/api/v1/admin/authority'))
     );
