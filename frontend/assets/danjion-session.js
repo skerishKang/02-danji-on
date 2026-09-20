@@ -10,11 +10,7 @@
   // while legacy Pages hostname is retained as fallback during migration.
   // Both bind the same-origin Pages Function facade for Better Auth and application API.
   const PRIMARY_PRODUCTION_HOSTNAME = 'danjion.padiem.net';
-  const PRIMARY_PRODUCTION_API_BASE = 'https://danjion.padiem.net';
-  const LEGACY_PRODUCTION_HOSTNAME = 'danjion.pages.dev';
   const PRODUCTION_PAGES_HOSTNAME = 'danjion.pages.dev';
-  const CANONICAL_PAGES_API_BASE = 'https://danjion.pages.dev';
-  const PRODUCTION_API_BASE = 'https://padiem-danjion-api-production.padiem.workers.dev';
 
   function danjionApiBase(loc) {
     const where = loc || (typeof location !== 'undefined' ? location : {});
@@ -54,8 +50,8 @@
   //   * every other origin (previews, localhost, spoofed suffixes) resolves to
   //     '' with serverMode off — the demo lane never emits auth traffic, and the
   //     facade itself fail-closes (404) for any non-canonical origin.
-  // danjionApiBase() itself is untouched: general application API traffic
-  // remains bound to the production Worker.
+  // danjionApiBase() now follows the same same-origin boundary for production
+  // application APIs so /api/v1/* reaches the canonical Pages app facade.
   function danjionAuthBase(loc) {
     const where = loc || (typeof location !== 'undefined' ? location : {});
     const hostname = String(where.hostname || '').toLowerCase();
