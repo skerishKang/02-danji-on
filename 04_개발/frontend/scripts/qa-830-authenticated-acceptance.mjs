@@ -43,7 +43,10 @@ function headerEvidence(headers) {
 
 /* === BOUNDED EVIDENCE HELPERS — contract unit-tested; keep this block contiguous === */
 const UNPRINTABLE_EVIDENCE = /cookie|authorization|bearer|password|secret/i;
-const TOKEN_SHAPED = /eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}/;
+/* Two or three dot-separated base64url segments starting with the standard JWT
+   header prefix; the optional third group is the signature, which must not
+   survive on its own either. */
+const TOKEN_SHAPED = /eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}(\.[A-Za-z0-9_-]{2,})?/;
 const CREDENTIAL_LABELED = /(set[-_ ]?cookie|cookie|authorization|bearer|proxy-authorization|password|passwd|secret|api[-_ ]?key|access[-_ ]?token|refresh[-_ ]?token|token)\s*[:=]/i;
 const MAX_EVIDENCE_CHARS = 240;
 const MAX_SAMPLES = 3;

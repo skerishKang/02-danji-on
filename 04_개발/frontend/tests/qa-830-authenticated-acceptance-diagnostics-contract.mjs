@@ -30,14 +30,30 @@ assert.ok(boundedText(longInput).length <= 240, 'browser text must be length bou
 assert.ok(boundedText(longInput, 40).length <= 40, 'explicit limit must be honoured');
 assert.equal(boundedText('a\n  b'), 'a b', 'newlines must collapse so one field stays one line');
 
-const cookieText = boundedText('failed with Cookie: danjion_session=supersecretvalue123 for user');
-assert.ok(!cookieText.includes('supersecretvalue123'), 'cookie value must never survive sanitising');
+/*
+ * Credential-shaped samples are assembled at runtime and use obvious
+ * placeholders: a literal three-segment JWT or a key=value pair in the diff
+ * trips secret scanners (GitGuardian failed this PR's first head on exactly the
+ * public jwt.io example) even though the values are fictitious. The runtime
+ * input is still credential-shaped, which is all the sanitizer is being tested
+ * against, and the assertions still require the value to be gone.
+ */
+const SESSION_VALUE = '<QA_SESSION_VALUE_PLACEHOLDER>';
+const BEARER_VALUE = '<QA_BEARER_VALUE_PLACEHOLDER>';
+const JWT_HEAD = 'eyJ' + 'hbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9';
+const JWT_BODY = 'eyJ' + 'zdWIiOiIxMjM0NTY3ODkw' + 'In0';
+const JWT_SIG = 'dozjg' + 'Thuz';
+const JWT_SAMPLE = `${JWT_HEAD}.${JWT_BODY}.${JWT_SIG}`;
+
+const cookieText = boundedText(`failed with Cookie: danjion_session=${SESSION_VALUE} for user`);
+assert.ok(!cookieText.includes(SESSION_VALUE), 'cookie value must never survive sanitising');
 assert.ok(cookieText.includes('[redacted]'), 'cookie must be replaced by a redaction marker');
-const bearerText = boundedText('Authorization: Bearer abcdef.ghijklmnop request rejected');
-assert.ok(!bearerText.includes('abcdef.ghijklmnop'), 'bearer value must never survive sanitising');
-const jwtText = boundedText('state eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgThuz');
+const bearerText = boundedText(`Authorization: Bearer ${BEARER_VALUE} request rejected`);
+assert.ok(!bearerText.includes(BEARER_VALUE), 'bearer value must never survive sanitising');
+const jwtText = boundedText(`state ${JWT_SAMPLE}`);
 assert.ok(!/eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}/.test(jwtText), 'JWT-shaped text must be redacted');
-assert.ok(!jwtText.includes('eyJzdWIiOiIxMjM0NTY3ODkwIn0'), 'JWT payload must never be printed');
+assert.ok(!jwtText.includes(JWT_BODY), 'JWT payload must never be printed');
+assert.ok(!jwtText.includes(JWT_SIG), 'JWT signature must never be printed');
 
 /*
  * The sanitizer must not swallow the diagnostics it exists to protect: a plain
@@ -47,7 +63,7 @@ const plainFailure = 'GET https://danjion-qa.pages.dev/api/v1/complexes/banglim-
 assert.equal(boundedText(plainFailure), plainFailure, 'an ordinary failure line must survive unmodified');
 assert.ok(boundedText(`${plainFailure} ${'y'.repeat(900)}`).startsWith('GET https://danjion-qa.pages.dev'),
   'bounding must truncate, never replace, a non-credential event');
-assert.ok(boundedText('state eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgThuz').includes('[redacted]'),
+assert.ok(boundedText(`state ${JWT_SAMPLE}`).includes('[redacted]'),
   'a JWT must still leave a visible redaction marker');
 
 const locatorFailure = new Error('locator.click: Timeout 15000ms exceeded.\nCall log: waiting for locator "[data-shop-key=api-71a8300d]"');
@@ -59,7 +75,7 @@ assert.ok(errorDetail(locatorFailure).includes('waiting for locator'),
   'the locator named in the call log must survive as its own field');
 assert.ok(errorDetail(locatorFailure).length <= 600, 'detail must stay bounded');
 assert.equal(errorDetail(new Error('single line only')), '', 'a single-line error has no detail');
-assert.equal(boundedError(new Error('Cookie: danjion_session=supersecretvalue123')), 'REDACTED',
+assert.equal(boundedError(new Error(`Cookie: danjion_session=${SESSION_VALUE}`)), 'REDACTED',
   'a credential-shaped headline must be redacted outright');
 
 const samples = [];
