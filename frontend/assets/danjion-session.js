@@ -502,10 +502,6 @@
     initAccountStrip,
     loadServiceFooterRuntime,
     PRIMARY_PRODUCTION_HOSTNAME,
-    PRIMARY_PRODUCTION_API_BASE,
-    LEGACY_PRODUCTION_HOSTNAME,
-    PRODUCTION_PAGES_HOSTNAME,
-    CANONICAL_PAGES_API_BASE,
-    PRODUCTION_API_BASE
+    PRODUCTION_PAGES_HOSTNAME
   });
 })(typeof window !== 'undefined' ? window : globalThis);
