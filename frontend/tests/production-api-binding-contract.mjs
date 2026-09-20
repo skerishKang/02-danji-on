@@ -132,6 +132,35 @@ const workflow = await read('../../.github/workflows/pages-production-release.ym
   assert.ok(workflow.includes(PRODUCTION_API_BASE), 'the workflow must pin the canonical production API origin');
   assert.ok(workflow.includes('x-danjion-dev-auth-user'), 'the dev-auth artifact scan must remain');
   assert.ok(workflow.includes(`CANONICAL_PAGES_URL: https://${PRODUCTION_HOST}`), 'the canonical Pages smoke URL must remain');
+
+  /* Owner decision: the Pages host is the only current public Production origin.
+     The custom domain is deferred, so the release must not call it the live origin
+     or depend on its availability. */
+  assert.ok(workflow.includes(`CURRENT_PUBLIC_ORIGIN: https://${PRODUCTION_HOST}`),
+    'the workflow must name the Pages host as the current public Production origin');
+  assert.ok(!/PRIMARY_PUBLIC_ORIGIN|LEGACY_PUBLIC_ORIGIN|- Primary public origin:|- Legacy public origin:/.test(workflow),
+    'the workflow must not present the deferred custom domain as the current or legacy public origin');
+}
+
+/* Issue #804: the release authority scan must follow the same-origin #830 architecture
+   for DanjionSession-managed production API/Auth traffic. The browser session runtime
+   no longer embeds the Worker absolute URL, so the release workflow must NOT grep it
+   out of the browser artifact; it must instead evaluate real resolver semantics and
+   require the upstream pin in the server-side Pages Functions. The existing OPTION B
+   bounded public read-only fetch in page 05 remains a separate direct Worker path. */
+{
+  assert.ok(!/grep[^\n]*padiem-danjion-api-production\.padiem\.workers\.dev[^\n]*dist\/assets\/danjion-session\.js/.test(workflow),
+    'release workflow must not grep the browser session asset for the production Worker literal (pre-#830 drift)');
+  assert.ok(!sessionSource.includes(PRODUCTION_API_BASE),
+    'the browser session runtime must not embed the production Worker absolute URL');
+  assert.ok(workflow.includes('vm.runInContext') && workflow.includes('isCanonicalProduction'),
+    'release workflow must evaluate the real browser resolver instead of guessing from text');
+  assert.ok(workflow.includes('danjionAuthBase'),
+    'release workflow must assert the canonical Better Auth base, not only the application API base');
+  for (const facade of ['functions/_lib/app-facade.js', 'functions/_lib/auth-facade.js']) {
+    assert.ok(workflow.includes(facade),
+      `release workflow must verify the server-side upstream pin in ${facade}`);
+  }
 }
 
 /* the V3 source itself must stay free of any dev-auth bypass surface */

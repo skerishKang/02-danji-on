@@ -3,10 +3,32 @@ name: Pages Production Release
 # Issue #419 [production promotion]: the canonical Cloudflare Pages production
 # artifact is the top-level frontend/ V3 static site (plain HTML/assets, no
 # bundler). The V2 React tree under 04_개발/ is no longer a deployable source.
-# The artifact resolves its API binding at runtime through the hostname-gated
-# DanjionSession resolver: only https://danjion.pages.dev auto-binds the
-# production API; every other origin stays fail-closed unless an explicit
-# ?apiBase= controlled preview is provided.
+#
+# Issue #804 + #830 [same-origin facade fact correction]: the browser session
+# runtime does NOT embed a Worker absolute URL. The canonical architecture is:
+#
+#   browser (danjion.pages.dev = current public origin;
+#            danjion.padiem.net = future custom domain, DEFERRED)
+#     -> same-origin Pages Function facade   (/api/v1/*, /api/auth/*)
+#     -> fixed production Worker upstream    (padiem-danjion-api-production)
+#
+# frontend/assets/danjion-session.js resolves danjionApiBase()/danjionAuthBase()
+# to '' for BOTH hostnames, so DanjionSession-managed production API/Auth traffic
+# stays same-origin on either one; a crafted ?apiBase= can never move that traffic
+# off the facade. Only the Pages host is deployed, read back, parity-checked or
+# published today; the custom-domain hostname is pre-supported runtime work for the
+# deferred #779 migration and is never probed here. The Worker upstream literal lives in the
+# server-side Pages Functions (functions/_lib/app-facade.js,
+# functions/_lib/auth-facade.js), which proxy that managed traffic. The existing
+# OPTION B bounded public read-only fetch in
+# frontend/05_우리단지_첫화면.html remains a separate direct Worker path for its
+# complex-name authority lookup. Any other origin stays fail-closed unless an
+# explicit ?apiBase= controlled preview is provided.
+#
+# The release authority scan below therefore evaluates the assembled browser
+# artifact's resolver semantics in a real runtime and separately proves the
+# server-side upstream pin -- it no longer greps the session runtime for a
+# Worker absolute URL, which the same-origin cutover intentionally removed.
 
 on:
   workflow_dispatch:
@@ -35,8 +57,12 @@ jobs:
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       API_BASE_URL: https://padiem-danjion-api-production.padiem.workers.dev
       AUTH_BASE_URL: https://padiem-danjion-api-production.padiem.workers.dev
-      PRIMARY_PUBLIC_ORIGIN: https://danjion.padiem.net
-      LEGACY_PUBLIC_ORIGIN: https://danjion.pages.dev
+      # Owner decision: the only public Production origin is the Pages host. The
+      # custom domain is future work, so nothing here deploys to it, reads it back,
+      # or requires its DNS/TLS/HTTP availability.
+      CURRENT_PUBLIC_ORIGIN: https://danjion.pages.dev
+      FUTURE_CUSTOM_DOMAIN: https://danjion.padiem.net
+      CUSTOM_DOMAIN_STATUS: DEFERRED
       PRODUCTION_PAGES_HOSTNAME: danjion.pages.dev
       PAGES_PROJECT: danjion
       PAGES_PRODUCTION_BRANCH: main
@@ -133,20 +159,129 @@ jobs:
           test ! -e dist/tests
           echo "V3 artifact assembled from frontend/ (entry: index.html)"
 
-      - name: Verify V3 artifact is bound to the production API and not dev auth
+      - name: Verify browser artifact resolves canonical production to the same-origin facade
         shell: bash
         run: |
           set -euo pipefail
-          if ! grep -R -q 'padiem-danjion-api-production.padiem.workers.dev' dist/assets/danjion-session.js; then
-            echo "::error::V3 resolver does not carry the canonical production API binding."
-            exit 1
-          fi
+          # Issue #804: do not infer resolver semantics from a shell grep. Load the
+          # assembled browser artifact in a bounded Node vm and assert the real
+          # runtime contract for BOTH canonical production hostnames.
+          cat > "${RUNNER_TEMP}/verify-same-origin-authority.mjs" <<'AUTHORITY_EOF'
+          import { readFile } from 'node:fs/promises';
+          import vm from 'node:vm';
+
+          const source = await readFile('dist/assets/danjion-session.js', 'utf8');
+
+          // The artifact is a browser IIFE bound to `window`; provide a minimal,
+          // bounded context. No secrets, tokens, cookies or network access.
+          //
+          // Owner decision: the current public Production origin is the Pages host.
+          // The custom domain is DEFERRED, and is listed here only because the
+          // runtime pre-supports it as a same-origin-safe hostname (issue #779 work,
+          // not yet public). Both must resolve same-origin; neither is probed.
+          const CURRENT_PUBLIC_HOSTNAME = 'danjion.pages.dev';
+          const DEFERRED_CUSTOM_DOMAIN_HOSTNAME = 'danjion.padiem.net';
+          const CANONICAL_HOSTS = [CURRENT_PUBLIC_HOSTNAME, DEFERRED_CUSTOM_DOMAIN_HOSTNAME];
+          const CRAFTED = `?apiBase=${encodeURIComponent('https://evil.example/collect')}`;
+
+          const fail = (message) => {
+            console.error(`::error::${message}`);
+            process.exit(1);
+          };
+
+          const load = (location) => {
+            const ctx = { location, URLSearchParams, console, setTimeout, clearTimeout };
+            ctx.window = ctx;
+            ctx.globalThis = ctx;
+            vm.createContext(ctx);
+            vm.runInContext(source, ctx);
+            if (!ctx.DanjionSession) fail('V3 runtime did not expose DanjionSession.');
+            return ctx.DanjionSession;
+          };
+
+          for (const hostname of CANONICAL_HOSTS) {
+            const s = load({ search: '', hostname, origin: `https://${hostname}` });
+            if (s.isCanonicalProduction() !== true) {
+              fail(`runtime must treat ${hostname} as canonical production.`);
+            }
+            if (s.danjionApiBase() !== '') {
+              fail(`runtime must resolve the application API base to same-origin ('') on ${hostname}.`);
+            }
+            if (s.danjionAuthBase() !== '') {
+              fail(`runtime must resolve the Better Auth base to same-origin ('') on ${hostname}.`);
+            }
+
+            // A crafted external override must never move canonical production off
+            // the same-origin facade for either the app API or Better Auth.
+            const crafted = load({ search: CRAFTED, hostname, origin: `https://${hostname}` });
+            if (crafted.danjionApiBase() !== '') {
+              fail(`crafted ?apiBase= must not redirect application API traffic on ${hostname}.`);
+            }
+            if (crafted.danjionAuthBase() !== '') {
+              fail(`crafted ?apiBase= must not redirect Better Auth traffic on ${hostname}.`);
+            }
+          }
+
+          // The exported hostname constants must match the facade hosts. The
+          // runtime export is named for the future custom domain; that is a
+          // pre-support constant, NOT a statement that the domain is public.
+          const probe = load({ search: '', hostname: CURRENT_PUBLIC_HOSTNAME, origin: `https://${CURRENT_PUBLIC_HOSTNAME}` });
+          if (probe.PRODUCTION_PAGES_HOSTNAME !== CURRENT_PUBLIC_HOSTNAME) {
+            fail('runtime PRODUCTION_PAGES_HOSTNAME does not match the current public Production origin.');
+          }
+          if (probe.PRIMARY_PRODUCTION_HOSTNAME !== DEFERRED_CUSTOM_DOMAIN_HOSTNAME) {
+            fail('runtime pre-support constant for the deferred custom domain drifted.');
+          }
+
+          // A non-canonical origin must stay fail-closed without an explicit override.
+          const demo = load({ search: '', hostname: 'danjion-review.pages.dev', origin: 'https://danjion-review.pages.dev' });
+          if (demo.danjionApiBase() !== '' || demo.danjionAuthBase() !== '') {
+            fail('non-canonical origins must stay fail-closed without an explicit apiBase.');
+          }
+          if (demo.isCanonicalProduction() !== false) {
+            fail('non-canonical origins must not be reported as canonical production.');
+          }
+
+          console.log('BROWSER_SAME_ORIGIN_FACADE_AUTHORITY_SCAN: PASS');
+          console.log(`CURRENT_PUBLIC_ORIGIN=https://${CURRENT_PUBLIC_HOSTNAME}`);
+          console.log(`FUTURE_CUSTOM_DOMAIN=https://${DEFERRED_CUSTOM_DOMAIN_HOSTNAME}`);
+          console.log('CUSTOM_DOMAIN_STATUS=DEFERRED');
+          console.log('DEFERRED_DOMAIN_PROBED=NO');
+          AUTHORITY_EOF
+          node "${RUNNER_TEMP}/verify-same-origin-authority.mjs"
+
+      - name: Verify Pages Function upstream pin (server-side fixed production Worker)
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Issue #804 layer B: the fixed production Worker upstream is a
+          # server-side Pages Function concern, NOT a browser artifact concern.
+          for facade in functions/_lib/app-facade.js functions/_lib/auth-facade.js; do
+            if [ ! -f "$facade" ]; then
+              echo "::error::Required Pages Function facade is missing: $facade"
+              exit 1
+            fi
+            if ! grep -q 'padiem-danjion-api-production.padiem.workers.dev' "$facade"; then
+              echo "::error::${facade} does not pin the canonical production Worker upstream."
+              exit 1
+            fi
+          done
+          echo "PAGES_FUNCTION_UPSTREAM_PIN_SCAN: PASS"
+
+      - name: Verify browser artifact keeps canonical hostnames and no dev auth
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Issue #804 layer C: preserved safety guards.
+          # This greps the built artifact for the DEFERRED custom-domain hostname
+          # only because the runtime still pre-supports it as a same-origin-safe
+          # host. It is not an availability, DNS, TLS or HTTP check for that domain.
           if ! grep -R -q 'danjion.padiem.net' dist/assets/danjion-session.js; then
-            echo "::error::V3 resolver does not gate on the primary production hostname."
+            echo "::error::V3 resolver no longer pre-supports the deferred custom-domain hostname."
             exit 1
           fi
           if ! grep -R -q 'danjion.pages.dev' dist/assets/danjion-session.js; then
-            echo "::error::V3 resolver does not gate on the canonical Pages hostname."
+            echo "::error::V3 resolver does not gate on the current public Pages hostname."
             exit 1
           fi
           if grep -R -q 'x-danjion-dev-auth-user' dist; then
@@ -360,13 +495,16 @@ jobs:
             echo '- Project: `danjion`'
             echo '- Production branch: `main`'
             echo '- UI artifact: V3 top-level `frontend/` static site (entry: `index.html`)'
-            echo '- Primary public origin: `https://danjion.padiem.net`'
-            echo '- Legacy public origin: `https://danjion.pages.dev`'
-            echo '- API binding: runtime hostname gate; `danjion.padiem.net` and `danjion.pages.dev` auto-bind'
-            echo '- API/Auth origin: `padiem-danjion-api-production.padiem.workers.dev`'
-            echo '- Controlled preview: explicit `?apiBase=` only'
+            echo '- Current public origin: `https://danjion.pages.dev`'
+            echo '- Future custom domain: `https://danjion.padiem.net` (`CUSTOM_DOMAIN_STATUS=DEFERRED`, not deployed, not probed)'
+            echo '- Deploy / readback / parity / smoke target: `https://danjion.pages.dev` only'
+            echo '- Browser API/Auth: same-origin Pages Function facade (resolver returns \'\' on both canonical hosts)'
+            echo '- Pages Function upstream: fixed production Worker `padiem-danjion-api-production.padiem.workers.dev`'
+            echo '- Controlled preview: explicit `?apiBase=` only; canonical production override is refused'
             echo '- Production API/JWKS preflight: PASS'
             echo '- V3 contract gate + artifact authority scan: PASS'
+            echo '- Browser same-origin facade authority scan: PASS'
+            echo '- Pages Function upstream pin scan: PASS'
             echo '- Canonical Pages deployment API readback: PASS'
             echo '- Canonical Pages byte/content parity: PASS'
             echo '- Real phone OTP delivery: separate HOLD #235'

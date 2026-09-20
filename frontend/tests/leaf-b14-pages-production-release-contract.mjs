@@ -41,12 +41,21 @@ assert.match(workflow, /test -f 'functions\/api\/auth\/\[\[path\]\]\.js'/,
 assert.match(workflow, /test -f functions\/auth\/social-start\.js/,
   'assembly must require the /auth/social-start facade route at the repository root');
 
-/* #790: workflow source contract must recognize PRIMARY_PUBLIC_ORIGIN and LEGACY_PUBLIC_ORIGIN */
-assert.match(workflow, /PRIMARY_PUBLIC_ORIGIN:\s*https:\/\/danjion\.padiem\.net/,
-  'production workflow must declare the primary public custom origin');
-assert.match(workflow, /LEGACY_PUBLIC_ORIGIN:\s*https:\/\/danjion\.pages\.dev/,
-  'production workflow must declare the legacy public Pages fallback origin');
+/* Owner decision: the release contract must name the Pages host as the current
+   public origin and record the custom domain as future, deferred work. */
+assert.match(workflow, /CURRENT_PUBLIC_ORIGIN:\s*https:\/\/danjion\.pages\.dev/,
+  'production workflow must declare the current public Pages origin');
+assert.match(workflow, /FUTURE_CUSTOM_DOMAIN:\s*https:\/\/danjion\.padiem\.net/,
+  'the custom domain must be declared as future work, not the live origin');
+assert.match(workflow, /CUSTOM_DOMAIN_STATUS:\s*DEFERRED/,
+  'the custom domain must be recorded as deferred');
+// Still a valid guarantee: the runtime must keep recognising the custom domain as
+// a same-origin-safe host, so future #779 work cannot silently lose it. This is
+// source readiness, not current deployment authority.
 assert.match(workflow, /grep -R -q 'danjion\.padiem\.net' dist\/assets\/danjion-session\.js/,
-  'scan step must verify primary production hostname in artifact');
+  'scan step must keep verifying the custom-domain hostname is recognised in the artifact');
+// The deferred domain must never become a release destination or dependency.
+assert.ok(!/curl[^\n]*danjion\.padiem\.net/.test(workflow),
+  'the release must not require HTTP availability of the deferred custom domain');
 
 console.log('leaf-b14-pages-production-release-contract: PASS');
