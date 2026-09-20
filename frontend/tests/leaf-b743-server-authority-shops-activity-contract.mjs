@@ -8,7 +8,7 @@ const activityHtml = await read('28_나의활동.html');
 const activity = await read('assets/pages/activity-28.js');
 const saved = await read('assets/saved-shops-bridge.js');
 
-assert.match(saved, /const serverMode = Boolean\(base\)/);
+assert.match(saved, /const serverMode = Boolean\(base\) \|\| canonicalProduction/);
 assert.match(saved, /let saved = new Set\(serverMode \? \[\] : readLocal\(storage\)\)/);
 assert.match(saved, /response\.status === 401.*auth-required/s);
 assert.match(saved, /response\.status === 403.*forbidden/s);

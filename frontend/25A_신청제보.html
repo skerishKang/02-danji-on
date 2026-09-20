@@ -426,7 +426,7 @@ toggleEtc(ownerRelation,ownerEtcWrap,ownerEtc,'owner');toggleEtc(reportRelation,
   if(!section||!list)return;
   const apiBase=DanjionSession.danjionApiBase();
   // Static/demo lane: never claim server state, never reveal the panel.
-  if(!apiBase)return;
+  if(!apiBase&&!DanjionSession.isCanonicalProduction())return;
   let mod;
   try{mod=await import('./assets/application-report-bridge.js')}catch(_){return}
   const bridge=mod.createApplicationReportBridge({apiBase,complexSlug:mod.DANJION_COMPLEX_SLUG});

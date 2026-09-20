@@ -18,10 +18,11 @@
     const session=global.DanjionSession;
     const fetchImpl=options.fetchImpl||global.fetch.bind(global);
     const apiBase=baseFor(options);
+    const canonicalProduction=!!session&&typeof session.isCanonicalProduction==='function'&&session.isCanonicalProduction(options.location);
     const slug=String(options.complexSlug||COMPLEX_SLUG);
 
     async function status(){
-      if(!apiBase)return {state:'unbound'};
+      if(!apiBase&&!canonicalProduction)return {state:'unbound'};
       const result=await session.request(
         fetchImpl,
         session.joinUrl(apiBase,'/api/v1/complexes/'+encodeURIComponent(slug)+'/household')
@@ -46,7 +47,7 @@
     }
 
     async function verify(rawCode){
-      if(!apiBase)return {state:'unbound'};
+      if(!apiBase&&!canonicalProduction)return {state:'unbound'};
       const code=normalizeCode(rawCode);
       if(!/^[A-Z0-9]{6,12}$/.test(code))return {state:'invalid-input',code:'RESIDENT_CODE_INVALID'};
       const result=await session.request(
@@ -74,7 +75,7 @@
     }
 
     async function support(input={}){
-      if(!apiBase)return {state:'unbound'};
+      if(!apiBase&&!canonicalProduction)return {state:'unbound'};
       const inquiryRuntime=global.DanjionInquiryBridge;
       if(!inquiryRuntime||typeof inquiryRuntime.createInquiryBridge!=='function')return {state:'error',code:'INQUIRY_BRIDGE_UNAVAILABLE'};
       const buildingCode=String(input.buildingCode||'').trim();

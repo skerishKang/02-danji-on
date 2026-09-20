@@ -207,7 +207,7 @@ if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt
   var IB=globalThis.DanjionInquiryBridge;
   if(!IB||!IB.createInquiryBridge)return;
   var API_BASE=String(DanjionSession.danjionApiBase());
-  if(!API_BASE)return;
+  if(!API_BASE&&!DanjionSession.isCanonicalProduction())return;
   var COMPLEX='banglim-myeongji-roadhill';
   var bridge=IB.createInquiryBridge({apiBase:API_BASE,complexSlug:COMPLEX});
   var history=document.querySelector('.history');

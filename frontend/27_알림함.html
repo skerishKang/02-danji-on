@@ -117,7 +117,7 @@
 <script id="danjion-notifications-live-wiring-330">
 (function(){
   const apiBase=(window.DanjionSession&&DanjionSession.danjionApiBase())||'';
-  if(!apiBase)return;
+  if(!apiBase&&!DanjionSession.isCanonicalProduction())return;
   const bridge=DanjionMessagesNotificationsBridge.createMessagesNotificationsBridge({apiBase});
   const feed=document.querySelector('.feed');
   const kindLabels={official:['공지','단지온소식'],reaction:['댓글','이웃 반응'],message:['1:1','새 메시지'],account:['문의','계정·우리집']};

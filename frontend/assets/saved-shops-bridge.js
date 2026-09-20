@@ -36,7 +36,10 @@
     const fetchImpl = opts.fetchImpl || (global.fetch && global.fetch.bind(global));
     const storage = opts.storage || global.localStorage;
     const base = apiRoot(opts.apiBase);
-    const serverMode = Boolean(base);
+    const session = global.DanjionSession;
+    const canonicalProduction = !!session && typeof session.isCanonicalProduction === 'function'
+      && session.isCanonicalProduction(opts.location);
+    const serverMode = Boolean(base) || canonicalProduction;
     const endpoint = `${base}/api/v1/me/bookmarks`;
     let mode = serverMode ? 'loading' : 'local';
     let saved = new Set(serverMode ? [] : readLocal(storage));

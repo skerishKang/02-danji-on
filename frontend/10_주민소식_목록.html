@@ -379,7 +379,7 @@ if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt
 <script id="resident-news-list-server-wiring-20260911">
 (function(){
   const apiBase=DanjionSession.danjionApiBase();
-  if(!apiBase)return;
+  if(!apiBase&&!DanjionSession.isCanonicalProduction())return;
   const stories=document.querySelector('.stories');
   if(!stories)return;
   const filters=document.querySelector('.filters');

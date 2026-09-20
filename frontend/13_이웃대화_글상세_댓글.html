@@ -98,7 +98,7 @@ main{width:min(920px,calc(100% - 40px));margin:auto;padding-bottom:70px}.route{h
 <script id="danjion-community-detail-live-wiring-329">
 (()=>{
  const apiBase=(window.DanjionSession&&DanjionSession.danjionApiBase())||'';
- if(!apiBase)return;
+ if(!apiBase&&!DanjionSession.isCanonicalProduction())return;
  const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
  const postId=(new URLSearchParams(location.search).get('post')||'').toLowerCase();
  if(!UUID.test(postId))return;

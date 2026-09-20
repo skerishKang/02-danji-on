@@ -15,7 +15,7 @@ const activityDetailModal=document.getElementById('activityDetailModal');documen
  const rows=document.querySelector('.rows'),listTitle=document.querySelector('.list-title'),listCount=document.querySelector('.list-count'),subfilters=document.querySelector('.subfilters');
  const esc=v=>String(v??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
  const state=(title,copy)=>{listTitle.textContent=title;listCount.textContent='—';subfilters.innerHTML='';rows.innerHTML='<div class="empty" style="display:grid;grid-column:1/-1">'+esc(copy)+'</div>'};
- if(!apiBase){state(special==='saved'?'저장한 이웃가게':'받은 혜택','서버 연결 정보를 확인할 수 없습니다.');return}
+  if(!apiBase&&!DanjionSession.isCanonicalProduction()){state(special==='saved'?'저장한 이웃가게':'받은 혜택','서버 연결 정보를 확인할 수 없습니다.');return}
  if(special==='saved'){
   const Runtime=globalThis.DanJionSavedShopsBridge;
   if(!Runtime||typeof Runtime.create!=='function'){state('저장한 이웃가게','저장 상태를 불러올 수 없습니다.');return}
