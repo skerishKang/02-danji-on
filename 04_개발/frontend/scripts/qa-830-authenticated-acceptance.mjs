@@ -341,7 +341,11 @@ try {
   if (!businessId) throw new Error('QA_830_NO_SERVER_BUSINESS');
   const shopKey = `api-${businessId}`;
 
-  await page.goto(`${FRONTEND}/01_%EC%9D%B4%EC%9B%83%EA%B0%80%EA%B2%8C_%EB%B0%9C%EA%B2%AC.html?shop=${encodeURIComponent(shopKey)}`, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+  /* The ?shop= deep link intentionally auto-opens #shopCompareModal, which then
+     covers the card and makes the click below unsatisfiable (pointer events are
+     intercepted). Enter without the deep link so the card click is the thing that
+     opens the modal — that is the real user gesture this acceptance must prove. */
+  await page.goto(`${FRONTEND}/01_%EC%9D%B4%EC%9B%83%EA%B0%80%EA%B2%8C_%EB%B0%9C%EA%B2%AC.html`, { waitUntil: 'domcontentloaded', timeout: 30_000 });
   await waitShopHydrated(page, shopKey, 'SHOP_HYDRATION');
   await page.locator(shopKeySelector(shopKey)).first().click({ timeout: 15_000 });
   await page.locator('#shopReviewOpen2').click({ timeout: 10_000 });
@@ -401,7 +405,9 @@ try {
   else record('BOOKMARK_RESTORED', true);
   authenticated = await session(context.request, 'BOOKMARK_READBACK_AFTER');
 
-  await page.goto(`${FRONTEND}/01_%EC%9D%B4%EC%9B%83%EA%B0%80%EA%B2%8C_%EB%B0%9C%EA%B2%AC.html?shop=${encodeURIComponent(shopKey)}`, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+  /* Same reason as the first entry: no ?shop= deep link, so the card click below
+     opens the compare modal instead of being blocked by an already-open one. */
+  await page.goto(`${FRONTEND}/01_%EC%9D%B4%EC%9B%83%EA%B0%80%EA%B2%8C_%EB%B0%9C%EA%B2%AC.html`, { waitUntil: 'domcontentloaded', timeout: 30_000 });
   await waitShopHydrated(page, shopKey, 'SHOP_HYDRATION_REVISIT');
   await page.locator(shopKeySelector(shopKey)).first().click({ timeout: 10_000 });
   await page.locator('#shopCompareInquiry').click({ timeout: 10_000 });
