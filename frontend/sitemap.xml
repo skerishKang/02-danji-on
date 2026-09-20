@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  단지온 (DanJiOn) sitemap - issue #802 SEO Phase B
+
+  Host authority: https://danjion.pages.dev is the current public/canonical Production origin
+  (owner decision 2026-09-21). The planned danjion.padiem.net migration is
+  DEFERRED, so this file must not name it; a later bounded follow-up migrates
+  canonical URLs, this sitemap and the Search Console property together.
+
+  Membership rule: exactly the indexable public surfaces listed as
+  PUBLIC_PAGES in frontend/tests/seo-phase-a-802-contract.mjs. Private and
+  personalized member surfaces stay out because each one carries
+  noindex,nofollow in its own head - that meta tag, not this file and not
+  robots.txt, is the authority. Internal review/authoring variants and the
+  admin console are excluded for the same reason.
+
+  No lastmod is published: these are hand-maintained static documents with no
+  per-file content timestamp, and a stale date would be worse than none.
+
+  URLs are the extension-less clean form on purpose. Cloudflare Pages answers
+  the *.html form with a 308 to the clean URL (verified live on
+  danjion.pages.dev), and a sitemap entry or a <link rel="canonical"> must name
+  the URL that finally serves the document, not one that redirects away from it.
+-->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://danjion.pages.dev/</loc>
+  </url>
+  <url>
+    <loc>https://danjion.pages.dev/01_%EC%9D%B4%EC%9B%83%EA%B0%80%EA%B2%8C_%EB%B0%9C%EA%B2%AC</loc>
+  </url>
+  <url>
+    <loc>https://danjion.pages.dev/02_%EC%9D%B4%EC%9B%83%EA%B0%80%EA%B2%8C_%EC%83%81%EC%84%B8</loc>
+  </url>
+  <url>
+    <loc>https://danjion.pages.dev/03_%EC%A3%BC%EB%AF%BC%ED%98%9C%ED%83%9D_%EC%BF%A0%ED%8F%B0</loc>
+  </url>
+  <url>
+    <loc>https://danjion.pages.dev/04_%EB%8D%B0%EC%9D%BC%EB%A6%AC%ED%99%88</loc>
+  </url>
+  <url>
+    <loc>https://danjion.pages.dev/05_%EC%9A%B0%EB%A6%AC%EB%8B%A8%EC%A7%80_%EC%B2%AB%ED%99%94%EB%A9%B4</loc>
+  </url>
+  <url>
+    <loc>https://danjion.pages.dev/06_%EB%8B%A8%EC%A7%80%EC%98%A8%EA%B3%B5%EC%A7%80_%EB%AA%A9%EB%A1%9D</loc>
+  </url>
+  <url>
+    <loc>https://danjion.pages.dev/07_%EB%8B%A8%EC%A7%80%EC%98%A8%EA%B3%B5%EC%A7%80_%EC%83%81%EC%84%B8</loc>
+  </url>
+  <url>
+    <loc>https://danjion.pages.dev/08_%EC%95%84%ED%8C%8C%ED%8A%B8%EC%86%8C%EC%8B%9D_%EB%AA%A9%EB%A1%9D</loc>
+  </url>
+  <url>
+    <loc>https://danjion.pages.dev/08A_%EC%95%84%ED%8C%8C%ED%8A%B8%EC%86%8C%EC%8B%9D_%EC%83%81%EC%84%B8</loc>
+  </url>
+  <url>
+    <loc>https://danjion.pages.dev/09_%ED%9A%8C%EC%9E%A5%EC%9D%B8%EC%82%AC_%EC%83%81%EC%84%B8</loc>
+  </url>
+  <url>
+    <loc>https://danjion.pages.dev/10_%EC%A3%BC%EB%AF%BC%EC%86%8C%EC%8B%9D_%EB%AA%A9%EB%A1%9D</loc>
+  </url>
+  <url>
+    <loc>https://danjion.pages.dev/11_%EC%A3%BC%EB%AF%BC%EC%86%8C%EC%8B%9D_%EC%83%81%EC%84%B8</loc>
+  </url>
+  <url>
+    <loc>https://danjion.pages.dev/12_%EC%9D%B4%EC%9B%83%EB%8C%80%ED%99%94_%EC%B2%AB%ED%99%94%EB%A9%B4</loc>
+  </url>
+  <url>
+    <loc>https://danjion.pages.dev/13_%EC%9D%B4%EC%9B%83%EB%8C%80%ED%99%94_%EA%B8%80%EC%83%81%EC%84%B8_%EB%8C%93%EA%B8%80</loc>
+  </url>
+  <url>
+    <loc>https://danjion.pages.dev/14_%EA%B0%80%EC%9E%85%EC%9D%B8%EC%82%AC_%EA%B8%80%EC%93%B0%EA%B8%B0</loc>
+  </url>
+  <url>
+    <loc>https://danjion.pages.dev/15_%EB%8B%A8%EC%A7%80%EC%9D%B4%EC%95%BC%EA%B8%B0_%EA%B8%80%EC%93%B0%EA%B8%B0</loc>
+  </url>
+  <url>
+    <loc>https://danjion.pages.dev/16_%EA%B6%81%EA%B8%88%ED%95%B4%EC%9A%94_%EA%B8%80%EC%93%B0%EA%B8%B0</loc>
+  </url>
+  <url>
+    <loc>https://danjion.pages.dev/17_%EA%B0%99%EC%9D%B4%ED%95%B4%EC%9A%94_%EA%B8%80%EC%93%B0%EA%B8%B0</loc>
+  </url>
+  <url>
+    <loc>https://danjion.pages.dev/25A_%EC%8B%A0%EC%B2%AD%EC%A0%9C%EB%B3%B4</loc>
+  </url>
+</urlset>

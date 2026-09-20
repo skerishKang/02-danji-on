@@ -4,20 +4,25 @@ import { readFile } from 'node:fs/promises';
 /*
  * SEO Phase A regression contract (issue #802)
  *
- * Scope guard for the only SEO work that is safe before the canonical
- * production domain is attached (#779 / #792):
+ * Scope: the SEO work that holds at every stage —
  *
  *   1. the public landing exposes a real title + description + identity
  *   2. the public landing is indexable (never blocked)
  *   3. private / personalized member surfaces are marked noindex
  *   4. no production-facing title ships internal process metadata
- *   5. nothing hard-codes a premature canonical URL or a temporary
- *      *.pages.dev host
+ *   5. absolute published URLs use exactly the current canonical origin, and
+ *      no other host
  *
- * OUT OF SCOPE and asserted absent on purpose:
- *   - <link rel="canonical"> with a real host  (DEFER_TO_779_792)
- *   - <meta property="og:url"> with a real host (DEFER_TO_DOMAIN_ATTACH)
- *   - a sitemap that pins a temporary host
+ * PHASE B SUPERSESSION (owner decision 2026-09-21, #802 Phase B):
+ * Sections 6 and 7 used to assert that a canonical link and a Sitemap
+ * directive were ABSENT, because the production domain was not attached yet
+ * (#779 / #792). The Owner fixed the current origin as
+ * https://danjion.pages.dev and unblocked SEO completion, so those assertions
+ * encoded a rule the project no longer runs under. They are now replaced by
+ * narrower ones that pin the exact origin and still forbid every other host,
+ * which is strictly more checking than before, not less. The
+ * canonical/sitemap/robots content itself is asserted by
+ * seo-phase-b-802-sitemap-canonical-contract.mjs.
  */
 
 const read = (name) => readFile(new URL(`../${name}`, import.meta.url), 'utf8');
@@ -81,7 +86,22 @@ const PRIVATE_PAGES = [
 ];
 
 const FORBIDDEN_TITLE = /STEP\s*\d+|WEB\s+CINEMATIC|웹\s*통합검토|프론트엔드\s*점검|점검\s*\d+기/i;
-const PREMATURE_HOST = /https?:\/\/[^\s"'<>]*\.pages\.dev/i;
+const CANONICAL_ORIGIN = 'https://danjion.pages.dev';
+const CANONICAL_HOST = 'danjion.pages.dev';
+
+/*
+ * Every absolute URL host in a published SEO surface must be exactly the current
+ * canonical origin. Comparing whole captured hosts (instead of matching a pattern
+ * that merely starts with it) also rejects look-alikes such as
+ * https://danjion.pages.dev.evil.example, and a host that is not *.pages.dev at
+ * all — including the deferred danjion.padiem.net.
+ */
+function assertOnlyCanonicalHost(text, label) {
+  const hosts = [...text.matchAll(/https?:\/\/([^/'"`\s<>?#]+)/gi)]
+    .map((m) => m[1].toLowerCase().replace(/\.$/, ''));
+  const stray = [...new Set(hosts)].filter((host) => host !== CANONICAL_HOST);
+  assert.deepEqual(stray, [], `${label}: only ${CANONICAL_HOST} may appear as an absolute URL host (found: ${stray.join(', ') || 'none'})`);
+}
 
 const titleOf = (html) => {
   const m = [...html.matchAll(/<title>([\s\S]*?)<\/title>/gi)];
@@ -179,29 +199,24 @@ for (const page of [...PUBLIC_PAGES, ...PRIVATE_PAGES, 'index2.html', '00_APP_39
   );
 }
 
-/* ---------- 6. no premature canonical / temporary host ---------- */
+/* ---------- 6. the landing pins the current canonical origin, and nothing else ---------- */
 {
   const landing = await read('index.html');
-  assert.doesNotMatch(
+  assert.match(
     landing,
-    /<link[^>]*rel=["']canonical["']/i,
-    'canonical URL must stay deferred until the production domain is attached'
+    new RegExp(`<link[^>]*rel=["']canonical["'][^>]*href=["']${CANONICAL_ORIGIN}/["']`),
+    'the landing canonical must point at exactly the current public origin root'
   );
-  assert.doesNotMatch(
-    landing,
-    PREMATURE_HOST,
-    'no temporary *.pages.dev host may be published as an absolute URL'
-  );
+  assertOnlyCanonicalHost(landing, 'index.html');
 }
 
 /* ---------- 7. robots.txt is domain-independent and safe ---------- */
 {
   const robots = await read('robots.txt');
 
-  assert.doesNotMatch(robots, /^\s*Sitemap\s*:/im,
-    'robots.txt must not pin a sitemap while the domain is deferred');
-  assert.doesNotMatch(robots, PREMATURE_HOST,
-    'robots.txt must never hard-code a temporary *.pages.dev host');
+  assert.match(robots, new RegExp(`^\\s*Sitemap:\\s*${CANONICAL_ORIGIN.replace(/[.]/g, '\\.')}/sitemap\\.xml\\s*$`, 'im'),
+    'robots.txt must advertise the sitemap on exactly the current canonical origin');
+  assertOnlyCanonicalHost(robots, 'robots.txt');
   assert.doesNotMatch(robots, /^\s*Disallow:\s*\/\s*$/im,
     'robots.txt must not block the public landing root');
   assert.match(robots, /^\s*User-agent:\s*\*/im, 'robots.txt must declare a wildcard user-agent');
@@ -212,11 +227,14 @@ for (const page of [...PUBLIC_PAGES, ...PRIVATE_PAGES, 'index2.html', '00_APP_39
    * The authority for keeping private surfaces out of search results is the
    * noindex meta tag asserted above. Listing private member routes here
    * would advertise them and would wrongly imply robots.txt protects them.
+   * Both spellings are checked: a Korean route name written as raw text and
+   * the percent-encoded form a crawler-facing robots.txt would actually use.
    */
+  const percentEncoded = (page) => encodeURI(page).replace(/'/g, '%27');
   for (const page of PRIVATE_PAGES) {
     assert.ok(
-      !robots.includes(page),
-      `robots.txt must not list private surface ${page} — noindex in the document head is the authority`
+      !robots.includes(page) && !robots.includes(percentEncoded(page)),
+      `robots.txt must not list private surface ${page} (raw or percent-encoded) — noindex in the document head is the authority`
     );
   }
 
@@ -254,7 +272,9 @@ for (const page of [...PUBLIC_PAGES, ...PRIVATE_PAGES, 'index2.html', '00_APP_39
     /<meta[^>]*name=["']robots["'][^>]*noindex/i,
     '08: a public apartment-news list must not be noindexed'
   );
-  assert.doesNotMatch(list, PREMATURE_HOST, '08: no temporary *.pages.dev host');
+  assert.ok(list.includes('rel="canonical" href="https://danjion.pages.dev/08_'),
+    '08: the public news list must carry a canonical on the current origin');
+  assertOnlyCanonicalHost(list, '08');
   assert.ok(
     !PRIVATE_PAGES.includes('08_아파트소식_목록.html'),
     '08: must never be classified as a private member surface'
@@ -273,7 +293,9 @@ for (const page of [...PUBLIC_PAGES, ...PRIVATE_PAGES, 'index2.html', '00_APP_39
     /<meta[^>]*name=["']robots["'][^>]*noindex/i,
     '08A: a public article detail must not be noindexed'
   );
-  assert.doesNotMatch(article, PREMATURE_HOST, '08A: no temporary *.pages.dev host');
+  assert.ok(article.includes('rel="canonical" href="https://danjion.pages.dev/08A_'),
+    '08A: the public article detail must carry a canonical on the current origin');
+  assertOnlyCanonicalHost(article, '08A');
   assert.ok(
     !PRIVATE_PAGES.includes('08A_아파트소식_상세.html'),
     '08A: must never be classified as a private member surface'

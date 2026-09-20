@@ -1,9 +1,12 @@
 # 단지온 (DanJiOn) robots.txt
 #
-# Domain-independent on purpose: the canonical hostname for this project is
-# not yet attached (deferred). Do not add a Sitemap directive until the
-# production domain is confirmed, and never hard-code a temporary
-# *.pages.dev host here.
+# Host authority (issue #802 owner decision, 2026-09-21): the current public and
+# canonical Production origin is https://danjion.pages.dev. The planned
+# danjion.padiem.net migration is DEFERRED and no longer blocks SEO, so the
+# Sitemap directive below is pinned to the Pages origin. When a custom-domain
+# cutover is authorized, this directive, the sitemap's absolute URLs, every
+# <link rel="canonical"> and the Search Console property must move together in
+# one bounded follow-up — never partially.
 #
 # Policy:
 #   - allow the public landing and public informational surfaces
@@ -33,5 +36,4 @@ Disallow: /index2.html
 # Operator console. Never indexable.
 Disallow: /admin/
 
-# NOTE: no Sitemap directive. See the header — deferred until the canonical
-# production domain is attached.
+Sitemap: https://danjion.pages.dev/sitemap.xml
