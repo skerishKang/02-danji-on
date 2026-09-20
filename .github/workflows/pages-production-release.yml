@@ -7,14 +7,17 @@ name: Pages Production Release
 # Issue #804 + #830 [same-origin facade fact correction]: the browser session
 # runtime does NOT embed a Worker absolute URL. The canonical architecture is:
 #
-#   browser (danjion.padiem.net | danjion.pages.dev)
+#   browser (danjion.pages.dev = current public origin;
+#            danjion.padiem.net = future custom domain, DEFERRED)
 #     -> same-origin Pages Function facade   (/api/v1/*, /api/auth/*)
 #     -> fixed production Worker upstream    (padiem-danjion-api-production)
 #
 # frontend/assets/danjion-session.js resolves danjionApiBase()/danjionAuthBase()
-# to '' for BOTH canonical production hostnames so DanjionSession-managed
-# production API/Auth traffic stays same-origin; a crafted ?apiBase= can never
-# move that traffic off the facade. The Worker upstream literal lives in the
+# to '' for BOTH hostnames, so DanjionSession-managed production API/Auth traffic
+# stays same-origin on either one; a crafted ?apiBase= can never move that traffic
+# off the facade. Only the Pages host is deployed, read back, parity-checked or
+# published today; the custom-domain hostname is pre-supported runtime work for the
+# deferred #779 migration and is never probed here. The Worker upstream literal lives in the
 # server-side Pages Functions (functions/_lib/app-facade.js,
 # functions/_lib/auth-facade.js), which proxy that managed traffic. The existing
 # OPTION B bounded public read-only fetch in
@@ -54,8 +57,12 @@ jobs:
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       API_BASE_URL: https://padiem-danjion-api-production.padiem.workers.dev
       AUTH_BASE_URL: https://padiem-danjion-api-production.padiem.workers.dev
-      PRIMARY_PUBLIC_ORIGIN: https://danjion.padiem.net
-      LEGACY_PUBLIC_ORIGIN: https://danjion.pages.dev
+      # Owner decision: the only public Production origin is the Pages host. The
+      # custom domain is future work, so nothing here deploys to it, reads it back,
+      # or requires its DNS/TLS/HTTP availability.
+      CURRENT_PUBLIC_ORIGIN: https://danjion.pages.dev
+      FUTURE_CUSTOM_DOMAIN: https://danjion.padiem.net
+      CUSTOM_DOMAIN_STATUS: DEFERRED
       PRODUCTION_PAGES_HOSTNAME: danjion.pages.dev
       PAGES_PROJECT: danjion
       PAGES_PRODUCTION_BRANCH: main
@@ -167,7 +174,14 @@ jobs:
 
           // The artifact is a browser IIFE bound to `window`; provide a minimal,
           // bounded context. No secrets, tokens, cookies or network access.
-          const CANONICAL_HOSTS = ['danjion.padiem.net', 'danjion.pages.dev'];
+          //
+          // Owner decision: the current public Production origin is the Pages host.
+          // The custom domain is DEFERRED, and is listed here only because the
+          // runtime pre-supports it as a same-origin-safe hostname (issue #779 work,
+          // not yet public). Both must resolve same-origin; neither is probed.
+          const CURRENT_PUBLIC_HOSTNAME = 'danjion.pages.dev';
+          const DEFERRED_CUSTOM_DOMAIN_HOSTNAME = 'danjion.padiem.net';
+          const CANONICAL_HOSTS = [CURRENT_PUBLIC_HOSTNAME, DEFERRED_CUSTOM_DOMAIN_HOSTNAME];
           const CRAFTED = `?apiBase=${encodeURIComponent('https://evil.example/collect')}`;
 
           const fail = (message) => {
@@ -208,13 +222,15 @@ jobs:
             }
           }
 
-          // The exported canonical hostname constants must match the facade hosts.
-          const probe = load({ search: '', hostname: CANONICAL_HOSTS[1], origin: `https://${CANONICAL_HOSTS[1]}` });
-          if (probe.PRIMARY_PRODUCTION_HOSTNAME !== CANONICAL_HOSTS[0]) {
-            fail('runtime PRIMARY_PRODUCTION_HOSTNAME does not match the primary production origin.');
+          // The exported hostname constants must match the facade hosts. The
+          // runtime export is named for the future custom domain; that is a
+          // pre-support constant, NOT a statement that the domain is public.
+          const probe = load({ search: '', hostname: CURRENT_PUBLIC_HOSTNAME, origin: `https://${CURRENT_PUBLIC_HOSTNAME}` });
+          if (probe.PRODUCTION_PAGES_HOSTNAME !== CURRENT_PUBLIC_HOSTNAME) {
+            fail('runtime PRODUCTION_PAGES_HOSTNAME does not match the current public Production origin.');
           }
-          if (probe.PRODUCTION_PAGES_HOSTNAME !== CANONICAL_HOSTS[1]) {
-            fail('runtime PRODUCTION_PAGES_HOSTNAME does not match the canonical Pages origin.');
+          if (probe.PRIMARY_PRODUCTION_HOSTNAME !== DEFERRED_CUSTOM_DOMAIN_HOSTNAME) {
+            fail('runtime pre-support constant for the deferred custom domain drifted.');
           }
 
           // A non-canonical origin must stay fail-closed without an explicit override.
@@ -227,6 +243,10 @@ jobs:
           }
 
           console.log('BROWSER_SAME_ORIGIN_FACADE_AUTHORITY_SCAN: PASS');
+          console.log(`CURRENT_PUBLIC_ORIGIN=https://${CURRENT_PUBLIC_HOSTNAME}`);
+          console.log(`FUTURE_CUSTOM_DOMAIN=https://${DEFERRED_CUSTOM_DOMAIN_HOSTNAME}`);
+          console.log('CUSTOM_DOMAIN_STATUS=DEFERRED');
+          console.log('DEFERRED_DOMAIN_PROBED=NO');
           AUTHORITY_EOF
           node "${RUNNER_TEMP}/verify-same-origin-authority.mjs"
 
@@ -253,12 +273,15 @@ jobs:
         run: |
           set -euo pipefail
           # Issue #804 layer C: preserved safety guards.
+          # This greps the built artifact for the DEFERRED custom-domain hostname
+          # only because the runtime still pre-supports it as a same-origin-safe
+          # host. It is not an availability, DNS, TLS or HTTP check for that domain.
           if ! grep -R -q 'danjion.padiem.net' dist/assets/danjion-session.js; then
-            echo "::error::V3 resolver does not gate on the primary production hostname."
+            echo "::error::V3 resolver no longer pre-supports the deferred custom-domain hostname."
             exit 1
           fi
           if ! grep -R -q 'danjion.pages.dev' dist/assets/danjion-session.js; then
-            echo "::error::V3 resolver does not gate on the canonical Pages hostname."
+            echo "::error::V3 resolver does not gate on the current public Pages hostname."
             exit 1
           fi
           if grep -R -q 'x-danjion-dev-auth-user' dist; then
@@ -472,8 +495,9 @@ jobs:
             echo '- Project: `danjion`'
             echo '- Production branch: `main`'
             echo '- UI artifact: V3 top-level `frontend/` static site (entry: `index.html`)'
-            echo '- Primary public origin: `https://danjion.padiem.net`'
-            echo '- Legacy public origin: `https://danjion.pages.dev`'
+            echo '- Current public origin: `https://danjion.pages.dev`'
+            echo '- Future custom domain: `https://danjion.padiem.net` (`CUSTOM_DOMAIN_STATUS=DEFERRED`, not deployed, not probed)'
+            echo '- Deploy / readback / parity / smoke target: `https://danjion.pages.dev` only'
             echo '- Browser API/Auth: same-origin Pages Function facade (resolver returns \'\' on both canonical hosts)'
             echo '- Pages Function upstream: fixed production Worker `padiem-danjion-api-production.padiem.workers.dev`'
             echo '- Controlled preview: explicit `?apiBase=` only; canonical production override is refused'

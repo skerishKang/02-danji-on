@@ -180,12 +180,24 @@ const loadSession = (location) => {
     'production trusted origins must not use wildcard trust');
 }
 
-/* --- 11. legacy Pages fallback not removed --- */
+/* --- 11. custom-domain source readiness kept; Pages host is the current public origin --- */
 {
+  // #790 stays a FUTURE domain source-readiness contract. These runtime constants
+  // keep danjion.padiem.net same-origin-safe and must not be deleted; they are not a
+  // claim that the custom domain is deployed or reachable today.
   assert.ok(sessionSrc.includes("const PRODUCTION_PAGES_HOSTNAME = 'danjion.pages.dev';"));
   assert.ok(authFacadeSrc.includes("export const LEGACY_PRODUCTION_ORIGIN = 'https://danjion.pages.dev';"));
   assert.ok(appFacadeSrc.includes("export const LEGACY_PRODUCTION_ORIGIN = 'https://danjion.pages.dev';"));
-  assert.ok(releaseWorkflow.includes("LEGACY_PUBLIC_ORIGIN: https://danjion.pages.dev"));
+  // The release workflow must reflect the owner decision instead of the old
+  // "Pages = legacy public release origin" assumption.
+  assert.ok(releaseWorkflow.includes("CURRENT_PUBLIC_ORIGIN: https://danjion.pages.dev"),
+    'the release workflow must name the Pages host as the current public origin');
+  assert.ok(releaseWorkflow.includes("FUTURE_CUSTOM_DOMAIN: https://danjion.padiem.net"),
+    'the release workflow must record the custom domain as future work');
+  assert.ok(releaseWorkflow.includes("CUSTOM_DOMAIN_STATUS: DEFERRED"),
+    'the release workflow must record the custom domain as deferred');
+  assert.ok(!releaseWorkflow.includes('LEGACY_PUBLIC_ORIGIN'),
+    'the release workflow must no longer cast the Pages host as a legacy public release origin');
 }
 
 console.log('leaf-b790-domain-source-readiness-contract: PASS');

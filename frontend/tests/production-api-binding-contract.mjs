@@ -132,6 +132,14 @@ const workflow = await read('../../.github/workflows/pages-production-release.ym
   assert.ok(workflow.includes(PRODUCTION_API_BASE), 'the workflow must pin the canonical production API origin');
   assert.ok(workflow.includes('x-danjion-dev-auth-user'), 'the dev-auth artifact scan must remain');
   assert.ok(workflow.includes(`CANONICAL_PAGES_URL: https://${PRODUCTION_HOST}`), 'the canonical Pages smoke URL must remain');
+
+  /* Owner decision: the Pages host is the only current public Production origin.
+     The custom domain is deferred, so the release must not call it the live origin
+     or depend on its availability. */
+  assert.ok(workflow.includes(`CURRENT_PUBLIC_ORIGIN: https://${PRODUCTION_HOST}`),
+    'the workflow must name the Pages host as the current public Production origin');
+  assert.ok(!/PRIMARY_PUBLIC_ORIGIN|LEGACY_PUBLIC_ORIGIN|- Primary public origin:|- Legacy public origin:/.test(workflow),
+    'the workflow must not present the deferred custom domain as the current or legacy public origin');
 }
 
 /* Issue #804: the release authority scan must follow the same-origin #830 architecture

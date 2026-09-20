@@ -32,7 +32,15 @@ const AUTH_FACADE = '../../functions/_lib/auth-facade.js';
 
 const PRODUCTION_WORKER = 'https://padiem-danjion-api-production.padiem.workers.dev';
 const PRODUCTION_WORKER_LITERAL = 'padiem-danjion-api-production.padiem.workers.dev';
-const CANONICAL_HOSTS = ['danjion.padiem.net', 'danjion.pages.dev'];
+/*
+ * Owner decision: the Pages host is the only current public Production origin.
+ * The custom domain is future work (#779, DEFERRED) that the runtime still
+ * pre-supports as a same-origin-safe hostname. Both must resolve same-origin;
+ * only the Pages host may be deployed, read back, parity-checked or probed.
+ */
+const CURRENT_PUBLIC_HOSTNAME = 'danjion.pages.dev';
+const DEFERRED_CUSTOM_DOMAIN_HOSTNAME = 'danjion.padiem.net';
+const CANONICAL_HOSTS = [CURRENT_PUBLIC_HOSTNAME, DEFERRED_CUSTOM_DOMAIN_HOSTNAME];
 
 const workflow = await read(WORKFLOW_PATH);
 const sessionSource = await read(SESSION_ASSET);
@@ -142,12 +150,14 @@ const authFacade = await read(AUTH_FACADE);
   assert.ok(!sessionSource.includes(PRODUCTION_WORKER_LITERAL),
     'the browser session runtime must not embed the production Worker absolute URL');
 
-  // Canonical hostname constants must be exported and match.
-  const probe = load({ search: '', hostname: CANONICAL_HOSTS[1], origin: `https://${CANONICAL_HOSTS[1]}` });
-  assert.equal(probe.PRIMARY_PRODUCTION_HOSTNAME, CANONICAL_HOSTS[0],
-    'runtime must export the primary production hostname');
-  assert.equal(probe.PRODUCTION_PAGES_HOSTNAME, CANONICAL_HOSTS[1],
-    'runtime must export the canonical Pages hostname');
+  // Canonical hostname constants must be exported and match. The runtime export is
+  // named for the future custom domain: it is a pre-support constant, so asserting
+  // it must not be read as a claim that the domain is public today.
+  const probe = load({ search: '', hostname: CURRENT_PUBLIC_HOSTNAME, origin: `https://${CURRENT_PUBLIC_HOSTNAME}` });
+  assert.equal(probe.PRODUCTION_PAGES_HOSTNAME, CURRENT_PUBLIC_HOSTNAME,
+    'runtime must export the current public Production Pages hostname');
+  assert.equal(probe.PRIMARY_PRODUCTION_HOSTNAME, DEFERRED_CUSTOM_DOMAIN_HOSTNAME,
+    'runtime must keep pre-supporting the deferred custom-domain hostname');
 
   // Non-canonical origins stay fail-closed.
   const demo = load({ search: '', hostname: 'danjion-review.pages.dev', origin: 'https://danjion-review.pages.dev' });
@@ -161,11 +171,12 @@ const authFacade = await read(AUTH_FACADE);
   // dev-auth artifact scan
   assert.ok(/grep[^\n]*x-danjion-dev-auth-user[^\n]*\bdist\b/.test(workflow),
     'the dev-auth artifact scan over dist must remain');
-  // canonical hostname greps on the browser artifact
-  assert.ok(workflow.includes(`'${CANONICAL_HOSTS[0]}'`),
-    'the primary production hostname guard must remain');
-  assert.ok(workflow.includes(`'${CANONICAL_HOSTS[1]}'`),
-    'the canonical Pages hostname guard must remain');
+  // hostname greps on the browser artifact: the current public host must stay
+  // gated, and the deferred host's pre-support must not be deleted by mistake.
+  assert.ok(workflow.includes(`'${CURRENT_PUBLIC_HOSTNAME}'`),
+    'the current public Pages hostname guard must remain');
+  assert.ok(workflow.includes(`'${DEFERRED_CUSTOM_DOMAIN_HOSTNAME}'`),
+    'the deferred custom-domain pre-support guard must remain');
   // top-level frontend contract gate
   assert.ok(workflow.includes('node frontend/tests/toplevel-frontend-contract-gate.mjs'),
     'the top-level frontend contract gate must remain');
@@ -191,4 +202,52 @@ const authFacade = await read(AUTH_FACADE);
     'the production deploy job must stay gated on confirm_production');
 }
 
-console.log('leaf-b804-pages-release-same-origin-guard-contract: PASS (stale browser Worker literal guard removed; same-origin facade scan + server upstream pin pinned)');
+/* ============ 6. owner decision: Pages host is the only current public origin ============ */
+{
+  assert.ok(workflow.includes(`CURRENT_PUBLIC_ORIGIN: https://${CURRENT_PUBLIC_HOSTNAME}`),
+    'the release workflow must name the Pages host as the current public Production origin');
+  assert.ok(workflow.includes(`FUTURE_CUSTOM_DOMAIN: https://${DEFERRED_CUSTOM_DOMAIN_HOSTNAME}`),
+    'the custom domain must be declared as future work, not as the live origin');
+  assert.ok(workflow.includes('CUSTOM_DOMAIN_STATUS: DEFERRED'),
+    'the custom domain status must be recorded as DEFERRED');
+
+  // The superseded authority wording must not come back.
+  for (const stale of ['PRIMARY_PUBLIC_ORIGIN', 'LEGACY_PUBLIC_ORIGIN',
+    '- Primary public origin:', '- Legacy public origin:'])
+    assert.ok(!workflow.includes(stale),
+      `the release workflow still carries superseded origin wording: ${stale}`);
+  assert.ok(!/primary production origin/i.test(workflow),
+    'no step may describe the deferred custom domain as the primary production origin');
+  assert.ok(workflow.includes('- Current public origin: `https://danjion.pages.dev`'),
+    'the release summary must record the current public origin');
+
+  // Every public-facing deploy/readback/parity/smoke target must be the Pages host.
+  assert.ok(workflow.includes(`CANONICAL_PAGES_URL: https://${CURRENT_PUBLIC_HOSTNAME}`),
+    'the canonical Pages URL must stay pinned to the current public origin');
+  const publicUrlUses = workflow.split('\n').filter((line) => /\bcurl\b/.test(line) && /ORIGIN|origin|pages\.dev|padiem\.net/.test(line));
+  for (const line of publicUrlUses)
+    assert.ok(!line.includes(DEFERRED_CUSTOM_DOMAIN_HOSTNAME),
+      `a curl target must never be the deferred custom domain: ${line.trim().slice(0, 90)}`);
+  assert.ok(!new RegExp(`\\b(curl|wget|fetch)\\b[^\\n]*${DEFERRED_CUSTOM_DOMAIN_HOSTNAME.replace(/\./g, '\\.')}`).test(workflow),
+    'the release must not require DNS/TLS/HTTP availability of the deferred custom domain');
+  assert.ok(workflow.includes('DEFERRED_DOMAIN_PROBED=NO'),
+    'the scan must state that the deferred domain is never probed');
+
+  // Same-origin verification must still cover BOTH hosts: correcting the public
+  // origin must not quietly drop the future host from the security contract.
+  assert.ok(workflow.includes(`const CANONICAL_HOSTS = [CURRENT_PUBLIC_HOSTNAME, DEFERRED_CUSTOM_DOMAIN_HOSTNAME]`),
+    'both hostnames must remain in the same-origin scan');
+  assert.ok(workflow.includes('CURRENT_PUBLIC_HOSTNAME'),
+    'the scan must name the current public host explicitly');
+  assert.ok(workflow.includes('DEFERRED_CUSTOM_DOMAIN_HOSTNAME'),
+    'the scan must name the deferred host explicitly');
+  for (const host of [CURRENT_PUBLIC_HOSTNAME, DEFERRED_CUSTOM_DOMAIN_HOSTNAME])
+    assert.ok(CANONICAL_HOSTS.includes(host),
+      `${host} must stay inside the same-origin scan`);
+  assert.match(workflow, /for \(const hostname of CANONICAL_HOSTS\) \{[\s\S]*?danjionApiBase\(\) !== ''[\s\S]*?danjionAuthBase\(\) !== ''/,
+    'both resolvers must be asserted for every canonical host, not just the public one');
+  assert.ok(workflow.includes('crafted ?apiBase= must not redirect application API traffic on ${hostname}'),
+    'the crafted-override refusal must stay per-host');
+}
+
+console.log('leaf-b804-pages-release-same-origin-guard-contract: PASS (stale browser Worker literal guard removed; same-origin facade scan + server upstream pin pinned; Pages host recorded as the only current public origin)');
