@@ -3,10 +3,26 @@ name: Pages Production Release
 # Issue #419 [production promotion]: the canonical Cloudflare Pages production
 # artifact is the top-level frontend/ V3 static site (plain HTML/assets, no
 # bundler). The V2 React tree under 04_개발/ is no longer a deployable source.
-# The artifact resolves its API binding at runtime through the hostname-gated
-# DanjionSession resolver: only https://danjion.pages.dev auto-binds the
-# production API; every other origin stays fail-closed unless an explicit
+#
+# Issue #804 + #830 [same-origin facade fact correction]: the browser session
+# runtime does NOT embed a Worker absolute URL. The canonical architecture is:
+#
+#   browser (danjion.padiem.net | danjion.pages.dev)
+#     -> same-origin Pages Function facade   (/api/v1/*, /api/auth/*)
+#     -> fixed production Worker upstream    (padiem-danjion-api-production)
+#
+# frontend/assets/danjion-session.js resolves danjionApiBase()/danjionAuthBase()
+# to '' for BOTH canonical production hostnames so every browser API/Auth call
+# stays same-origin; a crafted ?apiBase= can never move canonical production off
+# the facade. The Worker upstream literal lives ONLY in the server-side Pages
+# Functions (functions/_lib/app-facade.js, functions/_lib/auth-facade.js), which
+# proxy server-side. Any other origin stays fail-closed unless an explicit
 # ?apiBase= controlled preview is provided.
+#
+# The release authority scan below therefore evaluates the assembled browser
+# artifact's resolver semantics in a real runtime and separately proves the
+# server-side upstream pin -- it no longer greps the session runtime for a
+# Worker absolute URL, which the same-origin cutover intentionally removed.
 
 on:
   workflow_dispatch:
@@ -133,14 +149,107 @@ jobs:
           test ! -e dist/tests
           echo "V3 artifact assembled from frontend/ (entry: index.html)"
 
-      - name: Verify V3 artifact is bound to the production API and not dev auth
+      - name: Verify browser artifact resolves canonical production to the same-origin facade
         shell: bash
         run: |
           set -euo pipefail
-          if ! grep -R -q 'padiem-danjion-api-production.padiem.workers.dev' dist/assets/danjion-session.js; then
-            echo "::error::V3 resolver does not carry the canonical production API binding."
-            exit 1
-          fi
+          # Issue #804: do not infer resolver semantics from a shell grep. Load the
+          # assembled browser artifact in a bounded Node vm and assert the real
+          # runtime contract for BOTH canonical production hostnames.
+          cat > "${RUNNER_TEMP}/verify-same-origin-authority.mjs" <<'AUTHORITY_EOF'
+          import { readFile } from 'node:fs/promises';
+          import vm from 'node:vm';
+
+          const source = await readFile('dist/assets/danjion-session.js', 'utf8');
+
+          // The artifact is a browser IIFE bound to `window`; provide a minimal,
+          // bounded context. No secrets, tokens, cookies or network access.
+          const CANONICAL_HOSTS = ['danjion.padiem.net', 'danjion.pages.dev'];
+          const CRAFTED = `?apiBase=${encodeURIComponent('https://evil.example/collect')}`;
+
+          const fail = (message) => {
+            console.error(`::error::${message}`);
+            process.exit(1);
+          };
+
+          const load = (location) => {
+            const ctx = { location, URLSearchParams, console, setTimeout, clearTimeout };
+            ctx.window = ctx;
+            ctx.globalThis = ctx;
+            vm.createContext(ctx);
+            vm.runInContext(source, ctx);
+            if (!ctx.DanjionSession) fail('V3 runtime did not expose DanjionSession.');
+            return ctx.DanjionSession;
+          };
+
+          for (const hostname of CANONICAL_HOSTS) {
+            const s = load({ search: '', hostname, origin: `https://${hostname}` });
+            if (s.isCanonicalProduction() !== true) {
+              fail(`runtime must treat ${hostname} as canonical production.`);
+            }
+            if (s.danjionApiBase() !== '') {
+              fail(`runtime must resolve the application API base to same-origin ('') on ${hostname}.`);
+            }
+            if (s.danjionAuthBase() !== '') {
+              fail(`runtime must resolve the Better Auth base to same-origin ('') on ${hostname}.`);
+            }
+
+            // A crafted external override must never move canonical production off
+            // the same-origin facade for either the app API or Better Auth.
+            const crafted = load({ search: CRAFTED, hostname, origin: `https://${hostname}` });
+            if (crafted.danjionApiBase() !== '') {
+              fail(`crafted ?apiBase= must not redirect application API traffic on ${hostname}.`);
+            }
+            if (crafted.danjionAuthBase() !== '') {
+              fail(`crafted ?apiBase= must not redirect Better Auth traffic on ${hostname}.`);
+            }
+          }
+
+          // The exported canonical hostname constants must match the facade hosts.
+          const probe = load({ search: '', hostname: CANONICAL_HOSTS[1], origin: `https://${CANONICAL_HOSTS[1]}` });
+          if (probe.PRIMARY_PRODUCTION_HOSTNAME !== CANONICAL_HOSTS[0]) {
+            fail('runtime PRIMARY_PRODUCTION_HOSTNAME does not match the primary production origin.');
+          }
+          if (probe.PRODUCTION_PAGES_HOSTNAME !== CANONICAL_HOSTS[1]) {
+            fail('runtime PRODUCTION_PAGES_HOSTNAME does not match the canonical Pages origin.');
+          }
+
+          // A non-canonical origin must stay fail-closed without an explicit override.
+          const demo = load({ search: '', hostname: 'danjion-review.pages.dev', origin: 'https://danjion-review.pages.dev' });
+          if (demo.danjionApiBase() !== '' || demo.danjionAuthBase() !== '') {
+            fail('non-canonical origins must stay fail-closed without an explicit apiBase.');
+          }
+          if (demo.isCanonicalProduction() !== false) {
+            fail('non-canonical origins must not be reported as canonical production.');
+          }
+
+          console.log('BROWSER_SAME_ORIGIN_FACADE_AUTHORITY_SCAN: PASS');
+          AUTHORITY_EOF
+          node "${RUNNER_TEMP}/verify-same-origin-authority.mjs"
+
+      - name: Verify Pages Function upstream pin (server-side fixed production Worker)
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Issue #804 layer B: the fixed production Worker upstream is a
+          # server-side Pages Function concern, NOT a browser artifact concern.
+          for facade in functions/_lib/app-facade.js functions/_lib/auth-facade.js; do
+            if [ ! -f "$facade" ]; then
+              echo "::error::Required Pages Function facade is missing: $facade"
+              exit 1
+            fi
+            if ! grep -q 'padiem-danjion-api-production.padiem.workers.dev' "$facade"; then
+              echo "::error::${facade} does not pin the canonical production Worker upstream."
+              exit 1
+            fi
+          done
+          echo "PAGES_FUNCTION_UPSTREAM_PIN_SCAN: PASS"
+
+      - name: Verify browser artifact keeps canonical hostnames and no dev auth
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Issue #804 layer C: preserved safety guards.
           if ! grep -R -q 'danjion.padiem.net' dist/assets/danjion-session.js; then
             echo "::error::V3 resolver does not gate on the primary production hostname."
             exit 1
@@ -362,11 +471,13 @@ jobs:
             echo '- UI artifact: V3 top-level `frontend/` static site (entry: `index.html`)'
             echo '- Primary public origin: `https://danjion.padiem.net`'
             echo '- Legacy public origin: `https://danjion.pages.dev`'
-            echo '- API binding: runtime hostname gate; `danjion.padiem.net` and `danjion.pages.dev` auto-bind'
-            echo '- API/Auth origin: `padiem-danjion-api-production.padiem.workers.dev`'
-            echo '- Controlled preview: explicit `?apiBase=` only'
+            echo '- Browser API/Auth: same-origin Pages Function facade (resolver returns \'\' on both canonical hosts)'
+            echo '- Pages Function upstream: fixed production Worker `padiem-danjion-api-production.padiem.workers.dev`'
+            echo '- Controlled preview: explicit `?apiBase=` only; canonical production override is refused'
             echo '- Production API/JWKS preflight: PASS'
             echo '- V3 contract gate + artifact authority scan: PASS'
+            echo '- Browser same-origin facade authority scan: PASS'
+            echo '- Pages Function upstream pin scan: PASS'
             echo '- Canonical Pages deployment API readback: PASS'
             echo '- Canonical Pages byte/content parity: PASS'
             echo '- Real phone OTP delivery: separate HOLD #235'
