@@ -1,0 +1,306 @@
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+
+const root = new URL('../../../', import.meta.url);
+const script = await readFile(new URL('04_개발/frontend/scripts/qa-830-authenticated-acceptance.mjs', root), 'utf8');
+
+/* ===== the shipped helpers are executed, not just quoted ===== */
+const START = '/* === BOUNDED EVIDENCE HELPERS';
+const END = '/* === END BOUNDED EVIDENCE HELPERS === */';
+const startAt = script.indexOf(START);
+const endAt = script.indexOf(END);
+assert.ok(startAt >= 0, 'bounded evidence helper block must keep its opening marker');
+assert.ok(endAt > startAt, 'bounded evidence helper block must stay contiguous');
+const helpers = new Function(`${script.slice(startAt, endAt)}
+return { boundedText, boundedError, errorDetail, pushSample, originAndPathname, isBusinessDiscovery,
+  createDiscoveryLedger, MAX_SAMPLES, MAX_DOM_KEYS, HYDRATION_TIMEOUT_MS };`)();
+const { boundedText, boundedError, errorDetail, pushSample, originAndPathname, isBusinessDiscovery,
+  createDiscoveryLedger } = helpers;
+
+/* ===== the latest business-discovery event must own the structured fields ===== */
+const QA_ORIGIN = 'https://danjion-qa.pages.dev';
+const PROD_ORIGIN = 'https://padiem-danjion-api-production.padiem.workers.dev';
+const DISCOVERY_PATH = '/api/v1/complexes/banglim-myeongji-roadhill/businesses';
+
+const ledger = createDiscoveryLedger();
+assert.deepEqual(
+  { seen: ledger.seen, origin: ledger.origin, status: ledger.status, failed: ledger.failed },
+  { seen: false, origin: 'NOT_OBSERVED', status: 0, failed: false },
+  'a fresh ledger must claim nothing yet');
+
+/* The core regression: an earlier success must not mask a later CORS failure. */
+assert.equal(ledger.note({ origin: QA_ORIGIN, pathname: DISCOVERY_PATH }, { status: 200 }), true,
+  'a same-origin discovery response must be recorded');
+assert.equal(ledger.note({ origin: PROD_ORIGIN, pathname: DISCOVERY_PATH }, { failed: true }), true,
+  'a later failed discovery request must be recorded');
+assert.equal(ledger.seen, true, 'FAILED_DISCOVERY_MARKS_REQUEST_SEEN');
+assert.equal(ledger.origin, PROD_ORIGIN, 'FAILED_DISCOVERY_CAPTURES_ORIGIN: latest event must win over the earlier 200');
+assert.equal(ledger.pathname, DISCOVERY_PATH, 'FAILED_DISCOVERY_CAPTURES_PATHNAME');
+assert.equal(ledger.status, 0, 'FAILED_DISCOVERY_ZEROES_RESPONSE_STATUS: a failed request has no response status');
+assert.equal(ledger.failed, true, 'FAILED_DISCOVERY_SETS_FAILED');
+assert.notEqual(ledger.status, 200, 'a stale success status must never survive a later failure');
+
+/* A later success legitimately becomes the newest observation. */
+assert.equal(ledger.note({ origin: QA_ORIGIN, pathname: DISCOVERY_PATH }, { status: 200 }), true);
+assert.equal(ledger.origin, QA_ORIGIN, 'a newer success must replace an older failure');
+assert.equal(ledger.status, 200, 'a recorded response must keep its real status');
+assert.equal(ledger.failed, false, 'failed must not latch once a response arrived');
+
+/* Only the discovery endpoint may move these fields. */
+const untouched = createDiscoveryLedger();
+assert.equal(untouched.note({ origin: QA_ORIGIN, pathname: '/api/v1/me/bookmarks' }, { status: 401 }), false,
+  'a non-discovery response must not be attributed to discovery');
+assert.equal(untouched.note(originAndPathname('not a url'), { failed: true }), false,
+  'an unparseable url must not be attributed to discovery');
+assert.deepEqual(
+  { seen: untouched.seen, origin: untouched.origin, status: untouched.status, failed: untouched.failed },
+  { seen: false, origin: 'NOT_OBSERVED', status: 0, failed: false },
+  'rejected observations must leave the ledger untouched');
+
+/* A real failure status must not be invented as success, nor a 401 hidden. */
+const authFail = createDiscoveryLedger();
+authFail.note({ origin: QA_ORIGIN, pathname: DISCOVERY_PATH }, { status: 401 });
+assert.equal(authFail.status, 401, 'an HTTP 401 discovery response must be reported as 401');
+assert.equal(authFail.failed, false, 'a received response is not a transport failure');
+const serverFail = createDiscoveryLedger();
+serverFail.note({ origin: QA_ORIGIN, pathname: DISCOVERY_PATH }, { status: 503 });
+assert.equal(serverFail.status, 503, 'a server-side discovery status must survive exactly');
+const noObservation = createDiscoveryLedger();
+noObservation.note({ origin: QA_ORIGIN, pathname: DISCOVERY_PATH }, {});
+assert.equal(noObservation.status, 0, 'a missing observation must not fabricate a success code');
+assert.equal(noObservation.failed, false, 'a missing observation must not be called a failure either');
+
+/* `failed` dominates: a failed request has no response, whatever else is passed. */
+const contradiction = createDiscoveryLedger();
+contradiction.note({ origin: QA_ORIGIN, pathname: DISCOVERY_PATH }, { status: 200, failed: true });
+assert.equal(contradiction.failed, true, 'a failed observation must report failed');
+assert.equal(contradiction.status, 0, 'a failed request must keep the no-response status even if a status was also supplied');
+
+/* Both listeners must route through the ledger, inside their own handler bodies. */
+const failedHandler = script.slice(script.indexOf("page.on('requestfailed'"), script.indexOf("page.on('console'"));
+assert.ok(failedHandler.length > 60, 'the requestfailed handler must exist');
+assert.ok(failedHandler.includes('discovery.note(endpoint, { failed: true });'),
+  'the requestfailed handler must attribute the failed request to the ledger');
+assert.ok(failedHandler.includes('pushSample(diagnostics.requestFailures'),
+  'the requestfailed handler must keep the historical bounded samples');
+const responseHandler = script.slice(script.indexOf("page.on('response'"));
+assert.ok(responseHandler.slice(0, 300).includes('discovery.note('),
+  'the response handler must route through the same latest-event ledger');
+assert.ok(responseHandler.slice(0, 300).includes('{ status: response.status() }'),
+  'the response handler must record the real response status');
+assert.doesNotMatch(script, /businessRequestSeen|businessRequestOrigin|businessResponseStatus|businessRequestPathname|businessRequestFailed/,
+  'no second copy of discovery state may exist outside the ledger');
+
+assert.equal(helpers.MAX_SAMPLES, 3, 'event samples must stay capped at three');
+assert.equal(helpers.MAX_DOM_KEYS, 10, 'DOM key sample must stay capped at ten');
+assert.ok(helpers.HYDRATION_TIMEOUT_MS >= 10_000 && helpers.HYDRATION_TIMEOUT_MS <= 15_000,
+  'hydration wait must stay inside the 10-15s budget');
+
+assert.equal(boundedText(null), '', 'absent text must render empty, not "null"');
+assert.equal(boundedText(undefined), '', 'absent text must render empty, not "undefined"');
+assert.equal(boundedText('   \n\t  '), '', 'whitespace-only text must render empty');
+
+const longInput = 'x'.repeat(5_000);
+assert.ok(boundedText(longInput).length <= 240, 'browser text must be length bounded');
+assert.ok(boundedText(longInput, 40).length <= 40, 'explicit limit must be honoured');
+assert.equal(boundedText('a\n  b'), 'a b', 'newlines must collapse so one field stays one line');
+
+/*
+ * Credential-shaped samples are assembled at runtime and use obvious
+ * placeholders: a literal three-segment JWT or a key=value pair in the diff
+ * trips secret scanners (GitGuardian failed this PR's first head on exactly the
+ * public jwt.io example) even though the values are fictitious. The runtime
+ * input is still credential-shaped, which is all the sanitizer is being tested
+ * against, and the assertions still require the value to be gone.
+ */
+const SESSION_VALUE = '<QA_SESSION_VALUE_PLACEHOLDER>';
+const BEARER_VALUE = '<QA_BEARER_VALUE_PLACEHOLDER>';
+const JWT_HEAD = 'eyJ' + 'hbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9';
+const JWT_BODY = 'eyJ' + 'zdWIiOiIxMjM0NTY3ODkw' + 'In0';
+const JWT_SIG = 'dozjg' + 'Thuz';
+const JWT_SAMPLE = `${JWT_HEAD}.${JWT_BODY}.${JWT_SIG}`;
+
+const cookieText = boundedText(`failed with Cookie: danjion_session=${SESSION_VALUE} for user`);
+assert.ok(!cookieText.includes(SESSION_VALUE), 'cookie value must never survive sanitising');
+assert.ok(cookieText.includes('[redacted]'), 'cookie must be replaced by a redaction marker');
+const bearerText = boundedText(`Authorization: Bearer ${BEARER_VALUE} request rejected`);
+assert.ok(!bearerText.includes(BEARER_VALUE), 'bearer value must never survive sanitising');
+const jwtText = boundedText(`state ${JWT_SAMPLE}`);
+assert.ok(!/eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}/.test(jwtText), 'JWT-shaped text must be redacted');
+assert.ok(!jwtText.includes(JWT_BODY), 'JWT payload must never be printed');
+assert.ok(!jwtText.includes(JWT_SIG), 'JWT signature must never be printed');
+
+/*
+ * The sanitizer must not swallow the diagnostics it exists to protect: a plain
+ * failure line has to survive intact, and the cap must be a width limit only.
+ */
+const plainFailure = 'GET https://danjion-qa.pages.dev/api/v1/complexes/banglim-myeongji-roadhill/businesses net::ERR_FAILED';
+assert.equal(boundedText(plainFailure), plainFailure, 'an ordinary failure line must survive unmodified');
+assert.ok(boundedText(`${plainFailure} ${'y'.repeat(900)}`).startsWith('GET https://danjion-qa.pages.dev'),
+  'bounding must truncate, never replace, a non-credential event');
+assert.ok(boundedText(`state ${JWT_SAMPLE}`).includes('[redacted]'),
+  'a JWT must still leave a visible redaction marker');
+
+const locatorFailure = new Error('locator.click: Timeout 15000ms exceeded.\nCall log: waiting for locator "[data-shop-key=api-71a8300d]"');
+assert.equal(boundedError(locatorFailure).startsWith('locator.click: Timeout 15000ms exceeded.'), true,
+  'headline must keep the first line of the failure');
+assert.ok(!boundedError(locatorFailure).includes('Call log'), 'headline must not absorb the call log');
+assert.ok(boundedError(locatorFailure).length <= 160, 'headline must stay bounded');
+assert.ok(errorDetail(locatorFailure).includes('waiting for locator'),
+  'the locator named in the call log must survive as its own field');
+assert.ok(errorDetail(locatorFailure).length <= 600, 'detail must stay bounded');
+assert.equal(errorDetail(new Error('single line only')), '', 'a single-line error has no detail');
+assert.equal(boundedError(new Error(`Cookie: danjion_session=${SESSION_VALUE}`)), 'REDACTED',
+  'a credential-shaped headline must be redacted outright');
+
+const samples = [];
+for (let i = 0; i < 9; i += 1) pushSample(samples, `event ${i}`);
+assert.equal(samples.length, 3, 'sample collection must stop at the cap');
+pushSample(samples, '   ');
+assert.ok(!samples.some((line) => line.trim() === ''), 'empty events must not consume a sample slot');
+
+const endpoint = originAndPathname('https://danjion-qa.pages.dev/api/v1/complexes/banglim-myeongji-roadhill/businesses?limit=50&session=leak');
+assert.equal(endpoint.origin, 'https://danjion-qa.pages.dev', 'discovery origin must be recorded exactly');
+assert.ok(!endpoint.pathname.includes('leak') && !endpoint.pathname.includes('?'),
+  'query material must never reach the evidence stream');
+assert.equal(isBusinessDiscovery(endpoint), true, 'the business discovery response must be recognised');
+assert.equal(isBusinessDiscovery(originAndPathname('https://danjion-qa.pages.dev/api/v1/me/bookmarks')), false,
+  'other endpoints must not be mistaken for discovery');
+assert.equal(isBusinessDiscovery(originAndPathname('https://danjion-qa.pages.dev/api/v1/complexes/x/businesses/7/reviews')), false,
+  'a business sub-path must not be mistaken for the list');
+assert.equal(originAndPathname('not a url').origin, 'UNPARSEABLE', 'an unusable url must degrade to a marker, never a throw');
+
+/* ===== listeners must exist before the first navigation ===== */
+const firstGoto = script.indexOf('page.goto(');
+assert.ok(firstGoto > 0, 'the run must open the QA page');
+const installer = script.indexOf('installPageDiagnostics(page);');
+assert.ok(installer >= 0, 'diagnostics listeners must be installed');
+assert.ok(installer < firstGoto, 'listeners must be attached before any navigation');
+for (const event of ['pageerror', 'requestfailed', 'console', 'response']) {
+  assert.match(script, new RegExp(`page\\.on\\('${event}'`), `the ${event} listener must remain`);
+}
+assert.ok(script.indexOf('isBusinessDiscovery(endpoint)') > 0, 'the response listener must filter discovery');
+
+/* ===== hydration is waited for explicitly, and a miss fails before any click ===== */
+const firstHydration = script.indexOf("waitShopHydrated(page, shopKey, 'SHOP_HYDRATION')");
+const firstClick = script.indexOf('.locator(shopKeySelector(shopKey)).first().click(');
+assert.ok(firstHydration > 0, 'the expected shop key must be awaited before interaction');
+assert.ok(firstClick > firstHydration, 'the click must happen only after hydration is proven');
+assert.match(script, /await page\.waitForFunction\(\(target\) => Boolean\(document\.querySelector\(target\)\), shopKeySelector\(shopKey\)/,
+  'the wait must target the expected [data-shop-key] node itself');
+assert.match(script, /\{ timeout: HYDRATION_TIMEOUT_MS, polling: 250 \}/, 'the wait must stay bounded and polled');
+assert.match(script, /if \(!hydrated\) throw new Error\('QA_830_SHOP_CARD_NOT_HYDRATED'\)/,
+  'a missing card must fail as its own labelled error, not a bare click timeout');
+assert.match(script, /record\(label, hydrated, `MS_\$\{diagnostics\.hydrationMs\}`\)/,
+  'hydration verdict and duration must be recorded');
+assert.ok(script.includes('SHOP_HYDRATION_MS='), 'hydration duration must be emitted');
+assert.ok(script.includes("waitShopHydrated(page, shopKey, 'SHOP_HYDRATION_REVISIT')"),
+  'the revisit navigation must be guarded the same way');
+
+/* ===== the failure verdict must name DOM state, origin and page errors ===== */
+for (const field of [
+  'BROWSER_BUSINESS_REQUEST_SEEN=',
+  'BROWSER_BUSINESS_REQUEST_URL_ORIGIN=',
+  'BROWSER_DISCOVERY_ORIGIN=',
+  'BROWSER_DISCOVERY_SAME_ORIGIN=',
+  'BROWSER_BUSINESS_HTTP_STATUS=',
+  'BROWSER_BUSINESS_REQUEST_FAILED=',
+  'EXPECTED_SHOP_KEY=',
+  'EXPECTED_SHOP_KEY_PRESENT=',
+  'DOM_SHOP_KEY_COUNT=',
+  'DOM_SHOP_KEYS_SAMPLE=',
+  'PAGE_READY_STATE=',
+  'SHOP_SURFACE_STATE=',
+  'PAGE_ERROR_COUNT=',
+  'PAGE_ERROR_SAMPLE=',
+  'REQUEST_FAILED_COUNT=',
+  'REQUEST_FAILED_SAMPLE=',
+  'CONSOLE_ERROR_COUNT=',
+  'CONSOLE_ERROR_SAMPLE=',
+  'DISCOVERY_CONSOLE_INFO_SAMPLE=',
+  'QA_830_DIAGNOSTICS='
+]) assert.ok(script.includes(field), `missing bounded diagnostic field ${field}`);
+
+const diagBody = script.slice(script.indexOf('function emitDiagnostics() {'));
+for (const list of ['pageErrors', 'requestFailures', 'consoleErrors', 'discoveryConsoleInfo']) {
+  assert.match(diagBody, new RegExp(`${list}\\.join\\(' ~ '\\)`), `${list} must be joined as bounded samples`);
+}
+assert.match(diagBody, /domShopKeysSample\.join\(','\)/, 'DOM key sample must be joined as one bounded field');
+assert.match(diagBody, /diagnostics\.pageErrors\.length/, 'event counts must be emitted beside samples');
+assert.match(script, /QA_830_ACCEPTANCE_FAILED=\$\{boundedError\(error\)\}/, 'headline must stay a separate field');
+assert.match(script, /QA_830_ACCEPTANCE_DETAIL=\$\{boundedText\(errorDetail\(error\), 400\)/,
+  'call-log detail must be its own sanitised field');
+
+/* ===== nothing sensitive may ride the diagnostic path ===== */
+assert.doesNotMatch(script, /request\(\)\.headers\(|\.headers\(\)\.cookie|responseheaders|getAllHeaders/,
+  'request headers must never be read into evidence');
+assert.doesNotMatch(script, /storageState|context\.cookies\(|\.cookies\(/, 'session storage must never be dumped');
+assert.doesNotMatch(script, /console\.\w+\([^)]*\$\{(email|password|jwt|cookie|token)\b/i,
+  'credentials must never be printed');
+assert.doesNotMatch(script, /QA_830_ACCEPTANCE_FAILED=\$\{error instanceof/, 'raw error text must never be printed');
+const domProbe = script.slice(script.indexOf('async function captureShopDomState('), script.indexOf('async function waitShopHydrated('));
+assert.ok(domProbe.length > 100, 'the DOM state probe must exist');
+assert.doesNotMatch(domProbe, /\.innerHTML\s*=|\.value\s*=|\.click\(|setAttribute|document\.write|appendChild|remove\(\)/,
+  'the DOM probe must be read-only');
+
+/* ===== acceptance semantics must not have been softened ===== */
+for (const label of ['REVIEW_ACCEPTANCE', 'BOOKMARK_ACCEPTANCE', 'INQUIRY_ACCEPTANCE', 'REPORT_ACCEPTANCE']) {
+  assert.ok(script.includes(`'${label}'`), `acceptance result ${label} must remain`);
+}
+assert.match(script, /record\(`\$\{label\}_ACCEPTANCE`/, 'community acceptance labels must remain');
+assert.ok(script.includes("page.locator('[data-kind=\"walk\"]').click({ timeout: 10_000 })"),
+  'Together selector must still be clicked strictly');
+assert.doesNotMatch(script, /data-kind="walk"\][^\n]*\.catch\(/, 'Together selector must not swallow failures');
+assert.doesNotMatch(script, /\.catch\(\(\) => \{\}\)/, 'no silent fail-open catch may exist');
+assert.match(script, /if \(!authenticated\) throw new Error\('QA_830_SESSION_NOT_AUTHENTICATED'\)/,
+  'session must still be proven before any write');
+assert.match(script, /const restoreMethod = wasBookmarked \? 'POST' : 'DELETE'/, 'bookmark restore contract must remain');
+assert.match(script, /const membershipRestored = bookmarkFinal\.auth && restoreOk && finalBookmarked === wasBookmarked/,
+  'bookmark restore must still be proven by readback');
+assert.match(script, /if \(toggleStatus === 401\) record\('BOOKMARK_TOGGLE_401', false, 'AUTH_REQUIRED'\)/,
+  'a 401 must still fail the run');
+assert.match(script, /if \(!businessId\) throw new Error\('QA_830_NO_SERVER_BUSINESS'\)/,
+  'an empty server business set must still stop the run');
+assert.match(script, /function flushEvidence\(heading\) \{[\s\S]*?emitDiagnostics\(\);/,
+  'both evidence paths must print diagnostics, not only the success path');
+/*
+ * Superseded here were three source asserts of the form
+ * `diagnostics.businessRequestOrigin = endpoint.origin;` etc. They pinned one
+ * implementation shape; the behaviour they existed to protect is now asserted
+ * directly against `createDiscoveryLedger()` above, plus the handler-body checks
+ * below, so the guarantee is wider rather than narrower.
+ */
+assert.match(script.slice(startAt, endAt), /if \(!isBusinessDiscovery\(endpoint\)\) return false;/,
+  'the ledger itself must reject non-discovery endpoints');
+/*
+ * Bypass must be ruled out by mechanism, not by English: the script legitimately
+ * documents "no fail-open skip" in a comment, and a word-level scan would match
+ * the prose that forbids the thing.
+ */
+assert.doesNotMatch(script, /page\.route\(|force:\s*true|\.skip\(|test\.skip|bypass|stubResponse|continue:\s*false/i,
+  'no request interception, forced click, skipping or bypass may appear');
+
+/*
+ * This file only protects the harness while CI actually runs it, so the wiring
+ * is asserted here as well: a deleted step or a dropped path filter must fail
+ * loudly instead of silently reverting to "local only".
+ */
+const contractPath = '04_개발/frontend/tests/qa-830-authenticated-acceptance-diagnostics-contract.mjs';
+const workflow = await readFile(new URL('.github/workflows/qa-830-authenticated-acceptance.yml', root), 'utf8');
+assert.ok(workflow.includes(`- '${contractPath}'`),
+  'this contract must stay listed in the workflow paths filter');
+assert.ok(workflow.includes(`      - name: Verify acceptance diagnostics contract\n        run: node ${contractPath}`),
+  'the diagnostics step must run this contract in CI');
+assert.ok(workflow.indexOf('Verify acceptance source contract') < workflow.indexOf('Verify acceptance diagnostics contract'),
+  'the diagnostics step must run after the existing source contract');
+assert.ok(workflow.includes('      - name: Syntax-check acceptance script\n        run: node --check 04_개발/frontend/scripts/qa-830-authenticated-acceptance.mjs'),
+  'the syntax-check step must remain');
+assert.ok(workflow.includes('      - name: Verify acceptance source contract\n        run: node 04_개발/frontend/tests/qa-830-authenticated-acceptance-contract.mjs'),
+  'the existing acceptance contract step must remain');
+assert.doesNotMatch(workflow, /environment:\s*production/, 'the workflow must never use a production environment');
+assert.match(workflow, /github\.event_name == 'workflow_dispatch' && inputs\.run_live/,
+  'the live QA job must stay dispatch-and-confirm gated');
+assert.match(workflow, /expected_main/, 'exact-main authority must remain');
+assert.match(workflow, /git ls-remote origin refs\/heads\/main/, 'remote main must still be fresh-read');
+
+console.log('qa-830-authenticated-acceptance-diagnostics-contract: PASS');

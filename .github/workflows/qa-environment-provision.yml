@@ -205,9 +205,22 @@ jobs:
           test -f dist-qa/index.html
           test -f dist-qa/assets/danjion-session.js
           test ! -e dist-qa/tests
+          # #830 same-origin QA Pages architecture: the browser runtime binds the QA Pages
+          # facade, never a Worker absolute URL. The fixed QA Worker upstream is selected
+          # server-side by the Pages Function, so no Worker URL belongs in the artifact.
           grep -Fq "const QA_PAGES_HOSTNAME = 'danjion-qa.pages.dev';" dist-qa/assets/danjion-session.js
-          grep -Fq "$DANJION_QA_API_URL" dist-qa/assets/danjion-session.js
-          echo 'QA Pages artifact runtime binding: PASS'
+          grep -Fq "const QA_PAGES_API_BASE = 'https://danjion-qa.pages.dev';" dist-qa/assets/danjion-session.js
+          grep -Fq "if (hostname === QA_PAGES_HOSTNAME) return QA_PAGES_API_BASE;" dist-qa/assets/danjion-session.js
+          grep -Fq "if (hostname === QA_PAGES_HOSTNAME) return '';" dist-qa/assets/danjion-session.js
+          if grep -Fq 'padiem-danjion-api-production.padiem.workers.dev' dist-qa/assets/danjion-session.js; then
+            echo '::error::QA browser runtime must not embed the fixed Production Worker URL.'
+            exit 1
+          fi
+          if grep -Fq "$DANJION_QA_API_URL" dist-qa/assets/danjion-session.js; then
+            echo '::error::QA browser runtime must not embed the direct QA Worker URL; it must use the same-origin QA Pages facade.'
+            exit 1
+          fi
+          echo 'QA Pages artifact same-origin runtime binding: PASS'
 
       - name: Deploy dedicated QA Pages
         shell: bash
@@ -230,7 +243,11 @@ jobs:
               && grep -qi '^x-robots-tag: noindex' "$root_headers" \
               && [ "$runtime_status" = '200' ] \
               && grep -Fq "const QA_PAGES_HOSTNAME = 'danjion-qa.pages.dev';" "$runtime_file" \
-              && grep -Fq "$DANJION_QA_API_URL" "$runtime_file"; then
+              && grep -Fq "const QA_PAGES_API_BASE = 'https://danjion-qa.pages.dev';" "$runtime_file" \
+              && grep -Fq "if (hostname === QA_PAGES_HOSTNAME) return QA_PAGES_API_BASE;" "$runtime_file" \
+              && grep -Fq "if (hostname === QA_PAGES_HOSTNAME) return '';" "$runtime_file" \
+              && ! grep -Fq 'padiem-danjion-api-production.padiem.workers.dev' "$runtime_file" \
+              && ! grep -Fq "$DANJION_QA_API_URL" "$runtime_file"; then
               pages_ready=1
               break
             fi
@@ -238,10 +255,10 @@ jobs:
             sleep 2
           done
           if [ "$pages_ready" != '1' ]; then
-            echo '::error::QA Pages did not become ready with noindex and dedicated runtime binding within bounded readiness window.'
+            echo '::error::QA Pages did not become ready with noindex and same-origin QA Pages runtime binding within bounded readiness window.'
             exit 1
           fi
-          echo 'QA Pages smoke + runtime binding + noindex: PASS'
+          echo 'QA Pages smoke + same-origin runtime binding + noindex: PASS'
 
       - name: Provision or verify synthetic QA credential account
         if: inputs.provision_synthetic_account
@@ -270,7 +287,7 @@ jobs:
             echo '- Environment: `qa`'
             echo '- Worker: `padiem-danjion-api-qa`'
             echo '- Pages: `danjion-qa`'
-            echo '- Browser runtime: dedicated QA Worker binding verified'
+            echo '- Browser runtime: same-origin QA Pages facade binding verified'
             echo '- Database: dedicated QA secret binding (value suppressed)'
             echo '- Production target: NO'
             echo '- Dev auth bypass: NO'

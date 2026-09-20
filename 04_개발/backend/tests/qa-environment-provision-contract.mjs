@@ -44,8 +44,41 @@ assert.ok(workflow.includes('pages deploy dist-qa --project-name "$QA_PAGES_PROJ
 assert.ok(workflow.includes('X-Robots-Tag: noindex'), 'QA Pages must be noindex');
 assert.ok(workflow.includes('response suppressed') && workflow.includes('identity/session material suppressed'), 'synthetic account output must remain secret-safe');
 assert.ok(workflow.includes("qa-pages-runtime-bind.mjs' dist-qa"), 'QA Pages artifact must receive a dedicated runtime binding');
-assert.ok(workflow.includes("const QA_PAGES_HOSTNAME = 'danjion-qa.pages.dev';"), 'workflow must verify QA runtime host binding before and after deploy');
-assert.ok(workflow.includes('grep -Fq "$DANJION_QA_API_URL"'), 'workflow must verify deployed runtime points to the configured QA API');
+
+// #830 same-origin QA Pages architecture: the QA browser runtime binds the QA Pages facade,
+// never a Worker absolute URL. The QA Worker upstream is selected server-side by the Pages
+// Function, so the workflow must assert the same-origin contract and must NOT require a direct
+// Worker binding inside the browser artifact.
+assert.ok(workflow.includes("const QA_PAGES_HOSTNAME = 'danjion-qa.pages.dev';"), 'workflow must verify the exact QA Pages host binding');
+assert.ok(workflow.includes("const QA_PAGES_API_BASE = 'https://danjion-qa.pages.dev';"), 'workflow must verify the exact QA Pages API base binding');
+assert.ok(workflow.includes('if (hostname === QA_PAGES_HOSTNAME) return QA_PAGES_API_BASE;'), 'workflow must verify the QA API resolver branch');
+assert.ok(workflow.includes("if (hostname === QA_PAGES_HOSTNAME) return '';"), 'workflow must verify the QA auth same-origin resolver branch');
+
+// The direct Worker browser binding assertion must be gone; only negative (absence) checks remain.
+assert.doesNotMatch(workflow, /^\s*grep -Fq "\$DANJION_QA_API_URL"/m,
+  'workflow must not require a direct QA Worker URL inside the browser artifact');
+assert.doesNotMatch(workflow, /&&\s*grep -Fq "\$DANJION_QA_API_URL"/,
+  'live readiness must not require a direct QA Worker URL inside the browser runtime');
+assert.ok(workflow.includes('! grep -Fq "$DANJION_QA_API_URL"'),
+  'workflow must actively forbid a direct QA Worker URL in the browser runtime');
+assert.ok(workflow.includes("! grep -Fq 'padiem-danjion-api-production.padiem.workers.dev'"),
+  'workflow must forbid the fixed Production Worker URL in the browser runtime');
+assert.ok(workflow.includes('same-origin QA Pages facade binding verified'),
+  'QA disposition must record the same-origin QA Pages facade binding');
+
+// The Assemble step must independently assert the same-origin contract (a regression there must not
+// be masked by the readiness step also containing the same literals).
+const assembleStepStart = workflow.indexOf('name: Assemble noindex QA frontend artifact with dedicated runtime binding');
+const assembleStepEnd = workflow.indexOf('name: Deploy dedicated QA Pages');
+assert.ok(assembleStepStart >= 0 && assembleStepEnd > assembleStepStart, 'QA Pages assemble step must exist before deploy');
+const assembleStep = workflow.slice(assembleStepStart, assembleStepEnd);
+assert.match(assembleStep, /QA_PAGES_HOSTNAME = 'danjion-qa\.pages\.dev'/, 'Assemble must verify the exact QA Pages host binding');
+assert.match(assembleStep, /QA_PAGES_API_BASE = 'https:\/\/danjion-qa\.pages\.dev'/, 'Assemble must verify the exact QA Pages API base binding');
+assert.match(assembleStep, /return QA_PAGES_API_BASE;/, 'Assemble must verify the QA API resolver branch');
+assert.match(assembleStep, /return '';/, 'Assemble must verify the QA auth same-origin branch');
+assert.match(assembleStep, /if grep -Fq 'padiem-danjion-api-production\.padiem\.workers\.dev'/, 'Assemble must forbid the fixed Production Worker URL in the artifact');
+assert.match(assembleStep, /if grep -Fq "\$DANJION_QA_API_URL"/, 'Assemble must forbid a direct QA Worker URL in the artifact');
+assert.doesNotMatch(assembleStep, /^\s*grep -Fq "\$DANJION_QA_API_URL"/m, 'Assemble must not require a direct QA Worker binding');
 
 // #673 regression: first-ever workers.dev propagation may briefly return 404.
 const readinessStepStart = workflow.indexOf('name: Verify QA Worker health and JWKS');
@@ -73,7 +106,12 @@ assert.match(pagesReadyStep, /root_status.*= '200'/s, 'Pages readiness must requ
 assert.match(pagesReadyStep, /runtime_status.*= '200'/s, 'Pages readiness must require runtime asset HTTP 200');
 assert.match(pagesReadyStep, /\^x-robots-tag: noindex/, 'Pages readiness must require noindex header');
 assert.match(pagesReadyStep, /QA_PAGES_HOSTNAME = 'danjion-qa\.pages\.dev'/, 'Pages readiness must verify exact QA host binding');
-assert.match(pagesReadyStep, /grep -Fq \"\$DANJION_QA_API_URL\"/, 'Pages readiness must verify configured QA API binding');
+assert.match(pagesReadyStep, /QA_PAGES_API_BASE = 'https:\/\/danjion-qa\.pages\.dev'/, 'Pages readiness must verify the exact QA Pages API base binding');
+assert.match(pagesReadyStep, /return QA_PAGES_API_BASE;/, 'Pages readiness must verify the QA API resolver branch');
+assert.match(pagesReadyStep, /return '';/, 'Pages readiness must verify the QA auth same-origin branch');
+assert.match(pagesReadyStep, /! grep -Fq "\$DANJION_QA_API_URL"/, 'Pages readiness must forbid a direct QA Worker URL in the live browser runtime');
+assert.match(pagesReadyStep, /! grep -Fq 'padiem-danjion-api-production\.padiem\.workers\.dev'/, 'Pages readiness must forbid the fixed Production Worker URL in the live browser runtime');
+assert.doesNotMatch(pagesReadyStep, /&&\s*grep -Fq "\$DANJION_QA_API_URL"/, 'Pages readiness must not require a direct QA Worker binding');
 assert.match(pagesReadyStep, /if \[ \"\$pages_ready\" != '1' \]/, 'Pages readiness must fail closed after the bounded window');
 assert.doesNotMatch(pagesReadyStep, /cat .*qa-pages/, 'Pages readiness must not print fetched response bodies');
 
@@ -109,8 +147,46 @@ assert.ok(boundSession.includes("const QA_PAGES_HOSTNAME = 'danjion-qa.pages.dev
 assert.ok(boundSession.includes("const QA_PAGES_API_BASE = 'https://danjion-qa.pages.dev';"), 'QA artifact runtime must bind the exact QA Pages API origin');
 assert.ok(boundSession.includes("if (hostname === QA_PAGES_HOSTNAME) return QA_PAGES_API_BASE;"), 'QA binding must bind API base to same-origin QA Pages base');
 assert.ok(boundSession.includes("if (hostname === QA_PAGES_HOSTNAME) return '';"), 'QA binding must bind auth base to same-origin relative URL');
-assert.ok(canonicalSession.includes("if (hostname === PRODUCTION_PAGES_HOSTNAME) return CANONICAL_PAGES_API_BASE;"), 'canonical Production API binding must remain present');
-assert.ok(canonicalSession.includes("if (hostname === PRODUCTION_PAGES_HOSTNAME) return '';"), 'canonical Production auth binding must remain present');
 assert.ok(!canonicalSession.includes("QA_PAGES_HOSTNAME = 'danjion-qa.pages.dev'"), 'canonical source must not hard-code QA deployment state');
+
+// #830 canonical Production semantics: BOTH canonical hosts stay same-origin in BOTH resolvers.
+// Assert by bounded resolver region (not a single loose `includes()`) so a regression in either
+// danjionApiBase or danjionAuthBase is caught individually.
+const countOccurrences = (haystack, needle) => {
+  let total = 0;
+  let at = 0;
+  while ((at = haystack.indexOf(needle, at)) >= 0) { total += 1; at += needle.length; }
+  return total;
+};
+const FUNCTION_START = /\n  (?:async )?function [A-Za-z_$][\w$]*\s*\(/g;
+const resolverRegion = (source, declaration) => {
+  const start = source.indexOf(declaration);
+  assert.ok(start >= 0, `canonical runtime must declare ${declaration}`);
+  FUNCTION_START.lastIndex = start + declaration.length;
+  const next = FUNCTION_START.exec(source);
+  return source.slice(start, next ? next.index : source.length);
+};
+
+const PRIMARY_SAME_ORIGIN_BRANCH = "if (hostname === PRIMARY_PRODUCTION_HOSTNAME) return '';";
+const PAGES_SAME_ORIGIN_BRANCH = "if (hostname === PRODUCTION_PAGES_HOSTNAME) return '';";
+assert.equal(countOccurrences(canonicalSession, PRIMARY_SAME_ORIGIN_BRANCH), 2,
+  'both canonical resolvers must keep danjion.padiem.net same-origin');
+assert.equal(countOccurrences(canonicalSession, PAGES_SAME_ORIGIN_BRANCH), 2,
+  'both canonical resolvers must keep danjion.pages.dev same-origin');
+for (const declaration of ['function danjionApiBase(loc) {', 'function danjionAuthBase(loc) {']) {
+  const region = resolverRegion(canonicalSession, declaration);
+  assert.ok(region.includes(PRIMARY_SAME_ORIGIN_BRANCH), `${declaration} must keep danjion.padiem.net same-origin`);
+  assert.ok(region.includes(PAGES_SAME_ORIGIN_BRANCH), `${declaration} must keep danjion.pages.dev same-origin`);
+}
+assert.ok(canonicalSession.includes("const PRIMARY_PRODUCTION_HOSTNAME = 'danjion.padiem.net';"),
+  'canonical runtime must declare the primary production hostname');
+assert.ok(canonicalSession.includes("const PRODUCTION_PAGES_HOSTNAME = 'danjion.pages.dev';"),
+  'canonical runtime must declare the canonical Pages hostname');
+
+// The canonical runtime must not depend on the pre-#830 absolute-binding identifiers.
+for (const stale of ['CANONICAL_PAGES_API_BASE', 'PRODUCTION_API_BASE']) {
+  assert.ok(!canonicalSession.includes(stale),
+    `canonical runtime must not rely on the pre-#830 identifier ${stale}`);
+}
 
 console.log('qa-environment-provision-contract: PASS');

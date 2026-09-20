@@ -1,0 +1,84 @@
+name: QA Business Fixture
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-business-fixture.yml'
+      - '04_개발/backend/scripts/qa-business-fixture.mjs'
+      - '04_개발/backend/tests/qa-business-fixture-contract.mjs'
+  workflow_dispatch:
+    inputs:
+      expected_main:
+        description: 'Exact main SHA authorized for this QA-only business fixture mutation'
+        required: true
+        type: string
+      confirm_qa_fixture:
+        description: 'Explicitly confirm QA-only synthetic business fixture mutation'
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: danjion-qa-business-fixture
+  cancel-in-progress: false
+
+jobs:
+  source-contract:
+    name: QA business fixture source safety contract
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Syntax-check fixture script
+        run: node --check 04_개발/backend/scripts/qa-business-fixture.mjs
+      - name: Verify QA-only fixture contract
+        run: node 04_개발/backend/tests/qa-business-fixture-contract.mjs
+
+  apply-fixture:
+    name: Apply QA-only synthetic business fixture
+    needs: source-contract
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.confirm_qa_fixture }}
+    runs-on: ubuntu-latest
+    environment: qa
+    env:
+      APP_ENV: qa
+      DANJION_QA_API_URL: ${{ vars.DANJION_QA_API_URL }}
+      DANJION_QA_FRONTEND_URL: ${{ vars.DANJION_QA_FRONTEND_URL }}
+      DANJION_QA_DATABASE_URL: ${{ secrets.DANJION_QA_DATABASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - name: Exact-main and QA-only guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected='${{ inputs.expected_main }}'
+          test "$GITHUB_REF" = 'refs/heads/main'
+          actual="$(git rev-parse HEAD)"
+          remote="$(git ls-remote origin refs/heads/main | awk '{print $1}')"
+          test -n "$expected"
+          test "$actual" = "$expected"
+          test "$remote" = "$expected"
+          test "$DANJION_QA_FRONTEND_URL" = 'https://danjion-qa.pages.dev'
+          test "$DANJION_QA_FRONTEND_URL" != 'https://danjion.pages.dev'
+          test -n "$DANJION_QA_DATABASE_URL"
+          echo 'QA business fixture exact-main and isolation guard: PASS'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Install backend dependencies
+        working-directory: 04_개발/backend
+        run: npm ci
+
+      - name: Apply idempotent QA synthetic business fixture
+        run: node 04_개발/backend/scripts/qa-business-fixture.mjs

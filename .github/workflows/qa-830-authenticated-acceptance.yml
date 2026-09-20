@@ -6,6 +6,7 @@ on:
       - '.github/workflows/qa-830-authenticated-acceptance.yml'
       - '04_개발/frontend/scripts/qa-830-authenticated-acceptance.mjs'
       - '04_개발/frontend/tests/qa-830-authenticated-acceptance-contract.mjs'
+      - '04_개발/frontend/tests/qa-830-authenticated-acceptance-diagnostics-contract.mjs'
   workflow_dispatch:
     inputs:
       expected_main:
@@ -38,6 +39,8 @@ jobs:
         run: node --check 04_개발/frontend/scripts/qa-830-authenticated-acceptance.mjs
       - name: Verify acceptance source contract
         run: node 04_개발/frontend/tests/qa-830-authenticated-acceptance-contract.mjs
+      - name: Verify acceptance diagnostics contract
+        run: node 04_개발/frontend/tests/qa-830-authenticated-acceptance-diagnostics-contract.mjs
 
   live-qa:
     name: Run authenticated QA #830 acceptance

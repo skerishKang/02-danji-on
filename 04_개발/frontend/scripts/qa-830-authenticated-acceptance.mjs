@@ -32,6 +32,250 @@ async function json(response) {
   return response.json().catch(() => null);
 }
 
+/*
+ * Evidence records whether the auth bridge / app facade ran, never what the
+ * headers carried: a header value is not proven safe to print.
+ */
+function headerEvidence(headers) {
+  const facadePresent = Boolean(headers['x-danjion-app-facade'] || headers['x-danjion-auth-facade']);
+  return `AUTH_BRIDGE_PRESENT=${Boolean(headers['x-danjion-auth-bridge'])}:APP_FACADE_PRESENT=${facadePresent}`;
+}
+
+/* === BOUNDED EVIDENCE HELPERS — contract unit-tested; keep this block contiguous === */
+const UNPRINTABLE_EVIDENCE = /cookie|authorization|bearer|password|secret/i;
+/* Two or three dot-separated base64url segments starting with the standard JWT
+   header prefix; the optional third group is the signature, which must not
+   survive on its own either. */
+const TOKEN_SHAPED = /eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}(\.[A-Za-z0-9_-]{2,})?/;
+const CREDENTIAL_LABELED = /(set[-_ ]?cookie|cookie|authorization|bearer|proxy-authorization|password|passwd|secret|api[-_ ]?key|access[-_ ]?token|refresh[-_ ]?token|token)\s*[:=]/i;
+const MAX_EVIDENCE_CHARS = 240;
+const MAX_SAMPLES = 3;
+const MAX_DOM_KEYS = 10;
+const HYDRATION_TIMEOUT_MS = 15_000;
+
+/*
+ * Browser text is untrusted: it can carry a cookie pair, a bearer value or a
+ * JWT-shaped string. A credential label cuts the string short rather than
+ * replacing only the next token, because 'Authorization: Bearer x' has to lose
+ * x as well. Bound last so no length choice can widen a leak.
+ */
+function boundedText(raw, limit = MAX_EVIDENCE_CHARS) {
+  let text = String(raw ?? '').replace(/\s+/g, ' ').trim();
+  if (!text) return '';
+  text = text.replace(TOKEN_SHAPED, '[redacted]');
+  const labeled = text.search(CREDENTIAL_LABELED);
+  if (labeled >= 0) text = `${text.slice(0, labeled).trim()} [redacted]`.trim();
+  if (UNPRINTABLE_EVIDENCE.test(text) && !text.includes('[redacted]')) return '[redacted]';
+  return text.slice(0, Math.max(0, Number(limit) || 0));
+}
+
+/* Failure headline: one short line, so the marker stays greppable. */
+function boundedError(error) {
+  const firstLine = String(error instanceof Error ? error.message : 'UNKNOWN').split('\n')[0];
+  const safe = firstLine.replace(/[^\w:=.\- ]/g, '').slice(0, 160).trim();
+  if (!safe || UNPRINTABLE_EVIDENCE.test(safe) || TOKEN_SHAPED.test(safe)) return 'REDACTED';
+  return safe;
+}
+
+/*
+ * The rest of the error — a Playwright call log names the locator that timed
+ * out, which is the part that was lost at a 120-char headline bound.
+ */
+function errorDetail(error, limit = 600) {
+  const lines = String(error instanceof Error ? error.message : '').split('\n').slice(1);
+  return boundedText(lines.join(' ~ '), limit);
+}
+
+function pushSample(list, value) {
+  const text = boundedText(value);
+  if (text && list.length < MAX_SAMPLES) list.push(text);
+}
+
+/* Origin + pathname only: a full URL would carry query material. */
+function originAndPathname(rawUrl) {
+  try {
+    const parsed = new URL(rawUrl);
+    return { origin: parsed.origin, pathname: parsed.pathname };
+  } catch {
+    return { origin: 'UNPARSEABLE', pathname: 'UNPARSEABLE' };
+  }
+}
+
+function isBusinessDiscovery(endpoint) {
+  return endpoint.origin !== 'UNPARSEABLE'
+    && endpoint.pathname.includes('/api/v1/complexes/')
+    && endpoint.pathname.endsWith('/businesses');
+}
+
+/*
+ * The structured discovery fields always describe the LATEST business-discovery
+ * event, whether it ended in a response or in a failed request. This matters
+ * because one page session navigates repeatedly: if a failure only set a flag,
+ * an earlier same-origin 200 would keep reporting its own origin after a later
+ * request left the QA origin, which is the exact ambiguity this harness exists
+ * to resolve. A failed request has no response, so its status is the 0
+ * no-response sentinel, never a stale success code. Historical failures stay in
+ * the bounded requestFailures samples.
+ */
+function createDiscoveryLedger() {
+  return {
+    seen: false,
+    origin: 'NOT_OBSERVED',
+    pathname: 'NOT_OBSERVED',
+    status: 0,
+    failed: false,
+    note(endpoint, observation) {
+      if (!isBusinessDiscovery(endpoint)) return false;
+      this.seen = true;
+      this.origin = endpoint.origin;
+      this.pathname = endpoint.pathname;
+      this.failed = Boolean(observation && observation.failed);
+      this.status = this.failed ? 0 : Number(observation && observation.status) || 0;
+      return true;
+    }
+  };
+}
+/* === END BOUNDED EVIDENCE HELPERS === */
+
+const discovery = createDiscoveryLedger();
+
+const diagnostics = {
+  pageErrors: [],
+  requestFailures: [],
+  consoleErrors: [],
+  discoveryConsoleInfo: [],
+  expectedShopKey: 'NOT_RESOLVED',
+  expectedShopKeyPresent: 'NOT_OBSERVED',
+  domShopKeyCount: -1,
+  domShopKeysSample: [],
+  pageReadyState: 'NOT_OBSERVED',
+  shopSurfaceState: 'NOT_OBSERVED',
+  hydrationMs: -1
+};
+
+/*
+ * Installed before any navigation, because the failure to explain is a request
+ * that never produced a locator. Request and response headers are deliberately
+ * never read: they are the cookie and Authorization carriers.
+ */
+function installPageDiagnostics(page) {
+  page.on('pageerror', (error) => pushSample(diagnostics.pageErrors, error && error.message));
+  page.on('requestfailed', (request) => {
+    const endpoint = originAndPathname(request.url());
+    pushSample(diagnostics.requestFailures, `${request.method()} ${endpoint.origin}${endpoint.pathname} ${request.failure()?.errorText || 'FAILED'}`);
+    discovery.note(endpoint, { failed: true });
+  });
+  page.on('console', (message) => {
+    const text = message.text();
+    if (message.type() === 'error') pushSample(diagnostics.consoleErrors, text);
+    else if (message.type() === 'info' && text.includes('[danjion] discovery')) pushSample(diagnostics.discoveryConsoleInfo, text);
+  });
+  page.on('response', (response) => {
+    discovery.note(originAndPathname(response.url()), { status: response.status() });
+  });
+}
+
+function shopKeySelector(key) {
+  return `[data-shop-key="${key}"]`;
+}
+
+/* Read-only: never writes to the DOM, only reports what the page already shows. */
+async function captureShopDomState(page, shopKey) {
+  const state = await page.evaluate((probe) => {
+    const nodes = [...document.querySelectorAll('[data-shop-key]')];
+    const expected = document.querySelector(probe.selector);
+    const grid = document.getElementById('shopGridV2');
+    return {
+      readyState: document.readyState,
+      count: nodes.length,
+      keys: nodes.slice(0, probe.maxKeys).map((node) => node.getAttribute('data-shop-key')),
+      expectedPresent: Boolean(expected),
+      surfaceText: nodes.length === 0 && grid ? String(grid.textContent || '').slice(0, 200) : ''
+    };
+  }, { selector: shopKeySelector(shopKey), maxKeys: MAX_DOM_KEYS }).catch(() => null);
+  if (!state) {
+    diagnostics.pageReadyState = 'EVALUATION_FAILED';
+    return;
+  }
+  diagnostics.pageReadyState = boundedText(state.readyState, 40);
+  diagnostics.domShopKeyCount = Number(state.count);
+  diagnostics.domShopKeysSample = (state.keys || []).map((key) => boundedText(key, 60));
+  diagnostics.expectedShopKeyPresent = state.expectedPresent;
+  diagnostics.shopSurfaceState = state.surfaceText || (state.count ? 'CARDS_PRESENT' : 'EMPTY_WITHOUT_MESSAGE');
+}
+
+/*
+ * Hydration is awaited explicitly instead of being folded into the click, so a
+ * missing card and a slow card stop being the same ambiguous timeout.
+ */
+async function waitShopHydrated(page, shopKey, label) {
+  diagnostics.expectedShopKey = shopKey;
+  const startedAt = Date.now();
+  let hydrated = false;
+  try {
+    await page.waitForFunction((target) => Boolean(document.querySelector(target)), shopKeySelector(shopKey),
+      { timeout: HYDRATION_TIMEOUT_MS, polling: 250 });
+    hydrated = true;
+  } catch {
+    hydrated = false;
+  }
+  diagnostics.hydrationMs = Date.now() - startedAt;
+  await captureShopDomState(page, shopKey);
+  record(label, hydrated, `MS_${diagnostics.hydrationMs}`);
+  if (!hydrated) throw new Error('QA_830_SHOP_CARD_NOT_HYDRATED');
+}
+
+function diagnosisSummary() {
+  return [
+    `EXPECTED_SHOP_KEY=${diagnostics.expectedShopKey}`,
+    `EXPECTED_SHOP_KEY_PRESENT=${diagnostics.expectedShopKeyPresent}`,
+    `DOM_SHOP_KEY_COUNT=${diagnostics.domShopKeyCount}`,
+    `HYDRATION_MS=${diagnostics.hydrationMs}`,
+    `BROWSER_DISCOVERY_SEEN=${discovery.seen}`,
+    `BROWSER_DISCOVERY_ORIGIN=${discovery.origin}`,
+    `BROWSER_DISCOVERY_STATUS=${discovery.status}`,
+    `BROWSER_DISCOVERY_REQUEST_FAILED=${discovery.failed}`,
+    `PAGE_ERRORS=${diagnostics.pageErrors.length}`,
+    `REQUEST_FAILURES=${diagnostics.requestFailures.length}`,
+    `CONSOLE_ERRORS=${diagnostics.consoleErrors.length}`
+  ].join(';');
+}
+
+function emitDiagnostics() {
+  console.log('--- QA #830 BROWSER DIAGNOSTICS ---');
+  console.log(`BROWSER_BUSINESS_REQUEST_SEEN=${discovery.seen}`);
+  console.log(`BROWSER_BUSINESS_REQUEST_URL_ORIGIN=${discovery.origin}`);
+  console.log(`BROWSER_DISCOVERY_ORIGIN=${discovery.origin}`);
+  console.log(`BROWSER_BUSINESS_PATHNAME=${discovery.pathname}`);
+  console.log(`BROWSER_DISCOVERY_SAME_ORIGIN=${discovery.origin === FRONTEND}`);
+  console.log(`BROWSER_BUSINESS_HTTP_STATUS=${discovery.status}`);
+  console.log(`BROWSER_BUSINESS_REQUEST_FAILED=${discovery.failed}`);
+  console.log(`BROWSER_DISCOVERY_LATEST_EVENT_ONLY=structured fields above describe the most recent business-discovery event; older failures remain in REQUEST_FAILED_SAMPLE`);
+  console.log(`EXPECTED_SHOP_KEY=${diagnostics.expectedShopKey}`);
+  console.log(`EXPECTED_SHOP_KEY_PRESENT=${diagnostics.expectedShopKeyPresent}`);
+  console.log(`DOM_SHOP_KEY_COUNT=${diagnostics.domShopKeyCount}`);
+  console.log(`DOM_SHOP_KEYS_SAMPLE=${boundedText(diagnostics.domShopKeysSample.join(','), 300) || 'NONE'}`);
+  console.log(`SHOP_HYDRATION_MS=${diagnostics.hydrationMs}`);
+  console.log(`PAGE_READY_STATE=${diagnostics.pageReadyState}`);
+  console.log(`SHOP_SURFACE_STATE=${boundedText(diagnostics.shopSurfaceState, 200) || 'NONE'}`);
+  console.log(`PAGE_ERROR_COUNT=${diagnostics.pageErrors.length}`);
+  console.log(`PAGE_ERROR_SAMPLE=${boundedText(diagnostics.pageErrors.join(' ~ '), 300) || 'NONE'}`);
+  console.log(`REQUEST_FAILED_COUNT=${diagnostics.requestFailures.length}`);
+  console.log(`REQUEST_FAILED_SAMPLE=${boundedText(diagnostics.requestFailures.join(' ~ '), 300) || 'NONE'}`);
+  console.log(`CONSOLE_ERROR_COUNT=${diagnostics.consoleErrors.length}`);
+  console.log(`CONSOLE_ERROR_SAMPLE=${boundedText(diagnostics.consoleErrors.join(' ~ '), 300) || 'NONE'}`);
+  console.log(`DISCOVERY_CONSOLE_INFO_SAMPLE=${boundedText(diagnostics.discoveryConsoleInfo.join(' ~ '), 300) || 'NONE'}`);
+}
+
+function flushEvidence(heading) {
+  console.log(heading);
+  // events and results are bounded by construction: status codes, pathnames,
+  // header presence, and fixed disposition labels.
+  for (const line of events) console.log(line);
+  for (const line of results) console.log(line);
+  emitDiagnostics();
+}
+
 async function call(request, label, path, init = {}) {
   if (!FRONTEND.startsWith('https://danjion-qa.pages.dev') || !API.startsWith('https://padiem-danjion-api-qa.')) {
     throw new Error('QA_TARGET_GUARD_FAILED');
@@ -41,9 +285,7 @@ async function call(request, label, path, init = {}) {
     headers: { accept: 'application/json', Origin: FRONTEND, ...(init.headers || {}) }
   });
   const body = await json(response);
-  const bridge = response.headers()['x-danjion-auth-bridge'] || '-';
-  const facade = response.headers()['x-danjion-app-facade'] || response.headers()['x-danjion-auth-facade'] || '-';
-  events.push(`${label}:HTTP_${response.status()}:API_PATH=${new URL(response.url()).pathname}:AUTH_BRIDGE_HEADER=${bridge}:APP_FACADE_HEADER=${facade}`);
+  events.push(`${label}:HTTP_${response.status()}:API_PATH=${new URL(response.url()).pathname}:${headerEvidence(response.headers())}`);
   return { response, body, ...classify(response.status(), body) };
 }
 
@@ -55,9 +297,7 @@ async function pageCall(page, label, method, path, action) {
   await action();
   const response = await responsePromise;
   const body = await response.json().catch(() => null);
-  const bridge = response.headers()['x-danjion-auth-bridge'] || '-';
-  const facade = response.headers()['x-danjion-app-facade'] || response.headers()['x-danjion-auth-facade'] || '-';
-  events.push(`${label}:HTTP_${response.status()}:API_PATH=${path}:AUTH_BRIDGE_HEADER=${bridge}:APP_FACADE_HEADER=${facade}`);
+  events.push(`${label}:HTTP_${response.status()}:API_PATH=${path}:${headerEvidence(response.headers())}`);
   return { response, body, ...classify(response.status(), body) };
 }
 
@@ -73,9 +313,17 @@ let BOOKMARK_INITIAL_STATE = '';
 let BOOKMARK_TOGGLE_METHOD = '';
 let BOOKMARK_TOGGLE_AUTH = false;
 let BOOKMARK_RESTORED = false;
+/* Bookmark residue must be visible on the failure path too. */
+function emitBookmarkMarkers() {
+  console.log(`BOOKMARK_INITIAL_STATE=${BOOKMARK_INITIAL_STATE || 'UNKNOWN'}`);
+  console.log(`BOOKMARK_TOGGLE_METHOD=${BOOKMARK_TOGGLE_METHOD || 'UNKNOWN'}`);
+  console.log(`BOOKMARK_TOGGLE_AUTH=${BOOKMARK_TOGGLE_AUTH}`);
+  console.log(`BOOKMARK_RESTORED=${BOOKMARK_RESTORED}`);
+}
 try {
   const context = await browser.newContext();
   const page = await context.newPage();
+  installPageDiagnostics(page);
   await page.goto(`${FRONTEND}/01_%EC%9D%B4%EC%9B%83%EA%B0%80%EA%B2%8C_%EB%B0%9C%EA%B2%AC.html`, { waitUntil: 'domcontentloaded', timeout: 30_000 });
 
   const signIn = await context.request.post(`${FRONTEND}/api/auth/sign-in/email`, {
@@ -93,8 +341,13 @@ try {
   if (!businessId) throw new Error('QA_830_NO_SERVER_BUSINESS');
   const shopKey = `api-${businessId}`;
 
-  await page.goto(`${FRONTEND}/01_%EC%9D%B4%EC%9B%83%EA%B0%80%EA%B2%8C_%EB%B0%9C%EA%B2%AC.html?shop=${encodeURIComponent(shopKey)}`, { waitUntil: 'domcontentloaded', timeout: 30_000 });
-  await page.locator(`[data-shop-key="${shopKey}"]`).first().click({ timeout: 15_000 });
+  /* The ?shop= deep link intentionally auto-opens #shopCompareModal, which then
+     covers the card and makes the click below unsatisfiable (pointer events are
+     intercepted). Enter without the deep link so the card click is the thing that
+     opens the modal — that is the real user gesture this acceptance must prove. */
+  await page.goto(`${FRONTEND}/01_%EC%9D%B4%EC%9B%83%EA%B0%80%EA%B2%8C_%EB%B0%9C%EA%B2%AC.html`, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+  await waitShopHydrated(page, shopKey, 'SHOP_HYDRATION');
+  await page.locator(shopKeySelector(shopKey)).first().click({ timeout: 15_000 });
   await page.locator('#shopReviewOpen2').click({ timeout: 10_000 });
   await page.locator('#shopReviewInput').fill(`[QA #830] review ${stamp}`);
   const review = await pageCall(page, 'REVIEW', 'POST', `/api/v1/complexes/${COMPLEX}/businesses/${businessId}/reviews`,
@@ -152,8 +405,11 @@ try {
   else record('BOOKMARK_RESTORED', true);
   authenticated = await session(context.request, 'BOOKMARK_READBACK_AFTER');
 
-  await page.goto(`${FRONTEND}/01_%EC%9D%B4%EC%9B%83%EA%B0%80%EA%B2%8C_%EB%B0%9C%EA%B2%AC.html?shop=${encodeURIComponent(shopKey)}`, { waitUntil: 'domcontentloaded', timeout: 30_000 });
-  await page.locator(`[data-shop-key="${shopKey}"]`).first().click({ timeout: 10_000 });
+  /* Same reason as the first entry: no ?shop= deep link, so the card click below
+     opens the compare modal instead of being blocked by an already-open one. */
+  await page.goto(`${FRONTEND}/01_%EC%9D%B4%EC%9B%83%EA%B0%80%EA%B2%8C_%EB%B0%9C%EA%B2%AC.html`, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+  await waitShopHydrated(page, shopKey, 'SHOP_HYDRATION_REVISIT');
+  await page.locator(shopKeySelector(shopKey)).first().click({ timeout: 10_000 });
   await page.locator('#shopCompareInquiry').click({ timeout: 10_000 });
   await page.locator('#shopInquirySubject').fill(`[QA #830] inquiry ${stamp}`);
   await page.locator('#shopInquiryText').fill(`QA #830 shop inquiry ${stamp}`);
@@ -192,13 +448,8 @@ try {
   }
 
   record('SESSION_AFTER', authenticated);
-  console.log('=== QA #830 AUTHENTICATED ACCEPTANCE ===');
-  for (const line of events) console.log(line);
-  for (const line of results) console.log(line);
-  console.log(`BOOKMARK_INITIAL_STATE=${BOOKMARK_INITIAL_STATE || 'UNKNOWN'}`);
-  console.log(`BOOKMARK_TOGGLE_METHOD=${BOOKMARK_TOGGLE_METHOD || 'UNKNOWN'}`);
-  console.log(`BOOKMARK_TOGGLE_AUTH=${BOOKMARK_TOGGLE_AUTH}`);
-  console.log(`BOOKMARK_RESTORED=${BOOKMARK_RESTORED}`);
+  flushEvidence('=== QA #830 AUTHENTICATED ACCEPTANCE ===');
+  emitBookmarkMarkers();
   console.log('QA_TARGET=NON_PRODUCTION_ONLY');
   console.log('PRODUCTION_TARGET=NO');
   console.log('SECRET_OUTPUT=NO');
@@ -206,7 +457,11 @@ try {
   if (results.some((line) => line.includes('=FAIL'))) process.exitCode = 1;
   await context.close();
 } catch (error) {
-  console.error(`QA_830_ACCEPTANCE_FAILED=${error instanceof Error ? error.message : 'UNKNOWN'}`);
+  flushEvidence('=== QA #830 AUTHENTICATED ACCEPTANCE FAILURE EVIDENCE ===');
+  emitBookmarkMarkers();
+  console.error(`QA_830_ACCEPTANCE_FAILED=${boundedError(error)}`);
+  console.error(`QA_830_ACCEPTANCE_DETAIL=${boundedText(errorDetail(error), 400) || 'NONE'}`);
+  console.error(`QA_830_DIAGNOSTICS=${boundedText(diagnosisSummary(), 400)}`);
   process.exitCode = 1;
 } finally {
   await browser.close();
