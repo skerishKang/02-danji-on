@@ -151,6 +151,19 @@ assert.ok(attachSource.includes("state = 'active'") && attachSource.includes('fo
 assert.ok(attachSource.includes("kind = 'official-news-image'"));
 assert.equal(attachSource.includes("state = 'delete_pending'"), false);
 assert.equal(attachSource.includes("state = 'upload_pending'"), false);
+// MUTATION LINK: the production lock must be present in BOTH attach helpers and in the delete
+// intent, so removing it from source fails here while the PostgreSQL contention suite fails on
+// the live impossible state. Together they make the lock load-bearing for the test.
+assert.equal((attachSource.match(/for update/g) || []).length >= 2, true,
+  'both attach helpers must lock the registry row with FOR UPDATE');
+const insertHelper = attachSource.slice(attachSource.indexOf('export async function insertOfficialNewsPostWithAttachment('));
+const updateHelper = attachSource.slice(attachSource.indexOf('export async function updateOfficialNewsPostWithAttachment('));
+assert.ok(insertHelper.includes('for update'), 'the insert helper must lock the registry row');
+assert.ok(updateHelper.includes('for update'), 'the patch helper must lock the registry row');
+assert.equal((storage.match(/for update/g) || []).length >= 1, true,
+  'the delete intent must lock the registry row with FOR UPDATE');
+assert.ok(attachSource.includes("where object_key = ${write.objectKey}"),
+  'the lock must be scoped to the very object being attached');
 
 // The admin create/patch path must use these transactional helpers and treat an empty result as
 // a hard conflict rather than a successful write.
@@ -284,6 +297,7 @@ console.log('NEW_REFERENCE_XOR_DELETE_INTENT=PASS');
 console.log('REFERENCE_WINS=PASS');
 console.log('DELETE_WINS=PASS');
 console.log('IMPOSSIBLE_REFERENCE_PLUS_NONACTIVE_STATE=PASS');
+console.log('PRODUCTION_LOCK_PRESENT_SOURCE_GUARD=PASS');
 console.log('DELETE_PENDING_REFERENCE_REJECTED=PASS');
 console.log('REFERENCED_DELETE=409');
 console.log('DRIVE_FAILURE_RECONCILABLE=PASS');

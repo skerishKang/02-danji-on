@@ -1,16 +1,20 @@
 #!/usr/bin/env bash
-# Issue #844 (CENTRAL review round 3, BLOCKER C) — real PostgreSQL interleave
-# between the official apartment-news photo REFERENCE acquisition and the
-# DELETE intent. Both paths must serialize on the same
-# business_image_objects row lock, so exactly one of them can win.
+# Issue #844 (CENTRAL review round 3, repair) — REAL PostgreSQL lock-contention
+# proof that the official apartment-news photo REFERENCE acquisition and the
+# DELETE intent serialize on the same business_image_objects row lock.
 #
-# REFERENCE_WINS            : the post reference commits -> the delete intent sees the
-#                             reference and must leave the row active.
-# DELETE_WINS               : the delete intent commits delete_pending -> the reference
-#                             write must insert ZERO rows.
-# IMPOSSIBLE_REFERENCE_PLUS_NONACTIVE_STATE
-#                           : a non-active registry row can never be attached, even when
-#                             the preliminary validator is bypassed entirely.
+# What makes this a contention proof (not just execution order):
+#   * the winning transaction holds the row lock across a bounded pg_sleep inside
+#     its own transaction, so the other transaction is observed BLOCKING;
+#   * the blocked transaction's wall-clock elapsed time is asserted to be at least
+#     the bounded delay minus a tolerance;
+#   * a mutation proof runs the SAME interleave with the protective structure
+#     removed (no FOR UPDATE + a check-then-act delete) and asserts that the
+#     impossible state (post reference exists AND registry state <> 'active')
+#     DOES occur there, so this test bites when the lock is missing.
+#
+# All sleeps/barriers live in test SQL only. No production source is modified for
+# testability; the reference statements below are the production statement shape.
 set -euo pipefail
 
 : "${DATABASE_URL:?DATABASE_URL is required}"
@@ -19,8 +23,12 @@ PSQL=(psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -X -q)
 USER_ID='11111111-1111-4111-8111-111111111111'
 COMPLEX_ID='22222222-2222-4222-8222-222222222222'
 COMPLEX_SLUG='official-news-concurrency-ci'
+HOLD_SECONDS=3
+BLOCK_MIN_SECONDS=2
+
 KEY_REF_FIRST='gdrive/public/official-news-image/concurrency_ref_first_1234567890'
 KEY_DELETE_FIRST='gdrive/public/official-news-image/concurrency_delete_first_1234567890'
+KEY_MUTATION='gdrive/public/official-news-image/concurrency_mutation_proof_1234567890'
 KEY_NON_ACTIVE='gdrive/public/official-news-image/concurrency_non_active_1234567890'
 KEY_UPLOAD_PENDING='gdrive/public/official-news-image/concurrency_upload_pending_1234567890'
 
@@ -106,6 +114,11 @@ assert_scalar() {
   echo "PASS $label: $actual"
 }
 
+fail_hard() {
+  echo "FAIL $1" >&2
+  exit 1
+}
+
 reset_active() {
   local key="$1"
   "${PSQL[@]}" <<SQL
@@ -116,10 +129,19 @@ reset_active() {
 SQL
 }
 
-# The reference write under test: lock the registry row, re-check active/kind/complex,
-# then insert the post reference from that locked row.
-REFERENCE_SQL() {
+impossible_state_count() {
+  "${PSQL[@]}" -Atc "
+    select count(*)
+    from complex_posts p
+    join business_image_objects b on b.object_key = p.attachment_object_key
+    where b.state <> 'active'" | tr -d '[:space:]'
+}
+
+# Production statement shape (official-news-attachment-v1): lock the registry row,
+# re-check kind/state/complex, then insert the post reference from that locked row.
+reference_sql() {
   local key="$1"
+  local hold="${2:-0}"
   cat <<SQL
 begin;
 with locked as (
@@ -139,19 +161,44 @@ select
   '$COMPLEX_ID', '$USER_ID', '단지온 운영자', '회의결과', '동시성 검증', '본문',
   locked.object_key, 'published', now(), 'apartment_news'
 from locked;
+$(if [[ "$hold" != "0" ]]; then echo "select pg_sleep($hold);"; fi)
 commit;
 SQL
 }
 
-# The delete intent under test: lock the registry row, then move active -> delete_pending
-# only when no post references the object.
-DELETE_INTENT_SQL() {
+# The UNPROTECTED reference variant: no FOR UPDATE, no atomic re-check. Used only by
+# the mutation proof to show the test detects the state the lock exists to prevent.
+reference_sql_unlocked() {
   local key="$1"
+  cat <<SQL
+begin;
+insert into complex_posts (
+  complex_id, author_user_id, source_name, category, title, body,
+  attachment_object_key, status, published_at, channel
+)
+select
+  '$COMPLEX_ID', '$USER_ID', '단지온 운영자', '회의결과', '동시성 검증', '본문',
+  b.object_key, 'published', now(), 'apartment_news'
+from business_image_objects b
+where b.object_key = '$key'
+  and b.kind = 'official-news-image'
+  and b.state = 'active'
+  and b.complex_id = '$COMPLEX_ID';
+commit;
+SQL
+}
+
+# Production statement shape (storage-v1 delete intent): lock the registry row, then move
+# active -> delete_pending only when no post references the object.
+delete_intent_sql() {
+  local key="$1"
+  local hold="${2:-0}"
   cat <<SQL
 begin;
 select object_key from business_image_objects
 where object_key = '$key' and kind = 'official-news-image'
 for update;
+$(if [[ "$hold" != "0" ]]; then echo "select pg_sleep($hold);"; fi)
 with usage as (
   select exists (
     select 1 from complex_posts p where p.attachment_object_key = '$key'
@@ -168,41 +215,117 @@ commit;
 SQL
 }
 
+# The UNPROTECTED delete variant: no FOR UPDATE and the reference check happens in a
+# SEPARATE statement before the update (check-then-act). Mutation proof only.
+delete_intent_sql_unlocked() {
+  local key="$1"
+  local hold="${2:-0}"
+  cat <<SQL
+begin;
+select exists (
+  select 1 from complex_posts p where p.attachment_object_key = '$key'
+) as post_in_use;
+$(if [[ "$hold" != "0" ]]; then echo "select pg_sleep($hold);"; fi)
+update business_image_objects
+set state='delete_pending', delete_requested_at=coalesce(delete_requested_at, now()), updated_at=now()
+where object_key = '$key'
+  and kind = 'official-news-image'
+  and state = 'active';
+commit;
+SQL
+}
+
+run_timed() {
+  # run_timed <outfile> <sql-file> -> echoes elapsed seconds
+  local outfile="$1"
+  local sqlfile="$2"
+  local start end
+  start=$(date +%s)
+  "${PSQL[@]}" < "$sqlfile" > "$outfile"
+  end=$(date +%s)
+  echo $((end - start))
+}
+
+TMP_DIR="$(mktemp -d)"
+trap 'rm -rf "$TMP_DIR"' EXIT
+
 # ---------------------------------------------------------------------------
-# Case 1: REFERENCE_WINS
+# Case 1: REFERENCE_WINS under true contention.
+# TX A holds the registry row lock across a bounded sleep. TX B (delete intent)
+# starts inside that window and must BLOCK until A commits; afterwards B must
+# observe the committed reference and refuse the delete intent.
 # ---------------------------------------------------------------------------
 reset_active "$KEY_REF_FIRST"
+reference_sql "$KEY_REF_FIRST" "$HOLD_SECONDS" > "$TMP_DIR/ref_first.sql"
+delete_intent_sql "$KEY_REF_FIRST" 0 > "$TMP_DIR/del_second.sql"
 
-{ "${PSQL[@]}" < <(REFERENCE_SQL "$KEY_REF_FIRST"); } &
+{ "${PSQL[@]}" < "$TMP_DIR/ref_first.sql"; } &
 REF_PID=$!
 sleep 0.25
-{ "${PSQL[@]}" < <(DELETE_INTENT_SQL "$KEY_REF_FIRST"); } &
-DELETE_PID=$!
+DEL_ELAPSED=$(run_timed "$TMP_DIR/del_out.txt" "$TMP_DIR/del_second.sql")
 wait "$REF_PID"
-wait "$DELETE_PID"
 
+if [[ "$DEL_ELAPSED" -lt "$BLOCK_MIN_SECONDS" ]]; then
+  fail_hard "REFERENCE_WINS delete intent did not block on the row lock (elapsed=${DEL_ELAPSED}s < ${BLOCK_MIN_SECONDS}s)"
+fi
+echo "PASS REFERENCE_WINS delete intent blocked on the held lock: ${DEL_ELAPSED}s"
 assert_scalar "select state from business_image_objects where object_key='$KEY_REF_FIRST'" "active" "REFERENCE_WINS registry remains active"
 assert_scalar "select count(*) from complex_posts where attachment_object_key='$KEY_REF_FIRST'" "1" "REFERENCE_WINS reference committed"
+assert_scalar "select count(*) from complex_posts p join business_image_objects b on b.object_key=p.attachment_object_key where b.state <> 'active'" "0" "REFERENCE_WINS no impossible state"
 
 # ---------------------------------------------------------------------------
-# Case 2: DELETE_WINS
+# Case 2: DELETE_WINS under true contention.
+# TX D holds the row lock across a bounded sleep before moving active ->
+# delete_pending. TX R (reference, production shape) starts inside that window,
+# must BLOCK, and after the lock releases must re-evaluate non-active state and
+# insert ZERO rows.
 # ---------------------------------------------------------------------------
 reset_active "$KEY_DELETE_FIRST"
+delete_intent_sql "$KEY_DELETE_FIRST" "$HOLD_SECONDS" > "$TMP_DIR/del_first.sql"
+reference_sql "$KEY_DELETE_FIRST" 0 > "$TMP_DIR/ref_second.sql"
 
-{ "${PSQL[@]}" < <(DELETE_INTENT_SQL "$KEY_DELETE_FIRST"); } &
-DELETE_FIRST_PID=$!
+{ "${PSQL[@]}" < "$TMP_DIR/del_first.sql"; } &
+DEL_FIRST_PID=$!
 sleep 0.25
-{ "${PSQL[@]}" < <(REFERENCE_SQL "$KEY_DELETE_FIRST"); } &
-REFERENCE_PID=$!
-wait "$DELETE_FIRST_PID"
-wait "$REFERENCE_PID"
+REF_ELAPSED=$(run_timed "$TMP_DIR/ref_out.txt" "$TMP_DIR/ref_second.sql")
+wait "$DEL_FIRST_PID"
 
+if [[ "$REF_ELAPSED" -lt "$BLOCK_MIN_SECONDS" ]]; then
+  fail_hard "DELETE_WINS reference write did not block on the row lock (elapsed=${REF_ELAPSED}s < ${BLOCK_MIN_SECONDS}s)"
+fi
+echo "PASS DELETE_WINS reference write blocked on the held lock: ${REF_ELAPSED}s"
 assert_scalar "select state from business_image_objects where object_key='$KEY_DELETE_FIRST'" "delete_pending" "DELETE_WINS registry becomes delete_pending"
 assert_scalar "select count(*) from complex_posts where attachment_object_key='$KEY_DELETE_FIRST'" "0" "DELETE_WINS reference denied"
+assert_scalar "select count(*) from complex_posts p join business_image_objects b on b.object_key=p.attachment_object_key where b.state <> 'active'" "0" "DELETE_WINS no impossible state"
 
 # ---------------------------------------------------------------------------
-# Case 3: IMPOSSIBLE_REFERENCE_PLUS_NONACTIVE_STATE
-# A non-active row can never be attached even without the preliminary validator.
+# Case 3: MUTATION PROOF — the test must bite when FOR UPDATE is absent.
+# The same interleave is run with the unprotected shapes: the reference inserts
+# without locking and the delete checks references before a separate update.
+# The impossible state (reference exists AND registry state <> 'active') MUST
+# appear here, which is exactly what the protected shapes above prevent.
+# ---------------------------------------------------------------------------
+reset_active "$KEY_MUTATION"
+delete_intent_sql_unlocked "$KEY_MUTATION" "$HOLD_SECONDS" > "$TMP_DIR/mut_del.sql"
+reference_sql_unlocked "$KEY_MUTATION" > "$TMP_DIR/mut_ref.sql"
+
+{ "${PSQL[@]}" < "$TMP_DIR/mut_del.sql"; } &
+MUT_DEL_PID=$!
+sleep 0.25
+"${PSQL[@]}" < "$TMP_DIR/mut_ref.sql"
+wait "$MUT_DEL_PID"
+
+MUTATION_IMPOSSIBLE=$(impossible_state_count)
+if [[ "$MUTATION_IMPOSSIBLE" -lt 1 ]]; then
+  fail_hard "MUTATION_PROOF did not bite: expected the impossible state without FOR UPDATE, found 0"
+fi
+echo "PASS MUTATION_PROOF impossible state detected without FOR UPDATE: $MUTATION_IMPOSSIBLE"
+assert_scalar "select state from business_image_objects where object_key='$KEY_MUTATION'" "delete_pending" "MUTATION_PROOF registry moved to delete_pending"
+assert_scalar "select count(*) from complex_posts where attachment_object_key='$KEY_MUTATION'" "1" "MUTATION_PROOF stale reference committed"
+
+# ---------------------------------------------------------------------------
+# Case 4: IMPOSSIBLE_REFERENCE_PLUS_NONACTIVE_STATE by construction.
+# A non-active registry row can never be attached even without concurrency.
 # ---------------------------------------------------------------------------
 for state in delete_pending upload_pending; do
   if [[ "$state" == "delete_pending" ]]; then
@@ -218,7 +341,7 @@ for state in delete_pending upload_pending; do
   insert into business_image_objects (object_key, uploader_user_id, complex_id, state, kind, delete_requested_at)
   values ('$key', '$USER_ID', '$COMPLEX_ID', '$state', 'official-news-image', $delete_ts);
 SQL
-  "${PSQL[@]}" < <(REFERENCE_SQL "$key")
+  "${PSQL[@]}" < <(reference_sql "$key")
   assert_scalar "select count(*) from complex_posts where attachment_object_key='$key'" "0" "NON_ACTIVE_STATE($state) reference denied"
   assert_scalar "select state from business_image_objects where object_key='$key'" "$state" "NON_ACTIVE_STATE($state) registry unchanged"
 done
@@ -232,12 +355,10 @@ BAD_KIND_STATUS=$?
 set -e
 
 if [[ "$BAD_NAMESPACE_STATUS" -eq 0 ]]; then
-  echo "FAIL namespace guard accepted an official-news kind with a business-image namespace" >&2
-  exit 1
+  fail_hard "namespace guard accepted an official-news kind with a business-image namespace"
 fi
 if [[ "$BAD_KIND_STATUS" -eq 0 ]]; then
-  echo "FAIL kind guard accepted an unknown storage kind" >&2
-  exit 1
+  fail_hard "kind guard accepted an unknown storage kind"
 fi
 echo "PASS kind/namespace guards reject mismatched pairs"
 
@@ -260,9 +381,8 @@ set +e
 DUP_IDEM_STATUS=$?
 set -e
 if [[ "$DUP_IDEM_STATUS" -eq 0 ]]; then
-  echo "FAIL official-news idempotency lane accepted a duplicate (uploader, key)" >&2
-  exit 1
+  fail_hard "official-news idempotency lane accepted a duplicate (uploader, key)"
 fi
 echo "PASS official-news idempotency lane rejects a duplicate (uploader, key)"
 
-echo "PASS PostgreSQL official-news image reference/delete serialization: REFERENCE_WINS; DELETE_WINS; IMPOSSIBLE_REFERENCE_PLUS_NONACTIVE_STATE; KIND_NAMESPACE_GUARDS; IDEMPOTENCY_LANE"
+echo "PASS PostgreSQL official-news image lock-contention proof: REFERENCE_WINS(blocked); DELETE_WINS(blocked); MUTATION_PROOF(bites without FOR UPDATE); IMPOSSIBLE_REFERENCE_PLUS_NONACTIVE_STATE; KIND_NAMESPACE_GUARDS; IDEMPOTENCY_LANE"
