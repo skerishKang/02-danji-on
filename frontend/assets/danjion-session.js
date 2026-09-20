@@ -22,11 +22,11 @@
 
     // Security boundary: primary custom production always stays same-origin. Query
     // parameters can never redirect application API traffic off the primary host.
-    if (hostname === PRIMARY_PRODUCTION_HOSTNAME) return PRIMARY_PRODUCTION_API_BASE;
+    if (hostname === PRIMARY_PRODUCTION_HOSTNAME) return '';
 
     // Security boundary: canonical production always stays same-origin. Query
     // parameters can never redirect application API traffic off the Pages host.
-    if (hostname === PRODUCTION_PAGES_HOSTNAME) return CANONICAL_PAGES_API_BASE;
+    if (hostname === PRODUCTION_PAGES_HOSTNAME) return '';
 
     let params;
     try { params = new URLSearchParams(where.search || ''); } catch { params = new URLSearchParams(); }
