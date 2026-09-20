@@ -198,6 +198,7 @@ const EXPECTED_CI_ONLY = [
   "community-replies-postgres-lifecycle",
   "business-image-postgres-concurrency",
   "business-image-upload-idempotency-postgres",
+  "official-news-image-postgres-concurrency",
   "business-image-resolved-lease-cleanup-postgres",
   "community-notifications-postgres-lifecycle",
   "resident-news-postgres-lifecycle",

@@ -7,10 +7,15 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { acquireOfficialNewsImageDeleteIntent } from '../src/storage-v1.ts';
 import { validateOfficialNewsImageReference } from '../src/storage-reference-v1.ts';
+import {
+  insertOfficialNewsPostWithAttachment,
+  updateOfficialNewsPostWithAttachment
+} from '../src/official-news-attachment-v1.ts';
 
 const root = new URL('../', import.meta.url);
 const storage = await readFile(new URL('src/storage-v1.ts', root), 'utf8');
 const adminOperational = await readFile(new URL('src/admin-operational-v2.ts', root), 'utf8');
+const attachSource = await readFile(new URL('src/official-news-attachment-v1.ts', root), 'utf8');
 
 const uploader = '11111111-1111-4111-8111-111111111111';
 const otherUploader = '33333333-3333-4333-8333-333333333333';
@@ -90,6 +95,69 @@ assert.ok(finalizeFn.includes("state = 'delete_pending'") && finalizeFn.includes
   'finalize must only move delete_pending -> retired');
 assert.ok(storage.includes('reconcileOfficialNewsImageRetirement'),
   'a delete_pending object must be retryable');
+
+/* ------------------------------------------------------------------ */
+/* BLOCKER A: the post write joins the same registry row lock           */
+/* ------------------------------------------------------------------ */
+
+function makeAttachSql({ attachable }) {
+  const events = [];
+  const tagged = async (strings) => {
+    const text = strings.join('\u0000');
+    assert.match(text, /for update/, 'the attach write must lock the registry row');
+    assert.match(text, /kind = 'official-news-image'/, 'the lock must be kind-scoped');
+    assert.match(text, /state = 'active'/, 'the lock must require an active row');
+    assert.match(text, /complex_id = /, 'the lock must be complex-scoped');
+    events.push(attachable ? 'locked-and-wrote' : 'lock-missed-write-skipped');
+    return attachable ? [{ id: 'post-1', status: 'published' }] : [];
+  };
+  return { sql: tagged, events };
+}
+
+const write = {
+  objectKey,
+  complexId,
+  complexSlug,
+  authorUserId: uploader,
+  sourceName: '단지온 운영자',
+  category: '회의결과',
+  title: '동시성 검증',
+  body: '본문',
+  channel: 'apartment_news',
+  status: 'published',
+  publishedAt: null
+};
+
+// REFERENCE_WINS: the row is still active when the post write locks it -> exactly one post row.
+const refWins = makeAttachSql({ attachable: true });
+const inserted = await insertOfficialNewsPostWithAttachment(refWins.sql, write);
+assert.equal(inserted.length, 1, 'REFERENCE_WINS must commit one post row');
+assert.deepEqual(refWins.events, ['locked-and-wrote']);
+
+// DELETE_WINS: the delete intent already moved the row -> zero rows, never a silent success.
+const deleteWins = makeAttachSql({ attachable: false });
+const none = await insertOfficialNewsPostWithAttachment(deleteWins.sql, write);
+assert.equal(none.length, 0, 'DELETE_WINS must insert zero rows');
+assert.deepEqual(deleteWins.events, ['lock-missed-write-skipped']);
+
+// The patch lane shares the same locked shape and the same zero-row conflict signal.
+assert.equal((await updateOfficialNewsPostWithAttachment(makeAttachSql({ attachable: true }).sql, 'post-1', write)).length, 1);
+assert.equal((await updateOfficialNewsPostWithAttachment(makeAttachSql({ attachable: false }).sql, 'post-1', write)).length, 0);
+
+// IMPOSSIBLE_REFERENCE_PLUS_NONACTIVE_STATE: the lock CTE can only ever match an active row, so
+// a delete_pending/upload_pending object can never be attached even if the preliminary validator
+// were bypassed entirely.
+assert.ok(attachSource.includes("state = 'active'") && attachSource.includes('for update'));
+assert.ok(attachSource.includes("kind = 'official-news-image'"));
+assert.equal(attachSource.includes("state = 'delete_pending'"), false);
+assert.equal(attachSource.includes("state = 'upload_pending'"), false);
+
+// The admin create/patch path must use these transactional helpers and treat an empty result as
+// a hard conflict rather than a successful write.
+assert.ok(adminOperational.includes('insertOfficialNewsPostWithAttachment('));
+assert.ok(adminOperational.includes('updateOfficialNewsPostWithAttachment('));
+assert.equal((adminOperational.match(/OFFICIAL_NEWS_IMAGE_ATTACHMENT_CONFLICT/g) || []).length, 2,
+  'both create and patch must fail closed on an empty committed result');
 
 /* ------------------------------------------------------------------ */
 /* BLOCKER 3 + BLOCKER 4: reference validator (real function)           */
@@ -213,6 +281,9 @@ for (const [name, start, end] of [
 
 console.log('OFFICIAL_NEWS_IMAGE_DELETE_INTENT_RUNTIME=PASS');
 console.log('NEW_REFERENCE_XOR_DELETE_INTENT=PASS');
+console.log('REFERENCE_WINS=PASS');
+console.log('DELETE_WINS=PASS');
+console.log('IMPOSSIBLE_REFERENCE_PLUS_NONACTIVE_STATE=PASS');
 console.log('DELETE_PENDING_REFERENCE_REJECTED=PASS');
 console.log('REFERENCED_DELETE=409');
 console.log('DRIVE_FAILURE_RECONCILABLE=PASS');

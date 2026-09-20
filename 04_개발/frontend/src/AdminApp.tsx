@@ -74,6 +74,9 @@ export default function AdminApp() {
   // happens at submit time, so selecting then removing/replacing before submit mutates nothing.
   const [postChannel, setPostChannel] = useState<'apartment_news' | 'management_office'>('apartment_news');
   const [postImageFile, setPostImageFile] = useState<File | null>(null);
+  // BLOCKER B: the server object key is retained across a failed create so a retry reuses the very
+  // same object instead of uploading a new active object every attempt.
+  const [postImageKey, setPostImageKey] = useState<string | null>(null);
   const [postImagePreview, setPostImagePreview] = useState<string | null>(null);
   const [postImageBusy, setPostImageBusy] = useState(false);
   const [postImageError, setPostImageError] = useState('');
@@ -202,7 +205,21 @@ export default function AdminApp() {
     if (url?.startsWith('blob:')) URL.revokeObjectURL(url);
   }
 
-  function selectPostImage(file: File | null) {
+  async function clearUploadedImage(): Promise<boolean> {
+    if (!postImageKey) return true;
+    try {
+      // BLOCKER B: an uploaded object that is not (yet) referenced by a post is unreferenced, so
+      // removing/replacing it retires it through the canonical delete instead of leaking an orphan.
+      await storageAdapter.delete(postImageKey, { surface: 'admin' });
+      setPostImageKey(null);
+      return true;
+    } catch (error) {
+      setPostImageError(error instanceof Error ? error.message : '업로드한 사진을 정리하지 못했습니다.');
+      return false;
+    }
+  }
+
+  async function selectPostImage(file: File | null) {
     if (!file) return;
     try {
       // Local validation first: the specific format/size error never reaches the network.
@@ -212,15 +229,19 @@ export default function AdminApp() {
       return;
     }
     setPostImageError('');
+    if (postImageKey && !(await clearUploadedImage())) return;
     releasePreview(postImagePreview);
     setPostImageFile(file);
     setPostImagePreview(URL.createObjectURL(file));
   }
 
-  function removePostImage() {
-    // BLOCKER 2: no server mutation on remove before submit.
+  async function removePostImage() {
+    // BLOCKER B: no server mutation when nothing was uploaded yet; a previously uploaded object
+    // is retired so POST_FAILURE_REMOVE_CLEANS_UNREFERENCED_OBJECT holds.
+    if (postImageKey && !(await clearUploadedImage())) return;
     releasePreview(postImagePreview);
     setPostImageFile(null);
+    setPostImagePreview(null);
     setPostImageError('');
   }
 
@@ -236,26 +257,31 @@ export default function AdminApp() {
     }
     setBusyId('post');
     try {
-      let attachmentObjectKey: string | null = null;
-      if (postImageFile) {
+      // BLOCKER B: an already-uploaded key is reused, so RETRY_AFTER_POST_FAILURE_DOES_NOT_REUPLOAD.
+      let attachmentObjectKey: string | null = postImageKey;
+      if (!attachmentObjectKey && postImageFile) {
         setPostImageBusy(true);
         // BLOCKER 2/BLOCKER 3: official-news upload runs at submit with the admin auth surface;
         // only the object key the server returns is submitted.
         const uploaded = await storageAdapter.upload('official-news-image', postImageFile, { surface: 'admin' });
         attachmentObjectKey = uploaded.objectKey;
+        setPostImageKey(attachmentObjectKey);
         setPostImageBusy(false);
       }
       await adminAdapter.createPost({ ...postForm, channel: postChannel, attachmentObjectKey });
+      // The object is now referenced by a published post: it must NOT be deleted on success.
       releasePreview(postImagePreview);
       setPostImagePreview(null);
       setPostImageFile(null);
+      setPostImageKey(null);
       setPostImageError('');
       setPostForm((current) => ({ ...current, title: '', body: '' }));
       setMessage('단지소식을 게시했습니다.');
     } catch (error) {
-      // POST_CREATE_FAILURE_NO_FALSE_SUCCESS: surface the failure and keep the chosen photo.
+      // POST_CREATE_FAILURE_NO_FALSE_SUCCESS: surface the failure and keep the uploaded key so the
+      // next attempt reuses one object instead of creating another (ORPHAN_MULTIPLICATION=0).
       const detail = error instanceof Error ? error.message : '단지소식을 게시하지 못했습니다.';
-      if (postImageFile) setPostImageError(detail);
+      if (postImageFile || postImageKey) setPostImageError(detail);
       setMessage(detail);
     } finally {
       setPostImageBusy(false);
@@ -450,14 +476,14 @@ export default function AdminApp() {
             <label className="full"><span>제목</span><input value={postForm.title} onChange={(event) => setPostForm({ ...postForm, title: event.target.value })} placeholder="예: 8월 입주자대표회의 활동 안내" /></label>
             <label className="full"><span>내용</span><textarea value={postForm.body} onChange={(event) => setPostForm({ ...postForm, body: event.target.value })} rows={8} /></label>
             <label className="full"><span>공식 채널</span><select value={postChannel} onChange={(event) => setPostChannel(event.target.value === 'management_office' ? 'management_office' : 'apartment_news')}><option value="apartment_news">입주자대표회의 소식 (apartment_news)</option><option value="management_office">관리사무소 소식 (management_office)</option></select></label>
-            <label className="full"><span>대표 사진 (JPG·PNG·WebP, 8MB 이하 1장)</span><input type="file" accept="image/jpeg,image/png,image/webp" disabled={postImageBusy || busyId === 'post'} onChange={(event) => { const picked = event.target.files?.[0] ?? null; event.target.value = ''; selectPostImage(picked); }} /></label>
+            <label className="full"><span>대표 사진 (JPG·PNG·WebP, 8MB 이하 1장)</span><input type="file" accept="image/jpeg,image/png,image/webp" disabled={postImageBusy || busyId === 'post'} onChange={(event) => { const picked = event.target.files?.[0] ?? null; event.target.value = ''; void selectPostImage(picked); }} /></label>
             {postImageBusy && <p className="admin-summary">사진 업로드 중입니다...</p>}
             {postImageError && <p className="admin-summary" role="alert">{postImageError}</p>}
-            {postImagePreview && (
+            {(postImagePreview || postImageKey) && (
               <div className="full">
-                <img src={postImagePreview} alt="선택한 대표 사진 미리보기" style={{ maxWidth: '100%', height: 'auto', borderRadius: 8 }} />
-                <p className="admin-summary">첨부 파일: {postImageFile?.name}</p>
-                <button type="button" disabled={busyId === 'post'} onClick={removePostImage}>사진 제거</button>
+                {postImagePreview && <img src={postImagePreview} alt="선택한 대표 사진 미리보기" style={{ maxWidth: '100%', height: 'auto', borderRadius: 8 }} />}
+                <p className="admin-summary">첨부 파일: {postImageFile?.name || '업로드 완료(재시도 시 재사용)'}</p>
+                <button type="button" disabled={busyId === 'post' || postImageBusy} onClick={() => void removePostImage()}>사진 제거</button>
               </div>
             )}
             <button className="admin-primary" disabled={busyId === 'post' || postImageBusy}>{busyId === 'post' ? '게시 중...' : '단지소식 게시'}</button>

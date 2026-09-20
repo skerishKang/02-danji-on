@@ -3,6 +3,10 @@ import { deriveChannel } from './complex-news-channel';
 import type { CoreEnv } from './core-v1';
 import { requireOperationalAuthority, type OperationalAuthority } from './operational-authz-v2';
 import { validateBusinessImageReference, validateOfficialNewsImageReference } from './storage-reference-v1';
+import {
+  insertOfficialNewsPostWithAttachment,
+  updateOfficialNewsPostWithAttachment
+} from './official-news-attachment-v1';
 
 type Sql = NeonQueryFunction<false, false>;
 
@@ -325,6 +329,30 @@ async function createPost(
       env, sql, attachment, operator.complexId, complexSlug, requestId
     );
     if (invalidAttachment) return invalidAttachment;
+    // BLOCKER A: the post write re-locks the official-news registry row FOR UPDATE in the same
+    // statement, so a delete intent that won the race yields zero rows instead of a stale write.
+    const committed = await insertOfficialNewsPostWithAttachment(sql, {
+      objectKey: attachment,
+      complexId: operator.complexId,
+      complexSlug,
+      authorUserId: operator.id,
+      sourceName,
+      category,
+      title,
+      body,
+      channel,
+      status,
+      publishedAt
+    });
+    if (!committed[0]) {
+      return fail(
+        'OFFICIAL_NEWS_IMAGE_ATTACHMENT_CONFLICT',
+        'Official news image is no longer active for attachment',
+        409,
+        requestId
+      );
+    }
+    return ok(committed[0], requestId, 201);
   }
   const rows = await sql`
     insert into complex_posts (
@@ -388,11 +416,36 @@ async function patchPost(
   }
   // #844: existing attachment is preserved; any newly supplied key is validated as a
   // server-issued, active, same-complex official-news image (no arbitrary key trust).
-  if (attachment && attachment !== (current.attachment_object_key ? String(current.attachment_object_key) : null)) {
+  const currentAttachmentKey = current.attachment_object_key ? String(current.attachment_object_key) : null;
+  if (attachment && attachment !== currentAttachmentKey) {
     const invalidAttachment = await validateOfficialNewsImageReference(
       env, sql, attachment, operator.complexId, String(current.complex_slug), requestId
     );
     if (invalidAttachment) return invalidAttachment;
+    // BLOCKER A: swapping in a new reference re-locks the official-news registry row FOR UPDATE
+    // in the same statement, so a concurrent delete intent yields zero rows instead of a stale write.
+    const committed = await updateOfficialNewsPostWithAttachment(sql, postId, {
+      objectKey: attachment,
+      complexId: operator.complexId,
+      complexSlug: String(current.complex_slug),
+      authorUserId: operator.id,
+      sourceName,
+      category,
+      title,
+      body,
+      channel,
+      status,
+      publishedAt: null
+    });
+    if (!committed[0]) {
+      return fail(
+        'OFFICIAL_NEWS_IMAGE_ATTACHMENT_CONFLICT',
+        'Official news image is no longer active for attachment',
+        409,
+        requestId
+      );
+    }
+    return ok(committed[0], requestId);
   }
   const updated = await sql`
     update complex_posts

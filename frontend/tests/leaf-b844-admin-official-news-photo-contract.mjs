@@ -69,6 +69,30 @@ assert.ok(storageTs.includes("{ surface: 'admin' }") === false && adminApp.inclu
 assert.ok(storageTs.includes("options.surface ?? 'resident'"),
   'the default auth surface stays unchanged for existing resident/business uploads');
 
+/* ---------------- BLOCKER B: no orphan multiplication ---------------- */
+
+assert.ok(adminApp.includes('const [postImageKey, setPostImageKey] = useState<string | null>(null)'),
+  'the uploaded server object key must be retained in component state');
+assert.ok(selectBlock.includes("validateStorageFile('official-news-image', file)"),
+  'local validation still runs on select');
+assert.ok(selectBlock.includes('clearUploadedImage()'),
+  'replacing the selection retires the previous unreferenced object');
+assert.ok(removeBlock.includes('clearUploadedImage()'),
+  'POST_FAILURE_REMOVE_CLEANS_UNREFERENCED_OBJECT: remove retires the uploaded object');
+assert.ok(adminApp.includes('async function clearUploadedImage()'), 'a single cleanup owner must exist');
+assert.ok(adminApp.includes("await storageAdapter.delete(postImageKey, { surface: 'admin' })"),
+  'cleanup uses the canonical admin-surface delete for the unreferenced object');
+assert.ok(submitBlock.includes('let attachmentObjectKey: string | null = postImageKey;') &&
+  submitBlock.includes('if (!attachmentObjectKey && postImageFile)'),
+  'RETRY_AFTER_POST_FAILURE_DOES_NOT_REUPLOAD: an already-uploaded key is reused');
+assert.ok(submitBlock.includes('setPostImageKey(attachmentObjectKey)'),
+  'ORPHAN_MULTIPLICATION=0: the key is remembered before the create request');
+assert.equal(submitBlock.indexOf("storageAdapter.upload('official-news-image'") >
+  submitBlock.indexOf('if (!attachmentObjectKey && postImageFile)'), true,
+  'the upload sits behind the reuse guard');
+assert.ok(submitBlock.includes('if (postImageFile || postImageKey) setPostImageError(detail)'),
+  'a failed create keeps the uploaded object for the next attempt');
+
 /* ---------------- bridge helper (real function) ---------------- */
 
 assert.equal(resolveOfficialNewsImageUrl('/api', `gdrive/public/official-news-image/${'a'.repeat(12)}`),

@@ -17,7 +17,7 @@ export interface StoredObject {
 export interface StorageAdapter {
   upload(kind: StorageKind, file: File, options?: { complexSlug?: string; surface?: AuthSurface }): Promise<StoredObject>;
   read(objectKey: string): Promise<Blob | null>;
-  delete(objectKey: string): Promise<void>;
+  delete(objectKey: string, options?: { surface?: AuthSurface }): Promise<void>;
   resolvePreview?(objectKey: string): Promise<string | null>;
   releasePreview?(object: StoredObject): void;
   releasePreviewUrl?(url: string): void;
@@ -164,7 +164,7 @@ class MockStorageAdapter implements StorageAdapter {
     return (await readMockFile(objectKey))?.blob ?? null;
   }
 
-  async delete(objectKey: string): Promise<void> {
+  async delete(objectKey: string, _options: { surface?: AuthSurface } = {}): Promise<void> {
     if (!objectKey.startsWith('mock/')) return;
     await deleteMockFile(objectKey);
   }
@@ -249,11 +249,11 @@ class GoogleDriveStorageAdapter implements StorageAdapter {
     return response.blob();
   }
 
-  async delete(objectKey: string): Promise<void> {
+  async delete(objectKey: string, options: { surface?: AuthSurface } = {}): Promise<void> {
     if (!objectKey.startsWith('gdrive/')) return;
     const response = await authenticatedFetch(storageUrl('/api/v1/storage/objects', objectKey), {
       method: 'DELETE'
-    }, 'resident');
+    }, options.surface ?? 'resident');
     if (!response.ok) {
       const payload = await response.json().catch(() => ({})) as ApiEnvelope<never>;
       throw new Error(payload.error?.message || `Storage delete failed (${response.status})`);
