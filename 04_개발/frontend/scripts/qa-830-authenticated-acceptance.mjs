@@ -69,6 +69,10 @@ async function session(request, label) {
 }
 
 const browser = await chromium.launch({ headless: true });
+let BOOKMARK_INITIAL_STATE = '';
+let BOOKMARK_TOGGLE_METHOD = '';
+let BOOKMARK_TOGGLE_AUTH = false;
+let BOOKMARK_RESTORED = false;
 try {
   const context = await browser.newContext();
   const page = await context.newPage();
@@ -101,16 +105,30 @@ try {
 
   const bookmarks = await call(context.request, 'BOOKMARK_LOAD', '/api/v1/me/bookmarks');
   record('BOOKMARK_LOAD', bookmarks.auth, bookmarks.disposition);
-  const bookmark = await pageCall(page, 'BOOKMARK_TOGGLE', 'POST', `/api/v1/me/bookmarks/${businessId}`,
+  const savedIds = new Set((bookmarks.body?.data || []).map((b) => String(b?.businessId || b?.id)));
+  const wasBookmarked = savedIds.has(businessId);
+  BOOKMARK_INITIAL_STATE = wasBookmarked ? 'BOOKMARKED' : 'NOT_BOOKMARKED';
+  const toggleMethod = wasBookmarked ? 'DELETE' : 'POST';
+  const togglePath = `/api/v1/me/bookmarks/${businessId}`;
+  const toggle = await pageCall(page, 'BOOKMARK_TOGGLE', toggleMethod, togglePath,
     () => page.locator('#shopCompareSave').click({ timeout: 10_000 }).catch(async () => {
       await page.locator(`[data-shop-key="${shopKey}"]`).first().click({ timeout: 10_000 });
       await page.locator('#shopCompareSave').click({ timeout: 10_000 });
     }));
-  record('BOOKMARK_ACCEPTANCE', bookmark.auth, bookmark.disposition);
-  record('BOOKMARK_TOGGLE', bookmark.auth, bookmark.disposition);
-  if (bookmark.response.status() >= 200 && bookmark.response.status() < 300) {
-    await pageCall(page, 'BOOKMARK_CLEANUP', 'DELETE', `/api/v1/me/bookmarks/${businessId}`,
-      () => page.locator('#shopCompareSave').click({ timeout: 10_000 }));
+  record('BOOKMARK_ACCEPTANCE', toggle.auth, toggle.disposition);
+  record('BOOKMARK_TOGGLE', toggle.auth, toggle.disposition);
+  BOOKMARK_TOGGLE_METHOD = toggleMethod;
+  BOOKMARK_TOGGLE_AUTH = toggle.auth;
+  const restoreMethod = wasBookmarked ? 'POST' : 'DELETE';
+  if (toggle.response.status() >= 200 && toggle.response.status() < 300) {
+    await pageCall(page, 'BOOKMARK_RESTORE', restoreMethod, togglePath,
+      () => page.locator('#shopCompareSave').click({ timeout: 10_000 }).catch(async () => {
+        await page.locator(`[data-shop-key="${shopKey}"]`).first().click({ timeout: 10_000 });
+        await page.locator('#shopCompareSave').click({ timeout: 10_000 });
+      }));
+    BOOKMARK_RESTORED = true;
+  } else {
+    BOOKMARK_RESTORED = false;
   }
   authenticated = await session(context.request, 'BOOKMARK_AFTER');
 
@@ -143,7 +161,7 @@ try {
   for (const [label, route, kind] of community) {
     await page.goto(`${FRONTEND}/${route}`, { waitUntil: 'domcontentloaded', timeout: 30_000 });
     if (kind === 'question') await page.locator('[data-type="생활·살림"]').click().catch(() => {});
-    if (kind === 'together') await page.locator('[data-kind="산책·운동"]').click().catch(() => {});
+    if (kind === 'together') await page.locator('[data-kind="walk"]').click().catch(() => {});
     await page.locator('#title').fill(`[QA #830 ${kind} ${stamp}]`);
     await page.locator('#body').fill(`QA #830 authenticated ${kind} acceptance ${stamp}`);
     const result = await pageCall(page, `COMMUNITY_${label}`, 'POST', `/api/v1/complexes/${COMPLEX}/community/posts`,
