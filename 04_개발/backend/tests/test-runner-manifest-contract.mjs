@@ -33,6 +33,7 @@ const EXPECTED_BACKEND_ORDER = [
   "test:production-auth-readonly-diagnostic",
   "test:central-governance-main-audit",
   "test:backup-neon-to-drive",
+  "test:backup-neon-to-drive-runtime-safety",
   "test:verify-neon-backup-restore",
   "test:production-admin-principal-provision",
   "test:production-admin-principal-adopt-existing",
