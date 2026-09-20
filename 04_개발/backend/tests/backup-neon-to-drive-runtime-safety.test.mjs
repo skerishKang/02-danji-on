@@ -312,7 +312,7 @@ function assertNoSecretLeak(run) {
 }
 
 if (!bashPath) {
-  process.stdout.write('RUNTIME_SAFETY_CONTRACT=SKIPPED_NO_BASH\n');
+  process.stdout.write('RUNTIME_HARNESS=SKIPPED_NO_BASH\n');
   process.stdout.write('backup-neon-to-drive-runtime-safety: SKIPPED (no non-WSL bash available on this host)\n');
   process.exit(0);
 }
@@ -443,9 +443,16 @@ try {
   // H. retention listing failure
   const caseH = runScenario('H-retention_listing_failure', { inventory: ALL_INVENTORY, flags: { DANJION_MOCK_FAIL_LSF: '1' } });
   record('H_retention_listing_failure', caseH);
-  assert.equal(deleteNames(caseH).length, 0, 'H: a failed listing must never delete anything');
+  // Safety invariants that must hold in EVERY disposition of this case.
   assert.ok(has(caseH, 'rclone', 'lsf=FAIL'), 'H: the listing failure must be observable in the trace');
+  assert.equal(uploadOkCount(caseH), 1, 'H: the pre-listing upload is expected to have completed');
+  assert.equal(deleteNames(caseH).length, 0, 'H: a failed listing must never delete anything');
+  assert.equal(caseH.events.some((e) => e.detail === 'upload_source=NON_ENCRYPTED'), false, 'H: plaintext upload must stay 0');
   assertNoSecretLeak(caseH);
+  // Disposition is MEASURED, never pinned to the current defect. If the production script is
+  // later repaired to fail closed on a retention listing failure, this flips to YES with no
+  // harness change, so no defect-pinning assertion (such as status === 0) may be added here.
+  const retentionListingFailClosed = caseH.status !== 0 && caseH.stdout.includes('BACKUP_RESULT=FAIL');
 
   // I. retention delete failure
   const caseI = runScenario('I-retention_delete_failure', { inventory: ALL_INVENTORY, flags: { DANJION_MOCK_FAIL_DELETE: '1' } });
@@ -485,10 +492,12 @@ try {
   for (const row of matrix) {
     process.stdout.write(`FAILURE_CASE=${row.id} exit=${row.exit} uploads=${row.uploads} deletes=${row.deletes}\n`);
   }
-  process.stdout.write('FAILURE_CASE_H_LISTING_DISPOSITION=NO_FAIL_CLOSED_RETENTION_SKIPPED\n');
+  process.stdout.write('FAILURE_CASE_H_LISTING_EXIT=' + caseH.status + '\n');
+  process.stdout.write('RETENTION_LISTING_FAIL_CLOSED=' + (retentionListingFailClosed ? 'YES' : 'NO') + '\n');
+  process.stdout.write('BACKUP_ACTIVATION_READINESS=' + (retentionListingFailClosed ? 'NOT_BLOCKED_BY_RETENTION_LISTING' : 'BLOCKED_RETENTION_LISTING') + '\n');
   process.stdout.write(`MUTATION_PROOF=weakened-guard-unsafe-deletes=${unsafeDeletes.length}\n`);
   process.stdout.write('STATIC_CONTRACT=separate(backup-neon-to-drive-contract.mjs)\n');
-  process.stdout.write('RUNTIME_SAFETY_CONTRACT=PASS\n');
+  process.stdout.write('RUNTIME_HARNESS=PASS\n');
 
   assert.ok(
     unsafeDeletes.length > 0,
