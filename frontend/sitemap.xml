@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  단지온 (DanJiOn) sitemap - issue #802 SEO Phase B, bounded scope
+
+  Host authority: https://danjion.pages.dev is the current public/canonical
+  Production origin (owner decision 2026-09-21). The planned
+  danjion.padiem.net migration is DEFERRED, so this file must not name it; a
+  later bounded follow-up migrates the canonical URL, this sitemap and the
+  Search Console property together.
+
+  Membership rule — PUBLIC is not INDEXABLE. The approved SEO scope is the
+  public landing only ("공개 랜딩에만 SEO 메타 부여", #802), so this file lists
+  exactly one URL. frontend/tests/seo-phase-a-802-contract.mjs PUBLIC_PAGES is
+  a privacy classification (which surfaces are not private member data), NOT an
+  indexability decision, and must never be promoted into this list without a
+  separate owner/indexability policy. The same contract that reads this file
+  asserts that: seo-phase-b-802-sitemap-canonical-contract.mjs keeps every
+  other surface out, including query-driven detail templates (02 ?shop,
+  07 ?postId, 08A ?post, 11 ?postId, 13 ?post) and the action/write screens
+  (14, 15, 16, 17, 25A).
+
+  The landing is published as the origin root, not as /index.html: Cloudflare
+  Pages answers /index.html with a 308 to / (verified live), and a sitemap
+  entry must name the URL that finally serves the document.
+
+  No lastmod is published: this is a hand-maintained static document with no
+  content timestamp worth advertising.
+-->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://danjion.pages.dev/</loc>
+  </url>
+</urlset>
