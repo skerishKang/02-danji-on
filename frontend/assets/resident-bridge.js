@@ -59,7 +59,13 @@
     } catch (_) {
       apiBase = '';
     }
-    return { enabled: Boolean(apiBase), apiBase, complexSlug: 'banglim-myeongji-roadhill' };
+    const hostname = String(location.hostname || '').toLowerCase();
+    const session = globalThis.DanjionSession;
+    const canonicalProduction = !!session && (
+      hostname === session.PRIMARY_PRODUCTION_HOSTNAME ||
+      hostname === session.PRODUCTION_PAGES_HOSTNAME
+    );
+    return { enabled: Boolean(apiBase) || canonicalProduction, apiBase, complexSlug: 'banglim-myeongji-roadhill' };
   }
 
   function createResidentBridge(options = {}) {
