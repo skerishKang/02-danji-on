@@ -1,0 +1,91 @@
+name: QA #830 Authenticated Acceptance
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-830-authenticated-acceptance.yml'
+      - '04_개발/frontend/scripts/qa-830-authenticated-acceptance.mjs'
+      - '04_개발/frontend/tests/qa-830-authenticated-acceptance-contract.mjs'
+  workflow_dispatch:
+    inputs:
+      expected_main:
+        description: 'Exact main SHA authorized for live QA #830 acceptance'
+        required: true
+        type: string
+      run_live:
+        description: 'Explicitly confirm authenticated QA write-flow validation'
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: danjion-qa-830-authenticated-acceptance
+  cancel-in-progress: false
+
+jobs:
+  source-contract:
+    name: QA #830 acceptance source safety contract
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Syntax-check acceptance script
+        run: node --check 04_개발/frontend/scripts/qa-830-authenticated-acceptance.mjs
+      - name: Verify acceptance source contract
+        run: node 04_개발/frontend/tests/qa-830-authenticated-acceptance-contract.mjs
+
+  live-qa:
+    name: Run authenticated QA #830 acceptance
+    needs: source-contract
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_live }}
+    runs-on: ubuntu-latest
+    environment: qa
+    env:
+      DANJION_QA_FRONTEND_URL: ${{ vars.DANJION_QA_FRONTEND_URL }}
+      DANJION_QA_RESIDENT_EMAIL: ${{ secrets.DANJION_QA_RESIDENT_EMAIL }}
+      DANJION_QA_RESIDENT_PASSWORD: ${{ secrets.DANJION_QA_RESIDENT_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+      - name: Exact-main and QA-only guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected='${{ inputs.expected_main }}'
+          test "$GITHUB_REF" = 'refs/heads/main'
+          actual="$(git rev-parse HEAD)"
+          remote="$(git ls-remote origin refs/heads/main | awk '{print $1}')"
+          test -n "$expected" && test "$actual" = "$expected" && test "$remote" = "$expected"
+          test "$DANJION_QA_FRONTEND_URL" = 'https://danjion-qa.pages.dev'
+          test -n "$DANJION_QA_RESIDENT_EMAIL" && test -n "$DANJION_QA_RESIDENT_PASSWORD"
+          test "$DANJION_QA_FRONTEND_URL" != 'https://danjion.pages.dev'
+          echo 'QA #830 exact-main and isolation guard: PASS'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: 04_개발/frontend/package-lock.json
+      - name: Install Playwright Chromium
+        working-directory: 04_개발/frontend
+        run: npm ci && npx playwright install --with-deps chromium
+      - name: Run live QA #830 acceptance
+        working-directory: 04_개발/frontend
+        run: node scripts/qa-830-authenticated-acceptance.mjs
+      - name: Record bounded disposition
+        shell: bash
+        run: |
+          {
+            echo '## QA #830 authenticated acceptance'
+            echo '- Environment: `qa`'
+            echo '- QA-stamped writes only: `YES`'
+            echo '- Production target: `NO`'
+            echo '- Manual dispatch from this PR: `NO`'
+            echo '- Secret output: `NO`'
+          } >> "$GITHUB_STEP_SUMMARY"
