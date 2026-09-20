@@ -106,14 +106,40 @@ function isBusinessDiscovery(endpoint) {
     && endpoint.pathname.includes('/api/v1/complexes/')
     && endpoint.pathname.endsWith('/businesses');
 }
+
+/*
+ * The structured discovery fields always describe the LATEST business-discovery
+ * event, whether it ended in a response or in a failed request. This matters
+ * because one page session navigates repeatedly: if a failure only set a flag,
+ * an earlier same-origin 200 would keep reporting its own origin after a later
+ * request left the QA origin, which is the exact ambiguity this harness exists
+ * to resolve. A failed request has no response, so its status is the 0
+ * no-response sentinel, never a stale success code. Historical failures stay in
+ * the bounded requestFailures samples.
+ */
+function createDiscoveryLedger() {
+  return {
+    seen: false,
+    origin: 'NOT_OBSERVED',
+    pathname: 'NOT_OBSERVED',
+    status: 0,
+    failed: false,
+    note(endpoint, observation) {
+      if (!isBusinessDiscovery(endpoint)) return false;
+      this.seen = true;
+      this.origin = endpoint.origin;
+      this.pathname = endpoint.pathname;
+      this.failed = Boolean(observation && observation.failed);
+      this.status = this.failed ? 0 : Number(observation && observation.status) || 0;
+      return true;
+    }
+  };
+}
 /* === END BOUNDED EVIDENCE HELPERS === */
 
+const discovery = createDiscoveryLedger();
+
 const diagnostics = {
-  businessRequestSeen: false,
-  businessRequestOrigin: 'NOT_OBSERVED',
-  businessRequestPathname: 'NOT_OBSERVED',
-  businessResponseStatus: 0,
-  businessRequestFailed: false,
   pageErrors: [],
   requestFailures: [],
   consoleErrors: [],
@@ -137,7 +163,7 @@ function installPageDiagnostics(page) {
   page.on('requestfailed', (request) => {
     const endpoint = originAndPathname(request.url());
     pushSample(diagnostics.requestFailures, `${request.method()} ${endpoint.origin}${endpoint.pathname} ${request.failure()?.errorText || 'FAILED'}`);
-    if (isBusinessDiscovery(endpoint)) diagnostics.businessRequestFailed = true;
+    discovery.note(endpoint, { failed: true });
   });
   page.on('console', (message) => {
     const text = message.text();
@@ -145,12 +171,7 @@ function installPageDiagnostics(page) {
     else if (message.type() === 'info' && text.includes('[danjion] discovery')) pushSample(diagnostics.discoveryConsoleInfo, text);
   });
   page.on('response', (response) => {
-    const endpoint = originAndPathname(response.url());
-    if (!isBusinessDiscovery(endpoint)) return;
-    diagnostics.businessRequestSeen = true;
-    diagnostics.businessRequestOrigin = endpoint.origin;
-    diagnostics.businessRequestPathname = endpoint.pathname;
-    diagnostics.businessResponseStatus = response.status();
+    discovery.note(originAndPathname(response.url()), { status: response.status() });
   });
 }
 
@@ -210,10 +231,10 @@ function diagnosisSummary() {
     `EXPECTED_SHOP_KEY_PRESENT=${diagnostics.expectedShopKeyPresent}`,
     `DOM_SHOP_KEY_COUNT=${diagnostics.domShopKeyCount}`,
     `HYDRATION_MS=${diagnostics.hydrationMs}`,
-    `BROWSER_DISCOVERY_SEEN=${diagnostics.businessRequestSeen}`,
-    `BROWSER_DISCOVERY_ORIGIN=${diagnostics.businessRequestOrigin}`,
-    `BROWSER_DISCOVERY_STATUS=${diagnostics.businessResponseStatus}`,
-    `BROWSER_DISCOVERY_REQUEST_FAILED=${diagnostics.businessRequestFailed}`,
+    `BROWSER_DISCOVERY_SEEN=${discovery.seen}`,
+    `BROWSER_DISCOVERY_ORIGIN=${discovery.origin}`,
+    `BROWSER_DISCOVERY_STATUS=${discovery.status}`,
+    `BROWSER_DISCOVERY_REQUEST_FAILED=${discovery.failed}`,
     `PAGE_ERRORS=${diagnostics.pageErrors.length}`,
     `REQUEST_FAILURES=${diagnostics.requestFailures.length}`,
     `CONSOLE_ERRORS=${diagnostics.consoleErrors.length}`
@@ -222,13 +243,14 @@ function diagnosisSummary() {
 
 function emitDiagnostics() {
   console.log('--- QA #830 BROWSER DIAGNOSTICS ---');
-  console.log(`BROWSER_BUSINESS_REQUEST_SEEN=${diagnostics.businessRequestSeen}`);
-  console.log(`BROWSER_BUSINESS_REQUEST_URL_ORIGIN=${diagnostics.businessRequestOrigin}`);
-  console.log(`BROWSER_DISCOVERY_ORIGIN=${diagnostics.businessRequestOrigin}`);
-  console.log(`BROWSER_BUSINESS_PATHNAME=${diagnostics.businessRequestPathname}`);
-  console.log(`BROWSER_DISCOVERY_SAME_ORIGIN=${diagnostics.businessRequestOrigin === FRONTEND}`);
-  console.log(`BROWSER_BUSINESS_HTTP_STATUS=${diagnostics.businessResponseStatus}`);
-  console.log(`BROWSER_BUSINESS_REQUEST_FAILED=${diagnostics.businessRequestFailed}`);
+  console.log(`BROWSER_BUSINESS_REQUEST_SEEN=${discovery.seen}`);
+  console.log(`BROWSER_BUSINESS_REQUEST_URL_ORIGIN=${discovery.origin}`);
+  console.log(`BROWSER_DISCOVERY_ORIGIN=${discovery.origin}`);
+  console.log(`BROWSER_BUSINESS_PATHNAME=${discovery.pathname}`);
+  console.log(`BROWSER_DISCOVERY_SAME_ORIGIN=${discovery.origin === FRONTEND}`);
+  console.log(`BROWSER_BUSINESS_HTTP_STATUS=${discovery.status}`);
+  console.log(`BROWSER_BUSINESS_REQUEST_FAILED=${discovery.failed}`);
+  console.log(`BROWSER_DISCOVERY_LATEST_EVENT_ONLY=structured fields above describe the most recent business-discovery event; older failures remain in REQUEST_FAILED_SAMPLE`);
   console.log(`EXPECTED_SHOP_KEY=${diagnostics.expectedShopKey}`);
   console.log(`EXPECTED_SHOP_KEY_PRESENT=${diagnostics.expectedShopKeyPresent}`);
   console.log(`DOM_SHOP_KEY_COUNT=${diagnostics.domShopKeyCount}`);

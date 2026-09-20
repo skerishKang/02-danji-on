@@ -13,8 +13,83 @@ assert.ok(startAt >= 0, 'bounded evidence helper block must keep its opening mar
 assert.ok(endAt > startAt, 'bounded evidence helper block must stay contiguous');
 const helpers = new Function(`${script.slice(startAt, endAt)}
 return { boundedText, boundedError, errorDetail, pushSample, originAndPathname, isBusinessDiscovery,
-  MAX_SAMPLES, MAX_DOM_KEYS, HYDRATION_TIMEOUT_MS };`)();
-const { boundedText, boundedError, errorDetail, pushSample, originAndPathname, isBusinessDiscovery } = helpers;
+  createDiscoveryLedger, MAX_SAMPLES, MAX_DOM_KEYS, HYDRATION_TIMEOUT_MS };`)();
+const { boundedText, boundedError, errorDetail, pushSample, originAndPathname, isBusinessDiscovery,
+  createDiscoveryLedger } = helpers;
+
+/* ===== the latest business-discovery event must own the structured fields ===== */
+const QA_ORIGIN = 'https://danjion-qa.pages.dev';
+const PROD_ORIGIN = 'https://padiem-danjion-api-production.padiem.workers.dev';
+const DISCOVERY_PATH = '/api/v1/complexes/banglim-myeongji-roadhill/businesses';
+
+const ledger = createDiscoveryLedger();
+assert.deepEqual(
+  { seen: ledger.seen, origin: ledger.origin, status: ledger.status, failed: ledger.failed },
+  { seen: false, origin: 'NOT_OBSERVED', status: 0, failed: false },
+  'a fresh ledger must claim nothing yet');
+
+/* The core regression: an earlier success must not mask a later CORS failure. */
+assert.equal(ledger.note({ origin: QA_ORIGIN, pathname: DISCOVERY_PATH }, { status: 200 }), true,
+  'a same-origin discovery response must be recorded');
+assert.equal(ledger.note({ origin: PROD_ORIGIN, pathname: DISCOVERY_PATH }, { failed: true }), true,
+  'a later failed discovery request must be recorded');
+assert.equal(ledger.seen, true, 'FAILED_DISCOVERY_MARKS_REQUEST_SEEN');
+assert.equal(ledger.origin, PROD_ORIGIN, 'FAILED_DISCOVERY_CAPTURES_ORIGIN: latest event must win over the earlier 200');
+assert.equal(ledger.pathname, DISCOVERY_PATH, 'FAILED_DISCOVERY_CAPTURES_PATHNAME');
+assert.equal(ledger.status, 0, 'FAILED_DISCOVERY_ZEROES_RESPONSE_STATUS: a failed request has no response status');
+assert.equal(ledger.failed, true, 'FAILED_DISCOVERY_SETS_FAILED');
+assert.notEqual(ledger.status, 200, 'a stale success status must never survive a later failure');
+
+/* A later success legitimately becomes the newest observation. */
+assert.equal(ledger.note({ origin: QA_ORIGIN, pathname: DISCOVERY_PATH }, { status: 200 }), true);
+assert.equal(ledger.origin, QA_ORIGIN, 'a newer success must replace an older failure');
+assert.equal(ledger.status, 200, 'a recorded response must keep its real status');
+assert.equal(ledger.failed, false, 'failed must not latch once a response arrived');
+
+/* Only the discovery endpoint may move these fields. */
+const untouched = createDiscoveryLedger();
+assert.equal(untouched.note({ origin: QA_ORIGIN, pathname: '/api/v1/me/bookmarks' }, { status: 401 }), false,
+  'a non-discovery response must not be attributed to discovery');
+assert.equal(untouched.note(originAndPathname('not a url'), { failed: true }), false,
+  'an unparseable url must not be attributed to discovery');
+assert.deepEqual(
+  { seen: untouched.seen, origin: untouched.origin, status: untouched.status, failed: untouched.failed },
+  { seen: false, origin: 'NOT_OBSERVED', status: 0, failed: false },
+  'rejected observations must leave the ledger untouched');
+
+/* A real failure status must not be invented as success, nor a 401 hidden. */
+const authFail = createDiscoveryLedger();
+authFail.note({ origin: QA_ORIGIN, pathname: DISCOVERY_PATH }, { status: 401 });
+assert.equal(authFail.status, 401, 'an HTTP 401 discovery response must be reported as 401');
+assert.equal(authFail.failed, false, 'a received response is not a transport failure');
+const serverFail = createDiscoveryLedger();
+serverFail.note({ origin: QA_ORIGIN, pathname: DISCOVERY_PATH }, { status: 503 });
+assert.equal(serverFail.status, 503, 'a server-side discovery status must survive exactly');
+const noObservation = createDiscoveryLedger();
+noObservation.note({ origin: QA_ORIGIN, pathname: DISCOVERY_PATH }, {});
+assert.equal(noObservation.status, 0, 'a missing observation must not fabricate a success code');
+assert.equal(noObservation.failed, false, 'a missing observation must not be called a failure either');
+
+/* `failed` dominates: a failed request has no response, whatever else is passed. */
+const contradiction = createDiscoveryLedger();
+contradiction.note({ origin: QA_ORIGIN, pathname: DISCOVERY_PATH }, { status: 200, failed: true });
+assert.equal(contradiction.failed, true, 'a failed observation must report failed');
+assert.equal(contradiction.status, 0, 'a failed request must keep the no-response status even if a status was also supplied');
+
+/* Both listeners must route through the ledger, inside their own handler bodies. */
+const failedHandler = script.slice(script.indexOf("page.on('requestfailed'"), script.indexOf("page.on('console'"));
+assert.ok(failedHandler.length > 60, 'the requestfailed handler must exist');
+assert.ok(failedHandler.includes('discovery.note(endpoint, { failed: true });'),
+  'the requestfailed handler must attribute the failed request to the ledger');
+assert.ok(failedHandler.includes('pushSample(diagnostics.requestFailures'),
+  'the requestfailed handler must keep the historical bounded samples');
+const responseHandler = script.slice(script.indexOf("page.on('response'"));
+assert.ok(responseHandler.slice(0, 300).includes('discovery.note('),
+  'the response handler must route through the same latest-event ledger');
+assert.ok(responseHandler.slice(0, 300).includes('{ status: response.status() }'),
+  'the response handler must record the real response status');
+assert.doesNotMatch(script, /businessRequestSeen|businessRequestOrigin|businessResponseStatus|businessRequestPathname|businessRequestFailed/,
+  'no second copy of discovery state may exist outside the ledger');
 
 assert.equal(helpers.MAX_SAMPLES, 3, 'event samples must stay capped at three');
 assert.equal(helpers.MAX_DOM_KEYS, 10, 'DOM key sample must stay capped at ten');
@@ -188,12 +263,15 @@ assert.match(script, /if \(!businessId\) throw new Error\('QA_830_NO_SERVER_BUSI
   'an empty server business set must still stop the run');
 assert.match(script, /function flushEvidence\(heading\) \{[\s\S]*?emitDiagnostics\(\);/,
   'both evidence paths must print diagnostics, not only the success path');
-assert.match(script, /diagnostics\.businessRequestOrigin = endpoint\.origin;/,
-  'the discovery origin must actually be captured from the response');
-assert.match(script, /diagnostics\.businessResponseStatus = response\.status\(\);/,
-  'the discovery status must actually be captured from the response');
-assert.match(script, /diagnostics\.businessRequestFailed = true;/,
-  'a failed discovery request must be flagged, not only sampled');
+/*
+ * Superseded here were three source asserts of the form
+ * `diagnostics.businessRequestOrigin = endpoint.origin;` etc. They pinned one
+ * implementation shape; the behaviour they existed to protect is now asserted
+ * directly against `createDiscoveryLedger()` above, plus the handler-body checks
+ * below, so the guarantee is wider rather than narrower.
+ */
+assert.match(script.slice(startAt, endAt), /if \(!isBusinessDiscovery\(endpoint\)\) return false;/,
+  'the ledger itself must reject non-discovery endpoints');
 /*
  * Bypass must be ruled out by mechanism, not by English: the script legitimately
  * documents "no fail-open skip" in a comment, and a word-level scan would match
