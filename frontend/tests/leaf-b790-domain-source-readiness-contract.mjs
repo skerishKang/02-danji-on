@@ -42,20 +42,20 @@ const loadSession = (location) => {
 /* --- 1. danjion.padiem.net: app API same-origin, auth same-origin --- */
 {
   const s = loadSession({ search: '', hostname: PRIMARY_HOST });
-  assert.equal(s.danjionApiBase(), PRIMARY_ORIGIN,
+  assert.equal(s.danjionApiBase(), '',
     'primary host must bind exact same-origin for general app API');
   assert.equal(s.danjionAuthBase(), '',
     'primary host must bind same-origin (empty string) for Better Auth facade');
   assert.equal(s.joinUrl(s.danjionAuthBase(), '/api/auth/get-session'), '/api/auth/get-session',
     'primary get-session must be relative same-origin');
-  assert.equal(s.joinUrl(s.danjionApiBase(), '/api/v1/me'), `${PRIMARY_ORIGIN}/api/v1/me`,
+  assert.equal(s.joinUrl(s.danjionApiBase(), '/api/v1/me'), '/api/v1/me',
     'primary app API must route to same-origin');
 }
 
 /* --- 2. danjion.pages.dev: legacy fallback normal --- */
 {
   const s = loadSession({ search: '', hostname: LEGACY_HOST });
-  assert.equal(s.danjionApiBase(), LEGACY_ORIGIN,
+  assert.equal(s.danjionApiBase(), '',
     'legacy host must bind exact legacy same-origin for general app API');
   assert.equal(s.danjionAuthBase(), '',
     'legacy host must bind same-origin for Better Auth facade');
@@ -122,13 +122,13 @@ const loadSession = (location) => {
 {
   const maliciousOverride = `?apiBase=${encodeURIComponent('https://evil-attacker.example/api')}`;
   const sPrimary = loadSession({ search: maliciousOverride, hostname: PRIMARY_HOST });
-  assert.equal(sPrimary.danjionApiBase(), PRIMARY_ORIGIN,
+  assert.equal(sPrimary.danjionApiBase(), '',
     'query parameter must not override primary production app API');
   assert.equal(sPrimary.danjionAuthBase(), '',
     'query parameter must not override primary production auth base');
 
   const sLegacy = loadSession({ search: maliciousOverride, hostname: LEGACY_HOST });
-  assert.equal(sLegacy.danjionApiBase(), LEGACY_ORIGIN,
+  assert.equal(sLegacy.danjionApiBase(), '',
     'query parameter must not override legacy production app API');
   assert.equal(sLegacy.danjionAuthBase(), '',
     'query parameter must not override legacy production auth base');
@@ -182,9 +182,7 @@ const loadSession = (location) => {
 
 /* --- 11. legacy Pages fallback not removed --- */
 {
-  assert.ok(sessionSrc.includes("const LEGACY_PRODUCTION_HOSTNAME = 'danjion.pages.dev';"));
   assert.ok(sessionSrc.includes("const PRODUCTION_PAGES_HOSTNAME = 'danjion.pages.dev';"));
-  assert.ok(sessionSrc.includes("const CANONICAL_PAGES_API_BASE = 'https://danjion.pages.dev';"));
   assert.ok(authFacadeSrc.includes("export const LEGACY_PRODUCTION_ORIGIN = 'https://danjion.pages.dev';"));
   assert.ok(appFacadeSrc.includes("export const LEGACY_PRODUCTION_ORIGIN = 'https://danjion.pages.dev';"));
   assert.ok(releaseWorkflow.includes("LEGACY_PUBLIC_ORIGIN: https://danjion.pages.dev"));

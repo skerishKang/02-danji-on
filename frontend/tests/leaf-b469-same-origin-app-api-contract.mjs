@@ -22,13 +22,12 @@ vm.createContext(ctx);
 vm.runInContext(sessionSrc, ctx);
 const S = ctx.DanjionSession;
 
-assert.equal(S.danjionApiBase(), 'https://danjion.pages.dev',
-  'canonical application API base must be first-party Pages');
+assert.equal(S.danjionApiBase(), '',
+  'canonical application API base must use the first-party Pages facade via a relative URL');
 assert.equal(S.joinUrl(S.danjionApiBase(), '/api/v1/me/profile'),
-  'https://danjion.pages.dev/api/v1/me/profile',
+  '/api/v1/me/profile',
   'protected profile calls must remain same-origin in the browser');
-assert.equal(S.PRODUCTION_API_BASE, 'https://padiem-danjion-api-production.padiem.workers.dev',
-  'fixed Worker upstream constant remains pinned for infrastructure contracts');
+
 
 const primaryCtx = {
   location: { hostname: 'danjion.padiem.net', search: '' },
@@ -37,10 +36,10 @@ const primaryCtx = {
 };
 vm.createContext(primaryCtx);
 vm.runInContext(sessionSrc, primaryCtx);
-assert.equal(primaryCtx.DanjionSession.danjionApiBase(), 'https://danjion.padiem.net',
-  'primary application API base must be first-party custom domain');
+assert.equal(primaryCtx.DanjionSession.danjionApiBase(), '',
+  'primary application API base must use the first-party custom-domain facade via a relative URL');
 assert.equal(primaryCtx.DanjionSession.joinUrl(primaryCtx.DanjionSession.danjionApiBase(), '/api/v1/me/profile'),
-  'https://danjion.padiem.net/api/v1/me/profile',
+  '/api/v1/me/profile',
   'protected profile calls must remain same-origin on primary custom domain');
 
 for (const hostname of ['danjion-review.pages.dev', 'localhost', '127.0.0.1']) {

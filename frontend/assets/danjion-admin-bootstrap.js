@@ -16,10 +16,11 @@
   }
 
   async function bootstrapAuthority(fetchImpl, options = {}) {
-    const base = options.apiBase === undefined
+    const explicitBase = options.apiBase !== undefined;
+    const base = !explicitBase
       ? resolveApiBase(options.location)
       : String(options.apiBase || '');
-    if (!base) return { state: 'unbound' };
+    if ((explicitBase && !base) || (!explicitBase && !authorityHasApiBinding(options.location, base))) return { state: 'unbound' };
 
     const session = global.DanjionSession;
     const authority = global.DanjionAdminAuthority;
@@ -36,6 +37,12 @@
     if (result && result.status === 403) return { state: 'not-registered' };
     if (result && result.status === 503) return { state: 'unavailable' };
     return { state: 'error' };
+  }
+
+  function authorityHasApiBinding(loc, base) {
+    const authority = global.DanjionAdminAuthority;
+    return !!authority && typeof authority.hasApiBinding === 'function'
+      && authority.hasApiBinding(loc, base);
   }
 
   global.DanjionAdminBootstrap = Object.freeze({

@@ -27,6 +27,20 @@
     return String(session.danjionApiBase(loc) || '');
   }
 
+  function isCanonicalProduction(loc) {
+    const session = global.DanjionSession;
+    const where = loc || (typeof location !== 'undefined' ? location : {});
+    const hostname = String(where.hostname || '').toLowerCase();
+    return !!session && (
+      hostname === session.PRIMARY_PRODUCTION_HOSTNAME ||
+      hostname === session.PRODUCTION_PAGES_HOSTNAME
+    );
+  }
+
+  function hasApiBinding(loc, apiBase) {
+    return Boolean(String(apiBase || '').trim()) || isCanonicalProduction(loc);
+  }
+
   function isStringArray(value) {
     return Array.isArray(value) && value.every((item) => typeof item === 'string');
   }
@@ -71,20 +85,22 @@
   }
 
   async function fetchAuthority(fetchImpl, options = {}) {
-    const base = options.apiBase === undefined
+    const explicitBase = options.apiBase !== undefined;
+    const base = !explicitBase
       ? resolveApiBase(options.location)
       : String(options.apiBase || '');
-    if (!base) return { state: 'unbound' };
+    if ((explicitBase && !base) || (!explicitBase && !hasApiBinding(options.location, base))) return { state: 'unbound' };
     const session = global.DanjionSession;
     const result = await session.request(fetchImpl || global.fetch, session.joinUrl(base, AUTHORITY_PATH));
     return classifyAuthority(result);
   }
 
   async function fetchResidentVerificationExemption(fetchImpl, options = {}) {
-    const base = options.apiBase === undefined
+    const explicitBase = options.apiBase !== undefined;
+    const base = !explicitBase
       ? resolveApiBase(options.location)
       : String(options.apiBase || '');
-    if (!base) return { state: 'unbound', exempt: false };
+    if ((explicitBase && !base) || (!explicitBase && !hasApiBinding(options.location, base))) return { state: 'unbound', exempt: false };
     const session = global.DanjionSession;
     const result = await session.request(
       fetchImpl || global.fetch,
@@ -133,6 +149,8 @@
     OPERATOR_LABEL,
     RESIDENT_VERIFICATION_EXEMPT_SCOPE,
     resolveApiBase,
+    isCanonicalProduction,
+    hasApiBinding,
     normalizeAuthority,
     classifyAuthority,
     fetchAuthority,

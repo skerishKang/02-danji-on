@@ -201,7 +201,8 @@ assert.ok(index.includes('if(history.length>1) history.back();'),
 /* ================= 6. preserved #444 auth-cutover invariants ================= */
 assert.equal(index.match(/danjionApiBase\(\)/g).length, 1,
   'the serverMode gate must stay the only danjionApiBase() use in the entry');
-assert.match(index, /serverMode=!!__session&&__session\.danjionApiBase\(\)!==''/);
+assert.match(index, /serverMode=!!__session&&\(__session\.danjionApiBase\(\)!==''\|\|\['danjion\.padiem\.net','danjion\.pages\.dev'\]\.includes\(location\.hostname\.toLowerCase\(\)\)\)/,
+  'server mode must include the canonical same-origin production facade');
 assert.ok(index.includes(`__session.joinUrl(__session.danjionAuthBase(),'/api/auth/sign-in/email')`));
 assert.ok(index.includes(`__session.joinUrl(__session.danjionAuthBase(),'/api/auth/sign-up/email')`));
 assert.ok(index.includes(`__session.joinUrl(__session.danjionAuthBase(),'/api/auth/forget-password')`));

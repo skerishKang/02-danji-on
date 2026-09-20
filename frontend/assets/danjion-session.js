@@ -10,11 +10,7 @@
   // while legacy Pages hostname is retained as fallback during migration.
   // Both bind the same-origin Pages Function facade for Better Auth and application API.
   const PRIMARY_PRODUCTION_HOSTNAME = 'danjion.padiem.net';
-  const PRIMARY_PRODUCTION_API_BASE = 'https://danjion.padiem.net';
-  const LEGACY_PRODUCTION_HOSTNAME = 'danjion.pages.dev';
   const PRODUCTION_PAGES_HOSTNAME = 'danjion.pages.dev';
-  const CANONICAL_PAGES_API_BASE = 'https://danjion.pages.dev';
-  const PRODUCTION_API_BASE = 'https://padiem-danjion-api-production.padiem.workers.dev';
 
   function danjionApiBase(loc) {
     const where = loc || (typeof location !== 'undefined' ? location : {});
@@ -22,11 +18,11 @@
 
     // Security boundary: primary custom production always stays same-origin. Query
     // parameters can never redirect application API traffic off the primary host.
-    if (hostname === PRIMARY_PRODUCTION_HOSTNAME) return PRIMARY_PRODUCTION_API_BASE;
+    if (hostname === PRIMARY_PRODUCTION_HOSTNAME) return '';
 
     // Security boundary: canonical production always stays same-origin. Query
     // parameters can never redirect application API traffic off the Pages host.
-    if (hostname === PRODUCTION_PAGES_HOSTNAME) return CANONICAL_PAGES_API_BASE;
+    if (hostname === PRODUCTION_PAGES_HOSTNAME) return '';
 
     let params;
     try { params = new URLSearchParams(where.search || ''); } catch { params = new URLSearchParams(); }
@@ -54,8 +50,8 @@
   //   * every other origin (previews, localhost, spoofed suffixes) resolves to
   //     '' with serverMode off — the demo lane never emits auth traffic, and the
   //     facade itself fail-closes (404) for any non-canonical origin.
-  // danjionApiBase() itself is untouched: general application API traffic
-  // remains bound to the production Worker.
+  // danjionApiBase() now follows the same same-origin boundary for production
+  // application APIs so /api/v1/* reaches the canonical Pages app facade.
   function danjionAuthBase(loc) {
     const where = loc || (typeof location !== 'undefined' ? location : {});
     const hostname = String(where.hostname || '').toLowerCase();
@@ -260,7 +256,10 @@
 
   async function fetchAccountAuthority(fetchImpl, loc) {
     const apiBase = danjionApiBase(loc);
-    if (!apiBase) return Object.freeze({ state: 'unbound', label: '', canAdmin: false, wildcard: false, scopes: [] });
+    const where = loc || (typeof location !== 'undefined' ? location : {});
+    const hostname = String(where.hostname || '').toLowerCase();
+    const canonicalProduction = hostname === PRIMARY_PRODUCTION_HOSTNAME || hostname === PRODUCTION_PAGES_HOSTNAME;
+    if (!apiBase && !canonicalProduction) return Object.freeze({ state: 'unbound', label: '', canAdmin: false, wildcard: false, scopes: [] });
     return normalizeAccountAuthority(
       await request(fetchImpl || global.fetch, joinUrl(apiBase, '/api/v1/admin/authority'))
     );
@@ -507,10 +506,6 @@
     initAccountStrip,
     loadServiceFooterRuntime,
     PRIMARY_PRODUCTION_HOSTNAME,
-    PRIMARY_PRODUCTION_API_BASE,
-    LEGACY_PRODUCTION_HOSTNAME,
-    PRODUCTION_PAGES_HOSTNAME,
-    CANONICAL_PAGES_API_BASE,
-    PRODUCTION_API_BASE
+    PRODUCTION_PAGES_HOSTNAME
   });
 })(typeof window !== 'undefined' ? window : globalThis);
