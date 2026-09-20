@@ -2,36 +2,78 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
 /*
- * SEO Phase B regression contract (issue #802)
+ * SEO Phase B regression contract (issue #802) — bounded indexable set
  *
- * Pins the owner decision of 2026-09-21 into the shipped artifacts:
+ * This file pins two decisions that must never be conflated:
  *
- *   CURRENT_PUBLIC_ORIGIN=https://danjion.pages.dev
- *   danjion.padiem.net    = FUTURE / DEFERRED
+ *   1. Host authority (owner decision 2026-09-21):
+ *        CURRENT_CANONICAL_ORIGIN=https://danjion.pages.dev
+ *        danjion.padiem.net = FUTURE / DEFERRED
+ *   2. Indexable scope, which #802 states narrowly: "공개 랜딩에만 SEO 메타
+ *      부여". The public landing is the only surface the Owner has approved for
+ *      indexing so far.
  *
- * and the three things Phase B adds on top of Phase A:
- *
- *   1. a self-referential canonical on every indexable public surface
- *   2. frontend/sitemap.xml carrying exactly those surfaces
- *   3. a Sitemap directive in robots.txt
- *
- * The indexable set is not restated here: it is parsed out of the Phase A
- * contract, so the two files cannot drift apart. Private / personalized member
- * surfaces stay out of the sitemap because each one carries noindex,nofollow in
- * its own head — that meta tag remains the authority, and this file asserts it
- * is still there instead of trusting the exclusion.
+ * PUBLIC_PAGES in seo-phase-a-802-contract.mjs is a PRIVACY classification — it
+ * says a surface carries no personal member data. That is not the same question
+ * as "should a search engine index it", so this contract declares its own
+ * INDEXABLE_PAGES and, more importantly, asserts the negative half: every other
+ * public surface is still not canonicalised and not in the sitemap. Without
+ * those guards an edit that simply looped over PUBLIC_PAGES would silently widen
+ * the index while every positive assertion stayed green.
  */
 
 const read = (name) => readFile(new URL(`../${name}`, import.meta.url), 'utf8');
 
 const CANONICAL_ORIGIN = 'https://danjion.pages.dev';
+const CANONICAL_HOST = 'danjion.pages.dev';
 const DEFERRED_HOST = 'danjion.padiem.net';
 
-const phaseA = await read('tests/seo-phase-a-802-contract.mjs');
 /*
- * Array literals are sliced without a split() limit: JS's second argument caps
- * the returned array length, so `split(needle, 1)[1]` is always undefined.
+ * The owner-approved indexable set. Widening it is an owner/indexability
+ * decision, not a refactor of this list.
  */
+const INDEXABLE_PAGES = ['index.html'];
+const INDEXABLE_URLS = [`${CANONICAL_ORIGIN}/`];
+
+/*
+ * Query-driven detail templates: one document serving many server-side
+ * identities (?shop, ?postId, ?post). A fixed self-canonical on such a file
+ * tells every crawler that all of those identities are the same page. 02 is the
+ * clearest case — on the canonical Production origin it is a runtime redirect to
+ * 01 — so it must stay out until a policy preserves the post/shop identity.
+ */
+const DETAIL_TEMPLATES = [
+  '02_이웃가게_상세.html',
+  '07_단지온공지_상세.html',
+  '08A_아파트소식_상세.html',
+  '11_주민소식_상세.html',
+  '13_이웃대화_글상세_댓글.html'
+];
+
+/* Write / action screens: no standalone content to index, no owner approval. */
+const ACTION_SURFACES = [
+  '14_가입인사_글쓰기.html',
+  '15_단지이야기_글쓰기.html',
+  '16_궁금해요_글쓰기.html',
+  '17_같이해요_글쓰기.html',
+  '25A_신청제보.html'
+];
+
+/*
+ * A shared app shell. Phase A classifies it as neither public nor private, and
+ * it carries no robots meta of its own today, so nothing but this exclusion
+ * keeps it out of the index — recorded here rather than asserted as policy.
+ */
+const UNCLASSIFIED_SHELL = '18_공통앱셸.html';
+const INTERNAL_VARIANTS = ['index2', 'app2', 'app', '_v2', '_v3', '00_APP_390', '00_주민혜택_AB비교'];
+
+/*
+ * The indexable surfaces are declared above, but the privacy inventories are
+ * still read from Phase A so the two files cannot disagree about what is a
+ * private member surface. Slicing without a split() limit: JS's second argument
+ * caps the returned array length, so `split(needle, 1)[1]` is always undefined.
+ */
+const phaseA = await read('tests/seo-phase-a-802-contract.mjs');
 const listOf = (decl) => {
   const tail = phaseA.split(decl)[1];
   assert.ok(tail, `Phase A contract must keep the ${decl} declaration`);
@@ -39,94 +81,112 @@ const listOf = (decl) => {
 };
 const publicPages = listOf('const PUBLIC_PAGES = [');
 const privatePages = listOf('const PRIVATE_PAGES = [');
-assert.ok(publicPages.length > 0 && privatePages.length > 0, 'Phase A inventory must be parseable');
+assert.ok(publicPages.length >= 20 && privatePages.length >= 10,
+  'Phase A privacy inventories must stay parseable');
+assert.ok(INDEXABLE_PAGES.length < publicPages.length,
+  'the indexable set must stay narrower than the privacy classification');
 
-/*
- * Pages serves these static documents at clean URLs and answers the *.html
- * form with a 308 to it (verified live: /08_….html -> 308 -> /08_…, while
- * /08_… alone is 200). A canonical or sitemap entry that names the .html form
- * therefore publishes a URL whose final destination is somewhere else, which
- * is the one thing a canonical must not do. So every published path is built
- * from the extension-less stem, and `stem()` is the single place that decides
- * it — including for exclusions, so an entry cannot dodge a blocklist simply
- * by carrying the redirecting suffix.
- */
+/* A Korean route name in either URL spelling, so no entry dodges a blocklist. */
 const stem = (page) => encodeURI(page.replace(/\.html$/i, '')).replace(/'/g, '%27');
-const publicPath = (page) => (page === 'index.html' ? '/' : `/${stem(page)}`);
-const publicUrl = (page) => `${CANONICAL_ORIGIN}${publicPath(page)}`;
+const bothForms = (page) => [page.replace(/\.html$/i, ''), page];
 
-/* ---------- 1. every indexable surface carries exactly one canonical ---------- */
+const canonicalTags = (html) => [...html.matchAll(/<link[^>]*rel=["']canonical["'][^>]*>/gi)];
+
+/* ---------- 1. the landing carries the one approved canonical ---------- */
 {
-  assert.ok(publicPages.length >= 20, `expected at least 20 indexable surfaces, got ${publicPages.length}`);
-  for (const page of publicPages) {
-    const html = await read(page);
-    const tags = [...html.matchAll(/<link[^>]*rel=["']canonical["'][^>]*>/gi)];
-    assert.equal(tags.length, 1, `${page}: must carry exactly one canonical link`);
-    assert.ok(tags[0][0].includes(`href="${publicUrl(page)}"`),
-      `${page}: canonical must be the self URL on the canonical origin, got ${tags[0][0]}`);
-    assert.doesNotMatch(tags[0][0], /href="[^"]*\.html"/,
-      `${page}: a canonical must name the final clean URL; Pages 308-redirects the .html form`);
-    const head = html.slice(0, html.indexOf('</head>'));
-    assert.ok(head.includes('rel="canonical"'), `${page}: canonical must live in <head>`);
-  }
+  assert.deepEqual(INDEXABLE_PAGES, ['index.html'],
+    'Phase B scope is the landing only until the Owner widens it');
+  const html = await read('index.html');
+  const tags = canonicalTags(html);
+  assert.equal(tags.length, 1, 'the landing must carry exactly one canonical link');
+  const href = /href=["']([^"']+)["']/.exec(tags[0][0])[1];
+  assert.equal(href, `${CANONICAL_ORIGIN}/`,
+    'the landing canonical must be the origin root on the current public origin');
+  assert.ok(html.slice(0, html.indexOf('</head>')).includes('rel="canonical"'),
+    'the landing canonical must live in <head>');
+  assert.doesNotMatch(html, /<link[^>]*rel=["']canonical["'][^>]*href=["'][^"']*\.html["']/i,
+    'a canonical must name the final URL; Pages answers /index.html with a 308 to /');
+
+  const hosts = [...html.matchAll(/https?:\/\/([^/'"`\s<>?#]+)/gi)]
+    .map((m) => m[1].toLowerCase().replace(/\.$/, ''));
+  assert.deepEqual([...new Set(hosts)], [CANONICAL_HOST],
+    'the landing may name only the canonical origin as an absolute URL host');
 }
 
-/* ---------- 2. excluded surfaces keep their own noindex authority ---------- */
+/* ---------- 2. nothing else is canonicalised: PUBLIC does not imply INDEXABLE ---------- */
+{
+  for (const page of publicPages) {
+    if (INDEXABLE_PAGES.includes(page)) continue;
+    const html = await read(page);
+    assert.equal(canonicalTags(html).length, 0,
+      `${page}: no canonical while the indexable set is the landing only —`
+      + ' widening it needs an owner/indexability decision, not a loop over PUBLIC_PAGES');
+  }
+  for (const page of [...DETAIL_TEMPLATES, ...ACTION_SURFACES])
+    assert.ok(!INDEXABLE_PAGES.includes(page),
+      `${page}: detail templates and action surfaces must stay outside INDEXABLE_PAGES`);
+  for (const page of privatePages)
+    assert.equal(canonicalTags(await read(page)).length, 0,
+      `${page}: a noindexed private surface must not advertise a canonical`);
+  for (const page of ['admin/index.html', '404.html'])
+    assert.equal(canonicalTags(await read(page)).length, 0, `${page}: must not be canonicalised`);
+}
+
+/* ---------- 3. the privacy classification and its noindex authority still hold ---------- */
 {
   for (const page of privatePages) {
     const html = await read(page);
     assert.match(html, /<meta\s+name="robots"\s+content="noindex,nofollow"\s*\/?>/,
       `${page}: private surface must stay noindex,nofollow`);
-    assert.doesNotMatch(html, /<link[^>]*rel=["']canonical["']/i,
-      `${page}: a noindexed private surface must not advertise a canonical`);
   }
   const admin = await read('admin/index.html');
   assert.match(admin, /<meta name="robots" content="noindex"/, 'admin console must stay noindex');
-  assert.doesNotMatch(admin, /<link[^>]*rel=["']canonical["']/i, 'admin console must not be canonicalised');
   const notFound = await read('404.html');
-  assert.doesNotMatch(notFound, /<link[^>]*rel=["']canonical["']/i, 'the 404 page must not be canonicalised');
+  assert.match(notFound, /<meta name="robots" content="noindex,nofollow">/, '404 must stay noindex');
+  for (const page of publicPages) {
+    assert.doesNotMatch(await read(page), /<meta[^>]*name=["']robots["'][^>]*noindex/i,
+      `${page}: public surface must not be accidentally noindexed`);
+  }
 }
 
-/* ---------- 3. sitemap.xml carries exactly the indexable set ---------- */
+/* ---------- 4. the sitemap carries exactly the approved indexable set ---------- */
 {
   const xml = await read('sitemap.xml');
-  assert.match(xml, /^<\?xml version="1\.0" encoding="UTF-8"\?>/, 'sitemap needs an XML declaration');
+  assert.match(xml, /^<\?xml version="1\.0" encoding="UTF-8"\?>/, 'sitemap needs a UTF-8 XML declaration');
   assert.match(xml, /<urlset[^>]*xmlns="http:\/\/www\.sitemaps\.org\/schemas\/sitemap\/0\.9"/,
     'sitemap must use the sitemaps.org namespace');
   assert.match(xml, /<\/urlset>\s*$/, 'sitemap must close the urlset');
-  /*
-   * The ASCII requirement belongs on the published URLs, not on the file: the
-   * explanatory header is Korean by design, which is exactly why the
-   * declaration above must say UTF-8.
-   */
-  assert.match(xml, /^<\?xml version="1\.0" encoding="UTF-8"\?>/, 'sitemap must declare UTF-8');
-  for (const m of xml.matchAll(/<loc>([^<]+)<\/loc>/g))
-    assert.doesNotMatch(m[1], /[^\x00-\x7F]/, `sitemap URL must be percent-encoded ASCII: ${m[1]}`);
 
   const locs = [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
+  assert.deepEqual([...locs].sort(), [...INDEXABLE_URLS].sort(),
+    'the sitemap must hold exactly the owner-approved indexable URLs, nothing added and nothing dropped');
   assert.equal(new Set(locs).size, locs.length, 'sitemap must not list a URL twice');
-  assert.deepEqual([...locs].sort(), publicPages.map(publicUrl).sort(),
-    'sitemap set must equal the indexable public set, nothing added and nothing dropped');
-  for (const loc of locs) assert.ok(loc.startsWith(`${CANONICAL_ORIGIN}/`),
-    `every sitemap URL must be absolute on the canonical origin: ${loc}`);
-  for (const loc of locs) assert.doesNotMatch(loc, /\.html$/,
-    `a published sitemap URL must be the final clean URL, not the 308-redirecting .html form: ${loc}`);
-  assert.ok(locs.includes(`${CANONICAL_ORIGIN}/`), 'the landing must be listed as the origin root');
-  for (const page of privatePages)
-    assert.ok(!locs.some((loc) => loc.includes(`/${stem(page)}`)),
-      `sitemap must exclude private surface ${page}`);
-  // 18_공통앱셸.html is a shared app shell: Phase A classifies it as neither public
-  // nor private, so it must not be promoted into the index by this change.
-  assert.ok(!locs.some((loc) => loc.includes(`/${stem('18_공통앱셸.html')}`)),
-    'the unclassified shared app shell must stay out of the sitemap');
-  assert.equal(locs.length, publicPages.length,
-    'the sitemap may list exactly the Phase A indexable set');
-  assert.ok(!locs.some((loc) => /_v2$|_v3$/.test(loc) || loc.endsWith('/index2')),
-    'internal review/authoring variants must stay out of the sitemap');
+  for (const loc of locs) {
+    assert.doesNotMatch(loc, /[^\x00-\x7F]/, `sitemap URL must be percent-encoded ASCII: ${loc}`);
+    assert.ok(loc.startsWith(`${CANONICAL_ORIGIN}/`),
+      `every sitemap URL must be absolute on the canonical origin: ${loc}`);
+    assert.doesNotMatch(loc, /\.html$/,
+      `a published sitemap URL must be the final clean URL, not the 308-redirecting .html form: ${loc}`);
+  }
+  assert.ok(locs.includes(`${CANONICAL_ORIGIN}/`), 'the landing is published as the origin root');
+
+  const excluded = [...privatePages, ...DETAIL_TEMPLATES, ...ACTION_SURFACES, UNCLASSIFIED_SHELL];
+  for (const page of excluded) {
+    for (const form of bothForms(page)) {
+      assert.ok(!locs.some((loc) => loc.includes(encodeURI(form).replace(/'/g, '%27'))),
+        `sitemap must exclude ${page} (found the ${form} spelling)`);
+    }
+    assert.ok(!xml.includes(page), `sitemap must not even name the source file ${page} in a URL`);
+  }
+  for (const token of INTERNAL_VARIANTS)
+    assert.ok(!locs.some((loc) => loc.includes(token)),
+      `internal review/authoring variants must stay out of the sitemap (found ${token})`);
   assert.ok(!locs.some((loc) => loc.includes('/admin')), 'the admin console must stay out of the sitemap');
+  assert.equal(locs.length, INDEXABLE_PAGES.length,
+    'the sitemap may list exactly the approved indexable set');
 }
 
-/* ---------- 4. robots.txt advertises the sitemap on the canonical origin ---------- */
+/* ---------- 5. robots.txt advertises that sitemap and keeps the host policy ---------- */
 {
   const robots = await read('robots.txt');
   assert.match(robots, new RegExp(`^Sitemap: ${CANONICAL_ORIGIN.replace(/\./g, '\\.')}\\/sitemap\\.xml$`, 'm'),
@@ -135,75 +195,63 @@ const publicUrl = (page) => `${CANONICAL_ORIGIN}${publicPath(page)}`;
   assert.match(robots, /^User-agent: \*/m, 'robots.txt must keep the wildcard user-agent');
   assert.match(robots, /^Allow: \/$/m, 'robots.txt must keep allowing the public landing');
   assert.doesNotMatch(robots, /^\s*Disallow:\s*\/\s*$/im, 'robots.txt must not block the root');
-  for (const page of privatePages)
-    assert.ok(!robots.includes(page) && !robots.includes(publicPath(page).slice(1)),
-      `robots.txt must not list private surface ${page} — noindex in the head is the authority`);
-  for (const path of ['/admin/', '/index2.html', '/app2.html', '/00_APP_390_통합검토.html'])
-    assert.ok(robots.includes(path),
-      `robots.txt must keep its internal-only ${path} directive (see the deferred-pages follow-up note: this asserts the directive exists, not that it matches the clean URL)`);
-  const hosts = [...robots.matchAll(/https?:\/\/([^/'"`\s<>?#]+)/g)].map((m) => m[1].toLowerCase().replace(/\.$/, ''));
-  assert.deepEqual([...new Set(hosts)], ['danjion.pages.dev'],
-    'robots.txt may name only the canonical origin as an absolute host');
-}
+  assert.doesNotMatch(robots, /^\s*Sitemap:.*(padiem|_qa|review|preview)/im,
+    'the sitemap directive must point at the current canonical origin only');
 
-/* ---------- 5. one origin everywhere, and the deferred host is not published ---------- */
-{
-  const xml = await read('sitemap.xml');
-  const robots = await read('robots.txt');
-  /*
-   * Scope note: this constrains the machine-readable SEO surfaces — canonical
-   * hrefs, the sitemap and the robots directives. It deliberately does not
-   * constrain every URL in a document: the demo copy on some pages still links
-   * third-party placeholder images, which is a separate content concern from
-   * origin authority and is not what Phase B pins.
-   */
-  for (const page of publicPages) {
-    const html = await read(page);
-    for (const tag of html.matchAll(/<link[^>]*rel=["']canonical["'][^>]*>/gi)) {
-      const href = /href=["']([^"']+)["']/.exec(tag[0])?.[1] ?? '';
-      const url = new URL(href);
-      assert.equal(url.origin, CANONICAL_ORIGIN, `${page}: canonical href must be the current origin`);
-      assert.equal(url.pathname, publicPath(page), `${page}: canonical must be self-referential`);
+  for (const page of privatePages) {
+    for (const form of bothForms(page)) {
+      assert.ok(!robots.includes(form),
+        `robots.txt must not list private surface ${page} — noindex in the head is the authority`);
+      assert.ok(!robots.includes(encodeURI(form).replace(/'/g, '%27')),
+        `robots.txt must not list private surface ${page} in the percent-encoded spelling either`);
     }
   }
-  assert.ok(xml.includes(`${CANONICAL_ORIGIN}/sitemap.xml`) || robots.includes(`${CANONICAL_ORIGIN}/sitemap.xml`),
-    'the sitemap must be reachable on the canonical origin');
-  assert.ok(robots.includes(`${CANONICAL_ORIGIN}/sitemap.xml`), 'robots and sitemap must share one origin');
+  /*
+   * Scope note: these are the internal review/authoring directives, and this
+   * asserts they are present. It does not assert they match what a crawler is
+   * served: Pages redirects /index2.html to /index2, so a .html Disallow does
+   * not cover the clean URL, and non-ASCII paths need percent-encoding to match
+   * at all. See the follow-up recorded in the PR body.
+   */
+  for (const path of ['/admin/', '/index2.html', '/app2.html', '/00_APP_390_통합검토.html'])
+    assert.ok(robots.includes(path),
+      `robots.txt must keep its internal-only ${path} directive (existence only, see the clean-URL follow-up)`);
 
   /*
-   * The deferred host may appear in prose comments — that documentation is what
-   * stops a future editor from assuming pages.dev is permanent. It must never
-   * appear in a machine-readable surface: not in a <loc>, and not in any
-   * non-comment robots.txt directive.
+   * Same normalization as the landing scan above: capture the whole host and
+   * strip a sentence-final period, so the comparison rejects look-alikes such
+   * as danjion.pages.dev.evil.example and any non-canonical host, while prose
+   * like "…https://danjion.pages.dev." in the header is not a stray host.
    */
-  const locText = [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]).join(' ');
-  assert.ok(!locText.includes(DEFERRED_HOST), 'no sitemap URL may name the deferred custom domain');
-  assert.ok(!locText.includes('padiem.net'), 'no sitemap URL may name the Padiem domain at all');
+  const hosts = [...robots.matchAll(/https?:\/\/([^/'"`\s<>?#]+)/g)]
+    .map((m) => m[1].toLowerCase().replace(/\.$/, ''));
+  assert.deepEqual([...new Set(hosts)], [CANONICAL_HOST],
+    'robots.txt may name only the canonical origin as an absolute host');
   const directives = robots.split('\n').filter((line) => line.trim() && !line.trim().startsWith('#')).join('\n');
-  assert.ok(!directives.includes(DEFERRED_HOST),
-    'no robots.txt directive may name the deferred custom domain');
-  assert.ok(!/^\s*Sitemap:.*(padiem|_qa|review|preview)/im.test(robots),
-    'the sitemap directive must point at the current canonical origin only');
+  assert.ok(!directives.includes(DEFERRED_HOST), 'no robots.txt directive may name the deferred domain');
 }
 
-/* ---------- 6. the deferred domain stays documented as future work ---------- */
+/* ---------- 6. the deferred domain stays documentation, never published data ---------- */
 {
   const xml = await read('sitemap.xml');
   const robots = await read('robots.txt');
-  assert.match(xml, /DEFERRED/, 'the sitemap header must record the custom domain as deferred');
-  assert.match(robots, /DEFERRED/, 'robots.txt header must record the custom domain as deferred');
+  for (const [label, text] of [['sitemap.xml', xml], ['robots.txt', robots]]) {
+    assert.match(text, /DEFERRED/, `${label} must record the custom domain as deferred`);
+    assert.ok(!text.includes(`${CANONICAL_ORIGIN}/index.html`),
+      `${label} must not publish the redirecting /index.html form`);
+  }
   assert.match(robots, /one bounded follow-up/,
     'robots.txt must keep the rule that a future cutover moves every surface at once');
-  assert.match(robots, /canonical[\s\S]{0,200}Search Console/,
-    'robots.txt must name the paired surfaces: canonical URLs, sitemap and Search Console');
-  assert.match(xml, /must not name it|must not/,
-    'the sitemap header must instruct against naming the deferred host');
-  const sitemapDirectiveCount = [...xml.matchAll(/<loc>/g)].length;
-  assert.ok(sitemapDirectiveCount >= 20,
-    `sitemap must publish every indexable surface (found ${sitemapDirectiveCount})`);
+  assert.match(robots, /canonical[\s\S]{0,240}Search Console/,
+    'robots.txt must name the paired surfaces: canonical URL, sitemap and Search Console');
+  assert.match(xml, /PUBLIC is not INDEXABLE/,
+    'the sitemap header must record that the privacy classification is not an indexability decision');
+  assert.match(xml, /indexability/,
+    'the sitemap header must point a future editor at the owner decision that widens this set');
 }
 
 console.log(
-  `seo-phase-b-802-sitemap-canonical-contract: PASS canonical=${publicPages.length} `
-  + `excluded_private=${privatePages.length} origin=${CANONICAL_ORIGIN}`
+  `seo-phase-b-802-sitemap-canonical-contract: PASS canonical=${INDEXABLE_PAGES.length} `
+  + `sitemap=${INDEXABLE_URLS.length} guarded_public=${publicPages.length - INDEXABLE_PAGES.length} `
+  + `private=${privatePages.length} origin=${CANONICAL_ORIGIN}`
 );

@@ -3,8 +3,10 @@
 # Host authority (issue #802 owner decision, 2026-09-21): the current public and
 # canonical Production origin is https://danjion.pages.dev. The planned
 # danjion.padiem.net migration is DEFERRED and no longer blocks SEO, so the
-# Sitemap directive below is pinned to the Pages origin. When a custom-domain
-# cutover is authorized, this directive, the sitemap's absolute URLs, every
+# Sitemap directive below is pinned to the Pages origin. The sitemap is
+# deliberately bounded to the approved public landing for now; widening it needs
+# a separate owner/indexability decision. When a custom-domain cutover is
+# authorized, this directive, the sitemap's absolute URLs, the landing's
 # <link rel="canonical"> and the Search Console property must move together in
 # one bounded follow-up — never partially.
 #

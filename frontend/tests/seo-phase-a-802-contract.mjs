@@ -10,8 +10,8 @@ import { readFile } from 'node:fs/promises';
  *   2. the public landing is indexable (never blocked)
  *   3. private / personalized member surfaces are marked noindex
  *   4. no production-facing title ships internal process metadata
- *   5. absolute published URLs use exactly the current canonical origin, and
- *      no other host
+ *   5. the landing pins the current canonical origin, and no production-facing
+ *      surface publishes the deferred custom domain
  *
  * PHASE B SUPERSESSION (owner decision 2026-09-21, #802 Phase B):
  * Sections 6 and 7 used to assert that a canonical link and a Sitemap
@@ -21,7 +21,8 @@ import { readFile } from 'node:fs/promises';
  * encoded a rule the project no longer runs under. They are now replaced by
  * narrower ones that pin the exact origin and still forbid every other host,
  * which is strictly more checking than before, not less. The
- * canonical/sitemap/robots content itself is asserted by
+ * canonical/sitemap/robots content itself — and the rule that only the landing
+ * is indexable for now — is asserted by
  * seo-phase-b-802-sitemap-canonical-contract.mjs.
  */
 
@@ -88,6 +89,16 @@ const PRIVATE_PAGES = [
 const FORBIDDEN_TITLE = /STEP\s*\d+|WEB\s+CINEMATIC|웹\s*통합검토|프론트엔드\s*점검|점검\s*\d+기/i;
 const CANONICAL_ORIGIN = 'https://danjion.pages.dev';
 const CANONICAL_HOST = 'danjion.pages.dev';
+/*
+ * The host that must never be published as a URL: the deferred custom domain.
+ * Shape matters here. The runtime deliberately keeps same-origin pre-support for
+ * this hostname (a bare `location.hostname` comparison, preserved on purpose by
+ * #839/#804), so a substring ban would fail on code that is correct. What is
+ * forbidden is a published URL — absolute or protocol-relative — that points a
+ * crawler or a browser at the deferred host.
+ */
+const DEFERRED_HOST = 'danjion.padiem.net';
+const DEFERRED_URL = new RegExp(`(?:https?:)?//[^\\s"<>]*${DEFERRED_HOST.replace(/[.]/g, '\\.')}`, 'i');
 
 /*
  * Every absolute URL host in a published SEO surface must be exactly the current
@@ -199,6 +210,12 @@ for (const page of [...PUBLIC_PAGES, ...PRIVATE_PAGES, 'index2.html', '00_APP_39
   );
 }
 
+/* ---------- 5b. no production-facing surface publishes the deferred domain ---------- */
+for (const page of [...PUBLIC_PAGES, ...PRIVATE_PAGES]) {
+  assert.doesNotMatch(await read(page), DEFERRED_URL,
+    `${page}: ${DEFERRED_URL.source} is DEFERRED and may not be published as a URL before the cutover decision`);
+}
+
 /* ---------- 6. the landing pins the current canonical origin, and nothing else ---------- */
 {
   const landing = await read('index.html');
@@ -272,9 +289,8 @@ for (const page of [...PUBLIC_PAGES, ...PRIVATE_PAGES, 'index2.html', '00_APP_39
     /<meta[^>]*name=["']robots["'][^>]*noindex/i,
     '08: a public apartment-news list must not be noindexed'
   );
-  assert.ok(list.includes('rel="canonical" href="https://danjion.pages.dev/08_'),
-    '08: the public news list must carry a canonical on the current origin');
-  assertOnlyCanonicalHost(list, '08');
+  assert.doesNotMatch(list, DEFERRED_URL,
+    '08: the deferred custom-domain host must not be published as a URL');
   assert.ok(
     !PRIVATE_PAGES.includes('08_아파트소식_목록.html'),
     '08: must never be classified as a private member surface'
@@ -293,9 +309,8 @@ for (const page of [...PUBLIC_PAGES, ...PRIVATE_PAGES, 'index2.html', '00_APP_39
     /<meta[^>]*name=["']robots["'][^>]*noindex/i,
     '08A: a public article detail must not be noindexed'
   );
-  assert.ok(article.includes('rel="canonical" href="https://danjion.pages.dev/08A_'),
-    '08A: the public article detail must carry a canonical on the current origin');
-  assertOnlyCanonicalHost(article, '08A');
+  assert.doesNotMatch(article, DEFERRED_URL,
+    '08A: the deferred custom-domain host must not be published as a URL');
   assert.ok(
     !PRIVATE_PAGES.includes('08A_아파트소식_상세.html'),
     '08A: must never be classified as a private member surface'
