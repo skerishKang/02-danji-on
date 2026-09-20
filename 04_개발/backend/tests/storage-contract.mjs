@@ -117,8 +117,10 @@ assert.ok(removeBlock.includes("if (parsed.kind === 'business-image')"),
   'business image delete must enter lifecycle registry routing');
 assert.ok(removeBlock.includes("if (parsed.kind === 'official-news-image')"),
   '#844: official news image delete must have its own reference-guarded lane');
-assert.ok(removeBlock.includes('await officialNewsImageDeleteConflict(auth.sql, parsed.objectKey, requestId)'),
-  '#844: a referenced official-news image must be denied retirement before any Drive mutation');
+assert.ok(removeBlock.includes('await acquireOfficialNewsImageDeleteIntent(auth.sql, parsed.objectKey, requestId)'),
+  '#844 BLOCKER 1: delete must acquire a durable delete intent before any Drive mutation');
+assert.equal(removeBlock.includes("set state = 'retired'"), false,
+  '#844 BLOCKER 1: the route must not jump active -> retired directly after a Drive mutation');
 
 const registeredStart = storage.indexOf('async function removeRegisteredBusinessImage(');
 const registeredEnd = storage.indexOf('async function removeLegacyUnregisteredBusinessImage(', registeredStart);
@@ -209,19 +211,41 @@ assert.equal(referenceBlock.includes('danjionUploaderUserId !=='), false,
 assert.ok(adminOperational.includes('validateOfficialNewsImageReference'),
   'create/patch must validate client-supplied attachment keys server-side');
 
-// Amendment D: public streaming requires an active object referenced by a PUBLISHED post.
+// Amendment D: public streaming requires an active object referenced by a PUBLISHED official post.
 assert.ok(storage.includes('officialNewsImagePubliclyVisible'));
 assert.ok(storage.includes("p.status = 'published'"));
+assert.ok(storage.includes("p.channel in ('apartment_news', 'management_office')"),
+  '#844 BLOCKER 3: the public resolver must require an official apartment-news channel');
 assert.ok(storage.includes("o.state = 'active'"));
 assert.ok(storage.includes('business_image_objects o'), 'resolver must consult the lifecycle registry');
 
-// Amendment C: delete guard.
-assert.ok(storage.includes('officialNewsImageDeleteConflict'));
-const deleteGuard = storage.slice(storage.indexOf('async function officialNewsImageDeleteConflict('));
+// Amendment C / BLOCKER 1: durable delete intent, refused while referenced, reconcilable on failure.
+assert.ok(storage.includes('export async function acquireOfficialNewsImageDeleteIntent('));
+const deleteGuard = storage.slice(storage.indexOf('export async function acquireOfficialNewsImageDeleteIntent('));
+assert.ok(deleteGuard.includes('sql.transaction('), 'BLOCKER 1: intent acquisition must be transactional');
+assert.ok(deleteGuard.includes('for update'), 'BLOCKER 1: the registry row must be locked');
 assert.ok(deleteGuard.includes('from complex_posts p') && deleteGuard.includes('p.attachment_object_key = ${objectKeyValue}'),
-  'Amendment C: delete must be denied while a post references the image');
+  'BLOCKER 1: the reference check must live in the same serialization boundary');
+assert.ok(deleteGuard.includes("set state = 'delete_pending'"), 'BLOCKER 1: active -> delete_pending');
+assert.ok(deleteGuard.includes('and not u.post_in_use'), 'NEW_REFERENCE_XOR_DELETE_INTENT');
 assert.ok(deleteGuard.includes('OFFICIAL_NEWS_IMAGE_IN_USE'));
 assert.ok(deleteGuard.includes('409'), 'a referenced official-news image delete must fail with 409');
+assert.ok(storage.includes('finalizeOfficialNewsImageRetired'), 'DELETE_PENDING -> RETIRED finalize must exist');
+assert.ok(storage.includes('trashOfficialNewsImageAndFinalize'));
+assert.ok(storage.includes('OFFICIAL_NEWS_IMAGE_RETIREMENT_RECONCILABLE'),
+  'DRIVE_FAILURE_RECONCILABLE / FINALIZE_FAILURE_RECONCILABLE');
+assert.ok(storage.includes('reconcileOfficialNewsImageRetirement'),
+  'a delete_pending object must stay retryable');
+
+// BLOCKER 4: registry uploader must equal the Drive-recorded uploader (editor equality is not required).
+assert.ok(referenceBlock.includes('registry.uploader_user_id') && referenceBlock.includes('danjionUploaderUserId'),
+  'BLOCKER 4: REGISTRY_UPLOADER_EQUALS_DRIVE_UPLOADER');
+
+// BLOCKER 3: the admin write path refuses an attachment on a non-official channel.
+assert.ok(adminOperational.includes('OFFICIAL_NEWS_IMAGE_CHANNEL_INVALID'),
+  'BLOCKER 3: danjion_notice/chair_greeting attachments must be rejected');
+assert.ok(adminOperational.includes("channel !== 'apartment_news' && channel !== 'management_office'"),
+  'BLOCKER 3: only apartment_news/management_office may carry a photo');
 
 console.log('PASS Google Drive storage contract, evidence HOLD and current Household-v2 business-media authorization');
 console.log('PASS #844 official apartment-news public image lane (kind, namespace, authz, resolver, delete guard)');

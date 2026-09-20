@@ -286,35 +286,87 @@ export async function applicationDocumentDeleteConflict(
   return null;
 }
 
+type OfficialNewsDeleteIntentDecision = {
+  state?: string;
+  post_in_use?: boolean;
+  delete_intent_acquired?: boolean;
+};
+
 /**
- * #844 Amendment C: an official-news image that is still attached to any complex_posts row must
- * never be retired/trashed, otherwise a published article keeps an object key whose bytes are gone.
- * Reference status is checked on every post status (draft/published/archived) to stay conservative.
+ * #844 BLOCKER 1: durable delete intent for official-news images.
+ *
+ * The reference check and the active -> delete_pending acquisition run inside ONE PostgreSQL
+ * serialization boundary (row lock + conditional update in the same transaction). A concurrent new
+ * post reference therefore either lands before the intent (delete is denied) or after it (the
+ * reference validator only accepts state='active', so acquisition is refused). There is no window in
+ * which a published article points at an object that is being retired.
+ *
+ * After Drive trash succeeds the row is finalized to 'retired'; if Drive or the finalize step fails,
+ * the durable 'delete_pending' state remains and retirement stays retryable/reconcilable.
  */
-async function officialNewsImageDeleteConflict(
+export async function acquireOfficialNewsImageDeleteIntent(
   sql: Sql,
   objectKeyValue: string,
   requestId: string
-): Promise<Response | null> {
-  let rows;
+): Promise<{ acquired: boolean; state: string } | Response> {
+  let lockedRows;
+  let decisionRows;
   try {
-    rows = await sql`
-      select exists (
-        select 1
-        from complex_posts p
-        where p.attachment_object_key = ${objectKeyValue}
-      ) as post_in_use
-    `;
+    [lockedRows, decisionRows] = await sql.transaction([
+      sql`
+        select object_key, complex_id, state
+        from business_image_objects
+        where object_key = ${objectKeyValue}
+          and kind = 'official-news-image'
+        for update
+      `,
+      sql`
+        with usage as (
+          select exists (
+            select 1 from complex_posts p
+            where p.attachment_object_key = ${objectKeyValue}
+          ) as post_in_use
+        ),
+        updated as (
+          update business_image_objects bio
+          set state = 'delete_pending',
+              delete_requested_at = coalesce(bio.delete_requested_at, now()),
+              updated_at = now()
+          from usage u
+          where bio.object_key = ${objectKeyValue}
+            and bio.kind = 'official-news-image'
+            and bio.state = 'active'
+            and not u.post_in_use
+          returning bio.object_key
+        )
+        select
+          (select state from business_image_objects where object_key = ${objectKeyValue}) as state,
+          u.post_in_use,
+          exists (select 1 from updated) as delete_intent_acquired
+        from usage u
+      `
+    ]);
   } catch {
     return fail(
       'OFFICIAL_NEWS_IMAGE_REFERENCE_CHECK_UNAVAILABLE',
-      'Official news image usage could not be verified before deletion',
+      'Official news image lifecycle/reference state could not be verified before deletion',
       503,
       requestId
     );
   }
-  const usage = rows[0] as { post_in_use?: boolean } | undefined;
-  if (usage?.post_in_use) {
+
+  const locked = (lockedRows as { object_key?: string; state?: string }[])[0];
+  if (!locked) {
+    return fail(
+      'OFFICIAL_NEWS_IMAGE_NOT_REGISTERED',
+      'Official news image is not registered for lifecycle mutation',
+      409,
+      requestId
+    );
+  }
+
+  const decision = (decisionRows as OfficialNewsDeleteIntentDecision[])[0];
+  if (decision?.post_in_use) {
     return fail(
       'OFFICIAL_NEWS_IMAGE_IN_USE',
       'Official news image is still attached to an apartment-news post',
@@ -322,7 +374,129 @@ async function officialNewsImageDeleteConflict(
       requestId
     );
   }
-  return null;
+  if (decision?.delete_intent_acquired) return { acquired: true, state: 'delete_pending' };
+  return { acquired: false, state: String(decision?.state ?? locked.state ?? '') };
+}
+
+async function finalizeOfficialNewsImageRetired(
+  sql: Sql,
+  objectKeyValue: string,
+  requestId: string
+): Promise<Response | null> {
+  try {
+    const rows = await sql`
+      update business_image_objects
+      set state = 'retired',
+          retired_at = coalesce(retired_at, now()),
+          reconcile_lease_token = null,
+          reconcile_lease_expires_at = null,
+          reconcile_next_attempt_at = null,
+          reconcile_last_error_code = null,
+          updated_at = now()
+      where object_key = ${objectKeyValue}
+        and kind = 'official-news-image'
+        and state = 'delete_pending'
+      returning state
+    `;
+    if (rows[0]) return null;
+    const current = await sql`
+      select state from business_image_objects
+      where object_key = ${objectKeyValue}
+        and kind = 'official-news-image'
+      limit 1
+    `;
+    if (String((current[0] as { state?: string } | undefined)?.state ?? '') === 'retired') return null;
+    return fail(
+      'OFFICIAL_NEWS_IMAGE_RETIREMENT_STATE_UNAVAILABLE',
+      'Official news image retirement could not be finalized safely',
+      503,
+      requestId
+    );
+  } catch {
+    return fail(
+      'OFFICIAL_NEWS_IMAGE_REGISTRY_UNAVAILABLE',
+      'Official news image lifecycle registry is unavailable',
+      503,
+      requestId
+    );
+  }
+}
+
+async function trashOfficialNewsImageAndFinalize(
+  env: DriveEnv,
+  sql: Sql,
+  parsed: ParsedObjectKey,
+  requestId: string
+): Promise<Response> {
+  let response: Response;
+  try {
+    response = await googleFetch(env, `${DRIVE_API}/files/${encodeURIComponent(parsed.fileId)}?supportsAllDrives=true`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ trashed: true })
+    });
+  } catch {
+    return fail(
+      'OFFICIAL_NEWS_IMAGE_RETIREMENT_RECONCILABLE',
+      'Official news image is marked for deletion but Google Drive could not be reached; retirement stays reconcilable',
+      503,
+      requestId
+    );
+  }
+  if (!response.ok && response.status !== 404) {
+    return fail(
+      'OFFICIAL_NEWS_IMAGE_RETIREMENT_RECONCILABLE',
+      'Official news image is marked for deletion but Google Drive rejected the trash request; retirement stays reconcilable',
+      503,
+      requestId
+    );
+  }
+
+  const finalized = await finalizeOfficialNewsImageRetired(sql, parsed.objectKey, requestId);
+  if (finalized) return finalized;
+  return ok({ objectKey: parsed.objectKey, deleted: true, retired: true }, requestId);
+}
+
+async function reconcileOfficialNewsImageRetirement(
+  env: DriveEnv,
+  sql: Sql,
+  parsed: ParsedObjectKey,
+  requestId: string
+): Promise<Response> {
+  const rows = await sql`
+    select state from business_image_objects
+    where object_key = ${parsed.objectKey}
+      and kind = 'official-news-image'
+    limit 1
+  `;
+  const state = String((rows[0] as { state?: string } | undefined)?.state ?? '');
+  if (state === 'retired') {
+    return ok({ objectKey: parsed.objectKey, deleted: true, retired: true, alreadyRetired: true }, requestId);
+  }
+  if (state !== 'delete_pending') {
+    return fail(
+      'OFFICIAL_NEWS_IMAGE_NOT_ACTIVE',
+      'Official news image is not in a reconcilable deletion state',
+      409,
+      requestId
+    );
+  }
+
+  const blocking = await sql`
+    select exists (
+      select 1 from complex_posts p
+      where p.attachment_object_key = ${parsed.objectKey}
+    ) as post_in_use
+  `;
+  if ((blocking[0] as { post_in_use?: boolean } | undefined)?.post_in_use) {
+    return fail(
+      'OFFICIAL_NEWS_IMAGE_IN_USE',
+      'Official news image is still attached to an apartment-news post',
+      409,
+      requestId
+    );
+  }
+  return trashOfficialNewsImageAndFinalize(env, sql, parsed, requestId);
 }
 
 /**
@@ -348,6 +522,7 @@ async function officialNewsImagePubliclyVisible(
           on p.attachment_object_key = o.object_key
          and p.complex_id = o.complex_id
          and p.status = 'published'
+         and p.channel in ('apartment_news', 'management_office')
         where o.object_key = ${objectKeyValue}
           and o.kind = 'official-news-image'
           and o.state = 'active'
@@ -851,9 +1026,10 @@ async function removeObject(request: Request, env: DriveEnv, requestId: string):
      if (registry instanceof Response) return registry;
      if (!registry) return fail('NOT_FOUND', 'Storage object not found', 404, requestId);
 
-     // Amendment C: referenced images can never be retired.
-     const conflict = await officialNewsImageDeleteConflict(auth.sql, parsed.objectKey, requestId);
-     if (conflict) return conflict;
+     const state = String(registry.state ?? '');
+     if (state === 'retired') {
+       return ok({ objectKey: parsed.objectKey, deleted: true, retired: true, alreadyRetired: true }, requestId);
+     }
 
      // Deletion authority is official-content authority for the owning complex. Uploader identity
      // is intentionally not required (Amendment B: SAME_UPLOADER_REQUIRED=NO).
@@ -876,6 +1052,13 @@ async function removeObject(request: Request, env: DriveEnv, requestId: string):
      );
      if (authority instanceof Response) return authority;
 
+     if (state === 'delete_pending') {
+       return reconcileOfficialNewsImageRetirement(env, auth.sql, parsed, requestId);
+     }
+     if (state !== 'active') {
+       return fail('OFFICIAL_NEWS_IMAGE_NOT_ACTIVE', 'Official news image is not active for lifecycle mutation', 409, requestId);
+     }
+
      let metadata: DriveMetadata | null;
      try {
        metadata = await readDriveMetadata(env, parsed);
@@ -883,32 +1066,23 @@ async function removeObject(request: Request, env: DriveEnv, requestId: string):
        return fail('STORAGE_UNAVAILABLE', 'Storage object could not be verified', 503, requestId);
      }
      if (!metadata || !metadataMatches(env, parsed, metadata)) return fail('NOT_FOUND', 'Storage object not found', 404, requestId);
-     const response = await googleFetch(env, `${DRIVE_API}/files/${encodeURIComponent(parsed.fileId)}?supportsAllDrives=true`, {
-       method: 'PATCH',
-       headers: { 'content-type': 'application/json' },
-       body: JSON.stringify({ trashed: true })
-     });
-     if (!response.ok) throw new Error(`Google Drive delete failed (${response.status})`);
-     try {
-       await auth.sql`
-         update business_image_objects
-         set state = 'retired',
-             delete_requested_at = coalesce(delete_requested_at, now()),
-             retired_at = now(),
-             updated_at = now()
-         where object_key = ${parsed.objectKey}
-           and kind = 'official-news-image'
-           and state = 'active'
-       `;
-     } catch {
-       return fail(
-         'OFFICIAL_NEWS_IMAGE_REGISTRY_UNAVAILABLE',
-         'Official news image retirement could not be recorded',
-         503,
-         requestId
-       );
+
+     // BLOCKER 1: the reference check and the active -> delete_pending acquisition share one DB
+     // serialization boundary, so a concurrent post reference can never land in between.
+     const intent = await acquireOfficialNewsImageDeleteIntent(auth.sql, parsed.objectKey, requestId);
+     if (intent instanceof Response) return intent;
+     if (!intent.acquired) {
+       if (intent.state === 'delete_pending') {
+         return reconcileOfficialNewsImageRetirement(env, auth.sql, parsed, requestId);
+       }
+       if (intent.state === 'retired') {
+         return ok({ objectKey: parsed.objectKey, deleted: true, retired: true, alreadyRetired: true }, requestId);
+       }
+       return fail('OFFICIAL_NEWS_IMAGE_NOT_ACTIVE', 'Official news image is not active for deletion', 409, requestId);
      }
-     return ok({ objectKey: parsed.objectKey, deleted: true }, requestId);
+
+     // The durable delete_pending intent is committed before this external Drive side effect.
+     return trashOfficialNewsImageAndFinalize(env, auth.sql, parsed, requestId);
    }
 
    return fail('INVALID_OBJECT_KEY', 'Invalid storage object key', 400, requestId);

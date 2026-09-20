@@ -126,7 +126,7 @@ export async function validateOfficialNewsImageReference(
       requestId
     );
   }
-  const registry = registryRows[0] as { complex_id?: string; state?: string; kind?: string } | undefined;
+  const registry = registryRows[0] as { uploader_user_id?: string; complex_id?: string; state?: string; kind?: string } | undefined;
   if (!registry || registry.kind !== 'official-news-image') {
     return fail(
       'INVALID_OFFICIAL_NEWS_IMAGE_REFERENCE',
@@ -177,6 +177,17 @@ export async function validateOfficialNewsImageReference(
     return fail(
       'OFFICIAL_NEWS_IMAGE_REFERENCE_FORBIDDEN',
       'Official news image storage metadata does not match this complex',
+      403,
+      requestId
+    );
+  }
+  // BLOCKER 4: the registry uploader must equal the Drive-recorded uploader. The post editor does
+  // not have to be the uploader (SAME_UPLOADER_REQUIRED=NO), but the two server-side identities
+  // that describe one object must agree.
+  if (String(registry.uploader_user_id ?? '') !== String(props.danjionUploaderUserId ?? '')) {
+    return fail(
+      'OFFICIAL_NEWS_IMAGE_REFERENCE_FORBIDDEN',
+      'Official news image registry uploader does not match its storage metadata',
       403,
       requestId
     );

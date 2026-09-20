@@ -9,6 +9,7 @@
         {"id":"typecheck","npm":"typecheck","kind":"build"},
         {"id":"test:storage","npm":"test:storage","kind":"contract"},
         {"id":"test:storage-contract","npm":"test:storage-contract","kind":"contract"},
+        {"id":"test:official-news-image-844-lifecycle","npm":"test:official-news-image-844-lifecycle","kind":"contract"},
         {"id":"test:contract","npm":"test:contract","kind":"contract"},
         {"id":"test:auth","npm":"test:auth","kind":"contract"},
         {"id":"test:auth-better-contract","npm":"test:auth-better-contract","kind":"contract"},

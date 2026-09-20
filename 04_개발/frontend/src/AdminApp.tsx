@@ -14,7 +14,7 @@ import {
   type AdminReviewEvent
 } from './admin-api';
 import ResidentNewsReviewPanel from './ResidentNewsReviewPanel';
-import { storageAdapter, type StoredObject } from './storage';
+import { storageAdapter, validateStorageFile } from './storage';
 
 type AdminTab = 'applications' | 'recommendations' | 'audit' | 'residentNews' | 'posts' | 'benefits' | 'privileged';
 type ReviewStatus = Exclude<AdminApplicationStatus, 'draft'>;
@@ -70,8 +70,11 @@ export default function AdminApp() {
   const [busyId, setBusyId] = useState('');
   const [message, setMessage] = useState('');
   const [postForm, setPostForm] = useState({ sourceName: '단지온 운영자', category: '주민 사업자 소식', title: '', body: '' });
-  // #844: the composer holds only the server-returned object key; the local object URL is a preview.
-  const [postImage, setPostImage] = useState<StoredObject | null>(null);
+  // #844 BLOCKER 2: the composer keeps only a LOCAL file + object-URL preview. The server upload
+  // happens at submit time, so selecting then removing/replacing before submit mutates nothing.
+  const [postChannel, setPostChannel] = useState<'apartment_news' | 'management_office'>('apartment_news');
+  const [postImageFile, setPostImageFile] = useState<File | null>(null);
+  const [postImagePreview, setPostImagePreview] = useState<string | null>(null);
   const [postImageBusy, setPostImageBusy] = useState(false);
   const [postImageError, setPostImageError] = useState('');
   const [benefitForm, setBenefitForm] = useState({ businessId: '', title: '', description: '', conditions: '방림명지로드힐 인증 입주민 대상' });
@@ -195,6 +198,32 @@ export default function AdminApp() {
     }
   }
 
+  function releasePreview(url: string | null) {
+    if (url?.startsWith('blob:')) URL.revokeObjectURL(url);
+  }
+
+  function selectPostImage(file: File | null) {
+    if (!file) return;
+    try {
+      // Local validation first: the specific format/size error never reaches the network.
+      validateStorageFile('official-news-image', file);
+    } catch (error) {
+      setPostImageError(error instanceof Error ? error.message : '사진을 선택할 수 없습니다.');
+      return;
+    }
+    setPostImageError('');
+    releasePreview(postImagePreview);
+    setPostImageFile(file);
+    setPostImagePreview(URL.createObjectURL(file));
+  }
+
+  function removePostImage() {
+    // BLOCKER 2: no server mutation on remove before submit.
+    releasePreview(postImagePreview);
+    setPostImageFile(null);
+    setPostImageError('');
+  }
+
   async function submitPost(event: FormEvent) {
     event.preventDefault();
     if (!postForm.title.trim() || !postForm.body.trim()) {
@@ -207,40 +236,31 @@ export default function AdminApp() {
     }
     setBusyId('post');
     try {
-      // #844: only the object key returned by the canonical upload is submitted; the client never
-      // fabricates or prefix-guesses an attachment key.
-      await adminAdapter.createPost({ ...postForm, attachmentObjectKey: postImage?.objectKey ?? null });
-      if (postImage) storageAdapter.releasePreview?.(postImage);
-      setPostImage(null);
+      let attachmentObjectKey: string | null = null;
+      if (postImageFile) {
+        setPostImageBusy(true);
+        // BLOCKER 2/BLOCKER 3: official-news upload runs at submit with the admin auth surface;
+        // only the object key the server returns is submitted.
+        const uploaded = await storageAdapter.upload('official-news-image', postImageFile, { surface: 'admin' });
+        attachmentObjectKey = uploaded.objectKey;
+        setPostImageBusy(false);
+      }
+      await adminAdapter.createPost({ ...postForm, channel: postChannel, attachmentObjectKey });
+      releasePreview(postImagePreview);
+      setPostImagePreview(null);
+      setPostImageFile(null);
       setPostImageError('');
       setPostForm((current) => ({ ...current, title: '', body: '' }));
       setMessage('단지소식을 게시했습니다.');
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : '단지소식을 게시하지 못했습니다.');
-    } finally {
-      setBusyId('');
-    }
-  }
-
-  async function selectPostImage(file: File | null) {
-    if (!file) return;
-    setPostImageError('');
-    setPostImageBusy(true);
-    try {
-      const uploaded = await storageAdapter.upload('official-news-image', file);
-      if (postImage) storageAdapter.releasePreview?.(postImage);
-      setPostImage(uploaded);
-    } catch (error) {
-      setPostImageError(error instanceof Error ? error.message : '사진을 업로드하지 못했습니다.');
+      // POST_CREATE_FAILURE_NO_FALSE_SUCCESS: surface the failure and keep the chosen photo.
+      const detail = error instanceof Error ? error.message : '단지소식을 게시하지 못했습니다.';
+      if (postImageFile) setPostImageError(detail);
+      setMessage(detail);
     } finally {
       setPostImageBusy(false);
+      setBusyId('');
     }
-  }
-
-  function removePostImage() {
-    if (postImage) storageAdapter.releasePreview?.(postImage);
-    setPostImage(null);
-    setPostImageError('');
   }
 
   async function submitBenefit(event: FormEvent) {
@@ -429,13 +449,14 @@ export default function AdminApp() {
             <label><span>분류</span><input value={postForm.category} onChange={(event) => setPostForm({ ...postForm, category: event.target.value })} /></label>
             <label className="full"><span>제목</span><input value={postForm.title} onChange={(event) => setPostForm({ ...postForm, title: event.target.value })} placeholder="예: 8월 입주자대표회의 활동 안내" /></label>
             <label className="full"><span>내용</span><textarea value={postForm.body} onChange={(event) => setPostForm({ ...postForm, body: event.target.value })} rows={8} /></label>
-            <label className="full"><span>대표 사진 (JPG·PNG·WebP, 8MB 이하 1장)</span><input type="file" accept="image/jpeg,image/png,image/webp" disabled={postImageBusy || busyId === 'post'} onChange={(event) => { const picked = event.target.files?.[0] ?? null; event.target.value = ''; void selectPostImage(picked); }} /></label>
+            <label className="full"><span>공식 채널</span><select value={postChannel} onChange={(event) => setPostChannel(event.target.value === 'management_office' ? 'management_office' : 'apartment_news')}><option value="apartment_news">입주자대표회의 소식 (apartment_news)</option><option value="management_office">관리사무소 소식 (management_office)</option></select></label>
+            <label className="full"><span>대표 사진 (JPG·PNG·WebP, 8MB 이하 1장)</span><input type="file" accept="image/jpeg,image/png,image/webp" disabled={postImageBusy || busyId === 'post'} onChange={(event) => { const picked = event.target.files?.[0] ?? null; event.target.value = ''; selectPostImage(picked); }} /></label>
             {postImageBusy && <p className="admin-summary">사진 업로드 중입니다...</p>}
             {postImageError && <p className="admin-summary" role="alert">{postImageError}</p>}
-            {postImage && (
+            {postImagePreview && (
               <div className="full">
-                <img src={postImage.previewUrl} alt="선택한 대표 사진 미리보기" style={{ maxWidth: '100%', height: 'auto', borderRadius: 8 }} />
-                <p className="admin-summary">첨부 파일: {postImage.fileName}</p>
+                <img src={postImagePreview} alt="선택한 대표 사진 미리보기" style={{ maxWidth: '100%', height: 'auto', borderRadius: 8 }} />
+                <p className="admin-summary">첨부 파일: {postImageFile?.name}</p>
                 <button type="button" disabled={busyId === 'post'} onClick={removePostImage}>사진 제거</button>
               </div>
             )}

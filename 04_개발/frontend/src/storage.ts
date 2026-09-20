@@ -1,4 +1,5 @@
 import { authenticatedFetch } from './auth-fetch';
+import type { AuthSurface } from './auth';
 
 export type StorageKind = 'business-image' | 'resident-evidence' | 'official-news-image';
 export type StorageMode = 'mock' | 'drive';
@@ -14,7 +15,7 @@ export interface StoredObject {
 }
 
 export interface StorageAdapter {
-  upload(kind: StorageKind, file: File, options?: { complexSlug?: string }): Promise<StoredObject>;
+  upload(kind: StorageKind, file: File, options?: { complexSlug?: string; surface?: AuthSurface }): Promise<StoredObject>;
   read(objectKey: string): Promise<Blob | null>;
   delete(objectKey: string): Promise<void>;
   resolvePreview?(objectKey: string): Promise<string | null>;
@@ -136,7 +137,7 @@ export function resetMockStorage(): Promise<void> {
 }
 
 class MockStorageAdapter implements StorageAdapter {
-  async upload(kind: StorageKind, file: File, _options: { complexSlug?: string } = {}): Promise<StoredObject> {
+  async upload(kind: StorageKind, file: File, _options: { complexSlug?: string; surface?: AuthSurface } = {}): Promise<StoredObject> {
     validateStorageFile(kind, file);
     const visibility = STORAGE_POLICY[kind].visibility;
     const objectKey = `mock/${visibility}/${kind}/${crypto.randomUUID()}-${safeFileName(file.name)}`;
@@ -214,7 +215,7 @@ async function parseJsonResponse<T>(response: Response): Promise<T> {
 }
 
 class GoogleDriveStorageAdapter implements StorageAdapter {
-  async upload(kind: StorageKind, file: File, options: { complexSlug?: string } = {}): Promise<StoredObject> {
+  async upload(kind: StorageKind, file: File, options: { complexSlug?: string; surface?: AuthSurface } = {}): Promise<StoredObject> {
     validateStorageFile(kind, file);
     const body = new FormData();
     body.append('kind', kind);
@@ -224,7 +225,7 @@ class GoogleDriveStorageAdapter implements StorageAdapter {
     const response = await authenticatedFetch(storageUrl('/api/v1/storage/objects'), {
       method: 'POST',
       body
-    }, 'resident');
+    }, options.surface ?? 'resident');
     const stored = await parseJsonResponse<StoredObject>(response);
     return { ...stored, previewUrl: URL.createObjectURL(file) };
   }

@@ -309,6 +309,15 @@ async function createPost(
   const attachment = String(payload.attachmentObjectKey ?? '').trim() || null;
   const channel = deriveChannel(sourceName, payload.channel);
   if (!channel) return fail('INVALID_CHANNEL', 'Invalid channel', 400, requestId);
+  // #844 BLOCKER 3: a photo attachment is only valid on the two official apartment-news channels.
+  if (attachment && channel !== 'apartment_news' && channel !== 'management_office') {
+    return fail(
+      'OFFICIAL_NEWS_IMAGE_CHANNEL_INVALID',
+      'Photo attachments are only supported on apartment_news or management_office',
+      400,
+      requestId
+    );
+  }
   // #844: a client-supplied object key is never trusted. It must be a server-issued, active,
   // same-complex official-news image before it may be persisted on the post.
   if (attachment) {
@@ -368,6 +377,15 @@ async function patchPost(
   }
   const channel = deriveChannel(sourceName, payload.channel);
   if (!channel) return fail('INVALID_CHANNEL', 'Invalid channel', 400, requestId);
+  // #844 BLOCKER 3: a photo attachment is only valid on the two official apartment-news channels.
+  if (attachment && channel !== 'apartment_news' && channel !== 'management_office') {
+    return fail(
+      'OFFICIAL_NEWS_IMAGE_CHANNEL_INVALID',
+      'Photo attachments are only supported on apartment_news or management_office',
+      400,
+      requestId
+    );
+  }
   // #844: existing attachment is preserved; any newly supplied key is validated as a
   // server-issued, active, same-complex official-news image (no arbitrary key trust).
   if (attachment && attachment !== (current.attachment_object_key ? String(current.attachment_object_key) : null)) {
