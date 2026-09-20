@@ -496,7 +496,13 @@ try {
   console.log('SECRET_OUTPUT=NO');
   console.log(`QA_MUTATION_SCOPE=STAMP_${stamp}`);
   if (results.some((line) => line.includes('=FAIL'))) process.exitCode = 1;
-  await context.close();
+  /* Evidence is already streamed and flushed above. Teardown must never be the
+     thing that keeps the job open: a hung close() hides an otherwise complete run. */
+  try {
+    await withTimeout(context.close(), 10_000, 'CONTEXT_CLOSE');
+  } catch {
+    emit('TEARDOWN=CONTEXT_CLOSE_TIMEOUT_FORCED');
+  }
 } catch (error) {
   flushEvidence('=== QA #830 AUTHENTICATED ACCEPTANCE FAILURE EVIDENCE ===');
   emitBookmarkMarkers();
@@ -505,5 +511,12 @@ try {
   console.error(`QA_830_DIAGNOSTICS=${boundedText(diagnosisSummary(), 400)}`);
   process.exitCode = 1;
 } finally {
-  await browser.close();
+  try {
+    await withTimeout(browser.close(), 10_000, 'BROWSER_CLOSE');
+  } catch {
+    emit('TEARDOWN=BROWSER_CLOSE_TIMEOUT_FORCED');
+  }
+  /* Every evidence line has been streamed already; do not let a lingering
+     browser handle keep the process — and therefore the job — alive. */
+  process.exit(typeof process.exitCode === 'number' ? process.exitCode : 0);
 }
