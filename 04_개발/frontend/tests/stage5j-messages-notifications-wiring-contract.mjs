@@ -209,11 +209,12 @@ function wiringScript(page, id) {
   assert.match(w27, /본인 확인된 입주민만 알림함을 볼 수 있습니다/);
 }
 
-/* ---------- 9. no-apiBase demo behavior is preserved ---------- */
+/* ---------- 9. canonical empty base remains server mode; preview/local stays demo ---------- */
 {
-  assert.match(wiringScript(page20, 'danjion-messages-list-live-wiring-330'), /if\(!apiBase\)return;/, '20 keeps static demo when no apiBase');
-  assert.match(wiringScript(page21, 'danjion-conversation-detail-live-wiring-330'), /if\(!apiBase\)return;/, '21 keeps static demo when no apiBase');
-  assert.match(wiringScript(page27, 'danjion-notifications-live-wiring-330'), /if\(!apiBase\)return;/, '27 keeps static demo when no apiBase');
+  const canonicalEmpty = /if\(!apiBase&&!DanjionSession\.isCanonicalProduction\(\)\)return;/;
+  assert.match(wiringScript(page20, 'danjion-messages-list-live-wiring-330'), canonicalEmpty, '20 keeps static demo only outside canonical production');
+  assert.match(wiringScript(page21, 'danjion-conversation-detail-live-wiring-330'), canonicalEmpty, '21 keeps static demo only outside canonical production');
+  assert.match(wiringScript(page27, 'danjion-notifications-live-wiring-330'), canonicalEmpty, '27 keeps static demo only outside canonical production');
 }
 
 console.log('stage5j messages/notifications wiring contract: PASS');
