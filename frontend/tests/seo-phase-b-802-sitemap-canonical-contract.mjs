@@ -60,9 +60,16 @@ const ACTION_SURFACES = [
 ];
 
 /*
- * A shared app shell. Phase A classifies it as neither public nor private, and
- * it carries no robots meta of its own today, so nothing but this exclusion
- * keeps it out of the index — recorded here rather than asserted as policy.
+ * A shared app shell: Phase A classifies it as neither public nor private.
+ * Facts, not policy — this file records what today holds and what does not:
+ *   - it is excluded from the sitemap by §4 below;
+ *   - a sitemap exclusion does not prevent indexing, it only withholds the URL
+ *     from a discovery hint a crawler may ignore;
+ *   - the document carries no noindex of its own today;
+ *   - robots.txt has no Disallow matching it today.
+ * So no layer in this repository currently keeps it out of search results.
+ * Deciding that is a follow-up owner/crawl-policy call, not something this
+ * contract may settle by assertion.
  */
 const UNCLASSIFIED_SHELL = '18_공통앱셸.html';
 const INTERNAL_VARIANTS = ['index2', 'app2', 'app', '_v2', '_v3', '00_APP_390', '00_주민혜택_AB비교'];
