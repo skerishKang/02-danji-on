@@ -14,8 +14,8 @@ assert.ok(sessionTag < mainScript, 'danjion-session runtime must load before the
 assert.match(session, /global\.DanjionSession = Object\.freeze/, 'runtime must expose the frozen DanjionSession global');
 
 /* --- server mode is derived from the canonical apiBase, never a fake flag --- */
-assert.match(html, /const __session=window\.DanjionSession,serverMode=!!__session&&__session\.danjionApiBase\(\)!==''/,
-  'serverMode must come from DanjionSession.danjionApiBase()');
+assert.match(html, /const __session=window\.DanjionSession,serverMode=!!__session&&\(__session\.danjionApiBase\(\)!==''\|\|\['danjion\.padiem\.net','danjion\.pages\.dev'\]\.includes\(location\.hostname\.toLowerCase\(\)\)\)/,
+  'serverMode must come from DanjionSession with canonical same-origin production support');
 assert.doesNotMatch(html, /serverMode\s*=\s*true/, 'serverMode must not be hardcoded');
 
 /* --- #444: session readiness parses the Better Auth NATIVE get-session shape --- */
