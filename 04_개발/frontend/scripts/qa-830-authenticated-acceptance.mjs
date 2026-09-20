@@ -103,34 +103,54 @@ try {
   authenticated = await session(context.request, 'REVIEW_AFTER');
   if (!authenticated) record('REVIEW_SESSION_PRESERVED', false, 'SESSION_LOST');
 
-  const bookmarks = await call(context.request, 'BOOKMARK_LOAD', '/api/v1/me/bookmarks');
-  record('BOOKMARK_LOAD', bookmarks.auth, bookmarks.disposition);
-  const savedIds = new Set((bookmarks.body?.data || []).map((b) => String(b?.businessId || b?.id)));
-  const wasBookmarked = savedIds.has(businessId);
-  BOOKMARK_INITIAL_STATE = wasBookmarked ? 'BOOKMARKED' : 'NOT_BOOKMARKED';
-  const toggleMethod = wasBookmarked ? 'DELETE' : 'POST';
+  /* --- bookmark: state-independent toggle + proven restore via final readback --- */
   const togglePath = `/api/v1/me/bookmarks/${businessId}`;
-  const toggle = await pageCall(page, 'BOOKMARK_TOGGLE', toggleMethod, togglePath,
-    () => page.locator('#shopCompareSave').click({ timeout: 10_000 }).catch(async () => {
-      await page.locator(`[data-shop-key="${shopKey}"]`).first().click({ timeout: 10_000 });
-      await page.locator('#shopCompareSave').click({ timeout: 10_000 });
-    }));
+  const saveToggle = () => page.locator('#shopCompareSave').click({ timeout: 10_000 });
+
+  // A. initial state comes from the real server list, never from an assumption.
+  const bookmarkInitial = await call(context.request, 'BOOKMARK_INITIAL', '/api/v1/me/bookmarks');
+  record('BOOKMARK_LOAD', bookmarkInitial.auth, bookmarkInitial.disposition);
+  const initialIds = new Set((bookmarkInitial.body?.data || []).map((b) => String(b?.businessId || b?.id)));
+  const wasBookmarked = initialIds.has(businessId);
+  BOOKMARK_INITIAL_STATE = wasBookmarked ? 'BOOKMARKED' : 'NOT_BOOKMARKED';
+
+  // B. first toggle moves away from the initial state.
+  const toggleMethod = wasBookmarked ? 'DELETE' : 'POST';
+  const toggle = await pageCall(page, 'BOOKMARK_TOGGLE', toggleMethod, togglePath, saveToggle);
   record('BOOKMARK_ACCEPTANCE', toggle.auth, toggle.disposition);
   record('BOOKMARK_TOGGLE', toggle.auth, toggle.disposition);
   BOOKMARK_TOGGLE_METHOD = toggleMethod;
-  BOOKMARK_TOGGLE_AUTH = toggle.auth;
-  const restoreMethod = wasBookmarked ? 'POST' : 'DELETE';
-  if (toggle.response.status() >= 200 && toggle.response.status() < 300) {
-    await pageCall(page, 'BOOKMARK_RESTORE', restoreMethod, togglePath,
-      () => page.locator('#shopCompareSave').click({ timeout: 10_000 }).catch(async () => {
-        await page.locator(`[data-shop-key="${shopKey}"]`).first().click({ timeout: 10_000 });
-        await page.locator('#shopCompareSave').click({ timeout: 10_000 });
-      }));
-    BOOKMARK_RESTORED = true;
-  } else {
-    BOOKMARK_RESTORED = false;
-  }
+  // C. a 401 on the toggle is an outright failure, and auth is recorded explicitly.
+  const toggleStatus = toggle.response.status();
+  const toggleOk = toggleStatus >= 200 && toggleStatus < 300;
+  BOOKMARK_TOGGLE_AUTH = toggle.auth && !(toggleStatus === 401);
+  if (toggleStatus === 401) record('BOOKMARK_TOGGLE_401', false, 'AUTH_REQUIRED');
   authenticated = await session(context.request, 'BOOKMARK_AFTER');
+
+  // D. restore returns membership to exactly the initial state.
+  const restoreMethod = wasBookmarked ? 'POST' : 'DELETE';
+  let restoreOk = false;
+  if (toggleOk) {
+    const restore = await pageCall(page, 'BOOKMARK_RESTORE', restoreMethod, togglePath, saveToggle);
+    const restoreStatus = restore.response.status();
+    // E. the restore response is inspected; a 401 is never treated as success.
+    restoreOk = restoreStatus >= 200 && restoreStatus < 300;
+    if (restoreStatus === 401) record('BOOKMARK_RESTORE_401', false, 'AUTH_REQUIRED');
+    record('BOOKMARK_RESTORE', restoreOk, restore.disposition);
+  } else {
+    record('BOOKMARK_RESTORE', false, 'TOGGLE_NOT_ACCEPTED');
+  }
+
+  // F. final readback proves membership matches the initial state, not a guess.
+  const bookmarkFinal = await call(context.request, 'BOOKMARK_FINAL', '/api/v1/me/bookmarks');
+  const finalIds = new Set((bookmarkFinal.body?.data || []).map((b) => String(b?.businessId || b?.id)));
+  const finalBookmarked = finalIds.has(businessId);
+  const membershipRestored = bookmarkFinal.auth && restoreOk && finalBookmarked === wasBookmarked;
+  BOOKMARK_RESTORED = membershipRestored;
+  record('BOOKMARK_FINAL_READBACK', bookmarkFinal.auth, bookmarkFinal.disposition);
+  if (!membershipRestored) record('BOOKMARK_RESTORED', false, `FINAL_${finalBookmarked ? 'BOOKMARKED' : 'NOT_BOOKMARKED'}_VS_INITIAL_${BOOKMARK_INITIAL_STATE}`);
+  else record('BOOKMARK_RESTORED', true);
+  authenticated = await session(context.request, 'BOOKMARK_READBACK_AFTER');
 
   await page.goto(`${FRONTEND}/01_%EC%9D%B4%EC%9B%83%EA%B0%80%EA%B2%8C_%EB%B0%9C%EA%B2%AC.html?shop=${encodeURIComponent(shopKey)}`, { waitUntil: 'domcontentloaded', timeout: 30_000 });
   await page.locator(`[data-shop-key="${shopKey}"]`).first().click({ timeout: 10_000 });
@@ -160,8 +180,9 @@ try {
   ];
   for (const [label, route, kind] of community) {
     await page.goto(`${FRONTEND}/${route}`, { waitUntil: 'domcontentloaded', timeout: 30_000 });
-    if (kind === 'question') await page.locator('[data-type="생활·살림"]').click().catch(() => {});
-    if (kind === 'together') await page.locator('[data-kind="walk"]').click().catch(() => {});
+    if (kind === 'question') await page.locator('[data-type="생활·살림"]').click({ timeout: 10_000 });
+    // selector mismatch must fail the run — no silent catch, no fail-open skip.
+    if (kind === 'together') await page.locator('[data-kind="walk"]').click({ timeout: 10_000 });
     await page.locator('#title').fill(`[QA #830 ${kind} ${stamp}]`);
     await page.locator('#body').fill(`QA #830 authenticated ${kind} acceptance ${stamp}`);
     const result = await pageCall(page, `COMMUNITY_${label}`, 'POST', `/api/v1/complexes/${COMPLEX}/community/posts`,
@@ -174,6 +195,10 @@ try {
   console.log('=== QA #830 AUTHENTICATED ACCEPTANCE ===');
   for (const line of events) console.log(line);
   for (const line of results) console.log(line);
+  console.log(`BOOKMARK_INITIAL_STATE=${BOOKMARK_INITIAL_STATE || 'UNKNOWN'}`);
+  console.log(`BOOKMARK_TOGGLE_METHOD=${BOOKMARK_TOGGLE_METHOD || 'UNKNOWN'}`);
+  console.log(`BOOKMARK_TOGGLE_AUTH=${BOOKMARK_TOGGLE_AUTH}`);
+  console.log(`BOOKMARK_RESTORED=${BOOKMARK_RESTORED}`);
   console.log('QA_TARGET=NON_PRODUCTION_ONLY');
   console.log('PRODUCTION_TARGET=NO');
   console.log('SECRET_OUTPUT=NO');
