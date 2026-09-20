@@ -197,7 +197,7 @@ if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt
 (function(){
   const params=new URLSearchParams(location.search);
   const apiBase=DanjionSession.danjionApiBase();
-  if(!apiBase)return;
+  if(!apiBase&&!DanjionSession.isCanonicalProduction())return;
   const postId=(params.get('postId')||'').trim();
   const LIST='10_주민소식_목록.html';
   const routeCategory=document.querySelector('.route span');

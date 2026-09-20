@@ -32,6 +32,12 @@
     return '';
   }
 
+  function isCanonicalProduction(loc) {
+    const where = loc || (typeof location !== 'undefined' ? location : {});
+    const hostname = String(where.hostname || '').toLowerCase();
+    return hostname === PRIMARY_PRODUCTION_HOSTNAME || hostname === PRODUCTION_PAGES_HOSTNAME;
+  }
+
   function joinUrl(base, path) {
     const root = String(base || '').replace(/\/+$/, '');
     return `${root}${path}`;
@@ -483,6 +489,7 @@
 
   global.DanjionSession = Object.freeze({
     danjionApiBase,
+    isCanonicalProduction,
     danjionAuthBase,
     joinUrl,
     request,

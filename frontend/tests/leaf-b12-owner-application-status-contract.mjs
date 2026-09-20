@@ -95,8 +95,8 @@ for (const notice of [
 ]) {
   assert.ok(apply25a.includes(notice), `25A must fail closed with: ${notice}`);
 }
-assert.ok(/if\(!apiBase\)return;/.test(apply25a),
-  '25A must return before any request when apiBase is absent (static/demo lane untouched)');
+assert.ok(/if\(!apiBase&&!DanjionSession\.isCanonicalProduction\(\)\)return;/.test(apply25a),
+  '25A must preserve canonical same-origin mode while keeping preview/local static fallback');
 
 /* --- the sibling submission form is preserved verbatim --- */
 for (const preserved of [

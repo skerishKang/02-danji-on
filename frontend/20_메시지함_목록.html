@@ -86,7 +86,7 @@
 <script id="danjion-messages-list-live-wiring-330">
 (function(){
   const apiBase=(window.DanjionSession&&DanjionSession.danjionApiBase())||'';
-  if(!apiBase)return;
+  if(!apiBase&&!DanjionSession.isCanonicalProduction())return;
   const bridge=DanjionMessagesNotificationsBridge.createMessagesNotificationsBridge({apiBase});
   const list=document.querySelector('.mail-list');
   const empty=document.querySelector('.empty-result');

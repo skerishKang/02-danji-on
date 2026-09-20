@@ -91,7 +91,7 @@ main{padding-top:18px!important}
   const params=new URLSearchParams(location.search);
   const apiBase=(window.DanjionSession&&DanjionSession.danjionApiBase())||'';
   const conversationId=(params.get('conversation')||'').trim().toLowerCase();
-  if(!apiBase)return;
+  if(!apiBase&&!DanjionSession.isCanonicalProduction())return;
   const bridge=DanjionMessagesNotificationsBridge.createMessagesNotificationsBridge({apiBase});
   const thread=document.getElementById('thread');
   const replyField=document.getElementById('reply');

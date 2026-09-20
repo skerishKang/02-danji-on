@@ -71,11 +71,13 @@
     }
     const fetchImpl = options.fetchImpl || globalThis.fetch.bind(globalThis);
     const apiBase = String(options.apiBase || '').replace(/\/+$/, '');
+    const canonicalProduction = typeof session.isCanonicalProduction === 'function'
+      && session.isCanonicalProduction(options.location);
     const sessionFetch = session.createSessionFetch(apiBase);
     const request = (path, init) => sessionFetch(fetchImpl, path, init);
 
     function serverOnly() {
-      return Boolean(apiBase);
+      return Boolean(apiBase) || canonicalProduction;
     }
 
     return {

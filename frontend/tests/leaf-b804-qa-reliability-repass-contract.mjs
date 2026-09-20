@@ -80,7 +80,7 @@ assert.ok(!/\.filters[^}]*min-width:3[3-9]\dpx/.test(narrowBand),
  * ------------------------------------------------------------------ */
 
 // B1. Static: the bridge keeps a server-authority mode and fails closed.
-assert.match(savedBridgeSrc, /const serverMode = Boolean\(base\)/,
+assert.match(savedBridgeSrc, /const serverMode = Boolean\(base\) \|\| canonicalProduction/,
   'saved-shops bridge must keep a server-authority mode');
 assert.match(savedBridgeSrc, /if \(response\.status === 401\) return clearServerState\('auth-required'\)/,
   'bridge must map 401 to auth-required');

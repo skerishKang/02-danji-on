@@ -48,8 +48,8 @@ assert.ok(wiringAt > bridgeTagAt, '04 authority wiring must come after the bridg
 /* --- 04: apiBase gate + fail-closed demo fallback --- */
 assert.ok(f04.includes('const HOME_API_BASE=DanjionSession.danjionApiBase()'),
   '04 must derive HOME_API_BASE from the canonical #419 resolver (explicit apiBase preview or production hostname, fail-closed otherwise)');
-assert.ok(/async function loadHomeAuthority\(\)\{\s*if\(!HOME_API_BASE\)return;/.test(f04),
-  '04 must return before any fetch when apiBase is absent (demo/static fallback)');
+assert.ok(/async function loadHomeAuthority\(\)\{\s*if\(!HOME_API_BASE&&!DanjionSession\.isCanonicalProduction\(\)\)return;/.test(f04),
+  '04 must preserve canonical same-origin mode while keeping preview/local demo fallback');
 assert.ok(f04.includes("food:{i:1,name:'오늘의 반찬'"), '04 static demo scenes must remain for the no-apiBase lane');
 assert.ok(f04.includes("showHomeAuthorityState('이웃가게를 불러오지 못했습니다.'"), '04 must render a truthful server-error scene when business authority fails');
 assert.ok(!f04.includes('keeping demo scenes'), '04 canonical Production must not preserve demo businesses after server failure');

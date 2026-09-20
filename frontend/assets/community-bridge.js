@@ -91,13 +91,15 @@
     }
     const fetchImpl = options.fetchImpl || globalThis.fetch.bind(globalThis);
     const apiBase = String(options.apiBase || '').replace(/\/+$/, '');
+    const canonicalProduction = typeof session.isCanonicalProduction === 'function'
+      && session.isCanonicalProduction(options.location);
     const slug = encodeURIComponent(String(options.complexSlug || DEFAULT_COMPLEX_SLUG));
     const base = `/api/v1/complexes/${slug}/community`;
     const sessionFetch = session.createSessionFetch(apiBase);
     const request = (path, init) => sessionFetch(fetchImpl, path, init);
 
     function serverOnly() {
-      return Boolean(apiBase);
+      return Boolean(apiBase) || canonicalProduction;
     }
 
     function postPath(postId) {
