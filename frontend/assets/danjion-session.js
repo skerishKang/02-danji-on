@@ -298,15 +298,11 @@
     if (!accountStripEligible(loc)) return null;
     if (document.querySelector('.danjion-account-menu')) return null;
 
-    const authBase = danjionAuthBase(loc);
-    const [session, accounts, authority] = await Promise.all([
-      request(fetch, joinUrl(authBase, '/api/auth/get-session')),
-      fetchLinkedAccounts(fetch, loc),
-      fetchAccountAuthority(fetch, loc)
-    ]);
-
     const host = document.querySelector('.identity') || document.querySelector('[data-account-host]');
     if (!host) return null;
+
+    const authBase = danjionAuthBase(loc);
+    const session = await request(fetch, joinUrl(authBase, '/api/auth/get-session'));
 
     // Signed-out Production service pages must not strand a guest inside the
     // product shell. Reuse the existing header slot as a navigation-only entry
@@ -326,6 +322,11 @@
       host.append(guestAuth);
       return { state: 'guest' };
     }
+
+    const [accounts, authority] = await Promise.all([
+      fetchLinkedAccounts(fetch, loc),
+      fetchAccountAuthority(fetch, loc)
+    ]);
 
     const email = String(session.raw.user?.email || '').trim();
     const emailVerified = session.raw.user?.emailVerified === true;
