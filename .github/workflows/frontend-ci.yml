@@ -1,12 +1,20 @@
 name: Frontend CI
 
+# Issue #835: the real product surface is the top-level `frontend/**`, but this
+# workflow only watched `04_개발/frontend/**`, so a PR touching only top-level
+# frontend leaves never ran Frontend CI at all. Both surfaces are now covered;
+# the `04_개발/frontend/**` coverage is preserved unchanged. Unrelated backend /
+# docs-only changes stay untriggered on purpose — this is a path-list fix, not a
+# blanket `**` trigger.
 on:
   pull_request:
     paths:
+      - 'frontend/**'
       - '04_개발/frontend/**'
       - '.github/workflows/frontend-ci.yml'
   push:
     paths:
+      - 'frontend/**'
       - '04_개발/frontend/**'
       - '.github/workflows/frontend-ci.yml'
 
