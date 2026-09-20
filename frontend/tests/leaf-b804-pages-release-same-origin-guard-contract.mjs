@@ -11,9 +11,12 @@ import vm from 'node:vm';
 //     dist/assets/danjion-session.js
 //
 // Since the same-origin cutover (#830: commits 48e6678 / 9175ced) the canonical
-// production hosts resolve danjionApiBase()/danjionAuthBase() to '' so browser
-// API/Auth traffic stays on the same-origin Pages Function facade. The Worker
-// upstream literal now lives ONLY in the server-side Pages Functions.
+// production hosts resolve danjionApiBase()/danjionAuthBase() to '' so
+// DanjionSession-managed browser API/Auth traffic stays on the same-origin Pages
+// Function facade. The existing OPTION B bounded public read-only fetch in
+// 05_우리단지_첫화면.html remains a separate direct Worker path for its
+// complex-name authority lookup; the Worker upstream used by managed traffic is
+// pinned in the server-side Pages Functions.
 //
 // That stale guard made every release off current main fail-fast. This contract
 // pins the corrected three-layer scan so the drift cannot silently return.

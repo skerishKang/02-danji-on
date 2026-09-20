@@ -134,10 +134,12 @@ const workflow = await read('../../.github/workflows/pages-production-release.ym
   assert.ok(workflow.includes(`CANONICAL_PAGES_URL: https://${PRODUCTION_HOST}`), 'the canonical Pages smoke URL must remain');
 }
 
-/* Issue #804: the release authority scan must follow the same-origin #830 architecture.
-   The browser session runtime no longer embeds the Worker absolute URL, so the release
-   workflow must NOT grep it out of the browser artifact; it must instead evaluate real
-   resolver semantics and require the upstream pin in the server-side Pages Functions. */
+/* Issue #804: the release authority scan must follow the same-origin #830 architecture
+   for DanjionSession-managed production API/Auth traffic. The browser session runtime
+   no longer embeds the Worker absolute URL, so the release workflow must NOT grep it
+   out of the browser artifact; it must instead evaluate real resolver semantics and
+   require the upstream pin in the server-side Pages Functions. The existing OPTION B
+   bounded public read-only fetch in page 05 remains a separate direct Worker path. */
 {
   assert.ok(!/grep[^\n]*padiem-danjion-api-production\.padiem\.workers\.dev[^\n]*dist\/assets\/danjion-session\.js/.test(workflow),
     'release workflow must not grep the browser session asset for the production Worker literal (pre-#830 drift)');

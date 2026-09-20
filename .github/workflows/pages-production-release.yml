@@ -12,12 +12,15 @@ name: Pages Production Release
 #     -> fixed production Worker upstream    (padiem-danjion-api-production)
 #
 # frontend/assets/danjion-session.js resolves danjionApiBase()/danjionAuthBase()
-# to '' for BOTH canonical production hostnames so every browser API/Auth call
-# stays same-origin; a crafted ?apiBase= can never move canonical production off
-# the facade. The Worker upstream literal lives ONLY in the server-side Pages
-# Functions (functions/_lib/app-facade.js, functions/_lib/auth-facade.js), which
-# proxy server-side. Any other origin stays fail-closed unless an explicit
-# ?apiBase= controlled preview is provided.
+# to '' for BOTH canonical production hostnames so DanjionSession-managed
+# production API/Auth traffic stays same-origin; a crafted ?apiBase= can never
+# move that traffic off the facade. The Worker upstream literal lives in the
+# server-side Pages Functions (functions/_lib/app-facade.js,
+# functions/_lib/auth-facade.js), which proxy that managed traffic. The existing
+# OPTION B bounded public read-only fetch in
+# frontend/05_우리단지_첫화면.html remains a separate direct Worker path for its
+# complex-name authority lookup. Any other origin stays fail-closed unless an
+# explicit ?apiBase= controlled preview is provided.
 #
 # The release authority scan below therefore evaluates the assembled browser
 # artifact's resolver semantics in a real runtime and separately proves the
