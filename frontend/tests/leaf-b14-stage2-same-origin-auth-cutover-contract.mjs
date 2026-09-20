@@ -44,8 +44,8 @@ const loadSession = (location) => {
     'canonical get-session must be a same-origin relative URL');
   assert.equal(s.joinUrl(s.danjionAuthBase(), '/auth/social-start'), '/auth/social-start',
     'canonical social-start must be a same-origin relative URL');
-  assert.equal(s.danjionApiBase(), CANONICAL_PAGES_API_BASE,
-    'canonical application API base must be same-origin so the first-party session cookie is observable');
+  assert.equal(s.danjionApiBase(), '',
+    'canonical application API base must use a same-origin relative URL so the first-party session cookie is observable');
 }
 {
   const PRIMARY_HOST = 'danjion.padiem.net';
@@ -54,8 +54,8 @@ const loadSession = (location) => {
   assert.equal(s.danjionAuthBase(), '', 'primary custom domain auth base must be same-origin');
   assert.equal(s.joinUrl(s.danjionAuthBase(), '/api/auth/get-session'), '/api/auth/get-session',
     'primary get-session must be a same-origin relative URL');
-  assert.equal(s.danjionApiBase(), PRIMARY_API_BASE,
-    'primary application API base must be same-origin');
+  assert.equal(s.danjionApiBase(), '',
+    'primary application API base must use a same-origin relative URL');
 }
 {
   const s = loadSession({ search: '', hostname: PRODUCTION_HOST.toUpperCase() });
@@ -64,7 +64,7 @@ const loadSession = (location) => {
 {
   const s = loadSession({ search: '', hostname: 'DANJION.PADIEM.NET' });
   assert.equal(s.danjionAuthBase(), '', 'primary auth same-origin must be hostname case-insensitive');
-  assert.equal(s.danjionApiBase(), 'https://danjion.padiem.net', 'primary api base must be hostname case-insensitive');
+  assert.equal(s.danjionApiBase(), '', 'primary api base must stay same-origin and hostname case-insensitive');
 }
 {
   for (const hostname of ['danjion-review.pages.dev', 'localhost', '127.0.0.1', '[::1]', 'kilo1.danjion-preview.pages.dev', 'demo.test']) {
@@ -89,7 +89,7 @@ const loadSession = (location) => {
   const s = loadSession({ search: crafted, hostname: 'danjion.padiem.net' });
   assert.equal(s.danjionAuthBase(), '',
     'primary production auth must ignore a crafted ?apiBase= and remain same-origin');
-  assert.equal(s.danjionApiBase(), 'https://danjion.padiem.net',
+  assert.equal(s.danjionApiBase(), '',
     'primary production general API must ignore a crafted ?apiBase= and remain same-origin');
 }
 {
@@ -101,7 +101,7 @@ const loadSession = (location) => {
   const s = loadSession({ search: crafted, hostname: PRODUCTION_HOST });
   assert.equal(s.danjionAuthBase(), '',
     'canonical production auth must ignore a crafted ?apiBase= and remain same-origin');
-  assert.equal(s.danjionApiBase(), CANONICAL_PAGES_API_BASE,
+  assert.equal(s.danjionApiBase(), '',
     'canonical production general API must ignore a crafted ?apiBase= and remain same-origin');
   assert.equal(s.joinUrl(s.danjionAuthBase(), '/api/auth/sign-in/email'), '/api/auth/sign-in/email',
     'crafted production links must never redirect credential-bearing auth traffic off-origin');
@@ -143,8 +143,8 @@ assert.ok(!index.includes('createSessionFetch(__session.danjionApiBase())'),
   'session check must not run against the Worker API base anymore');
 assert.equal(index.match(/danjionApiBase\(\)/g).length, 1,
   'the only danjionApiBase() use left in the entry is the serverMode general-API gate');
-assert.match(index, /serverMode=!!__session&&__session\.danjionApiBase\(\)!==''/,
-  'serverMode must remain enabled when canonical production resolves the same-origin application API facade');
+assert.match(index, /serverMode=!!__session&&\(__session\.danjionApiBase\(\)!==''\|\|\['danjion\.padiem\.net','danjion\.pages\.dev'\]\.includes\(location\.hostname\.toLowerCase\(\)\)\)/,
+  'serverMode must remain enabled on canonical production even when the application API base is same-origin relative');
 
 const htmlPages = readdirSync(new URL('..', import.meta.url), { withFileTypes: true })
   .filter((e) => e.isFile() && e.name.toLowerCase().endsWith('.html'))
