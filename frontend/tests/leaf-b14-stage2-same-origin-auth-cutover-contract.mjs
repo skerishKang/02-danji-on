@@ -12,7 +12,6 @@ import vm from 'node:vm';
 const read = (rel) => readFile(new URL(rel, import.meta.url), 'utf8');
 
 const PRODUCTION_HOST = 'danjion.pages.dev';
-const WORKER_API_BASE = 'https://padiem-danjion-api-production.padiem.workers.dev';
 const CANONICAL_PAGES_ORIGIN = 'https://danjion.pages.dev';
 
 const AUTH_ENDPOINTS = [
