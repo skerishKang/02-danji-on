@@ -129,4 +129,108 @@ assert.doesNotMatch(script, /console\.\w+\([^)]*\$\{(email|password|jwt|cookie|t
   'credentials must never be printed');
 assert.doesNotMatch(script, /storageState|context\.cookies\(/, 'session storage must never be dumped');
 
+/* ============================================================
+ * HARD BOUNDS — every wait in the script must carry its own upper bound.
+ * Two consecutive runs hung for 30-60 minutes with no output, because several
+ * awaits had no bound of their own and the evidence was buffered until the end.
+ * These are checked both as source shape and, where possible, as runtime
+ * behaviour: a string check alone cannot prove the helper actually fires.
+ * ============================================================ */
+
+/* 1. the bounding helper exists and is used, not merely declared */
+assert.match(script, /async function withTimeout\(promise, ms, label\) \{/,
+  'the script must expose a single bounding helper');
+for (const boundSite of [
+  /withTimeout\(\s*page\.evaluate\(/,
+  /withTimeout\(\s*response\.json\(\)/,
+]) {
+  assert.match(script, boundSite, `an evaluate/body read must be wrapped in withTimeout (${boundSite})`);
+}
+
+/* 2. the bounds are named constants, not scattered magic numbers */
+for (const constant of ['DOM_EVAL_TIMEOUT_MS', 'BODY_READ_TIMEOUT_MS', 'REQUEST_TIMEOUT_MS']) {
+  /* numeric separators are allowed, so digits alone are not enough here */
+  assert.match(script, new RegExp(`const ${constant} = [0-9_]+;`), `${constant} must be a named constant`);
+}
+assert.match(script, /withTimeout\([\s\S]{0,900}DOM_EVAL_TIMEOUT_MS/,
+  'the DOM evaluation must use the named DOM bound');
+assert.match(script, /withTimeout\([\s\S]{0,300}BODY_READ_TIMEOUT_MS/,
+  'the body read must use the named body bound');
+
+/* 3. network requests carry an explicit timeout */
+assert.match(script, /timeout: REQUEST_TIMEOUT_MS/,
+  'requests must carry an explicit timeout instead of relying on a client default');
+assert.ok(
+  (script.match(/timeout: REQUEST_TIMEOUT_MS/g) || []).length >= 2,
+  'both the generic request path and the sign-in request must be bounded'
+);
+assert.match(script, /context\.setDefaultTimeout\(/,
+  'locator actions must still carry a context-level default bound');
+
+/* 4. teardown is bounded too — an unbound close hides a finished run */
+assert.match(script, /withTimeout\(context\.close\(\)/, 'context.close() must be bounded');
+assert.match(script, /withTimeout\(browser\.close\(\)/, 'browser.close() must be bounded');
+
+/* 5. a wall-clock kill must still name the step it reached */
+assert.match(script, /process\.on\(signalName,/,
+  'the script must trap the wall-clock kill signal');
+assert.match(script, /QA_830_RUN_WALL_CLOCK_TIMEOUT=YES/,
+  'a wall-clock kill must emit its own marker');
+assert.match(script, /QA_830_LAST_STEP=/,
+  'a wall-clock kill must report the last announced step');
+assert.match(script, /function step\(name\)/, 'steps must be announced through one tracked helper');
+
+/* 6. runtime proof that the helper actually bounds — a string match cannot show this */
+/* the file may be CRLF, so the closing brace must be matched line-ending agnostic */
+const helperStart = script.indexOf('async function withTimeout(');
+const helperEnd = /\r?\n}\r?\n/.exec(script.slice(helperStart));
+assert.ok(helperEnd, 'the bounding helper must have a findable closing brace');
+const withTimeoutSource = script.slice(helperStart, helperStart + helperEnd.index + helperEnd[0].length);
+assert.ok(withTimeoutSource.startsWith('async function withTimeout('), 'the helper source must be extractable');
+const makeWithTimeout = new Function(`${withTimeoutSource}\nreturn withTimeout;`);
+const withTimeout = makeWithTimeout();
+
+/* resolves normally when the work finishes first */
+const fastValue = await withTimeout(Promise.resolve('done'), 1_000, 'FAST');
+assert.equal(fastValue, 'done', 'a bounded helper must still return the resolved value');
+
+/* rejects with a labelled error when the bound is exceeded — and fires on time.
+   The message alone is not proof: a helper that honours a different, much larger
+   delay would still produce the same text. */
+let timedOut = null;
+const boundMs = 40;
+const slackMs = 1_000;
+const startedAt = Date.now();
+try {
+  await withTimeout(new Promise(() => {}), boundMs, 'SLOW_OP');
+} catch (error) {
+  timedOut = error;
+}
+const elapsedMs = Date.now() - startedAt;
+assert.ok(timedOut instanceof Error, 'an unbounded operation must be rejected, not waited on forever');
+assert.match(String(timedOut.message), /^QA_830_STEP_TIMEOUT:SLOW_OP:40ms$/,
+  'the rejection must name the step and the bound that fired');
+assert.ok(elapsedMs < boundMs + slackMs,
+  `the bound must actually fire at the requested delay (took ${elapsedMs}ms for a ${boundMs}ms bound)`);
+
+/* the rejected label never leaks a value: it is built from fixed parts only */
+assert.doesNotMatch(String(timedOut.message), /cookie|bearer|password|secret/i,
+  'the timeout label must stay credential-free');
+
+/* 7. the three-layer bound is completed by the workflow itself:
+      per-operation (above) + node wall-clock + job timeout. */
+assert.match(workflow, /timeout --signal=TERM --kill-after=15s 12m node scripts\/qa-830-authenticated-acceptance\.mjs/,
+  'the live step must wrap the node process in an OS wall-clock bound');
+const liveJob = workflow.slice(workflow.indexOf('  live-qa:'));
+assert.match(liveJob, /timeout-minutes: 20/,
+  'the live-qa job must carry a final job-level timeout safety net');
+
+/* the OS bound must stay below the job bound, or the job bound is what fires first
+   and the script never gets its SIGTERM chance to name the step */
+const osMinutes = Number(/timeout --signal=TERM --kill-after=15s (\d+)m/.exec(workflow)?.[1]);
+const jobMinutes = Number(/timeout-minutes: (\d+)/.exec(liveJob)?.[1]);
+assert.ok(Number.isFinite(osMinutes) && Number.isFinite(jobMinutes), 'both bounds must be numeric');
+assert.ok(osMinutes > 0 && osMinutes <= 15, 'the live wall-clock bound must stay within 15 minutes');
+assert.ok(jobMinutes > osMinutes, 'the job bound must be strictly greater than the OS bound');
+
 console.log('qa-830-authenticated-acceptance-contract: PASS');

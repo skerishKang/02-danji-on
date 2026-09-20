@@ -48,6 +48,9 @@ jobs:
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_live }}
     runs-on: ubuntu-latest
     environment: qa
+    # Final safety net. The three layers are: per-operation bounds inside the
+    # script, an OS wall-clock bound on the node process, and this job bound.
+    timeout-minutes: 20
     env:
       DANJION_QA_FRONTEND_URL: ${{ vars.DANJION_QA_FRONTEND_URL }}
       DANJION_QA_RESIDENT_EMAIL: ${{ secrets.DANJION_QA_RESIDENT_EMAIL }}
@@ -80,7 +83,11 @@ jobs:
         run: npm ci && npx playwright install --with-deps chromium
       - name: Run live QA #830 acceptance
         working-directory: 04_개발/frontend
-        run: node scripts/qa-830-authenticated-acceptance.mjs
+        # Wall-clock bound: even with every operation bounded inside the script,
+        # a pathological accumulation of slow-but-successful steps must not turn
+        # into an open-ended job. The script traps SIGTERM and writes the last
+        # announced STEP before exiting, so a kill still leaves evidence.
+        run: timeout --signal=TERM --kill-after=15s 12m node scripts/qa-830-authenticated-acceptance.mjs
       - name: Record bounded disposition
         shell: bash
         run: |

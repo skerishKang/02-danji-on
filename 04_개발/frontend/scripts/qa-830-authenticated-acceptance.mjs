@@ -14,6 +14,17 @@ if (!email || !password) {
 const results = [];
 const events = [];
 /*
+ * Last announced step. A wall-clock kill (OS timeout / job timeout) gives the
+ * process no chance to flush anything, so the step name is read back from a
+ * signal handler instead.
+ */
+let lastStep = 'NONE';
+function step(name) {
+  lastStep = name;
+  console.log(`STEP=${name}`);
+  return `STEP=${name}`;
+}
+/*
  * Stream every evidence line as it is produced. The run can hang or be
  * cancelled mid-flow, and GitHub only publishes logs after a job finishes —
  * buffering everything until flushEvidence made two consecutive hangs
@@ -58,7 +69,7 @@ function classify(status, body) {
 }
 
 async function json(response) {
-  return response.json().catch(() => null);
+  return withTimeout(response.json(), BODY_READ_TIMEOUT_MS, 'RESPONSE_BODY_JSON').catch(() => null);
 }
 
 /*
@@ -81,6 +92,15 @@ const MAX_EVIDENCE_CHARS = 240;
 const MAX_SAMPLES = 3;
 const MAX_DOM_KEYS = 10;
 const HYDRATION_TIMEOUT_MS = 15_000;
+/*
+ * Explicit upper bounds. Nothing in this script relies on a Playwright or
+ * undici default: every DOM evaluation, body read and request carries its own
+ * bound, because an unbounded await is what turned a completed run into a
+ * 30-60 minute job with no output.
+ */
+const DOM_EVAL_TIMEOUT_MS = 10_000;
+const BODY_READ_TIMEOUT_MS = 10_000;
+const REQUEST_TIMEOUT_MS = 15_000;
 
 /*
  * Browser text is untrusted: it can carry a cookie pair, a bearer value or a
@@ -210,7 +230,7 @@ function shopKeySelector(key) {
 
 /* Read-only: never writes to the DOM, only reports what the page already shows. */
 async function captureShopDomState(page, shopKey) {
-  const state = await page.evaluate((probe) => {
+  const state = await withTimeout(page.evaluate((probe) => {
     const nodes = [...document.querySelectorAll('[data-shop-key]')];
     const expected = document.querySelector(probe.selector);
     const grid = document.getElementById('shopGridV2');
@@ -221,7 +241,11 @@ async function captureShopDomState(page, shopKey) {
       expectedPresent: Boolean(expected),
       surfaceText: nodes.length === 0 && grid ? String(grid.textContent || '').slice(0, 200) : ''
     };
-  }, { selector: shopKeySelector(shopKey), maxKeys: MAX_DOM_KEYS }).catch(() => null);
+  }, { selector: shopKeySelector(shopKey), maxKeys: MAX_DOM_KEYS }), DOM_EVAL_TIMEOUT_MS, 'CAPTURE_SHOP_DOM_STATE')
+    .catch(() => {
+      emit('DOM_EVALUATION_BOUND_EXCEEDED=CAPTURE_SHOP_DOM_STATE');
+      return null;
+    });
   if (!state) {
     diagnostics.pageReadyState = 'EVALUATION_FAILED';
     return;
@@ -311,6 +335,7 @@ async function call(request, label, path, init = {}) {
   }
   const response = await request.fetch(`${FRONTEND}${path}`, {
     ...init,
+    timeout: REQUEST_TIMEOUT_MS,
     headers: { accept: 'application/json', Origin: FRONTEND, ...(init.headers || {}) }
   });
   const body = await json(response);
@@ -325,7 +350,7 @@ async function pageCall(page, label, method, path, action) {
   }, { timeout: 15_000 });
   await action();
   const response = await responsePromise;
-  const body = await response.json().catch(() => null);
+  const body = await json(response);
   events.push(emit(`${label}:HTTP_${response.status()}:API_PATH=${path}:${headerEvidence(response.headers())}`));
   return { response, body, ...classify(response.status(), body) };
 }
@@ -335,6 +360,20 @@ async function session(request, label) {
   const authenticated = Boolean(result.body?.session && result.body?.user);
   record(`${label}_SESSION`, authenticated, `HTTP_${result.response.status()}`);
   return authenticated;
+}
+
+/*
+ * Wall-clock kill handler. The workflow wraps this process in an OS timeout, and
+ * a SIGTERM gives no chance to flush — so the last announced step is written
+ * here. Without this, a killed run reported nothing at all.
+ */
+for (const signalName of ['SIGTERM', 'SIGINT', 'SIGHUP']) {
+  process.on(signalName, () => {
+    emit('QA_830_RUN_WALL_CLOCK_TIMEOUT=YES');
+    emit(`QA_830_LAST_STEP=${lastStep}`);
+    emit('SECRET_OUTPUT=NO');
+    process.exit(124);
+  });
 }
 
 const browser = await chromium.launch({ headless: true });
@@ -360,7 +399,8 @@ try {
 
   const signIn = await context.request.post(`${FRONTEND}/api/auth/sign-in/email`, {
     headers: { Origin: FRONTEND, 'Content-Type': 'application/json' },
-    data: { email, password }
+    data: { email, password },
+    timeout: REQUEST_TIMEOUT_MS
   });
   record('SIGN_IN', signIn.status() === 200, `HTTP_${signIn.status()}`);
   let authenticated = await session(context.request, 'SESSION_BEFORE');
@@ -378,7 +418,7 @@ try {
      intercepted). Enter without the deep link so the card click is the thing that
      opens the modal — that is the real user gesture this acceptance must prove. */
   await page.goto(`${FRONTEND}/01_%EC%9D%B4%EC%9B%83%EA%B0%80%EA%B2%8C_%EB%B0%9C%EA%B2%AC.html`, { waitUntil: 'domcontentloaded', timeout: 30_000 });
-  emit('STEP=ENTER_SHOP_REVIEW_FLOW');
+  step('ENTER_SHOP_REVIEW_FLOW');
   await waitShopHydrated(page, shopKey, 'SHOP_HYDRATION');
   await page.locator(shopKeySelector(shopKey)).first().click({ timeout: 15_000 });
   await page.locator('#shopReviewOpen2').click({ timeout: 10_000 });
@@ -389,7 +429,7 @@ try {
   authenticated = await session(context.request, 'REVIEW_AFTER');
   if (!authenticated) record('REVIEW_SESSION_PRESERVED', false, 'SESSION_LOST');
 
-  emit('STEP=ENTER_BOOKMARK_FLOW');
+  step('ENTER_BOOKMARK_FLOW');
   /* --- bookmark: state-independent toggle + proven restore via final readback --- */
   const togglePath = `/api/v1/me/bookmarks/${businessId}`;
   const saveToggle = () => page.locator('#shopCompareSave').click({ timeout: 10_000 });
@@ -442,7 +482,7 @@ try {
   /* Same reason as the first entry: no ?shop= deep link, so the card click below
      opens the compare modal instead of being blocked by an already-open one. */
   await page.goto(`${FRONTEND}/01_%EC%9D%B4%EC%9B%83%EA%B0%80%EA%B2%8C_%EB%B0%9C%EA%B2%AC.html`, { waitUntil: 'domcontentloaded', timeout: 30_000 });
-  emit('STEP=ENTER_SHOP_INQUIRY_FLOW');
+  step('ENTER_SHOP_INQUIRY_FLOW');
   await waitShopHydrated(page, shopKey, 'SHOP_HYDRATION_REVISIT');
   await page.locator(shopKeySelector(shopKey)).first().click({ timeout: 10_000 });
   await page.locator('#shopCompareInquiry').click({ timeout: 10_000 });
@@ -453,7 +493,7 @@ try {
   record('INQUIRY_ACCEPTANCE', inquiry.auth, inquiry.disposition);
   authenticated = await session(context.request, 'INQUIRY_AFTER');
 
-  emit('STEP=ENTER_SHOP_REPORT_FLOW');
+  step('ENTER_SHOP_REPORT_FLOW');
   await page.goto(`${FRONTEND}/25A_%EC%8B%A0%EC%B2%AD%EC%A0%9C%EB%B3%B4.html?mode=report`, { waitUntil: 'domcontentloaded', timeout: 30_000 });
   await page.locator('[name="reportShopName"]').fill(`[QA #830] report ${stamp}`);
   await page.locator('[name="reportWhat"]').fill('QA authenticated report acceptance');
@@ -475,7 +515,7 @@ try {
     ['TOGETHER', '17_%EA%B0%99%EC%9D%B4%ED%95%B4%EC%9A%94_%EA%B8%80%EC%93%B0%EA%B8%B0.html', 'together']
   ];
   for (const [label, route, kind] of community) {
-    emit(`STEP=ENTER_COMMUNITY_${label}`);
+    step(`ENTER_COMMUNITY_${label}`);
     await page.goto(`${FRONTEND}/${route}`, { waitUntil: 'domcontentloaded', timeout: 30_000 });
     if (kind === 'question') await page.locator('[data-type="생활·살림"]').click({ timeout: 10_000 });
     // selector mismatch must fail the run — no silent catch, no fail-open skip.
