@@ -14,7 +14,6 @@ const read = (rel) => readFile(new URL(rel, import.meta.url), 'utf8');
 const PRODUCTION_HOST = 'danjion.pages.dev';
 const WORKER_API_BASE = 'https://padiem-danjion-api-production.padiem.workers.dev';
 const CANONICAL_PAGES_ORIGIN = 'https://danjion.pages.dev';
-const CANONICAL_PAGES_API_BASE = CANONICAL_PAGES_ORIGIN;
 
 const AUTH_ENDPOINTS = [
   '/auth/social-start',
@@ -49,7 +48,6 @@ const loadSession = (location) => {
 }
 {
   const PRIMARY_HOST = 'danjion.padiem.net';
-  const PRIMARY_API_BASE = 'https://danjion.padiem.net';
   const s = loadSession({ search: '', hostname: PRIMARY_HOST });
   assert.equal(s.danjionAuthBase(), '', 'primary custom domain auth base must be same-origin');
   assert.equal(s.joinUrl(s.danjionAuthBase(), '/api/auth/get-session'), '/api/auth/get-session',
