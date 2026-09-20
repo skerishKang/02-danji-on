@@ -57,8 +57,8 @@ assert.doesNotMatch(html, /__session\.danjionApiBase\(\),'\/api\/auth/,
   '#444 Stage 2: no browser auth endpoint may keep the direct Worker API base');
 assert.match(html, /createSessionFetch\(__session\.danjionAuthBase\(\)\)/,
   '#444 Stage 2: session check must run against the auth base');
-assert.match(session, /PRODUCTION_API_BASE/,
-  'DanjionSession must keep exporting the direct production Worker base for general API traffic');
+assert.doesNotMatch(session, /const PRODUCTION_API_BASE\s*=/,
+  'browser session runtime must not own a direct production Worker base after the app-facade cutover');
 
 /* --- executable contract: run the real facade module against fake upstream/assets --- */
 {
