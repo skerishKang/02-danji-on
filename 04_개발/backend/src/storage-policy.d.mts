@@ -1,4 +1,4 @@
-export type StorageKind = 'business-image' | 'resident-evidence' | 'application-document';
+export type StorageKind = 'business-image' | 'resident-evidence' | 'application-document' | 'official-news-image';
 export type StorageVisibility = 'public' | 'private';
 export interface StoragePolicy {
   visibility: StorageVisibility;

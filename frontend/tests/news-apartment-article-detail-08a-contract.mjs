@@ -124,10 +124,31 @@ assert.ok(detail.includes('session.fetchSession(fetch)') &&
 assert.equal(detail.includes("method: 'POST'"), false,
   'reactions must flow through the bridge only; the page keeps no direct write call');
 
-/* ---------------- attachment scope discipline ---------------- */
+/* ---------------- #844 official-news photo (single image, intentionally added) ---------------- */
+// #817 deliberately added no attachment surface because no public resolver contract existed.
+// #844 introduces the server-authoritative official-news public image lane, so this block now
+// pins the narrow contract instead of forbidding the surface outright.
 
-assert.equal(detail.includes('attachment_object_key') || detail.includes('attachmentObjectKey') || detail.includes('<img'), false,
-  'MULTI_IMAGE_NOT_ADDED: no public-URL contract exists yet, so the detail page renders no invented attachment surface');
+assert.ok(detail.includes('resolveOfficialNewsImageUrl(apiBase, post.attachmentObjectKey)'),
+  'OFFICIAL_NEWS_PHOTO_RESOLVED: the photo URL comes from the shared bridge helper, not the page');
+assert.ok(detail.includes('import { createNewsBridge, DANJION_COMPLEX_SLUG, resolveOfficialNewsImageUrl }'),
+  'the bridge owns the official-news public URL shape');
+assert.equal(detail.includes('googleapis.com'), false,
+  'the detail page must never address Google Drive directly');
+assert.equal(detail.includes('attachment_object_key'), false,
+  'the page consumes only the bridge-normalized camelCase key');
+assert.ok(detail.includes('function renderMedia(post)') && detail.includes('mediaEl.hidden = false'),
+  'ARTICLE_IMAGE_RENDERED: a valid attachment renders exactly one figure');
+assert.ok(detail.includes("image.addEventListener('error', clearMedia)"),
+  'ARTICLE_IMAGE_FAILURE_SAFE: a failed load removes only the figure, never the article text');
+assert.ok(detail.includes("image.alt = String(post.title || '아파트소식 사진')"),
+  'ARTICLE_IMAGE_ALT: the image always carries a safe alt fallback');
+assert.ok(detail.includes('max-width:100%;height:auto'),
+  'ARTICLE_IMAGE_RESPONSIVE: the figure image cannot overflow its column');
+assert.ok(detail.includes('if (!url) return;') && detail.includes('function clearMedia()'),
+  'NO_ATTACHMENT_TEXT_ONLY_REGRESSION: a post without a valid official-news key renders no figure');
+assert.ok(detail.includes('<figure class="article-media" id="articleMedia" hidden></figure>'),
+  'the figure slot exists in markup and starts hidden');
 
 /* ---------------- runtime syntax stays valid ---------------- */
 
@@ -145,4 +166,6 @@ console.log('DANJION_NOTICE_BLOCKED_FROM_08A=PASS');
 console.log('CHAIR_GREETING_BLOCKED_FROM_08A=PASS');
 console.log('HIGHLIGHT_NOT_RENDERED_AS_ARTICLE=PASS');
 console.log('ARTICLE_RENDERED_IN_08A=PASS');
+console.log('OFFICIAL_NEWS_PHOTO_SINGLE_IMAGE=PASS');
+console.log('ARTICLE_IMAGE_FAILURE_SAFE=PASS');
 console.log('news-apartment-article-detail-08a-contract: PASS #817 highlight popup vs article detail + dual channels + reused reaction contract');

@@ -2,7 +2,11 @@ import { neon, type NeonQueryFunction } from '@neondatabase/serverless';
 import { deriveChannel } from './complex-news-channel';
 import type { CoreEnv } from './core-v1';
 import { requireOperationalAuthority, type OperationalAuthority } from './operational-authz-v2';
-import { validateBusinessImageReference } from './storage-reference-v1';
+import { validateBusinessImageReference, validateOfficialNewsImageReference } from './storage-reference-v1';
+import {
+  insertOfficialNewsPostWithAttachment,
+  updateOfficialNewsPostWithAttachment
+} from './official-news-attachment-v1';
 
 type Sql = NeonQueryFunction<false, false>;
 
@@ -309,6 +313,47 @@ async function createPost(
   const attachment = String(payload.attachmentObjectKey ?? '').trim() || null;
   const channel = deriveChannel(sourceName, payload.channel);
   if (!channel) return fail('INVALID_CHANNEL', 'Invalid channel', 400, requestId);
+  // #844 BLOCKER 3: a photo attachment is only valid on the two official apartment-news channels.
+  if (attachment && channel !== 'apartment_news' && channel !== 'management_office') {
+    return fail(
+      'OFFICIAL_NEWS_IMAGE_CHANNEL_INVALID',
+      'Photo attachments are only supported on apartment_news or management_office',
+      400,
+      requestId
+    );
+  }
+  // #844: a client-supplied object key is never trusted. It must be a server-issued, active,
+  // same-complex official-news image before it may be persisted on the post.
+  if (attachment) {
+    const invalidAttachment = await validateOfficialNewsImageReference(
+      env, sql, attachment, operator.complexId, complexSlug, requestId
+    );
+    if (invalidAttachment) return invalidAttachment;
+    // BLOCKER A: the post write re-locks the official-news registry row FOR UPDATE in the same
+    // statement, so a delete intent that won the race yields zero rows instead of a stale write.
+    const committed = await insertOfficialNewsPostWithAttachment(sql, {
+      objectKey: attachment,
+      complexId: operator.complexId,
+      complexSlug,
+      authorUserId: operator.id,
+      sourceName,
+      category,
+      title,
+      body,
+      channel,
+      status,
+      publishedAt
+    });
+    if (!committed[0]) {
+      return fail(
+        'OFFICIAL_NEWS_IMAGE_ATTACHMENT_CONFLICT',
+        'Official news image is no longer active for attachment',
+        409,
+        requestId
+      );
+    }
+    return ok(committed[0], requestId, 201);
+  }
   const rows = await sql`
     insert into complex_posts (
       complex_id, author_user_id, source_name, category, title, body,
@@ -360,6 +405,48 @@ async function patchPost(
   }
   const channel = deriveChannel(sourceName, payload.channel);
   if (!channel) return fail('INVALID_CHANNEL', 'Invalid channel', 400, requestId);
+  // #844 BLOCKER 3: a photo attachment is only valid on the two official apartment-news channels.
+  if (attachment && channel !== 'apartment_news' && channel !== 'management_office') {
+    return fail(
+      'OFFICIAL_NEWS_IMAGE_CHANNEL_INVALID',
+      'Photo attachments are only supported on apartment_news or management_office',
+      400,
+      requestId
+    );
+  }
+  // #844: existing attachment is preserved; any newly supplied key is validated as a
+  // server-issued, active, same-complex official-news image (no arbitrary key trust).
+  const currentAttachmentKey = current.attachment_object_key ? String(current.attachment_object_key) : null;
+  if (attachment && attachment !== currentAttachmentKey) {
+    const invalidAttachment = await validateOfficialNewsImageReference(
+      env, sql, attachment, operator.complexId, String(current.complex_slug), requestId
+    );
+    if (invalidAttachment) return invalidAttachment;
+    // BLOCKER A: swapping in a new reference re-locks the official-news registry row FOR UPDATE
+    // in the same statement, so a concurrent delete intent yields zero rows instead of a stale write.
+    const committed = await updateOfficialNewsPostWithAttachment(sql, postId, {
+      objectKey: attachment,
+      complexId: operator.complexId,
+      complexSlug: String(current.complex_slug),
+      authorUserId: operator.id,
+      sourceName,
+      category,
+      title,
+      body,
+      channel,
+      status,
+      publishedAt: null
+    });
+    if (!committed[0]) {
+      return fail(
+        'OFFICIAL_NEWS_IMAGE_ATTACHMENT_CONFLICT',
+        'Official news image is no longer active for attachment',
+        409,
+        requestId
+      );
+    }
+    return ok(committed[0], requestId);
+  }
   const updated = await sql`
     update complex_posts
     set source_name = ${sourceName}, category = ${category}, title = ${title}, body = ${body},

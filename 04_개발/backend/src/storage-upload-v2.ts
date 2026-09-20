@@ -1,5 +1,6 @@
 import { neon, type NeonQueryFunction } from '@neondatabase/serverless';
 import { requireActor as requireCanonicalActor, type Actor } from './auth-v1';
+import { requireOperationalAuthority } from './operational-authz-v2';
 import { requireVerifiedResident } from './authorization-v2';
 import type { CoreEnv } from './core-v1';
 import { safeStorageFileName, validateStorageUpload } from './storage-policy.mjs';
@@ -1536,6 +1537,692 @@ export async function runTrackedApplicationDocumentUpload(
   if (activationError) return activationError;
   return { objectKey: objectKeyValue, metadata };
 }
+export async function officialNewsImageUploadRequestFingerprint(
+  file: File,
+  complexSlug: string
+): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', await file.arrayBuffer());
+  const contentSha256 = hexDigest(digest);
+  const canonical = [
+    'official-news-image',
+    complexSlug,
+    file.name,
+    file.type,
+    String(file.size),
+    contentSha256
+  ].join('\n');
+  const fingerprintDigest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(canonical));
+  return hexDigest(fingerprintDigest);
+}
+
+// ---------------------------------------------------------------------------
+// #844: official apartment-news public image lane.
+//
+// Mirrors the application-document lane (reserve -> Drive upload -> activate) on the shared
+// business_image_objects registry, as a distinct PUBLIC kind. Amendment A: no dedicated Drive
+// folder/binding is introduced; the existing public business folder is reused and separation is
+// enforced by kind + objectKey namespace + Drive appProperties.
+// ---------------------------------------------------------------------------
+
+function officialNewsImageObjectKey(fileId: string): string {
+  return `gdrive/public/official-news-image/${fileId}`;
+}
+
+function fileIdFromOfficialNewsImageObjectKey(value: string): string | null {
+  const prefix = 'gdrive/public/official-news-image/';
+  if (!value.startsWith(prefix)) return null;
+  const fileId = value.slice(prefix.length);
+  return DRIVE_FILE_ID.test(fileId) ? fileId : null;
+}
+
+function officialNewsImageMetadataMatches(
+  env: DriveEnv,
+  metadata: DriveMetadata,
+  fileId: string,
+  uploaderUserId: string,
+  complexSlug: string
+): boolean {
+  const folderId = env.GOOGLE_DRIVE_PUBLIC_BUSINESS_FOLDER_ID?.trim();
+  const props = metadata.appProperties || {};
+  return Boolean(folderId) &&
+    metadata.id === fileId &&
+    metadata.trashed !== true &&
+    metadata.parents?.includes(folderId!) === true &&
+    props.danjionKind === 'official-news-image' &&
+    props.danjionVisibility === 'public' &&
+    props.danjionUploaderUserId === uploaderUserId &&
+    props.danjionComplexSlug === complexSlug;
+}
+
+async function uploadOfficialNewsImageFile(
+  env: DriveEnv,
+  file: File,
+  fileId: string,
+  uploaderUserId: string,
+  complexSlug: string
+): Promise<Response> {
+  const folderId = env.GOOGLE_DRIVE_PUBLIC_BUSINESS_FOLDER_ID?.trim();
+  if (!folderId) throw new Error('Google Drive public folder is not configured for official news images');
+  const boundary = `danjion-${crypto.randomUUID()}`;
+  const metadata = {
+    id: fileId,
+    name: `${new Date().toISOString().slice(0, 10)}-${crypto.randomUUID()}-${safeStorageFileName(file.name)}`,
+    parents: [folderId],
+    appProperties: {
+      danjionKind: 'official-news-image',
+      danjionVisibility: 'public',
+      danjionUploaderUserId: uploaderUserId,
+      danjionComplexSlug: complexSlug
+    }
+  };
+  const body = new Blob([
+    `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n`,
+    `--${boundary}\r\nContent-Type: ${file.type}\r\n\r\n`,
+    file,
+    `\r\n--${boundary}--\r\n`
+  ]);
+  return googleFetch(
+    env,
+    `${DRIVE_UPLOAD_API}/files?uploadType=multipart&fields=id,name,mimeType,size,trashed,parents,appProperties&supportsAllDrives=true`,
+    {
+      method: 'POST',
+      headers: { 'content-type': `multipart/related; boundary=${boundary}` },
+      body
+    }
+  );
+}
+
+export async function reserveOfficialNewsImageUpload(
+  sql: Sql,
+  objectKeyValue: string,
+  uploaderUserId: string,
+  complexId: string,
+  requestId: string
+): Promise<Response | null> {
+  try {
+    const rows = await sql`
+      insert into business_image_objects (
+        object_key, uploader_user_id, complex_id, state, kind
+      ) values (
+        ${objectKeyValue}, ${uploaderUserId}::uuid, ${complexId}::uuid, 'upload_pending', 'official-news-image'
+      )
+      on conflict (object_key) do nothing
+      returning object_key
+    `;
+    if (rows[0]) return null;
+    return fail(
+      'OFFICIAL_NEWS_IMAGE_UPLOAD_RESERVATION_CONFLICT',
+      'Official news image upload id is already reserved',
+      409,
+      requestId
+    );
+  } catch {
+    return fail(
+      'OFFICIAL_NEWS_IMAGE_REGISTRY_UNAVAILABLE',
+      'Official news image lifecycle registry is unavailable before upload',
+      503,
+      requestId
+    );
+  }
+}
+
+async function readOfficialNewsImageRegistryRow(
+  sql: Sql,
+  objectKeyValue: string,
+  requestId: string
+): Promise<RegistryRow | Response | null> {
+  try {
+    const rows = await sql`
+      select object_key, uploader_user_id::text, complex_id::text, state
+      from business_image_objects
+      where object_key = ${objectKeyValue}
+        and kind = 'official-news-image'
+      limit 1
+    `;
+    return (rows[0] as RegistryRow | undefined) ?? null;
+  } catch {
+    return fail(
+      'OFFICIAL_NEWS_IMAGE_REGISTRY_UNAVAILABLE',
+      'Official news image lifecycle registry could not be read',
+      503,
+      requestId
+    );
+  }
+}
+
+async function readIdempotentOfficialNewsImageRegistryRow(
+  sql: Sql,
+  uploaderUserId: string,
+  idempotencyKey: string,
+  requestId: string
+): Promise<RegistryRow | Response | null> {
+  try {
+    const rows = await sql`
+      select object_key, uploader_user_id::text, complex_id::text, state,
+             upload_idempotency_key, upload_request_fingerprint
+      from business_image_objects
+      where uploader_user_id = ${uploaderUserId}::uuid
+        and upload_idempotency_key = ${idempotencyKey}
+        and kind = 'official-news-image'
+      limit 1
+    `;
+    return (rows[0] as RegistryRow | undefined) ?? null;
+  } catch {
+    return fail(
+      'OFFICIAL_NEWS_IMAGE_REGISTRY_UNAVAILABLE',
+      'Official news image upload idempotency registry could not be read',
+      503,
+      requestId
+    );
+  }
+}
+
+export async function reserveIdempotentOfficialNewsImageUpload(
+  sql: Sql,
+  objectKeyValue: string,
+  uploaderUserId: string,
+  complexId: string,
+  idempotencyKey: string,
+  requestFingerprint: string,
+  requestId: string
+): Promise<IdempotentReservation | Response> {
+  try {
+    const rows = await sql`
+      insert into business_image_objects (
+        object_key, uploader_user_id, complex_id, state, kind,
+        upload_idempotency_key, upload_request_fingerprint
+      ) values (
+        ${objectKeyValue}, ${uploaderUserId}::uuid, ${complexId}::uuid, 'upload_pending', 'official-news-image',
+        ${idempotencyKey}, ${requestFingerprint}
+      )
+      on conflict do nothing
+      returning object_key, uploader_user_id::text, complex_id::text, state,
+                upload_idempotency_key, upload_request_fingerprint
+    `;
+    if (rows[0]) {
+      return { reserved: true, row: rows[0] as RegistryRow };
+    }
+
+    const existing = await sql`
+      select object_key, uploader_user_id::text, complex_id::text, state,
+             upload_idempotency_key, upload_request_fingerprint
+      from business_image_objects
+      where uploader_user_id = ${uploaderUserId}::uuid
+        and upload_idempotency_key = ${idempotencyKey}
+        and kind = 'official-news-image'
+      limit 1
+    `;
+    const row = existing[0] as RegistryRow | undefined;
+    if (row) return { reserved: false, row };
+
+    return fail(
+      'OFFICIAL_NEWS_IMAGE_UPLOAD_RESERVATION_CONFLICT',
+      'Official news image upload id could not be reserved safely',
+      409,
+      requestId
+    );
+  } catch {
+    return fail(
+      'OFFICIAL_NEWS_IMAGE_REGISTRY_UNAVAILABLE',
+      'Official news image upload idempotency reservation is unavailable',
+      503,
+      requestId
+    );
+  }
+}
+
+export async function activateOfficialNewsImageUpload(
+  sql: Sql,
+  objectKeyValue: string,
+  uploaderUserId: string,
+  complexId: string,
+  requestId: string
+): Promise<Response | null> {
+  try {
+    const rows = await sql`
+      update business_image_objects
+      set state = 'active',
+          reconcile_lease_token = null,
+          reconcile_lease_expires_at = null,
+          reconcile_next_attempt_at = null,
+          reconcile_last_error_code = null,
+          updated_at = now()
+      where object_key = ${objectKeyValue}
+        and uploader_user_id = ${uploaderUserId}::uuid
+        and complex_id = ${complexId}::uuid
+        and kind = 'official-news-image'
+        and state = 'upload_pending'
+      returning state
+    `;
+    if (rows[0]) return null;
+
+    const current = await sql`
+      select uploader_user_id::text, complex_id::text, state
+      from business_image_objects
+      where object_key = ${objectKeyValue}
+        and kind = 'official-news-image'
+      limit 1
+    `;
+    const row = current[0] as RegistryRow | undefined;
+    if (row && row.state === 'active' &&
+        row.uploader_user_id === uploaderUserId && row.complex_id === complexId) {
+      return null;
+    }
+    return fail(
+      'OFFICIAL_NEWS_IMAGE_UPLOAD_STATE_CONFLICT',
+      'Official news image upload could not be activated from its reserved state',
+      409,
+      requestId
+    );
+  } catch {
+    return fail(
+      'OFFICIAL_NEWS_IMAGE_UPLOAD_ACTIVATION_UNAVAILABLE',
+      'Official news image is durably reserved but activation could not be confirmed',
+      503,
+      requestId
+    );
+  }
+}
+
+export async function reconcileOfficialNewsImageUploadPending(
+  env: CoreEnv,
+  sql: Sql,
+  objectKeyValue: string,
+  uploaderUserId: string,
+  complexId: string,
+  complexSlug: string,
+  requestId: string
+): Promise<UploadSuccess | Response> {
+  const driveEnv = env as DriveEnv;
+  const fileId = fileIdFromOfficialNewsImageObjectKey(objectKeyValue);
+  if (!fileId) {
+    return fail('INVALID_OFFICIAL_NEWS_IMAGE_REFERENCE', 'Reserved official news image object key is invalid', 400, requestId);
+  }
+
+  const registry = await readOfficialNewsImageRegistryRow(sql, objectKeyValue, requestId);
+  if (registry instanceof Response) return registry;
+  if (!registry) {
+    return fail('OFFICIAL_NEWS_IMAGE_NOT_REGISTERED', 'Reserved official news image lifecycle row is missing', 503, requestId);
+  }
+  if (registry.uploader_user_id !== uploaderUserId || registry.complex_id !== complexId) {
+    return fail(
+      'OFFICIAL_NEWS_IMAGE_UPLOAD_STATE_CONFLICT',
+      'Reserved official news image owner or complex does not match',
+      409,
+      requestId
+    );
+  }
+  if (registry.state === 'active') {
+    let activeMetadata: DriveMetadata | null;
+    try {
+      activeMetadata = await readDriveMetadata(driveEnv, fileId);
+    } catch {
+      return fail(
+        'OFFICIAL_NEWS_IMAGE_UPLOAD_RECONCILIATION_PENDING',
+        'Official news image remains active but storage could not be confirmed',
+        503,
+        requestId
+      );
+    }
+    if (!activeMetadata || !officialNewsImageMetadataMatches(driveEnv, activeMetadata, fileId, uploaderUserId, complexSlug)) {
+      return fail(
+        'OFFICIAL_NEWS_IMAGE_UPLOAD_RECONCILIATION_PENDING',
+        'Active official news image no longer matches the DanjiOn reservation',
+        503,
+        requestId
+      );
+    }
+    return { objectKey: objectKeyValue, metadata: activeMetadata };
+  }
+  if (registry.state !== 'upload_pending') {
+    return fail(
+      'OFFICIAL_NEWS_IMAGE_UPLOAD_STATE_CONFLICT',
+      'Reserved official news image is no longer reconcilable',
+      409,
+      requestId
+    );
+  }
+
+  let metadata: DriveMetadata | null;
+  try {
+    metadata = await readDriveMetadata(driveEnv, fileId);
+  } catch {
+    return fail(
+      'OFFICIAL_NEWS_IMAGE_UPLOAD_RECONCILIATION_PENDING',
+      'Official news image remains reserved because persisted metadata could not be confirmed',
+      503,
+      requestId
+    );
+  }
+  if (!metadata || !officialNewsImageMetadataMatches(driveEnv, metadata, fileId, uploaderUserId, complexSlug)) {
+    return fail(
+      'OFFICIAL_NEWS_IMAGE_UPLOAD_RECONCILIATION_PENDING',
+      'Official news image remains reserved because persisted metadata does not match the reservation',
+      503,
+      requestId
+    );
+  }
+
+  const activationError = await activateOfficialNewsImageUpload(
+    sql, objectKeyValue, uploaderUserId, complexId, requestId
+  );
+  if (activationError) return activationError;
+  return { objectKey: objectKeyValue, metadata };
+}
+
+async function persistIdempotentReservedOfficialNewsImageUpload(
+  env: CoreEnv,
+  sql: Sql,
+  file: File,
+  uploader: TrackedResident,
+  objectKeyValue: string,
+  requestId: string
+): Promise<UploadSuccess | Response> {
+  const driveEnv = env as DriveEnv;
+  const fileId = fileIdFromOfficialNewsImageObjectKey(objectKeyValue);
+  if (!fileId) {
+    return fail('INVALID_OFFICIAL_NEWS_IMAGE_REFERENCE', 'Reserved official news image object key is invalid', 400, requestId);
+  }
+
+  let uploadResponse: Response;
+  try {
+    uploadResponse = await uploadOfficialNewsImageFile(driveEnv, file, fileId, uploader.id, uploader.complexSlug);
+  } catch {
+    return reconcileOfficialNewsImageUploadPending(
+      env, sql, objectKeyValue, uploader.id, uploader.complexId, uploader.complexSlug, requestId
+    );
+  }
+
+  if (!uploadResponse.ok) {
+    if (uploadResponse.status === 409 || uploadResponse.status >= 500) {
+      return reconcileOfficialNewsImageUploadPending(
+        env, sql, objectKeyValue, uploader.id, uploader.complexId, uploader.complexSlug, requestId
+      );
+    }
+    return fail(
+      'OFFICIAL_NEWS_IMAGE_UPLOAD_FAILED',
+      'Official news image remains durably reserved but Google Drive rejected the upload',
+      502,
+      requestId
+    );
+  }
+
+  let metadata: DriveMetadata | null;
+  try {
+    metadata = await readDriveMetadata(driveEnv, fileId);
+  } catch {
+    return fail(
+      'OFFICIAL_NEWS_IMAGE_UPLOAD_RECONCILIATION_PENDING',
+      'Official news image remains reserved because persisted metadata could not be confirmed',
+      503,
+      requestId
+    );
+  }
+  if (!metadata || !officialNewsImageMetadataMatches(driveEnv, metadata, fileId, uploader.id, uploader.complexSlug)) {
+    return fail(
+      'OFFICIAL_NEWS_IMAGE_UPLOAD_RECONCILIATION_PENDING',
+      'Official news image remains reserved because persisted metadata does not match the reservation',
+      503,
+      requestId
+    );
+  }
+
+  const activationError = await activateOfficialNewsImageUpload(
+    sql, objectKeyValue, uploader.id, uploader.complexId, requestId
+  );
+  if (activationError) return activationError;
+  return { objectKey: objectKeyValue, metadata };
+}
+
+async function resumeIdempotentOfficialNewsImageUploadPending(
+  env: CoreEnv,
+  sql: Sql,
+  file: File,
+  uploader: TrackedResident,
+  objectKeyValue: string,
+  requestId: string
+): Promise<UploadSuccess | Response> {
+  const driveEnv = env as DriveEnv;
+  const fileId = fileIdFromOfficialNewsImageObjectKey(objectKeyValue);
+  if (!fileId) {
+    return fail('INVALID_OFFICIAL_NEWS_IMAGE_REFERENCE', 'Reserved official news image object key is invalid', 400, requestId);
+  }
+
+  const registry = await readOfficialNewsImageRegistryRow(sql, objectKeyValue, requestId);
+  if (registry instanceof Response) return registry;
+  if (!registry) {
+    return fail('OFFICIAL_NEWS_IMAGE_NOT_REGISTERED', 'Reserved official news image lifecycle row is missing', 503, requestId);
+  }
+  if (registry.uploader_user_id !== uploader.id || registry.complex_id !== uploader.complexId) {
+    return fail(
+      'OFFICIAL_NEWS_IMAGE_UPLOAD_IDEMPOTENCY_SCOPE_CONFLICT',
+      'The idempotent official news image reservation no longer matches the caller scope',
+      409,
+      requestId
+    );
+  }
+  if (registry.state === 'active') {
+    return reconcileOfficialNewsImageUploadPending(
+      env, sql, objectKeyValue, uploader.id, uploader.complexId, uploader.complexSlug, requestId
+    );
+  }
+  if (registry.state !== 'upload_pending') {
+    return fail(
+      'OFFICIAL_NEWS_IMAGE_UPLOAD_IDEMPOTENCY_STATE_CONFLICT',
+      'The original idempotent official news image upload is no longer resumable',
+      409,
+      requestId
+    );
+  }
+
+  let metadata: DriveMetadata | null;
+  try {
+    metadata = await readDriveMetadata(driveEnv, fileId);
+  } catch {
+    return fail(
+      'OFFICIAL_NEWS_IMAGE_UPLOAD_RECONCILIATION_PENDING',
+      'Reserved official news image could not prove exact Google Drive absence for safe resume',
+      503,
+      requestId
+    );
+  }
+
+  if (metadata) {
+    if (!officialNewsImageMetadataMatches(driveEnv, metadata, fileId, uploader.id, uploader.complexSlug)) {
+      return fail(
+        'OFFICIAL_NEWS_IMAGE_UPLOAD_RECONCILIATION_PENDING',
+        'An object exists at the reserved Drive id but does not match the DanjiOn reservation',
+        503,
+        requestId
+      );
+    }
+    const activationError = await activateOfficialNewsImageUpload(
+      sql, objectKeyValue, uploader.id, uploader.complexId, requestId
+    );
+    if (activationError) return activationError;
+    return { objectKey: objectKeyValue, metadata };
+  }
+
+  return persistIdempotentReservedOfficialNewsImageUpload(
+    env, sql, file, uploader, objectKeyValue, requestId
+  );
+}
+
+async function idempotentOfficialNewsImageReplay(
+  env: CoreEnv,
+  sql: Sql,
+  file: File,
+  row: RegistryRow,
+  uploader: TrackedResident,
+  requestFingerprint: string,
+  requestId: string
+): Promise<UploadSuccess | Response> {
+  const objectKeyValue = String(row.object_key || '');
+  if (!objectKeyValue) {
+    return fail('OFFICIAL_NEWS_IMAGE_UPLOAD_STATE_CONFLICT', 'The idempotent official news image reservation is malformed', 409, requestId);
+  }
+  if (row.uploader_user_id !== uploader.id || row.complex_id !== uploader.complexId) {
+    return fail(
+      'OFFICIAL_NEWS_IMAGE_UPLOAD_IDEMPOTENCY_SCOPE_CONFLICT',
+      'The Idempotency-Key was already used for a different official news image upload scope',
+      409,
+      requestId
+    );
+  }
+  if (row.upload_request_fingerprint !== requestFingerprint) {
+    return fail(
+      'IDEMPOTENCY_KEY_REUSED',
+      'The Idempotency-Key was already used with a different official news image upload',
+      409,
+      requestId
+    );
+  }
+  if (row.state !== 'upload_pending' && row.state !== 'active') {
+    return fail(
+      'OFFICIAL_NEWS_IMAGE_UPLOAD_IDEMPOTENCY_STATE_CONFLICT',
+      'The original idempotent official news image upload is no longer replayable',
+      409,
+      requestId
+    );
+  }
+
+  const replay = row.state === 'upload_pending'
+    ? await resumeIdempotentOfficialNewsImageUploadPending(env, sql, file, uploader, objectKeyValue, requestId)
+    : await reconcileOfficialNewsImageUploadPending(
+        env, sql, objectKeyValue, uploader.id, uploader.complexId, uploader.complexSlug, requestId
+      );
+  if (replay instanceof Response) return replay;
+  return { ...replay, idempotencyReplayed: true };
+}
+
+async function runIdempotentTrackedOfficialNewsImageUpload(
+  env: CoreEnv,
+  sql: Sql,
+  file: File,
+  uploader: TrackedResident,
+  requestId: string,
+  idempotencyKey: string
+): Promise<UploadSuccess | Response> {
+  let requestFingerprint: string;
+  try {
+    requestFingerprint = await officialNewsImageUploadRequestFingerprint(file, uploader.complexSlug);
+  } catch {
+    return fail(
+      'OFFICIAL_NEWS_IMAGE_UPLOAD_FINGERPRINT_UNAVAILABLE',
+      'Official news image upload fingerprint could not be calculated',
+      503,
+      requestId
+    );
+  }
+
+  const existing = await readIdempotentOfficialNewsImageRegistryRow(sql, uploader.id, idempotencyKey, requestId);
+  if (existing instanceof Response) return existing;
+  if (existing) {
+    return idempotentOfficialNewsImageReplay(env, sql, file, existing, uploader, requestFingerprint, requestId);
+  }
+
+  let fileId: string;
+  try {
+    fileId = await generateDriveFileId(env as DriveEnv);
+  } catch {
+    return fail('OFFICIAL_NEWS_IMAGE_ID_RESERVATION_UNAVAILABLE', 'Google Drive could not reserve an upload id', 503, requestId);
+  }
+  const candidateObjectKey = officialNewsImageObjectKey(fileId);
+  const reservation = await reserveIdempotentOfficialNewsImageUpload(
+    sql, candidateObjectKey, uploader.id, uploader.complexId, idempotencyKey, requestFingerprint, requestId
+  );
+  if (reservation instanceof Response) return reservation;
+  if (!reservation.reserved) {
+    return idempotentOfficialNewsImageReplay(env, sql, file, reservation.row, uploader, requestFingerprint, requestId);
+  }
+
+  return persistIdempotentReservedOfficialNewsImageUpload(env, sql, file, uploader, candidateObjectKey, requestId);
+}
+
+export async function runTrackedOfficialNewsImageUpload(
+  env: CoreEnv,
+  sql: Sql,
+  file: File,
+  uploader: TrackedResident,
+  requestId: string,
+  idempotencyKey: string | null = null
+): Promise<UploadSuccess | Response> {
+  if (idempotencyKey) {
+    if (!validBusinessImageUploadIdempotencyKey(idempotencyKey)) {
+      return fail(
+        'INVALID_IDEMPOTENCY_KEY',
+        'Idempotency-Key must be 8-80 characters using letters, numbers, dot, underscore, colon or dash',
+        400,
+        requestId
+      );
+    }
+    return runIdempotentTrackedOfficialNewsImageUpload(env, sql, file, uploader, requestId, idempotencyKey);
+  }
+
+  const driveEnv = env as DriveEnv;
+  let fileId: string;
+  try {
+    fileId = await generateDriveFileId(driveEnv);
+  } catch {
+    return fail('OFFICIAL_NEWS_IMAGE_ID_RESERVATION_UNAVAILABLE', 'Google Drive could not reserve an upload id', 503, requestId);
+  }
+
+  const objectKeyValue = officialNewsImageObjectKey(fileId);
+  const reservationError = await reserveOfficialNewsImageUpload(
+    sql, objectKeyValue, uploader.id, uploader.complexId, requestId
+  );
+  if (reservationError) return reservationError;
+
+  let uploadResponse: Response;
+  try {
+    uploadResponse = await uploadOfficialNewsImageFile(driveEnv, file, fileId, uploader.id, uploader.complexSlug);
+  } catch {
+    return reconcileOfficialNewsImageUploadPending(
+      env, sql, objectKeyValue, uploader.id, uploader.complexId, uploader.complexSlug, requestId
+    );
+  }
+
+  if (!uploadResponse.ok) {
+    if (uploadResponse.status === 409 || uploadResponse.status >= 500) {
+      return reconcileOfficialNewsImageUploadPending(
+        env, sql, objectKeyValue, uploader.id, uploader.complexId, uploader.complexSlug, requestId
+      );
+    }
+    return fail(
+      'OFFICIAL_NEWS_IMAGE_UPLOAD_FAILED',
+      'Official news image remains durably reserved but Google Drive rejected the upload',
+      502,
+      requestId
+    );
+  }
+
+  let metadata: DriveMetadata | null;
+  try {
+    metadata = await readDriveMetadata(driveEnv, fileId);
+  } catch {
+    return fail(
+      'OFFICIAL_NEWS_IMAGE_UPLOAD_RECONCILIATION_PENDING',
+      'Official news image remains reserved because persisted metadata could not be confirmed',
+      503,
+      requestId
+    );
+  }
+  if (!metadata || !officialNewsImageMetadataMatches(driveEnv, metadata, fileId, uploader.id, uploader.complexSlug)) {
+    return fail(
+      'OFFICIAL_NEWS_IMAGE_UPLOAD_RECONCILIATION_PENDING',
+      'Official news image remains reserved because persisted metadata does not match the reservation',
+      503,
+      requestId
+    );
+  }
+
+  const activationError = await activateOfficialNewsImageUpload(
+    sql, objectKeyValue, uploader.id, uploader.complexId, requestId
+  );
+  if (activationError) return activationError;
+  return { objectKey: objectKeyValue, metadata };
+}
+
  export async function handleTrackedStorageUploadRequest(
   request: Request,
   env: CoreEnv,
@@ -1580,15 +2267,32 @@ export async function runTrackedApplicationDocumentUpload(
     const status = validation.code === 'UNSUPPORTED_MEDIA_TYPE' ? 415 : validation.code === 'FILE_TOO_LARGE' ? 413 : 400;
     return fail(validation.code, validation.message, status, requestId);
   }
-  if (validation.kind !== 'business-image' && validation.kind !== 'application-document') {
-    return fail('VALIDATION_ERROR', 'Only business-image and application-document persistence is available on the current upload path', 400, requestId);
+  if (validation.kind !== 'business-image' && validation.kind !== 'application-document' && validation.kind !== 'official-news-image') {
+    return fail('VALIDATION_ERROR', 'Only business-image, application-document and official-news-image persistence is available on the current upload path', 400, requestId);
   }
   if (!complexSlug) return fail('VALIDATION_ERROR', 'complexSlug is required', 400, requestId);
 
-  const residentOrResponse = await requireVerifiedResident(request, env, sql, requestId, complexSlug);
-  if (residentOrResponse instanceof Response) return residentOrResponse;
-  const resident = residentOrResponse as TrackedResident;
+  // #844 Amendment B: the official-news lane is authorized by official-content authority
+  // (PADIEM operator or granted resident council), never by resident verification.
   const file = files[0];
+  let uploader: TrackedResident;
+  if (validation.kind === 'official-news-image') {
+    const authority = await requireOperationalAuthority(
+      request,
+      env,
+      sql,
+      requestId,
+      complexSlug,
+      'official-content.manage',
+      'council.official-content.manage'
+    );
+    if (authority instanceof Response) return authority;
+    uploader = authority;
+  } else {
+    const residentOrResponse = await requireVerifiedResident(request, env, sql, requestId, complexSlug);
+    if (residentOrResponse instanceof Response) return residentOrResponse;
+    uploader = residentOrResponse as TrackedResident;
+  }
 
   const rawIdempotencyKey = request.headers.get('idempotency-key')?.trim() || null;
   if (rawIdempotencyKey && !validBusinessImageUploadIdempotencyKey(rawIdempotencyKey)) {
@@ -1603,11 +2307,15 @@ export async function runTrackedApplicationDocumentUpload(
    let result: UploadSuccess | Response;
    if (validation.kind === 'business-image') {
      result = await runTrackedBusinessImageUpload(
-       env, sql, file, resident, requestId, rawIdempotencyKey
+       env, sql, file, uploader, requestId, rawIdempotencyKey
+     );
+   } else if (validation.kind === 'official-news-image') {
+     result = await runTrackedOfficialNewsImageUpload(
+       env, sql, file, uploader, requestId, rawIdempotencyKey
      );
    } else {
      result = await runTrackedApplicationDocumentUpload(
-       env, sql, file, resident, requestId, rawIdempotencyKey
+       env, sql, file, uploader, requestId, rawIdempotencyKey
      );
    }
    if (result instanceof Response) return result;

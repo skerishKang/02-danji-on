@@ -103,8 +103,8 @@ assert.ok(upload.includes("validation.kind !== 'application-document'"),
   'upload route must accept application-document kind');
 assert.ok(/}, requestId, 201\);/.test(upload),
   'successful tracked upload must answer HTTP 201');
-assert.match(policyTypes, /export type StorageKind = 'business-image' \| 'resident-evidence' \| 'application-document';/,
-  'StorageKind type must include application-document');
+assert.match(policyTypes, /export type StorageKind = 'business-image' \| 'resident-evidence' \| 'application-document'( \| 'official-news-image')?;/,
+  'StorageKind type must include application-document (plus the additive #844 official-news-image kind)');
 
 // idempotent replay (REQ G + H): completed replays reload persisted documents
 // with idempotency_replayed: true, the document read fails closed with 503,

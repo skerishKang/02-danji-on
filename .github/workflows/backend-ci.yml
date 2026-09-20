@@ -79,6 +79,7 @@ jobs:
               bash tests/business-image-postgres-concurrency.sh
               bash tests/business-image-upload-idempotency-postgres.sh
               bash tests/business-image-resolved-lease-cleanup-postgres.sh
+              bash tests/official-news-image-postgres-concurrency.sh
           - name: application-documents-owner-list-postgres-lifecycle
             database: danjion_owner_doc_list
             script: bash tests/application-documents-owner-list-postgres-lifecycle.sh
