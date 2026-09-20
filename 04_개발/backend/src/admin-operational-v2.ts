@@ -2,7 +2,7 @@ import { neon, type NeonQueryFunction } from '@neondatabase/serverless';
 import { deriveChannel } from './complex-news-channel';
 import type { CoreEnv } from './core-v1';
 import { requireOperationalAuthority, type OperationalAuthority } from './operational-authz-v2';
-import { validateBusinessImageReference } from './storage-reference-v1';
+import { validateBusinessImageReference, validateOfficialNewsImageReference } from './storage-reference-v1';
 
 type Sql = NeonQueryFunction<false, false>;
 
@@ -309,6 +309,14 @@ async function createPost(
   const attachment = String(payload.attachmentObjectKey ?? '').trim() || null;
   const channel = deriveChannel(sourceName, payload.channel);
   if (!channel) return fail('INVALID_CHANNEL', 'Invalid channel', 400, requestId);
+  // #844: a client-supplied object key is never trusted. It must be a server-issued, active,
+  // same-complex official-news image before it may be persisted on the post.
+  if (attachment) {
+    const invalidAttachment = await validateOfficialNewsImageReference(
+      env, sql, attachment, operator.complexId, complexSlug, requestId
+    );
+    if (invalidAttachment) return invalidAttachment;
+  }
   const rows = await sql`
     insert into complex_posts (
       complex_id, author_user_id, source_name, category, title, body,
@@ -360,6 +368,14 @@ async function patchPost(
   }
   const channel = deriveChannel(sourceName, payload.channel);
   if (!channel) return fail('INVALID_CHANNEL', 'Invalid channel', 400, requestId);
+  // #844: existing attachment is preserved; any newly supplied key is validated as a
+  // server-issued, active, same-complex official-news image (no arbitrary key trust).
+  if (attachment && attachment !== (current.attachment_object_key ? String(current.attachment_object_key) : null)) {
+    const invalidAttachment = await validateOfficialNewsImageReference(
+      env, sql, attachment, operator.complexId, String(current.complex_slug), requestId
+    );
+    if (invalidAttachment) return invalidAttachment;
+  }
   const updated = await sql`
     update complex_posts
     set source_name = ${sourceName}, category = ${category}, title = ${title}, body = ${body},

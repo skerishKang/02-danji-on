@@ -100,8 +100,11 @@ const streamEnd = storage.indexOf('async function trashBusinessImageAndFinalize(
 const streamBlock = storage.slice(streamStart, streamEnd);
 assert.ok(streamBlock.includes('const denied = await authorizeObject(auth.actor, metadata, requestId)'),
   'private evidence read must use the current fail-closed object authorization boundary');
-assert.ok(streamBlock.includes("parsed.visibility !== 'public' || parsed.kind !== 'business-image'"),
-  'public business-image read route must remain public-display-only');
+assert.ok(streamBlock.includes("parsed.visibility !== 'public'") &&
+  streamBlock.includes("parsed.kind !== 'business-image' && parsed.kind !== 'official-news-image'"),
+  'public read route must remain public-display-only (business-image plus the #844 official-news public kind)');
+assert.ok(streamBlock.includes('officialNewsImagePubliclyVisible(env, parsed.objectKey, requestId)'),
+  '#844: official-news images are streamed publicly only while an active object is referenced by a published post');
 
 const removeStart = storage.indexOf('async function removeObject(');
 const removeEnd = storage.indexOf('export async function handleStorageRequest', removeStart);
@@ -112,7 +115,10 @@ assert.ok(removeBlock.includes('const denied = await authorizeObject(auth.actor,
   'resident-evidence delete/trash must retain uploader/HOLD authorization');
 assert.ok(removeBlock.includes("if (parsed.kind === 'business-image')"),
   'business image delete must enter lifecycle registry routing');
-assert.ok(removeBlock.includes('await readBusinessImageRegistry(auth.sql, parsed.objectKey, requestId)'));
+assert.ok(removeBlock.includes("if (parsed.kind === 'official-news-image')"),
+  '#844: official news image delete must have its own reference-guarded lane');
+assert.ok(removeBlock.includes('await officialNewsImageDeleteConflict(auth.sql, parsed.objectKey, requestId)'),
+  '#844: a referenced official-news image must be denied retirement before any Drive mutation');
 
 const registeredStart = storage.indexOf('async function removeRegisteredBusinessImage(');
 const registeredEnd = storage.indexOf('async function removeLegacyUnregisteredBusinessImage(', registeredStart);
@@ -148,4 +154,74 @@ assert.equal(lifecycleMigration.includes('resident-evidence'), false);
 assert.ok(devVars.includes('GOOGLE_DRIVE_CLIENT_SECRET=replace-with-oauth-client-secret'));
 assert.ok(devVars.includes('GOOGLE_DRIVE_REFRESH_TOKEN=replace-with-refresh-token'));
 
+/* ---------------- #844 official apartment-news public image lane ---------------- */
+
+const storagePolicy = read('src/storage-policy.mjs');
+const officialNewsMigration = read('migrations/057_official_news_image_storage.sql');
+const migrationLedger = read('migration-safety-ledger.json');
+const referenceModule = read('src/storage-reference-v1.ts');
+const adminOperational = read('src/admin-operational-v2.ts');
+
+// storage kind is additive and public
+assert.ok(storagePolicy.includes("'official-news-image'"), '#844 storage kind must exist');
+assert.ok(uploadV2.includes('gdrive/public/official-news-image/'), '#844 objectKey namespace must be the official-news lane');
+
+// migration + ledger
+assert.ok(officialNewsMigration.includes("'official-news-image'"));
+assert.ok(officialNewsMigration.includes("object_key like 'gdrive/public/official-news-image/%'"));
+assert.ok(officialNewsMigration.includes('uq_official_news_image_upload_idempotency'));
+assert.ok(migrationLedger.includes('057_official_news_image_storage.sql'),
+  '#844 migration must be registered in the migration safety ledger');
+
+// Amendment A: no dedicated Drive folder/binding, only the two pre-existing ones.
+assert.equal(/(OFFICIAL_NEWS_FOLDER|ANNOUNCEMENT_FOLDER|PUBLIC_MEDIA_FOLDER)/.test(uploadV2 + storage), false,
+  'Amendment A: no new Drive folder env/binding may be introduced');
+assert.ok(storage.includes("return kind === 'business-image' || kind === 'official-news-image';"),
+  'official-news-image must reuse the public business folder + public visibility');
+assert.ok(uploadV2.includes("danjionKind: 'official-news-image'") && uploadV2.includes("danjionVisibility: 'public'"));
+assert.ok(uploadV2.includes('GOOGLE_DRIVE_PUBLIC_BUSINESS_FOLDER_ID'),
+  'official-news upload must physically reuse the existing public business folder');
+
+// Amendment B: operator official-content authority, never resident verification, for the new lane.
+const routeStart = uploadV2.indexOf('export async function handleTrackedStorageUploadRequest(');
+const routeBlock = uploadV2.slice(routeStart);
+assert.ok(routeBlock.includes("'official-content.manage'") && routeBlock.includes("'council.official-content.manage'"),
+  'Amendment B: official-news upload must require official-content authority');
+assert.ok(routeBlock.includes("validation.kind === 'official-news-image'"),
+  'the upload route must branch the official-news kind explicitly');
+assert.ok(uploadV2.includes('runTrackedOfficialNewsImageUpload'), '#844 upload lane must exist');
+assert.ok(uploadV2.includes("and kind = 'official-news-image'"), 'registry reads/writes must be kind-scoped');
+
+// Amendment B: reference validation without forced uploader identity.
+assert.ok(referenceModule.includes('export async function validateOfficialNewsImageReference('));
+const referenceBlock = referenceModule.slice(referenceModule.indexOf('export async function validateOfficialNewsImageReference('));
+for (const needle of [
+  "parsed.kind !== 'official-news-image'",
+  "registry.kind !== 'official-news-image'",
+  "String(registry.complex_id) !== expectedComplexId",
+  "String(registry.state) !== 'active'",
+  'metadataMatches(driveEnv, parsed, metadata)'
+]) {
+  assert.ok(referenceBlock.includes(needle), `official-news reference validation must include: ${needle}`);
+}
+assert.equal(referenceBlock.includes('danjionUploaderUserId !=='), false,
+  'Amendment B: attaching a photo must not require the same uploader as the post editor');
+assert.ok(adminOperational.includes('validateOfficialNewsImageReference'),
+  'create/patch must validate client-supplied attachment keys server-side');
+
+// Amendment D: public streaming requires an active object referenced by a PUBLISHED post.
+assert.ok(storage.includes('officialNewsImagePubliclyVisible'));
+assert.ok(storage.includes("p.status = 'published'"));
+assert.ok(storage.includes("o.state = 'active'"));
+assert.ok(storage.includes('business_image_objects o'), 'resolver must consult the lifecycle registry');
+
+// Amendment C: delete guard.
+assert.ok(storage.includes('officialNewsImageDeleteConflict'));
+const deleteGuard = storage.slice(storage.indexOf('async function officialNewsImageDeleteConflict('));
+assert.ok(deleteGuard.includes('from complex_posts p') && deleteGuard.includes('p.attachment_object_key = ${objectKeyValue}'),
+  'Amendment C: delete must be denied while a post references the image');
+assert.ok(deleteGuard.includes('OFFICIAL_NEWS_IMAGE_IN_USE'));
+assert.ok(deleteGuard.includes('409'), 'a referenced official-news image delete must fail with 409');
+
 console.log('PASS Google Drive storage contract, evidence HOLD and current Household-v2 business-media authorization');
+console.log('PASS #844 official apartment-news public image lane (kind, namespace, authz, resolver, delete guard)');

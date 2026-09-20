@@ -257,7 +257,7 @@ class MockAdminAdapter {
     return reviewMockRecommendation(id, status, reviewNote);
   }
 
-  async createPost(input: { sourceName: string; category: string; title: string; body: string }) {
+  async createPost(input: { sourceName: string; category: string; title: string; body: string; attachmentObjectKey?: string | null }) {
     return createStoredMockPost(input);
   }
 
@@ -315,7 +315,7 @@ class ApiAdminAdapter {
     });
   }
 
-  async createPost(input: { sourceName: string; category: string; title: string; body: string }) {
+  async createPost(input: { sourceName: string; category: string; title: string; body: string; attachmentObjectKey?: string | null }) {
     return apiRequest<Record<string, unknown>>(`/api/v1/admin/complexes/${COMPLEX_SLUG}/posts`, {
       method: 'POST',
       body: JSON.stringify({ ...input, status: 'published' })

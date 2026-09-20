@@ -27,6 +27,18 @@ function joinUrl(base, path) {
   return `${root}${path}`;
 }
 
+// #844: an official-news public image key is the ONLY attachment shape the public article
+// detail may resolve. Anything else (other public kinds, private keys, arbitrary strings)
+// resolves to null so no invented attachment surface is rendered. The server resolver
+// independently re-validates the key, the lifecycle state and the published reference.
+export const OFFICIAL_NEWS_IMAGE_KEY = /^gdrive\/public\/official-news-image\/[A-Za-z0-9_-]{10,200}$/;
+
+export function resolveOfficialNewsImageUrl(apiBase, objectKey) {
+  const key = objectKey == null ? '' : String(objectKey);
+  if (!OFFICIAL_NEWS_IMAGE_KEY.test(key)) return null;
+  return `${joinUrl(apiBase, '/api/v1/storage/public')}?objectKey=${encodeURIComponent(key)}`;
+}
+
 async function parseJson(response) {
   try { return await response.json(); } catch { return null; }
 }
@@ -181,6 +193,8 @@ globalThis.DanjionNewsBridge = {
   createNewsBridge,
   normalizePost,
   newsAuthorityLabel,
+  resolveOfficialNewsImageUrl,
+  OFFICIAL_NEWS_IMAGE_KEY,
   NEWS_CHANNELS,
   NEWS_DISPLAY_MODES,
   NEWS_AUTHORITY_LABELS,

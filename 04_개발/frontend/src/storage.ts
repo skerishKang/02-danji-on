@@ -1,6 +1,6 @@
 import { authenticatedFetch } from './auth-fetch';
 
-export type StorageKind = 'business-image' | 'resident-evidence';
+export type StorageKind = 'business-image' | 'resident-evidence' | 'official-news-image';
 export type StorageMode = 'mock' | 'drive';
 export type StorageVisibility = 'public' | 'private';
 
@@ -14,7 +14,7 @@ export interface StoredObject {
 }
 
 export interface StorageAdapter {
-  upload(kind: StorageKind, file: File): Promise<StoredObject>;
+  upload(kind: StorageKind, file: File, options?: { complexSlug?: string }): Promise<StoredObject>;
   read(objectKey: string): Promise<Blob | null>;
   delete(objectKey: string): Promise<void>;
   resolvePreview?(objectKey: string): Promise<string | null>;
@@ -24,6 +24,12 @@ export interface StorageAdapter {
 
 const STORAGE_POLICY = {
   'business-image': {
+    visibility: 'public' as const,
+    maxBytes: 8 * 1024 * 1024,
+    mimeTypes: new Set(['image/jpeg', 'image/png', 'image/webp'])
+  },
+  // #844: official apartment-news public attachment image (one image per post).
+  'official-news-image': {
     visibility: 'public' as const,
     maxBytes: 8 * 1024 * 1024,
     mimeTypes: new Set(['image/jpeg', 'image/png', 'image/webp'])
@@ -51,12 +57,16 @@ function safeFileName(value: string) {
   return value.normalize('NFKC').replace(/[^A-Za-z0-9._-]+/g, '-').replace(/^[.-]+/, '').replace(/[-.]+$/g, '') || 'upload';
 }
 
+const TYPE_MESSAGE: Record<StorageKind, string> = {
+  'business-image': '이미지 파일만 업로드할 수 있습니다.',
+  'official-news-image': '공식소식 사진은 JPG, PNG, WebP 이미지만 업로드할 수 있습니다.',
+  'resident-evidence': '주민 인증 증빙은 JPG, PNG, WebP 또는 PDF만 업로드할 수 있습니다.'
+};
+
 export function validateStorageFile(kind: StorageKind, file: File) {
   const policy = STORAGE_POLICY[kind];
   if (!policy.mimeTypes.has(file.type)) {
-    throw new Error(kind === 'business-image'
-      ? '이미지 파일만 업로드할 수 있습니다.'
-      : '주민 인증 증빙은 JPG, PNG, WebP 또는 PDF만 업로드할 수 있습니다.');
+    throw new Error(TYPE_MESSAGE[kind]);
   }
   if (file.size <= 0) throw new Error('빈 파일은 업로드할 수 없습니다.');
   if (file.size > policy.maxBytes) {
@@ -126,7 +136,7 @@ export function resetMockStorage(): Promise<void> {
 }
 
 class MockStorageAdapter implements StorageAdapter {
-  async upload(kind: StorageKind, file: File): Promise<StoredObject> {
+  async upload(kind: StorageKind, file: File, _options: { complexSlug?: string } = {}): Promise<StoredObject> {
     validateStorageFile(kind, file);
     const visibility = STORAGE_POLICY[kind].visibility;
     const objectKey = `mock/${visibility}/${kind}/${crypto.randomUUID()}-${safeFileName(file.name)}`;
@@ -185,7 +195,9 @@ function storageUrl(path: string, objectKey?: string) {
 }
 
 function isPublicDriveKey(objectKey: string) {
-  return objectKey.startsWith('gdrive/public/business-image/');
+  // #844: official-news public images use the same public read route as business images.
+  return objectKey.startsWith('gdrive/public/business-image/') ||
+    objectKey.startsWith('gdrive/public/official-news-image/');
 }
 
 function isPrivateDriveKey(objectKey: string) {
@@ -202,11 +214,11 @@ async function parseJsonResponse<T>(response: Response): Promise<T> {
 }
 
 class GoogleDriveStorageAdapter implements StorageAdapter {
-  async upload(kind: StorageKind, file: File): Promise<StoredObject> {
+  async upload(kind: StorageKind, file: File, options: { complexSlug?: string } = {}): Promise<StoredObject> {
     validateStorageFile(kind, file);
     const body = new FormData();
     body.append('kind', kind);
-    body.append('complexSlug', import.meta.env.VITE_COMPLEX_SLUG || 'bangnim-myeongji-roadhill');
+    body.append('complexSlug', options.complexSlug || import.meta.env.VITE_COMPLEX_SLUG || 'bangnim-myeongji-roadhill');
     body.append('file', file, safeFileName(file.name));
 
     const response = await authenticatedFetch(storageUrl('/api/v1/storage/objects'), {

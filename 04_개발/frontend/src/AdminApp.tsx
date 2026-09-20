@@ -14,6 +14,7 @@ import {
   type AdminReviewEvent
 } from './admin-api';
 import ResidentNewsReviewPanel from './ResidentNewsReviewPanel';
+import { storageAdapter, type StoredObject } from './storage';
 
 type AdminTab = 'applications' | 'recommendations' | 'audit' | 'residentNews' | 'posts' | 'benefits' | 'privileged';
 type ReviewStatus = Exclude<AdminApplicationStatus, 'draft'>;
@@ -69,6 +70,10 @@ export default function AdminApp() {
   const [busyId, setBusyId] = useState('');
   const [message, setMessage] = useState('');
   const [postForm, setPostForm] = useState({ sourceName: '단지온 운영자', category: '주민 사업자 소식', title: '', body: '' });
+  // #844: the composer holds only the server-returned object key; the local object URL is a preview.
+  const [postImage, setPostImage] = useState<StoredObject | null>(null);
+  const [postImageBusy, setPostImageBusy] = useState(false);
+  const [postImageError, setPostImageError] = useState('');
   const [benefitForm, setBenefitForm] = useState({ businessId: '', title: '', description: '', conditions: '방림명지로드힐 인증 입주민 대상' });
   const [authority, setAuthority] = useState<AdminAuthority | null>(null);
   const [authorityResolved, setAuthorityResolved] = useState(false);
@@ -196,9 +201,18 @@ export default function AdminApp() {
       setMessage('공지 제목과 내용은 필수입니다.');
       return;
     }
+    if (postImageBusy) {
+      setMessage('사진 업로드가 끝난 뒤 게시해 주세요.');
+      return;
+    }
     setBusyId('post');
     try {
-      await adminAdapter.createPost(postForm);
+      // #844: only the object key returned by the canonical upload is submitted; the client never
+      // fabricates or prefix-guesses an attachment key.
+      await adminAdapter.createPost({ ...postForm, attachmentObjectKey: postImage?.objectKey ?? null });
+      if (postImage) storageAdapter.releasePreview?.(postImage);
+      setPostImage(null);
+      setPostImageError('');
       setPostForm((current) => ({ ...current, title: '', body: '' }));
       setMessage('단지소식을 게시했습니다.');
     } catch (error) {
@@ -206,6 +220,27 @@ export default function AdminApp() {
     } finally {
       setBusyId('');
     }
+  }
+
+  async function selectPostImage(file: File | null) {
+    if (!file) return;
+    setPostImageError('');
+    setPostImageBusy(true);
+    try {
+      const uploaded = await storageAdapter.upload('official-news-image', file);
+      if (postImage) storageAdapter.releasePreview?.(postImage);
+      setPostImage(uploaded);
+    } catch (error) {
+      setPostImageError(error instanceof Error ? error.message : '사진을 업로드하지 못했습니다.');
+    } finally {
+      setPostImageBusy(false);
+    }
+  }
+
+  function removePostImage() {
+    if (postImage) storageAdapter.releasePreview?.(postImage);
+    setPostImage(null);
+    setPostImageError('');
   }
 
   async function submitBenefit(event: FormEvent) {
@@ -394,7 +429,17 @@ export default function AdminApp() {
             <label><span>분류</span><input value={postForm.category} onChange={(event) => setPostForm({ ...postForm, category: event.target.value })} /></label>
             <label className="full"><span>제목</span><input value={postForm.title} onChange={(event) => setPostForm({ ...postForm, title: event.target.value })} placeholder="예: 8월 입주자대표회의 활동 안내" /></label>
             <label className="full"><span>내용</span><textarea value={postForm.body} onChange={(event) => setPostForm({ ...postForm, body: event.target.value })} rows={8} /></label>
-            <button className="admin-primary" disabled={busyId === 'post'}>{busyId === 'post' ? '게시 중...' : '단지소식 게시'}</button>
+            <label className="full"><span>대표 사진 (JPG·PNG·WebP, 8MB 이하 1장)</span><input type="file" accept="image/jpeg,image/png,image/webp" disabled={postImageBusy || busyId === 'post'} onChange={(event) => { const picked = event.target.files?.[0] ?? null; event.target.value = ''; void selectPostImage(picked); }} /></label>
+            {postImageBusy && <p className="admin-summary">사진 업로드 중입니다...</p>}
+            {postImageError && <p className="admin-summary" role="alert">{postImageError}</p>}
+            {postImage && (
+              <div className="full">
+                <img src={postImage.previewUrl} alt="선택한 대표 사진 미리보기" style={{ maxWidth: '100%', height: 'auto', borderRadius: 8 }} />
+                <p className="admin-summary">첨부 파일: {postImage.fileName}</p>
+                <button type="button" disabled={busyId === 'post'} onClick={removePostImage}>사진 제거</button>
+              </div>
+            )}
+            <button className="admin-primary" disabled={busyId === 'post' || postImageBusy}>{busyId === 'post' ? '게시 중...' : '단지소식 게시'}</button>
           </form>
         </main>
       )}
