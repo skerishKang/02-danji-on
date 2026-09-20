@@ -32,6 +32,33 @@ async function json(response) {
   return response.json().catch(() => null);
 }
 
+/*
+ * Evidence records whether the auth bridge / app facade ran, never what the
+ * headers carried: a header value is not proven safe to print.
+ */
+function headerEvidence(headers) {
+  const facadePresent = Boolean(headers['x-danjion-app-facade'] || headers['x-danjion-auth-facade']);
+  return `AUTH_BRIDGE_PRESENT=${Boolean(headers['x-danjion-auth-bridge'])}:APP_FACADE_PRESENT=${facadePresent}`;
+}
+
+const UNPRINTABLE_EVIDENCE = /cookie|authorization|bearer|password|secret/i;
+const TOKEN_SHAPED = /eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}/;
+function boundedError(error) {
+  const safe = String(error instanceof Error ? error.message : 'UNKNOWN')
+    .slice(0, 120)
+    .replace(/[^\w:=.\- ]/g, '');
+  if (!safe || UNPRINTABLE_EVIDENCE.test(safe) || TOKEN_SHAPED.test(safe)) return 'REDACTED';
+  return safe;
+}
+
+function flushEvidence(heading) {
+  console.log(heading);
+  // events and results are bounded by construction: status codes, pathnames,
+  // header presence, and fixed disposition labels.
+  for (const line of events) console.log(line);
+  for (const line of results) console.log(line);
+}
+
 async function call(request, label, path, init = {}) {
   if (!FRONTEND.startsWith('https://danjion-qa.pages.dev') || !API.startsWith('https://padiem-danjion-api-qa.')) {
     throw new Error('QA_TARGET_GUARD_FAILED');
@@ -41,9 +68,7 @@ async function call(request, label, path, init = {}) {
     headers: { accept: 'application/json', Origin: FRONTEND, ...(init.headers || {}) }
   });
   const body = await json(response);
-  const bridge = response.headers()['x-danjion-auth-bridge'] || '-';
-  const facade = response.headers()['x-danjion-app-facade'] || response.headers()['x-danjion-auth-facade'] || '-';
-  events.push(`${label}:HTTP_${response.status()}:API_PATH=${new URL(response.url()).pathname}:AUTH_BRIDGE_HEADER=${bridge}:APP_FACADE_HEADER=${facade}`);
+  events.push(`${label}:HTTP_${response.status()}:API_PATH=${new URL(response.url()).pathname}:${headerEvidence(response.headers())}`);
   return { response, body, ...classify(response.status(), body) };
 }
 
@@ -55,9 +80,7 @@ async function pageCall(page, label, method, path, action) {
   await action();
   const response = await responsePromise;
   const body = await response.json().catch(() => null);
-  const bridge = response.headers()['x-danjion-auth-bridge'] || '-';
-  const facade = response.headers()['x-danjion-app-facade'] || response.headers()['x-danjion-auth-facade'] || '-';
-  events.push(`${label}:HTTP_${response.status()}:API_PATH=${path}:AUTH_BRIDGE_HEADER=${bridge}:APP_FACADE_HEADER=${facade}`);
+  events.push(`${label}:HTTP_${response.status()}:API_PATH=${path}:${headerEvidence(response.headers())}`);
   return { response, body, ...classify(response.status(), body) };
 }
 
@@ -73,6 +96,13 @@ let BOOKMARK_INITIAL_STATE = '';
 let BOOKMARK_TOGGLE_METHOD = '';
 let BOOKMARK_TOGGLE_AUTH = false;
 let BOOKMARK_RESTORED = false;
+/* Bookmark residue must be visible on the failure path too. */
+function emitBookmarkMarkers() {
+  console.log(`BOOKMARK_INITIAL_STATE=${BOOKMARK_INITIAL_STATE || 'UNKNOWN'}`);
+  console.log(`BOOKMARK_TOGGLE_METHOD=${BOOKMARK_TOGGLE_METHOD || 'UNKNOWN'}`);
+  console.log(`BOOKMARK_TOGGLE_AUTH=${BOOKMARK_TOGGLE_AUTH}`);
+  console.log(`BOOKMARK_RESTORED=${BOOKMARK_RESTORED}`);
+}
 try {
   const context = await browser.newContext();
   const page = await context.newPage();
@@ -192,13 +222,8 @@ try {
   }
 
   record('SESSION_AFTER', authenticated);
-  console.log('=== QA #830 AUTHENTICATED ACCEPTANCE ===');
-  for (const line of events) console.log(line);
-  for (const line of results) console.log(line);
-  console.log(`BOOKMARK_INITIAL_STATE=${BOOKMARK_INITIAL_STATE || 'UNKNOWN'}`);
-  console.log(`BOOKMARK_TOGGLE_METHOD=${BOOKMARK_TOGGLE_METHOD || 'UNKNOWN'}`);
-  console.log(`BOOKMARK_TOGGLE_AUTH=${BOOKMARK_TOGGLE_AUTH}`);
-  console.log(`BOOKMARK_RESTORED=${BOOKMARK_RESTORED}`);
+  flushEvidence('=== QA #830 AUTHENTICATED ACCEPTANCE ===');
+  emitBookmarkMarkers();
   console.log('QA_TARGET=NON_PRODUCTION_ONLY');
   console.log('PRODUCTION_TARGET=NO');
   console.log('SECRET_OUTPUT=NO');
@@ -206,7 +231,9 @@ try {
   if (results.some((line) => line.includes('=FAIL'))) process.exitCode = 1;
   await context.close();
 } catch (error) {
-  console.error(`QA_830_ACCEPTANCE_FAILED=${error instanceof Error ? error.message : 'UNKNOWN'}`);
+  flushEvidence('=== QA #830 AUTHENTICATED ACCEPTANCE FAILURE EVIDENCE ===');
+  emitBookmarkMarkers();
+  console.error(`QA_830_ACCEPTANCE_FAILED=${boundedError(error)}`);
   process.exitCode = 1;
 } finally {
   await browser.close();

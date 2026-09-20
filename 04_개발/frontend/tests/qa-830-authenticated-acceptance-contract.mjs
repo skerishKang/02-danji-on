@@ -9,8 +9,14 @@ assert.match(script, /const FRONTEND = 'https:\/\/danjion-qa\.pages\.dev'/);
 assert.match(script, /const API = 'https:\/\/padiem-danjion-api-qa\.padiem\.workers\.dev'/);
 assert.doesNotMatch(script, /danjion\.pages\.dev|production|PRODUCTION_API/);
 assert.match(script, /\/api\/auth\/get-session/);
-assert.match(script, /AUTH_BRIDGE_HEADER/);
-assert.match(script, /APP_FACADE_HEADER/);
+assert.match(script, /AUTH_BRIDGE_PRESENT=\$\{Boolean\(headers\['x-danjion-auth-bridge'\]\)\}/,
+  'the auth bridge must be evidenced by header presence');
+assert.match(script, /APP_FACADE_PRESENT=\$\{facadePresent\}/,
+  'the app facade must be evidenced by header presence');
+assert.doesNotMatch(script, /AUTH_BRIDGE_HEADER=|APP_FACADE_HEADER=/,
+  'raw header values must never be written into the evidence stream');
+assert.ok(!script.includes("headers['x-danjion-auth-bridge'] ||") && !script.includes("'] || '-'"),
+  'evidence must not fall back to printing a header value');
 assert.match(script, /status === 401/);
 assert.match(script, /RESIDENT_VERIFICATION_REQUIRED/);
 assert.match(script, /HOUSEHOLD_ASSOCIATION_REQUIRED/);
@@ -84,5 +90,43 @@ assert.doesNotMatch(script, /data-kind="walk"\][^\n]*\.catch\(/,
   'Together selector must not swallow its click failure with .catch()');
 assert.doesNotMatch(script, /\.catch\(\(\) => \{\}\)/,
   'no silent .catch(() => {}) fail-open may remain in the acceptance script');
+
+/* --- failure path must flush the same bounded evidence the success path emits --- */
+const flusher = script.slice(script.indexOf('function flushEvidence('));
+assert.ok(flusher.startsWith('function flushEvidence(heading) {'), 'flushEvidence must exist');
+assert.match(flusher, /console\.log\(heading\);[\s\S]*?for \(const line of events\) console\.log\(line\);[\s\S]*?for \(const line of results\) console\.log\(line\);/,
+  'flushEvidence must print every collected event and result');
+
+const catchBlock = script.slice(script.indexOf('catch (error) {'));
+assert.ok(catchBlock.length > 0, 'the run must keep a catch boundary');
+assert.match(catchBlock, /flushEvidence\('=== QA #830 AUTHENTICATED ACCEPTANCE FAILURE EVIDENCE ==='\)/,
+  'a failed run must still print its collected evidence');
+assert.match(catchBlock, /emitBookmarkMarkers\(\)/,
+  'a failed run must still report bookmark residue');
+assert.match(catchBlock, /console\.error\(`QA_830_ACCEPTANCE_FAILED=\$\{boundedError\(error\)\}`\)/,
+  'the failure marker must print after the evidence, bounded');
+assert.match(catchBlock, /process\.exitCode = 1/, 'a failed run must exit non-zero');
+assert.doesNotMatch(script, /QA_830_ACCEPTANCE_FAILED=\$\{error instanceof/,
+  'the failure marker must never print a raw error message');
+
+assert.match(script, /function boundedError\(error\) \{/, 'error text must pass through a bounded sanitizer');
+assert.match(script, /UNPRINTABLE_EVIDENCE = \/cookie\|authorization\|bearer\|password\|secret\/i/,
+  'the sanitizer must reject credential-bearing text');
+assert.match(script, /TOKEN_SHAPED = \/eyJ/, 'the sanitizer must reject token-shaped text');
+assert.match(script, /return 'REDACTED'/, 'the sanitizer must redact rather than print');
+
+/* The business lookup must be evidenced before it can abort the run. */
+const lookup = script.slice(
+  script.indexOf("call(context.request, 'BUSINESSES'"),
+  script.indexOf("throw new Error('QA_830_NO_SERVER_BUSINESS')")
+);
+assert.ok(lookup.includes("record('SERVER_BUSINESS_RESOLVED'"),
+  'the business lookup disposition must be recorded before the throw');
+assert.ok(lookup.includes("if (!businessId)"), 'an empty usable business set must stop the run');
+
+/* No credential may reach the evidence stream. */
+assert.doesNotMatch(script, /console\.\w+\([^)]*\$\{(email|password|jwt|cookie|token)\b/i,
+  'credentials must never be printed');
+assert.doesNotMatch(script, /storageState|context\.cookies\(/, 'session storage must never be dumped');
 
 console.log('qa-830-authenticated-acceptance-contract: PASS');
