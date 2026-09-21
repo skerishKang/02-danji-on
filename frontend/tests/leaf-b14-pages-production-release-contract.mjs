@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import { spawnSync } from 'node:child_process';
 
 const workflow = await readFile(new URL('../../.github/workflows/pages-production-release.yml', import.meta.url), 'utf8');
 
@@ -59,23 +60,55 @@ assert.ok(!/curl[^\n]*danjion\.padiem\.net/.test(workflow),
   'the release must not require HTTP availability of the deferred custom domain');
 
 /* Release summary regression guard: shell-safe quoting for step summary (#804) */
-assert.doesNotMatch(workflow, /echo '[^'\n]*\\\'\\\'[^'\n]*'/,
-  'release summary must not embed escaped single quotes inside single-quoted strings');
-assert.doesNotMatch(workflow, /echo '- Browser API\/Auth:[^'\n]*\\\'\\\'/,
-  'release summary must not contain the broken facade echo line');
-assert.match(workflow, /printf '%s\\n' ["']- Browser API\/Auth: same-origin Pages Function facade \(resolver returns '' on both canonical hosts\)["']/,
-  'release summary must use shell-safe quoting for the same-origin facade item');
+export function verifyReleaseSummaryShellSafe(workflowText) {
+  assert.doesNotMatch(workflowText, /echo '[^'\n]*\\\'\\\'[^'\n]*'/,
+    'release summary must not embed escaped single quotes inside single-quoted strings');
+  assert.doesNotMatch(workflowText, /echo '- Browser API\/Auth:[^'\n]*\\\'\\\'/,
+    'release summary must not contain the broken facade echo line');
+  assert.match(workflowText, /printf '%s\\n' ["']- Browser API\/Auth: same-origin Pages Function facade \(resolver returns '' on both canonical hosts\)["']/,
+    'release summary must use shell-safe quoting for the same-origin facade item');
 
-// Static shell syntax verification of the Record Pages release disposition run script
-const summaryStepMatch = workflow.match(/name:\s*Record Pages release disposition[\s\S]*?run:\s*\|([\s\S]*?)(?:\n\s*-\s*name:|\n\s*[a-z]+:|$)/);
-assert.ok(summaryStepMatch, 'Record Pages release disposition step must exist');
-const summaryLines = summaryStepMatch[1].split('\n');
-for (const line of summaryLines) {
-  const trimmed = line.trim();
-  if (!trimmed || trimmed.startsWith('#')) continue;
-  assert.ok(!/'[^']*\\'/.test(trimmed),
-    `line in summary script must not contain illegal \\' inside single quotes: ${trimmed}`);
+  // Static shell syntax verification of the Record Pages release disposition run script
+  const summaryStepMatch = workflowText.match(/name:\s*Record Pages release disposition[\s\S]*?run:\s*\|([\s\S]*?)(?:\n\s*-\s*name:|\n\s*[a-z]+:|$)/);
+  assert.ok(summaryStepMatch, 'Record Pages release disposition step must exist');
+  const summaryLines = summaryStepMatch[1].split('\n');
+  for (const line of summaryLines) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+    assert.ok(!/'[^']*\\'/.test(trimmed),
+      `line in summary script must not contain illegal \\' inside single quotes: ${trimmed}`);
+  }
+
+  // Shell syntax check via bash -n if bash is available
+  try {
+    const check = spawnSync('bash', ['-n'], { input: summaryStepMatch[1], encoding: 'utf8' });
+    if (check.status !== null && check.status !== 0) {
+      throw new Error(`Summary script failed bash -n syntax validation (exit ${check.status}): ${check.stderr || check.stdout}`);
+    }
+  } catch (err) {
+    if (err && err.message && err.message.includes('bash -n syntax validation')) {
+      throw err;
+    }
+  }
+
+  return true;
 }
 
+// Verify shipped workflow
+verifyReleaseSummaryShellSafe(workflow);
 console.log('RELEASE_SUMMARY_SHELL_SAFE: PASS');
+
+// Mutation Proof: revert to broken echo with unescapable single-quote in single-quotes
+const mutatedWorkflow = workflow.replace(
+  /printf '%s\\n' ["']- Browser API\/Auth: same-origin Pages Function facade \(resolver returns '' on both canonical hosts\)["']/,
+  "echo '- Browser API/Auth: same-origin Pages Function facade (resolver returns \\'\\' on both canonical hosts)'"
+);
+assert.notEqual(mutatedWorkflow, workflow, 'workflow mutation must differ from original shipped workflow');
+
+assert.throws(
+  () => verifyReleaseSummaryShellSafe(mutatedWorkflow),
+  /release summary must not embed escaped single quotes inside single-quoted strings|line in summary script must not contain illegal \\'|bash -n syntax validation/,
+  'verifyReleaseSummaryShellSafe must throw on broken shell quoting regression'
+);
+console.log('RELEASE_SUMMARY_MUTATION_PROOF: PASS');
 console.log('leaf-b14-pages-production-release-contract: PASS');

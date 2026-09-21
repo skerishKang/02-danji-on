@@ -79,24 +79,23 @@ assert.ok(!/\.filters[^}]*min-width:3[3-9]\dpx/.test(narrowBand),
  * B. 비로그인 이웃가게 저장 — guest must never see success
  * ------------------------------------------------------------------ */
 
-// B0. HOME_SERVER_MODE canonical production authority lock
+// B0. HOME_SERVER_MODE canonical production authority lock & mutation proof
 // Issue #804 root cause: HOME_API_BASE is '' on canonical production due to
 // same-origin facade. HOME_SERVER_MODE must include DanjionSession.isCanonicalProduction()
 // so production is not misclassified as offline local mode.
-assert.match(home, /const HOME_SERVER_MODE\s*=\s*(?:Boolean\(HOME_API_BASE\)\s*\|\|\s*DanjionSession\.isCanonicalProduction\(\)|DanjionSession\.isCanonicalProduction\(\)\s*\|\|\s*Boolean\(HOME_API_BASE\))/,
-  'HOME_SERVER_MODE must include DanjionSession.isCanonicalProduction() to prevent same-origin production from falling back to local mode');
+export function verifyHomeCanonicalServerMode(source) {
+  assert.match(source, /const HOME_SERVER_MODE\s*=\s*(?:Boolean\(HOME_API_BASE\)\s*\|\|\s*DanjionSession\.isCanonicalProduction\(\)|DanjionSession\.isCanonicalProduction\(\)\s*\|\|\s*Boolean\(HOME_API_BASE\))/,
+    'HOME_SERVER_MODE must include DanjionSession.isCanonicalProduction() to prevent same-origin production from falling back to local mode');
 
-{
+  const serverModeDef = source.match(/const HOME_SERVER_MODE\s*=\s*([^;]+);/);
+  assert.ok(serverModeDef, 'home source must define HOME_SERVER_MODE');
+  const serverModeFn = new Function('HOME_API_BASE', 'DanjionSession', `return (${serverModeDef[1]});`);
+
   const fakeSession = {
     danjionApiBase: () => '',
     isCanonicalProduction: () => true
   };
-  const HOME_API_BASE = fakeSession.danjionApiBase();
-  const serverModeDef = home.match(/const HOME_SERVER_MODE\s*=\s*([^;]+);/);
-  assert.ok(serverModeDef, 'home must define HOME_SERVER_MODE');
-  const serverModeFn = new Function('HOME_API_BASE', 'DanjionSession', `return (${serverModeDef[1]});`);
-
-  const prodServerMode = serverModeFn(HOME_API_BASE, fakeSession);
+  const prodServerMode = serverModeFn(fakeSession.danjionApiBase(), fakeSession);
   assert.equal(prodServerMode, true,
     'HOME_SERVER_MODE must be true on canonical production when HOME_API_BASE is empty');
 
@@ -107,8 +106,27 @@ assert.match(home, /const HOME_SERVER_MODE\s*=\s*(?:Boolean\(HOME_API_BASE\)\s*\
   const previewServerMode = serverModeFn('https://api.example.com', { isCanonicalProduction: () => false });
   assert.equal(previewServerMode, true,
     'HOME_SERVER_MODE must be true when explicit API base is provided');
+
+  return true;
 }
+
+// Verify shipped home source
+verifyHomeCanonicalServerMode(home);
 console.log('HOME_CANONICAL_SERVER_MODE: PASS');
+
+// Mutation Proof: removing DanjionSession.isCanonicalProduction() must fail closed
+const mutatedHome = home.replace(
+  /const HOME_SERVER_MODE\s*=\s*Boolean\(HOME_API_BASE\)\s*\|\|\s*DanjionSession\.isCanonicalProduction\(\);/,
+  'const HOME_SERVER_MODE=Boolean(HOME_API_BASE);'
+);
+assert.notEqual(mutatedHome, home, 'home mutation must differ from original shipped home');
+
+assert.throws(
+  () => verifyHomeCanonicalServerMode(mutatedHome),
+  /HOME_SERVER_MODE must include DanjionSession\.isCanonicalProduction\(\)/,
+  'verifyHomeCanonicalServerMode must throw when isCanonicalProduction() is removed'
+);
+console.log('HOME_SERVER_MODE_MUTATION_PROOF: PASS');
 
 // B1. Static: the bridge keeps a server-authority mode and fails closed.
 assert.match(savedBridgeSrc, /const serverMode = Boolean\(base\) \|\| canonicalProduction/,
