@@ -180,4 +180,55 @@ assert.equal((script.match(/readAuthStructure\(sql, account\.email\)/g) || []).l
 assert.equal((script.match(/sign-up\/email/g) || []).length, 1,
   'the lane must define exactly one sign-up call site');
 
+// --- 9. the read-only diagnosis must name the stage that failed --------------//
+// A 5xx sign-in and a 5xx on the session/JWT/bridge/app_users/authority steps are
+// different defects; the diagnosis has to say which one it saw, and it may do so
+// without ever printing a body, a credential or an address.
+assert.match(
+  script,
+  /`SIGNIN=\$\{account\.name\} status=\$\{signIn\.status\} stage=signin \$\{safeBody\(body\)\} `/,
+  'a failed sign-in must report its provider code and the stage it failed at'
+);
+assert.match(
+  script,
+  /session_rows_before=\$\{structure\.sessionRows\} session_rows_after=\$\{after \? after\.sessionRows : 'UNREADABLE'\}/,
+  'a 5xx must be separated into session-written and session-less outcomes'
+);
+assert.match(script, /authority_probe=not_reached/,
+  'a refused sign-in must state that no authority lookup was reached');
+assert.match(
+  script,
+  /console\.log\(`SIGNIN=\$\{account\.name\} status=- stage=\$\{failureStage\(error\)\} detail=\$\{failureToken\(error\)\}`\)/,
+  'a post-sign-in failure must name its stage instead of stopping the whole lane'
+);
+assert.match(script, /AUTHORITY_READ_FAILED stage=state/, 'a state read failure must be distinct from an authority read failure');
+assert.match(script, /AUTHORITY_READ_FAILED stage=authority/, 'an authority read failure must be named');
+assert.equal((script.match(/if \(converge\) throw error;/g) || []).length, 3,
+  'every graceful read-only path must keep its fail-closed convergence counterpart');
+assert.match(script, /export function failureStage\(/, 'the stage classifier must be a named, testable unit');
+assert.match(script, /export function failureToken\(/, 'the failure token must be a named, testable unit');
+assert.equal((script.match(/body=\$\{shape\}/g) || []).length, 1,
+  'only the response SHAPE may be reported, from a single place');
+assert.doesNotMatch(script, /return text/, 'the failure reporter must never return the raw body');
+assert.doesNotMatch(script, /\$\{password\}/, 'the diagnosis must never interpolate the credential value');
+
+// --- 10. the authority snapshot must not depend on a successful sign-in ------//
+// The super wildcard grant and the operator bundle have to stay measurable while
+// that identity cannot sign in, so the snapshot resolves the pinned address itself.
+assert.match(script, /export async function readPinnedAuthority\(/, 'the pinned authority snapshot must be a named unit');
+assert.match(script, /export function formatPinnedAuthority\(/, 'the pinned authority report must be a named unit');
+assert.match(script, /from danjion_auth\."user" u[\s\S]{0,200}?lower\(u\.email\) = \$\{target\}/,
+  'the snapshot must resolve the pinned address, not a session subject');
+assert.match(script, /join app_users au2 on au2\.id = g\.user_id/, 'the snapshot must read grants through app_users');
+assert.match(script, /string_agg\(g\.scope, ',' order by g\.scope\)/,
+  'the scope list must come back as one deterministic text value, never as an array');
+assert.match(script, /console\.log\(formatPinnedAuthority\(account\.name, await readPinnedAuthority\(sql, account\.email\)\)\)/,
+  'every run must report the pinned authority snapshot for all three identities');
+assert.match(script, /SCOPES=\$\{name\}/, 'the snapshot must be announced by persona name');
+assert.match(script, /app_user_link=\$\{authority\.appUserRows > 0 \? 'true' : 'false'\}/, 'the snapshot must report the app_users link');
+assert.match(script, /wildcard=\$\{wildcard \? 'true' : 'false'\}/, 'the snapshot must report the super wildcard explicitly');
+assert.match(script, /active_scope_count=\$\{authority\.activeScopes\.length\}/, 'the snapshot must count the active bundle');
+assert.doesNotMatch(script, /insert into app_users|update app_users|delete from app_users/i,
+  'the snapshot must never touch app_users');
+
 console.log('qa-persona-provision-lite-contract: PASS');

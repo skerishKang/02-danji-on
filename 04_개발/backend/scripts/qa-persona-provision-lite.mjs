@@ -93,11 +93,15 @@ function validateDatabaseUrl(raw) {
 }
 
 // Never echo credentials, tokens or the database URL. Only the provider's own
-// error code is kept, so a 500 stays diagnosable without leaking account detail.
+// error code and the response SHAPE are kept, so a 500 stays diagnosable without
+// ever echoing account detail: an unparsed code on a JSON envelope and an unparsed
+// code on a plain-text/HTML error page mean different things.
 function safeBody(raw) {
   const text = String(raw || '').slice(0, 400);
+  const trimmed = text.trim();
   const code = text.match(/"code"\s*:\s*"([A-Z0-9_]+)"/i);
-  return code ? `code=${code[1]}` : 'code=UNPARSED';
+  const shape = !trimmed ? 'empty' : (trimmed.startsWith('{') || trimmed.startsWith('[')) ? 'json' : 'text';
+  return `${code ? `code=${code[1]}` : 'code=UNPARSED'} body=${shape}`;
 }
 
 function cookieHeader(response) {
@@ -138,6 +142,40 @@ function repairEnabled() {
 // real convergence has to ask for it explicitly.
 function grantsEnabled() {
   return String(process.env.QA_PERSONA_LITE_GRANTS || '').trim().toLowerCase() === 'true';
+}
+
+/**
+ * READ-ONLY diagnosis stage classification.
+ *
+ * A failure AFTER a successful sign-in used to abort the whole lane, which hid every
+ * remaining identity and left "the sign-in returned 500" indistinguishable from "the
+ * session, the service JWT, the auth bridge, the app_users link or the authority read
+ * threw". The read-only path names the stage and keeps going; the write path still
+ * fails closed on exactly the same errors.
+ *
+ * The stage is derived from the already-stable `QA_PERSONA_LITE_*` error tokens, so
+ * the lane still never prints a response body, a credential or an address.
+ */
+const FAILURE_STAGES = Object.freeze([
+  ['QA_PERSONA_LITE_SESSION_CREDENTIAL_MISSING', 'session_credential'],
+  ['QA_PERSONA_LITE_SERVICE_JWT_MISSING', 'token'],
+  ['QA_PERSONA_LITE_AUTH_SUBJECT_MISSING', 'session'],
+  ['QA_PERSONA_LITE_SESSION_', 'session'],
+  ['QA_PERSONA_LITE_TOKEN_', 'token'],
+  ['QA_PERSONA_LITE_AUTH_BRIDGE_', 'bridge'],
+  ['QA_PERSONA_LITE_APP_USER_LINK_MISSING', 'app_user'],
+  ['QA_PERSONA_LITE_PASSWORD_INVALID', 'credential_input']
+]);
+
+export function failureToken(error) {
+  const message = error instanceof Error ? error.message : String(error);
+  return message.split(':', 1)[0].trim() || 'UNKNOWN';
+}
+
+export function failureStage(error) {
+  const token = failureToken(error);
+  const match = FAILURE_STAGES.find(([prefix]) => token.startsWith(prefix));
+  return match ? match[1] : 'unknown';
 }
 
 /**
@@ -186,6 +224,53 @@ export function formatAuthStructure(name, structure) {
     `credentialRows=${structure.credentialRows}`,
     `passwordRows=${structure.passwordRows}`,
     `sessionRows=${structure.sessionRows}`
+  ].join(' ');
+}
+
+/**
+ * READ-ONLY authority snapshot for one pinned QA identity.
+ *
+ * Deliberately independent of sign-in: it resolves the identity by address in
+ * `danjion_auth."user"`, follows `app_users.auth_user_id`, and reads the ACTIVE
+ * `padiem_operator_grants` scopes. That is how the super wildcard grant and the
+ * operator bundle stay measurable while that identity cannot sign in at all.
+ *
+ * `string_agg` (not an array) is used on purpose: one row, one deterministic text
+ * value, so the reading cannot change shape between driver versions. No hash,
+ * token, session id or address is selected or printed.
+ */
+export async function readPinnedAuthority(sql, email) {
+  const target = String(email).trim().toLowerCase();
+  const rows = await sql`
+    select
+      (select count(*) from app_users au where au.auth_user_id::text = u.id::text) as app_user_rows,
+      (select string_agg(g.scope, ',' order by g.scope)
+         from padiem_operator_grants g
+         join app_users au2 on au2.id = g.user_id
+        where au2.auth_user_id::text = u.id::text
+          and g.status = 'active'
+          and (g.expires_at is null or g.expires_at > now())) as active_scopes
+    from danjion_auth."user" u
+    where lower(u.email) = ${target}
+    limit 1
+  `;
+  const row = rows[0];
+  if (!row) return { appUserRows: 0, activeScopes: [] };
+  const list = row.active_scopes ? String(row.active_scopes) : '';
+  return {
+    appUserRows: Number(row.app_user_rows || 0),
+    activeScopes: list ? list.split(',').map((scope) => scope.trim()).filter(Boolean) : []
+  };
+}
+
+export function formatPinnedAuthority(name, authority) {
+  const wildcard = authority.activeScopes.includes('*');
+  return [
+    `SCOPES=${name}`,
+    `app_user_link=${authority.appUserRows > 0 ? 'true' : 'false'}`,
+    `wildcard=${wildcard ? 'true' : 'false'}`,
+    `active_scope_count=${authority.activeScopes.length}`,
+    `scope_list=${authority.activeScopes.join(',') || '-'}`
   ].join(' ');
 }
 
@@ -276,9 +361,23 @@ export async function acquireAccount(frontendOrigin, apiOrigin, sql, account, fe
       }
       throw new Error(`QA_PERSONA_LITE_SIGNIN_HTTP_${signIn.status}:${account.name}`);
     }
-    // The read-only diagnosis reports the refusal and keeps going, so one dispatch
-    // still yields every identity's structure instead of stopping at the first one.
-    console.log(`SIGNIN=${account.name} status=${signIn.status}`);
+    // The read-only diagnosis reports where the refusal happened - and, for a 5xx, the
+    // provider's own error code - then keeps going, so one dispatch still yields every
+    // identity's structure instead of stopping at the first one.
+    //
+    // `session_rows_before/after` are the same read-only count taken either side of the
+    // probe, so a 500 that persisted a session row is distinguishable from a 500 that
+    // left no session behind. `authority_probe=not_reached` states explicitly that no
+    // admin-authority or grant lookup was performed for this identity, because a
+    // refused sign-in never produced a subject to look them up with - the independent
+    // `SCOPES=` snapshot is what answers the grant question instead.
+    const body = await signIn.text().catch(() => '');
+    const after = await readAuthStructure(sql, email).catch(() => null);
+    console.log(
+      `SIGNIN=${account.name} status=${signIn.status} stage=signin ${safeBody(body)} ` +
+      `session_rows_before=${structure.sessionRows} session_rows_after=${after ? after.sessionRows : 'UNREADABLE'} ` +
+      'authority_probe=not_reached'
+    );
     return null;
   }
 
@@ -468,15 +567,25 @@ async function main() {
 
   // Every run reports all three pinned identities BEFORE anything is attempted, so
   // a single dispatch is enough to see the whole auth structure even when a
-  // sign-in refusal stops the lane part-way.
+  // sign-in refusal stops the lane part-way. The authority snapshot is read the same
+  // way - straight from the pinned address - so the super wildcard and the operator
+  // bundle are measurable even for an identity that cannot sign in.
   for (const account of ACCOUNTS) {
     console.log(formatAuthStructure(account.name, await readAuthStructure(sql, account.email)));
+    console.log(formatPinnedAuthority(account.name, await readPinnedAuthority(sql, account.email)));
   }
 
   const actors = [];
   for (const account of ACCOUNTS) {
-    const actor = await acquireAccount(frontendOrigin, apiOrigin, sql, account, fetch, repair, converge);
-    if (actor) actors.push(actor);
+    try {
+      const actor = await acquireAccount(frontendOrigin, apiOrigin, sql, account, fetch, repair, converge);
+      if (actor) actors.push(actor);
+    } catch (error) {
+      // Only the read-only diagnosis degrades gracefully; a convergence run must still
+      // fail closed on an identity it could not bring up.
+      if (converge) throw error;
+      console.log(`SIGNIN=${account.name} status=- stage=${failureStage(error)} detail=${failureToken(error)}`);
+    }
   }
 
   if (converge) {
@@ -489,10 +598,24 @@ async function main() {
   }
 
   for (const actor of actors) {
-    const residentState = await readResidentState(sql, actor);
-    const scopes = converge
-      ? await convergePadiemGrants(sql, actor)
-      : await readActivePadiemScopes(sql, actor);
+    let residentState;
+    try {
+      residentState = await readResidentState(sql, actor);
+    } catch (error) {
+      if (converge) throw error;
+      console.log(`PERSONA=${actor.name} AUTHORITY_READ_FAILED stage=state detail=${failureToken(error)}`);
+      continue;
+    }
+    let scopes;
+    try {
+      scopes = converge
+        ? await convergePadiemGrants(sql, actor)
+        : await readActivePadiemScopes(sql, actor);
+    } catch (error) {
+      if (converge) throw error;
+      console.log(`PERSONA=${actor.name} AUTHORITY_READ_FAILED stage=authority detail=${failureToken(error)}`);
+      continue;
+    }
     reportActor(actor, scopes, residentState, converge);
   }
 
