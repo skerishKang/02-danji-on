@@ -193,3 +193,96 @@ for (const [status, code, reason] of [
 }
 
 console.log('PASS KILO3 stage5h report R-B frontend wiring contract');
+
+/* ===== #830: canonical Production report lane (product source logic) ===== */
+
+/*
+ * The REPORT path treated an empty danjionApiBase() as the static/demo lane. Canonical
+ * Production legitimately serves same-origin with an empty base, so the demo fallback must
+ * additionally require !DanjionSession.isCanonicalProduction() — the same rule the
+ * myApplications panel in this file already applies.
+ */
+const reportPage = await readFile(new URL('../../../frontend/25A_신청제보.html', import.meta.url), 'utf8');
+
+function extractReportDemoGuard(source) {
+  const fnAt = source.indexOf('async function submitReport(');
+  assert.ok(fnAt >= 0, 'submitReport must exist in 25A');
+  const guardAt = source.indexOf('if(', fnAt);
+  assert.ok(guardAt > fnAt, 'the report demo guard must exist');
+  const guardEnd = source.indexOf('){', guardAt);
+  assert.ok(guardEnd > guardAt, 'the report demo guard must be a complete condition');
+  return source.slice(guardAt + 3, guardEnd);
+}
+
+/* The extracted guard is executed, not quoted. */
+function reportTakesDemoReturn(source, { apiBase, canonicalProduction }) {
+  const guard = extractReportDemoGuard(source);
+  const evaluate = new Function('danjionApiBase', 'DanjionSession', 'return Boolean(' + guard + ');');
+  return evaluate(() => apiBase, { isCanonicalProduction: () => canonicalProduction });
+}
+
+function assertReportCanonicalServerPath(source) {
+  if (reportTakesDemoReturn(source, { apiBase: '', canonicalProduction: true })) {
+    throw new Error('REPORT_CANONICAL_PRODUCTION_SERVER_PATH: canonical production must not take the demo return');
+  }
+  return true;
+}
+
+/* A. canonical Production, empty base -> server path, never the demo return. */
+assert.equal(assertReportCanonicalServerPath(reportPage), true);
+assert.equal(reportTakesDemoReturn(reportPage, { apiBase: '', canonicalProduction: true }), false,
+  'DEMO_RETURN=NO / SERVER_REPORT_PATH=YES on canonical Production');
+/* B. static/demo lane -> the demo return is still taken. */
+assert.equal(reportTakesDemoReturn(reportPage, { apiBase: '', canonicalProduction: false }), true,
+  'DEMO_RETURN=YES on the static lane');
+/* C. an explicit api base -> server path regardless of the canonical flag. */
+assert.equal(reportTakesDemoReturn(reportPage, { apiBase: 'https://api.example', canonicalProduction: false }), false,
+  'SERVER_REPORT_PATH=YES with an explicit api base');
+
+/* The demo toast may only live inside the canonical-guarded branch. */
+const REPORT_DEMO_TOAST = '제보 내용 확인 완료';
+const reportDemoToastAt = reportPage.indexOf(REPORT_DEMO_TOAST);
+const reportGuardAt = reportPage.indexOf("if(!danjionApiBase()&&!DanjionSession.isCanonicalProduction()){");
+assert.ok(reportGuardAt >= 0, 'the report guard must be canonical aware');
+assert.ok(reportDemoToastAt > reportGuardAt, 'the report demo toast must sit behind the canonical-aware guard');
+const SUCCESS_TOAST = '제보가 접수됐습니다';
+assert.ok(reportPage.indexOf(SUCCESS_TOAST) > reportPage.indexOf('if(!result.ok){'),
+  'SUCCESS_TOAST_AFTER_2XX_ONLY: the success toast must follow the result.ok check');
+
+/* Scope: the owner application path is the #809 lane and must stay untouched. */
+assert.ok(reportPage.includes("if(!danjionApiBase()){\n    showToast('입력·파일 선택 확인 완료"),
+  'OWNER_PATH_UNCHANGED: the owner lane keeps its original demo guard (#809 handoff)');
+assert.equal(reportPage.split('!danjionApiBase()&&!DanjionSession.isCanonicalProduction()').length - 1, 1,
+  'only the report path gains the canonical-aware guard');
+
+/* Bridge contract for the empty base: same-origin path, POST, credentials included. */
+{
+  const calls = [];
+  const fetchImpl = async (url, init = {}) => {
+    calls.push({ url, init });
+    return response(201, { data: RB_ROW });
+  };
+  const bridge = createApplicationReportBridge({ apiBase: '', fetchImpl });
+  const result = await bridge.createRecommendation({ relationRaw: 'nearby', businessName: '가까운 가게',
+    serviceSummary: '설명', serviceArea: '위치', reporterNote: '추천 이유' });
+  assert.equal(calls.length, 1, "an empty apiBase must issue exactly one request");
+  assert.equal(calls[0].url, '/api/v1/me/shop-recommendations',
+    'BRIDGE_EMPTY_BASE_SAME_ORIGIN: an empty apiBase must resolve to the same-origin path');
+  assert.equal(calls[0].init.method, 'POST', 'the report must be a POST');
+  assert.equal(calls[0].init.credentials, 'include', 'the report must carry credentials');
+  assert.equal(result.ok, true);
+}
+
+/* Executable mutation proof: dropping the canonical disjunct must make the verifier throw. */
+const REPORT_CANONICAL_GUARD = '!danjionApiBase()&&!DanjionSession.isCanonicalProduction()';
+const mutatedReportPage = reportPage.replace(REPORT_CANONICAL_GUARD, '!danjionApiBase()');
+assert.notEqual(mutatedReportPage, reportPage, 'the mutation must actually change the guard');
+assert.throws(() => assertReportCanonicalServerPath(mutatedReportPage), /REPORT_CANONICAL_PRODUCTION_SERVER_PATH/,
+  'REPORT_CANONICAL_PRODUCTION_MUTATION_PROOF: the verifier must throw without the canonical semantics');
+
+process.stdout.write('REPORT_CANONICAL_PRODUCTION_SERVER_PATH=PASS\n');
+process.stdout.write('REPORT_DEMO_FALLBACK=PASS\n');
+process.stdout.write('REPORT_CANONICAL_PRODUCTION_MUTATION_PROOF=PASS\n');
+process.stdout.write('BRIDGE_EMPTY_BASE_SAME_ORIGIN=PASS\n');
+process.stdout.write('SUCCESS_TOAST_AFTER_2XX_ONLY=PASS\n');
+process.stdout.write('OWNER_PATH_UNCHANGED=PASS\n');
