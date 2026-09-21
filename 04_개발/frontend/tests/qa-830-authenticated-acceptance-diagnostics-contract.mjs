@@ -405,12 +405,17 @@ assert.match(degraded, /^SESSION_BEFORE_RESPONSE:HTTP_0:METHOD=UNKNOWN:API_PATH=
   'an unanswerable response must degrade to explicit unknowns');
 
 /* F. mutation proof: moving the pre-body evidence after the body read must FAIL. */
-const mutationTarget =
-  "  events.push(responseEvidence(label, response, path));\n  const body = await json(response);\n  events.push(emit(`${label}:HTTP_${response.status()}:API_PATH=${path}:";
-const mutationReplacement =
-  "  const body = await json(response);\n  events.push(responseEvidence(label, response, path));\n  events.push(emit(`${label}:HTTP_${response.status()}:API_PATH=${path}:";
-const mutated = script.replace(mutationTarget, mutationReplacement);
-assert.notEqual(mutated, script, 'the mutation must actually reorder the pageCall evidence');
+const POST_BODY_EMIT_LINE = '  events.push(emit(`${label}:HTTP_${status}:API_PATH=${path}:${headerEvidence(response.headers())}`));';
+/* Relocates the pre-body evidence push to AFTER the body read, which is the regression the
+   ordering check exists to catch. Used by both mutation proofs. */
+function moveEvidenceAfterBodyRead(source) {
+  return source
+    .replace('  events.push(responseEvidence(label, response, path));\n  const status = response.status();\n', '  const status = response.status();\n')
+    .replace(POST_BODY_EMIT_LINE, '  events.push(responseEvidence(label, response, path));\n' + POST_BODY_EMIT_LINE);
+}
+const normalizedScript = script.replace(/\r\n/g, '\n');
+const mutated = moveEvidenceAfterBodyRead(normalizedScript);
+assert.notEqual(mutated, normalizedScript, 'the mutation must actually reorder the pageCall evidence');
 assert.equal(emitsPreBodyEvidence(mutated, 'pageCall'), false,
   'MUTATION_PROOF: the ordering check must fail when the pre-body evidence moves after the body read');
 
@@ -419,3 +424,137 @@ process.stdout.write('BODY_TIMEOUT_FAIL_CLOSED=PASS\n');
 process.stdout.write('MALFORMED_JSON_NULL=PASS\n');
 process.stdout.write('PRE_BODY_EVIDENCE_NO_SECRET=PASS\n');
 process.stdout.write('MUTATION_PROOF_PRE_BODY_ORDER=PASS\n');
+
+/* ===== #830 write-response body policy: HTTP status is the acceptance authority ===== */
+
+/*
+ * Second live failure (run 35549641133) proved the bookmark toggle returned HTTP 201 with
+ * AUTH_BRIDGE_PRESENT=true, yet pageCall aborted the whole run because that 2xx response's
+ * JSON body never settled. The product updates saved state from response.ok, so for a
+ * mutation response the status is authoritative and the body is diagnostics. These checks
+ * execute the shipped pageCall, not a quotation of it.
+ */
+
+function pageCallFactory(source) {
+  const start = source.indexOf('async function pageCall(');
+  assert.ok(start >= 0, 'pageCall must exist in the acceptance script');
+  const end = source.indexOf('\n}\n', start);
+  assert.ok(end > start, 'pageCall must have a bounded body');
+  const body = source.slice(start, end + 2);
+  return new Function('deps', `
+    const { events, emit, json, classify, responseEvidence, headerEvidence } = deps;
+    ${body}
+    return pageCall;
+  `);
+}
+
+function makeResponse({ status, method = 'POST', path, headers = {} }) {
+  return {
+    status: () => status,
+    url: () => `https://danjion-qa.pages.dev${path}`,
+    request: () => ({ method: () => method }),
+    headers: () => ({ 'x-danjion-auth-bridge': '1', 'x-danjion-app-facade': '1', ...headers }),
+    json: () => new Promise(() => {})
+  };
+}
+
+function makePage(response) {
+  return { waitForResponse: async () => response };
+}
+
+const TOGGLE_PATH = '/api/v1/me/bookmarks/71a8300d-0000-4000-8000-000000000001';
+
+async function runPageCall(source, status) {
+  const events = [];
+  const pageCall = pageCallFactory(source)({
+    events,
+    emit: (line) => line,
+    json: runtime.json,
+    classify: runtime.classify,
+    responseEvidence: runtime.responseEvidence,
+    headerEvidence: runtime.headerEvidence
+  });
+  const result = await pageCall(makePage(makeResponse({ status, path: TOGGLE_PATH })), 'BOOKMARK_TOGGLE', 'POST', TOGGLE_PATH, async () => {});
+  return { result, events };
+}
+
+/* A. HTTP 201 + never-settling body -> marker, SUCCESS, and it RETURNS instead of throwing. */
+const a = await runPageCall(script, 201);
+assert.equal(a.result.bodyTimeout, true, 'HTTP_201_BODY_TIMEOUT_CONTINUES: the body timeout must be recorded as a diagnostic');
+assert.equal(a.result.auth, true, 'a 2xx mutation must stay authenticated');
+assert.equal(a.result.disposition, 'SUCCESS', 'a 2xx mutation must stay SUCCESS');
+assert.ok(
+  a.events.some((l) => l === `BOOKMARK_TOGGLE_BODY_TIMEOUT=YES:HTTP_201:METHOD=POST:API_PATH=${TOGGLE_PATH}`),
+  'the body timeout must leave an explicit marker with the authoritative status'
+);
+assert.ok(
+  a.events.some((l) => l.startsWith('BOOKMARK_TOGGLE_RESPONSE:HTTP_201:METHOD=POST:')),
+  'PAGECALL_STATUS_AUTHORITATIVE: the pre-body status evidence must still be emitted'
+);
+
+/* B. HTTP 401 + never-settling body -> AUTH_REQUIRED, never a false pass. */
+const b = await runPageCall(script, 401);
+assert.equal(b.result.auth, false, 'HTTP_401_NOT_FALSE_PASS: a 401 must never be treated as authenticated');
+assert.equal(b.result.disposition, 'AUTH_REQUIRED', 'a 401 must stay AUTH_REQUIRED');
+
+/* C. HTTP 403 + never-settling body -> product/authz failure, never an auth rejection, never 2xx. */
+const c = await runPageCall(script, 403);
+assert.equal(c.result.auth, true, 'HTTP_403_NOT_FALSE_PASS: a 403 is a product/authz failure, not an auth rejection');
+assert.equal(c.result.disposition, 'FORBIDDEN_PRODUCT_POLICY_UNKNOWN_BODY_TIMEOUT',
+  'the exact product-policy code must be UNKNOWN_BODY_TIMEOUT, never invented');
+assert.notEqual(c.result.disposition, 'AUTH_REQUIRED', 'a 403 must never be confused with a 401');
+assert.notEqual(c.result.disposition, 'SUCCESS', 'a 403 must never be confused with 2xx');
+
+/* D. call() keeps the fail-closed body policy — its body is functional input, not diagnostics. */
+const callStart = script.indexOf('async function call(');
+const callEnd = script.indexOf('\n}\n', callStart);
+const callBlock = script.slice(callStart, callEnd);
+assert.ok(callBlock.includes('const body = await json(response);'), 'call() must still await its functional body');
+assert.equal(callBlock.includes('_BODY_TIMEOUT'), false, 'direct call() must not swallow a body timeout');
+assert.equal(callBlock.includes('catch'), false, 'direct call() must not catch the body-read timeout');
+const callBodyRead = script.slice(script.indexOf('  const body = await json(response);\n  events.push(emit(`${label}:HTTP_${response.status()}:API_PATH=${new URL(response.url()).pathname}'));
+assert.ok(callBodyRead.length > 0 || callBlock.includes('await json(response)'),
+  'DIRECT_CALL_FAIL_CLOSED: the un-caught body read must remain');
+await assert.rejects(
+  () => runtime.json({ json: () => new Promise(() => {}) }),
+  /QA_830_STEP_TIMEOUT:RESPONSE_BODY_JSON/,
+  'DIRECT_CALL_FAIL_CLOSED: the shipped json() must still reject with QA_830_STEP_TIMEOUT'
+);
+
+/* E. Pre-body status evidence is still emitted before the body read. */
+for (const name of ['call', 'pageCall']) {
+  assert.equal(emitsPreBodyEvidence(script, name), true,
+    `PRE_BODY_EVIDENCE_PRESERVED: ${name} must still emit response evidence before awaiting the body`);
+}
+
+/* F. No secret, header value or body content may appear in any emitted line. */
+for (const line of [...a.events, ...b.events, ...c.events]) {
+  assert.equal(/cookie|authorization|bearer|password|secret|set-cookie/i.test(line), false,
+    `SECRET_OUTPUT: emitted line must carry no credential label: ${line}`);
+  assert.equal(line.includes('SUPERSECRET'), false, 'SECRET_OUTPUT: no secret value may be emitted');
+}
+
+/* G. Mutation proof: reverting the body timeout to an unconditional throw must FAIL. */
+const bpMutationTarget = `  } catch (error) {
+    if (!String(error && error.message).startsWith('QA_830_STEP_TIMEOUT:')) throw error;
+    bodyTimeout = true;`;
+const bpMutationReplacement = `  } catch (error) {
+    throw error;`;
+const bpMutated = moveEvidenceAfterBodyRead(normalizedScript).replace(bpMutationTarget, bpMutationReplacement);
+assert.notEqual(bpMutated, normalizedScript, 'the mutation must actually change the pageCall timeout handling');
+let mutationThrew = false;
+try {
+  await runPageCall(bpMutated, 201);
+} catch (error) {
+  mutationThrew = String(error && error.message).startsWith('QA_830_STEP_TIMEOUT:');
+}
+assert.equal(mutationThrew, true,
+  'MUTATION_PROOF_PAGECALL_BODY_TIMEOUT: an unconditional throw on a 2xx body timeout must fail the contract');
+
+process.stdout.write('PAGECALL_STATUS_AUTHORITATIVE=PASS\n');
+process.stdout.write('HTTP_201_BODY_TIMEOUT_CONTINUES=PASS\n');
+process.stdout.write('HTTP_401_NOT_FALSE_PASS=PASS\n');
+process.stdout.write('HTTP_403_NOT_FALSE_PASS=PASS\n');
+process.stdout.write('DIRECT_CALL_FAIL_CLOSED=PASS\n');
+process.stdout.write('PRE_BODY_EVIDENCE_PRESERVED=PASS\n');
+process.stdout.write('MUTATION_PROOF_PAGECALL_BODY_TIMEOUT=PASS\n');

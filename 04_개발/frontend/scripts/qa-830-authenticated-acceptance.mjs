@@ -384,9 +384,32 @@ async function pageCall(page, label, method, path, action) {
   const response = await responsePromise;
   // Pre-body evidence: emitted before the body read so a body timeout cannot erase it.
   events.push(responseEvidence(label, response, path));
-  const body = await json(response);
-  events.push(emit(`${label}:HTTP_${response.status()}:API_PATH=${path}:${headerEvidence(response.headers())}`));
-  return { response, body, ...classify(response.status(), body) };
+  const status = response.status();
+  /*
+   * Write-response policy. The product updates saved state from response.ok, so the HTTP
+   * status is the acceptance authority for a mutation response and the body is best-effort
+   * diagnostics. A body that never settles records <LABEL>_BODY_TIMEOUT=YES and keeps that
+   * status instead of aborting the run, because the write may well have succeeded exactly as
+   * the product contract allows. This is NOT a blanket pass: a 401 still fails, a 403 is
+   * recorded as a product/authz failure (never as an auth rejection, never as 2xx), and any
+   * other 4xx/5xx keeps its own status-based disposition. call() keeps the fail-closed body
+   * policy because its body is functional input, not diagnostics.
+   */
+  let body = null;
+  let bodyTimeout = false;
+  try {
+    body = await json(response);
+  } catch (error) {
+    if (!String(error && error.message).startsWith('QA_830_STEP_TIMEOUT:')) throw error;
+    bodyTimeout = true;
+    events.push(emit(`${label}_BODY_TIMEOUT=YES:HTTP_${status}:METHOD=${method}:API_PATH=${path}`));
+  }
+  events.push(emit(`${label}:HTTP_${status}:API_PATH=${path}:${headerEvidence(response.headers())}`));
+  const classified = classify(status, body);
+  const disposition = bodyTimeout && classified.disposition === 'FORBIDDEN_PRODUCT_POLICY'
+    ? 'FORBIDDEN_PRODUCT_POLICY_UNKNOWN_BODY_TIMEOUT'
+    : classified.disposition;
+  return { response, body, status, bodyTimeout, auth: classified.auth, disposition };
 }
 
 async function session(request, label) {
