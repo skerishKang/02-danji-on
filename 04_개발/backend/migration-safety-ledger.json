@@ -65,6 +65,7 @@
     "055_complex_unit_master_provenance.sql": { "class": "schema", "marker": { "kind": "column", "table": "complex_units", "name": "deactivated_at" } },
     "056_resident_news_attachments.sql": { "class": "schema", "marker": { "kind": "table", "schema": "public", "name": "resident_news_submission_attachments" } },
     "057_official_news_image_storage.sql": { "class": "schema", "marker": { "kind": "index", "schema": "public", "name": "uq_official_news_image_upload_idempotency" } },
+    "058_seed_banglim_complex_units.sql": { "class": "production_seed", "opt_in_required": true, "marker": { "kind": "data_probe", "query": "select (select count(*) from complex_units where complex_id = (select id from complexes where slug = 'banglim-myeongji-roadhill')) >= 192" } },
     "900_dev_seed.sql": { "class": "dev_seed_prohibited", "reason": "DEVELOPMENT ONLY. Deterministic dev IDs must never reach production." },
     "901_dev_contacts.sql": { "class": "dev_seed_prohibited", "reason": "DEVELOPMENT ONLY. Fake contact values must never reach production." },
     "902_dev_unverified_resident.sql": { "class": "dev_seed_prohibited", "reason": "DEVELOPMENT ONLY. Dev unverified resident fixture must never reach production." }
