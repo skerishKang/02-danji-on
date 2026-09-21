@@ -213,6 +213,35 @@ export function failureStage(error) {
  * connectivity signature, backs off linearly, and gives up after DB_RETRY_ATTEMPTS
  * so a genuinely dead database still fails the run instead of hanging it.
  */
+/**
+ * READ-ONLY reporting helpers. They exist so the label a reader sees always matches
+ * the fact that happened:
+ *   - a database fetch failure is never printed as an auth failure;
+ *   - a successful sign-in is never reported as "no sign-in" just because a later
+ *     database-backed step failed;
+ *   - the number of identities that SIGNED IN is never conflated with the number whose
+ *     database-backed details could actually be READ.
+ */
+export function signinStatus(error) {
+  return error instanceof Error && typeof error.signinStatus === 'number' ? error.signinStatus : 0;
+}
+
+export function formatAcquisitionFailure(name, error) {
+  const status = signinStatus(error);
+  if (status) {
+    return `PERSONA=${name} POST_SIGNIN_STAGE_FAILED stage=${failureStage(error)} signin_status=${status} detail=${failureToken(error)}`;
+  }
+  return `SIGNIN=${name} status=- stage=${failureStage(error)} detail=${failureToken(error)}`;
+}
+
+export function formatDiagnosisCounts(signinOk, acquired, total) {
+  return [
+    `SIGNIN_OK_COUNT=${signinOk}/${total}`,
+    `ACQUIRED_COUNT=${acquired}/${total}`,
+    `DIAGNOSIS_RESULT=${signinOk === total ? 'COMPLETE' : 'INCOMPLETE'}`
+  ];
+}
+
 export async function withDbRetry(work, enabled) {
   const attempts = enabled ? DB_RETRY_ATTEMPTS : 1;
   let lastError;
@@ -476,6 +505,13 @@ export async function acquireAccount(frontendOrigin, apiOrigin, sql, account, fe
     const users = await sql`select id from app_users where auth_user_id = ${subject} limit 1`;
     if (!users[0]?.id) throw new Error(`QA_PERSONA_LITE_APP_USER_LINK_MISSING:${account.name}`);
     return { ...account, email, subject, userId: String(users[0].id), created };
+  } catch (error) {
+    // Everything past this point happened AFTER the HTTP sign-in returned 2xx, so the
+    // identity's ability to sign in is already established. Tagging the error lets the
+    // read-only report say `POST_SIGNIN_STAGE_FAILED signin_status=200` instead of
+    // implying the sign-in never happened.
+    if (error instanceof Error) error.signinStatus = signIn.status;
+    throw error;
   } finally {
     if (cookie || sessionBearer) {
       await fetchImpl(new URL('/api/auth/sign-out', frontendOrigin), {
@@ -630,30 +666,46 @@ async function main() {
   // sign-in refusal stops the lane part-way. The authority snapshot is read the same
   // way - straight from the pinned address - so the super wildcard and the operator
   // bundle are measurable even for an identity that cannot sign in.
+  // Each read reports its OWN outcome. A structure read that succeeded must never be
+  // re-printed as UNREADABLE just because the authority read after it failed - that
+  // re-print is precisely the confusion between a database failure and an auth result
+  // this lane exists to prevent. A convergence run still stops on the first failure.
   for (const account of ACCOUNTS) {
     try {
-      console.log(formatAuthStructure(account.name, await withDbRetry(() => readAuthStructure(sql, account.email), !converge)));
-      console.log(formatPinnedAuthority(account.name, await withDbRetry(() => readPinnedAuthority(sql, account.email), !converge)));
+      const structure = await withDbRetry(() => readAuthStructure(sql, account.email), !converge);
+      console.log(`${formatAuthStructure(account.name, structure)} status=OK`);
     } catch (error) {
-      // A convergence run must stop on an unreachable database. The read-only
-      // diagnosis reports both reads as UNREADABLE and still probes the HTTP auth
-      // surface, because a QA database fetch failure is not an auth failure.
       if (converge) throw error;
       console.log(`AUTH_STRUCTURE=${account.name} status=UNREADABLE stage=${failureStage(error)} detail=${failureToken(error)}`);
-      console.log(`SCOPES=${account.name} status=UNREADABLE stage=${failureStage(error)}`);
+    }
+    try {
+      const authority = await withDbRetry(() => readPinnedAuthority(sql, account.email), !converge);
+      console.log(`${formatPinnedAuthority(account.name, authority)} status=OK`);
+    } catch (error) {
+      if (converge) throw error;
+      console.log(`PERSONA=${account.name} AUTHORITY_READ_FAILED read=snapshot stage=${failureStage(error)} detail=${failureToken(error)}`);
     }
   }
 
   const actors = [];
+  let signinOk = 0;
+  let acquired = 0;
   for (const account of ACCOUNTS) {
     try {
       const actor = await acquireAccount(frontendOrigin, apiOrigin, sql, account, fetch, repair, converge);
-      if (actor) actors.push(actor);
+      if (actor) {
+        actors.push(actor);
+        acquired += 1;
+        signinOk += 1;
+      }
     } catch (error) {
       // Only the read-only diagnosis degrades gracefully; a convergence run must still
-      // fail closed on an identity it could not bring up.
+      // fail closed on an identity it could not bring up. A tagged failure means the
+      // HTTP sign-in already returned 2xx, so it counts as a sign-in even though the
+      // identity's database-backed details could not be read.
       if (converge) throw error;
-      console.log(`SIGNIN=${account.name} status=- stage=${failureStage(error)} detail=${failureToken(error)}`);
+      if (signinStatus(error)) signinOk += 1;
+      console.log(formatAcquisitionFailure(account.name, error));
     }
   }
 
@@ -689,10 +741,12 @@ async function main() {
   }
 
   if (!converge) {
-    console.log(`SIGNIN_OK_COUNT=${actors.length}/${ACCOUNTS.length}`);
-    console.log(`DIAGNOSIS_RESULT=${actors.length === ACCOUNTS.length ? 'COMPLETE' : 'INCOMPLETE'}`);
-    if (actors.length < ACCOUNTS.length) {
+    for (const line of formatDiagnosisCounts(signinOk, acquired, ACCOUNTS.length)) console.log(line);
+    if (signinOk < ACCOUNTS.length) {
       console.log('::warning::QA acceptance persona sign-in is incomplete - read the SIGNIN lines above');
+    }
+    if (acquired < signinOk) {
+      console.log('::warning::QA authority or residency reads were degraded - read the stage=db lines above');
     }
     console.log('DIAGNOSIS_ONLY=YES');
   }
