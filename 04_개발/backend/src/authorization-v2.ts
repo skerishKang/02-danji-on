@@ -2,6 +2,7 @@ import type { NeonQueryFunction } from '@neondatabase/serverless';
 import { requireActor, type Actor, type AuthEnv } from './auth-v1';
 import { resolvePadiemAuthority } from './padiem-authority-v1';
 import { resolveOrdinaryTestResidentExemption } from './resident-verification-ordinary-exemption-v1';
+import { isTemporaryResidentAccessEnabled } from './temporary-resident-access-v1';
 
 type Sql = NeonQueryFunction<false, false>;
 
@@ -160,7 +161,15 @@ export async function requireVerifiedResident(
         // (never operator/admin), and the admission below keeps the same
         // null-household semantics as the explicit grant path.
         const ordinaryExempt = await resolveOrdinaryTestResidentExemption(sql, actor);
-        if (!ordinaryExempt) {
+        // #868 fallback: while the authoritative Unit Master / household-code
+        // issuance is not ready, a SIGNED-IN ordinary actor may use the general
+        // resident surfaces. `requireActor()` above already refused a signed-out
+        // request with 401, so this branch is unreachable for anonymous traffic.
+        // The switch is server-side and fail-closed (only the exact string
+        // 'true' enables it) and grants NO authority and NO household: the
+        // admission below still returns null household/membership fields, so
+        // every household-specific surface keeps requiring a real membership.
+        if (!ordinaryExempt && !isTemporaryResidentAccessEnabled(env)) {
           return fail('RESIDENT_VERIFICATION_REQUIRED', 'Verified resident access required', 403, requestId);
         }
       }

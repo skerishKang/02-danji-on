@@ -110,9 +110,16 @@
     if (result.status === 401) return { state: 'signed-out', exempt: false };
     if (!result.ok) return { state: 'error', exempt: false };
     const exempt = result.data && result.data.exempt;
-    return typeof exempt === 'boolean'
-      ? { state: 'ready', exempt }
-      : { state: 'invalid', exempt: false };
+    if (typeof exempt !== 'boolean') return { state: 'invalid', exempt: false };
+    // #868: the additive `temporary` key marks a TEMPORARY resident-access
+    // admission (server switch TEMP_RESIDENT_ACCESS_MODE). It is surfaced ONLY
+    // when the server explicitly says true, so the `exempt` boolean keeps its
+    // original meaning for every existing consumer. `exempt === true` without
+    // `temporary` stays the canonical operator/admin exemption.
+    const temporary = result.data && result.data.temporary;
+    return temporary === true
+      ? { state: 'ready', exempt, temporary: true }
+      : { state: 'ready', exempt };
   }
 
   function hasAdminSurface(authority) {

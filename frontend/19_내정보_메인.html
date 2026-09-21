@@ -419,6 +419,7 @@ if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt
 .resident-state-row.is-pending .rs-dot{background:var(--amber)}
     .resident-state-row.is-required .rs-dot,.resident-state-row.is-unknown .rs-dot{background:#e0664f}
     .resident-state-row.is-exempt .rs-dot{background:#64c195}
+    .resident-state-row.is-temporary .rs-dot{background:var(--amber)}
 .email-state-row{display:flex;align-items:center;flex-wrap:wrap;gap:9px;margin-top:10px;font-size:14px;font-weight:850;color:rgba(255,255,255,.9)}
 .email-state-row .es-dot{width:9px;height:9px;border-radius:50%;background:#64c195;flex:none}
 .email-state-row.is-required .es-dot{background:var(--amber)}
@@ -672,9 +673,18 @@ if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt
     var cancel=$('mi-edit-cancel');if(cancel)cancel.addEventListener('click',function(){var panel=$('mi-profile-edit-panel');if(panel)panel.hidden=true;});
     var save=$('mi-edit-save');if(save)save.addEventListener('click',saveProfileEdit);
   })();
+  // #868: the server's self exemption answer may additionally mark a TEMPORARY
+  // resident-access admission (additive `temporary` key). It is remembered here
+  // so the exempt branch renders the honest temporary copy instead of the
+  // operator copy. An absent/false `temporary` keeps the canonical operator
+  // exemption state, and the temporary state is NEVER presented as
+  // "주민인증 완료" — it is a temporary operating period, not a completed
+  // household verification.
+  var residentExemption={exempt:false,temporary:false};
   function loadExemptIdentity(user){
     setTxt(n.household,DASH);
-    renderResidentState('운영자 계정 · 주민인증 불필요',{kind:'exempt',edit:true});
+    if(residentExemption.temporary===true)renderResidentState('임시 주민 이용 중',{kind:'temporary',edit:true});
+    else renderResidentState('운영자 계정 · 주민인증 불필요',{kind:'exempt',edit:true});
     loadProfile().then(function(pr){
       if(!pr||!pr.ok||!pr.profile)return;
       var p=pr.profile,nick=String(p.nickname||'').trim();
@@ -687,8 +697,10 @@ if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt
   function resolveResidentExemption(){
     if(!AA||typeof AA.fetchResidentVerificationExemption!=='function')return Promise.resolve(false);
     return Promise.resolve(AA.fetchResidentVerificationExemption(fetch)).then(function(result){
-      return !!(result&&result.state==='ready'&&result.exempt===true);
-    },function(){return false;});
+      var ready=!!(result&&result.state==='ready');
+      residentExemption={exempt:ready&&result.exempt===true,temporary:ready&&result.temporary===true};
+      return residentExemption.exempt;
+    },function(){residentExemption={exempt:false,temporary:false};return false;});
   }
   sessionIdentity().then(function(identity){
     if(!identity||!identity.user){

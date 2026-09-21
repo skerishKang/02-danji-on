@@ -3,6 +3,10 @@ import { requireActor } from './auth-v1';
 import type { CoreEnv } from './core-v1';
 import { resolvePadiemAuthority } from './padiem-authority-v1';
 import { resolveOrdinaryTestResidentExemption } from './resident-verification-ordinary-exemption-v1';
+import {
+  hasVerifiedResidentMembership,
+  isTemporaryResidentAccessEnabled
+} from './temporary-resident-access-v1';
 
 type Sql = NeonQueryFunction<false, false>;
 
@@ -10,9 +14,18 @@ const REQUEST_ID_HEADER = 'x-danjion-request-id';
 export const RESIDENT_VERIFICATION_EXEMPTION_PATH = '/api/v1/me/resident-verification-exemption';
 export const RESIDENT_VERIFICATION_EXEMPT_SCOPE = 'resident.verification.exempt';
 
-function ok(exempt: boolean, requestId: string): Response {
+/**
+ * `exempt` keeps its original boolean shape. The additive `temporary` key is
+ * emitted ONLY for a temporary-mode admission (#868), so:
+ *   - `{ exempt: true }`                 — canonical admin/operator exemption
+ *   - `{ exempt: true, temporary: true }` — #868 temporary resident access
+ *   - `{ exempt: false }`                 — ordinary resident, no exemption
+ * An absent `temporary` key therefore always means "not temporary", and no
+ * existing consumer of the `exempt` boolean changes behaviour.
+ */
+function ok(exempt: boolean, requestId: string, temporary = false): Response {
   return Response.json(
-    { data: { exempt }, requestId },
+    { data: temporary ? { exempt, temporary: true } : { exempt }, requestId },
     {
       status: 200,
       headers: {
@@ -50,6 +63,14 @@ function fail(code: string, message: string, status: number, requestId: string):
  * Exemption remains fail-closed and server-derived: wildcard '*' alone is never
  * sufficient. Only the actor's exact active resident.verification.exempt grant
  * returns true.
+ *
+ * #868 adds one more, strictly bounded source: while
+ * TEMP_RESIDENT_ACCESS_MODE is exactly 'true', a SIGNED-IN actor without a real
+ * verified membership is reported as `{ exempt: true, temporary: true }`. That
+ * answer exists so the UI can say "temporary resident access" instead of the
+ * operator copy — it is not a claim of completed resident verification, and it
+ * carries no authority and no household. An already-verified resident keeps
+ * `{ exempt: false }` because no exemption is needed for a real membership.
  */
 export async function resolveResidentVerificationExemptionResponse(
   request: Request,
@@ -67,7 +88,21 @@ export async function resolveResidentVerificationExemptionResponse(
     }
     // #823: the ordinary test-resident allowlist is a fallback of the same
     // exact-scope decision, never a new authority source.
-    return ok(await resolveOrdinaryTestResidentExemption(sql, actor), requestId);
+    if (await resolveOrdinaryTestResidentExemption(sql, actor)) {
+      return ok(true, requestId);
+    }
+    // #868: the temporary switch is consulted strictly LAST, after both canonical
+    // exemption sources, and only while it is explicitly enabled. When it is off
+    // this function behaves exactly as before.
+    if (!isTemporaryResidentAccessEnabled(env)) {
+      return ok(false, requestId);
+    }
+    // A real verified resident needs no exemption at all: keep the ordinary
+    // answer so an already-verified account is never labelled temporary.
+    if (await hasVerifiedResidentMembership(sql, actor.id)) {
+      return ok(false, requestId);
+    }
+    return ok(true, requestId, true);
   } catch {
     return fail(
       'RESIDENT_VERIFICATION_EXEMPTION_DB_ERROR',

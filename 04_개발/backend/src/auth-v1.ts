@@ -16,6 +16,9 @@ export interface AuthEnv {
   DANJION_AUTH_JWKS_URL?: string;
   NEON_AUTH_BASE_URL?: string;
   NEON_AUTH_JWKS_URL?: string;
+  // #868 temporary resident access switch. Fail-closed: only the exact string
+  // 'true' enables it; absent/false restores strict resident verification.
+  TEMP_RESIDENT_ACCESS_MODE?: string;
 }
 
 export type Actor = {
