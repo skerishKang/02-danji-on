@@ -111,6 +111,42 @@ function responseEvidence(label, response, path) {
 }
 
 
+/*
+ * Community write pages publish, then navigate 650ms later on purpose: a published UUID post
+ * goes to the post detail page, otherwise back to the community feed. That delay is real
+ * product UX, so the acceptance must let that navigation settle before driving the next page
+ * instead of racing it (which aborted the run with ERR_ABORTED / navigation interrupted).
+ */
+const COMMUNITY_POST_PUBLISH_PATHS = ['/13_이웃대화_글상세_댓글.html', '/12_이웃대화_첫화면.html'];
+
+function isCommunityPostPublishDestination(value, paths = COMMUNITY_POST_PUBLISH_PATHS) {
+  try {
+    const pathname = decodeURIComponent(new URL(String(value)).pathname);
+    return paths.some((expected) => pathname.endsWith(expected));
+  } catch { return false; }
+}
+
+/*
+ * Bounded wait for the product's own post-publish navigation. It is event driven
+ * (waitForURL), never a fixed sleep, it passes when the redirect already completed, and a
+ * timeout fails closed instead of being caught and swallowed.
+ */
+async function waitForCommunityPostPublish(page, label, timeoutMs) {
+  if (isCommunityPostPublishDestination(page.url())) {
+    events.push(emit(`${label}=ALREADY_SETTLED`));
+    return;
+  }
+  await withTimeout(
+    page.waitForURL((url) => isCommunityPostPublishDestination(String(url)), {
+      waitUntil: 'domcontentloaded',
+      timeout: timeoutMs
+    }),
+    timeoutMs + 250,
+    `${label}_WAIT`
+  );
+  events.push(emit(`${label}=SETTLED`));
+}
+
 /* === BOUNDED EVIDENCE HELPERS — contract unit-tested; keep this block contiguous === */
 const UNPRINTABLE_EVIDENCE = /cookie|authorization|bearer|password|secret/i;
 /* Two or three dot-separated base64url segments starting with the standard JWT
@@ -607,6 +643,9 @@ try {
       () => page.locator('[data-publish]').first().click({ timeout: 10_000 }));
     record(`${label}_AUTH`, result.auth, result.disposition);
     record(`${label}_ACCEPTANCE`, result.ok, result.disposition);
+    // The publish succeeded, so the product will navigate on its own 650ms later. Let that
+    // land before the next `page.goto`, otherwise the two navigations collide.
+    if (result.ok) await waitForCommunityPostPublish(page, `COMMUNITY_${label}_POST_PUBLISH`, 15_000);
     authenticated = await session(context.request, `${label}_AFTER`);
   }
 

@@ -637,3 +637,124 @@ process.stdout.write('HTTP_401_BODY_TIMEOUT_ACCEPTANCE=PASS\n');
 process.stdout.write('HTTP_403_BODY_TIMEOUT_ACCEPTANCE=PASS\n');
 process.stdout.write('HTTP_422_500_NOT_ACCEPTED=PASS\n');
 process.stdout.write('MUTATION_PROOF_ACCEPTANCE_USES_OK=PASS\n');
+
+/* ===== #830 community post-publish navigation settle ===== */
+
+/*
+ * Run 35551295214 aborted at ENTER_COMMUNITY_QUESTION with
+ * "page.goto: Navigation ... is interrupted by another navigation": every community write
+ * page publishes and then navigates 650ms later by design. The acceptance drove the next
+ * page.goto into that redirect. These checks pin the settle step that removes the race.
+ */
+
+const PP_START = 'const COMMUNITY_POST_PUBLISH_PATHS';
+const PP_END = '/* === BOUNDED EVIDENCE HELPERS';
+const ppStartAt = script.indexOf(PP_START);
+const ppEndAt = script.indexOf(PP_END);
+assert.ok(ppStartAt >= 0 && ppEndAt > ppStartAt, 'the post-publish settle helpers must exist');
+const ppSource = script.slice(ppStartAt, ppEndAt);
+
+const ppEvents = [];
+const ppHelpers = new Function('withTimeout', 'events', 'emit', `
+${ppSource}
+return { isCommunityPostPublishDestination, waitForCommunityPostPublish, COMMUNITY_POST_PUBLISH_PATHS };
+`)(runtime.withTimeout, ppEvents, (line) => line);
+
+/* C. only the product-defined destinations are accepted, decoded from the real URL form. */
+const DETAIL_URL = `https://danjion-qa.pages.dev/${encodeURI('13_이웃대화_글상세_댓글.html')}?apiBase=x&post=71a8300d-0000-4000-8000-000000000001`;
+const FEED_URL = `https://danjion-qa.pages.dev/${encodeURI('12_이웃대화_첫화면.html')}?type=story&apiBase=x`;
+const STORY_WRITE_URL = `https://danjion-qa.pages.dev/${encodeURI('15_단지이야기_글쓰기.html')}`;
+const QUESTION_WRITE_URL = `https://danjion-qa.pages.dev/${encodeURI('16_궁금해요_글쓰기.html')}`;
+const SHOP_URL = `https://danjion-qa.pages.dev/${encodeURI('01_이웃가게_발견.html')}`;
+
+assert.equal(ppHelpers.isCommunityPostPublishDestination(DETAIL_URL), true, 'the post detail page is a valid destination');
+assert.equal(ppHelpers.isCommunityPostPublishDestination(FEED_URL), true, 'the community feed fallback is a valid destination');
+assert.equal(ppHelpers.isCommunityPostPublishDestination(STORY_WRITE_URL), false, 'a write page is not a post-publish destination');
+assert.equal(ppHelpers.isCommunityPostPublishDestination(QUESTION_WRITE_URL), false, 'the question write page is not a destination');
+assert.equal(ppHelpers.isCommunityPostPublishDestination(SHOP_URL), false, 'an unrelated page is not a destination');
+assert.equal(ppHelpers.isCommunityPostPublishDestination('not a url'), false, 'garbage must not pass');
+assert.equal(ppHelpers.isCommunityPostPublishDestination(undefined), false, 'a missing url must not pass');
+assert.equal(ppHelpers.COMMUNITY_POST_PUBLISH_PATHS.length, 2, 'exactly the two product-defined destinations');
+
+/* A/B. a write that lands on the write page must wait for the product redirect. */
+function makeFakePage({ url, settleAfterMs, neverSettles = false }) {
+  const calls = { waitForURL: 0 };
+  return {
+    calls,
+    url: () => url,
+    waitForURL: (predicate) => {
+      calls.waitForURL += 1;
+      if (neverSettles) return new Promise(() => {});
+      return new Promise((resolve, reject) => {
+        setTimeout(() => {
+          const target = `https://danjion-qa.pages.dev/${encodeURI('13_이웃대화_글상세_댓글.html')}?post=x`;
+          if (predicate(target)) resolve(target); else reject(new Error('predicate rejected the destination'));
+        }, settleAfterMs ?? 100);
+      });
+    }
+  };
+}
+
+const waitingPage = makeFakePage({ url: STORY_WRITE_URL, settleAfterMs: 100 });
+await ppHelpers.waitForCommunityPostPublish(waitingPage, 'COMMUNITY_STORY_POST_PUBLISH', 1_500);
+assert.equal(waitingPage.calls.waitForURL, 1, 'POST_PUBLISH_NAV_WAIT: a write page must wait for the product redirect');
+assert.ok(ppEvents.includes('COMMUNITY_STORY_POST_PUBLISH=SETTLED'), 'the settle must be observable in the evidence');
+
+/* The redirect may already have completed before we look: that must pass without waiting. */
+const settledPage = makeFakePage({ url: DETAIL_URL, settleAfterMs: 100 });
+await ppHelpers.waitForCommunityPostPublish(settledPage, 'COMMUNITY_GREETING_POST_PUBLISH', 1_500);
+assert.equal(settledPage.calls.waitForURL, 0, 'an already-settled redirect must not wait again');
+assert.ok(ppEvents.includes('COMMUNITY_GREETING_POST_PUBLISH=ALREADY_SETTLED'), 'the already-settled case must be recorded');
+
+const fallbackPage = makeFakePage({ url: FEED_URL, settleAfterMs: 100 });
+await ppHelpers.waitForCommunityPostPublish(fallbackPage, 'COMMUNITY_TOGETHER_POST_PUBLISH', 1_500);
+assert.equal(fallbackPage.calls.waitForURL, 0, 'the feed fallback is a settled destination too');
+
+/* D. a redirect that never lands must fail closed, never be swallowed. */
+await assert.rejects(
+  () => ppHelpers.waitForCommunityPostPublish(makeFakePage({ url: QUESTION_WRITE_URL, neverSettles: true }), 'COMMUNITY_QUESTION_POST_PUBLISH', 40),
+  /QA_830_STEP_TIMEOUT/,
+  'NAV_TIMEOUT_FAIL_CLOSED: a navigation that never settles must fail closed'
+);
+
+/* I. event driven, not a fixed sleep, and not a catch-all retry. */
+assert.ok(ppSource.includes('waitForURL('), 'the settle must be event driven');
+assert.equal(ppSource.includes('setTimeout('), false, 'FIXED_SLEEP_ONLY=NO: the settle must not be a fixed sleep');
+assert.equal(/catch\s*\(/.test(ppSource), false, 'the settle must not swallow the navigation error');
+
+/* A(scope). every community write uses the same lifecycle, inside the loop. */
+const loopStart = script.indexOf('for (const [label, route, kind] of community)');
+assert.ok(loopStart > 0, 'the community loop must exist');
+const loopBlock = script.slice(loopStart, script.indexOf('record(\'SESSION_AFTER\'', loopStart));
+assert.ok(loopBlock.includes('await waitForCommunityPostPublish(page, `COMMUNITY_${label}_POST_PUBLISH`'),
+  'GREETING/STORY/QUESTION/TOGETHER_FLOW_PROTECTED: the wait must sit in the shared community loop');
+assert.equal(loopBlock.includes('if (result.ok)'), true, 'the wait must run only for an accepted write');
+for (const label of ['GREETING', 'STORY', 'QUESTION', 'TOGETHER']) {
+  assert.ok(loopBlock.includes(`['${label}'`) || script.includes(`['${label}'`), `${label} must stay covered`);
+}
+
+/* H. mutation proof: dropping the settle step must FAIL. */
+const ppMutated = script.replace(
+  '    if (result.ok) await waitForCommunityPostPublish(page, `COMMUNITY_${label}_POST_PUBLISH`, 15_000);\n',
+  ''
+);
+assert.notEqual(ppMutated, script, 'the mutation must actually remove the settle step');
+const ppMutatedLoop = ppMutated.slice(
+  ppMutated.indexOf('for (const [label, route, kind] of community)'),
+  ppMutated.indexOf("record('SESSION_AFTER'", ppMutated.indexOf('for (const [label, route, kind] of community)'))
+);
+assert.equal(ppMutatedLoop.includes('await waitForCommunityPostPublish(page,'), false,
+  'MUTATION_PROOF_POST_PUBLISH_WAIT: removing the settle step must fail the contract');
+
+/* E/F/G. the earlier policies stay in force. */
+assert.equal(script.includes('FORBIDDEN_PRODUCT_POLICY_UNKNOWN_BODY_TIMEOUT'), true, '403 semantics preserved');
+assert.equal(/record\('REVIEW_ACCEPTANCE', review\.ok/.test(script), true, 'ok-based acceptance preserved');
+assert.ok(script.includes('const body = await json(response);'), 'DIRECT_CALL_FAIL_CLOSED preserved');
+
+process.stdout.write('POST_PUBLISH_NAV_WAIT=PASS\n');
+process.stdout.write('POST_PUBLISH_ALREADY_SETTLED=PASS\n');
+process.stdout.write('POST_PUBLISH_DESTINATIONS_STRICT=PASS\n');
+process.stdout.write('NAV_TIMEOUT_FAIL_CLOSED=PASS\n');
+process.stdout.write('FIXED_SLEEP_ONLY=NO\n');
+process.stdout.write('COMMUNITY_FLOWS_PROTECTED=PASS\n');
+process.stdout.write('MUTATION_PROOF_POST_PUBLISH_WAIT=PASS\n');
