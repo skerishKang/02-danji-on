@@ -349,7 +349,7 @@ f.addEventListener('submit',async e=>{
     await submitReport();
     return;
   }
-  if(!danjionApiBase()){
+  if(!danjionApiBase()&&!DanjionSession.isCanonicalProduction()){
     showToast('입력·파일 선택 확인 완료 · 서버 제출 연결 전 검토용 화면입니다.');
     return;
   }
