@@ -173,7 +173,8 @@
         {"id":"test:v2-runtime-preview-contract","npm":"test:v2-runtime-preview-contract","kind":"contract"},
         {"id":"test:pr-review-preview-workflow","npm":"test:pr-review-preview-workflow","kind":"contract"},
         {"id":"test:admin-authority-role-contract","npm":"test:admin-authority-role-contract","kind":"contract"},
-        {"id":"test:leaf-b788-visual-syntax-integrity","npm":"test:leaf-b788-visual-syntax-integrity","kind":"contract"}
+        {"id":"test:leaf-b788-visual-syntax-integrity","npm":"test:leaf-b788-visual-syntax-integrity","kind":"contract"},
+        {"id":"test:leaf-b858-notification-settings-route","npm":"test:leaf-b858-notification-settings-route","kind":"contract"}
       ]
     }
   },
