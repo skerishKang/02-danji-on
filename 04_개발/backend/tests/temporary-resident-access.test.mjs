@@ -394,17 +394,18 @@ function probeData(value) {
 
   // Source-controlled config: fail-closed default, QA-only pin.
   //
-  // #868 ships the CODE here and the QA pin in unit B. Production deliberately
-  // carries NO pin: enabling temporary resident access for real members must be
-  // a separate, explicitly authorized step, never an automatic consequence of
-  // merging the feature commit.
+  // #868 ships the code with explicit environment pins: dev stays fail-closed,
+  // QA is enabled for acceptance, and Production is enabled only by this
+  // separately reviewed configuration change.
   const wrangler = JSON.parse(wranglerRaw);
   assert.equal(wrangler.vars?.TEMP_RESIDENT_ACCESS_MODE, 'false',
     'the default (dev) config must stay fail-closed');
   assert.equal(wrangler.env?.qa?.vars?.TEMP_RESIDENT_ACCESS_MODE, 'true',
     '#868 QA acceptance: the isolated QA Worker must pin the switch ON');
-  assert.equal(wrangler.env?.production?.vars?.TEMP_RESIDENT_ACCESS_MODE, undefined,
-    '#868: production must NOT enable the temporary mode from source; that stays a separate authorized step');
+  assert.equal(wrangler.env?.production?.vars?.TEMP_RESIDENT_ACCESS_MODE, 'true',
+    '#868 Production activation must be an explicit source-reviewed pin');
+  assert.ok(!(wrangler.env?.production?.secrets?.required ?? []).includes('TEMP_RESIDENT_ACCESS_MODE'),
+    'Production temporary mode must remain a source-visible var, not a secret');
   assert.ok(!(wrangler.env?.production?.secrets?.required ?? []).includes('TEMP_RESIDENT_ACCESS_MODE'),
     'the temporary switch is a source-visible config var, not a dashboard secret');
 }
