@@ -1,0 +1,91 @@
+name: QA Temporary Resident Acceptance
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-temporary-resident-acceptance.yml'
+      - '04_개발/backend/scripts/qa-temporary-resident-acceptance.mjs'
+      - '04_개발/backend/tests/qa-temporary-resident-acceptance-contract.mjs'
+  workflow_dispatch:
+    inputs:
+      expected_main:
+        description: 'Exact main SHA authorized for QA temporary resident acceptance'
+        required: true
+        type: string
+      run_live:
+        description: 'Explicitly confirm read-only QA temporary resident acceptance'
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: danjion-qa-temporary-resident-acceptance
+  cancel-in-progress: false
+
+jobs:
+  source-contract:
+    name: QA temporary resident acceptance source contract
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Verify QA temporary resident acceptance contract
+        run: node 04_개발/backend/tests/qa-temporary-resident-acceptance-contract.mjs
+
+  live-qa:
+    name: Run QA temporary resident acceptance
+    needs: source-contract
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_live }}
+    runs-on: ubuntu-latest
+    environment: qa
+    env:
+      APP_ENV: qa
+      DANJION_QA_API_URL: ${{ vars.DANJION_QA_API_URL }}
+      DANJION_QA_FRONTEND_URL: ${{ vars.DANJION_QA_FRONTEND_URL }}
+      DANJION_QA_SUPER_PASSWORD: ${{ secrets.DANJION_QA_SUPER_PASSWORD }}
+      DANJION_QA_OPERATIONAL_PASSWORD: ${{ secrets.DANJION_QA_OPERATIONAL_PASSWORD }}
+      DANJION_QA_RESIDENT_PASSWORD: ${{ secrets.DANJION_QA_RESIDENT_PASSWORD }}
+      DANJION_QA_TEMP_RESIDENT_PASSWORD: ${{ secrets.DANJION_QA_TEMP_RESIDENT_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Exact-main and QA-only guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected='${{ inputs.expected_main }}'
+          test "$GITHUB_REF" = 'refs/heads/main'
+          actual="$(git rev-parse HEAD)"
+          remote="$(git ls-remote origin refs/heads/main | awk '{print $1}')"
+          test -n "$expected" && test "$actual" = "$expected" && test "$remote" = "$expected"
+          test "$DANJION_QA_API_URL" = 'https://padiem-danjion-api-qa.padiem.workers.dev'
+          test "$DANJION_QA_FRONTEND_URL" = 'https://danjion-qa.pages.dev'
+          test "$DANJION_QA_API_URL" != 'https://padiem-danjion-api-production.padiem.workers.dev'
+          test "$DANJION_QA_FRONTEND_URL" != 'https://danjion.pages.dev'
+          for key in DANJION_QA_SUPER_PASSWORD DANJION_QA_OPERATIONAL_PASSWORD DANJION_QA_RESIDENT_PASSWORD DANJION_QA_TEMP_RESIDENT_PASSWORD; do
+            value="${!key:-}"
+            test -n "$value" && test "${#value}" -ge 8
+          done
+          echo 'QA temporary resident acceptance exact-main/isolation guard: PASS'
+      - name: Run read-only QA acceptance
+        run: node 04_개발/backend/scripts/qa-temporary-resident-acceptance.mjs
+      - name: Record bounded disposition
+        shell: bash
+        run: |
+          {
+            echo '## QA temporary resident acceptance'
+            echo '- Environment: `qa`'
+            echo '- Household / membership mutation: `NO`'
+            echo '- Production target: `NO`'
+            echo '- Secret output: `NO`'
+          } >> "$GITHUB_STEP_SUMMARY"
