@@ -1,5 +1,5 @@
-const api = 'https://padiem-danjion-api-production.padiem.workers.dev';
-const frontend = 'https://danjion.pages.dev';
+const api = process.env.DANJION_PRODUCTION_API_URL || 'https://padiem-danjion-api-production.padiem.workers.dev';
+const frontend = process.env.DANJION_PRODUCTION_FRONTEND_URL || 'https://danjion.pages.dev';
 
 const get = async (path) => {
   const response = await fetch(new URL(path, api), {
@@ -31,6 +31,8 @@ async function main() {
   console.log('ACCOUNT_PROVISIONING=NO');
   console.log('HOUSEHOLD_MUTATION=NO');
   console.log('MEMBERSHIP_MUTATION=NO');
+  console.log('SIGNUP_FLOW=NOT_USED');
+  console.log('PROVISION_FLOW=NOT_USED');
   console.log('SECRET_OUTPUT=NO');
   console.log('PRODUCTION_READONLY_DIAGNOSTIC=PASS');
 }
