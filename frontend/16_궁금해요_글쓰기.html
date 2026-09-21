@@ -46,7 +46,7 @@ main{width:min(760px,100%);margin:auto;padding:28px 20px 34px}.category{display:
 <main>
 <span class="category" id="categoryChip">궁금해요 · 생활·살림</span>
 <h1>궁금한 종류를 고르고 바로 물어보세요.</h1>
-<p class="lead">궁금해요 안에서 필요한 유형만 탭으로 바꿉니다. 다른 글쓰기 화면을 다시 고를 필요는 없습니다.</p>
+<p class="lead">궁금해요 안에서 필요한 유형만 탭으로 바꿉니다. 다른 글쓰기 화면을 다시 고를 필요는 없습니다.</p><p class="auth-help" data-auth-help role="status" hidden></p>
 <nav aria-label="궁금해요 질문 유형" class="type-tabs">
 <button class="type-tab active" data-type="생활·살림" type="button">생활·살림</button>
 <button class="type-tab" data-type="단지시설" type="button">단지시설</button>
@@ -98,6 +98,33 @@ main{width:min(760px,100%);margin:auto;padding:28px 20px 34px}.category{display:
  const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
  const publishButtons=[...document.querySelectorAll('[data-publish]')];
  function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(window.__toast);window.__toast=setTimeout(()=>t.classList.remove('show'),2100)}
+ function clearAuthHelp(){const box=document.querySelector('[data-auth-help]');if(box){box.hidden=true;box.textContent='';}}
+ function showAuthHelp(r){
+  const box=document.querySelector('[data-auth-help]');if(!box)return;
+  clearAuthHelp();
+  if(!r||r.mode!=='auth-required')return;
+  const RESIDENT=/^(?:RESIDENT_VERIFICATION_REQUIRED|HOUSEHOLD_ASSOCIATION_REQUIRED)$/;
+  const code=String(r.error&&r.error.code||'');
+  const line=document.createElement('span');
+  let label='';
+  let href='';
+  if(r.status===403){
+   if(!RESIDENT.test(code))return;
+   line.textContent='글을 게시하려면 우리집 연결과 주민 확인이 필요합니다.';
+   label='우리집 연결하기';
+   href='26_우리집연결.html';
+  }else{
+   line.textContent=r.authBridge==='no-cookie'?'글을 게시하려면 로그인이 필요합니다.':'로그인 상태가 만료되어 게시할 수 없습니다.';
+   label='로그인 · 가입';
+   href='index.html?auth=login';
+  }
+  const cta=document.createElement('a');
+  cta.href=href;
+  cta.textContent=label;
+  cta.setAttribute('data-auth-help-cta','');
+  box.append(line,document.createTextNode(' '),cta);
+  box.hidden=false;
+ }
  function setBusy(on){publishButtons.forEach(b=>{b.disabled=on;b.setAttribute('aria-busy',String(on))})}
  function serverMessage(r){
   if(r&&r.mode==='auth-required'){
@@ -111,6 +138,9 @@ main{width:min(760px,100%);margin:auto;padding:28px 20px 34px}.category{display:
    // member's fault.
    const kind=window.DanjionSession&&DanjionSession.authFailureKind?DanjionSession.authFailureKind(r):'auth-required';
    if(kind==='bridge-fault')return '서버 인증 연결이 일시적으로 원활하지 않습니다. 잠시 후 다시 시도해 주세요.';
+  // #787: `no-cookie` means this browser never held a session, so the honest ask is to
+  // log in, not to re-log in. Only a resolved-then-invalid session is called expired.
+  if(r&&r.authBridge==='no-cookie')return '로그인이 필요합니다. 로그인한 뒤 글을 남길 수 있어요.';
    return '로그인이 만료되었습니다. 다시 로그인한 뒤 이용해 주세요.';
   }
   if(r&&r.error==='POST_CATEGORY_INVALID')return '질문 유형을 다시 선택한 뒤 게시해 주세요.';
@@ -149,12 +179,13 @@ main{width:min(760px,100%);margin:auto;padding:28px 20px 34px}.category{display:
   busy=true;setBusy(true);
   bridge.createPost({kind:'question',category,title:title.value.trim(),body:body.value.trim()}).then(r=>{
    if(r.ok&&r.mode==='server'){
+    clearAuthHelp();
     try{localStorage.removeItem(key)}catch(e){}
     const pending=r.post&&r.post.status!=='published';
     toast(pending?'질문이 저장되었습니다. 공개 전 상태를 확인합니다.':'게시했습니다.');
     setTimeout(()=>{location.href=nextHref(r.post)},650);
-   }else toast(serverMessage(r));
-  }).catch(()=>toast('서버 연결에 실패했습니다. 잠시 후 다시 시도해 주세요.')).finally(()=>{busy=false;setBusy(false)});
+   }else{const message=serverMessage(r);showAuthHelp(r);toast(message);}
+  }).catch(()=>{clearAuthHelp();toast('서버 연결에 실패했습니다. 잠시 후 다시 시도해 주세요.');}).finally(()=>{busy=false;setBusy(false)});
  },true);
  document.addEventListener('click',ev=>{
   if(!ev.target.closest('.back'))return;

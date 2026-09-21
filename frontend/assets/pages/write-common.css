@@ -61,3 +61,4 @@
 }
 
 .writebar .close-task{display:grid!important;place-items:center!important;width:44px!important;height:44px!important;padding:0!important;font-size:28px!important;line-height:1!important;font-weight:500!important;text-align:center!important}
+.auth-help{display:grid;gap:10px;margin:14px 0 0;padding:14px 16px;border:1px solid var(--line,#d8d0c3);border-radius:12px;background:#fffdf8;font-size:14px;font-weight:750;line-height:1.5}.auth-help[hidden]{display:none}.auth-help a{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 16px;border-radius:999px;background:#101317;color:#fff;font-size:14px;font-weight:850;text-decoration:none}

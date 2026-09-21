@@ -43,7 +43,7 @@ main{width:min(760px,100%);margin:auto;padding:28px 20px 34px}.category{display:
 <body data-danjion-page="17">
 <header class="writebar"><div class="writebar-inner"><button aria-label="글쓰기 닫기" class="back close-task" type="button">×</button><strong>같이해요 글쓰기</strong><button class="top-publish" data-publish="" type="button">게시</button></div></header>
 <main>
-<span class="category" id="categoryChip">같이해요 · 산책·운동</span><h1>함께할 일을 고르고 필요한 정보만 적어보세요.</h1><p class="lead">사용자님이 만든 네 가지 전용 폼을 탭으로 유지합니다. 탭을 바꾸면 필요한 항목만 바로 바뀝니다.</p>
+<span class="category" id="categoryChip">같이해요 · 산책·운동</span><h1>함께할 일을 고르고 필요한 정보만 적어보세요.</h1><p class="lead">사용자님이 만든 네 가지 전용 폼을 탭으로 유지합니다. 탭을 바꾸면 필요한 항목만 바로 바뀝니다.</p><p class="auth-help" data-auth-help role="status" hidden></p>
 <nav aria-label="같이해요 유형" class="type-tabs"><button class="type-tab active" data-kind="walk" type="button">산책·운동</button><button class="type-tab" data-kind="hobby" type="button">취미활동</button><button class="type-tab" data-kind="parent" type="button">육아 같이해요</button><button class="type-tab" data-kind="group" type="button">공동구매</button><button class="type-tab" data-kind="dog" type="button">강아지 산책 같이해요</button></nav>
 <p class="type-help" id="typeHelp"></p>
 <form id="writeForm"><section class="editor"><div class="field"><label for="title">제목 <small>40자 이내</small></label><input autocomplete="off" class="title-input" id="title" maxlength="40" placeholder="무엇을 같이하고 싶은지 적어주세요."/></div><div class="field"><label for="body">자세한 내용 <small><span id="bodyCount">0</span>/1000</small></label><textarea class="body-input" id="body" maxlength="1000" placeholder="누가, 언제, 어디에서, 어떻게 함께하면 되는지 적어주세요."></textarea></div><div class="dynamic" id="dynamicFields"></div><p class="safety" id="safety"></p><p class="rule">공개 글에는 개인 연락처를 적지 마세요. 필요한 연락은 단지온 메시지를 이용합니다.</p></section></form>
@@ -87,6 +87,33 @@ main{width:min(760px,100%);margin:auto;padding:28px 20px 34px}.category{display:
  const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
  const publishButtons=[...document.querySelectorAll('[data-publish]')];
  function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(window.__toast);window.__toast=setTimeout(()=>t.classList.remove('show'),2100)}
+ function clearAuthHelp(){const box=document.querySelector('[data-auth-help]');if(box){box.hidden=true;box.textContent='';}}
+ function showAuthHelp(r){
+  const box=document.querySelector('[data-auth-help]');if(!box)return;
+  clearAuthHelp();
+  if(!r||r.mode!=='auth-required')return;
+  const RESIDENT=/^(?:RESIDENT_VERIFICATION_REQUIRED|HOUSEHOLD_ASSOCIATION_REQUIRED)$/;
+  const code=String(r.error&&r.error.code||'');
+  const line=document.createElement('span');
+  let label='';
+  let href='';
+  if(r.status===403){
+   if(!RESIDENT.test(code))return;
+   line.textContent='글을 게시하려면 우리집 연결과 주민 확인이 필요합니다.';
+   label='우리집 연결하기';
+   href='26_우리집연결.html';
+  }else{
+   line.textContent=r.authBridge==='no-cookie'?'글을 게시하려면 로그인이 필요합니다.':'로그인 상태가 만료되어 게시할 수 없습니다.';
+   label='로그인 · 가입';
+   href='index.html?auth=login';
+  }
+  const cta=document.createElement('a');
+  cta.href=href;
+  cta.textContent=label;
+  cta.setAttribute('data-auth-help-cta','');
+  box.append(line,document.createTextNode(' '),cta);
+  box.hidden=false;
+ }
  function setBusy(on){publishButtons.forEach(b=>{b.disabled=on;b.setAttribute('aria-busy',String(on))})}
  function serverMessage(r){
   if(r&&r.mode==='auth-required'){
@@ -100,6 +127,9 @@ main{width:min(760px,100%);margin:auto;padding:28px 20px 34px}.category{display:
    // member's fault.
    const kind=window.DanjionSession&&DanjionSession.authFailureKind?DanjionSession.authFailureKind(r):'auth-required';
    if(kind==='bridge-fault')return '서버 인증 연결이 일시적으로 원활하지 않습니다. 잠시 후 다시 시도해 주세요.';
+  // #787: `no-cookie` means this browser never held a session, so the honest ask is to
+  // log in, not to re-log in. Only a resolved-then-invalid session is called expired.
+  if(r&&r.authBridge==='no-cookie')return '로그인이 필요합니다. 로그인한 뒤 글을 남길 수 있어요.';
    return '로그인이 만료되었습니다. 다시 로그인한 뒤 이용해 주세요.';
   }
   if(r&&r.error==='POST_CATEGORY_INVALID')return '같이해요 유형을 다시 선택한 뒤 게시해 주세요.';
@@ -144,12 +174,13 @@ main{width:min(760px,100%);margin:auto;padding:28px 20px 34px}.category{display:
   busy=true;setBusy(true);
   bridge.createPost({kind:'together',category,title:title.value.trim(),body:body.value.trim()}).then(r=>{
    if(r.ok&&r.mode==='server'){
+    clearAuthHelp();
     try{localStorage.removeItem(key)}catch(e){}
     const pending=r.post&&r.post.status!=='published';
     toast(pending?'글이 저장되었습니다. 공개 전 상태를 확인합니다.':'게시했습니다.');
     setTimeout(()=>{location.href=nextHref(r.post)},650);
-   }else toast(serverMessage(r));
-  }).catch(()=>toast('서버 연결에 실패했습니다. 잠시 후 다시 시도해 주세요.')).finally(()=>{busy=false;setBusy(false)});
+   }else{const message=serverMessage(r);showAuthHelp(r);toast(message);}
+  }).catch(()=>{clearAuthHelp();toast('서버 연결에 실패했습니다. 잠시 후 다시 시도해 주세요.');}).finally(()=>{busy=false;setBusy(false)});
  },true);
  document.addEventListener('click',ev=>{
   if(!ev.target.closest('.back'))return;
