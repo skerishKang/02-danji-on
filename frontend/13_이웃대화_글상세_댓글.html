@@ -99,6 +99,8 @@ main{width:min(920px,calc(100% - 40px));margin:auto;padding-bottom:70px}.route{h
 (()=>{
  const apiBase=(window.DanjionSession&&DanjionSession.danjionApiBase())||'';
  if(!apiBase&&!DanjionSession.isCanonicalProduction())return;
+ // #863: carry apiBase only when it is actually set — never emit an empty ?apiBase=.
+ function withApiBase(url){return apiBase?url+(url.indexOf('?')<0?'?':'&')+'apiBase='+encodeURIComponent(apiBase):url}
  const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
  const postId=(new URLSearchParams(location.search).get('post')||'').toLowerCase();
  if(!UUID.test(postId))return;
@@ -199,7 +201,7 @@ main{width:min(920px,calc(100% - 40px));margin:auto;padding-bottom:70px}.route{h
    document.getElementById('title').textContent=post.title;
   document.getElementById('body').textContent=post.body;
   renderLike();
-  if(CHIP[post.kind])backLink.href='12_이웃대화_첫화면.html?type='+CHIP[post.kind]+'&apiBase='+encodeURIComponent(apiBase);
+  if(CHIP[post.kind])backLink.href=withApiBase('12_이웃대화_첫화면.html?type='+CHIP[post.kind]);
   if(post.status!=='published'){
    const pendingMessage='이 글은 저장되었고 현재 공개 전 확인 대기 중입니다. 다른 주민에게는 아직 보이지 않습니다.';
    if(interactionStatus)interactionStatus.textContent=pendingMessage;
