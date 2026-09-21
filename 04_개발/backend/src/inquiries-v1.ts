@@ -10,6 +10,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-
 const COMPLEX_SLUG = /^[a-z0-9][a-z0-9-]{0,119}$/;
 const MAX_BODY_BYTES = 24 * 1024;
 const STATUSES = new Set(['received', 'in_progress', 'answered', 'closed']);
+const RECOVERY_INQUIRY_TYPES = new Set(['resident_verification_code_request', 'account_login', 'household_link']);
 
 function ok(data: unknown, requestId: string, status = 200): Response {
   return Response.json({ data, requestId }, {
@@ -98,10 +99,17 @@ async function createMine(request: Request, env: CoreEnv, sql: Sql, requestId: s
   if (body.length < 1 || body.length > 10000) return fail('VALIDATION_ERROR', 'body must be 1-10000 characters', 400, requestId);
   let actorId: string;
   let complexId: string;
-  if (inquiryType === 'resident_verification_code_request' || inquiryType === 'account_login' || inquiryType === 'household_link') {
+  if (inquiryType === 'resident_verification_code_request') {
     // Account and household-recovery support is available to authenticated
     // members before resident verification; resident data and other support
     // categories remain behind the verified-resident boundary below.
+    const actor = await requireActor(request, env, sql, requestId);
+    if (actor instanceof Response) return actor;
+    const complexes = await sql`select id from complexes where slug = ${complexSlug} and status in ('active','pilot') limit 1`;
+    if (!complexes[0]) return fail('NOT_FOUND', 'Complex not found', 404, requestId);
+    actorId = actor.id;
+    complexId = String(complexes[0].id);
+  } else if (RECOVERY_INQUIRY_TYPES.has(inquiryType)) {
     const actor = await requireActor(request, env, sql, requestId);
     if (actor instanceof Response) return actor;
     const complexes = await sql`select id from complexes where slug = ${complexSlug} and status in ('active','pilot') limit 1`;
@@ -143,7 +151,7 @@ async function currentMine(
   `;
   const row = rows[0] as Record<string, unknown> | undefined;
   if (!row) return fail('NOT_FOUND', 'Inquiry not found', 404, requestId);
-  if (String(row.inquiry_type) === 'resident_verification_code_request') {
+  if (RECOVERY_INQUIRY_TYPES.has(String(row.inquiry_type))) {
     return { residentId: actor.id, complexId: String(row.complex_id), complexSlug: String(row.complex_slug), row };
   }
   const resident = await requireVerifiedResident(request, env, sql, requestId, String(row.complex_slug));

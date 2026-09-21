@@ -1,5 +1,5 @@
 import { neon, type NeonQueryFunction } from '@neondatabase/serverless';
-import { requireVerifiedResident } from './authorization-v2';
+import { requireActor } from './auth-v1';
 import type { CoreEnv } from './core-v1';
 
 type Sql = NeonQueryFunction<false, false>;
@@ -123,13 +123,11 @@ export async function handleResidentSettingsWithSql(
 ): Promise<Response | null> {
   const url = new URL(request.url);
   if (url.pathname !== '/api/v1/me/settings') return null;
-  const complexSlug = url.searchParams.get('complexSlug')?.trim() || '';
-  if (!complexSlug) return fail('VALIDATION_ERROR', 'complexSlug is required', 400, requestId);
-  const resident = await requireVerifiedResident(request, env, sql, requestId, complexSlug);
-  if (resident instanceof Response) return resident;
+  const actor = await requireActor(request, env, sql, requestId);
+  if (actor instanceof Response) return actor;
 
-  if (request.method === 'GET') return ok(await loadSettings(sql, resident.id), requestId);
-  if (request.method === 'PATCH') return updateSettings(request, sql, resident.id, requestId);
+  if (request.method === 'GET') return ok(await loadSettings(sql, actor.id), requestId);
+  if (request.method === 'PATCH') return updateSettings(request, sql, actor.id, requestId);
   return fail('METHOD_NOT_ALLOWED', 'Method not allowed', 405, requestId);
 }
 

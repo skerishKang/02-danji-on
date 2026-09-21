@@ -220,7 +220,7 @@
 <label class="edit-field">닉네임<input id="mi-edit-nickname" maxlength="40" autocomplete="nickname" type="text"/>
 </label>
 <p class="edit-status" id="mi-nickname-policy">닉네임은 변경 후 30일 동안 다시 변경할 수 있습니다.</p>
-<label class="edit-field">한 줄 소개<textarea id="mi-edit-bio" maxlength="300" rows="3"></textarea></label>
+<label class="edit-field">한 줄 소개<textarea id="mi-edit-bio" maxlength="300" rows="3"></textarea></label><a class="public-profile-link" id="mi-public-profile-link" href="22_주민_공개프로필.html" hidden>내 공개 프로필 보기 →</a>
 <p class="edit-status">한 줄 소개는 다른 주민이 보는 공개 프로필에 표시됩니다.</p>
 <p class="edit-status" id="mi-edit-status" role="status"></p>
 <div class="edit-actions"><button class="edit-save" id="mi-edit-save" type="button">저장</button><button class="edit-cancel" id="mi-edit-cancel" type="button">취소</button></div>
@@ -478,7 +478,7 @@ if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt
     var pr=res[0].value,sr=res[1].value;
     if(pr&&pr.ok&&pr.profile){
       var p=pr.profile,nick=String(p.nickname||'').trim();
-      serverProfile=p;
+       serverProfile=p;syncPublicProfileLink();
       setTxt(n.nickname,nick?nick+'님':DASH);
       setTxt(n.avatar,nick?nick.charAt(0):DASH);
       setTxt(n.joined,fmtJoined(p.joinedMonth));
@@ -620,8 +620,9 @@ if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt
       }
     }).catch(function(){renderResidentState('—',{kind:'unknown'});});
   }
+  function syncPublicProfileLink(){var link=$('mi-public-profile-link'),userId=String(serverProfile&&serverProfile.userId||'').trim();if(!link)return;if(!userId){link.hidden=true;link.removeAttribute('href');return}link.hidden=false;link.href='22_주민_공개프로필.html?userId='+encodeURIComponent(userId)}
   function openEditPanel(){
-    var panel=$('mi-profile-edit-panel');if(!panel)return;
+   var panel=$('mi-profile-edit-panel');if(!panel)return;syncPublicProfileLink();
     var nick=$('mi-edit-nickname'),bio=$('mi-edit-bio'),policy=$('mi-nickname-policy'),p=serverProfile||{};
     if(nick)nick.value=String(p.nickname||'');
     if(bio)bio.value=String(p.publicBio||'');
@@ -646,7 +647,7 @@ if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt
     bridge.updateProfile({nickname:nick.value,publicBio:bio.value}).then(function(r){
       if(btn)btn.disabled=false;
       if(r&&r.ok&&r.profile){
-        serverProfile=r.profile;
+        serverProfile=r.profile;syncPublicProfileLink();
         var nm=String(r.profile.nickname||'').trim();
         setTxt(n.nickname,nm?nm+'님':DASH);
         setTxt(n.avatar,nm?nm.charAt(0):DASH);
@@ -677,7 +678,7 @@ if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt
     loadProfile().then(function(pr){
       if(!pr||!pr.ok||!pr.profile)return;
       var p=pr.profile,nick=String(p.nickname||'').trim();
-      serverProfile=p;
+       serverProfile=p;syncPublicProfileLink();
       setTxt(n.nickname,nick?nick+'님':DASH);
       setTxt(n.avatar,nick?nick.charAt(0):DASH);
       setTxt(n.joined,fmtJoined(p.joinedMonth));
