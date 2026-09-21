@@ -94,6 +94,23 @@ function headerEvidence(headers) {
   return `AUTH_BRIDGE_PRESENT=${Boolean(headers['x-danjion-auth-bridge'])}:APP_FACADE_PRESENT=${facadePresent}`;
 }
 
+/*
+ * Safe, pre-body response evidence. A response whose JSON body never finishes must
+ * still leave the status/method/path it already had, otherwise the first failure
+ * reports nothing but a body-read timeout. Only sanitized presence booleans are
+ * emitted: no header values, cookies, tokens, session data or body content.
+ */
+function responseEvidence(label, response, path) {
+  let method = 'UNKNOWN';
+  let pathname = path;
+  try { method = response.request().method(); } catch { method = 'UNKNOWN'; }
+  try { pathname = new URL(response.url()).pathname; } catch { pathname = path; }
+  let status = 0;
+  try { status = response.status(); } catch { status = 0; }
+  return emit(`${label}_RESPONSE:HTTP_${status}:METHOD=${method}:API_PATH=${pathname}:${headerEvidence(response.headers())}`);
+}
+
+
 /* === BOUNDED EVIDENCE HELPERS — contract unit-tested; keep this block contiguous === */
 const UNPRINTABLE_EVIDENCE = /cookie|authorization|bearer|password|secret/i;
 /* Two or three dot-separated base64url segments starting with the standard JWT
@@ -351,6 +368,8 @@ async function call(request, label, path, init = {}) {
     timeout: REQUEST_TIMEOUT_MS,
     headers: { accept: 'application/json', Origin: FRONTEND, ...(init.headers || {}) }
   });
+  // Pre-body evidence: emitted before the body read so a body timeout cannot erase it.
+  events.push(responseEvidence(label, response, path));
   const body = await json(response);
   events.push(emit(`${label}:HTTP_${response.status()}:API_PATH=${new URL(response.url()).pathname}:${headerEvidence(response.headers())}`));
   return { response, body, ...classify(response.status(), body) };
@@ -363,6 +382,8 @@ async function pageCall(page, label, method, path, action) {
   }, { timeout: 15_000 });
   await action();
   const response = await responsePromise;
+  // Pre-body evidence: emitted before the body read so a body timeout cannot erase it.
+  events.push(responseEvidence(label, response, path));
   const body = await json(response);
   events.push(emit(`${label}:HTTP_${response.status()}:API_PATH=${path}:${headerEvidence(response.headers())}`));
   return { response, body, ...classify(response.status(), body) };

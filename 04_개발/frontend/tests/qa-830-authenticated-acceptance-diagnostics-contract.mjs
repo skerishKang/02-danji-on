@@ -304,3 +304,118 @@ assert.match(workflow, /expected_main/, 'exact-main authority must remain');
 assert.match(workflow, /git ls-remote origin refs\/heads\/main/, 'remote main must still be fresh-read');
 
 console.log('qa-830-authenticated-acceptance-diagnostics-contract: PASS');
+
+/* ===== #830 truthfulness repair: pre-body response evidence ===== */
+
+/*
+ * The first live failure (run 35547989201) reported only
+ * QA_830_STEP_TIMEOUT:RESPONSE_BODY_JSON:10000ms with QA_830_ACCEPTANCE_DETAIL=NONE:
+ * the status/method/path of the failing request were lost because the evidence line
+ * was emitted only after the body read resolved. These checks make that impossible to
+ * regress. They execute the shipped helpers rather than quoting them.
+ */
+
+function functionBlock(source, name) {
+  const start = source.indexOf(name === 'call' ? 'async function call(' : `${name}`);
+  assert.ok(start >= 0, `${name} must exist in the acceptance script`);
+  const end = source.indexOf('\n}\n', start);
+  assert.ok(end > start, `${name} must have a bounded body`);
+  return source.slice(start, end);
+}
+
+function emitsPreBodyEvidence(source, name) {
+  const block = functionBlock(source, name);
+  const evidenceAt = block.indexOf('events.push(responseEvidence(');
+  const bodyAt = block.indexOf('await json(response)');
+  return evidenceAt >= 0 && bodyAt >= 0 && evidenceAt < bodyAt;
+}
+
+/* A. status evidence must be emitted before the body read, in both write paths. */
+for (const name of ['call', 'pageCall']) {
+  assert.equal(emitsPreBodyEvidence(script, name), true,
+    `PRE_BODY_STATUS_EVIDENCE: ${name} must emit response evidence before awaiting the body`);
+}
+
+/* The shipped helper block is executed, not just quoted. The body-read bound is
+ * shortened in the evaluated copy only, so the fail-closed semantics are real. */
+const HELP_START = 'async function withTimeout(';
+const HELP_END = '/* === END BOUNDED EVIDENCE HELPERS === */';
+const helperStartAt = script.indexOf(HELP_START);
+const helperEndAt = script.indexOf(HELP_END);
+assert.ok(helperStartAt >= 0 && helperEndAt > helperStartAt, 'bounded helper region must stay contiguous');
+const shortened = script
+  .slice(helperStartAt, helperEndAt)
+  .replace('const BODY_READ_TIMEOUT_MS = 10_000;', 'const BODY_READ_TIMEOUT_MS = 25;');
+assert.match(shortened, /BODY_READ_TIMEOUT_MS = 25;/, 'test copy must shorten only the body-read bound');
+const runtime = new Function(`
+const emit = (line) => line;
+${shortened}
+return { json, responseEvidence, headerEvidence, withTimeout, classify };
+`)();
+
+/* B. a body read that never settles must still fail closed with the same error. */
+await assert.rejects(
+  () => runtime.json({ json: () => new Promise(() => {}) }),
+  /QA_830_STEP_TIMEOUT:RESPONSE_BODY_JSON/,
+  'BODY_TIMEOUT_FAIL_CLOSED: the body-read bound must still reject with QA_830_STEP_TIMEOUT'
+);
+
+/* D. a malformed / non-JSON body keeps the existing null policy. */
+assert.equal(await runtime.json({ json: async () => { throw new SyntaxError('not json'); } }), null,
+  'MALFORMED_JSON_STILL_NULL');
+
+/* C/E. the pre-body evidence carries status/method/path and never a header value,
+ *     and it must never touch the body itself. */
+let bodyTouched = false;
+const bookmarkResponse = {
+  status: () => 401,
+  url: () => 'https://danjion-qa.pages.dev/api/v1/me/bookmarks/71a8300d-0000-4000-8000-000000000001',
+  request: () => ({ method: () => 'DELETE' }),
+  headers: () => ({
+    'x-danjion-auth-bridge': '1',
+    'x-danjion-app-facade': '1',
+    'set-cookie': 'session=SUPERSECRETCOOKIEVALUE',
+    authorization: 'Bearer SUPERSECRETTOKENVALUE'
+  }),
+  json: () => { bodyTouched = true; throw new Error('the body must not be read for pre-body evidence'); }
+};
+const evidenceLine = runtime.responseEvidence(
+  'BOOKMARK_TOGGLE',
+  bookmarkResponse,
+  '/api/v1/me/bookmarks/71a8300d-0000-4000-8000-000000000001'
+);
+assert.match(evidenceLine, /^BOOKMARK_TOGGLE_RESPONSE:HTTP_401:METHOD=DELETE:API_PATH=\/api\/v1\/me\/bookmarks\//);
+assert.match(evidenceLine, /AUTH_BRIDGE_PRESENT=true/);
+assert.match(evidenceLine, /APP_FACADE_PRESENT=true/);
+assert.equal(bodyTouched, false, 'PRE_BODY_EVIDENCE_MUST_NOT_READ_THE_BODY');
+assert.equal(evidenceLine.includes('SUPERSECRETCOOKIEVALUE'), false, 'SECRET_OUTPUT: cookie value must never be printed');
+assert.equal(evidenceLine.includes('SUPERSECRETTOKENVALUE'), false, 'SECRET_OUTPUT: authorization value must never be printed');
+assert.equal(/cookie|authorization|bearer|session/i.test(evidenceLine), false,
+  'the evidence line must contain no credential-bearing label at all');
+
+/* A response object that cannot answer must degrade to explicit unknowns, never throw. */
+const hostile = {
+  status: () => { throw new Error('no status'); },
+  url: () => { throw new Error('no url'); },
+  request: () => { throw new Error('no request'); },
+  headers: () => ({})
+};
+const degraded = runtime.responseEvidence('SESSION_BEFORE', hostile, '/api/auth/get-session');
+assert.match(degraded, /^SESSION_BEFORE_RESPONSE:HTTP_0:METHOD=UNKNOWN:API_PATH=\/api\/auth\/get-session/,
+  'an unanswerable response must degrade to explicit unknowns');
+
+/* F. mutation proof: moving the pre-body evidence after the body read must FAIL. */
+const mutationTarget =
+  "  events.push(responseEvidence(label, response, path));\n  const body = await json(response);\n  events.push(emit(`${label}:HTTP_${response.status()}:API_PATH=${path}:";
+const mutationReplacement =
+  "  const body = await json(response);\n  events.push(responseEvidence(label, response, path));\n  events.push(emit(`${label}:HTTP_${response.status()}:API_PATH=${path}:";
+const mutated = script.replace(mutationTarget, mutationReplacement);
+assert.notEqual(mutated, script, 'the mutation must actually reorder the pageCall evidence');
+assert.equal(emitsPreBodyEvidence(mutated, 'pageCall'), false,
+  'MUTATION_PROOF: the ordering check must fail when the pre-body evidence moves after the body read');
+
+process.stdout.write('PRE_BODY_STATUS_EVIDENCE=PASS\n');
+process.stdout.write('BODY_TIMEOUT_FAIL_CLOSED=PASS\n');
+process.stdout.write('MALFORMED_JSON_NULL=PASS\n');
+process.stdout.write('PRE_BODY_EVIDENCE_NO_SECRET=PASS\n');
+process.stdout.write('MUTATION_PROOF_PRE_BODY_ORDER=PASS\n');
