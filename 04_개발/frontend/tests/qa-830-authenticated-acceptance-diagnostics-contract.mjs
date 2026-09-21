@@ -638,13 +638,13 @@ process.stdout.write('HTTP_403_BODY_TIMEOUT_ACCEPTANCE=PASS\n');
 process.stdout.write('HTTP_422_500_NOT_ACCEPTED=PASS\n');
 process.stdout.write('MUTATION_PROOF_ACCEPTANCE_USES_OK=PASS\n');
 
-/* ===== #830 community post-publish navigation settle ===== */
+/* ===== #830 post-publish canonical destination ===== */
 
 /*
- * Run 35551295214 aborted at ENTER_COMMUNITY_QUESTION with
- * "page.goto: Navigation ... is interrupted by another navigation": every community write
- * page publishes and then navigates 650ms later by design. The acceptance drove the next
- * page.goto into that redirect. These checks pin the settle step that removes the race.
+ * Run 35552732477 timed out waiting for the post-publish navigation: the product assigns
+ * '13_이웃대화_글상세_댓글.html' but the browser landed on the extension-less path. The matcher
+ * is now canonical: decode, strip exactly one trailing ".html", then exact set membership on
+ * the two product destinations, plus a same-origin check. No endsWith/substring/regex widening.
  */
 
 const PP_START = 'const COMMUNITY_POST_PUBLISH_PATHS';
@@ -654,30 +654,53 @@ const ppEndAt = script.indexOf(PP_END);
 assert.ok(ppStartAt >= 0 && ppEndAt > ppStartAt, 'the post-publish settle helpers must exist');
 const ppSource = script.slice(ppStartAt, ppEndAt);
 
-const ppEvents = [];
-const ppHelpers = new Function('withTimeout', 'events', 'emit', `
-${ppSource}
-return { isCommunityPostPublishDestination, waitForCommunityPostPublish, COMMUNITY_POST_PUBLISH_PATHS };
-`)(runtime.withTimeout, ppEvents, (line) => line);
+function buildPostPublishHelpers(source) {
+  const events = [];
+  const api = new Function('withTimeout', 'events', 'emit', `
+${source}
+return { canonicalCommunityDestination, isCommunityPostPublishDestination, waitForCommunityPostPublish, COMMUNITY_POST_PUBLISH_PATHS };
+`)(runtime.withTimeout, events, (line) => line);
+  return { ...api, events };
+}
 
-/* C. only the product-defined destinations are accepted, decoded from the real URL form. */
-const DETAIL_URL = `https://danjion-qa.pages.dev/${encodeURI('13_이웃대화_글상세_댓글.html')}?apiBase=x&post=71a8300d-0000-4000-8000-000000000001`;
-const FEED_URL = `https://danjion-qa.pages.dev/${encodeURI('12_이웃대화_첫화면.html')}?type=story&apiBase=x`;
-const STORY_WRITE_URL = `https://danjion-qa.pages.dev/${encodeURI('15_단지이야기_글쓰기.html')}`;
-const QUESTION_WRITE_URL = `https://danjion-qa.pages.dev/${encodeURI('16_궁금해요_글쓰기.html')}`;
-const SHOP_URL = `https://danjion-qa.pages.dev/${encodeURI('01_이웃가게_발견.html')}`;
+const PP_QA_ORIGIN = 'https://danjion-qa.pages.dev';
+const PP_OTHER_ORIGIN = 'https://evil.example';
+const PP_DETAIL_NAME = '13_이웃대화_글상세_댓글';
+const PP_FEED_NAME = '12_이웃대화_첫화면';
+const PP_WRITE_URL = `${PP_QA_ORIGIN}/${encodeURI('15_단지이야기_글쓰기.html')}`;
+const ppHtmlForm = (name, query = '') => `${PP_QA_ORIGIN}/${encodeURI(`${name}.html`)}${query}`;
+const ppCleanForm = (name, query = '') => `${PP_QA_ORIGIN}/${encodeURI(name)}${query}`;
+const PP_QUERY = '?apiBase=https%3A%2F%2Fdanjion-qa.pages.dev&post=bb8203c8-05c1-461e-aaca-08072e821512';
 
-assert.equal(ppHelpers.isCommunityPostPublishDestination(DETAIL_URL), true, 'the post detail page is a valid destination');
-assert.equal(ppHelpers.isCommunityPostPublishDestination(FEED_URL), true, 'the community feed fallback is a valid destination');
-assert.equal(ppHelpers.isCommunityPostPublishDestination(STORY_WRITE_URL), false, 'a write page is not a post-publish destination');
-assert.equal(ppHelpers.isCommunityPostPublishDestination(QUESTION_WRITE_URL), false, 'the question write page is not a destination');
-assert.equal(ppHelpers.isCommunityPostPublishDestination(SHOP_URL), false, 'an unrelated page is not a destination');
-assert.equal(ppHelpers.isCommunityPostPublishDestination('not a url'), false, 'garbage must not pass');
-assert.equal(ppHelpers.isCommunityPostPublishDestination(undefined), false, 'a missing url must not pass');
-assert.equal(ppHelpers.COMMUNITY_POST_PUBLISH_PATHS.length, 2, 'exactly the two product-defined destinations');
+const ppCanon = buildPostPublishHelpers(ppSource);
+const ppAccepts = (value, origin = PP_QA_ORIGIN) => ppCanon.isCommunityPostPublishDestination(value, origin);
 
-/* A/B. a write that lands on the write page must wait for the product redirect. */
-function makeFakePage({ url, settleAfterMs, neverSettles = false }) {
+/* Required acceptance: both forms of both product destinations, with and without a query. */
+assert.equal(ppAccepts(ppHtmlForm(PP_DETAIL_NAME)), true, 'DETAIL_HTML must be accepted');
+assert.equal(ppAccepts(ppCleanForm(PP_DETAIL_NAME)), true, 'DETAIL_CLEAN must be accepted');
+assert.equal(ppAccepts(ppHtmlForm(PP_FEED_NAME)), true, 'FEED_HTML must be accepted');
+assert.equal(ppAccepts(ppCleanForm(PP_FEED_NAME)), true, 'FEED_CLEAN must be accepted');
+assert.equal(ppAccepts(ppHtmlForm(PP_DETAIL_NAME, PP_QUERY)), true, 'a query string must not change the decision');
+assert.equal(ppAccepts(ppCleanForm(PP_FEED_NAME, PP_QUERY)), true, 'a query string must not change the decision');
+
+/* Required rejection. */
+assert.equal(ppAccepts(ppHtmlForm('15_단지이야기_글쓰기')), false, 'a write page must be rejected');
+assert.equal(ppAccepts(ppCleanForm('16_궁금해요_글쓰기')), false, 'a write page must be rejected');
+assert.equal(ppAccepts(ppCleanForm('17_같이해요_글쓰기')), false, 'a write page must be rejected');
+assert.equal(ppAccepts(`${PP_QA_ORIGIN}/foo/${encodeURI(PP_DETAIL_NAME)}`), false, 'EXACT_PATH_ONLY: a nested path must be rejected');
+assert.equal(ppAccepts(`${PP_QA_ORIGIN}/${encodeURI(PP_DETAIL_NAME)}/extra`), false, 'a deeper path must be rejected');
+assert.equal(ppAccepts(`${PP_QA_ORIGIN}/${encodeURI(`${PP_DETAIL_NAME}.htm`)}`), false, 'a different extension must be rejected');
+assert.equal(ppAccepts(`${PP_QA_ORIGIN}/${encodeURI('01_이웃가게_발견')}`), false, 'an unrelated page must be rejected');
+assert.equal(ppAccepts('not a url'), false, 'garbage must be rejected');
+assert.equal(ppAccepts(undefined), false, 'a missing url must be rejected');
+assert.equal(ppAccepts(`${PP_OTHER_ORIGIN}/${encodeURI(PP_DETAIL_NAME)}`), false,
+  'SAME_ORIGIN_ONLY: the same pathname on another origin must be rejected');
+assert.equal(ppCanon.canonicalCommunityDestination(ppHtmlForm(PP_DETAIL_NAME)).pathname, `/${PP_DETAIL_NAME}`,
+  'canonicalisation must strip exactly one trailing .html');
+assert.equal(ppCanon.COMMUNITY_POST_PUBLISH_PATHS.size, 2, 'exactly the two product destinations');
+
+/* A/B. the write page waits for the product redirect, and an already-settled redirect passes. */
+function makeFakePage({ url, settleTo, neverSettles = false, settleAfterMs = 100 }) {
   const calls = { waitForURL: 0 };
   return {
     calls,
@@ -686,75 +709,190 @@ function makeFakePage({ url, settleAfterMs, neverSettles = false }) {
       calls.waitForURL += 1;
       if (neverSettles) return new Promise(() => {});
       return new Promise((resolve, reject) => {
-        setTimeout(() => {
-          const target = `https://danjion-qa.pages.dev/${encodeURI('13_이웃대화_글상세_댓글.html')}?post=x`;
-          if (predicate(target)) resolve(target); else reject(new Error('predicate rejected the destination'));
-        }, settleAfterMs ?? 100);
+        setTimeout(() => { if (predicate(settleTo)) resolve(settleTo); else reject(new Error('predicate rejected the destination')); }, settleAfterMs);
       });
     }
   };
 }
 
-const waitingPage = makeFakePage({ url: STORY_WRITE_URL, settleAfterMs: 100 });
-await ppHelpers.waitForCommunityPostPublish(waitingPage, 'COMMUNITY_STORY_POST_PUBLISH', 1_500);
+const waitingPage = makeFakePage({ url: PP_WRITE_URL, settleTo: ppCleanForm(PP_DETAIL_NAME, PP_QUERY) });
+await ppCanon.waitForCommunityPostPublish(waitingPage, 'COMMUNITY_STORY_POST_PUBLISH', 1_500, PP_QA_ORIGIN);
 assert.equal(waitingPage.calls.waitForURL, 1, 'POST_PUBLISH_NAV_WAIT: a write page must wait for the product redirect');
-assert.ok(ppEvents.includes('COMMUNITY_STORY_POST_PUBLISH=SETTLED'), 'the settle must be observable in the evidence');
+assert.ok(ppCanon.events.includes('COMMUNITY_STORY_POST_PUBLISH=SETTLED'), 'the settle must be observable in the evidence');
 
-/* The redirect may already have completed before we look: that must pass without waiting. */
-const settledPage = makeFakePage({ url: DETAIL_URL, settleAfterMs: 100 });
-await ppHelpers.waitForCommunityPostPublish(settledPage, 'COMMUNITY_GREETING_POST_PUBLISH', 1_500);
+const htmlLandingPage = makeFakePage({ url: PP_WRITE_URL, settleTo: ppHtmlForm(PP_FEED_NAME, PP_QUERY) });
+await ppCanon.waitForCommunityPostPublish(htmlLandingPage, 'COMMUNITY_GREETING_POST_PUBLISH', 1_500, PP_QA_ORIGIN);
+assert.equal(htmlLandingPage.calls.waitForURL, 1, 'the .html landing form must settle as well');
+
+const settledPage = makeFakePage({ url: ppCleanForm(PP_DETAIL_NAME), settleTo: ppCleanForm(PP_DETAIL_NAME) });
+await ppCanon.waitForCommunityPostPublish(settledPage, 'COMMUNITY_QUESTION_POST_PUBLISH', 1_500, PP_QA_ORIGIN);
 assert.equal(settledPage.calls.waitForURL, 0, 'an already-settled redirect must not wait again');
-assert.ok(ppEvents.includes('COMMUNITY_GREETING_POST_PUBLISH=ALREADY_SETTLED'), 'the already-settled case must be recorded');
+assert.ok(ppCanon.events.includes('COMMUNITY_QUESTION_POST_PUBLISH=ALREADY_SETTLED'), 'the already-settled case must be recorded');
 
-const fallbackPage = makeFakePage({ url: FEED_URL, settleAfterMs: 100 });
-await ppHelpers.waitForCommunityPostPublish(fallbackPage, 'COMMUNITY_TOGETHER_POST_PUBLISH', 1_500);
-assert.equal(fallbackPage.calls.waitForURL, 0, 'the feed fallback is a settled destination too');
-
-/* D. a redirect that never lands must fail closed, never be swallowed. */
+/* Fail closed: a redirect that never reaches the two destinations must not be swallowed. */
 await assert.rejects(
-  () => ppHelpers.waitForCommunityPostPublish(makeFakePage({ url: QUESTION_WRITE_URL, neverSettles: true }), 'COMMUNITY_QUESTION_POST_PUBLISH', 40),
+  () => ppCanon.waitForCommunityPostPublish(makeFakePage({ url: PP_WRITE_URL, settleTo: ppCleanForm(PP_DETAIL_NAME), neverSettles: true }), 'COMMUNITY_TOGETHER_POST_PUBLISH', 40, PP_QA_ORIGIN),
   /QA_830_STEP_TIMEOUT/,
   'NAV_TIMEOUT_FAIL_CLOSED: a navigation that never settles must fail closed'
 );
 
-/* I. event driven, not a fixed sleep, and not a catch-all retry. */
+/* No fixed sleep, no generic retry, and the bounded wait is not wrapped in a catch. */
 assert.ok(ppSource.includes('waitForURL('), 'the settle must be event driven');
-assert.equal(ppSource.includes('setTimeout('), false, 'FIXED_SLEEP_ONLY=NO: the settle must not be a fixed sleep');
-assert.equal(/catch\s*\(/.test(ppSource), false, 'the settle must not swallow the navigation error');
+assert.equal(ppSource.includes('setTimeout('), false, 'FIXED_SLEEP_ONLY=NO: no fixed sleep in the settle');
+assert.equal(/await withTimeout\([\s\S]*?catch/.test(ppSource), false, 'the bounded wait must not be swallowed by a catch');
+assert.equal(/includes\(|endsWith\(\s*expected|new RegExp/.test(ppSource), false,
+  'no substring, suffix or regex widening may appear in the destination matcher');
 
-/* A(scope). every community write uses the same lifecycle, inside the loop. */
+/* Every community write uses the same lifecycle, inside the shared loop. */
 const loopStart = script.indexOf('for (const [label, route, kind] of community)');
 assert.ok(loopStart > 0, 'the community loop must exist');
-const loopBlock = script.slice(loopStart, script.indexOf('record(\'SESSION_AFTER\'', loopStart));
+const loopBlock = script.slice(loopStart, script.indexOf("record('SESSION_AFTER'", loopStart));
 assert.ok(loopBlock.includes('await waitForCommunityPostPublish(page, `COMMUNITY_${label}_POST_PUBLISH`'),
   'GREETING/STORY/QUESTION/TOGETHER_FLOW_PROTECTED: the wait must sit in the shared community loop');
 assert.equal(loopBlock.includes('if (result.ok)'), true, 'the wait must run only for an accepted write');
-for (const label of ['GREETING', 'STORY', 'QUESTION', 'TOGETHER']) {
-  assert.ok(loopBlock.includes(`['${label}'`) || script.includes(`['${label}'`), `${label} must stay covered`);
-}
 
-/* H. mutation proof: dropping the settle step must FAIL. */
-const ppMutated = script.replace(
-  '    if (result.ok) await waitForCommunityPostPublish(page, `COMMUNITY_${label}_POST_PUBLISH`, 15_000);\n',
+/* Mutation proofs. */
+const mutatedHtmlOnly = ppSource.replace('return paths.has(pathname);', "return pathname.endsWith('.html') && paths.has(pathname);");
+assert.notEqual(mutatedHtmlOnly, ppSource, 'mutation A must change the matcher');
+const ppHtmlOnly = buildPostPublishHelpers(mutatedHtmlOnly);
+const htmlOnlyCleanFormHolds = ppHtmlOnly.isCommunityPostPublishDestination(ppCleanForm(PP_DETAIL_NAME), PP_QA_ORIGIN);
+assert.equal(htmlOnlyCleanFormHolds, false,
+  'MUTATION_PROOF_HTML_ONLY: requiring .html must fail the clean-form contract');
+assert.equal(ppHtmlOnly.isCommunityPostPublishDestination(ppHtmlForm(PP_DETAIL_NAME), PP_QA_ORIGIN), false,
+  'MUTATION_PROOF_HTML_ONLY: the mutated matcher no longer matches the shipped canonical form either');
+
+const mutatedWide = ppSource.replace('return paths.has(pathname);', 'return Array.from(paths).some((expected) => pathname.endsWith(expected));');
+assert.notEqual(mutatedWide, ppSource, 'mutation B must change the matcher');
+const ppWide = buildPostPublishHelpers(mutatedWide);
+assert.equal(ppWide.isCommunityPostPublishDestination(`${PP_QA_ORIGIN}/foo/${encodeURI(PP_DETAIL_NAME)}`, PP_QA_ORIGIN), true,
+  'MUTATION_PROOF_SUFFIX_WIDENING: an endsWith matcher must accept the nested path this contract rejects');
+
+const mutatedNoOrigin = ppSource.replace('    if (expectedOrigin && origin !== expectedOrigin) return false;\n', '');
+assert.notEqual(mutatedNoOrigin, ppSource, 'mutation C must change the matcher');
+const ppNoOrigin = buildPostPublishHelpers(mutatedNoOrigin);
+assert.equal(ppNoOrigin.isCommunityPostPublishDestination(`${PP_OTHER_ORIGIN}/${encodeURI(PP_DETAIL_NAME)}`, PP_QA_ORIGIN), true,
+  'MUTATION_PROOF_ORIGIN_CHECK: dropping the origin check must accept the cross-origin case this contract rejects');
+
+const ppMutatedWait = script.replace(
+  '    if (result.ok) await waitForCommunityPostPublish(page, `COMMUNITY_${label}_POST_PUBLISH`, 15_000, writeOrigin);\n',
   ''
 );
-assert.notEqual(ppMutated, script, 'the mutation must actually remove the settle step');
-const ppMutatedLoop = ppMutated.slice(
-  ppMutated.indexOf('for (const [label, route, kind] of community)'),
-  ppMutated.indexOf("record('SESSION_AFTER'", ppMutated.indexOf('for (const [label, route, kind] of community)'))
+assert.notEqual(ppMutatedWait, script, 'the wait removal mutation must apply');
+const ppMutatedLoop = ppMutatedWait.slice(
+  ppMutatedWait.indexOf('for (const [label, route, kind] of community)'),
+  ppMutatedWait.indexOf("record('SESSION_AFTER'", ppMutatedWait.indexOf('for (const [label, route, kind] of community)'))
 );
 assert.equal(ppMutatedLoop.includes('await waitForCommunityPostPublish(page,'), false,
   'MUTATION_PROOF_POST_PUBLISH_WAIT: removing the settle step must fail the contract');
 
-/* E/F/G. the earlier policies stay in force. */
+/* Earlier policies stay in force. */
 assert.equal(script.includes('FORBIDDEN_PRODUCT_POLICY_UNKNOWN_BODY_TIMEOUT'), true, '403 semantics preserved');
 assert.equal(/record\('REVIEW_ACCEPTANCE', review\.ok/.test(script), true, 'ok-based acceptance preserved');
 assert.ok(script.includes('const body = await json(response);'), 'DIRECT_CALL_FAIL_CLOSED preserved');
 
+process.stdout.write('POST_PUBLISH_HTML_FORM_ACCEPTED=PASS\n');
+process.stdout.write('POST_PUBLISH_CLEAN_FORM_ACCEPTED=PASS\n');
+process.stdout.write('POST_PUBLISH_EXACT_PATH_ONLY=PASS\n');
+process.stdout.write('POST_PUBLISH_SAME_ORIGIN_ONLY=PASS\n');
 process.stdout.write('POST_PUBLISH_NAV_WAIT=PASS\n');
 process.stdout.write('POST_PUBLISH_ALREADY_SETTLED=PASS\n');
-process.stdout.write('POST_PUBLISH_DESTINATIONS_STRICT=PASS\n');
 process.stdout.write('NAV_TIMEOUT_FAIL_CLOSED=PASS\n');
 process.stdout.write('FIXED_SLEEP_ONLY=NO\n');
 process.stdout.write('COMMUNITY_FLOWS_PROTECTED=PASS\n');
+process.stdout.write('MUTATION_PROOF_HTML_ONLY=PASS\n');
+process.stdout.write('MUTATION_PROOF_SUFFIX_WIDENING=PASS\n');
+process.stdout.write('MUTATION_PROOF_ORIGIN_CHECK=PASS\n');
 process.stdout.write('MUTATION_PROOF_POST_PUBLISH_WAIT=PASS\n');
+
+/* ===== #830 pre-publish write origin lifecycle ===== */
+
+/*
+ * CENTRAL review of #854: the helper captured expectedOrigin from page.url() at call time. If the
+ * product redirected before the helper ran, the destination became its own expected origin, so a
+ * cross-origin destination with a valid pathname could pass the already-settled branch. The origin
+ * is now captured from the write page BEFORE publishing and passed in explicitly.
+ */
+
+const ORIGIN_LOOP_START = script.indexOf('for (const [label, route, kind] of community)');
+const originLoopBlock = script.slice(ORIGIN_LOOP_START, script.indexOf("record('SESSION_AFTER'", ORIGIN_LOOP_START));
+const captureAt = originLoopBlock.indexOf("const writeOrigin = new URL(page.url()).origin;");
+const publishAt = originLoopBlock.indexOf('await pageCall(page,');
+assert.ok(captureAt >= 0, 'WRITE_ORIGIN_CAPTURED_PRE_PUBLISH: the loop must capture the write origin');
+assert.ok(publishAt > captureAt, 'WRITE_ORIGIN_CAPTURED_PRE_PUBLISH: the origin must be captured before the write');
+assert.ok(originLoopBlock.includes('15_000, writeOrigin)'),
+  'WRITE_ORIGIN_PROPAGATED_TO_HELPER: the loop must pass the captured origin to the settle helper');
+assert.equal(ppSource.includes('new URL(page.url()).origin'), false,
+  'the helper must never recompute the expected origin from the current page url');
+assert.ok(ppSource.includes('missing_write_origin'), 'a missing origin must fail closed');
+
+const CROSS_SETTLED_URL = `${PP_OTHER_ORIGIN}/${encodeURI(PP_DETAIL_NAME)}`;
+
+/* An already-settled redirect on another origin must NOT be accepted. */
+const crossSettled = makeFakePage({ url: CROSS_SETTLED_URL, settleTo: CROSS_SETTLED_URL, neverSettles: true });
+await assert.rejects(
+  () => ppCanon.waitForCommunityPostPublish(crossSettled, 'COMMUNITY_CROSS_SETTLED', 40, PP_QA_ORIGIN),
+  /QA_830_STEP_TIMEOUT/,
+  'ALREADY_SETTLED_CROSS_ORIGIN_REJECTED: a cross-origin destination must not settle as already-visited'
+);
+assert.equal(ppCanon.events.includes('COMMUNITY_CROSS_SETTLED=ALREADY_SETTLED'), false,
+  'ALREADY_SETTLED_CROSS_ORIGIN_REJECTED: the already-settled branch must enforce the write origin');
+
+/* A wait predicate must not accept a cross-origin destination. */
+const crossWait = makeFakePage({ url: PP_WRITE_URL, settleTo: CROSS_SETTLED_URL, settleAfterMs: 60 });
+await assert.rejects(
+  () => ppCanon.waitForCommunityPostPublish(crossWait, 'COMMUNITY_CROSS_WAIT', 500, PP_QA_ORIGIN),
+  /predicate rejected/,
+  'WAIT_CROSS_ORIGIN_REJECTED: the wait predicate must reject a cross-origin destination'
+);
+
+/* Same-origin still passes on both branches. */
+const sameSettled = makeFakePage({ url: ppCleanForm(PP_DETAIL_NAME), settleTo: ppCleanForm(PP_DETAIL_NAME) });
+await ppCanon.waitForCommunityPostPublish(sameSettled, 'COMMUNITY_SAME_SETTLED', 500, PP_QA_ORIGIN);
+assert.equal(sameSettled.calls.waitForURL, 0, 'a same-origin settled redirect must pass without waiting');
+
+/* Mutation A: recomputing the origin from page.url() inside the helper must fail the contract. */
+const ORIGIN_GUARD = "if (isCommunityPostPublishDestination(page.url(), expectedOrigin)) {";
+const mutatedInternalOrigin = ppSource.replace(ORIGIN_GUARD,
+  "if (isCommunityPostPublishDestination(page.url(), new URL(page.url()).origin)) {");
+assert.notEqual(mutatedInternalOrigin, ppSource, 'mutation A must change the helper');
+const ppInternal = buildPostPublishHelpers(mutatedInternalOrigin);
+const internalSettled = makeFakePage({ url: CROSS_SETTLED_URL, settleTo: CROSS_SETTLED_URL, neverSettles: true });
+let internalAccepted = false;
+try {
+  await ppInternal.waitForCommunityPostPublish(internalSettled, 'COMMUNITY_INTERNAL_ORIGIN', 40, PP_QA_ORIGIN);
+  internalAccepted = true;
+} catch { internalAccepted = false; }
+assert.equal(internalAccepted, true,
+  'MUTATION_PROOF_ORIGIN_FROM_PAGE_URL: deriving the origin from page.url() lets a cross-origin destination settle');
+
+/* Mutation C: the already-settled branch ignoring the passed origin must fail the contract. */
+const mutatedIgnoreOrigin = ppSource.replace(ORIGIN_GUARD,
+  "if (isCommunityPostPublishDestination(page.url())) {");
+assert.notEqual(mutatedIgnoreOrigin, ppSource, 'mutation C must change the helper');
+const ppIgnore = buildPostPublishHelpers(mutatedIgnoreOrigin);
+const ignoreSettled = makeFakePage({ url: CROSS_SETTLED_URL, settleTo: CROSS_SETTLED_URL, neverSettles: true });
+let ignoreAccepted = false;
+try {
+  await ppIgnore.waitForCommunityPostPublish(ignoreSettled, 'COMMUNITY_IGNORE_ORIGIN', 40, PP_QA_ORIGIN);
+  ignoreAccepted = true;
+} catch { ignoreAccepted = false; }
+assert.equal(ignoreAccepted, true,
+  'MUTATION_PROOF_ALREADY_SETTLED_IGNORES_ORIGIN: dropping the origin argument lets a cross-origin destination settle');
+
+/* Mutation B: not passing the captured origin from the loop must fail the contract. */
+const mutatedNoPropagation = script.replace('15_000, writeOrigin);', '15_000);');
+assert.notEqual(mutatedNoPropagation, script, 'mutation B must change the loop call');
+const mutatedLoopBlock = mutatedNoPropagation.slice(
+  mutatedNoPropagation.indexOf('for (const [label, route, kind] of community)'),
+  mutatedNoPropagation.indexOf("record('SESSION_AFTER'", mutatedNoPropagation.indexOf("for (const [label, route, kind] of community)"))
+);
+assert.equal(mutatedLoopBlock.includes('15_000, writeOrigin)'), false,
+  'MUTATION_PROOF_WRITE_ORIGIN_NOT_PASSED: dropping the origin argument must fail the contract');
+
+process.stdout.write('WRITE_ORIGIN_CAPTURED_PRE_PUBLISH=PASS' + '\n');
+process.stdout.write('WRITE_ORIGIN_PROPAGATED_TO_HELPER=PASS' + '\n');
+process.stdout.write('ALREADY_SETTLED_CROSS_ORIGIN_REJECTED=PASS' + '\n');
+process.stdout.write('WAIT_CROSS_ORIGIN_REJECTED=PASS' + '\n');
+process.stdout.write('MUTATION_PROOF_ORIGIN_FROM_PAGE_URL=PASS' + '\n');
+process.stdout.write('MUTATION_PROOF_ALREADY_SETTLED_IGNORES_ORIGIN=PASS' + '\n');
+process.stdout.write('MUTATION_PROOF_WRITE_ORIGIN_NOT_PASSED=PASS' + '\n');
