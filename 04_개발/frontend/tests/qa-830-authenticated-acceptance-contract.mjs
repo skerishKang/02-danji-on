@@ -167,6 +167,40 @@ assert.ok(
 assert.match(script, /context\.setDefaultTimeout\(/,
   'locator actions must still carry a context-level default bound');
 
+/* 3b. the wall-clock kill evidence must be a synchronous write.
+   console.log/emit into a piped stdout gives no flush guarantee before
+   process.exit, so the three kill lines would simply disappear. */
+assert.match(script, /import \{ writeSync \} from 'node:fs';/,
+  'the script must import a synchronous write for kill evidence');
+const killHandler = script.slice(
+  script.indexOf('process.on(signalName,'),
+  script.indexOf('process.exit(124);', script.indexOf('process.on(signalName,'))
+);
+assert.ok(killHandler.length > 0, 'the kill handler must be findable');
+assert.match(killHandler, /writeSync\(\s*process\.stdout\.fd,/,
+  'kill evidence must be written synchronously to stdout');
+assert.doesNotMatch(killHandler, /emit\(|console\.log\(/,
+  'kill evidence must not rely on the buffered console path');
+assert.ok(killHandler.includes('QA_830_RUN_WALL_CLOCK_TIMEOUT=YES'), 'the kill marker must be present');
+assert.ok(killHandler.includes('QA_830_LAST_STEP='), 'the kill evidence must name the last step');
+assert.ok(killHandler.includes('SECRET_OUTPUT=NO'), 'the kill evidence must state no secret was printed');
+/* only fixed markers and the fixed step name — no value read from the page or response */
+assert.doesNotMatch(killHandler, /\$\{(body|response|headers|text|payload|state)\b/,
+  'kill evidence must not interpolate a value read from the page or a response');
+
+/* 3c. a body-read timeout must fail closed, not degrade to null */
+const jsonHelper = script.slice(
+  script.indexOf('async function json(response)'),
+  script.indexOf('\n}\n', script.indexOf('async function json(response)')) === -1
+    ? script.length
+    : script.indexOf('\n}\n', script.indexOf('async function json(response)')) + 3
+);
+assert.ok(jsonHelper.includes('BODY_READ_TIMEOUT_MS'), 'the body read must still carry its bound');
+assert.match(jsonHelper, /QA_830_STEP_TIMEOUT:/, 'a body-read timeout must be recognised by its label');
+assert.match(jsonHelper, /throw error/, 'a body-read timeout must be rethrown, not swallowed');
+assert.doesNotMatch(jsonHelper, /\.catch\(\(\) => null\)/,
+  'a body-read timeout must not be swallowed by a blanket catch');
+
 /* 4. teardown is bounded too — an unbound close hides a finished run */
 assert.match(script, /withTimeout\(context\.close\(\)/, 'context.close() must be bounded');
 assert.match(script, /withTimeout\(browser\.close\(\)/, 'browser.close() must be bounded');

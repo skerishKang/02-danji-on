@@ -1,3 +1,4 @@
+import { writeSync } from 'node:fs';
 import { chromium } from '@playwright/test';
 
 const FRONTEND = 'https://danjion-qa.pages.dev';
@@ -68,8 +69,20 @@ function classify(status, body) {
   return { auth: status >= 200 && status < 300, disposition: status >= 200 && status < 300 ? 'SUCCESS' : `SERVER_${status}` };
 }
 
+/*
+ * A malformed or non-JSON body still degrades to null — that is a server
+ * answering oddly, and the disposition logic handles it. A *timeout* is different:
+ * it must fail closed and reach the top-level failure evidence. Otherwise a 2xx
+ * whose body never arrives would be classified as SUCCESS and recorded as an
+ * *_ACCEPTANCE=PASS it did not earn.
+ */
 async function json(response) {
-  return withTimeout(response.json(), BODY_READ_TIMEOUT_MS, 'RESPONSE_BODY_JSON').catch(() => null);
+  try {
+    return await withTimeout(response.json(), BODY_READ_TIMEOUT_MS, 'RESPONSE_BODY_JSON');
+  } catch (error) {
+    if (String(error && error.message).startsWith('QA_830_STEP_TIMEOUT:')) throw error;
+    return null;
+  }
 }
 
 /*
@@ -369,9 +382,22 @@ async function session(request, label) {
  */
 for (const signalName of ['SIGTERM', 'SIGINT', 'SIGHUP']) {
   process.on(signalName, () => {
-    emit('QA_830_RUN_WALL_CLOCK_TIMEOUT=YES');
-    emit(`QA_830_LAST_STEP=${lastStep}`);
-    emit('SECRET_OUTPUT=NO');
+    /*
+     * Synchronous write, not console.log/emit: on a runner stdout is a pipe, and
+     * the buffered path gives no guarantee the lines reach the log before
+     * process.exit truncates them. Only fixed application markers and the fixed
+     * step name are written here — never a value read from the page or a response,
+     * so nothing credential-bearing can enter this stream.
+     */
+    writeSync(
+      process.stdout.fd,
+      [
+        'QA_830_RUN_WALL_CLOCK_TIMEOUT=YES',
+        `QA_830_LAST_STEP=${lastStep}`,
+        'SECRET_OUTPUT=NO',
+        ''
+      ].join('\n')
+    );
     process.exit(124);
   });
 }
