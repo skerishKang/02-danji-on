@@ -250,10 +250,14 @@ assert.ok(reportPage.indexOf(SUCCESS_TOAST) > reportPage.indexOf('if(!result.ok)
   'SUCCESS_TOAST_AFTER_2XX_ONLY: the success toast must follow the result.ok check');
 
 /* Scope: the owner application path is the #809 lane and must stay untouched. */
-assert.ok(reportPage.includes("if(!danjionApiBase()){\n    showToast('입력·파일 선택 확인 완료"),
-  'OWNER_PATH_UNCHANGED: the owner lane keeps its original demo guard (#809 handoff)');
-assert.equal(reportPage.split('!danjionApiBase()&&!DanjionSession.isCanonicalProduction()').length - 1, 1,
-  'only the report path gains the canonical-aware guard');
+/* #809 fixed the owner lane in this same file: that lane now carries its own canonical-aware guard
+   and its detailed semantics are pinned in stage5k-owner-relation-raw. What stage5h must still
+   guarantee is that the report lane itself is unchanged and that no legacy demo-only guard
+   survives anywhere in 25A. */
+assert.equal(reportPage.split('if(!danjionApiBase()){').length - 1, 0,
+  'no legacy demo-only guard may remain in 25A; report and owner are both canonical aware');
+assert.equal(reportPage.split('!danjionApiBase()&&!DanjionSession.isCanonicalProduction()').length - 1, 2,
+  'the report lane (#830) and the owner lane (#809) each carry exactly one canonical-aware guard');
 
 /* Bridge contract for the empty base: same-origin path, POST, credentials included. */
 {
@@ -285,4 +289,4 @@ process.stdout.write('REPORT_DEMO_FALLBACK=PASS\n');
 process.stdout.write('REPORT_CANONICAL_PRODUCTION_MUTATION_PROOF=PASS\n');
 process.stdout.write('BRIDGE_EMPTY_BASE_SAME_ORIGIN=PASS\n');
 process.stdout.write('SUCCESS_TOAST_AFTER_2XX_ONLY=PASS\n');
-process.stdout.write('OWNER_PATH_UNCHANGED=PASS\n');
+process.stdout.write('REPORT_LANE_UNCHANGED=PASS\n');
