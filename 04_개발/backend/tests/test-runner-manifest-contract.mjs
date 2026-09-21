@@ -93,6 +93,7 @@ const EXPECTED_BACKEND_ORDER = [
   "test:resident-summary",
   "test:resident-settings",
   "test:resident-blocks",
+  "test:final-user-qa-recovery",
   "test:resident-activity",
   "test:resident-safety-reports",
   "test:business-share",

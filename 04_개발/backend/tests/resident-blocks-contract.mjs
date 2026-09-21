@@ -15,7 +15,8 @@ assert.match(migration, /primary key \(blocker_user_id, blocked_user_id\)/i, 'bl
 assert.match(migration, /blocker_user_id <> blocked_user_id/i, 'self-block must be DB-rejected');
 assert.doesNotMatch(api, /create table|insert into resident_blocks/i, 'block API must not create a parallel persistence model');
 
-assert.match(api, /requireVerifiedResident\(/, 'block management must require a verified resident actor');
+assert.match(api, /requireActor\(/, 'block list/unblock must authenticate the account actor');
+assert.match(api, /requireVerifiedResident\(/, 'new block creation must require a verified resident actor');
 assert.match(api, /targetVerifiedInComplex\(/, 'new block target must be verified in the actor complex');
 assert.match(api, /on conflict \(blocker_user_id, blocked_user_id\)/i, 'block create must be idempotent');
 assert.match(api, /delete from blocks/i, 'unblock must remove the canonical block row');

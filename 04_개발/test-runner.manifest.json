@@ -82,6 +82,7 @@
         {"id":"test:resident-summary","npm":"test:resident-summary","kind":"contract"},
         {"id":"test:resident-settings","npm":"test:resident-settings","kind":"contract"},
         {"id":"test:resident-blocks","npm":"test:resident-blocks","kind":"contract"},
+        {"id":"test:final-user-qa-recovery","npm":"test:final-user-qa-recovery","kind":"contract"},
         {"id":"test:resident-activity","npm":"test:resident-activity","kind":"contract"},
         {"id":"test:resident-safety-reports","npm":"test:resident-safety-reports","kind":"contract"},
         {"id":"test:business-share","npm":"test:business-share","kind":"contract"},
