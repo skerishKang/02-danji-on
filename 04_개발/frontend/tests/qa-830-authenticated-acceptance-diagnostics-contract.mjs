@@ -558,3 +558,82 @@ process.stdout.write('HTTP_403_NOT_FALSE_PASS=PASS\n');
 process.stdout.write('DIRECT_CALL_FAIL_CLOSED=PASS\n');
 process.stdout.write('PRE_BODY_EVIDENCE_PRESERVED=PASS\n');
 process.stdout.write('MUTATION_PROOF_PAGECALL_BODY_TIMEOUT=PASS\n');
+
+/* ===== #830 semantic acceptance: ok (2xx) is separate from auth ===== */
+
+/*
+ * A 403 previously came back auth=true, and the write callsites recorded
+ * *_ACCEPTANCE from .auth — so an authenticated but forbidden write could be recorded as
+ * *_ACCEPTANCE=PASS. These checks pin the separation: acceptance means the mutation was
+ * functionally accepted (2xx), while auth only answers "was a session required".
+ */
+
+const SEMANTIC_SOURCES = [
+  "record('REVIEW_ACCEPTANCE', review.ok",
+  "record('BOOKMARK_ACCEPTANCE', toggle.ok",
+  "record('INQUIRY_ACCEPTANCE', inquiry.ok",
+  "record('REPORT_ACCEPTANCE', report.ok",
+  'record(`${label}_ACCEPTANCE`, result.ok'
+];
+const AUTH_MARKER_SOURCES = [
+  "record('REVIEW_AUTH', review.auth",
+  "record('BOOKMARK_AUTH', toggle.auth",
+  "record('INQUIRY_AUTH', inquiry.auth",
+  "record('REPORT_AUTH', report.auth",
+  'record(`${label}_AUTH`, result.auth'
+];
+function acceptanceUsesOk(source) {
+  return SEMANTIC_SOURCES.every((needle) => source.includes(needle));
+}
+function acceptanceNeverUsesAuth(source) {
+  return !/_ACCEPTANCE',\s*\w+\.auth/.test(source) && !/_ACCEPTANCE`, result\.auth/.test(source);
+}
+
+assert.equal(acceptanceUsesOk(script), true,
+  'every write *_ACCEPTANCE must be recorded from the functional-success flag ok');
+assert.equal(acceptanceNeverUsesAuth(script), true,
+  'no write *_ACCEPTANCE may be recorded from the auth boolean');
+for (const needle of AUTH_MARKER_SOURCES) {
+  assert.ok(script.includes(needle), `the auth question must stay visible: ${needle}`);
+}
+
+/* Behavioural: ok/auth across the status ladder, all with a never-settling body. */
+const ladder = {};
+for (const status of [201, 401, 403, 422, 500]) {
+  ladder[status] = (await runPageCall(script, status)).result;
+}
+assert.equal(ladder[201].ok, true, 'HTTP_201_BODY_TIMEOUT_ACCEPTANCE: a 2xx mutation is accepted');
+assert.equal(ladder[201].auth, true, 'a 2xx mutation is authenticated');
+assert.equal(ladder[401].ok, false, 'HTTP_401_BODY_TIMEOUT_ACCEPTANCE: a 401 is not accepted');
+assert.equal(ladder[401].auth, false, 'a 401 is not authenticated -> FALSE_LOGIN_REQUIRED evidence');
+assert.equal(ladder[403].ok, false, 'HTTP_403_BODY_TIMEOUT_ACCEPTANCE: a 403 is not accepted');
+assert.equal(ladder[403].auth, true, 'a 403 is authenticated: AUTH=PASS / ACCEPTANCE=FAIL');
+assert.notEqual(ladder[403].disposition, 'AUTH_REQUIRED', 'a 403 must never be read as a missing session');
+assert.equal(ladder[422].ok, false, 'HTTP_422 is not accepted');
+assert.equal(ladder[500].ok, false, 'HTTP_500 is not accepted');
+
+/* F. no secret material may appear in the semantic lines either. */
+for (const status of Object.keys(ladder)) {
+  const line = `${ladder[status].disposition}`;
+  assert.equal(/cookie|authorization|bearer|password|secret/i.test(line), false,
+    'SECRET_OUTPUT: a disposition must carry no credential label');
+}
+
+/* G. Mutation proof: recording an acceptance from auth again must FAIL. */
+const semanticMutated = script.replace(
+  "record('INQUIRY_ACCEPTANCE', inquiry.ok",
+  "record('INQUIRY_ACCEPTANCE', inquiry.auth"
+);
+assert.notEqual(semanticMutated, script, 'the mutation must actually change an acceptance record');
+assert.equal(acceptanceUsesOk(semanticMutated), false,
+  'MUTATION_PROOF_ACCEPTANCE_USES_OK: reverting an acceptance record to auth must fail the contract');
+assert.equal(acceptanceNeverUsesAuth(semanticMutated), false,
+  'MUTATION_PROOF_ACCEPTANCE_USES_OK: the auth-on-acceptance pattern must be detected');
+
+process.stdout.write('ACCEPTANCE_USES_OK=PASS\n');
+process.stdout.write('OK_AUTH_SEPARATED=PASS\n');
+process.stdout.write('HTTP_201_BODY_TIMEOUT_ACCEPTANCE=PASS\n');
+process.stdout.write('HTTP_401_BODY_TIMEOUT_ACCEPTANCE=PASS\n');
+process.stdout.write('HTTP_403_BODY_TIMEOUT_ACCEPTANCE=PASS\n');
+process.stdout.write('HTTP_422_500_NOT_ACCEPTED=PASS\n');
+process.stdout.write('MUTATION_PROOF_ACCEPTANCE_USES_OK=PASS\n');

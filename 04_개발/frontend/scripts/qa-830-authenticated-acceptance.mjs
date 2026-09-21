@@ -409,7 +409,14 @@ async function pageCall(page, label, method, path, action) {
   const disposition = bodyTimeout && classified.disposition === 'FORBIDDEN_PRODUCT_POLICY'
     ? 'FORBIDDEN_PRODUCT_POLICY_UNKNOWN_BODY_TIMEOUT'
     : classified.disposition;
-  return { response, body, status, bodyTimeout, auth: classified.auth, disposition };
+  /*
+   * ok is the functional success of the mutation (2xx only), which is what a write
+   * *_ACCEPTANCE=PASS must mean. auth answers a different question — was this request
+   * rejected for lacking a session — and stays true for an authenticated 403 so the two
+   * are never conflated: a 403 records AUTH=PASS / ACCEPTANCE=FAIL.
+   */
+  const ok = status >= 200 && status < 300;
+  return { response, body, status, bodyTimeout, ok, auth: classified.auth, disposition };
 }
 
 async function session(request, label) {
@@ -495,7 +502,8 @@ try {
   await page.locator('#shopReviewInput').fill(`[QA #830] review ${stamp}`);
   const review = await pageCall(page, 'REVIEW', 'POST', `/api/v1/complexes/${COMPLEX}/businesses/${businessId}/reviews`,
     () => page.locator('#shopReviewSubmit').click({ timeout: 10_000 }));
-  record('REVIEW_ACCEPTANCE', review.auth, review.disposition);
+  record('REVIEW_AUTH', review.auth, review.disposition);
+  record('REVIEW_ACCEPTANCE', review.ok, review.disposition);
   authenticated = await session(context.request, 'REVIEW_AFTER');
   if (!authenticated) record('REVIEW_SESSION_PRESERVED', false, 'SESSION_LOST');
 
@@ -514,8 +522,9 @@ try {
   // B. first toggle moves away from the initial state.
   const toggleMethod = wasBookmarked ? 'DELETE' : 'POST';
   const toggle = await pageCall(page, 'BOOKMARK_TOGGLE', toggleMethod, togglePath, saveToggle);
-  record('BOOKMARK_ACCEPTANCE', toggle.auth, toggle.disposition);
-  record('BOOKMARK_TOGGLE', toggle.auth, toggle.disposition);
+  record('BOOKMARK_AUTH', toggle.auth, toggle.disposition);
+  record('BOOKMARK_ACCEPTANCE', toggle.ok, toggle.disposition);
+  record('BOOKMARK_TOGGLE', toggle.ok, toggle.disposition);
   BOOKMARK_TOGGLE_METHOD = toggleMethod;
   // C. a 401 on the toggle is an outright failure, and auth is recorded explicitly.
   const toggleStatus = toggle.response.status();
@@ -560,7 +569,8 @@ try {
   await page.locator('#shopInquiryText').fill(`QA #830 shop inquiry ${stamp}`);
   const inquiry = await pageCall(page, 'INQUIRY', 'POST', '/api/v1/me/inquiries',
     () => page.locator('#shopInquiryForm button[type="submit"]').click({ timeout: 10_000 }));
-  record('INQUIRY_ACCEPTANCE', inquiry.auth, inquiry.disposition);
+  record('INQUIRY_AUTH', inquiry.auth, inquiry.disposition);
+  record('INQUIRY_ACCEPTANCE', inquiry.ok, inquiry.disposition);
   authenticated = await session(context.request, 'INQUIRY_AFTER');
 
   step('ENTER_SHOP_REPORT_FLOW');
@@ -575,7 +585,8 @@ try {
       10_000,
       'REPORT_FORM_SUBMIT'
     ));
-  record('REPORT_ACCEPTANCE', report.auth, report.disposition);
+  record('REPORT_AUTH', report.auth, report.disposition);
+  record('REPORT_ACCEPTANCE', report.ok, report.disposition);
   authenticated = await session(context.request, 'REPORT_AFTER');
 
   const community = [
@@ -594,7 +605,8 @@ try {
     await page.locator('#body').fill(`QA #830 authenticated ${kind} acceptance ${stamp}`);
     const result = await pageCall(page, `COMMUNITY_${label}`, 'POST', `/api/v1/complexes/${COMPLEX}/community/posts`,
       () => page.locator('[data-publish]').first().click({ timeout: 10_000 }));
-    record(`${label}_ACCEPTANCE`, result.auth, result.disposition);
+    record(`${label}_AUTH`, result.auth, result.disposition);
+    record(`${label}_ACCEPTANCE`, result.ok, result.disposition);
     authenticated = await session(context.request, `${label}_AFTER`);
   }
 
