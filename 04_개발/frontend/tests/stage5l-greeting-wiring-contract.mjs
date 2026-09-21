@@ -114,7 +114,7 @@ function wiringScript(page, id) {
   assert.match(wiring, /localStorage\.removeItem\(key\)/, 'successful server post clears the local draft');
   assert.doesNotMatch(wiring, /localStorage\.setItem|sessionStorage|indexedDB/, 'page 14 wiring never writes local persistence');
   assert.match(wiring, /auth-required/, 'page 14 surfaces expired sessions fail-closed');
-  assert.match(wiring, /12_이웃대화_첫화면\.html\?type=hello&apiBase=/, 'page 14 returns to the community surface with the session base');
+  assert.match(wiring, /12_이웃대화_첫화면\.html\?type=hello'\+\(apiBase\?'\&apiBase='\+encodeURIComponent\(apiBase\):''\)/, 'page 14 returns to the community surface with conditional session base (#863)');
   new vm.Script(wiring, { filename: 'page-14-wiring' });
 }
 

@@ -194,8 +194,8 @@ function wiringScript(page, id) {
   const w20 = wiringScript(page20, 'danjion-messages-list-live-wiring-330');
   assert.match(w20, /DanjionSession\.danjionApiBase\(\)/);
   assert.match(w20, /bridge\.listConversations\(\)/);
-  assert.match(w20, /21_메시지_대화상세\.html\?apiBase='/, '21 navigation carries apiBase + conversation');
-  assert.match(w20, /&conversation='/);
+  assert.match(w20, /21_메시지_대화상세\.html\?conversation='/, '21 navigation carries the conversation id (#863 post-first query)');
+  assert.match(w20, /apiBase\?'&apiBase='\+encodeURIComponent\(apiBase\):''/, '21 navigation attaches apiBase only when set (#863)');
   assert.match(w20, /본인 확인된 입주민만 메시지함을 볼 수 있습니다/, '403 is denied truthfully');
   const w21 = wiringScript(page21, 'danjion-conversation-detail-live-wiring-330');
   assert.match(w21, /bridge\.listMessages\(conversationId\)/);
