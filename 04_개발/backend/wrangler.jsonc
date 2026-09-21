@@ -30,6 +30,7 @@
       "preview_urls": false,
       "vars": {
         "APP_ENV": "qa",
+        "TEMP_RESIDENT_ACCESS_MODE": "true",
         "DEV_AUTH_BYPASS": "false",
         "AUTH_REQUIRE_EMAIL_VERIFICATION": "false"
       }
