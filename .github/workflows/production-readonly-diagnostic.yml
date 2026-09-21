@@ -1,0 +1,40 @@
+name: Production Readonly Diagnostic
+
+on:
+  workflow_dispatch:
+    inputs:
+      expected_main:
+        description: Exact main SHA for read-only production diagnostics
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  diagnostic:
+    name: Production read-only diagnostic
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      APP_ENV: production
+      DANJION_PRODUCTION_API_URL: https://padiem-danjion-api-production.padiem.workers.dev
+      DANJION_PRODUCTION_FRONTEND_URL: https://danjion.pages.dev
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ inputs.expected_main }}"
+          test "$(git ls-remote origin refs/heads/main | awk '{print $1}')" = "${{ inputs.expected_main }}"
+          test -z "${DATABASE_URL:-}"
+          test -z "${DANJION_PRODUCTION_DB_URL:-}"
+      - name: Read-only diagnostic
+        run: node 04_개발/backend/scripts/production-readonly-diagnostic.mjs

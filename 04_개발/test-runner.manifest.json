@@ -20,6 +20,7 @@
         {"id":"test:production-bootstrap-safety","npm":"test:production-bootstrap-safety","kind":"contract"},
         {"id":"test:production-db-secret-bootstrap","npm":"test:production-db-secret-bootstrap","kind":"contract"},
         {"id":"test:production-auth-readonly-diagnostic","npm":"test:production-auth-readonly-diagnostic","kind":"contract"},
+        {"id":"test:production-readonly-diagnostic","npm":"test:production-readonly-diagnostic","kind":"contract"},
         {"id":"test:central-governance-main-audit","npm":"test:central-governance-main-audit","kind":"contract"},
         {"id":"test:backup-neon-to-drive","npm":"test:backup-neon-to-drive","kind":"contract"},
         {"id":"test:backup-neon-to-drive-runtime-safety","npm":"test:backup-neon-to-drive-runtime-safety","kind":"contract"},
