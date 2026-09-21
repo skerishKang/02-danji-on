@@ -113,31 +113,57 @@ function responseEvidence(label, response, path) {
 
 /*
  * Community write pages publish, then navigate 650ms later on purpose: a published UUID post
- * goes to the post detail page, otherwise back to the community feed. That delay is real
- * product UX, so the acceptance must let that navigation settle before driving the next page
- * instead of racing it (which aborted the run with ERR_ABORTED / navigation interrupted).
+ * goes to the post detail page, otherwise back to the community feed. Live evidence showed the
+ * browser lands on the extension-less form of those two files, so a destination is matched
+ * canonically rather than by the literal string the product assigns.
+ *
+ * Only these two product destinations are accepted, each in its .html and clean form:
+ *   /13_이웃대화_글상세_댓글[.html]
+ *   /12_이웃대화_첫화면[.html]
  */
-const COMMUNITY_POST_PUBLISH_PATHS = ['/13_이웃대화_글상세_댓글.html', '/12_이웃대화_첫화면.html'];
+const COMMUNITY_POST_PUBLISH_PATHS = new Set([
+  '/13_이웃대화_글상세_댓글',
+  '/12_이웃대화_첫화면'
+]);
 
-function isCommunityPostPublishDestination(value, paths = COMMUNITY_POST_PUBLISH_PATHS) {
+/*
+ * Canonicalise a URL to { origin, pathname } with exactly one trailing ".html" removed. The
+ * caller compares the pathname with exact set membership: no suffix match, no substring match,
+ * no regex, and a query string never influences the decision.
+ */
+function canonicalCommunityDestination(value) {
+  const url = new URL(String(value));
+  let pathname = decodeURIComponent(url.pathname);
+  if (pathname.endsWith('.html')) pathname = pathname.slice(0, -5);
+  return { origin: url.origin, pathname };
+}
+
+/*
+ * Same-origin is enforced when the caller supplies the origin captured from the write page, so
+ * another host serving the same pathname is rejected. An unparseable URL is rejected too.
+ */
+function isCommunityPostPublishDestination(value, expectedOrigin, paths = COMMUNITY_POST_PUBLISH_PATHS) {
   try {
-    const pathname = decodeURIComponent(new URL(String(value)).pathname);
-    return paths.some((expected) => pathname.endsWith(expected));
+    const { origin, pathname } = canonicalCommunityDestination(value);
+    if (expectedOrigin && origin !== expectedOrigin) return false;
+    return paths.has(pathname);
   } catch { return false; }
 }
 
 /*
- * Bounded wait for the product's own post-publish navigation. It is event driven
- * (waitForURL), never a fixed sleep, it passes when the redirect already completed, and a
- * timeout fails closed instead of being caught and swallowed.
+ * Bounded wait for the product's own post-publish navigation. It is event driven (waitForURL),
+ * never a fixed sleep, it passes when the redirect already completed, and a timeout fails
+ * closed instead of being caught and swallowed. No generic retry, no catch-and-pass.
  */
 async function waitForCommunityPostPublish(page, label, timeoutMs) {
-  if (isCommunityPostPublishDestination(page.url())) {
+  let expectedOrigin = '';
+  try { expectedOrigin = new URL(page.url()).origin; } catch { expectedOrigin = ''; }
+  if (isCommunityPostPublishDestination(page.url(), expectedOrigin)) {
     events.push(emit(`${label}=ALREADY_SETTLED`));
     return;
   }
   await withTimeout(
-    page.waitForURL((url) => isCommunityPostPublishDestination(String(url)), {
+    page.waitForURL((url) => isCommunityPostPublishDestination(String(url), expectedOrigin), {
       waitUntil: 'domcontentloaded',
       timeout: timeoutMs
     }),
