@@ -189,6 +189,28 @@ assert.match(
   /`SIGNIN=\$\{account\.name\} status=\$\{signIn\.status\} stage=signin \$\{safeBody\(body\)\} `/,
   'a failed sign-in must report its provider code and the stage it failed at'
 );
+
+// --- observability labels must match the fact that happened ------------------//
+// A successful structure read may not be re-printed as UNREADABLE because the read
+// after it failed, and a successful sign-in may not be reported as "no sign-in".
+assert.match(script, /\$\{formatAuthStructure\(account\.name, structure\)\} status=OK`/, 'a successful structure read must carry an explicit OK status');
+assert.match(script, /\$\{formatPinnedAuthority\(account\.name, authority\)\} status=OK`/, 'a successful authority snapshot must carry an explicit OK status');
+assert.equal((script.match(/AUTHORITY_READ_FAILED read=snapshot stage=\$\{failureStage\(error\)\}/g) || []).length, 1,
+  'the authority snapshot must report its own failure, attributed to its persona');
+assert.doesNotMatch(script, /SCOPES=\$\{account\.name\} status=UNREADABLE/,
+  'the authority read must not be reported under the snapshot data label');
+assert.match(script, /export function signinStatus\(error\)/, 'the sign-in tag must be a named, testable unit');
+assert.match(script, /export function formatAcquisitionFailure\(name, error\)/, 'the acquisition label must be a named, testable unit');
+assert.match(script, /POST_SIGNIN_STAGE_FAILED stage=\$\{failureStage\(error\)\} signin_status=\$\{status\}/,
+  'a post-sign-in failure must report the sign-in status that already succeeded');
+assert.match(script, /if \(error instanceof Error\) error\.signinStatus = signIn\.status;/, 'the post-sign-in failure must be tagged with its sign-in status');
+assert.match(script, /export function formatDiagnosisCounts\(signinOk, acquired, total\)/, 'the count report must be a named, testable unit');
+assert.match(script, /`SIGNIN_OK_COUNT=\$\{signinOk\}\/\$\{total\}`/, 'SIGNIN_OK_COUNT must count HTTP sign-ins');
+assert.match(script, /`ACQUIRED_COUNT=\$\{acquired\}\/\$\{total\}`/, 'ACQUIRED_COUNT must count fully acquired identities');
+assert.match(script, /`DIAGNOSIS_RESULT=\$\{signinOk === total \? 'COMPLETE' : 'INCOMPLETE'\}`/,
+  'the diagnosis result must follow the sign-in count, not the acquisition count');
+assert.match(script, /if \(signinStatus\(error\)\) signinOk \+= 1;/, 'a tagged post-sign-in failure must still count as a sign-in');
+
 assert.match(
   script,
   /session_rows_after=\$\{after \? after\.sessionRows : 'UNREADABLE'\}/,
@@ -196,16 +218,13 @@ assert.match(
 );
 assert.match(script, /authority_probe=not_reached/,
   'a refused sign-in must state that no authority lookup was reached');
-assert.match(
-  script,
-  /console\.log\(`SIGNIN=\$\{account\.name\} status=- stage=\$\{failureStage\(error\)\} detail=\$\{failureToken\(error\)\}`\)/,
-  'a post-sign-in failure must name its stage instead of stopping the whole lane'
-);
+assert.match(script, /console\.log\(formatAcquisitionFailure\(account\.name, error\)\)/,
+  'a post-sign-in failure must name its stage instead of stopping the whole lane');
 assert.match(script, /AUTHORITY_READ_FAILED read=state/, 'a state read failure must be distinct from an authority read failure');
 assert.match(script, /AUTHORITY_READ_FAILED read=authority/, 'an authority read failure must be named');
 assert.equal((script.match(/AUTHORITY_READ_FAILED read=(state|authority) stage=\$\{failureStage\(error\)\}/g) || []).length, 2,
-  'both read failures must report the failed read and its cause on one line');
-assert.equal((script.match(/if \(converge\) throw error;/g) || []).length, 4,
+  'both residency and authority read failures must report the failed read and its cause');
+assert.equal((script.match(/if \(converge\) throw error;/g) || []).length, 5,
   'every graceful read-only path must keep its fail-closed convergence counterpart');
 assert.match(script, /export function failureStage\(/, 'the stage classifier must be a named, testable unit');
 assert.match(script, /export function failureToken\(/, 'the failure token must be a named, testable unit');
@@ -224,11 +243,8 @@ assert.match(script, /from danjion_auth\."user" u[\s\S]{0,200}?lower\(u\.email\)
 assert.match(script, /join app_users au2 on au2\.id = g\.user_id/, 'the snapshot must read grants through app_users');
 assert.match(script, /string_agg\(g\.scope, ',' order by g\.scope\)/,
   'the scope list must come back as one deterministic text value, never as an array');
-assert.match(
-  script,
-  /console\.log\(formatPinnedAuthority\(account\.name, await withDbRetry\(\(\) => readPinnedAuthority\(sql, account\.email\), !converge\)\)\)/,
-  'every run must report the pinned authority snapshot for all three identities'
-);
+assert.equal((script.match(/withDbRetry\(\(\) => readPinnedAuthority\(sql, account\.email\), !converge\)/g) || []).length, 1,
+  'every run must report the pinned authority snapshot for all three identities');
 assert.match(script, /SCOPES=\$\{name\}/, 'the snapshot must be announced by persona name');
 assert.match(script, /app_user_link=\$\{authority\.appUserRows > 0 \? 'true' : 'false'\}/, 'the snapshot must report the app_users link');
 assert.match(script, /wildcard=\$\{wildcard \? 'true' : 'false'\}/, 'the snapshot must report the super wildcard explicitly');
@@ -256,7 +272,8 @@ assert.match(script, /session_rows_before=\$\{structure \? structure\.sessionRow
   'an unreadable structure must degrade the session count, not the run');
 assert.match(script, /AUTH_STRUCTURE=\$\{account\.name\} status=UNREADABLE stage=\$\{failureStage\(error\)\}/,
   'an unreadable structure must be reported as UNREADABLE, never as an auth failure');
-assert.match(script, /SCOPES=\$\{account\.name\} status=UNREADABLE/, 'an unreadable authority snapshot must be reported as UNREADABLE');
+assert.match(script, /PERSONA=\$\{account\.name\} AUTHORITY_READ_FAILED read=snapshot/,
+  'an unreadable authority snapshot must be reported as a failed read, not as data');
 assert.doesNotMatch(script, /withDbRetry\(\(\) => convergePadiemGrants/, 'a grant write must never be retried');
 assert.doesNotMatch(script, /withDbRetry\(\(\) => repairAuthAccount/, 'a destructive repair must never be retried');
 assert.doesNotMatch(script, /withDbRetry\(\(\) => signUpOnce/, 'an account creation must never be retried');

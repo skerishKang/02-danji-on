@@ -5,7 +5,10 @@ import {
   failureStage,
   failureToken,
   fetchPersonaMe,
+  formatAcquisitionFailure,
+  formatDiagnosisCounts,
   formatPinnedAuthority,
+  signinStatus,
   withDbRetry
 } from '../scripts/qa-persona-provision-lite.mjs';
 
@@ -309,5 +312,98 @@ assert.ok(everyLogLine.every((line) => !line.includes('contract-only-password'))
   'the diagnosis must never print the password');
 assert.ok(everyLogLine.every((line) => !/[$]2[aby][$]/.test(line)), 'the diagnosis must never print a password hash');
 assert.ok(everyLogLine.every((line) => !/[\w.-]+@[\w.-]+[.]\w+/.test(line)), 'the diagnosis must never print an address');
+
+// --- labels must match the fact that happened --------------------------------
+// A post-sign-in database failure means the identity CAN sign in. It must be reported
+// as such, and it must still be counted as a sign-in.
+const dbErrorTagged = new Error('Error connecting to database: TypeError: fetch failed');
+assert.equal(signinStatus(dbErrorTagged), 0, 'an untagged failure is not a sign-in');
+assert.equal(formatAcquisitionFailure('QA_SUPER', dbErrorTagged),
+  'SIGNIN=QA_SUPER status=- stage=db detail=Error connecting to database',
+  'an untagged failure must remain a "no sign-in" report');
+
+dbErrorTagged.signinStatus = 200;
+assert.equal(signinStatus(dbErrorTagged), 200, 'a tagged failure carries its sign-in status');
+assert.equal(formatAcquisitionFailure('QA_SUPER', dbErrorTagged),
+  'PERSONA=QA_SUPER POST_SIGNIN_STAGE_FAILED stage=db signin_status=200 detail=Error connecting to database',
+  'a post-sign-in failure must not be reported as a failed sign-in');
+
+// The sign-in count and the acquisition count must not be the same number.
+assert.deepEqual(formatDiagnosisCounts(3, 1, 3), [
+  'SIGNIN_OK_COUNT=3/3',
+  'ACQUIRED_COUNT=1/3',
+  'DIAGNOSIS_RESULT=COMPLETE'
+], 'all three sign-ins with a degraded database must still be a COMPLETE sign-in diagnosis');
+assert.deepEqual(formatDiagnosisCounts(2, 2, 3), [
+  'SIGNIN_OK_COUNT=2/3',
+  'ACQUIRED_COUNT=2/3',
+  'DIAGNOSIS_RESULT=INCOMPLETE'
+], 'a missing sign-in is what makes the diagnosis INCOMPLETE');
+
+// A real post-sign-in database failure must arrive tagged, and only the sign-in step
+// may reach the network before it.
+let linkSqlCalls = 0;
+const linkFailSql = () => {
+  linkSqlCalls += 1;
+  if (linkSqlCalls > 1) return Promise.reject(new Error('Error connecting to database: TypeError: fetch failed'));
+  return Promise.resolve([{ id: 'contract-app-user' }]);
+};
+const postSigninLog = [];
+const postSigninRequests = [];
+const releasePostSignin = captureLog(postSigninLog);
+let taggedError = null;
+try {
+  await acquireAccount(
+    frontendOrigin,
+    apiOrigin,
+    linkFailSql,
+    personaAccount,
+    async (request) => {
+      const url = String(request);
+      postSigninRequests.push(url);
+      if (url.includes('/api/auth/sign-in/email')) {
+        return new Response(JSON.stringify({ user: { id: 'auth-user-1' } }), {
+          status: 200,
+          headers: { 'content-type': 'application/json', 'set-auth-token': 'contract-session-token', 'set-auth-jwt': 'contract-jwt' }
+        });
+      }
+      if (url.includes('/api/auth/get-session')) {
+        return new Response(JSON.stringify({ user: { id: 'auth-user-1' } }), {
+          status: 200,
+          headers: { 'content-type': 'application/json', 'set-auth-jwt': 'contract-jwt' }
+        });
+      }
+      if (url.includes('/api/auth/token')) {
+        return new Response(JSON.stringify({ token: 'contract-jwt' }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' }
+        });
+      }
+      if (url.includes('/api/v1/me')) {
+        return new Response(JSON.stringify({ data: { id: 'auth-user-1' } }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' }
+        });
+      }
+      if (url.includes('/api/auth/sign-out')) return new Response('{}', { status: 200 });
+      throw new Error(`unexpected request: ${url}`);
+    },
+    false,
+    false
+  );
+} catch (error) {
+  taggedError = error;
+} finally {
+  releasePostSignin();
+}
+assert.ok(taggedError, 'a database failure after a successful sign-in must still throw in read-only mode');
+assert.equal(signinStatus(taggedError), 200,
+  'the post-sign-in failure must be tagged with the sign-in status that already succeeded');
+assert.equal(formatAcquisitionFailure('QA_SUPER', taggedError),
+  'PERSONA=QA_SUPER POST_SIGNIN_STAGE_FAILED stage=db signin_status=200 detail=Error connecting to database');
+assert.deepEqual(postSigninLog, ['SIGNIN=QA_SUPER status=200'],
+  'the successful sign-in must still be reported as a sign-in');
+assert.ok(postSigninLog.every((line) => !line.includes('contract-session-token') && !line.includes('contract-jwt')),
+  'the diagnosis must never print a session token or a service JWT');
 
 console.log('qa-persona-provision-lite-auth-target-contract: PASS');
