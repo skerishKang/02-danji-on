@@ -205,7 +205,7 @@ function makeHarness(authorityAnswer) {
     readyState: 'loading',
     addEventListener() {},
     getElementById(id) {
-      if (!nodes.has(id)) nodes.set(id, { textContent: '', hidden: true, className: '', value: '', disabled: false, focus() {}, addEventListener() {} });
+       if (!nodes.has(id)) nodes.set(id, { textContent: '', hidden: true, className: '', value: '', disabled: false, attributes: {}, focus() {}, addEventListener() {}, setAttribute(name, value) { this.attributes[name] = String(value); }, removeAttribute(name) { delete this.attributes[name]; } });
       return nodes.get(id);
     },
     querySelector() { return null; },
