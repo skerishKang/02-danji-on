@@ -111,6 +111,9 @@ jobs:
           mkdir -p dist-qa
           cp -R frontend/. dist-qa/
           rm -rf dist-qa/tests
+          node frontend/scripts/build-attribution.mjs dist-qa "$GITHUB_SHA"
+          rm -rf dist-qa/scripts
+          test ! -e dist-qa/scripts
           node '04_개발/backend/scripts/qa-pages-runtime-bind.mjs' dist-qa
           printf '/*\n  X-Robots-Tag: noindex\n' > dist-qa/_headers
           test -f dist-qa/index.html

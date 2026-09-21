@@ -157,6 +157,9 @@ jobs:
           rm -rf dist/tests
           test -f dist/index.html
           test ! -e dist/tests
+          node frontend/scripts/build-attribution.mjs dist "$GITHUB_SHA"
+          rm -rf dist/scripts
+          test ! -e dist/scripts
           echo "V3 artifact assembled from frontend/ (entry: index.html)"
 
       - name: Verify browser artifact resolves canonical production to the same-origin facade
