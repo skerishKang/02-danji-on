@@ -384,9 +384,39 @@ async function pageCall(page, label, method, path, action) {
   const response = await responsePromise;
   // Pre-body evidence: emitted before the body read so a body timeout cannot erase it.
   events.push(responseEvidence(label, response, path));
-  const body = await json(response);
-  events.push(emit(`${label}:HTTP_${response.status()}:API_PATH=${path}:${headerEvidence(response.headers())}`));
-  return { response, body, ...classify(response.status(), body) };
+  const status = response.status();
+  /*
+   * Write-response policy. The product updates saved state from response.ok, so the HTTP
+   * status is the acceptance authority for a mutation response and the body is best-effort
+   * diagnostics. A body that never settles records <LABEL>_BODY_TIMEOUT=YES and keeps that
+   * status instead of aborting the run, because the write may well have succeeded exactly as
+   * the product contract allows. This is NOT a blanket pass: a 401 still fails, a 403 is
+   * recorded as a product/authz failure (never as an auth rejection, never as 2xx), and any
+   * other 4xx/5xx keeps its own status-based disposition. call() keeps the fail-closed body
+   * policy because its body is functional input, not diagnostics.
+   */
+  let body = null;
+  let bodyTimeout = false;
+  try {
+    body = await json(response);
+  } catch (error) {
+    if (!String(error && error.message).startsWith('QA_830_STEP_TIMEOUT:')) throw error;
+    bodyTimeout = true;
+    events.push(emit(`${label}_BODY_TIMEOUT=YES:HTTP_${status}:METHOD=${method}:API_PATH=${path}`));
+  }
+  events.push(emit(`${label}:HTTP_${status}:API_PATH=${path}:${headerEvidence(response.headers())}`));
+  const classified = classify(status, body);
+  const disposition = bodyTimeout && classified.disposition === 'FORBIDDEN_PRODUCT_POLICY'
+    ? 'FORBIDDEN_PRODUCT_POLICY_UNKNOWN_BODY_TIMEOUT'
+    : classified.disposition;
+  /*
+   * ok is the functional success of the mutation (2xx only), which is what a write
+   * *_ACCEPTANCE=PASS must mean. auth answers a different question — was this request
+   * rejected for lacking a session — and stays true for an authenticated 403 so the two
+   * are never conflated: a 403 records AUTH=PASS / ACCEPTANCE=FAIL.
+   */
+  const ok = status >= 200 && status < 300;
+  return { response, body, status, bodyTimeout, ok, auth: classified.auth, disposition };
 }
 
 async function session(request, label) {
@@ -472,7 +502,8 @@ try {
   await page.locator('#shopReviewInput').fill(`[QA #830] review ${stamp}`);
   const review = await pageCall(page, 'REVIEW', 'POST', `/api/v1/complexes/${COMPLEX}/businesses/${businessId}/reviews`,
     () => page.locator('#shopReviewSubmit').click({ timeout: 10_000 }));
-  record('REVIEW_ACCEPTANCE', review.auth, review.disposition);
+  record('REVIEW_AUTH', review.auth, review.disposition);
+  record('REVIEW_ACCEPTANCE', review.ok, review.disposition);
   authenticated = await session(context.request, 'REVIEW_AFTER');
   if (!authenticated) record('REVIEW_SESSION_PRESERVED', false, 'SESSION_LOST');
 
@@ -491,8 +522,9 @@ try {
   // B. first toggle moves away from the initial state.
   const toggleMethod = wasBookmarked ? 'DELETE' : 'POST';
   const toggle = await pageCall(page, 'BOOKMARK_TOGGLE', toggleMethod, togglePath, saveToggle);
-  record('BOOKMARK_ACCEPTANCE', toggle.auth, toggle.disposition);
-  record('BOOKMARK_TOGGLE', toggle.auth, toggle.disposition);
+  record('BOOKMARK_AUTH', toggle.auth, toggle.disposition);
+  record('BOOKMARK_ACCEPTANCE', toggle.ok, toggle.disposition);
+  record('BOOKMARK_TOGGLE', toggle.ok, toggle.disposition);
   BOOKMARK_TOGGLE_METHOD = toggleMethod;
   // C. a 401 on the toggle is an outright failure, and auth is recorded explicitly.
   const toggleStatus = toggle.response.status();
@@ -537,7 +569,8 @@ try {
   await page.locator('#shopInquiryText').fill(`QA #830 shop inquiry ${stamp}`);
   const inquiry = await pageCall(page, 'INQUIRY', 'POST', '/api/v1/me/inquiries',
     () => page.locator('#shopInquiryForm button[type="submit"]').click({ timeout: 10_000 }));
-  record('INQUIRY_ACCEPTANCE', inquiry.auth, inquiry.disposition);
+  record('INQUIRY_AUTH', inquiry.auth, inquiry.disposition);
+  record('INQUIRY_ACCEPTANCE', inquiry.ok, inquiry.disposition);
   authenticated = await session(context.request, 'INQUIRY_AFTER');
 
   step('ENTER_SHOP_REPORT_FLOW');
@@ -552,7 +585,8 @@ try {
       10_000,
       'REPORT_FORM_SUBMIT'
     ));
-  record('REPORT_ACCEPTANCE', report.auth, report.disposition);
+  record('REPORT_AUTH', report.auth, report.disposition);
+  record('REPORT_ACCEPTANCE', report.ok, report.disposition);
   authenticated = await session(context.request, 'REPORT_AFTER');
 
   const community = [
@@ -571,7 +605,8 @@ try {
     await page.locator('#body').fill(`QA #830 authenticated ${kind} acceptance ${stamp}`);
     const result = await pageCall(page, `COMMUNITY_${label}`, 'POST', `/api/v1/complexes/${COMPLEX}/community/posts`,
       () => page.locator('[data-publish]').first().click({ timeout: 10_000 }));
-    record(`${label}_ACCEPTANCE`, result.auth, result.disposition);
+    record(`${label}_AUTH`, result.auth, result.disposition);
+    record(`${label}_ACCEPTANCE`, result.ok, result.disposition);
     authenticated = await session(context.request, `${label}_AFTER`);
   }
 
