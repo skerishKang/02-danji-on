@@ -1,0 +1,124 @@
+name: QA Persona Provision Lite
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-persona-provision-lite.yml'
+      - '04_개발/backend/scripts/qa-persona-provision-lite.mjs'
+      - '04_개발/backend/src/admin-scope-policy-v1.ts'
+      - '04_개발/backend/tests/qa-persona-provision-lite-contract.mjs'
+      - '04_개발/backend/tests/qa-persona-provision-lite-auth-target-contract.mjs'
+  workflow_dispatch:
+    inputs:
+      expected_main:
+        description: 'Exact main SHA authorized for QA acceptance persona convergence'
+        required: true
+        type: string
+      confirm_qa_personas_lite:
+        description: 'Explicitly confirm QA-only persona grant mutation WITHOUT any household fixture'
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: danjion-qa-persona-provision-lite
+  cancel-in-progress: false
+
+jobs:
+  source-contract:
+    name: QA persona lite source safety contract
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Verify QA persona lite provisioning contract
+        run: node 04_개발/backend/tests/qa-persona-provision-lite-contract.mjs
+
+      - name: Install backend test dependencies
+        working-directory: 04_개발/backend
+        run: npm ci --ignore-scripts
+
+      - name: Verify QA persona lite auth target contract
+        run: node 04_개발/backend/tests/qa-persona-provision-lite-auth-target-contract.mjs
+
+  apply-personas-lite:
+    name: Converge QA acceptance personas (no household fixture)
+    needs: source-contract
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.confirm_qa_personas_lite }}
+    runs-on: ubuntu-latest
+    environment: qa
+    env:
+      APP_ENV: qa
+      DANJION_QA_API_URL: ${{ vars.DANJION_QA_API_URL }}
+      DANJION_QA_FRONTEND_URL: ${{ vars.DANJION_QA_FRONTEND_URL }}
+      DANJION_QA_DATABASE_URL: ${{ secrets.DANJION_QA_DATABASE_URL }}
+      DANJION_QA_RESIDENT_PASSWORD: ${{ secrets.DANJION_QA_RESIDENT_PASSWORD }}
+      DANJION_QA_OPERATIONAL_PASSWORD: ${{ secrets.DANJION_QA_OPERATIONAL_PASSWORD }}
+      DANJION_QA_SUPER_PASSWORD: ${{ secrets.DANJION_QA_SUPER_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Exact-main guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected='${{ inputs.expected_main }}'
+          test "$GITHUB_REF" = 'refs/heads/main'
+          actual="$(git rev-parse HEAD)"
+          remote="$(git ls-remote origin refs/heads/main | awk '{print $1}')"
+          test -n "$expected"
+          test "$actual" = "$expected"
+          test "$remote" = "$expected"
+          echo 'QA persona lite exact-main guard: PASS'
+
+      - name: Validate QA-only target and credential presence
+        shell: bash
+        run: |
+          set -euo pipefail
+          for key in DANJION_QA_API_URL DANJION_QA_FRONTEND_URL DANJION_QA_DATABASE_URL DANJION_QA_RESIDENT_PASSWORD DANJION_QA_OPERATIONAL_PASSWORD DANJION_QA_SUPER_PASSWORD; do
+            test -n "${!key:-}" || { echo "::error::Missing QA persona lite input: ${key}"; exit 1; }
+          done
+          test "${#DANJION_QA_RESIDENT_PASSWORD}" -ge 8
+          test "${#DANJION_QA_OPERATIONAL_PASSWORD}" -ge 8
+          test "${#DANJION_QA_SUPER_PASSWORD}" -ge 8
+          node - <<'NODE'
+          const api = new URL(process.env.DANJION_QA_API_URL);
+          const front = new URL(process.env.DANJION_QA_FRONTEND_URL);
+          if (api.protocol !== 'https:' || api.hostname !== 'padiem-danjion-api-qa.padiem.workers.dev' || api.pathname !== '/') throw new Error('QA API origin invalid');
+          if (front.protocol !== 'https:' || front.hostname !== 'danjion-qa.pages.dev' || front.pathname !== '/') throw new Error('QA frontend origin invalid');
+          if (api.hostname.includes('production') || front.hostname === 'danjion.pages.dev') throw new Error('Production target forbidden');
+          NODE
+          echo 'QA persona lite isolation guard: PASS'
+
+      - name: Install backend dependencies
+        working-directory: 04_개발/backend
+        run: npm ci
+
+      - name: Converge three pinned QA acceptance actors and PADIEM grants only
+        run: node 04_개발/backend/scripts/qa-persona-provision-lite.mjs
+
+      - name: Record bounded disposition
+        shell: bash
+        run: |
+          {
+            echo '## DanjiOn QA acceptance persona provisioning (lite)'
+            echo ''
+            echo '- Environment: `qa`'
+            echo '- Distinct pinned actors: `3`'
+            echo '- Household fixture: `NOT RUN`'
+            echo '- Household / membership mutation: `NO`'
+            echo '- Production target: `NO`'
+            echo '- Secret output: `NO`'
+          } >> "$GITHUB_STEP_SUMMARY"
