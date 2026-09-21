@@ -169,7 +169,16 @@ export async function requireVerifiedResident(
         // 'true' enables it) and grants NO authority and NO household: the
         // admission below still returns null household/membership fields, so
         // every household-specific surface keeps requiring a real membership.
-        if (!ordinaryExempt && !isTemporaryResidentAccessEnabled(env)) {
+        //
+        // The temporary path is limited to principals with NO PADIEM authority.
+        // A wildcard/bounded admin without the explicit exempt scope is not
+        // silently converted into a resident: the wildcard '*' alone never
+        // exempts, so such a principal keeps the strict 403 it received before
+        // the temporary switch existed (and keeps its admin console, which never
+        // consults this gate).
+        const temporaryAdmitted =
+          authority.level === 'none' && isTemporaryResidentAccessEnabled(env);
+        if (!ordinaryExempt && !temporaryAdmitted) {
           return fail('RESIDENT_VERIFICATION_REQUIRED', 'Verified resident access required', 403, requestId);
         }
       }
