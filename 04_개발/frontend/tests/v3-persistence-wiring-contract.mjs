@@ -67,8 +67,8 @@ assert.match(apply25a, /bridge\.createOwnerApplication\(/, 'F: owner submit must
 assert.match(apply25a, /idempotencyKey:ownerSubmissionKey\(\)/, 'F: owner submit must carry a stable idempotency key');
 assert.match(apply25a, /function ownerSubmissionKey\(\)\{if\(!__ownerSubmissionKey\)__ownerSubmissionKey='application:/,
   'F: submission key must be stable across retries (generated once, reset only on input change)');
-assert.match(apply25a, /if\(!danjionApiBase\(\)\)\{[\s\S]*?showToast\('제보 내용 확인 완료[\s\S]*?return;/,
-  'G: report lane with no apiBase must return early with a demo toast, no server write');
+assert.match(apply25a, /if\(!danjionApiBase\(\)&&!DanjionSession\.isCanonicalProduction\(\)\)\{[\s\S]*?showToast\('제보 내용 확인 완료[\s\S]*?return;/,
+  'G: only the static/demo lane may return early with a demo toast; canonical Production legitimately serves same-origin with an empty apiBase, so it must reach the server (#830)');
 assert.ok(apply25a.includes('createRecommendation'),
   'G: report lane with apiBase must allow bridge.createRecommendation');
 assert.doesNotMatch(apply25a, /OWNER_RELATION_MAP/,

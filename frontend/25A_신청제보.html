@@ -308,7 +308,9 @@ async function uploadApplicationDocument(file,idempotencyKey){
 // 4xx/5xx/network failures never show a success toast.
 function reportInput(name){const el=f.elements[name];return el?String(el.value||'').trim():''}
 async function submitReport(){
-  if(!danjionApiBase()){
+  // Static/demo lane only. Canonical Production serves same-origin, so an empty apiBase is a
+  // legitimate server lane there — not a demo signal (same rule the myApplications panel uses).
+  if(!danjionApiBase()&&!DanjionSession.isCanonicalProduction()){
     showToast('제보 내용 확인 완료 · 실제 제출 연결 시 서류는 ceo@padiem.net 으로 받습니다.');
     return;
   }
