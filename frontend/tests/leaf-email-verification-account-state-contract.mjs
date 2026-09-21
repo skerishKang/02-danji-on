@@ -30,7 +30,8 @@ assert.match(myInfo, /if\(resend\)resend\.hidden=true/,
   'verification resend must stay hidden while the feature is deferred');
 assert.doesNotMatch(myInfo, /state\.textContent=credentialOnly\?\(verified\?'이메일 확인 완료':'이메일 인증 필요'\)/);
 
-assert.match(settings, /<b>로그인 보안<\/b><span>현재 로그인 방식으로 안전하게 이용합니다\.<\/span>/);
+assert.doesNotMatch(settings, /<b>로그인 보안<\/b>/,
+  'demo Settings must not expose unfinished login-security controls');
 assert.doesNotMatch(settings, /data-account-open="email"/,
   'demo Settings must not expose unfinished email-management entry');
 assert.doesNotMatch(settings, /data-account-open="security"/,

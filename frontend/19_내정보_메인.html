@@ -220,14 +220,14 @@
 <label class="edit-field">닉네임<input id="mi-edit-nickname" maxlength="40" autocomplete="nickname" type="text"/>
 </label>
 <p class="edit-status" id="mi-nickname-policy">닉네임은 변경 후 30일 동안 다시 변경할 수 있습니다.</p>
-<label class="edit-field">한 줄 소개<textarea id="mi-edit-bio" maxlength="300" rows="3"></textarea></label>
+<label class="edit-field">한 줄 소개<textarea id="mi-edit-bio" maxlength="300" rows="3"></textarea></label><a class="public-profile-link" id="mi-public-profile-link" href="22_주민_공개프로필.html" hidden>내 공개 프로필 보기 →</a>
 <p class="edit-status">한 줄 소개는 다른 주민이 보는 공개 프로필에 표시됩니다.</p>
 <p class="edit-status" id="mi-edit-status" role="status"></p>
 <div class="edit-actions"><button class="edit-save" id="mi-edit-save" type="button">저장</button><button class="edit-cancel" id="mi-edit-cancel" type="button">취소</button></div>
 </div>
 </section>
 <section class="content-grid compact-dashboard">
-<article class="panel"><header class="panel-head"><div><small>MY ACTIVITY</small><h2>나의 활동</h2></div></header><div class="menu-list"><button class="menu-row" data-demo="내가 쓴 글 목록은 다음 상세 페이지에서 만듭니다." type="button"><span class="menu-icon">글</span><span><b>내가 쓴 글</b><p>가입인사·단지이야기·궁금해요·같이해요</p></span><span class="menu-value"><strong id="mi-menu-posts">6</strong><i>→</i></span></button><button class="menu-row" data-demo="내 댓글 목록은 다음 상세 페이지에서 만듭니다." type="button"><span class="menu-icon">댓</span><span><b>내 댓글과 답글</b><p>내가 남긴 댓글과 이웃의 답글</p></span><span class="menu-value"><strong id="mi-menu-comments">18</strong><i>→</i></span></button><button class="menu-row" data-demo="공감 활동 목록은 다음 상세 페이지에서 만듭니다." type="button"><span class="menu-icon">♡</span><span><b>공감한 글</b><p>다시 보고 싶은 이웃의 이야기</p></span><span class="menu-value"><strong id="mi-menu-reactions">12</strong><i>→</i></span></button><button class="menu-row" data-demo="저장한 이웃가게는 다음 상세 페이지에서 만듭니다." type="button"><span class="menu-icon">저</span><span><b>저장한 이웃가게</b><p>관심 있게 본 가게와 서비스</p></span><span class="menu-value"><strong id="mi-menu-saved">4</strong><i>→</i></span></button><button class="menu-row" data-demo="받은 혜택함은 다음 상세 페이지에서 만듭니다." type="button"><span class="menu-icon">혜</span><span><b>받은 혜택</b><p>사용 전 쿠폰과 이용한 주민혜택</p></span><span class="menu-value"><strong id="mi-menu-benefits">1</strong><i>→</i></span></button></div></article>
+<article class="panel"><header class="panel-head"><div><small>MY ACTIVITY</small><h2>나의 활동</h2></div></header><div class="menu-list"><button class="menu-row" type="button"><span class="menu-icon">글</span><span><b>내가 쓴 글</b><p>가입인사·단지이야기·궁금해요·같이해요</p></span><span class="menu-value"><strong id="mi-menu-posts">6</strong><i>→</i></span></button><button class="menu-row" type="button"><span class="menu-icon">댓</span><span><b>내 댓글과 답글</b><p>내가 남긴 댓글과 이웃의 답글</p></span><span class="menu-value"><strong id="mi-menu-comments">18</strong><i>→</i></span></button><button class="menu-row" type="button"><span class="menu-icon">♡</span><span><b>공감한 글</b><p>다시 보고 싶은 이웃의 이야기</p></span><span class="menu-value"><strong id="mi-menu-reactions">12</strong><i>→</i></span></button><button class="menu-row" type="button"><span class="menu-icon">저</span><span><b>저장한 이웃가게</b><p>관심 있게 본 가게와 서비스</p></span><span class="menu-value"><strong id="mi-menu-saved">4</strong><i>→</i></span></button><button class="menu-row" type="button"><span class="menu-icon">혜</span><span><b>받은 혜택</b><p>사용 전 쿠폰과 이용한 주민혜택</p></span><span class="menu-value"><strong id="mi-menu-benefits">1</strong><i>→</i></span></button></div></article>
 <aside class="my-utility">
 <section aria-label="이용 설정" class="settings-entry">
 <div><small>SETTINGS</small><h2>이용 설정</h2><p>글자 크기·알림·개인정보·안전 설정을 한 화면에서 관리합니다.</p></div>
@@ -478,7 +478,7 @@ if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt
     var pr=res[0].value,sr=res[1].value;
     if(pr&&pr.ok&&pr.profile){
       var p=pr.profile,nick=String(p.nickname||'').trim();
-      serverProfile=p;
+       serverProfile=p;syncPublicProfileLink();
       setTxt(n.nickname,nick?nick+'님':DASH);
       setTxt(n.avatar,nick?nick.charAt(0):DASH);
       setTxt(n.joined,fmtJoined(p.joinedMonth));
@@ -620,8 +620,9 @@ if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt
       }
     }).catch(function(){renderResidentState('—',{kind:'unknown'});});
   }
+  function syncPublicProfileLink(){var link=$('mi-public-profile-link'),userId=String(serverProfile&&serverProfile.userId||'').trim();if(!link)return;if(!userId){link.hidden=true;link.removeAttribute('href');return}link.hidden=false;link.href='22_주민_공개프로필.html?userId='+encodeURIComponent(userId)}
   function openEditPanel(){
-    var panel=$('mi-profile-edit-panel');if(!panel)return;
+   var panel=$('mi-profile-edit-panel');if(!panel)return;syncPublicProfileLink();
     var nick=$('mi-edit-nickname'),bio=$('mi-edit-bio'),policy=$('mi-nickname-policy'),p=serverProfile||{};
     if(nick)nick.value=String(p.nickname||'');
     if(bio)bio.value=String(p.publicBio||'');
@@ -646,7 +647,7 @@ if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt
     bridge.updateProfile({nickname:nick.value,publicBio:bio.value}).then(function(r){
       if(btn)btn.disabled=false;
       if(r&&r.ok&&r.profile){
-        serverProfile=r.profile;
+        serverProfile=r.profile;syncPublicProfileLink();
         var nm=String(r.profile.nickname||'').trim();
         setTxt(n.nickname,nm?nm+'님':DASH);
         setTxt(n.avatar,nm?nm.charAt(0):DASH);
@@ -677,7 +678,7 @@ if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt
     loadProfile().then(function(pr){
       if(!pr||!pr.ok||!pr.profile)return;
       var p=pr.profile,nick=String(p.nickname||'').trim();
-      serverProfile=p;
+       serverProfile=p;syncPublicProfileLink();
       setTxt(n.nickname,nick?nick+'님':DASH);
       setTxt(n.avatar,nick?nick.charAt(0):DASH);
       setTxt(n.joined,fmtJoined(p.joinedMonth));

@@ -28,8 +28,10 @@ assert.match(lifecycle, /order by consent_type, recorded_at desc, event_seq desc
   'canonical consent list must resolve timestamp ties by append order');
 
 assert.match(settings, /\/api\/v1\/me\/settings/);
-assert.match(settings, /requireVerifiedResident\(/,
-  'settings are resident-only');
+assert.match(settings, /requireActor\(/,
+  'settings are account-scoped for authenticated users');
+assert.doesNotMatch(settings, /requireVerifiedResident\(/,
+  'settings must not require resident verification');
 assert.match(settings, /consent_type in \('service_notifications','benefit_marketing'\)/,
   'settings read projection must reuse canonical consent rows');
 assert.match(settings, /order by consent_type, recorded_at desc, event_seq desc/,

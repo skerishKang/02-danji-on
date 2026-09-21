@@ -90,6 +90,7 @@
     "test:resident-summary": "node tests/resident-summary-contract.mjs",
     "test:resident-settings": "node tests/resident-settings-contract.mjs",
     "test:resident-blocks": "node tests/resident-blocks-contract.mjs",
+    "test:final-user-qa-recovery": "node tests/final-user-qa-recovery-contract.mjs",
     "test:resident-activity": "node tests/resident-activity-contract.mjs",
     "test:resident-safety-reports": "node tests/resident-safety-reports-contract.mjs",
     "test:business-share": "node tests/business-share-contract.mjs",

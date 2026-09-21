@@ -1,5 +1,6 @@
 import { neon, type NeonQueryFunction } from '@neondatabase/serverless';
 import { requireVerifiedResident } from './authorization-v2';
+import { requireActor } from './auth-v1';
 import type { CoreEnv } from './core-v1';
 
 type Sql = NeonQueryFunction<false, false>;
@@ -86,9 +87,8 @@ export async function handleResidentBlockWithSql(
   if (!listPath && !deleteMatch) return null;
 
   const complexSlug = (url.searchParams.get('complexSlug') || '').trim();
-  if (!complexSlug) return fail('VALIDATION_ERROR', 'complexSlug is required', 400, requestId);
-  const resident = await requireVerifiedResident(request, env, sql, requestId, complexSlug);
-  if (resident instanceof Response) return resident;
+  const actor = await requireActor(request, env, sql, requestId);
+  if (actor instanceof Response) return actor;
 
   if (listPath && request.method === 'GET') {
     const rows = await sql`
@@ -96,7 +96,7 @@ export async function handleResidentBlockWithSql(
              u.display_name as nickname, u.avatar_url
       from blocks b
       join app_users u on u.id = b.blocked_user_id
-      where b.blocker_user_id = ${resident.id}::uuid
+       where b.blocker_user_id = ${actor.id}::uuid
       order by b.created_at desc, b.blocked_user_id
     `;
     return ok({
@@ -110,6 +110,9 @@ export async function handleResidentBlockWithSql(
   }
 
   if (listPath && request.method === 'POST') {
+    if (!complexSlug) return fail('VALIDATION_ERROR', 'complexSlug is required', 400, requestId);
+    const resident = await requireVerifiedResident(request, env, sql, requestId, complexSlug);
+    if (resident instanceof Response) return resident;
     const payload = await bodyJson(request, requestId);
     if (payload instanceof Response) return payload;
     const targetUserId = canonicalUuid(payload.userId);
@@ -140,7 +143,7 @@ export async function handleResidentBlockWithSql(
     if (request.method !== 'DELETE') return fail('METHOD_NOT_ALLOWED', 'Method not allowed', 405, requestId);
     const rows = await sql`
       delete from blocks
-      where blocker_user_id = ${resident.id}::uuid
+      where blocker_user_id = ${actor.id}::uuid
         and blocked_user_id = ${targetUserId}::uuid
       returning blocked_user_id
     `;
