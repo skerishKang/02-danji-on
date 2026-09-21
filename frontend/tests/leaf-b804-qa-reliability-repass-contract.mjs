@@ -79,6 +79,37 @@ assert.ok(!/\.filters[^}]*min-width:3[3-9]\dpx/.test(narrowBand),
  * B. 비로그인 이웃가게 저장 — guest must never see success
  * ------------------------------------------------------------------ */
 
+// B0. HOME_SERVER_MODE canonical production authority lock
+// Issue #804 root cause: HOME_API_BASE is '' on canonical production due to
+// same-origin facade. HOME_SERVER_MODE must include DanjionSession.isCanonicalProduction()
+// so production is not misclassified as offline local mode.
+assert.match(home, /const HOME_SERVER_MODE\s*=\s*(?:Boolean\(HOME_API_BASE\)\s*\|\|\s*DanjionSession\.isCanonicalProduction\(\)|DanjionSession\.isCanonicalProduction\(\)\s*\|\|\s*Boolean\(HOME_API_BASE\))/,
+  'HOME_SERVER_MODE must include DanjionSession.isCanonicalProduction() to prevent same-origin production from falling back to local mode');
+
+{
+  const fakeSession = {
+    danjionApiBase: () => '',
+    isCanonicalProduction: () => true
+  };
+  const HOME_API_BASE = fakeSession.danjionApiBase();
+  const serverModeDef = home.match(/const HOME_SERVER_MODE\s*=\s*([^;]+);/);
+  assert.ok(serverModeDef, 'home must define HOME_SERVER_MODE');
+  const serverModeFn = new Function('HOME_API_BASE', 'DanjionSession', `return (${serverModeDef[1]});`);
+
+  const prodServerMode = serverModeFn(HOME_API_BASE, fakeSession);
+  assert.equal(prodServerMode, true,
+    'HOME_SERVER_MODE must be true on canonical production when HOME_API_BASE is empty');
+
+  const demoServerMode = serverModeFn('', { isCanonicalProduction: () => false });
+  assert.equal(demoServerMode, false,
+    'HOME_SERVER_MODE must remain false on non-canonical demo without explicit API base');
+
+  const previewServerMode = serverModeFn('https://api.example.com', { isCanonicalProduction: () => false });
+  assert.equal(previewServerMode, true,
+    'HOME_SERVER_MODE must be true when explicit API base is provided');
+}
+console.log('HOME_CANONICAL_SERVER_MODE: PASS');
+
 // B1. Static: the bridge keeps a server-authority mode and fails closed.
 assert.match(savedBridgeSrc, /const serverMode = Boolean\(base\) \|\| canonicalProduction/,
   'saved-shops bridge must keep a server-authority mode');

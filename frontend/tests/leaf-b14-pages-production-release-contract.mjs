@@ -58,4 +58,24 @@ assert.match(workflow, /grep -R -q 'danjion\.padiem\.net' dist\/assets\/danjion-
 assert.ok(!/curl[^\n]*danjion\.padiem\.net/.test(workflow),
   'the release must not require HTTP availability of the deferred custom domain');
 
+/* Release summary regression guard: shell-safe quoting for step summary (#804) */
+assert.doesNotMatch(workflow, /echo '[^'\n]*\\\'\\\'[^'\n]*'/,
+  'release summary must not embed escaped single quotes inside single-quoted strings');
+assert.doesNotMatch(workflow, /echo '- Browser API\/Auth:[^'\n]*\\\'\\\'/,
+  'release summary must not contain the broken facade echo line');
+assert.match(workflow, /printf '%s\\n' ["']- Browser API\/Auth: same-origin Pages Function facade \(resolver returns '' on both canonical hosts\)["']/,
+  'release summary must use shell-safe quoting for the same-origin facade item');
+
+// Static shell syntax verification of the Record Pages release disposition run script
+const summaryStepMatch = workflow.match(/name:\s*Record Pages release disposition[\s\S]*?run:\s*\|([\s\S]*?)(?:\n\s*-\s*name:|\n\s*[a-z]+:|$)/);
+assert.ok(summaryStepMatch, 'Record Pages release disposition step must exist');
+const summaryLines = summaryStepMatch[1].split('\n');
+for (const line of summaryLines) {
+  const trimmed = line.trim();
+  if (!trimmed || trimmed.startsWith('#')) continue;
+  assert.ok(!/'[^']*\\'/.test(trimmed),
+    `line in summary script must not contain illegal \\' inside single quotes: ${trimmed}`);
+}
+
+console.log('RELEASE_SUMMARY_SHELL_SAFE: PASS');
 console.log('leaf-b14-pages-production-release-contract: PASS');

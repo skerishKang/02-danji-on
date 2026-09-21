@@ -501,7 +501,7 @@ jobs:
             echo '- Current public origin: `https://danjion.pages.dev`'
             echo '- Future custom domain: `https://danjion.padiem.net` (`CUSTOM_DOMAIN_STATUS=DEFERRED`, not deployed, not probed)'
             echo '- Deploy / readback / parity / smoke target: `https://danjion.pages.dev` only'
-            echo '- Browser API/Auth: same-origin Pages Function facade (resolver returns \'\' on both canonical hosts)'
+            printf '%s\n' "- Browser API/Auth: same-origin Pages Function facade (resolver returns '' on both canonical hosts)"
             echo '- Pages Function upstream: fixed production Worker `padiem-danjion-api-production.padiem.workers.dev`'
             echo '- Controlled preview: explicit `?apiBase=` only; canonical production override is refused'
             echo '- Production API/JWKS preflight: PASS'
