@@ -9,12 +9,16 @@ on:
     paths:
       - 'frontend/**'
       - 'functions/**'
+      - '.github/workflows/pages-production-release.yml'
+      - '.github/workflows/qa-pages-deploy.yml'
       - '.github/workflows/toplevel-frontend-contract-gate.yml'
   push:
     branches: [main]
     paths:
       - 'frontend/**'
       - 'functions/**'
+      - '.github/workflows/pages-production-release.yml'
+      - '.github/workflows/qa-pages-deploy.yml'
       - '.github/workflows/toplevel-frontend-contract-gate.yml'
   workflow_dispatch:
 
