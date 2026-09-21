@@ -98,7 +98,10 @@ async function createMine(request: Request, env: CoreEnv, sql: Sql, requestId: s
   if (body.length < 1 || body.length > 10000) return fail('VALIDATION_ERROR', 'body must be 1-10000 characters', 400, requestId);
   let actorId: string;
   let complexId: string;
-  if (inquiryType === 'resident_verification_code_request') {
+  if (inquiryType === 'resident_verification_code_request' || inquiryType === 'account_login' || inquiryType === 'household_link') {
+    // Account and household-recovery support is available to authenticated
+    // members before resident verification; resident data and other support
+    // categories remain behind the verified-resident boundary below.
     const actor = await requireActor(request, env, sql, requestId);
     if (actor instanceof Response) return actor;
     const complexes = await sql`select id from complexes where slug = ${complexSlug} and status in ('active','pilot') limit 1`;
