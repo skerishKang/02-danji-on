@@ -19,6 +19,11 @@ on:
         required: true
         default: false
         type: boolean
+      repair_stale_accounts:
+        description: 'Recreate a pinned QA identity whose stored credential cannot sign in (QA-only; default off)'
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -60,6 +65,7 @@ jobs:
       DANJION_QA_RESIDENT_PASSWORD: ${{ secrets.DANJION_QA_RESIDENT_PASSWORD }}
       DANJION_QA_OPERATIONAL_PASSWORD: ${{ secrets.DANJION_QA_OPERATIONAL_PASSWORD }}
       DANJION_QA_SUPER_PASSWORD: ${{ secrets.DANJION_QA_SUPER_PASSWORD }}
+      QA_PERSONA_LITE_REPAIR: ${{ inputs.repair_stale_accounts }}
     steps:
       - uses: actions/checkout@v4
         with:

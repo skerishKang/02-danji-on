@@ -125,4 +125,33 @@ assert.match(script, /PRODUCTION_TARGET=NO/);
 assert.match(script, /SECRET_OUTPUT=NO/);
 assert.match(script, /padiem_operator_grants/, 'grants must converge in padiem_operator_grants only');
 
+// --- 7. bounded QA-only auth repair for a pinned identity -------------------
+assert.match(workflow, /repair_stale_accounts:/, 'repair must be an explicit manual-dispatch input');
+assert.match(workflow, /QA_PERSONA_LITE_REPAIR: \$\{\{ inputs\.repair_stale_accounts \}\}/,
+  'repair must be wired from the explicit dispatch input only');
+assert.match(script, /process\.env\.QA_PERSONA_LITE_REPAIR/, 'repair must be opt-in through the environment');
+assert.match(script, /QA_PERSONA_LITE_REPAIR_TARGET_NOT_PINNED/, 'repair must refuse any identity that is not pinned');
+assert.match(script, /if \(!signIn\.ok && \(signIn\.status === 401 \|\| signIn\.status === 400\) && repair\)/,
+  'repair may only run after a password-credential refusal, and only when enabled');
+
+const deleteStatements = [...script.matchAll(/`([^`]*\bdelete\b[^`]*)`/g)].map((match) => match[1]).filter(Boolean);
+assert.equal(deleteStatements.length, 1, 'exactly one delete statement may exist in the acceptance lane');
+assert.match(deleteStatements[0], /delete from danjion_auth\."user" where lower\(email\) = \$\{target\}/,
+  'the only delete must target the pinned email in danjion_auth."user"');
+for (const forbidden of [
+  /delete\s+from\s+app_users/i,
+  /delete\s+from\s+padiem_operator_grants/i,
+  /delete\s+from\s+household/i,
+  /delete\s+from\s+complex_memberships/i,
+  /delete\s+from\s+complex_operator_grants/i
+]) {
+  assert.doesNotMatch(script, forbidden, `repair must never delete from another table: ${forbidden}`);
+}
+assert.match(script, /readAuthStructure/, 'the lane must read the auth row structure');
+assert.match(script, /AUTH_STRUCTURE=/, 'the lane must report the auth row structure');
+assert.match(script, /password_rows/, 'structure report must show whether a password credential exists');
+assert.match(script, /credential_rows/, 'structure report must show the credential account row');
+assert.match(script, /AUTH_REPAIR=\$\{account\.name\} RECREATED/, 'repair must be announced, not silent');
+assert.doesNotMatch(script, /a\.password\s+as\s+password/i, 'the lane must never select a password hash');
+
 console.log('qa-persona-provision-lite-contract: PASS');
