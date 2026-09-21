@@ -12,16 +12,19 @@ import { readFile } from 'node:fs/promises';
  * This contract pins that separation as source truth:
  *   1. the lite workflow never invokes the household fixture and never asks for a
  *      fixture disposition;
- *   2. the lite script pins the three acceptance identities and converges ONLY
+ *   2. the lite script pins the four acceptance identities and converges ONLY
  *      padiem_operator_grants;
- *   3. no household / membership / complex-operator mutation statement exists;
- *   4. QA isolation and exact-main authority guards are retained.
+ *   3. the temporary identity is pinned separately and must have empty resident
+ *      state and no PADIEM grant;
+ *   4. no household / membership / complex-operator mutation statement exists;
+ *   5. QA isolation and exact-main authority guards are retained.
  */
 
 const root = new URL('../../../', import.meta.url);
 const workflow = await readFile(new URL('.github/workflows/qa-persona-provision-lite.yml', root), 'utf8');
 const script = await readFile(new URL('04_개발/backend/scripts/qa-persona-provision-lite.mjs', root), 'utf8');
 const policy = await readFile(new URL('04_개발/backend/src/admin-scope-policy-v1.ts', root), 'utf8');
+const ordinaryExemption = await readFile(new URL('04_개발/backend/src/resident-verification-ordinary-exemption-v1.ts', root), 'utf8');
 const fullWorkflow = await readFile(new URL('.github/workflows/qa-persona-provision.yml', root), 'utf8');
 
 // --- 1. workflow shape -------------------------------------------------------
@@ -41,6 +44,7 @@ assert.doesNotMatch(workflow, /DANJION_PRODUCTION_DB_URL:\s*\$\{\{/m, 'must neve
 
 const applyJob = workflow.slice(workflow.indexOf('  apply-personas-lite:'));
 assert.ok(applyJob, 'lite workflow must define an apply job');
+assert.match(applyJob, /DANJION_QA_TEMP_RESIDENT_PASSWORD/, 'lite workflow must bind the temporary resident password secret');
 assert.ok(applyJob.includes("if: ${{ github.event_name == 'workflow_dispatch' && inputs.confirm_qa_personas_lite }}"),
   'lite apply job must require manual dispatch + explicit confirmation');
 const sourceContractJob = workflow.slice(0, workflow.indexOf('  apply-personas-lite:'));
@@ -67,9 +71,14 @@ assert.match(script, /const QA_FRONTEND_HOST = 'danjion-qa\.pages\.dev'/, 'scrip
 assert.match(script, /email: 'skerish_super_test@naver\.com'/, 'QA_SUPER identity must be pinned');
 assert.match(script, /email: 'skerish_manage_test@naver\.com'/, 'QA_OPERATOR identity must be pinned');
 assert.match(script, /email: 'skerish_people_test@naver\.com'/, 'QA_RESIDENT identity must be pinned');
+assert.match(script, /name: 'QA_TEMP_RESIDENT'/, 'temporary resident identity must be pinned');
+assert.match(script, /email: 'skerish_temp_resident_test@naver\.com'/, 'temporary resident email must be pinned');
+assert.doesNotMatch(ordinaryExemption, /skerish_temp_resident_test@naver\.com/,
+  'temporary resident identity must stay outside the ordinary test-resident allowlist');
 assert.match(script, /passwordEnv: 'DANJION_QA_SUPER_PASSWORD'/);
 assert.match(script, /passwordEnv: 'DANJION_QA_OPERATIONAL_PASSWORD'/);
 assert.match(script, /passwordEnv: 'DANJION_QA_RESIDENT_PASSWORD'/);
+assert.match(script, /passwordEnv: 'DANJION_QA_TEMP_RESIDENT_PASSWORD'/);
 
 // Desired authority per persona (#868 acceptance).
 const superBlock = script.slice(script.indexOf("name: 'QA_SUPER'"), script.indexOf("name: 'QA_OPERATOR'"));
@@ -80,6 +89,11 @@ assert.match(
   script,
   /name: 'QA_RESIDENT',[\s\S]{0,400}?desiredScopes: Object\.freeze\(\[\]\)/,
   'QA_RESIDENT must carry no PADIEM grant'
+);
+assert.match(
+  script,
+  /name: 'QA_TEMP_RESIDENT',[\s\S]{0,500}?desiredScopes: Object\.freeze\(\[\]\),[\s\S]{0,100}?requiresEmptyResidentState: true/,
+  'QA_TEMP_RESIDENT must carry no PADIEM grant and require empty resident state'
 );
 
 // The pinned operator bundle must stay equal to the canonical admin scope policy.
@@ -106,6 +120,12 @@ for (const forbidden of [
 assert.match(script, /select count\(\*\) from household_memberships/, 'resident precondition must be measured read-only');
 assert.match(script, /VERIFIED_HOUSEHOLD_MEMBERSHIP=/, 'verified-membership precondition must be reported');
 assert.match(script, /HOUSEHOLD_FIXTURE=NOT_RUN/, 'script must report that no household fixture ran');
+assert.match(script, /assertTemporaryResidentPrecondition\(actor, scopes, residentState\)/,
+  'temporary resident state must be fail-closed after readback');
+assert.match(script, /QA_PERSONA_LITE_TEMP_RESIDENT_STATE_NOT_EMPTY/,
+  'non-empty temporary resident state must fail closed');
+assert.match(script, /QA_PERSONA_LITE_TEMP_RESIDENT_GRANT_PRESENT/,
+  'temporary resident authority must fail closed');
 
 // --- 5. account acquisition semantics ---------------------------------------
 assert.match(script, /signup\.status === 422/, 'an already-existing account must be a normal path');
@@ -244,7 +264,7 @@ assert.match(script, /join app_users au2 on au2\.id = g\.user_id/, 'the snapshot
 assert.match(script, /string_agg\(g\.scope, ',' order by g\.scope\)/,
   'the scope list must come back as one deterministic text value, never as an array');
 assert.equal((script.match(/withDbRetry\(\(\) => readPinnedAuthority\(sql, account\.email\), !converge\)/g) || []).length, 1,
-  'every run must report the pinned authority snapshot for all three identities');
+  'every run must report the pinned authority snapshot for all four identities');
 assert.match(script, /SCOPES=\$\{name\}/, 'the snapshot must be announced by persona name');
 assert.match(script, /app_user_link=\$\{authority\.appUserRows > 0 \? 'true' : 'false'\}/, 'the snapshot must report the app_users link');
 assert.match(script, /wildcard=\$\{wildcard \? 'true' : 'false'\}/, 'the snapshot must report the super wildcard explicitly');
