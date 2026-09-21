@@ -88,10 +88,17 @@ const WRITE_PAGES = [
 /* ---------- 3. the old silent bail-out is gone, the real path is intact ---------- */
 {
   const html = await read('27_알림함.html');
-  assert.ok(!html.includes('if(!apiBase&&!DanjionSession.isCanonicalProduction())return;'),
-    'an unbound host must not silently fall through to whatever markup is on the page');
-  assert.match(html, /showState\('알림을 불러오지 못했습니다\. 이 화면은 서버에 연결되지 않은 미리보기 상태입니다\.'\)/,
-    'an unbound host must say that it is not connected to the server');
+  /*
+   * The stage5j contract pins the bare `...return;` bail-out verbatim so an
+   * unbound host can never issue a notification call. This asserts the property
+   * that was actually missing: the honest state is announced BEFORE that return,
+   * and in the shipped order — not that the return itself disappears.
+   */
+  const pin = html.indexOf('if(!apiBase&&!DanjionSession.isCanonicalProduction())return;');
+  const stated = html.indexOf("showState('알림을 불러오지 못했습니다. 이 화면은 서버에 연결되지 않은 미리보기 상태입니다.')");
+  assert.ok(pin > 0, 'stage5j: the unbound bail-out must stay byte-identical');
+  assert.ok(stated > 0 && stated < pin,
+    'an unbound host must name its state before bailing out, not leave markup standing');
   // #525 authority: these branches are the fail-closed auth gate and must survive.
   assert.ok(html.includes("if(result.mode==='auth-required'){showState(result.status===403?'본인 확인된 입주민만 알림함을 볼 수 있습니다.':'로그인이 필요합니다.');return}"),
     '#525 auth-required gate must stay byte-identical');

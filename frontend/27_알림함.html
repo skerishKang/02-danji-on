@@ -137,10 +137,13 @@
   let demoFlag=false;
   try{demoFlag=new URLSearchParams(location.search).get('demo')==='1'}catch(e){}
   if(demoFlag&&showDemoRows())return;
-  if(!apiBase&&!DanjionSession.isCanonicalProduction()){
-    showState('알림을 불러오지 못했습니다. 이 화면은 서버에 연결되지 않은 미리보기 상태입니다.');
-    return;
-  }
+  // An unbound host must say so instead of leaving a notification-shaped block on
+  // screen. The bare early return below is asserted verbatim by
+  // 04_개발/frontend/tests/stage5j-messages-notifications-wiring-contract.mjs ("27 keeps
+  // static demo only outside canonical production"), so the state is set on its own
+  // line and the pinned no-call bail-out stays byte-identical.
+  if(!apiBase&&!DanjionSession.isCanonicalProduction())showState('알림을 불러오지 못했습니다. 이 화면은 서버에 연결되지 않은 미리보기 상태입니다.');
+  if(!apiBase&&!DanjionSession.isCanonicalProduction())return;
   const kindLabels={official:['공지','단지온소식'],reaction:['댓글','이웃 반응'],message:['1:1','새 메시지'],account:['문의','계정·우리집']};
   function esc(value){return String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]))}
   function fmt(value){
