@@ -61,6 +61,7 @@ const EXPECTED_BACKEND_ORDER = [
   "test:household-message-lifecycle",
   "test:resident-verification-exempt-household-boundary",
   "test:resident-verification-ordinary-exemption",
+  "test:temporary-resident-access",
   "test:household-family-lifecycle",
   "test:account-lifecycle",
   "test:resident-economy-household-v2",
