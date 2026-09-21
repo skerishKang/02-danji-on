@@ -131,6 +131,15 @@ function repairEnabled() {
   return String(process.env.QA_PERSONA_LITE_REPAIR || '').trim().toLowerCase() === 'true';
 }
 
+// `converge_grants=false` is a READ-ONLY diagnosis: it reports the auth row
+// structure for all three pinned identities and probes sign-in, and writes nothing
+// at all - no account creation, no repair, no grant convergence. The switch is
+// fail-safe (default OFF) so a dispatch that forgets it cannot mutate QA state; a
+// real convergence has to ask for it explicitly.
+function grantsEnabled() {
+  return String(process.env.QA_PERSONA_LITE_GRANTS || '').trim().toLowerCase() === 'true';
+}
+
 /**
  * READ-ONLY auth structure snapshot for one pinned QA identity.
  *
@@ -210,14 +219,17 @@ export async function repairAuthAccount(sql, email) {
  * name: a 401/400 on sign-in means the stored QA credential is unusable, which
  * is a provisioning/data problem - not a product defect. With the explicit
  * repair flag set, such an identity is recreated once and re-signed-in.
+ *
+ * `writeAccounts=false` is the read-only diagnosis: sign-in is probed, nothing is
+ * created and nothing is repaired, and a refused identity is reported as
+ * `SIGNIN=<name> status=<code>` with a null return instead of an exception.
  */
-export async function acquireAccount(frontendOrigin, apiOrigin, sql, account, fetchImpl = fetch, repair = repairEnabled()) {
+export async function acquireAccount(frontendOrigin, apiOrigin, sql, account, fetchImpl = fetch, repair = repairEnabled(), writeAccounts = true) {
   const email = String(account.email).trim().toLowerCase();
   const password = required(account.passwordEnv);
   if (password.length < 8) throw new Error(`QA_PERSONA_LITE_PASSWORD_INVALID:${account.name}`);
 
   const structure = await readAuthStructure(sql, email);
-  console.log(formatAuthStructure(account.name, structure));
 
   let created = false;
   const signUpOnce = async () => {
@@ -239,23 +251,38 @@ export async function acquireAccount(frontendOrigin, apiOrigin, sql, account, fe
     redirect: 'manual'
   });
 
-  created = (await signUpOnce()) === 'created';
-  let signIn = await signInOnce();
-
-  if (!signIn.ok && (signIn.status === 401 || signIn.status === 400) && repair) {
-    console.log(`AUTH_REPAIR=${account.name} RECREATED`);
-    await repairAuthAccount(sql, email);
+  let signIn;
+  if (writeAccounts) {
     created = (await signUpOnce()) === 'created';
+    signIn = await signInOnce();
+
+    if (!signIn.ok && (signIn.status === 401 || signIn.status === 400) && repair) {
+      console.log(`AUTH_REPAIR=${account.name} RECREATED`);
+      await repairAuthAccount(sql, email);
+      created = (await signUpOnce()) === 'created';
+      signIn = await signInOnce();
+    }
+  } else {
+    // Read-only diagnosis never signs up: a pinned identity that does not exist yet
+    // stays absent instead of being created by the diagnostic.
     signIn = await signInOnce();
   }
 
   if (!signIn.ok) {
-    if (signIn.status === 401 || signIn.status === 400) {
-      const after = repair ? await readAuthStructure(sql, email) : structure;
-      throw new Error(`QA_PERSONA_LITE_SIGNIN_PASSWORD_MISMATCH:${account.name}:${formatAuthStructure(account.name, after)}`);
+    if (writeAccounts) {
+      if (signIn.status === 401 || signIn.status === 400) {
+        const after = repair ? await readAuthStructure(sql, email) : structure;
+        throw new Error(`QA_PERSONA_LITE_SIGNIN_PASSWORD_MISMATCH:${account.name}:${formatAuthStructure(account.name, after)}`);
+      }
+      throw new Error(`QA_PERSONA_LITE_SIGNIN_HTTP_${signIn.status}:${account.name}`);
     }
-    throw new Error(`QA_PERSONA_LITE_SIGNIN_HTTP_${signIn.status}:${account.name}`);
+    // The read-only diagnosis reports the refusal and keeps going, so one dispatch
+    // still yields every identity's structure instead of stopping at the first one.
+    console.log(`SIGNIN=${account.name} status=${signIn.status}`);
+    return null;
   }
+
+  console.log(`SIGNIN=${account.name} status=${signIn.status}`);
 
   let cookie = '';
   let sessionBearer = '';
@@ -300,6 +327,23 @@ export async function acquireAccount(frontendOrigin, apiOrigin, sql, account, fe
       }).catch(() => null);
     }
   }
+}
+
+/**
+ * READ-ONLY. The read-only diagnosis reports the active PADIEM scopes of an
+ * identity without touching them, so a run that is not authorized to write can
+ * still show the authority the acceptance would observe.
+ */
+export async function readActivePadiemScopes(sql, actor) {
+  const rows = await sql`
+    select scope
+    from padiem_operator_grants
+    where user_id = ${actor.userId}::uuid
+      and status = 'active'
+      and (expires_at is null or expires_at > now())
+    order by scope
+  `;
+  return rows.map((row) => String(row.scope));
 }
 
 /**
@@ -383,7 +427,7 @@ export async function readResidentState(sql, actor) {
   };
 }
 
-function reportActor(actor, scopes, residentState) {
+function reportActor(actor, scopes, residentState, converged) {
   const wildcard = scopes.includes('*');
   const authorityLevel = wildcard ? 'admin' : scopes.length ? 'operator' : 'none';
   console.log(`PERSONA=${actor.name}`);
@@ -397,6 +441,7 @@ function reportActor(actor, scopes, residentState) {
   console.log(`COMPLEX_MEMBERSHIP_COUNT=${residentState.complexMemberships}`);
   console.log(`COMPLEX_OPERATOR_GRANT_COUNT=${residentState.complexOperatorGrants}`);
   console.log('HOUSEHOLD_FIXTURE=NOT_RUN');
+  console.log(`GRANTS_CONVERGED=${converged ? 'true' : 'false'}`);
   console.log('PRODUCTION_TARGET=NO');
   console.log('SECRET_OUTPUT=NO');
 }
@@ -415,25 +460,49 @@ async function main() {
   }
 
   const repair = repairEnabled();
+  const converge = grantsEnabled();
   if (repair) console.log('AUTH_REPAIR_MODE=ON');
+  console.log(converge ? 'GRANTS_MODE=CONVERGE' : 'GRANTS_MODE=READ_ONLY');
 
   const sql = neon(databaseUrl);
-  const actors = [];
-  for (const account of ACCOUNTS) actors.push(await acquireAccount(frontendOrigin, apiOrigin, sql, account, fetch, repair));
 
-  if (new Set(actors.map(({ subject }) => subject)).size !== ACCOUNTS.length) {
-    throw new Error('QA_PERSONA_LITE_AUTH_SUBJECTS_MUST_BE_DISTINCT');
+  // Every run reports all three pinned identities BEFORE anything is attempted, so
+  // a single dispatch is enough to see the whole auth structure even when a
+  // sign-in refusal stops the lane part-way.
+  for (const account of ACCOUNTS) {
+    console.log(formatAuthStructure(account.name, await readAuthStructure(sql, account.email)));
   }
-  if (new Set(actors.map(({ userId }) => userId)).size !== ACCOUNTS.length) {
-    throw new Error('QA_PERSONA_LITE_APP_USERS_MUST_BE_DISTINCT');
+
+  const actors = [];
+  for (const account of ACCOUNTS) {
+    const actor = await acquireAccount(frontendOrigin, apiOrigin, sql, account, fetch, repair, converge);
+    if (actor) actors.push(actor);
+  }
+
+  if (converge) {
+    if (new Set(actors.map(({ subject }) => subject)).size !== ACCOUNTS.length) {
+      throw new Error('QA_PERSONA_LITE_AUTH_SUBJECTS_MUST_BE_DISTINCT');
+    }
+    if (new Set(actors.map(({ userId }) => userId)).size !== ACCOUNTS.length) {
+      throw new Error('QA_PERSONA_LITE_APP_USERS_MUST_BE_DISTINCT');
+    }
   }
 
   for (const actor of actors) {
-    const [scopes, residentState] = [
-      await convergePadiemGrants(sql, actor),
-      await readResidentState(sql, actor)
-    ];
-    reportActor(actor, scopes, residentState);
+    const residentState = await readResidentState(sql, actor);
+    const scopes = converge
+      ? await convergePadiemGrants(sql, actor)
+      : await readActivePadiemScopes(sql, actor);
+    reportActor(actor, scopes, residentState, converge);
+  }
+
+  if (!converge) {
+    console.log(`SIGNIN_OK_COUNT=${actors.length}/${ACCOUNTS.length}`);
+    console.log(`DIAGNOSIS_RESULT=${actors.length === ACCOUNTS.length ? 'COMPLETE' : 'INCOMPLETE'}`);
+    if (actors.length < ACCOUNTS.length) {
+      console.log('::warning::QA acceptance persona sign-in is incomplete - read the SIGNIN lines above');
+    }
+    console.log('DIAGNOSIS_ONLY=YES');
   }
 }
 

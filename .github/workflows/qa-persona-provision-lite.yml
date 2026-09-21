@@ -24,6 +24,11 @@ on:
         required: false
         default: false
         type: boolean
+      converge_grants:
+        description: 'Writes QA credentials and PADIEM grants. Leave false (default) for a read-only run that reports AUTH_STRUCTURE for all three pinned identities and writes nothing'
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -52,7 +57,7 @@ jobs:
         run: node 04_개발/backend/tests/qa-persona-provision-lite-auth-target-contract.mjs
 
   apply-personas-lite:
-    name: Converge QA acceptance personas (no household fixture)
+    name: QA acceptance persona lane (read-only diagnosis unless converge_grants)
     needs: source-contract
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.confirm_qa_personas_lite }}
     runs-on: ubuntu-latest
@@ -66,6 +71,7 @@ jobs:
       DANJION_QA_OPERATIONAL_PASSWORD: ${{ secrets.DANJION_QA_OPERATIONAL_PASSWORD }}
       DANJION_QA_SUPER_PASSWORD: ${{ secrets.DANJION_QA_SUPER_PASSWORD }}
       QA_PERSONA_LITE_REPAIR: ${{ inputs.repair_stale_accounts }}
+      QA_PERSONA_LITE_GRANTS: ${{ inputs.converge_grants }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -112,7 +118,7 @@ jobs:
         working-directory: 04_개발/backend
         run: npm ci
 
-      - name: Converge three pinned QA acceptance actors and PADIEM grants only
+      - name: Run the bounded QA acceptance persona lane (no household fixture)
         run: node 04_개발/backend/scripts/qa-persona-provision-lite.mjs
 
       - name: Record bounded disposition
@@ -123,6 +129,7 @@ jobs:
             echo ''
             echo '- Environment: `qa`'
             echo '- Distinct pinned actors: `3`'
+            echo '- Grant / credential write: `${{ inputs.converge_grants }}`'
             echo '- Household fixture: `NOT RUN`'
             echo '- Household / membership mutation: `NO`'
             echo '- Production target: `NO`'

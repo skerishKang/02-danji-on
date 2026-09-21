@@ -154,4 +154,30 @@ assert.match(script, /credential_rows/, 'structure report must show the credenti
 assert.match(script, /AUTH_REPAIR=\$\{account\.name\} RECREATED/, 'repair must be announced, not silent');
 assert.doesNotMatch(script, /a\.password\s+as\s+password/i, 'the lane must never select a password hash');
 
+// --- 8. read-only diagnosis is the fail-safe default -------------------------
+assert.match(workflow, /converge_grants:/, 'the write switch must be an explicit manual-dispatch input');
+assert.match(workflow, /QA_PERSONA_LITE_GRANTS: \$\{\{ inputs\.converge_grants \}\}/,
+  'grant/credential writes must be wired from the explicit dispatch input only');
+assert.match(
+  workflow.slice(workflow.indexOf('      converge_grants:'), workflow.indexOf('permissions:')),
+  /default: false/,
+  'a dispatch that forgets the switch must not write QA state'
+);
+assert.match(script, /process\.env\.QA_PERSONA_LITE_GRANTS \|\| ''\)\.trim\(\)\.toLowerCase\(\) === 'true'/,
+  'the script write switch must itself default to read-only');
+assert.match(script, /'GRANTS_MODE=READ_ONLY'/, 'the run must announce that it may not write');
+assert.match(script, /SIGNIN_OK_COUNT=/, 'read-only diagnosis must report how many identities signed in');
+assert.match(script, /DIAGNOSIS_RESULT=/, 'read-only diagnosis must report its own completeness');
+assert.match(script, /DIAGNOSIS_ONLY=YES/, 'read-only diagnosis must announce itself');
+assert.match(script, /::warning::/, 'an incomplete diagnosis must surface as a warning annotation');
+assert.match(
+  script,
+  /export async function acquireAccount\(frontendOrigin, apiOrigin, sql, account, fetchImpl = fetch, repair = repairEnabled\(\), writeAccounts = true\)/,
+  'account acquisition must carry one explicit write switch'
+);
+assert.equal((script.match(/readAuthStructure\(sql, account\.email\)/g) || []).length, 1,
+  'main must report every pinned identity structure up front, before anything is attempted');
+assert.equal((script.match(/sign-up\/email/g) || []).length, 1,
+  'the lane must define exactly one sign-up call site');
+
 console.log('qa-persona-provision-lite-contract: PASS');
