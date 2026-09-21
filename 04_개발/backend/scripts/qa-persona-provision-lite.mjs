@@ -13,13 +13,13 @@ import { fileURLToPath } from 'node:url';
  *   under test.
  *
  * This lane is intentionally narrow:
- *   - it guarantees three QA credential actors exist and can sign in;
+ *   - it guarantees four QA credential actors exist and can sign in;
  *   - it converges ONLY `padiem_operator_grants` for them;
  *   - it NEVER creates or touches households, household_memberships,
  *     complex_memberships or complex_operator_grants;
  *   - it writes nothing outside the isolated QA environment.
  *
- * Identity policy: the three acceptance identities are pinned in source (the same
+ * Identity policy: the four acceptance identities are pinned in source (the same
  * practice #823 already uses for the ordinary test-resident exemption). Pinning
  * removes the "which account does the CI secret hold?" ambiguity that made the
  * previous failure undiagnosable. Passwords stay in GitHub qa-environment secrets.
@@ -31,7 +31,8 @@ import { fileURLToPath } from 'node:url';
  * Desired PADIEM scopes (#868 acceptance):
  *   QA_SUPER    -> ['*']                      -> /api/v1/admin/authority level=admin
  *   QA_OPERATOR -> OPERATIONAL_ADMIN_SCOPES   -> level=operator
- *   QA_RESIDENT -> []                         -> no grant; temporary-mode subject
+ *   QA_RESIDENT -> []                         -> no grant; existing resident fixture
+ *   QA_TEMP_RESIDENT -> []                    -> no grant; no household state
  */
 
 const QA_API_HOST = 'padiem-danjion-api-qa.padiem.workers.dev';
@@ -68,6 +69,13 @@ const ACCOUNTS = Object.freeze([
     email: 'skerish_people_test@naver.com',
     passwordEnv: 'DANJION_QA_RESIDENT_PASSWORD',
     desiredScopes: Object.freeze([])
+  },
+  {
+    name: 'QA_TEMP_RESIDENT',
+    email: 'skerish_temp_resident_test@naver.com',
+    passwordEnv: 'DANJION_QA_TEMP_RESIDENT_PASSWORD',
+    desiredScopes: Object.freeze([]),
+    requiresEmptyResidentState: true
   }
 ]);
 
@@ -136,7 +144,7 @@ function repairEnabled() {
 }
 
 // `converge_grants=false` is a READ-ONLY diagnosis: it reports the auth row
-// structure for all three pinned identities and probes sign-in, and writes nothing
+// structure for all four pinned identities and probes sign-in, and writes nothing
 // at all - no account creation, no repair, no grant convergence. The switch is
 // fail-safe (default OFF) so a dispatch that forgets it cannot mutate QA state; a
 // real convergence has to ask for it explicitly.
@@ -358,7 +366,7 @@ export function formatPinnedAuthority(name, authority) {
  * Repair a pinned QA identity that exists but cannot authenticate.
  *
  * Scope is deliberately tiny and bounded:
- *   - only ever called for the three pinned acceptance identities;
+ *   - only ever called for the four pinned acceptance identities;
  *   - only ever when QA_PERSONA_LITE_REPAIR is exactly 'true' (an explicit
  *     manual-dispatch decision), never by default;
  *   - the single statement targets danjion_auth."user" by exact email. Sessions
@@ -622,6 +630,19 @@ export async function readResidentState(sql, actor) {
   };
 }
 
+function assertTemporaryResidentPrecondition(actor, scopes, residentState) {
+  if (!actor.requiresEmptyResidentState) return;
+  if (scopes.length > 0) throw new Error(`QA_PERSONA_LITE_TEMP_RESIDENT_GRANT_PRESENT:${actor.name}`);
+  if (
+    residentState.householdMemberships !== 0 ||
+    residentState.verifiedHouseholdMemberships !== 0 ||
+    residentState.complexMemberships !== 0 ||
+    residentState.complexOperatorGrants !== 0
+  ) {
+    throw new Error(`QA_PERSONA_LITE_TEMP_RESIDENT_STATE_NOT_EMPTY:${actor.name}`);
+  }
+}
+
 function reportActor(actor, scopes, residentState, converged) {
   const wildcard = scopes.includes('*');
   const authorityLevel = wildcard ? 'admin' : scopes.length ? 'operator' : 'none';
@@ -661,7 +682,7 @@ async function main() {
 
   const sql = neon(databaseUrl);
 
-  // Every run reports all three pinned identities BEFORE anything is attempted, so
+  // Every run reports all four pinned identities BEFORE anything is attempted, so
   // a single dispatch is enough to see the whole auth structure even when a
   // sign-in refusal stops the lane part-way. The authority snapshot is read the same
   // way - straight from the pinned address - so the super wildcard and the operator
@@ -737,6 +758,7 @@ async function main() {
       console.log(`PERSONA=${actor.name} AUTHORITY_READ_FAILED read=authority stage=${failureStage(error)} detail=${failureToken(error)}`);
       continue;
     }
+    assertTemporaryResidentPrecondition(actor, scopes, residentState);
     reportActor(actor, scopes, residentState, converge);
   }
 

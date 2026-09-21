@@ -25,7 +25,7 @@ on:
         default: false
         type: boolean
       converge_grants:
-        description: 'Writes QA credentials and PADIEM grants. Leave false (default) for a read-only run that reports AUTH_STRUCTURE for all three pinned identities and writes nothing'
+        description: 'Writes QA credentials and PADIEM grants. Leave false (default) for a read-only run that reports AUTH_STRUCTURE for all four pinned identities and writes nothing'
         required: false
         default: false
         type: boolean
@@ -68,6 +68,7 @@ jobs:
       DANJION_QA_FRONTEND_URL: ${{ vars.DANJION_QA_FRONTEND_URL }}
       DANJION_QA_DATABASE_URL: ${{ secrets.DANJION_QA_DATABASE_URL }}
       DANJION_QA_RESIDENT_PASSWORD: ${{ secrets.DANJION_QA_RESIDENT_PASSWORD }}
+      DANJION_QA_TEMP_RESIDENT_PASSWORD: ${{ secrets.DANJION_QA_TEMP_RESIDENT_PASSWORD }}
       DANJION_QA_OPERATIONAL_PASSWORD: ${{ secrets.DANJION_QA_OPERATIONAL_PASSWORD }}
       DANJION_QA_SUPER_PASSWORD: ${{ secrets.DANJION_QA_SUPER_PASSWORD }}
       QA_PERSONA_LITE_REPAIR: ${{ inputs.repair_stale_accounts }}
@@ -99,10 +100,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for key in DANJION_QA_API_URL DANJION_QA_FRONTEND_URL DANJION_QA_DATABASE_URL DANJION_QA_RESIDENT_PASSWORD DANJION_QA_OPERATIONAL_PASSWORD DANJION_QA_SUPER_PASSWORD; do
+          for key in DANJION_QA_API_URL DANJION_QA_FRONTEND_URL DANJION_QA_DATABASE_URL DANJION_QA_RESIDENT_PASSWORD DANJION_QA_TEMP_RESIDENT_PASSWORD DANJION_QA_OPERATIONAL_PASSWORD DANJION_QA_SUPER_PASSWORD; do
             test -n "${!key:-}" || { echo "::error::Missing QA persona lite input: ${key}"; exit 1; }
           done
           test "${#DANJION_QA_RESIDENT_PASSWORD}" -ge 8
+          test "${#DANJION_QA_TEMP_RESIDENT_PASSWORD}" -ge 8
           test "${#DANJION_QA_OPERATIONAL_PASSWORD}" -ge 8
           test "${#DANJION_QA_SUPER_PASSWORD}" -ge 8
           node - <<'NODE'
@@ -128,7 +130,7 @@ jobs:
             echo '## DanjiOn QA acceptance persona provisioning (lite)'
             echo ''
             echo '- Environment: `qa`'
-            echo '- Distinct pinned actors: `3`'
+            echo '- Distinct pinned actors: `4`'
             echo '- Grant / credential write: `${{ inputs.converge_grants }}`'
             echo '- Household fixture: `NOT RUN`'
             echo '- Household / membership mutation: `NO`'
