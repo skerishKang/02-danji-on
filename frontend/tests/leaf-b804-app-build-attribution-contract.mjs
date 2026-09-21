@@ -380,3 +380,95 @@ assert.throws(
 );
 
 console.log('leaf-b804-app-build-attribution-contract: PASS (points A through J fully verified)');
+
+/* ===================================================================
+ * K. CI TRIGGER COVERAGE CONTRACT
+ * - Proves: .github/workflows/toplevel-frontend-contract-gate.yml watches
+ *   both pages-production-release.yml and qa-pages-deploy.yml
+ * - Proves: coverage is locked on both pull_request and push triggers
+ * - PRODUCTION_WORKFLOW_TRIGGER_LOCKED=YES
+ * - QA_WORKFLOW_TRIGGER_LOCKED=YES
+ * =================================================================== */
+const gateWorkflowPath = new URL('../../.github/workflows/toplevel-frontend-contract-gate.yml', import.meta.url);
+const gateWorkflow = await readFile(gateWorkflowPath, 'utf8');
+
+export function verifyTriggerCoverage(gateText) {
+  const prIdx = gateText.indexOf('pull_request:');
+  const pushIdx = gateText.indexOf('push:');
+  if (prIdx === -1 || pushIdx === -1) {
+    throw new Error('TRIGGER_MUTATION_FAIL: missing pull_request or push trigger');
+  }
+  const prSection = gateText.slice(prIdx, pushIdx);
+  const pushSection = gateText.slice(pushIdx, gateText.indexOf('workflow_dispatch:', pushIdx));
+
+  const PROD_PATH = "'.github/workflows/pages-production-release.yml'";
+  const QA_PATH = "'.github/workflows/qa-pages-deploy.yml'";
+
+  if (!prSection.includes(PROD_PATH)) {
+    throw new Error('TRIGGER_MUTATION_FAIL: pull_request must watch pages-production-release.yml');
+  }
+  if (!prSection.includes(QA_PATH)) {
+    throw new Error('TRIGGER_MUTATION_FAIL: pull_request must watch qa-pages-deploy.yml');
+  }
+  if (!pushSection.includes(PROD_PATH)) {
+    throw new Error('TRIGGER_MUTATION_FAIL: push must watch pages-production-release.yml');
+  }
+  if (!pushSection.includes(QA_PATH)) {
+    throw new Error('TRIGGER_MUTATION_FAIL: push must watch qa-pages-deploy.yml');
+  }
+  return true;
+}
+
+assert.ok(
+  verifyTriggerCoverage(gateWorkflow),
+  'K: toplevel gate must watch both production and QA release workflow files'
+);
+
+/* ===================================================================
+ * L. TRIGGER MUTATION PROOF
+ * - Mutation A: Removal of pages-production-release.yml from pull_request -> FAIL
+ * - Mutation B: Removal of qa-pages-deploy.yml from pull_request -> FAIL
+ * - Mutation C: Removal of pages-production-release.yml from push -> FAIL
+ * - Mutation D: Removal of qa-pages-deploy.yml from push -> FAIL
+ * =================================================================== */
+// Mutation A: Removal of pages-production-release.yml from pull_request
+const prProdPath = "      - '.github/workflows/pages-production-release.yml'\n";
+assert.ok(gateWorkflow.indexOf(prProdPath) !== -1, 'prProdPath anchor must exist');
+const mutTrigA = gateWorkflow.replace(prProdPath, '');
+assert.throws(
+  () => verifyTriggerCoverage(mutTrigA),
+  /pull_request must watch pages-production-release\.yml/,
+  'L: removing pages-production-release.yml from pull_request must fail trigger contract'
+);
+
+// Mutation B: Removal of qa-pages-deploy.yml from pull_request
+const prQaPath = "      - '.github/workflows/qa-pages-deploy.yml'\n";
+assert.ok(gateWorkflow.indexOf(prQaPath) !== -1, 'prQaPath anchor must exist');
+const mutTrigB = gateWorkflow.replace(prQaPath, '');
+assert.throws(
+  () => verifyTriggerCoverage(mutTrigB),
+  /pull_request must watch qa-pages-deploy\.yml/,
+  'L: removing qa-pages-deploy.yml from pull_request must fail trigger contract'
+);
+
+// Mutation C: Removal of pages-production-release.yml from push
+const pushProdIdx = gateWorkflow.lastIndexOf(prProdPath);
+assert.ok(pushProdIdx !== -1, 'pushProdPath anchor must exist');
+const mutTrigC = gateWorkflow.slice(0, pushProdIdx) + gateWorkflow.slice(pushProdIdx + prProdPath.length);
+assert.throws(
+  () => verifyTriggerCoverage(mutTrigC),
+  /push must watch pages-production-release\.yml/,
+  'L: removing pages-production-release.yml from push must fail trigger contract'
+);
+
+// Mutation D: Removal of qa-pages-deploy.yml from push
+const pushQaIdx = gateWorkflow.lastIndexOf(prQaPath);
+assert.ok(pushQaIdx !== -1, 'pushQaPath anchor must exist');
+const mutTrigD = gateWorkflow.slice(0, pushQaIdx) + gateWorkflow.slice(pushQaIdx + prQaPath.length);
+assert.throws(
+  () => verifyTriggerCoverage(mutTrigD),
+  /push must watch qa-pages-deploy\.yml/,
+  'L: removing qa-pages-deploy.yml from push must fail trigger contract'
+);
+
+console.log('leaf-b804-app-build-attribution-contract: PASS (points A through L fully verified)');
