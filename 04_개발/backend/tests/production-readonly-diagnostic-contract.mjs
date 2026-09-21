@@ -1,7 +1,7 @@
-import { readFileSync } from 'node:fs';
+import { readFile } from 'node:fs/promises';
 
-const workflow = readFileSync('.github/workflows/production-readonly-diagnostic.yml', 'utf8');
-const script = readFileSync('04_개발/backend/scripts/production-readonly-diagnostic.mjs', 'utf8');
+const workflow = await readFile(new URL('../../../.github/workflows/production-readonly-diagnostic.yml', import.meta.url), 'utf8');
+const script = await readFile(new URL('../scripts/production-readonly-diagnostic.mjs', import.meta.url), 'utf8');
 
 const assert = (condition, message) => {
   if (!condition) throw new Error(message);

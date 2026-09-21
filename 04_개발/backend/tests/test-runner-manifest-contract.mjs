@@ -31,6 +31,7 @@ const EXPECTED_BACKEND_ORDER = [
   "test:production-bootstrap-safety",
   "test:production-db-secret-bootstrap",
   "test:production-auth-readonly-diagnostic",
+  "test:production-readonly-diagnostic",
   "test:central-governance-main-audit",
   "test:backup-neon-to-drive",
   "test:backup-neon-to-drive-runtime-safety",
