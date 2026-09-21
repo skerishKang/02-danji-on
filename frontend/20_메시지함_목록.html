@@ -138,7 +138,7 @@
     const row=ev.target.closest('.mail-row[data-conversation]');
     if(!row)return;
     ev.preventDefault();ev.stopImmediatePropagation();
-    location.href='21_메시지_대화상세.html?apiBase='+encodeURIComponent(apiBase)+'&conversation='+encodeURIComponent(row.dataset.conversation);
+    location.href='21_메시지_대화상세.html?conversation='+encodeURIComponent(row.dataset.conversation)+(apiBase?'&apiBase='+encodeURIComponent(apiBase):'');
   },true);
   const receive=document.querySelector('.receive .toggle');
   receive.addEventListener('click',function(ev){

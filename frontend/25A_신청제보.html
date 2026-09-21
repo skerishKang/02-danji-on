@@ -185,6 +185,7 @@ function setMode(m){
   title.textContent=isReport?'이웃가게 제보':'내 가게 등록 신청';
   lead.innerHTML=isReport?'가족·이웃·가까운 가게를 단지온에 먼저 알려주세요. 확인서류는 가게 운영자가 ceo@padiem.net 으로 별도 제출하고 승인 후 등록됩니다.':'가게 운영자가 단지온 등록을 신청하는 화면입니다. 아래 항목을 채우고 <b>확인서류와 사진</b>을 함께 첨부합니다.';
   submit.textContent=isReport?'이웃가게 제보하기':'등록 신청하기';
+  resetAttachmentGroups();
   syncDisabled(isReport?'report':'owner');
   toggleEtc(ownerRelation,ownerEtcWrap,ownerEtc,'owner');
   toggleEtc(reportRelation,reportEtcWrap,reportEtc,'report');
@@ -224,6 +225,7 @@ function bindAccumulatingFiles(input,status,max,unit,kind){
     input.files=dt.files;
     status.textContent=`${group.entries.length} / ${max}${unit}`;
     if(add)add.disabled=group.entries.length>=max;
+    group.sync=sync;
     if(list){list.replaceChildren();group.entries.forEach((entry,index)=>{
       const row=document.createElement('li');row.className='file-row';
       const name=document.createElement('span');name.textContent=entry.file.name;name.title=entry.file.name;row.append(name);
@@ -250,6 +252,7 @@ bindAccumulatingFiles(document.querySelector('#photos'),document.querySelector('
 bindAccumulatingFiles(document.querySelector('#ownerProof'),document.querySelector('#ownerProofStatus'),MAX_OWNER_DOCS,'개','document');
 bindAccumulatingFiles(document.querySelector('#ownerOtherDocs'),document.querySelector('#ownerOtherStatus'),3,'개','document');
 bindAccumulatingFiles(document.querySelector('#extraDocs'),document.querySelector('#extraDocsStatus'),3,'개','document');
+function resetAttachmentGroups(){Object.values(fileGroups).forEach(g=>{g.entries=[];g.error.textContent='';g.input.value='';if(g.sync)g.sync()})}
 
 let timer;
 function showToast(msg){toast.textContent=msg;toast.classList.add('show');clearTimeout(timer);timer=setTimeout(()=>toast.classList.remove('show'),2300)}

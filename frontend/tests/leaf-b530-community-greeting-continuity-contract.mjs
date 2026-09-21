@@ -20,9 +20,9 @@ assert.ok(list.includes("greeting:'hello'"),
   'server greeting rows must map back to the greeting tab');
 assert.ok(list.includes("hello:'14_가입인사_글쓰기.html'"),
   'server-mode greeting write action must route to the greeting writer');
-assert.ok(list.includes("13_이웃대화_글상세_댓글.html?apiBase=") &&
-          list.includes("&post="),
-  'server greeting rows must use the canonical server detail route');
+assert.ok(list.includes("13_이웃대화_글상세_댓글.html?post=") &&
+          list.includes("apiBase?'&apiBase='+encodeURIComponent(apiBase):''"),
+  'server greeting rows must use the canonical server detail route and attach apiBase only when set (#863)');
 assert.equal(list.includes('가입인사는 아직 server kind가 없으므로'), false,
   'stale built-in-only greeting authority must be removed');
 

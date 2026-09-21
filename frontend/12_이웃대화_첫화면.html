@@ -152,7 +152,7 @@ render();
  function row(p){
   return `<article class="post-row" data-type="${CHIP[p.kind]}">
   <div class="author"><span class="avatar">${esc(p.author.nickname.slice(0,1))}</span><div><b>${esc(p.author.nickname)}</b><small>${esc(timeAgo(p.publishedAt||p.createdAt))}</small></div></div>
-  <div class="post-title"><span class="type">${LABEL[p.kind]}</span><a href="13_이웃대화_글상세_댓글.html?apiBase=${encodeURIComponent(apiBase)}&post=${encodeURIComponent(p.id)}">${esc(p.title)}</a></div>
+  <div class="post-title"><span class="type">${LABEL[p.kind]}</span><a href="13_이웃대화_글상세_댓글.html?post=${encodeURIComponent(p.id)}${apiBase?'&apiBase='+encodeURIComponent(apiBase):''}">${esc(p.title)}</a></div>
   <div class="meta-actions"><span>♡ 공감 ${p.reactionCount}</span><span>댓글 ${p.commentCount}</span></div></article>`;
  }
  async function loadServer(){
@@ -178,7 +178,7 @@ render();
   const selected=topicEl?topicEl.dataset.type:'hello';
   if(!WRITE[selected])return;
   ev.preventDefault(); ev.stopImmediatePropagation();
-  location.href=WRITE[selected]+'?apiBase='+encodeURIComponent(apiBase);
+  location.href=WRITE[selected]+(apiBase?'?apiBase='+encodeURIComponent(apiBase):'');
  },true);
  loadServer();
 })();
