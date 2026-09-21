@@ -155,9 +155,16 @@ function isCommunityPostPublishDestination(value, expectedOrigin, paths = COMMUN
  * never a fixed sleep, it passes when the redirect already completed, and a timeout fails
  * closed instead of being caught and swallowed. No generic retry, no catch-and-pass.
  */
-async function waitForCommunityPostPublish(page, label, timeoutMs) {
-  let expectedOrigin = '';
-  try { expectedOrigin = new URL(page.url()).origin; } catch { expectedOrigin = ''; }
+async function waitForCommunityPostPublish(page, label, timeoutMs, expectedOrigin) {
+  /*
+   * expectedOrigin is the origin captured from the WRITE page before publishing. It is passed
+   * in and never recomputed here: the product may already have redirected by the time this runs,
+   * and deriving the origin from page.url() would let a cross-origin destination authorise
+   * itself in the already-settled branch.
+   */
+  if (!expectedOrigin) {
+    throw new Error(`QA_830_STEP_TIMEOUT:${label}_WAIT:missing_write_origin`);
+  }
   if (isCommunityPostPublishDestination(page.url(), expectedOrigin)) {
     events.push(emit(`${label}=ALREADY_SETTLED`));
     return;
@@ -660,6 +667,9 @@ try {
   for (const [label, route, kind] of community) {
     step(`ENTER_COMMUNITY_${label}`);
     await page.goto(`${FRONTEND}/${route}`, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+    // Captured before the write: the product may redirect before the settle helper runs, and a
+    // destination must never become its own expected origin.
+    const writeOrigin = new URL(page.url()).origin;
     if (kind === 'question') await page.locator('[data-type="생활·살림"]').click({ timeout: 10_000 });
     // selector mismatch must fail the run — no silent catch, no fail-open skip.
     if (kind === 'together') await page.locator('[data-kind="walk"]').click({ timeout: 10_000 });
@@ -671,7 +681,7 @@ try {
     record(`${label}_ACCEPTANCE`, result.ok, result.disposition);
     // The publish succeeded, so the product will navigate on its own 650ms later. Let that
     // land before the next `page.goto`, otherwise the two navigations collide.
-    if (result.ok) await waitForCommunityPostPublish(page, `COMMUNITY_${label}_POST_PUBLISH`, 15_000);
+    if (result.ok) await waitForCommunityPostPublish(page, `COMMUNITY_${label}_POST_PUBLISH`, 15_000, writeOrigin);
     authenticated = await session(context.request, `${label}_AFTER`);
   }
 
