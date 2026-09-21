@@ -6,11 +6,15 @@ import vm from 'node:vm';
 import { stampBuildAttribution, resolveBuildSha } from '../scripts/build-attribution.mjs';
 
 // Issue #804: /app immutable build attribution contract
-// Proves points A through G required by CENTRAL governance.
+// Proves points A through J required by CENTRAL governance.
 
-const root = new URL('../..', import.meta.url);
 const appHtmlPath = new URL('../app.html', import.meta.url);
 const appSource = await readFile(appHtmlPath, 'utf8');
+
+const prodWorkflowPath = new URL('../../.github/workflows/pages-production-release.yml', import.meta.url);
+const qaWorkflowPath = new URL('../../.github/workflows/qa-pages-deploy.yml', import.meta.url);
+const prodWorkflow = await readFile(prodWorkflowPath, 'utf8');
+const qaWorkflow = await readFile(qaWorkflowPath, 'utf8');
 
 /* ===================================================================
  * A. NO_NAVIGATION_TIME_BUILD
@@ -39,8 +43,8 @@ assert.ok(
  * B. IMMUTABLE_BUILD_SOURCE
  * - build id comes from commit/deploy artifact source
  * =================================================================== */
-const SHA_A = '0bcf1a884bafe150ad42c3d6dfe3790552e93407';
-const SHORT_A = '0bcf1a884baf';
+const SHA_A = '5379b255f23cf7a2ea849d20b0c9c3488d45adf1';
+const SHORT_A = '5379b255f23c';
 
 const resolved = resolveBuildSha(SHA_A);
 assert.equal(resolved.fullSha, SHA_A, 'B: resolved full SHA must match input commit SHA');
@@ -91,7 +95,6 @@ try {
   }
 
   function simulateAppLoad(html, simulatedTimeOffsetMs = 0) {
-    // Extract inline script and execute in DOM sandbox
     const script = extractScriptBlock(html);
     const dataBuildMatch = html.match(/data-build="([^"]*)"/);
     const srcMatch = html.match(/id="danjionAppFrame"\s+src="([^"]*)"/);
@@ -185,15 +188,14 @@ try {
   assert.ok(!stampedHtmlB.includes('20260907'), 'F: stamped app.html B must not contain obsolete 20260907');
 
   /* ===================================================================
-   * G. MUTATION PROOF
+   * G. APP_HTML_MUTATION_PROOF
    * - Reverting to document.lastModified fails the contract
    * - Omitting build parameter fails
    * - Dropping variant=v3 fails
    * =================================================================== */
-  // Mutation 1: simulate someone re-introducing document.lastModified
   const mutatedLastModified = appSource.replace(
-    'const raw=(frame.getAttribute(\'data-build\')||\'\').trim();',
-    'const stamp=(document.lastModified||\'\').trim();'
+    "const raw=(frame.getAttribute('data-build')||'').trim();",
+    "const stamp=(document.lastModified||'').trim();"
   );
   assert.throws(
     () => {
@@ -203,9 +205,8 @@ try {
     'G: contract must FAIL if document.lastModified is reintroduced'
   );
 
-  // Mutation 2: simulate someone re-introducing Date.now()
   const mutatedDateNow = appSource.replace(
-    'const raw=(frame.getAttribute(\'data-build\')||\'\').trim();',
+    "const raw=(frame.getAttribute('data-build')||'').trim();",
     'const raw=String(Date.now());'
   );
   assert.throws(
@@ -216,7 +217,6 @@ try {
     'G: contract must FAIL if Date.now() is reintroduced'
   );
 
-  // Mutation 3: simulate stamp omitting build param
   const brokenUrl = new URL('index.html?variant=v3', 'https://danjion.pages.dev');
   assert.throws(
     () => {
@@ -226,7 +226,6 @@ try {
     'G: contract must FAIL if build query param is omitted'
   );
 
-  // Mutation 4: simulate stamp dropping variant=v3
   const brokenVariantUrl = new URL(`index.html?build=${SHORT_A}`, 'https://danjion.pages.dev');
   assert.throws(
     () => {
@@ -241,4 +240,143 @@ try {
   await rm(tempDirB, { recursive: true, force: true });
 }
 
-console.log('leaf-b804-app-build-attribution-contract: PASS');
+/* ===================================================================
+ * H. PRODUCTION WORKFLOW CONTRACT
+ * - Proves: node frontend/scripts/build-attribution.mjs dist "$GITHUB_SHA"
+ * - Proves: stamp executes before pages deploy dist
+ * - Proves: pages deploy passes --commit-hash "$GITHUB_SHA"
+ * - VISIBLE_BUILD_SHA == DEPLOYED_CLOUDFLARE_COMMIT_SHA == $GITHUB_SHA
+ * =================================================================== */
+export function verifyProductionWorkflow(workflowText) {
+  const stampLine = 'node frontend/scripts/build-attribution.mjs dist "$GITHUB_SHA"';
+  const stampIdx = workflowText.indexOf(stampLine);
+  if (stampIdx === -1) {
+    throw new Error('WORKFLOW_MUTATION_FAIL: missing production build-attribution stamp with $GITHUB_SHA');
+  }
+
+  const deployMatch = workflowText.match(/npx\s+wrangler[^\n]*pages\s+deploy\s+dist\b/);
+  if (!deployMatch) {
+    throw new Error('WORKFLOW_MUTATION_FAIL: missing production pages deploy dist command');
+  }
+  const deployIdx = deployMatch.index;
+
+  if (stampIdx >= deployIdx) {
+    throw new Error('WORKFLOW_MUTATION_FAIL: production stamp must precede pages deploy');
+  }
+
+  const deployBlock = workflowText.slice(deployIdx, deployIdx + 300);
+  if (!deployBlock.includes('--commit-hash "$GITHUB_SHA"')) {
+    throw new Error('WORKFLOW_MUTATION_FAIL: production deploy must pass --commit-hash "$GITHUB_SHA"');
+  }
+
+  return true;
+}
+
+assert.ok(
+  verifyProductionWorkflow(prodWorkflow),
+  'H: production workflow must pass attribution and deploy SHA lock'
+);
+
+/* ===================================================================
+ * I. QA WORKFLOW CONTRACT
+ * - Proves: node frontend/scripts/build-attribution.mjs dist-qa "$GITHUB_SHA"
+ * - Proves: stamp executes before qa-pages-runtime-bind and pages deploy dist-qa
+ * - Proves: pages deploy passes --commit-hash "$GITHUB_SHA"
+ * - VISIBLE_BUILD_SHA == QA_DEPLOY_COMMIT_SHA == $GITHUB_SHA
+ * =================================================================== */
+export function verifyQaWorkflow(workflowText) {
+  const stampLine = 'node frontend/scripts/build-attribution.mjs dist-qa "$GITHUB_SHA"';
+  const stampIdx = workflowText.indexOf(stampLine);
+  if (stampIdx === -1) {
+    throw new Error('WORKFLOW_MUTATION_FAIL: missing QA build-attribution stamp with $GITHUB_SHA');
+  }
+
+  const runtimeBindIdx = workflowText.indexOf("node '04_개발/backend/scripts/qa-pages-runtime-bind.mjs' dist-qa");
+  const deployMatch = workflowText.match(/npx\s+wrangler[^\n]*pages\s+deploy\s+dist-qa\b/);
+  if (!deployMatch) {
+    throw new Error('WORKFLOW_MUTATION_FAIL: missing QA pages deploy dist-qa command');
+  }
+  const deployIdx = deployMatch.index;
+
+  if (stampIdx >= deployIdx) {
+    throw new Error('WORKFLOW_MUTATION_FAIL: QA stamp must precede pages deploy');
+  }
+
+  if (runtimeBindIdx !== -1 && stampIdx >= runtimeBindIdx) {
+    throw new Error('WORKFLOW_MUTATION_FAIL: QA stamp must precede runtime bind');
+  }
+
+  const deployBlock = workflowText.slice(deployIdx, deployIdx + 300);
+  if (!deployBlock.includes('--commit-hash "$GITHUB_SHA"')) {
+    throw new Error('WORKFLOW_MUTATION_FAIL: QA deploy must pass --commit-hash "$GITHUB_SHA"');
+  }
+
+  return true;
+}
+
+assert.ok(
+  verifyQaWorkflow(qaWorkflow),
+  'I: QA workflow must pass attribution, runtime bind order, and deploy SHA lock'
+);
+
+/* ===================================================================
+ * J. WORKFLOW MUTATION PROOF
+ * - Minimum required mutations that must cause contract failure:
+ *   Mutation A: Removal of build-attribution invocation in Production workflow
+ *   Mutation B: Removal of build-attribution invocation in QA workflow
+ *   Mutation C: Using unrelated/static value instead of "$GITHUB_SHA"
+ *   Mutation D: Relocating stamp after deploy
+ * =================================================================== */
+// Mutation A: Removal of build-attribution invocation in Production workflow
+const mutA = prodWorkflow.replace('node frontend/scripts/build-attribution.mjs dist "$GITHUB_SHA"', '');
+assert.throws(
+  () => verifyProductionWorkflow(mutA),
+  /missing production build-attribution stamp/,
+  'J: removing production build-attribution invocation must fail contract'
+);
+
+// Mutation B: Removal of build-attribution invocation in QA workflow
+const mutB = qaWorkflow.replace('node frontend/scripts/build-attribution.mjs dist-qa "$GITHUB_SHA"', '');
+assert.throws(
+  () => verifyQaWorkflow(mutB),
+  /missing QA build-attribution stamp/,
+  'J: removing QA build-attribution invocation must fail contract'
+);
+
+// Mutation C1: Using static/unrelated value instead of $GITHUB_SHA in Production
+const mutC1 = prodWorkflow.replace('"$GITHUB_SHA"', '"20260921-static-fake-sha"');
+assert.throws(
+  () => verifyProductionWorkflow(mutC1),
+  /missing production build-attribution stamp with \$GITHUB_SHA/,
+  'J: static/unrelated value in production workflow must fail contract'
+);
+
+// Mutation C2: Using static/unrelated value instead of $GITHUB_SHA in QA
+const mutC2 = qaWorkflow.replace('"$GITHUB_SHA"', '"qa-static-fake-sha"');
+assert.throws(
+  () => verifyQaWorkflow(mutC2),
+  /missing QA build-attribution stamp with \$GITHUB_SHA/,
+  'J: static/unrelated value in QA workflow must fail contract'
+);
+
+// Mutation D1: Moving stamp after deploy in Production workflow
+const mutD1 = prodWorkflow
+  .replace('node frontend/scripts/build-attribution.mjs dist "$GITHUB_SHA"\n', '')
+  + '\nnode frontend/scripts/build-attribution.mjs dist "$GITHUB_SHA"\n';
+assert.throws(
+  () => verifyProductionWorkflow(mutD1),
+  /production stamp must precede pages deploy/,
+  'J: relocating production stamp after deploy must fail contract'
+);
+
+// Mutation D2: Moving stamp after deploy in QA workflow
+const mutD2 = qaWorkflow
+  .replace('node frontend/scripts/build-attribution.mjs dist-qa "$GITHUB_SHA"\n', '')
+  + '\nnode frontend/scripts/build-attribution.mjs dist-qa "$GITHUB_SHA"\n';
+assert.throws(
+  () => verifyQaWorkflow(mutD2),
+  /QA stamp must precede pages deploy/,
+  'J: relocating QA stamp after deploy must fail contract'
+);
+
+console.log('leaf-b804-app-build-attribution-contract: PASS (points A through J fully verified)');
