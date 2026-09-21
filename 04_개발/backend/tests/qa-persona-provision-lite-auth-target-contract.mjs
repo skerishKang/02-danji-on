@@ -5,7 +5,8 @@ import {
   failureStage,
   failureToken,
   fetchPersonaMe,
-  formatPinnedAuthority
+  formatPinnedAuthority,
+  withDbRetry
 } from '../scripts/qa-persona-provision-lite.mjs';
 
 /*
@@ -185,10 +186,10 @@ const captureLog = (sink) => {
   console.log = (...args) => { sink.push(args.join(' ')); };
   return () => { console.log = original; };
 };
-const runReadOnly = async (fetchImpl, sink) => {
+const runReadOnly = async (fetchImpl, sink, sql = sqlStub) => {
   const release = captureLog(sink);
   try {
-    return await acquireAccount(frontendOrigin, apiOrigin, sqlStub, personaAccount, fetchImpl, false, false);
+    return await acquireAccount(frontendOrigin, apiOrigin, sql, personaAccount, fetchImpl, false, false);
   } finally {
     release();
   }
@@ -236,5 +237,77 @@ try {
 }
 assert.match(unreadableLog[0], /session_rows_after=UNREADABLE authority_probe=not_reached$/,
   'an unreadable post-refusal count must be reported, not thrown');
+
+// --- a database fetch failure must never read as an auth failure -------------
+process.env.QA_PERSONA_LITE_DB_RETRY_MS = '1';
+
+// The database signature is the wrapped one; a bare HTTP transport failure is not.
+assert.equal(failureStage(new Error('Error connecting to database: TypeError: fetch failed')), 'db');
+assert.equal(failureStage(new Error('connect ECONNREFUSED 127.0.0.1:5432')), 'db');
+assert.equal(failureStage(new Error('TypeError: fetch failed')), 'unknown',
+  'a bare HTTP transport failure must not be classified as a database failure');
+assert.equal(failureToken(new Error('Error connecting to database: TypeError: fetch failed')),
+  'Error connecting to database');
+
+// The retry is bounded, database-only, and inert whenever it is not enabled.
+const retryLog = [];
+const releaseRetryLog = captureLog(retryLog);
+const dbError = new Error('Error connecting to database: TypeError: fetch failed');
+let persistentAttempts = 0;
+await assert.rejects(
+  () => withDbRetry(async () => { persistentAttempts += 1; throw dbError; }, true),
+  (error) => error === dbError,
+  'a persistent database failure must still fail after the bounded attempts'
+);
+assert.equal(persistentAttempts, 3, 'a database fetch may be retried at most 3 times');
+let recoveredAttempts = 0;
+assert.equal(await withDbRetry(async () => {
+  recoveredAttempts += 1;
+  if (recoveredAttempts < 2) throw dbError;
+  return 'recovered';
+}, true), 'recovered', 'a transient database failure must be recovered by the retry');
+let nonDbAttempts = 0;
+await assert.rejects(
+  () => withDbRetry(async () => { nonDbAttempts += 1; throw new Error('QA_PERSONA_LITE_STRUCTURE_UNREADABLE'); }, true),
+  /QA_PERSONA_LITE_STRUCTURE_UNREADABLE/,
+  'a non-database failure must not be retried'
+);
+assert.equal(nonDbAttempts, 1, 'only a database connectivity failure may be retried');
+let disabledAttempts = 0;
+await assert.rejects(() => withDbRetry(async () => { disabledAttempts += 1; throw dbError; }, false), (error) => error === dbError);
+assert.equal(disabledAttempts, 1, 'the convergence path must not retry anything');
+releaseRetryLog();
+assert.ok(retryLog.every((line) => line.startsWith('DB_RETRY=')), 'only retry markers may be logged by the retry');
+assert.ok(retryLog.every((line) => !line.includes('contract-only-password')), 'the retry must never print a credential');
+
+// A completely unreachable database must still yield the HTTP sign-in result.
+const dbDownLog = [];
+await runReadOnly(async (request) => {
+  assert.ok(String(request).includes('/api/auth/sign-in/email'), 'the sign-in probe must still run without a database');
+  return new Response(JSON.stringify({ error: { code: 'INTERNAL_SERVER_ERROR' } }), {
+    status: 500,
+    headers: { 'content-type': 'application/json' }
+  });
+}, dbDownLog, () => Promise.reject(new Error('Error connecting to database: TypeError: fetch failed')));
+assert.deepEqual(dbDownLog, [
+  'DB_RETRY=attempt_1_of_3 stage=db detail=Error connecting to database',
+  'DB_RETRY=attempt_2_of_3 stage=db detail=Error connecting to database',
+  'DB_RETRY=attempt_3_of_3 stage=db detail=Error connecting to database',
+  'AUTH_STRUCTURE=QA_SUPER status=UNREADABLE stage=db detail=Error connecting to database',
+  'DB_RETRY=attempt_1_of_3 stage=db detail=Error connecting to database',
+  'DB_RETRY=attempt_2_of_3 stage=db detail=Error connecting to database',
+  'DB_RETRY=attempt_3_of_3 stage=db detail=Error connecting to database',
+  'SIGNIN=QA_SUPER status=500 stage=signin code=INTERNAL_SERVER_ERROR body=json ' +
+  'session_rows_before=UNREADABLE session_rows_after=UNREADABLE authority_probe=not_reached'
+], 'an unreachable database must be reported as db and must not be mistaken for an auth failure');
+
+// Nothing that was captured anywhere in this contract may leak a credential.
+const everyLogLine = [
+  ...jsonErrorLog, ...textErrorLog, ...emptyErrorLog, ...unreadableLog, ...retryLog, ...dbDownLog
+];
+assert.ok(everyLogLine.every((line) => !line.includes('contract-only-password')),
+  'the diagnosis must never print the password');
+assert.ok(everyLogLine.every((line) => !/[$]2[aby][$]/.test(line)), 'the diagnosis must never print a password hash');
+assert.ok(everyLogLine.every((line) => !/[\w.-]+@[\w.-]+[.]\w+/.test(line)), 'the diagnosis must never print an address');
 
 console.log('qa-persona-provision-lite-auth-target-contract: PASS');

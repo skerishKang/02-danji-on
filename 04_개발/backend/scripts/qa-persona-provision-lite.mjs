@@ -155,7 +155,31 @@ function grantsEnabled() {
  *
  * The stage is derived from the already-stable `QA_PERSONA_LITE_*` error tokens, so
  * the lane still never prints a response body, a credential or an address.
+ *
+ * `stage=db` is checked first and means "the QA database was not reachable from this
+ * runner". A database fetch failure is NOT an auth failure, and the whole point of
+ * this classification is that it can never be read as one.
  */
+const DB_FAILURE_SIGNATURES = Object.freeze([
+  'error connecting to database',
+  'econnrefused',
+  'econnreset',
+  'enotfound',
+  'etimedout',
+  'socket hang up'
+]);
+
+const DB_RETRY_ATTEMPTS = 3;
+
+function dbRetryDelayMs() {
+  const raw = Number(process.env.QA_PERSONA_LITE_DB_RETRY_MS);
+  return Number.isFinite(raw) && raw >= 0 ? raw : 4000;
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => { setTimeout(resolve, ms); });
+}
+
 const FAILURE_STAGES = Object.freeze([
   ['QA_PERSONA_LITE_SESSION_CREDENTIAL_MISSING', 'session_credential'],
   ['QA_PERSONA_LITE_SERVICE_JWT_MISSING', 'token'],
@@ -173,9 +197,36 @@ export function failureToken(error) {
 }
 
 export function failureStage(error) {
+  const message = error instanceof Error ? error.message : String(error);
+  const lowered = message.toLowerCase();
+  // Deliberately NOT keyed on a bare `fetch failed`: the HTTP probes fail with the
+  // same undici shape, and a probe failure is not a database failure.
+  if (DB_FAILURE_SIGNATURES.some((signature) => lowered.includes(signature))) return 'db';
   const token = failureToken(error);
   const match = FAILURE_STAGES.find(([prefix]) => token.startsWith(prefix));
   return match ? match[1] : 'unknown';
+}
+
+/**
+ * Bounded retry for the READ-ONLY diagnosis only (`enabled` is false on every
+ * convergence path, so no write is ever retried). It retries solely on the database
+ * connectivity signature, backs off linearly, and gives up after DB_RETRY_ATTEMPTS
+ * so a genuinely dead database still fails the run instead of hanging it.
+ */
+export async function withDbRetry(work, enabled) {
+  const attempts = enabled ? DB_RETRY_ATTEMPTS : 1;
+  let lastError;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      return await work();
+    } catch (error) {
+      lastError = error;
+      if (!enabled || failureStage(error) !== 'db') throw error;
+      console.log(`DB_RETRY=attempt_${attempt}_of_${attempts} stage=db detail=${failureToken(error)}`);
+      if (attempt < attempts) await sleep(dbRetryDelayMs() * attempt);
+    }
+  }
+  throw lastError;
 }
 
 /**
@@ -314,7 +365,15 @@ export async function acquireAccount(frontendOrigin, apiOrigin, sql, account, fe
   const password = required(account.passwordEnv);
   if (password.length < 8) throw new Error(`QA_PERSONA_LITE_PASSWORD_INVALID:${account.name}`);
 
-  const structure = await readAuthStructure(sql, email);
+  // The read-only diagnosis must survive an unreachable database: the structure
+  // becomes UNREADABLE and the HTTP sign-in probe still runs, so a QA database fetch
+  // failure can never be mistaken for an auth failure. A convergence run still fails
+  // closed on exactly the same read.
+  const structure = await withDbRetry(() => readAuthStructure(sql, email), !writeAccounts).catch((error) => {
+    if (writeAccounts) throw error;
+    console.log(`AUTH_STRUCTURE=${account.name} status=UNREADABLE stage=${failureStage(error)} detail=${failureToken(error)}`);
+    return null;
+  });
 
   let created = false;
   const signUpOnce = async () => {
@@ -372,10 +431,11 @@ export async function acquireAccount(frontendOrigin, apiOrigin, sql, account, fe
     // refused sign-in never produced a subject to look them up with - the independent
     // `SCOPES=` snapshot is what answers the grant question instead.
     const body = await signIn.text().catch(() => '');
-    const after = await readAuthStructure(sql, email).catch(() => null);
+    const after = await withDbRetry(() => readAuthStructure(sql, email), !writeAccounts).catch(() => null);
     console.log(
       `SIGNIN=${account.name} status=${signIn.status} stage=signin ${safeBody(body)} ` +
-      `session_rows_before=${structure.sessionRows} session_rows_after=${after ? after.sessionRows : 'UNREADABLE'} ` +
+      `session_rows_before=${structure ? structure.sessionRows : 'UNREADABLE'} ` +
+      `session_rows_after=${after ? after.sessionRows : 'UNREADABLE'} ` +
       'authority_probe=not_reached'
     );
     return null;
@@ -571,8 +631,17 @@ async function main() {
   // way - straight from the pinned address - so the super wildcard and the operator
   // bundle are measurable even for an identity that cannot sign in.
   for (const account of ACCOUNTS) {
-    console.log(formatAuthStructure(account.name, await readAuthStructure(sql, account.email)));
-    console.log(formatPinnedAuthority(account.name, await readPinnedAuthority(sql, account.email)));
+    try {
+      console.log(formatAuthStructure(account.name, await withDbRetry(() => readAuthStructure(sql, account.email), !converge)));
+      console.log(formatPinnedAuthority(account.name, await withDbRetry(() => readPinnedAuthority(sql, account.email), !converge)));
+    } catch (error) {
+      // A convergence run must stop on an unreachable database. The read-only
+      // diagnosis reports both reads as UNREADABLE and still probes the HTTP auth
+      // surface, because a QA database fetch failure is not an auth failure.
+      if (converge) throw error;
+      console.log(`AUTH_STRUCTURE=${account.name} status=UNREADABLE stage=${failureStage(error)} detail=${failureToken(error)}`);
+      console.log(`SCOPES=${account.name} status=UNREADABLE stage=${failureStage(error)}`);
+    }
   }
 
   const actors = [];
@@ -600,20 +669,20 @@ async function main() {
   for (const actor of actors) {
     let residentState;
     try {
-      residentState = await readResidentState(sql, actor);
+      residentState = await withDbRetry(() => readResidentState(sql, actor), !converge);
     } catch (error) {
       if (converge) throw error;
-      console.log(`PERSONA=${actor.name} AUTHORITY_READ_FAILED stage=state detail=${failureToken(error)}`);
+      console.log(`PERSONA=${actor.name} AUTHORITY_READ_FAILED read=state stage=${failureStage(error)} detail=${failureToken(error)}`);
       continue;
     }
     let scopes;
     try {
       scopes = converge
         ? await convergePadiemGrants(sql, actor)
-        : await readActivePadiemScopes(sql, actor);
+        : await withDbRetry(() => readActivePadiemScopes(sql, actor), true);
     } catch (error) {
       if (converge) throw error;
-      console.log(`PERSONA=${actor.name} AUTHORITY_READ_FAILED stage=authority detail=${failureToken(error)}`);
+      console.log(`PERSONA=${actor.name} AUTHORITY_READ_FAILED read=authority stage=${failureStage(error)} detail=${failureToken(error)}`);
       continue;
     }
     reportActor(actor, scopes, residentState, converge);

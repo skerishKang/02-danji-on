@@ -191,7 +191,7 @@ assert.match(
 );
 assert.match(
   script,
-  /session_rows_before=\$\{structure\.sessionRows\} session_rows_after=\$\{after \? after\.sessionRows : 'UNREADABLE'\}/,
+  /session_rows_after=\$\{after \? after\.sessionRows : 'UNREADABLE'\}/,
   'a 5xx must be separated into session-written and session-less outcomes'
 );
 assert.match(script, /authority_probe=not_reached/,
@@ -201,9 +201,11 @@ assert.match(
   /console\.log\(`SIGNIN=\$\{account\.name\} status=- stage=\$\{failureStage\(error\)\} detail=\$\{failureToken\(error\)\}`\)/,
   'a post-sign-in failure must name its stage instead of stopping the whole lane'
 );
-assert.match(script, /AUTHORITY_READ_FAILED stage=state/, 'a state read failure must be distinct from an authority read failure');
-assert.match(script, /AUTHORITY_READ_FAILED stage=authority/, 'an authority read failure must be named');
-assert.equal((script.match(/if \(converge\) throw error;/g) || []).length, 3,
+assert.match(script, /AUTHORITY_READ_FAILED read=state/, 'a state read failure must be distinct from an authority read failure');
+assert.match(script, /AUTHORITY_READ_FAILED read=authority/, 'an authority read failure must be named');
+assert.equal((script.match(/AUTHORITY_READ_FAILED read=(state|authority) stage=\$\{failureStage\(error\)\}/g) || []).length, 2,
+  'both read failures must report the failed read and its cause on one line');
+assert.equal((script.match(/if \(converge\) throw error;/g) || []).length, 4,
   'every graceful read-only path must keep its fail-closed convergence counterpart');
 assert.match(script, /export function failureStage\(/, 'the stage classifier must be a named, testable unit');
 assert.match(script, /export function failureToken\(/, 'the failure token must be a named, testable unit');
@@ -222,13 +224,41 @@ assert.match(script, /from danjion_auth\."user" u[\s\S]{0,200}?lower\(u\.email\)
 assert.match(script, /join app_users au2 on au2\.id = g\.user_id/, 'the snapshot must read grants through app_users');
 assert.match(script, /string_agg\(g\.scope, ',' order by g\.scope\)/,
   'the scope list must come back as one deterministic text value, never as an array');
-assert.match(script, /console\.log\(formatPinnedAuthority\(account\.name, await readPinnedAuthority\(sql, account\.email\)\)\)/,
-  'every run must report the pinned authority snapshot for all three identities');
+assert.match(
+  script,
+  /console\.log\(formatPinnedAuthority\(account\.name, await withDbRetry\(\(\) => readPinnedAuthority\(sql, account\.email\), !converge\)\)\)/,
+  'every run must report the pinned authority snapshot for all three identities'
+);
 assert.match(script, /SCOPES=\$\{name\}/, 'the snapshot must be announced by persona name');
 assert.match(script, /app_user_link=\$\{authority\.appUserRows > 0 \? 'true' : 'false'\}/, 'the snapshot must report the app_users link');
 assert.match(script, /wildcard=\$\{wildcard \? 'true' : 'false'\}/, 'the snapshot must report the super wildcard explicitly');
 assert.match(script, /active_scope_count=\$\{authority\.activeScopes\.length\}/, 'the snapshot must count the active bundle');
 assert.doesNotMatch(script, /insert into app_users|update app_users|delete from app_users/i,
   'the snapshot must never touch app_users');
+
+// --- 11. a database fetch failure must never read as an auth failure ---------//
+// The QA database is intermittently unreachable from the runner. That must be
+// reported as its own stage, retried only in the read-only diagnosis, and never
+// allowed to stop the HTTP auth probe or to be confused with a sign-in result.
+assert.match(script, /const DB_FAILURE_SIGNATURES = Object\.freeze\(\[/, 'the database signature list must be a named unit');
+assert.match(script, /if \(DB_FAILURE_SIGNATURES\.some\(\(signature\) => lowered\.includes\(signature\)\)\) return 'db';/,
+  'the database stage must be decided before any auth stage');
+const dbSignatures = script.slice(script.indexOf('const DB_FAILURE_SIGNATURES'), script.indexOf('const DB_RETRY_ATTEMPTS'));
+assert.doesNotMatch(dbSignatures, /fetch failed/,
+  'a bare transport failure must not be classified as a database failure');
+assert.match(script, /export async function withDbRetry\(work, enabled\)/, 'the bounded retry must be a named, testable unit');
+assert.match(script, /const attempts = enabled \? DB_RETRY_ATTEMPTS : 1;/, 'the retry must be bounded and opt-in');
+assert.match(script, /if \(!enabled \|\| failureStage\(error\) !== 'db'\) throw error;/,
+  'only a database connectivity failure may be retried');
+assert.equal((script.match(/withDbRetry\(\(\) => readAuthStructure/g) || []).length, 3,
+  'the pre-pass, the pre-sign-in and the post-refusal structure reads must all be retried');
+assert.match(script, /session_rows_before=\$\{structure \? structure\.sessionRows : 'UNREADABLE'\}/,
+  'an unreadable structure must degrade the session count, not the run');
+assert.match(script, /AUTH_STRUCTURE=\$\{account\.name\} status=UNREADABLE stage=\$\{failureStage\(error\)\}/,
+  'an unreadable structure must be reported as UNREADABLE, never as an auth failure');
+assert.match(script, /SCOPES=\$\{account\.name\} status=UNREADABLE/, 'an unreadable authority snapshot must be reported as UNREADABLE');
+assert.doesNotMatch(script, /withDbRetry\(\(\) => convergePadiemGrants/, 'a grant write must never be retried');
+assert.doesNotMatch(script, /withDbRetry\(\(\) => repairAuthAccount/, 'a destructive repair must never be retried');
+assert.doesNotMatch(script, /withDbRetry\(\(\) => signUpOnce/, 'an account creation must never be retried');
 
 console.log('qa-persona-provision-lite-contract: PASS');
