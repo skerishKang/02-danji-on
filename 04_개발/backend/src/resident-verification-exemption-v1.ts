@@ -91,6 +91,16 @@ export async function resolveResidentVerificationExemptionResponse(
     if (await resolveOrdinaryTestResidentExemption(sql, actor)) {
       return ok(true, requestId);
     }
+    // #868: temporary access describes an ORDINARY member, so a principal that
+    // already holds PADIEM authority is never reported as temporary. Its canonical
+    // exemption is the explicit `resident.verification.exempt` scope answered
+    // above, and the wildcard '*' alone never exempts (the admin authority helper
+    // enforces the same rule), so a wildcard/bounded principal without that scope
+    // resolves to "not exempt" - exactly the answer it received before the
+    // temporary switch existed.
+    if (authority.level !== 'none') {
+      return ok(false, requestId);
+    }
     // #868: the temporary switch is consulted strictly LAST, after both canonical
     // exemption sources, and only while it is explicitly enabled. When it is off
     // this function behaves exactly as before.

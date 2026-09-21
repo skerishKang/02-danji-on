@@ -43,7 +43,8 @@ const actorsBySubject = new Map([
   ['sub-N', { id: 'user-N', auth_user_id: 'sub-N', display_name: 'Ordinary Neighbor' }],
   ['sub-V', { id: 'user-V', auth_user_id: 'sub-V', display_name: 'Verified Resident' }],
   ['sub-E', { id: 'user-E', auth_user_id: 'sub-E', display_name: 'Exempt Principal' }],
-  ['sub-O', { id: 'user-O', auth_user_id: 'sub-O', display_name: 'Scoped Operator' }]
+  ['sub-O', { id: 'user-O', auth_user_id: 'sub-O', display_name: 'Scoped Operator' }],
+  ['sub-W', { id: 'user-W', auth_user_id: 'sub-W', display_name: 'Wildcard Super' }]
 ]);
 
 // Real verified household membership rows for the canonical resident path.
@@ -61,7 +62,11 @@ const residents = new Map([
 const verifiedMemberships = new Set(['user-V']);
 
 const authorityGrants = new Map([
-  ['user-E', [{ id: 'grant-E', scope: 'resident.verification.exempt', status: 'active', expires_at: null }]]
+  ['user-E', [{ id: 'grant-E', scope: 'resident.verification.exempt', status: 'active', expires_at: null }]],
+  // #868 policy fixtures: a wildcard super and a bounded operator that both LACK
+  // the explicit `resident.verification.exempt` scope.
+  ['user-W', [{ id: 'grant-W', scope: '*', status: 'active', expires_at: null }]],
+  ['user-O', [{ id: 'grant-O-authority', scope: 'community.moderate', status: 'active', expires_at: null }]]
 ]);
 
 const padiemGrants = new Map([
@@ -225,6 +230,59 @@ function probeData(value) {
   assert.equal(scopedOperator.grantedScope, 'community.moderate');
 }
 
+/* ============ 5b. an authority holder is never a temporary resident ========= */
+{
+  const wildcardAuthority = await resolvePadiemAuthority(sql, 'user-W');
+  assert.equal(wildcardAuthority.level, 'admin', 'the fixture must be a real wildcard admin');
+  assert.equal(wildcardAuthority.wildcard, true, 'the fixture must carry the wildcard scope');
+  assert.deepEqual(wildcardAuthority.scopes, ['*'],
+    'a wildcard super stores exactly ["*"] (migration 049 allowlist policy)');
+
+  // The self probe: the wildcard '*' alone never exempts, and the temporary
+  // state is reserved for ordinary members, so the wildcard admin is not
+  // reported as temporary even while the switch is ON.
+  assert.deepEqual(
+    await probeData(await resolveResidentVerificationExemptionResponse(probeRequest('sub-W'), TEMP_ON_ENV, sql, 'req-p-on-W')),
+    { exempt: false },
+    'WILDCARD_ADMIN_TEMP=NO: a wildcard admin must never be labelled a temporary resident'
+  );
+  assert.deepEqual(
+    await probeData(await resolveResidentVerificationExemptionResponse(probeRequest('sub-O'), TEMP_ON_ENV, sql, 'req-p-on-O')),
+    { exempt: false },
+    'WILDCARD_ADMIN_TEMP=NO: a bounded operator without the exempt scope is not temporary either'
+  );
+
+  // The gate: the temporary admission stays limited to principals with no
+  // PADIEM authority, so the wildcard admin keeps the strict 403 it received
+  // before the temporary switch existed.
+  const denials = [
+    ['sub-W', 'a wildcard admin', 'req-on-W'],
+    ['sub-O', 'a bounded operator', 'req-on-O']
+  ];
+  for (const [subject, label, requestId] of denials) {
+    const denied = await requireVerifiedResident(request(subject), TEMP_ON_ENV, sql, requestId, 'complex-1');
+    assert.deepEqual(await responseError(denied), { status: 403, code: 'RESIDENT_VERIFICATION_REQUIRED' },
+      `${label} without the explicit exempt scope must not be admitted as a temporary resident`);
+  }
+
+  // Authority itself is untouched: the same wildcard admin still reaches its
+  // admin console, which never consults the resident gate.
+  const adminConsole = await resolveAdminAuthorityResponse(request('sub-W'), TEMP_ON_ENV, sql, 'req-admin-W');
+  assert.equal(adminConsole.status, 200,
+    'ADMIN_UNCHANGED=YES: the wildcard admin keeps its admin console');
+  const consoleData = (await adminConsole.json()).data;
+  assert.equal(consoleData.level, 'admin', 'the admin console level must stay admin');
+  assert.equal(consoleData.wildcard, true, 'the wildcard admin keeps wildcard=true');
+  assert.deepEqual(consoleData.scopes, ['*'], 'the stored wildcard grant stays the only scope');
+
+  // The exempt scope is still the one canonical way an authority holder is
+  // admitted to the resident surfaces.
+  const exemptStillAdmitted = await requireVerifiedResident(request('sub-E'), TEMP_ON_ENV, sql, 'req-on-E', 'complex-1');
+  assert.ok(!(exemptStillAdmitted instanceof Response),
+    'an explicit resident.verification.exempt holder must still be admitted');
+  assert.equal(exemptStillAdmitted.householdId, null, 'the exemption still fabricates no household');
+}
+
 /* ============ 6. a real verified resident keeps the real resident path ========= */
 {
   for (const [label, env] of [['TEMP OFF', TEMP_OFF_ENV], ['TEMP ON', TEMP_ON_ENV]]) {
@@ -299,11 +357,13 @@ function probeData(value) {
   assert.ok(authnAt >= 0 && switchAt > authnAt,
     'the temporary switch must be consulted only after requireActor() resolved a signed-in actor');
 
-  // The canonical strict 403 remains the fallback when the switch is off.
+  // The canonical strict 403 remains the fallback when the switch is off, and it
+  // also covers authority holders: the temporary path is gated on the actor
+  // having NO PADIEM authority at all.
   assert.match(
     authorization,
-    /if \(!ordinaryExempt && !isTemporaryResidentAccessEnabled\(env\)\) \{\s*\n\s*return fail\('RESIDENT_VERIFICATION_REQUIRED', 'Verified resident access required', 403, requestId\);/,
-    'TEMP OFF must fall back to the unchanged strict resident-verification refusal'
+    /const temporaryAdmitted =\s*\n\s*authority\.level === 'none' && isTemporaryResidentAccessEnabled\(env\);\s*\n\s*if \(!ordinaryExempt && !temporaryAdmitted\) \{\s*\n\s*return fail\('RESIDENT_VERIFICATION_REQUIRED', 'Verified resident access required', 403, requestId\);/,
+    'TEMP OFF (or any PADIEM authority) must fall back to the unchanged strict resident-verification refusal'
   );
 
   // No operator/admin authority resolver may consult the switch.
@@ -355,6 +415,7 @@ console.log('SIGNED_OUT_STILL_DENIED=PASS');
 console.log('SIGNED_IN_TEMP_ACCESS=PASS');
 console.log('FAKE_HOUSEHOLD=0 FAKE_MEMBERSHIP=0');
 console.log('ADMIN_WIDENING=NO OPERATOR_WIDENING=NO');
+console.log('WILDCARD_ADMIN_TEMP=NO AUTHORITY_LEVEL_GATE=YES');
 console.log('REAL_RESIDENT_REGRESSION=PASS');
 console.log('EXEMPTION_API_TEMPORARY_STATE=PASS');
 console.log('PASS #868 temporary resident access contract');
