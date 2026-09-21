@@ -74,6 +74,7 @@
     "test:pr-review-preview-workflow": "node tests/pr-review-preview-workflow-contract.mjs",
     "test:admin-authority-role-contract": "node tests/admin-authority-role-contract.mjs",
     "test:leaf-b788-visual-syntax-integrity": "node tests/leaf-b788-visual-syntax-integrity-contract.mjs",
+    "test:leaf-b858-notification-settings-route": "node ../../frontend/tests/leaf-b858-notification-settings-route-contract.mjs",
     "test:e2e": "playwright test",
     "test:e2e:headed": "playwright test --headed"
   },

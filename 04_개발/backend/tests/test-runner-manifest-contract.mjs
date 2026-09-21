@@ -182,6 +182,7 @@ const EXPECTED_FRONTEND_ORDER = [
    "test:pr-review-preview-workflow",
    "test:admin-authority-role-contract",
    "test:leaf-b788-visual-syntax-integrity",
+   "test:leaf-b858-notification-settings-route",
  ];
 
 const EXPECTED_CI_ONLY = [
