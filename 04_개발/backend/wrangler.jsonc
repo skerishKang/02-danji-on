@@ -57,7 +57,6 @@
       },
       "vars": {
         "APP_ENV": "production",
-        "TEMP_RESIDENT_ACCESS_MODE": "true",
         "COMMUNITY_PUBLISH_MODE": "immediate",
         "STORAGE_MODE": "drive",
         "DEV_AUTH_BYPASS": "false",
