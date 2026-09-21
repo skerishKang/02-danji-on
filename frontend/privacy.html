@@ -13,6 +13,7 @@
     .eyebrow{font-size:13px;font-weight:700;letter-spacing:.12em;color:#6b675f}
     h1{margin:14px 0 12px;font-size:clamp(28px,6vw,44px);line-height:1.1;letter-spacing:-.03em}
     h2{margin:36px 0 12px;font-size:19px;line-height:1.35;letter-spacing:-.02em}
+    h3{margin:24px 0 10px;font-size:16px;line-height:1.4;letter-spacing:-.01em}
     p,li{margin:0;color:#625f58;font-size:16px;line-height:1.75}
     p+p{margin-top:12px}
     ul{margin:12px 0 0;padding-left:20px}
@@ -55,12 +56,29 @@
       <li><strong>서비스 운영</strong> — 오류 대응, 부정 이용 방지, 공지·알림 발송, 서비스 개선을 위한 통계 분석</li>
     </ul>
 
-    <h2>4. Google OAuth 및 Google Drive 사용</h2>
-    <p>단지온은 로그인 인증과 파일 저장을 위해 Google의 인증·저장 기능을 사용합니다. 이용자가 직접 확인할 수 있도록 범위를 아래와 같이 밝힙니다.</p>
+    <h2>4. 외부 인증 및 저장 서비스 이용</h2>
+    <p>단지온은 로그인 인증과 파일 저장을 위해 외부 서비스를 함께 사용합니다. 인증과 저장은 목적과 권한이 다르므로 아래와 같이 나누어 안내합니다.</p>
+
+    <h3>4-1. 소셜 로그인</h3>
+    <p>단지온은 아래 세 가지 소셜 로그인을 지원합니다.</p>
     <ul>
-      <li><strong>로그인 인증</strong> — Google 계정으로 단지온에 로그인할 때 본인 확인을 위해 사용합니다.</li>
-      <li><strong>Drive 저장은 운영자 저장소 용도</strong> — 단지온이 업로드 파일을 보관하는 저장 공간은 운영 주체가 관리하는 Google Drive이며, 서버가 운영자 권한으로 파일을 저장·조회·삭제합니다.</li>
-      <li><strong>사용자 Google Drive 접근 없음</strong> — 단지온은 이용자 개인의 Google Drive에 접근하지 않습니다. 이용자의 Drive 파일을 읽거나, 목록을 보거나, 수정하거나, 삭제하지 않습니다.</li>
+      <li>Google</li>
+      <li>Kakao</li>
+      <li>Naver</li>
+    </ul>
+    <p>소셜 로그인은 <strong>로그인 인증 목적</strong>으로만 사용합니다. 이용자가 선택한 제공자에서 본인 확인을 마치면, 단지온은 그 제공자로부터 아래 정보를 제공받아 계정을 만들고 로그인 상태를 유지합니다.</p>
+    <ul>
+      <li>이메일 주소</li>
+      <li>이름 또는 닉네임</li>
+      <li>제공자가 부여한 계정 식별자</li>
+    </ul>
+    <p>단지온은 제공자로부터 비밀번호를 제공받지 않으며, 제공자의 아이디·비밀번호를 저장하지 않습니다. 소셜 로그인으로 받은 정보는 단지온 로그인과 계정 관리 목적 외에는 사용하지 않습니다. 어떤 제공자를 쓸지는 이용자가 직접 선택하며, 연결된 소셜 계정은 설정에서 확인할 수 있습니다.</p>
+
+    <h3>4-2. Google Drive 저장</h3>
+    <p>단지온이 업로드 파일을 보관하는 저장 공간은 운영 주체가 관리하는 Google Drive입니다. 저장은 로그인 인증과 분리되어 운영됩니다.</p>
+    <ul>
+      <li><strong>운영자 저장소 용도</strong> — 서버가 운영자 권한으로 파일을 저장·조회·삭제합니다.</li>
+      <li><strong>이용자 개인 Drive 접근 없음</strong> — 단지온은 이용자 개인의 Google Drive에 접근하지 않습니다. 이용자의 Drive 파일을 읽거나, 목록을 보거나, 수정하거나, 삭제하지 않습니다.</li>
     </ul>
     <p>업로드된 파일은 공개 링크로 공유되지 않습니다. 사업자 이미지 등 공개가 필요한 파일도 단지온 서버를 거쳐 제공되며, 저장소 자체의 공유 설정은 비공개로 유지됩니다. 주민 확인 증빙처럼 민감한 파일은 본인과 해당 단지의 확인 권한을 가진 운영자만 열람할 수 있습니다.</p>
 
