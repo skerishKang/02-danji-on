@@ -79,7 +79,7 @@ h1{margin:17px 0 8px;font-size:30px;line-height:1.18;letter-spacing:-.045em}
 <main>
 <span class="category">단지이야기</span>
 <h1>단지에서 나누고 싶은 이야기를 바로 적어보세요.</h1>
-<p class="lead">종류는 이미 선택했습니다. 바로 작성하면 됩니다.</p>
+<p class="lead">종류는 이미 선택했습니다. 바로 작성하면 됩니다.</p><p class="auth-help" data-auth-help role="status" hidden></p>
 <form id="writeForm">
 <section class="editor">
 <div class="field">
@@ -126,6 +126,33 @@ h1{margin:17px 0 8px;font-size:30px;line-height:1.18;letter-spacing:-.045em}
  const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
  const publishButtons=[...document.querySelectorAll('[data-publish]')];
  function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(window.__toast);window.__toast=setTimeout(()=>t.classList.remove('show'),2100)}
+ function clearAuthHelp(){const box=document.querySelector('[data-auth-help]');if(box){box.hidden=true;box.textContent='';}}
+ function showAuthHelp(r){
+  const box=document.querySelector('[data-auth-help]');if(!box)return;
+  clearAuthHelp();
+  if(!r||r.mode!=='auth-required')return;
+  const RESIDENT=/^(?:RESIDENT_VERIFICATION_REQUIRED|HOUSEHOLD_ASSOCIATION_REQUIRED)$/;
+  const code=String(r.error&&r.error.code||'');
+  const line=document.createElement('span');
+  let label='';
+  let href='';
+  if(r.status===403){
+   if(!RESIDENT.test(code))return;
+   line.textContent='글을 게시하려면 우리집 연결과 주민 확인이 필요합니다.';
+   label='우리집 연결하기';
+   href='26_우리집연결.html';
+  }else{
+   line.textContent=r.authBridge==='no-cookie'?'글을 게시하려면 로그인이 필요합니다.':'로그인 상태가 만료되어 게시할 수 없습니다.';
+   label='로그인 · 가입';
+   href='index.html?auth=login';
+  }
+  const cta=document.createElement('a');
+  cta.href=href;
+  cta.textContent=label;
+  cta.setAttribute('data-auth-help-cta','');
+  box.append(line,document.createTextNode(' '),cta);
+  box.hidden=false;
+ }
  function setBusy(on){publishButtons.forEach(b=>{b.disabled=on;b.setAttribute('aria-busy',String(on))})}
  function serverMessage(r){
   if(r&&r.mode==='auth-required'){
@@ -139,6 +166,9 @@ h1{margin:17px 0 8px;font-size:30px;line-height:1.18;letter-spacing:-.045em}
    // member's fault.
    const kind=window.DanjionSession&&DanjionSession.authFailureKind?DanjionSession.authFailureKind(r):'auth-required';
    if(kind==='bridge-fault')return '서버 인증 연결이 일시적으로 원활하지 않습니다. 잠시 후 다시 시도해 주세요.';
+  // #787: `no-cookie` means this browser never held a session, so the honest ask is to
+  // log in, not to re-log in. Only a resolved-then-invalid session is called expired.
+  if(r&&r.authBridge==='no-cookie')return '로그인이 필요합니다. 로그인한 뒤 글을 남길 수 있어요.';
    return '로그인이 만료되었습니다. 다시 로그인한 뒤 이용해 주세요.';
   }
   if(r&&r.error&&r.error.message)return r.error.message;
@@ -160,12 +190,13 @@ h1{margin:17px 0 8px;font-size:30px;line-height:1.18;letter-spacing:-.045em}
   busy=true;setBusy(true);
    bridge.createPost({kind:'resident_story',title:title.value.trim(),body:body.value.trim()}).then(r=>{
    if(r.ok&&r.mode==='server'){
+    clearAuthHelp();
     try{localStorage.removeItem(key)}catch(e){}
     const pending=r.post&&r.post.status!=='published';
     toast(pending?'게시 요청이 저장되었습니다. 공개 전 상태를 확인합니다.':'게시했습니다.');
     setTimeout(()=>{location.href=nextHref(r.post)},650);
-   }else toast(serverMessage(r));
-  }).catch(()=>toast('서버 연결에 실패했습니다. 잠시 후 다시 시도해 주세요.')).finally(()=>{busy=false;setBusy(false)});
+   }else{const message=serverMessage(r);showAuthHelp(r);toast(message);}
+  }).catch(()=>{clearAuthHelp();toast('서버 연결에 실패했습니다. 잠시 후 다시 시도해 주세요.');}).finally(()=>{busy=false;setBusy(false)});
  },true);
  document.addEventListener('click',ev=>{
   if(!ev.target.closest('.back'))return;
