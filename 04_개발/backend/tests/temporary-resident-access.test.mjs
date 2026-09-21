@@ -406,8 +406,6 @@ function probeData(value) {
     '#868 Production activation must be an explicit source-reviewed pin');
   assert.ok(!(wrangler.env?.production?.secrets?.required ?? []).includes('TEMP_RESIDENT_ACCESS_MODE'),
     'Production temporary mode must remain a source-visible var, not a secret');
-  assert.ok(!(wrangler.env?.production?.secrets?.required ?? []).includes('TEMP_RESIDENT_ACCESS_MODE'),
-    'the temporary switch is a source-visible config var, not a dashboard secret');
 }
 
 console.log('TEMP_SWITCH_FAIL_CLOSED=PASS');
