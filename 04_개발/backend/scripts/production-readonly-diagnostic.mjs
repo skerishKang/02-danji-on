@@ -17,7 +17,7 @@ async function main() {
   const health = await fetch(`${api}/api/health`);
   console.log(`HEALTH_STATUS=${health.status}`);
 
-  const jwks = await fetch(`${api}/.well-known/jwks.json`);
+  const jwks = await fetch(`${api}/api/auth/jwks`);
   console.log(`JWKS_STATUS=${jwks.status}`);
 
   for (const path of [
