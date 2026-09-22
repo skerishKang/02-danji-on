@@ -293,11 +293,15 @@ small{font-size:13px!important;line-height:1.45}
   html body header.site-header .desktop-nav,
   html body header.site-header .nav,
   html body header.topbar .nav{display:none!important}
+  /* #787 DEFECT-1: the brand column is minmax(0,1fr), so a wide account strip
+     can shrink it below the wordmark's intrinsic width and let the chip overlap
+     the brand. pin the brand to its intrinsic width and let the flexible column
+     absorb the remainder instead. */
   html body header.site-header .brand,
   html body header.topbar .brand{
     grid-column:1!important;justify-self:start!important;width:auto!important;max-width:none!important;
     display:flex!important;align-items:center!important;gap:0!important;margin:0!important;padding:0!important;
-    border:0!important;background:none!important;min-width:0!important;
+    border:0!important;background:none!important;min-width:max-content!important;flex:0 0 auto!important;
     font-family:"Pretendard Variable","Pretendard","Noto Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif!important;
     font-size:24px!important;line-height:1!important;font-weight:900!important;letter-spacing:-.055em!important;white-space:nowrap!important;
   }
@@ -314,7 +318,23 @@ small{font-size:13px!important;line-height:1.45}
   html body header.topbar .identity{
     grid-column:2!important;justify-self:end!important;display:block!important;visibility:visible!important;opacity:1!important;
     margin:0!important;padding:0!important;font-size:11px!important;line-height:1!important;font-weight:800!important;color:#5f5c56!important;white-space:nowrap!important;
+    min-width:0!important;max-width:min(100%,52vw)!important;
   }
+  /* #787 DEFECT-1: the account strip is a flex row of avatar + label + caret.
+     Keep it inside the track it is given and hide the text label on mobile so a
+     long resident name can never widen the strip into the brand column. The
+     hide must win regardless of the injection order of the account-menu style
+     block, which previously decided it by declaration order alone. */
+  html body header.site-header .identity.danjion-account-host,
+  html body header.topbar .identity.danjion-account-host{
+    display:flex!important;flex-direction:row!important;flex-wrap:nowrap!important;
+    align-items:center!important;justify-content:flex-end!important;
+    min-width:0!important;max-width:min(100%,52vw)!important;overflow:hidden!important;
+  }
+  html body header.site-header .danjion-account-label,
+  html body header.topbar .danjion-account-label{display:none!important}
+  html body header.site-header .danjion-account-trigger,
+  html body header.topbar .danjion-account-trigger{min-width:0!important;flex:0 1 auto!important}
   html body header.site-header .mobile-head,
   html body header.site-header .mobile-title,
   html body header.topbar .mobile-head,
