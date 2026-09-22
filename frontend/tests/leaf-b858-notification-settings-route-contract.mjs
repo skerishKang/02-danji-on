@@ -90,4 +90,36 @@ assert.ok(router24.includes('return f+q+h;'), '24 router must append hash to res
 assert.ok(page24.includes("if(location.hash==='#notifications')"), '24 restoreSettingsScroll must handle #notifications scroll');
 
 console.log('ROUTER_REGRESSION=PASS');
+
+// 7. #858 runtime regression guard:
+// consistency.js used to call removeAll('.side') unconditionally in the page-27
+// branch. removeAll hard-removes every match, so the whole <aside class="side">
+// (and the .side-action CTA inside it) disappeared at runtime even though the
+// static markup above is correct. The removal must stay scoped to this page's
+// layout and must never delete a side panel that carries the CTA.
+const consistency = await readFile(new URL('../assets/consistency.js', import.meta.url), 'utf8');
+assert.ok(
+  !/removeAll\('\.side'\)/.test(consistency),
+  "consistency.js must not call removeAll('.side') - the unscoped removal deletes the .side-action CTA on page 27"
+);
+
+const branch27 = (consistency.match(/^.*if\(number===27\).*$/m) || [])[0] || '';
+assert.ok(branch27, 'consistency.js must keep a page-27 branch');
+assert.ok(
+  branch27.includes("document.querySelectorAll('.notice-layout>.side')"),
+  '27 branch must scope the side removal to .notice-layout>.side (parity with the scoped page-28 removal)'
+);
+assert.ok(
+  branch27.includes("if(node.querySelector('.side-action'))return;"),
+  '27 branch must keep the side panel that carries the .side-action notification-settings CTA'
+);
+
+// Page 28 keeps its own scoped removal untouched.
+const branch28 = (consistency.match(/^.*if\(number===28\).*$/m) || [])[0] || '';
+assert.ok(
+  branch28.includes("document.querySelectorAll('.activity-layout>.side').forEach(node=>node.remove())"),
+  'page-28 side removal must remain unchanged'
+);
+console.log('NOTIFICATION_SETTINGS_SIDE_SURVIVES_RUNTIME=PASS');
+
 console.log('leaf-b858-notification-settings-route-contract: PASS');
