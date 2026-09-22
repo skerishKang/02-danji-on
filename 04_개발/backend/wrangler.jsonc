@@ -10,6 +10,7 @@
   "vars": {
     "APP_ENV": "development",
     "DEV_AUTH_BYPASS": "false",
+    "TEMP_RESIDENT_ACCESS_MODE": "false",
     "CORS_ALLOWED_ORIGINS": "http://localhost:5173,http://127.0.0.1:5173"
   },
   "env": {
@@ -29,6 +30,7 @@
       "preview_urls": false,
       "vars": {
         "APP_ENV": "qa",
+        "TEMP_RESIDENT_ACCESS_MODE": "true",
         "DEV_AUTH_BYPASS": "false",
         "AUTH_REQUIRE_EMAIL_VERIFICATION": "false"
       }
@@ -56,6 +58,7 @@
       },
       "vars": {
         "APP_ENV": "production",
+        "TEMP_RESIDENT_ACCESS_MODE": "true",
         "COMMUNITY_PUBLISH_MODE": "immediate",
         "STORAGE_MODE": "drive",
         "DEV_AUTH_BYPASS": "false",

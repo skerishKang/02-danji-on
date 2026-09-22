@@ -242,8 +242,8 @@ for (const [name, page, id] of SERVER_ONLY_COMMUNITY_PAGES) {
   assert.match(w12, /bridge\.listPosts\(null,\{limit:50\}\)/, '12 전체보기 reads the v1 feed');
   assert.match(w12, /result\.posts\.filter\(p=>LABEL\[p\.kind\]\)/, '12 hides kinds outside the shared UI mapping');
   assert.match(w12, /if\(!showAll&&!KIND\[selected\]\)(?:\{[\s\S]*?return;[\s\S]*?\}|return;)/, '12 must fail closed before any server read for an unmapped future chip');
-  assert.match(w12, /13_이웃대화_글상세_댓글\.html\?apiBase=\$\{encodeURIComponent\(apiBase\)\}&post=\$\{encodeURIComponent\(p\.id\)\}/, '12 links details with apiBase + server post id');
-  assert.match(w12, /WRITE\[selected\]\+'\?apiBase='/, '12 hands apiBase to the write pages');
+  assert.match(w12, /withApiBase\('13_이웃대화_글상세_댓글\.html\?post='\+encodeURIComponent\(p\.id\)\)/, '12 links details with a conditional apiBase + server post id');
+  assert.match(w12, /location\.href=withApiBase\(WRITE\[selected\]\)/, '12 hands a conditional apiBase to the write pages');
   assert.ok(page12.indexOf('danjion-community-list-live-wiring-329') < page12.indexOf('danjion-direct-router-v5'), '12 wiring stays ahead of the router');
 }
 {
@@ -262,7 +262,7 @@ for (const [name, page, id, kind, chip] of [['14', page14, 'danjion-community-wr
   const wiring = wiringScript(page, id);
   assert.match(wiring, new RegExp(`kind:'${kind}'`), `${name} publishes only its v1 kind`);
   assert.match(wiring, /bridge\.createPost\(/);
-  assert.match(wiring, new RegExp(`type=${chip}&apiBase=`), `${name} keeps a board fallback with apiBase`);
+  assert.ok(wiring.includes(`withApiBase('12_이웃대화_첫화면.html?type=${chip}')`), `${name} keeps a board fallback with a conditional apiBase`);
   assert.match(wiring, /13_이웃대화_글상세_댓글\.html/, `${name} routes accepted writes to server detail evidence`);
   assert.match(wiring, /UUID\.test\(postId\)/, `${name} only trusts a canonical returned post id for detail routing`);
   assert.match(wiring, /r\.status===403/, `${name} distinguishes verified-resident denial from session expiry`);

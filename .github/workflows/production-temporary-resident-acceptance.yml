@@ -1,0 +1,94 @@
+name: Production Temporary Resident Acceptance
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/production-temporary-resident-acceptance.yml'
+      - '04_개발/backend/scripts/production-temporary-resident-acceptance.mjs'
+      - '04_개발/backend/tests/production-temporary-resident-acceptance-contract.mjs'
+  workflow_dispatch:
+    inputs:
+      expected_main:
+        description: 'Exact main SHA authorized for read-only Production acceptance'
+        required: true
+        type: string
+      run_live:
+        description: 'Explicitly confirm read-only Production acceptance using pre-existing accounts'
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: danjion-production-temporary-resident-acceptance
+  cancel-in-progress: false
+
+jobs:
+  source-contract:
+    name: Production acceptance source contract
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: node 04_개발/backend/tests/production-temporary-resident-acceptance-contract.mjs
+
+  live-production:
+    name: Run read-only Production temporary resident acceptance
+    needs: source-contract
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_live }}
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      APP_ENV: production
+      DANJION_PRODUCTION_API_URL: https://padiem-danjion-api-production.padiem.workers.dev
+      DANJION_PRODUCTION_FRONTEND_URL: https://danjion.pages.dev
+      DANJION_PRODUCTION_SUPER_EMAIL: ${{ secrets.DANJION_PRODUCTION_SUPER_EMAIL }}
+      DANJION_PRODUCTION_SUPER_PASSWORD: ${{ secrets.DANJION_PRODUCTION_SUPER_PASSWORD }}
+      DANJION_PRODUCTION_OPERATOR_EMAIL: ${{ secrets.DANJION_PRODUCTION_OPERATOR_EMAIL }}
+      DANJION_PRODUCTION_OPERATOR_PASSWORD: ${{ secrets.DANJION_PRODUCTION_OPERATOR_PASSWORD }}
+      DANJION_PRODUCTION_RESIDENT_EMAIL: ${{ secrets.DANJION_PRODUCTION_RESIDENT_EMAIL }}
+      DANJION_PRODUCTION_RESIDENT_PASSWORD: ${{ secrets.DANJION_PRODUCTION_RESIDENT_PASSWORD }}
+      DANJION_PRODUCTION_TEMP_RESIDENT_EMAIL: ${{ secrets.DANJION_PRODUCTION_TEMP_RESIDENT_EMAIL }}
+      DANJION_PRODUCTION_TEMP_RESIDENT_PASSWORD: ${{ secrets.DANJION_PRODUCTION_TEMP_RESIDENT_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Exact-main, production-only, and credential guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected='${{ inputs.expected_main }}'
+          actual="$(git rev-parse HEAD)"
+          remote="$(git ls-remote origin refs/heads/main | awk '{print $1}')"
+          test "$GITHUB_REF" = 'refs/heads/main'
+          test "$actual" = "$expected" && test "$remote" = "$expected"
+          test "$DANJION_PRODUCTION_API_URL" = 'https://padiem-danjion-api-production.padiem.workers.dev'
+          test "$DANJION_PRODUCTION_FRONTEND_URL" = 'https://danjion.pages.dev'
+          test -z "${DATABASE_URL:-}" && test -z "${DANJION_PRODUCTION_DB_URL:-}"
+          for key in DANJION_PRODUCTION_SUPER_EMAIL DANJION_PRODUCTION_SUPER_PASSWORD DANJION_PRODUCTION_OPERATOR_EMAIL DANJION_PRODUCTION_OPERATOR_PASSWORD DANJION_PRODUCTION_RESIDENT_EMAIL DANJION_PRODUCTION_RESIDENT_PASSWORD DANJION_PRODUCTION_TEMP_RESIDENT_EMAIL DANJION_PRODUCTION_TEMP_RESIDENT_PASSWORD; do
+            value="${!key:-}"
+            test -n "$value"
+            if [[ "$key" == *PASSWORD ]]; then test "${#value}" -ge 8; fi
+          done
+          echo 'PRODUCTION_TEMP_ACCEPTANCE_GUARD=PASS'
+      - name: Run read-only acceptance
+        run: node 04_개발/backend/scripts/production-temporary-resident-acceptance.mjs
+      - name: Record bounded disposition
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo '## Production temporary resident acceptance'
+            echo '- Account provisioning: `NO`'
+            echo '- Household / membership mutation: `NO`'
+            echo '- Secret output: `NO`'
+          } >> "$GITHUB_STEP_SUMMARY"

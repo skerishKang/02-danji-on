@@ -125,6 +125,16 @@ assert.equal(qa.vars?.DEV_AUTH_BYPASS, 'false');
 assert.equal(qa.vars?.AUTH_REQUIRE_EMAIL_VERIFICATION, 'false');
 assert.notEqual(qa.name, wrangler.env?.production?.name, 'QA Worker name must differ from Production');
 
+// #868 verification preparation: the isolated QA Worker must run the temporary
+// resident-access switch ON so the temporary-resident acceptance state can be
+// exercised. The switch is a plain var, never a secret, and this file is the
+// only place the QA pin is asserted - Production's own pin belongs to the #868
+// feature change and is verified there.
+assert.equal(qa.vars?.TEMP_RESIDENT_ACCESS_MODE, 'true',
+  'QA Worker must enable temporary resident access for the #868 acceptance lane');
+assert.ok(!(qa.secrets?.required ?? []).includes('TEMP_RESIDENT_ACCESS_MODE'),
+  'the temporary resident-access switch is a var, never a secret');
+
 assert.match(migration, /DANJION_QA_DATABASE_URL/, 'QA migration gate must use a dedicated QA DB variable');
 assert.doesNotMatch(migration, /DANJION_PRODUCTION_DB_URL/, 'QA migration gate must never read the Production DB variable');
 assert.match(migration, /includeProductionSeed:\s*false/, 'QA migration plan must exclude production seeds');

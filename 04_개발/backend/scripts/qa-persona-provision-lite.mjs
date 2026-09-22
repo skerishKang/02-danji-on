@@ -1,0 +1,782 @@
+import { neon } from '@neondatabase/serverless';
+import { fileURLToPath } from 'node:url';
+
+/*
+ * #868 QA acceptance personas - LITE lane.
+ *
+ * Why this exists next to qa-persona-provision.mjs:
+ *   the full persona lane ends by converging a VERIFIED household fixture for the
+ *   resident persona. #868 temporary-resident acceptance needs the opposite
+ *   precondition - a signed-in member with NO verified household membership - and
+ *   the acceptance itself forbids creating households or memberships. Reusing the
+ *   full lane would therefore both violate that constraint and destroy the state
+ *   under test.
+ *
+ * This lane is intentionally narrow:
+ *   - it guarantees four QA credential actors exist and can sign in;
+ *   - it converges ONLY `padiem_operator_grants` for them;
+ *   - it NEVER creates or touches households, household_memberships,
+ *     complex_memberships or complex_operator_grants;
+ *   - it writes nothing outside the isolated QA environment.
+ *
+ * Identity policy: the four acceptance identities are pinned in source (the same
+ * practice #823 already uses for the ordinary test-resident exemption). Pinning
+ * removes the "which account does the CI secret hold?" ambiguity that made the
+ * previous failure undiagnosable. Passwords stay in GitHub qa-environment secrets.
+ *
+ * Existing accounts are a NORMAL path: Better Auth answers
+ * 422 USER_ALREADY_EXISTS, and the run continues to sign-in. A sign-in refusal is
+ * then reported explicitly as a password mismatch instead of a generic failure.
+ *
+ * Desired PADIEM scopes (#868 acceptance):
+ *   QA_SUPER    -> ['*']                      -> /api/v1/admin/authority level=admin
+ *   QA_OPERATOR -> OPERATIONAL_ADMIN_SCOPES   -> level=operator
+ *   QA_RESIDENT -> []                         -> no grant; existing resident fixture
+ *   QA_TEMP_RESIDENT -> []                    -> no grant; no household state
+ */
+
+const QA_API_HOST = 'padiem-danjion-api-qa.padiem.workers.dev';
+const QA_FRONTEND_HOST = 'danjion-qa.pages.dev';
+
+// Mirrors admin-scope-policy-v1.ts OPERATIONAL_ADMIN_SCOPES (source of record).
+const OPERATIONAL_ADMIN_SCOPES = Object.freeze([
+  'benefit.manage',
+  'business.review',
+  'community.moderate',
+  'inquiry.respond',
+  'official-content.manage',
+  'resident.verification.exempt',
+  'resident.verification.manage',
+  'resident_news.review',
+  'safety.report.review'
+]);
+
+const ACCOUNTS = Object.freeze([
+  {
+    name: 'QA_SUPER',
+    email: 'skerish_super_test@naver.com',
+    passwordEnv: 'DANJION_QA_SUPER_PASSWORD',
+    desiredScopes: Object.freeze(['*'])
+  },
+  {
+    name: 'QA_OPERATOR',
+    email: 'skerish_manage_test@naver.com',
+    passwordEnv: 'DANJION_QA_OPERATIONAL_PASSWORD',
+    desiredScopes: OPERATIONAL_ADMIN_SCOPES
+  },
+  {
+    name: 'QA_RESIDENT',
+    email: 'skerish_people_test@naver.com',
+    passwordEnv: 'DANJION_QA_RESIDENT_PASSWORD',
+    desiredScopes: Object.freeze([])
+  },
+  {
+    name: 'QA_TEMP_RESIDENT',
+    email: 'skerish_temp_resident_test@naver.com',
+    passwordEnv: 'DANJION_QA_TEMP_RESIDENT_PASSWORD',
+    desiredScopes: Object.freeze([]),
+    requiresEmptyResidentState: true
+  }
+]);
+
+function required(name) {
+  const value = process.env[name]?.trim();
+  if (!value) throw new Error(`QA_PERSONA_LITE_MISSING_INPUT:${name}`);
+  return value;
+}
+
+export function exactHttpsOrigin(raw, name, expectedHost) {
+  const url = new URL(raw);
+  if (url.protocol !== 'https:' || url.hostname !== expectedHost || url.pathname !== '/' || url.search || url.hash) {
+    throw new Error(`QA_PERSONA_LITE_UNSAFE_TARGET:${name}`);
+  }
+  return url.origin;
+}
+
+function validateDatabaseUrl(raw) {
+  const url = new URL(raw);
+  if (!['postgres:', 'postgresql:'].includes(url.protocol)) throw new Error('QA_PERSONA_LITE_DATABASE_URL_INVALID');
+  if (/production|prod\b/i.test(url.hostname)) throw new Error('QA_PERSONA_LITE_PRODUCTION_DATABASE_FORBIDDEN');
+  return raw;
+}
+
+// Never echo credentials, tokens or the database URL. Only the provider's own
+// error code and the response SHAPE are kept, so a 500 stays diagnosable without
+// ever echoing account detail: an unparsed code on a JSON envelope and an unparsed
+// code on a plain-text/HTML error page mean different things.
+function safeBody(raw) {
+  const text = String(raw || '').slice(0, 400);
+  const trimmed = text.trim();
+  const code = text.match(/"code"\s*:\s*"([A-Z0-9_]+)"/i);
+  const shape = !trimmed ? 'empty' : (trimmed.startsWith('{') || trimmed.startsWith('[')) ? 'json' : 'text';
+  return `${code ? `code=${code[1]}` : 'code=UNPARSED'} body=${shape}`;
+}
+
+function cookieHeader(response) {
+  const values = typeof response.headers.getSetCookie === 'function' ? response.headers.getSetCookie() : [];
+  return values.map((value) => value.split(';', 1)[0]?.trim()).filter(Boolean).join('; ');
+}
+
+function authHeaders(origin, cookie, sessionBearer) {
+  return {
+    accept: 'application/json',
+    origin,
+    ...(cookie ? { cookie } : {}),
+    ...(sessionBearer ? { authorization: `Bearer ${sessionBearer}` } : {})
+  };
+}
+
+async function expectOk(label, response) {
+  if (!response.ok) throw new Error(`QA_PERSONA_LITE_${label}_HTTP_${response.status}`);
+}
+
+export async function fetchPersonaMe(apiOrigin, frontendOrigin, jwt, personaName, fetchImpl = fetch) {
+  const me = await fetchImpl(new URL('/api/v1/me', apiOrigin), {
+    headers: { accept: 'application/json', authorization: `Bearer ${jwt}`, origin: frontendOrigin },
+    redirect: 'manual'
+  });
+  await expectOk(`AUTH_BRIDGE_${personaName}`, me);
+  return me;
+}
+
+function repairEnabled() {
+  return String(process.env.QA_PERSONA_LITE_REPAIR || '').trim().toLowerCase() === 'true';
+}
+
+// `converge_grants=false` is a READ-ONLY diagnosis: it reports the auth row
+// structure for all four pinned identities and probes sign-in, and writes nothing
+// at all - no account creation, no repair, no grant convergence. The switch is
+// fail-safe (default OFF) so a dispatch that forgets it cannot mutate QA state; a
+// real convergence has to ask for it explicitly.
+function grantsEnabled() {
+  return String(process.env.QA_PERSONA_LITE_GRANTS || '').trim().toLowerCase() === 'true';
+}
+
+/**
+ * READ-ONLY diagnosis stage classification.
+ *
+ * A failure AFTER a successful sign-in used to abort the whole lane, which hid every
+ * remaining identity and left "the sign-in returned 500" indistinguishable from "the
+ * session, the service JWT, the auth bridge, the app_users link or the authority read
+ * threw". The read-only path names the stage and keeps going; the write path still
+ * fails closed on exactly the same errors.
+ *
+ * The stage is derived from the already-stable `QA_PERSONA_LITE_*` error tokens, so
+ * the lane still never prints a response body, a credential or an address.
+ *
+ * `stage=db` is checked first and means "the QA database was not reachable from this
+ * runner". A database fetch failure is NOT an auth failure, and the whole point of
+ * this classification is that it can never be read as one.
+ */
+const DB_FAILURE_SIGNATURES = Object.freeze([
+  'error connecting to database',
+  'econnrefused',
+  'econnreset',
+  'enotfound',
+  'etimedout',
+  'socket hang up'
+]);
+
+const DB_RETRY_ATTEMPTS = 3;
+
+function dbRetryDelayMs() {
+  const raw = Number(process.env.QA_PERSONA_LITE_DB_RETRY_MS);
+  return Number.isFinite(raw) && raw >= 0 ? raw : 4000;
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => { setTimeout(resolve, ms); });
+}
+
+const FAILURE_STAGES = Object.freeze([
+  ['QA_PERSONA_LITE_SESSION_CREDENTIAL_MISSING', 'session_credential'],
+  ['QA_PERSONA_LITE_SERVICE_JWT_MISSING', 'token'],
+  ['QA_PERSONA_LITE_AUTH_SUBJECT_MISSING', 'session'],
+  ['QA_PERSONA_LITE_SESSION_', 'session'],
+  ['QA_PERSONA_LITE_TOKEN_', 'token'],
+  ['QA_PERSONA_LITE_AUTH_BRIDGE_', 'bridge'],
+  ['QA_PERSONA_LITE_APP_USER_LINK_MISSING', 'app_user'],
+  ['QA_PERSONA_LITE_PASSWORD_INVALID', 'credential_input']
+]);
+
+export function failureToken(error) {
+  const message = error instanceof Error ? error.message : String(error);
+  return message.split(':', 1)[0].trim() || 'UNKNOWN';
+}
+
+export function failureStage(error) {
+  const message = error instanceof Error ? error.message : String(error);
+  const lowered = message.toLowerCase();
+  // Deliberately NOT keyed on a bare `fetch failed`: the HTTP probes fail with the
+  // same undici shape, and a probe failure is not a database failure.
+  if (DB_FAILURE_SIGNATURES.some((signature) => lowered.includes(signature))) return 'db';
+  const token = failureToken(error);
+  const match = FAILURE_STAGES.find(([prefix]) => token.startsWith(prefix));
+  return match ? match[1] : 'unknown';
+}
+
+/**
+ * Bounded retry for the READ-ONLY diagnosis only (`enabled` is false on every
+ * convergence path, so no write is ever retried). It retries solely on the database
+ * connectivity signature, backs off linearly, and gives up after DB_RETRY_ATTEMPTS
+ * so a genuinely dead database still fails the run instead of hanging it.
+ */
+/**
+ * READ-ONLY reporting helpers. They exist so the label a reader sees always matches
+ * the fact that happened:
+ *   - a database fetch failure is never printed as an auth failure;
+ *   - a successful sign-in is never reported as "no sign-in" just because a later
+ *     database-backed step failed;
+ *   - the number of identities that SIGNED IN is never conflated with the number whose
+ *     database-backed details could actually be READ.
+ */
+export function signinStatus(error) {
+  return error instanceof Error && typeof error.signinStatus === 'number' ? error.signinStatus : 0;
+}
+
+export function formatAcquisitionFailure(name, error) {
+  const status = signinStatus(error);
+  if (status) {
+    return `PERSONA=${name} POST_SIGNIN_STAGE_FAILED stage=${failureStage(error)} signin_status=${status} detail=${failureToken(error)}`;
+  }
+  return `SIGNIN=${name} status=- stage=${failureStage(error)} detail=${failureToken(error)}`;
+}
+
+export function formatDiagnosisCounts(signinOk, acquired, total) {
+  return [
+    `SIGNIN_OK_COUNT=${signinOk}/${total}`,
+    `ACQUIRED_COUNT=${acquired}/${total}`,
+    `DIAGNOSIS_RESULT=${signinOk === total ? 'COMPLETE' : 'INCOMPLETE'}`
+  ];
+}
+
+export async function withDbRetry(work, enabled) {
+  const attempts = enabled ? DB_RETRY_ATTEMPTS : 1;
+  let lastError;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      return await work();
+    } catch (error) {
+      lastError = error;
+      if (!enabled || failureStage(error) !== 'db') throw error;
+      console.log(`DB_RETRY=attempt_${attempt}_of_${attempts} stage=db detail=${failureToken(error)}`);
+      if (attempt < attempts) await sleep(dbRetryDelayMs() * attempt);
+    }
+  }
+  throw lastError;
+}
+
+/**
+ * READ-ONLY auth structure snapshot for one pinned QA identity.
+ *
+ * `INVALID_EMAIL_OR_PASSWORD` cannot distinguish "no such account" from "no
+ * usable password credential", so the lane reports the actual row shape before
+ * it decides anything. No hash, token, session id or address is printed - only
+ * counts for the exact pinned identity.
+ */
+export async function readAuthStructure(sql, email) {
+  const target = String(email).trim().toLowerCase();
+  const rows = await sql`
+    select
+      u.id as user_id,
+      u.email_verified as email_verified,
+      (u.username is not null) as has_username,
+      (select count(*) from danjion_auth.account a where a.user_id = u.id) as account_rows,
+      (select count(*) from danjion_auth.account a where a.user_id = u.id and lower(a.provider_id) = 'credential') as credential_rows,
+      (select count(*) from danjion_auth.account a
+        where a.user_id = u.id and lower(a.provider_id) = 'credential' and a.password is not null) as password_rows,
+      (select count(*) from danjion_auth.session s where s.user_id = u.id) as session_rows
+    from danjion_auth."user" u
+    where lower(u.email) = ${target}
+    limit 1
+  `;
+  const row = rows[0];
+  if (!row) return { userRows: 0, accountRows: 0, credentialRows: 0, passwordRows: 0, sessionRows: 0 };
+  return {
+    userRows: 1,
+    emailVerified: row.email_verified === true,
+    hasUsername: row.has_username === true,
+    accountRows: Number(row.account_rows || 0),
+    credentialRows: Number(row.credential_rows || 0),
+    passwordRows: Number(row.password_rows || 0),
+    sessionRows: Number(row.session_rows || 0)
+  };
+}
+
+export function formatAuthStructure(name, structure) {
+  return [
+    `AUTH_STRUCTURE=${name}`,
+    `userRows=${structure.userRows}`,
+    `emailVerified=${structure.emailVerified === true ? 'true' : 'false'}`,
+    `accountRows=${structure.accountRows}`,
+    `credentialRows=${structure.credentialRows}`,
+    `passwordRows=${structure.passwordRows}`,
+    `sessionRows=${structure.sessionRows}`
+  ].join(' ');
+}
+
+/**
+ * READ-ONLY authority snapshot for one pinned QA identity.
+ *
+ * Deliberately independent of sign-in: it resolves the identity by address in
+ * `danjion_auth."user"`, follows `app_users.auth_user_id`, and reads the ACTIVE
+ * `padiem_operator_grants` scopes. That is how the super wildcard grant and the
+ * operator bundle stay measurable while that identity cannot sign in at all.
+ *
+ * `string_agg` (not an array) is used on purpose: one row, one deterministic text
+ * value, so the reading cannot change shape between driver versions. No hash,
+ * token, session id or address is selected or printed.
+ */
+export async function readPinnedAuthority(sql, email) {
+  const target = String(email).trim().toLowerCase();
+  const rows = await sql`
+    select
+      (select count(*) from app_users au where au.auth_user_id::text = u.id::text) as app_user_rows,
+      (select string_agg(g.scope, ',' order by g.scope)
+         from padiem_operator_grants g
+         join app_users au2 on au2.id = g.user_id
+        where au2.auth_user_id::text = u.id::text
+          and g.status = 'active'
+          and (g.expires_at is null or g.expires_at > now())) as active_scopes
+    from danjion_auth."user" u
+    where lower(u.email) = ${target}
+    limit 1
+  `;
+  const row = rows[0];
+  if (!row) return { appUserRows: 0, activeScopes: [] };
+  const list = row.active_scopes ? String(row.active_scopes) : '';
+  return {
+    appUserRows: Number(row.app_user_rows || 0),
+    activeScopes: list ? list.split(',').map((scope) => scope.trim()).filter(Boolean) : []
+  };
+}
+
+export function formatPinnedAuthority(name, authority) {
+  const wildcard = authority.activeScopes.includes('*');
+  return [
+    `SCOPES=${name}`,
+    `app_user_link=${authority.appUserRows > 0 ? 'true' : 'false'}`,
+    `wildcard=${wildcard ? 'true' : 'false'}`,
+    `active_scope_count=${authority.activeScopes.length}`,
+    `scope_list=${authority.activeScopes.join(',') || '-'}`
+  ].join(' ');
+}
+
+/**
+ * Repair a pinned QA identity that exists but cannot authenticate.
+ *
+ * Scope is deliberately tiny and bounded:
+ *   - only ever called for the four pinned acceptance identities;
+ *   - only ever when QA_PERSONA_LITE_REPAIR is exactly 'true' (an explicit
+ *     manual-dispatch decision), never by default;
+ *   - the single statement targets danjion_auth."user" by exact email. Sessions
+ *     and account rows are removed by the existing ON DELETE CASCADE, so no
+ *     other table is touched. app_users / households / memberships / grants are
+ *     never deleted here.
+ * The caller re-signs-up afterwards, which stores a fresh credential password
+ * through Better Auth's own write path.
+ */
+export async function repairAuthAccount(sql, email) {
+  const target = String(email).trim().toLowerCase();
+  if (!ACCOUNTS.some((account) => account.email === target)) {
+    throw new Error('QA_PERSONA_LITE_REPAIR_TARGET_NOT_PINNED');
+  }
+  await sql`delete from danjion_auth."user" where lower(email) = ${target}`;
+}
+
+/**
+ * Guarantee the pinned QA identity exists and can sign in.
+ *
+ * 422 USER_ALREADY_EXISTS is the expected answer for an account that already
+ * exists and is treated as success. Any other refusal is reported with its own
+ * name: a 401/400 on sign-in means the stored QA credential is unusable, which
+ * is a provisioning/data problem - not a product defect. With the explicit
+ * repair flag set, such an identity is recreated once and re-signed-in.
+ *
+ * `writeAccounts=false` is the read-only diagnosis: sign-in is probed, nothing is
+ * created and nothing is repaired, and a refused identity is reported as
+ * `SIGNIN=<name> status=<code>` with a null return instead of an exception.
+ */
+export async function acquireAccount(frontendOrigin, apiOrigin, sql, account, fetchImpl = fetch, repair = repairEnabled(), writeAccounts = true) {
+  const email = String(account.email).trim().toLowerCase();
+  const password = required(account.passwordEnv);
+  if (password.length < 8) throw new Error(`QA_PERSONA_LITE_PASSWORD_INVALID:${account.name}`);
+
+  // The read-only diagnosis must survive an unreachable database: the structure
+  // becomes UNREADABLE and the HTTP sign-in probe still runs, so a QA database fetch
+  // failure can never be mistaken for an auth failure. A convergence run still fails
+  // closed on exactly the same read.
+  const structure = await withDbRetry(() => readAuthStructure(sql, email), !writeAccounts).catch((error) => {
+    if (writeAccounts) throw error;
+    console.log(`AUTH_STRUCTURE=${account.name} status=UNREADABLE stage=${failureStage(error)} detail=${failureToken(error)}`);
+    return null;
+  });
+
+  let created = false;
+  const signUpOnce = async () => {
+    const signup = await fetchImpl(new URL('/api/auth/sign-up/email', frontendOrigin), {
+      method: 'POST',
+      headers: { accept: 'application/json', 'content-type': 'application/json', origin: frontendOrigin },
+      body: JSON.stringify({ email, password, name: account.name }),
+      redirect: 'manual'
+    });
+    const body = await signup.text().catch(() => '');
+    if (signup.ok) return 'created';
+    if (signup.status === 422) return 'existing';
+    throw new Error(`QA_PERSONA_LITE_SIGNUP_HTTP_${signup.status}:${account.name}:${safeBody(body)}`);
+  };
+  const signInOnce = () => fetchImpl(new URL('/api/auth/sign-in/email', frontendOrigin), {
+    method: 'POST',
+    headers: { accept: 'application/json', 'content-type': 'application/json', origin: frontendOrigin },
+    body: JSON.stringify({ email, password }),
+    redirect: 'manual'
+  });
+
+  let signIn;
+  if (writeAccounts) {
+    created = (await signUpOnce()) === 'created';
+    signIn = await signInOnce();
+
+    if (!signIn.ok && (signIn.status === 401 || signIn.status === 400) && repair) {
+      console.log(`AUTH_REPAIR=${account.name} RECREATED`);
+      await repairAuthAccount(sql, email);
+      created = (await signUpOnce()) === 'created';
+      signIn = await signInOnce();
+    }
+  } else {
+    // Read-only diagnosis never signs up: a pinned identity that does not exist yet
+    // stays absent instead of being created by the diagnostic.
+    signIn = await signInOnce();
+  }
+
+  if (!signIn.ok) {
+    if (writeAccounts) {
+      if (signIn.status === 401 || signIn.status === 400) {
+        const after = repair ? await readAuthStructure(sql, email) : structure;
+        throw new Error(`QA_PERSONA_LITE_SIGNIN_PASSWORD_MISMATCH:${account.name}:${formatAuthStructure(account.name, after)}`);
+      }
+      throw new Error(`QA_PERSONA_LITE_SIGNIN_HTTP_${signIn.status}:${account.name}`);
+    }
+    // The read-only diagnosis reports where the refusal happened - and, for a 5xx, the
+    // provider's own error code - then keeps going, so one dispatch still yields every
+    // identity's structure instead of stopping at the first one.
+    //
+    // `session_rows_before/after` are the same read-only count taken either side of the
+    // probe, so a 500 that persisted a session row is distinguishable from a 500 that
+    // left no session behind. `authority_probe=not_reached` states explicitly that no
+    // admin-authority or grant lookup was performed for this identity, because a
+    // refused sign-in never produced a subject to look them up with - the independent
+    // `SCOPES=` snapshot is what answers the grant question instead.
+    const body = await signIn.text().catch(() => '');
+    const after = await withDbRetry(() => readAuthStructure(sql, email), !writeAccounts).catch(() => null);
+    console.log(
+      `SIGNIN=${account.name} status=${signIn.status} stage=signin ${safeBody(body)} ` +
+      `session_rows_before=${structure ? structure.sessionRows : 'UNREADABLE'} ` +
+      `session_rows_after=${after ? after.sessionRows : 'UNREADABLE'} ` +
+      'authority_probe=not_reached'
+    );
+    return null;
+  }
+
+  console.log(`SIGNIN=${account.name} status=${signIn.status}`);
+
+  let cookie = '';
+  let sessionBearer = '';
+  try {
+    cookie = cookieHeader(signIn);
+    sessionBearer = signIn.headers.get('set-auth-token')?.trim() || '';
+    if (!cookie && !sessionBearer) throw new Error(`QA_PERSONA_LITE_SESSION_CREDENTIAL_MISSING:${account.name}`);
+
+    const session = await fetchImpl(new URL('/api/auth/get-session', frontendOrigin), {
+      headers: authHeaders(frontendOrigin, cookie, sessionBearer),
+      redirect: 'manual'
+    });
+    await expectOk(`SESSION_${account.name}`, session);
+    const sessionBody = await session.json().catch(() => null);
+    const subject = typeof sessionBody?.user?.id === 'string' ? sessionBody.user.id.trim() : '';
+    if (!subject) throw new Error(`QA_PERSONA_LITE_AUTH_SUBJECT_MISSING:${account.name}`);
+
+    let jwt = session.headers.get('set-auth-jwt')?.trim() || '';
+    if (!jwt) {
+      const token = await fetchImpl(new URL('/api/auth/token', frontendOrigin), {
+        headers: authHeaders(frontendOrigin, cookie, sessionBearer),
+        redirect: 'manual'
+      });
+      await expectOk(`TOKEN_${account.name}`, token);
+      const tokenBody = await token.json().catch(() => null);
+      jwt = typeof tokenBody?.token === 'string' ? tokenBody.token.trim() : '';
+    }
+    if (!jwt) throw new Error(`QA_PERSONA_LITE_SERVICE_JWT_MISSING:${account.name}`);
+
+    await fetchPersonaMe(apiOrigin, frontendOrigin, jwt, account.name, fetchImpl);
+
+    const users = await sql`select id from app_users where auth_user_id = ${subject} limit 1`;
+    if (!users[0]?.id) throw new Error(`QA_PERSONA_LITE_APP_USER_LINK_MISSING:${account.name}`);
+    return { ...account, email, subject, userId: String(users[0].id), created };
+  } catch (error) {
+    // Everything past this point happened AFTER the HTTP sign-in returned 2xx, so the
+    // identity's ability to sign in is already established. Tagging the error lets the
+    // read-only report say `POST_SIGNIN_STAGE_FAILED signin_status=200` instead of
+    // implying the sign-in never happened.
+    if (error instanceof Error) error.signinStatus = signIn.status;
+    throw error;
+  } finally {
+    if (cookie || sessionBearer) {
+      await fetchImpl(new URL('/api/auth/sign-out', frontendOrigin), {
+        method: 'POST',
+        headers: { ...authHeaders(frontendOrigin, cookie, sessionBearer), 'content-type': 'application/json' },
+        body: '{}',
+        redirect: 'manual'
+      }).catch(() => null);
+    }
+  }
+}
+
+/**
+ * READ-ONLY. The read-only diagnosis reports the active PADIEM scopes of an
+ * identity without touching them, so a run that is not authorized to write can
+ * still show the authority the acceptance would observe.
+ */
+export async function readActivePadiemScopes(sql, actor) {
+  const rows = await sql`
+    select scope
+    from padiem_operator_grants
+    where user_id = ${actor.userId}::uuid
+      and status = 'active'
+      and (expires_at is null or expires_at > now())
+    order by scope
+  `;
+  return rows.map((row) => String(row.scope));
+}
+
+/**
+ * Converge exactly the desired active PADIEM scopes and nothing else.
+ * An empty desired set REVOKES every active grant - the temporary-resident lane
+ * must never carry operator authority.
+ */
+export async function convergePadiemGrants(sql, actor) {
+  const desired = [...actor.desiredScopes];
+  if (desired.length === 0) {
+    await sql`
+      update padiem_operator_grants
+      set status = 'revoked', revoked_at = now(), reason = 'qa persona lite convergence',
+          metadata = jsonb_build_object('source','qa_persona_provision_lite','persona',${actor.name}::text)
+      where user_id = ${actor.userId}::uuid and status = 'active'
+    `;
+  } else {
+    await sql`
+      update padiem_operator_grants
+      set status = 'revoked', revoked_at = now(), reason = 'qa persona lite convergence',
+          metadata = jsonb_build_object('source','qa_persona_provision_lite','persona',${actor.name}::text)
+      where user_id = ${actor.userId}::uuid
+        and status = 'active'
+        and not (scope = any(${desired}::text[]))
+    `;
+  }
+
+  for (const scope of desired) {
+    await sql`
+      update padiem_operator_grants
+      set expires_at = null, revoked_at = null, reason = 'qa persona lite convergence',
+          metadata = jsonb_build_object('source','qa_persona_provision_lite','persona',${actor.name}::text)
+      where user_id = ${actor.userId}::uuid and scope = ${scope} and status = 'active'
+    `;
+    await sql`
+      insert into padiem_operator_grants (user_id, scope, status, granted_by_user_id, expires_at, revoked_at, reason, metadata)
+      select ${actor.userId}::uuid, ${scope}, 'active', null, null, null, 'qa persona lite convergence',
+             jsonb_build_object('source','qa_persona_provision_lite','persona',${actor.name}::text)
+      where not exists (
+        select 1 from padiem_operator_grants
+        where user_id = ${actor.userId}::uuid and scope = ${scope} and status = 'active'
+      )
+    `;
+  }
+
+  const rows = await sql`
+    select scope
+    from padiem_operator_grants
+    where user_id = ${actor.userId}::uuid
+      and status = 'active'
+      and (expires_at is null or expires_at > now())
+    order by scope
+  `;
+  const actual = rows.map((row) => String(row.scope));
+  const expected = [...desired].sort();
+  if (actual.length !== expected.length || actual.some((scope, index) => scope !== expected[index])) {
+    throw new Error(`QA_PERSONA_LITE_GRANT_READBACK_MISMATCH:${actor.name}`);
+  }
+  return actual;
+}
+
+/**
+ * READ-ONLY. This lane must never create household or membership state, and the
+ * #868 temporary-resident lane additionally needs a principal with NO verified
+ * membership. Both facts are measured, never mutated.
+ */
+export async function readResidentState(sql, actor) {
+  const rows = await sql`
+    select
+      (select count(*) from household_memberships where user_id = ${actor.userId}::uuid) as household_memberships,
+      (select count(*) from household_memberships where user_id = ${actor.userId}::uuid and status = 'verified') as verified_household_memberships,
+      (select count(*) from complex_memberships where user_id = ${actor.userId}::uuid) as complex_memberships,
+      (select count(*) from complex_operator_grants where user_id = ${actor.userId}::uuid and status = 'active') as complex_operator_grants
+  `;
+  const row = rows[0] || {};
+  return {
+    householdMemberships: Number(row.household_memberships || 0),
+    verifiedHouseholdMemberships: Number(row.verified_household_memberships || 0),
+    complexMemberships: Number(row.complex_memberships || 0),
+    complexOperatorGrants: Number(row.complex_operator_grants || 0)
+  };
+}
+
+function assertTemporaryResidentPrecondition(actor, scopes, residentState) {
+  if (!actor.requiresEmptyResidentState) return;
+  if (scopes.length > 0) throw new Error(`QA_PERSONA_LITE_TEMP_RESIDENT_GRANT_PRESENT:${actor.name}`);
+  if (
+    residentState.householdMemberships !== 0 ||
+    residentState.verifiedHouseholdMemberships !== 0 ||
+    residentState.complexMemberships !== 0 ||
+    residentState.complexOperatorGrants !== 0
+  ) {
+    throw new Error(`QA_PERSONA_LITE_TEMP_RESIDENT_STATE_NOT_EMPTY:${actor.name}`);
+  }
+}
+
+function reportActor(actor, scopes, residentState, converged) {
+  const wildcard = scopes.includes('*');
+  const authorityLevel = wildcard ? 'admin' : scopes.length ? 'operator' : 'none';
+  console.log(`PERSONA=${actor.name}`);
+  console.log('AUTH=PASS');
+  console.log(`ACCOUNT_CREATED=${actor.created ? 'true' : 'false'}`);
+  console.log(`AUTHORITY_LEVEL=${authorityLevel}`);
+  console.log(`WILDCARD=${wildcard ? 'true' : 'false'}`);
+  console.log(`BOUNDED_SCOPE_COUNT=${scopes.filter((scope) => scope !== '*').length}`);
+  console.log(`HOUSEHOLD_MEMBERSHIP_COUNT=${residentState.householdMemberships}`);
+  console.log(`VERIFIED_HOUSEHOLD_MEMBERSHIP=${residentState.verifiedHouseholdMemberships > 0 ? 'true' : 'false'}`);
+  console.log(`COMPLEX_MEMBERSHIP_COUNT=${residentState.complexMemberships}`);
+  console.log(`COMPLEX_OPERATOR_GRANT_COUNT=${residentState.complexOperatorGrants}`);
+  console.log('HOUSEHOLD_FIXTURE=NOT_RUN');
+  console.log(`GRANTS_CONVERGED=${converged ? 'true' : 'false'}`);
+  console.log('PRODUCTION_TARGET=NO');
+  console.log('SECRET_OUTPUT=NO');
+}
+
+async function main() {
+  if (required('APP_ENV') !== 'qa') throw new Error('QA_PERSONA_LITE_APP_ENV_MUST_BE_QA');
+  if (process.env.DATABASE_URL) throw new Error('QA_PERSONA_LITE_GENERIC_DATABASE_URL_FORBIDDEN');
+  if (process.env.DANJION_PRODUCTION_DB_URL) throw new Error('QA_PERSONA_LITE_PRODUCTION_DATABASE_VARIABLE_FORBIDDEN');
+
+  const apiOrigin = exactHttpsOrigin(required('DANJION_QA_API_URL'), 'API', QA_API_HOST);
+  const frontendOrigin = exactHttpsOrigin(required('DANJION_QA_FRONTEND_URL'), 'FRONTEND', QA_FRONTEND_HOST);
+  const databaseUrl = validateDatabaseUrl(required('DANJION_QA_DATABASE_URL'));
+
+  if (new Set(ACCOUNTS.map(({ email }) => email)).size !== ACCOUNTS.length) {
+    throw new Error('QA_PERSONA_LITE_IDENTITIES_MUST_BE_DISTINCT');
+  }
+
+  const repair = repairEnabled();
+  const converge = grantsEnabled();
+  if (repair) console.log('AUTH_REPAIR_MODE=ON');
+  console.log(converge ? 'GRANTS_MODE=CONVERGE' : 'GRANTS_MODE=READ_ONLY');
+
+  const sql = neon(databaseUrl);
+
+  // Every run reports all four pinned identities BEFORE anything is attempted, so
+  // a single dispatch is enough to see the whole auth structure even when a
+  // sign-in refusal stops the lane part-way. The authority snapshot is read the same
+  // way - straight from the pinned address - so the super wildcard and the operator
+  // bundle are measurable even for an identity that cannot sign in.
+  // Each read reports its OWN outcome. A structure read that succeeded must never be
+  // re-printed as UNREADABLE just because the authority read after it failed - that
+  // re-print is precisely the confusion between a database failure and an auth result
+  // this lane exists to prevent. A convergence run still stops on the first failure.
+  for (const account of ACCOUNTS) {
+    try {
+      const structure = await withDbRetry(() => readAuthStructure(sql, account.email), !converge);
+      console.log(`${formatAuthStructure(account.name, structure)} status=OK`);
+    } catch (error) {
+      if (converge) throw error;
+      console.log(`AUTH_STRUCTURE=${account.name} status=UNREADABLE stage=${failureStage(error)} detail=${failureToken(error)}`);
+    }
+    try {
+      const authority = await withDbRetry(() => readPinnedAuthority(sql, account.email), !converge);
+      console.log(`${formatPinnedAuthority(account.name, authority)} status=OK`);
+    } catch (error) {
+      if (converge) throw error;
+      console.log(`PERSONA=${account.name} AUTHORITY_READ_FAILED read=snapshot stage=${failureStage(error)} detail=${failureToken(error)}`);
+    }
+  }
+
+  const actors = [];
+  let signinOk = 0;
+  let acquired = 0;
+  for (const account of ACCOUNTS) {
+    try {
+      const actor = await acquireAccount(frontendOrigin, apiOrigin, sql, account, fetch, repair, converge);
+      if (actor) {
+        actors.push(actor);
+        acquired += 1;
+        signinOk += 1;
+      }
+    } catch (error) {
+      // Only the read-only diagnosis degrades gracefully; a convergence run must still
+      // fail closed on an identity it could not bring up. A tagged failure means the
+      // HTTP sign-in already returned 2xx, so it counts as a sign-in even though the
+      // identity's database-backed details could not be read.
+      if (converge) throw error;
+      if (signinStatus(error)) signinOk += 1;
+      console.log(formatAcquisitionFailure(account.name, error));
+    }
+  }
+
+  if (converge) {
+    if (new Set(actors.map(({ subject }) => subject)).size !== ACCOUNTS.length) {
+      throw new Error('QA_PERSONA_LITE_AUTH_SUBJECTS_MUST_BE_DISTINCT');
+    }
+    if (new Set(actors.map(({ userId }) => userId)).size !== ACCOUNTS.length) {
+      throw new Error('QA_PERSONA_LITE_APP_USERS_MUST_BE_DISTINCT');
+    }
+  }
+
+  for (const actor of actors) {
+    let residentState;
+    try {
+      residentState = await withDbRetry(() => readResidentState(sql, actor), !converge);
+    } catch (error) {
+      if (converge) throw error;
+      console.log(`PERSONA=${actor.name} AUTHORITY_READ_FAILED read=state stage=${failureStage(error)} detail=${failureToken(error)}`);
+      continue;
+    }
+    let scopes;
+    try {
+      scopes = converge
+        ? await convergePadiemGrants(sql, actor)
+        : await withDbRetry(() => readActivePadiemScopes(sql, actor), true);
+    } catch (error) {
+      if (converge) throw error;
+      console.log(`PERSONA=${actor.name} AUTHORITY_READ_FAILED read=authority stage=${failureStage(error)} detail=${failureToken(error)}`);
+      continue;
+    }
+    assertTemporaryResidentPrecondition(actor, scopes, residentState);
+    reportActor(actor, scopes, residentState, converge);
+  }
+
+  if (!converge) {
+    for (const line of formatDiagnosisCounts(signinOk, acquired, ACCOUNTS.length)) console.log(line);
+    if (signinOk < ACCOUNTS.length) {
+      console.log('::warning::QA acceptance persona sign-in is incomplete - read the SIGNIN lines above');
+    }
+    if (acquired < signinOk) {
+      console.log('::warning::QA authority or residency reads were degraded - read the stage=db lines above');
+    }
+    console.log('DIAGNOSIS_ONLY=YES');
+  }
+}
+
+if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+  main().catch((error) => {
+    console.error(error instanceof Error ? error.message : 'QA_PERSONA_LITE_FAILED');
+    process.exit(1);
+  });
+}

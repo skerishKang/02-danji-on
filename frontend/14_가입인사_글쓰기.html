@@ -118,10 +118,12 @@ h1{margin:17px 0 8px;font-size:30px;line-height:1.18;letter-spacing:-.045em}
 <script id="danjion-community-write-greeting-live-wiring-348">
 (()=>{
  const apiBase=(window.DanjionSession&&DanjionSession.danjionApiBase())||'';
+ // #863: carry apiBase only when it is actually set — never emit an empty ?apiBase=.
+ function withApiBase(url){return apiBase?url+(url.indexOf('?')<0?'?':'&')+'apiBase='+encodeURIComponent(apiBase):url}
  const bridge=DanjionCommunityBridge.createCommunityBridge({apiBase});
  const title=document.getElementById('title'),body=document.getElementById('body');
  const key='danjionDraft:14';
- const COMMUNITY='12_이웃대화_첫화면.html?type=hello&apiBase='+encodeURIComponent(apiBase);
+ const COMMUNITY=withApiBase('12_이웃대화_첫화면.html?type=hello');
  const DETAIL='13_이웃대화_글상세_댓글.html';
  const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
  const publishButtons=[...document.querySelectorAll('[data-publish]')];
@@ -177,7 +179,7 @@ h1{margin:17px 0 8px;font-size:30px;line-height:1.18;letter-spacing:-.045em}
  function nextHref(post){
   const postId=String(post&&post.id||'').toLowerCase();
   return UUID.test(postId)
-   ? DETAIL+'?apiBase='+encodeURIComponent(apiBase)+'&post='+encodeURIComponent(postId)
+   ? withApiBase(DETAIL+'?post='+encodeURIComponent(postId))
    : COMMUNITY;
  }
  let busy=false;

@@ -341,11 +341,8 @@
 <section aria-label="가게 후기" class="content-panel" id="reviews">
 <article class="simple-panel review-panel">
 <div class="section-title review-head"><div><small class="review-kicker">RESIDENT REVIEWS</small><h2>이웃의 가게 후기</h2></div><div class="review-head-actions"><button class="review-write" data-shop-form="review" type="button">후기쓰기</button><button class="review-contact" data-shop-form="inquiry" type="button">1:1 문의하기</button></div></div>
-<div class="review-list">
-<article class="review-item"><div class="review-meta"><b>연블리 · 방림명지로드힐 주민</b><time>2026.08.30</time></div><p>부모님 생신 꽃다발을 정성스럽게 준비해 주셨어요. 상담도 편안했습니다.</p><div class="owner-reply"><b>사장님 답글</b><p>소중한 날에 찾아주셔서 감사합니다. 받으시는 분께 좋은 기억으로 남았으면 좋겠습니다.</p></div></article>
-<article class="review-item"><div class="review-meta"><b>산책메이트 · 방림명지로드힐 주민</b><time>2026.08.24</time></div><p>원하는 분위기를 잘 들어주시고 예약 시간에 맞춰 준비해 주셨어요.</p><div class="owner-reply"><b>사장님 답글</b><p>원하신 분위기를 함께 맞출 수 있어 저도 즐거웠습니다. 다음에도 편하게 말씀해 주세요.</p></div></article>
-<article class="review-item"><div class="review-meta"><b>햇살맘 · 방림명지로드힐 주민</b><time>2026.08.18</time></div><p>가격과 가능한 꽃을 먼저 설명해 주셔서 고르기 쉬웠습니다.</p><div class="owner-reply"><b>사장님 답글</b><p>후기 남겨주셔서 고맙습니다. 계절에 맞는 꽃을 더 편하게 고르실 수 있도록 안내하겠습니다.</p></div></article>
-<article class="review-item"><div class="review-meta"><b>초록창 · 방림명지로드힐 주민</b><time>2026.08.10</time></div><p>작은 선물용으로 부탁드렸는데 포장까지 깔끔해서 좋았습니다.</p><div class="owner-reply"><b>사장님 답글</b><p>마음에 드셨다니 다행입니다. 다음에도 작은 선물부터 부담 없이 문의해 주세요.</p></div></article>
+<div class="review-list" id="shopDetailReviewList">
+<article class="review-item" data-server-placeholder="true"><div class="review-meta"><b>알림</b></div><p>가게 후기를 불러오는 중입니다.</p></article>
 </div>
 </article>
 </section>
@@ -633,5 +630,61 @@ if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt
 })();
 </script>
 <script src="assets/danjion-session.js"></script>
+<script src="assets/reviews-bridge.js"></script>
+<script id="danjion-shop-detail-reviews-server-lane">
+(()=>{
+  // #800 R2: 가게 상세 후기는 서버 권위 후기만 렌더한다.
+  // 프로토타입 시드 후기를 정적으로 두지 않고, 서버 후기 레인으로 대체한다.
+  const apiBase=(window.DanjionSession&&DanjionSession.danjionApiBase())||'';
+  const list=document.getElementById('shopDetailReviewList');
+  if(!list||!window.DanjionReviewsBridge)return;
+  const bridge=DanjionReviewsBridge.createReviewsBridge({apiBase,complexSlug:'banglim-myeongji-roadhill'});
+  function esc(value){return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+  function notice(text){return `<article class="review-item" data-server-placeholder="true"><div class="review-meta"><b>알림</b></div><p>${esc(text)}</p></article>`}
+  function formatDate(value){
+    const t=Date.parse(value||'');
+    if(!Number.isFinite(t))return '';
+    const d=new Date(t);
+    const pad=n=>String(n).padStart(2,'0');
+    return d.getFullYear()+'.'+pad(d.getMonth()+1)+'.'+pad(d.getDate());
+  }
+  function row(review){
+    const nickname=review.author&&review.author.nickname?review.author.nickname:'주민';
+    const time=formatDate(review.createdAt);
+    const reply=review.reply&&review.reply.body?`<div class="owner-reply"><b>사장님 답글</b><p>${esc(review.reply.body)}</p></div>`:'';
+    return `<article class="review-item"><div class="review-meta"><b>${esc(nickname)}</b><time>${esc(time)}</time></div><p>${esc(review.body)}</p>${reply}</article>`;
+  }
+  function currentShopKey(){
+    try{return (new URLSearchParams(location.search).get('shop')||'').trim()}catch(e){return ''}
+  }
+  // #800 R2: URL의 shop 파라미터가 없을 때만 부모 프레임이 알려준 가게 키로 폴백한다.
+  let framedShopKey='';
+  window.addEventListener('message',ev=>{
+    const d=ev.data||{};
+    if(d.type==='danjion-integrated:setShop'){
+      const next=String(d.shopKey||'').trim();
+      if(next&&next!==framedShopKey){framedShopKey=next;if(!currentShopKey())void load()}
+    }
+  });
+  async function load(){
+    const key=currentShopKey()||framedShopKey;
+    if(!bridge.businessIdFromKey(key)){
+      list.innerHTML=notice('서버에 등록된 이웃가게에서 후기를 확인할 수 있습니다.');
+      return;
+    }
+    list.innerHTML=notice('가게 후기를 불러오는 중입니다.');
+    const result=await bridge.list(key);
+    if(result.mode!=='server'){
+      const message=result.mode==='auth-required'?'로그인 후 가게 후기를 확인할 수 있습니다.':'가게 후기를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.';
+      list.innerHTML=notice(message);
+      return;
+    }
+    const reviews=Array.isArray(result.reviews)?result.reviews:[];
+    if(!reviews.length){list.innerHTML=notice('아직 등록된 후기가 없습니다.');return}
+    list.innerHTML=reviews.map(row).join('');
+  }
+  void load();
+})();
+</script>
 </body>
 </html>
