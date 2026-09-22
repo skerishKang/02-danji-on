@@ -156,6 +156,16 @@
 .benefit-panel{padding-bottom:26px}.benefit-list{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--line);border-bottom:0;margin-top:22px}.benefit-row{min-height:112px;padding:22px 24px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);background:var(--paper)}.benefit-row:last-child{border-right:0}.benefit-row b{display:block;font-size:17px;margin-bottom:8px}.benefit-row span{font-size:14px;line-height:1.65;color:var(--muted)}
 .share-modal{display:none;position:fixed;inset:0;z-index:200}.share-modal.open{display:block}.share-backdrop{position:absolute;inset:0;background:rgba(7,12,20,.55);backdrop-filter:blur(3px)}.share-dialog{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(520px,calc(100% - 32px));background:var(--paper-2);color:var(--ink);border:1px solid var(--line);box-shadow:0 24px 70px rgba(0,0,0,.28);padding:26px}.share-dialog-head{display:flex;align-items:flex-start;justify-content:space-between;gap:20px;border-bottom:1px solid var(--ink);padding-bottom:17px}.share-dialog-head small{display:block;color:var(--coral);font-size:10px;font-weight:900;letter-spacing:.09em;margin-bottom:6px}.share-dialog-head h2{margin:0;font-size:26px;letter-spacing:-.04em}.share-close{width:36px;height:36px;border:1px solid var(--line);background:transparent;font-size:25px;line-height:1}.share-copy{font-size:15px;line-height:1.65;margin:20px 0}.share-url-label{display:block;font-size:13px;font-weight:850;margin-bottom:8px}.share-url-row{display:grid;grid-template-columns:1fr auto}.share-url-row input{min-width:0;height:48px;border:1px solid var(--line);background:var(--paper);padding:0 13px;color:#4a4742;font:inherit;font-size:13px}.share-url-row button{height:48px;border:0;background:var(--ink);color:white;padding:0 18px;font-weight:900}.share-help{font-size:12px;line-height:1.6;color:var(--muted);margin:10px 0 18px}.share-system{width:100%;height:50px;border:0;background:var(--coral);color:white;font-weight:900}.favorite.saved svg{fill:currentColor}.favorite.saved{background:var(--ink)!important;color:#fff!important;border-color:var(--ink)!important}
 @media(max-width:760px){.section-tabs button{font-size:12px}.benefit-list{grid-template-columns:1fr}.benefit-row{border-right:0;min-height:auto}.share-dialog{padding:22px 18px}.share-url-row{grid-template-columns:1fr}.share-url-row button{width:100%}}
+/* #901 P1-2: the shop-detail menu has FIVE buttons but the mobile strip declared only
+   four 92px tracks, so 후기 wrapped to an unmatched second row and 혜택 sat off-screen
+   (48px @320, 8px @360). Declare one track per button and drop the 92px floor to 60px
+   (60*5=300 <= 320) so every tab — including 후기 — is reachable in one row without
+   horizontal scroll. !important is required: assets/consistency.css sets the 4-track /
+   92px rule at higher specificity ([data-danjion-page="2"]). */
+@media(max-width:760px){
+  [data-danjion-page="2"] .section-tabs{grid-template-columns:repeat(5,minmax(60px,1fr))!important;overflow-x:auto}
+  [data-danjion-page="2"] .section-tabs button{min-width:0;padding:0 4px}
+}
 
 </style>
 <style>
