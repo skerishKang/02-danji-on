@@ -507,6 +507,9 @@
     nativeSessionReady,
     authBridgeDisposition,
     authFailureKind,
+    // #865: settings logout must reuse the canonical selective marker cleanup
+    // instead of sessionStorage.clear(), which wipes unrelated leaf state.
+    clearLocalAuthMarkers,
     AUTH_BRIDGE_DISPOSITIONS,
     AUTH_BRIDGE_FAILURES,
     accountStripEligible,
