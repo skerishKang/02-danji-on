@@ -87,6 +87,8 @@
 (function(){
   const apiBase=(window.DanjionSession&&DanjionSession.danjionApiBase())||'';
   if(!apiBase&&!DanjionSession.isCanonicalProduction())return;
+  // #863: carry apiBase only when it is actually set — never emit an empty ?apiBase=.
+  function withApiBase(url){return apiBase?url+(url.indexOf('?')<0?'?':'&')+'apiBase='+encodeURIComponent(apiBase):url}
   const bridge=DanjionMessagesNotificationsBridge.createMessagesNotificationsBridge({apiBase});
   const list=document.querySelector('.mail-list');
   const empty=document.querySelector('.empty-result');
@@ -138,7 +140,7 @@
     const row=ev.target.closest('.mail-row[data-conversation]');
     if(!row)return;
     ev.preventDefault();ev.stopImmediatePropagation();
-    location.href='21_메시지_대화상세.html?apiBase='+encodeURIComponent(apiBase)+'&conversation='+encodeURIComponent(row.dataset.conversation);
+    location.href=withApiBase('21_메시지_대화상세.html?conversation='+encodeURIComponent(row.dataset.conversation));
   },true);
   const receive=document.querySelector('.receive .toggle');
   receive.addEventListener('click',function(ev){
