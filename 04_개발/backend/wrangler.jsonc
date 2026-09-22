@@ -7,6 +7,12 @@
   "observability": {
     "enabled": true
   },
+  "r2_buckets": [
+    {
+      "binding": "DANJION_STORAGE",
+      "bucket_name": "danjion-storage"
+    }
+  ],
   "vars": {
     "APP_ENV": "development",
     "DEV_AUTH_BYPASS": "false",
@@ -28,9 +34,16 @@
       "name": "padiem-danjion-api-qa",
       "workers_dev": true,
       "preview_urls": false,
+      "r2_buckets": [
+        {
+          "binding": "DANJION_STORAGE",
+          "bucket_name": "danjion-storage-qa"
+        }
+      ],
       "vars": {
         "APP_ENV": "qa",
         "TEMP_RESIDENT_ACCESS_MODE": "true",
+        "STORAGE_MODE": "r2",
         "DEV_AUTH_BYPASS": "false",
         "AUTH_REQUIRE_EMAIL_VERIFICATION": "false"
       }
@@ -46,6 +59,12 @@
         {
           "binding": "PADIEM_CONTACT_VERIFICATION",
           "service": "padiem-contact-verification"
+        }
+      ],
+      "r2_buckets": [
+        {
+          "binding": "DANJION_STORAGE",
+          "bucket_name": "danjion-storage"
         }
       ],
       "secrets": {

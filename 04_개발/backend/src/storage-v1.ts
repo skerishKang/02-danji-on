@@ -6,10 +6,12 @@ import {
   type StorageKind,
   type StorageVisibility
 } from './storage-policy.mjs';
+import { r2Delete, r2Enabled, r2Get, r2Head, type R2StorageEnv } from './storage-r2-v1';
 
 type Sql = NeonQueryFunction<false, false>;
 export type DriveEnv = CoreEnv & {
   STORAGE_MODE?: string;
+  DANJION_STORAGE?: R2Bucket;
   GOOGLE_DRIVE_CLIENT_ID?: string;
   GOOGLE_DRIVE_CLIENT_SECRET?: string;
   GOOGLE_DRIVE_REFRESH_TOKEN?: string;
@@ -178,7 +180,14 @@ export async function readDriveMetadata(env: DriveEnv, parsed: ParsedObjectKey):
   return response.json() as Promise<DriveMetadata>;
 }
 
-export function metadataMatches(env: DriveEnv, parsed: ParsedObjectKey, metadata: DriveMetadata): boolean {
+export function metadataMatches(env: DriveEnv, parsed: ParsedObjectKey, metadata: DriveMetadata, isR2 = r2Enabled(env)): boolean {
+  if (isR2) {
+    const props = metadata.appProperties || {};
+    return metadata.id === parsed.fileId &&
+      metadata.trashed !== true &&
+      props.danjionKind === parsed.kind &&
+      props.danjionVisibility === parsed.visibility;
+  }
   const expectedFolder = folderFor(env, parsed.kind);
   if (!expectedFolder || metadata.trashed || !metadata.parents?.includes(expectedFolder)) return false;
   const props = metadata.appProperties || {};
@@ -769,8 +778,16 @@ async function streamObject(request: Request, env: DriveEnv, requestId: string, 
     return fail('NOT_FOUND', 'Public storage object not found', 404, requestId);
   }
 
-  const metadata = await readDriveMetadata(env, parsed);
-  if (!metadata || !metadataMatches(env, parsed, metadata)) return fail('NOT_FOUND', 'Storage object not found', 404, requestId);
+  const r2Mode = r2Enabled(env);
+  // R2 mode must not fall through to Drive when head misses: Drive credentials are
+  // absent in R2-only deployments and readDriveMetadata would throw a bare 500.
+  let metadata: DriveMetadata | null;
+  if (r2Mode) {
+    metadata = await r2Head(env as R2StorageEnv, parsed.kind, parsed.fileId);
+  } else {
+    metadata = await readDriveMetadata(env, parsed);
+  }
+  if (!metadata || !metadataMatches(env, parsed, metadata, r2Mode)) return fail('NOT_FOUND', 'Storage object not found', 404, requestId);
 
   // #844 Amendment D: an official-news image is publicly streamed only while it is an active
   // registry object that a *published* official-news post actually references. An uploaded but
@@ -788,9 +805,31 @@ async function streamObject(request: Request, env: DriveEnv, requestId: string, 
     if (denied) return denied;
   }
 
-  const response = await googleFetch(env, `${DRIVE_API}/files/${encodeURIComponent(parsed.fileId)}?alt=media&supportsAllDrives=true`);
-  if (response.status === 404) return fail('NOT_FOUND', 'Storage object not found', 404, requestId);
-  if (!response.ok || !response.body) throw new Error(`Google Drive file read failed (${response.status})`);
+  const r2Object = r2Mode ? await r2Get(env as R2StorageEnv, parsed.kind, parsed.fileId) : null;
+  if (r2Mode && !r2Object) {
+    // Dual-mode migration fallback: only attempt Drive when credentials exist.
+    // R2-only QA/production must fail closed with 404 instead of a Drive-auth 500.
+    if (driveConfigured(env) && requiredDriveCredentials(env)) {
+      const fallback = await googleFetch(env, `${DRIVE_API}/files/${encodeURIComponent(parsed.fileId)}?alt=media&supportsAllDrives=true`);
+      if (fallback.status === 404) return fail('NOT_FOUND', 'Storage object not found', 404, requestId);
+      if (!fallback.ok || !fallback.body) throw new Error(`Google Drive file read failed (${fallback.status})`);
+      const headers = new Headers({
+        'content-type': metadata.mimeType || 'application/octet-stream',
+        'cache-control': privateRoute ? 'private, no-store' : 'public, max-age=3600',
+        'x-content-type-options': 'nosniff',
+        'x-danjion-request-id': requestId
+      });
+      if (metadata.size) headers.set('content-length', metadata.size);
+      return new Response(fallback.body, { status: 200, headers });
+    }
+    return fail('NOT_FOUND', 'Storage object not found', 404, requestId);
+  }
+  const response = r2Mode
+    ? new Response(r2Object!.body)
+    : await googleFetch(env, `${DRIVE_API}/files/${encodeURIComponent(parsed.fileId)}?alt=media&supportsAllDrives=true`);
+  if (!r2Mode && (response.status === 404 || !response.ok || !response.body)) {
+    return fail('NOT_FOUND', 'Storage object not found', 404, requestId);
+  }
   const headers = new Headers({
     'content-type': metadata.mimeType || 'application/octet-stream',
     'cache-control': privateRoute ? 'private, no-store' : 'public, max-age=3600',
@@ -971,6 +1010,18 @@ async function removeObject(request: Request, env: DriveEnv, requestId: string):
   if (auth instanceof Response) return auth;
   const parsed = parseObjectKey(new URL(request.url).searchParams.get('objectKey') || '');
   if (!parsed) return fail('INVALID_OBJECT_KEY', 'Invalid storage object key', 400, requestId);
+  if (r2Enabled(env)) {
+    const metadata = await r2Head(env as R2StorageEnv, parsed.kind, parsed.fileId);
+    if (metadata) {
+      if (parsed.kind === 'business-image' || parsed.kind === 'official-news-image') {
+        const registry = await readBusinessImageRegistry(auth.sql, parsed.objectKey, requestId);
+        if (registry instanceof Response) return registry;
+        if (registry && String(registry.uploader_user_id ?? '') !== auth.actor.id) return fail('FORBIDDEN', 'Only the storage uploader may mutate this business image', 403, requestId);
+      }
+      await r2Delete(env as R2StorageEnv, parsed.kind, parsed.fileId);
+      return ok({ objectKey: parsed.objectKey, deleted: true }, requestId);
+    }
+  }
 
   // Resident evidence remains exactly on its existing uploader/HOLD path and
   // never enters the business-image lifecycle registry.
@@ -1094,8 +1145,8 @@ export async function handleStorageRequest(request: Request, env: CoreEnv, reque
   const matchesStorageRoute = path === '/api/v1/storage/objects' ||
     path === '/api/v1/storage/public' || path === '/api/v1/storage/private';
   if (!matchesStorageRoute) return null;
-  if (!driveConfigured(driveEnv)) return fail('STORAGE_NOT_CONFIGURED', 'Google Drive storage mode is not enabled', 503, requestId);
-  if (!requiredDriveCredentials(driveEnv)) return fail('STORAGE_NOT_CONFIGURED', 'Google Drive OAuth credentials are not configured', 503, requestId);
+  if (!driveConfigured(driveEnv) && !r2Enabled(driveEnv)) return fail('STORAGE_NOT_CONFIGURED', 'Storage mode is not enabled', 503, requestId);
+  if (driveConfigured(driveEnv) && !requiredDriveCredentials(driveEnv)) return fail('STORAGE_NOT_CONFIGURED', 'Google Drive OAuth credentials are not configured', 503, requestId);
 
   // POST /api/v1/storage/objects is owned by storage-upload-v2 (dispatched
   // before this route in app.ts and never null for that method+path), so no

@@ -11,10 +11,13 @@
 import type { NeonQueryFunction } from '@neondatabase/serverless';
 import type { CoreEnv } from './core-v1';
 import { requireActor, type Actor } from './auth-v1';
+import { r2Enabled, r2Get, r2Head, type R2StorageEnv } from './storage-r2-v1';
 
 export type Sql = NeonQueryFunction<false, false>;
 
 export type DriveEnv = CoreEnv & {
+  STORAGE_MODE?: string;
+  DANJION_STORAGE?: R2Bucket;
   GOOGLE_DRIVE_CLIENT_ID?: string;
   GOOGLE_DRIVE_CLIENT_SECRET?: string;
   GOOGLE_DRIVE_REFRESH_TOKEN?: string;
@@ -118,6 +121,27 @@ async function streamDriveFile(
   documentId: string,
   requestId: string
 ): Promise<Response> {
+  if (r2Enabled(env)) {
+    const r2FileId = parseFileIdFromR2(objectKeyForFileId(fileId));
+    const metadata = await r2Head(env as R2StorageEnv, 'application-document', r2FileId);
+    if (metadata) {
+      const object = await r2Get(env as R2StorageEnv, 'application-document', r2FileId);
+      if (!object) return fail('NOT_FOUND', 'Storage object not found', 404, requestId);
+      const mimeType = metadata.mimeType ?? 'application/octet-stream';
+      const isImage = mimeType.startsWith('image/');
+      const headers = new Headers({
+        'content-type': mimeType,
+        'cache-control': 'private, no-store',
+        'x-content-type-options': 'nosniff',
+        'content-disposition': isImage
+          ? `inline; filename="application-document-${documentId}"`
+          : `attachment; filename="application-document-${documentId}.pdf"`,
+        'x-danjion-request-id': requestId
+      });
+      headers.set('content-length', String(metadata.size || object.size));
+      return new Response(object.body, { status: 200, headers });
+    }
+  }
   const token = await accessToken(env);
   const metadataResponse = await fetch(
     `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?supportsAllDrives=true&fields=mimeType,size`,
@@ -147,6 +171,14 @@ async function streamDriveFile(
   });
   if (metadata.size) headers.set('content-length', metadata.size);
   return new Response(fileResponse.body, { status: 200, headers });
+}
+
+function objectKeyForFileId(fileId: string): string {
+  return `gdrive/private/application-document/${fileId}`;
+}
+
+function parseFileIdFromR2(objectKey: string): string {
+  return objectKey.slice(objectKey.lastIndexOf('/') + 1);
 }
 
 export async function serveApplicationDocument(
@@ -236,4 +268,3 @@ export async function serveActivePrivateApplicationDocumentObject(
     return fail('STORAGE_UNAVAILABLE', 'Private attachment could not be read from storage', 503, requestId);
   }
 }
-

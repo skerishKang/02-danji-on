@@ -4,10 +4,12 @@ import { requireOperationalAuthority } from './operational-authz-v2';
 import { requireVerifiedResident } from './authorization-v2';
 import type { CoreEnv } from './core-v1';
 import { safeStorageFileName, validateStorageUpload } from './storage-policy.mjs';
+import { r2Enabled, r2Put, type R2StorageEnv } from './storage-r2-v1';
 
 type Sql = NeonQueryFunction<false, false>;
 type DriveEnv = CoreEnv & {
   STORAGE_MODE?: string;
+  DANJION_STORAGE?: R2Bucket;
   GOOGLE_DRIVE_CLIENT_ID?: string;
   GOOGLE_DRIVE_CLIENT_SECRET?: string;
   GOOGLE_DRIVE_REFRESH_TOKEN?: string;
@@ -51,6 +53,7 @@ const TOKEN_ENDPOINT = 'https://oauth2.googleapis.com/token';
 const MAX_UPLOAD_REQUEST_BYTES = 12 * 1024 * 1024;
 const DRIVE_FILE_ID = /^[A-Za-z0-9_-]{10,200}$/;
 const UPLOAD_IDEMPOTENCY_KEY = /^[A-Za-z0-9._:-]{8,80}$/;
+type StorageKind = 'business-image' | 'application-document' | 'official-news-image';
 let cachedAccessToken: { value: string; expiresAt: number } | null = null;
 
 function json(data: unknown, status: number, requestId: string): Response {
@@ -69,6 +72,91 @@ function ok(data: unknown, requestId: string, status = 200): Response {
 
 function fail(code: string, message: string, status: number, requestId: string): Response {
   return json({ error: { code, message }, requestId }, status, requestId);
+}
+
+function randomObjectId(): string {
+  return crypto.randomUUID().replace(/-/g, '');
+}
+
+async function runR2TrackedUpload(
+  env: DriveEnv,
+  sql: Sql,
+  file: File,
+  uploader: TrackedResident,
+  kind: StorageKind,
+  requestId: string,
+  idempotencyKey: string | null
+): Promise<UploadSuccess | Response> {
+  const fingerprint = kind === 'business-image'
+    ? await businessImageUploadRequestFingerprint(file, uploader.complexSlug)
+    : kind === 'application-document'
+      ? await applicationDocumentUploadRequestFingerprint(file, uploader.complexSlug)
+      : await officialNewsImageUploadRequestFingerprint(file, uploader.complexSlug);
+  let objectKeyValue: string | null = null;
+  if (idempotencyKey) {
+    const rows = await sql`
+      select object_key, uploader_user_id::text, complex_id::text, state,
+             upload_idempotency_key, upload_request_fingerprint
+      from business_image_objects
+      where uploader_user_id = ${uploader.id}::uuid
+        and kind = ${kind}
+        and upload_idempotency_key = ${idempotencyKey}
+      limit 1
+    `;
+    const existing = rows[0] as RegistryRow | undefined;
+    if (existing) {
+      if (existing.upload_request_fingerprint !== fingerprint) {
+        return fail('IDEMPOTENCY_KEY_REUSED', 'The Idempotency-Key was already used with different file content', 409, requestId);
+      }
+      objectKeyValue = String(existing.object_key || '');
+      if (existing.state === 'active') {
+        const fileId = objectKeyValue.split('/').pop() || '';
+        const metadata = await import('./storage-r2-v1').then(({ r2Head }) => r2Head(env as R2StorageEnv, kind, fileId));
+        if (!metadata) return fail('UPLOAD_RECONCILIATION_PENDING', 'The existing R2 object could not be confirmed', 503, requestId);
+        return { objectKey: objectKeyValue, metadata, idempotencyReplayed: true };
+      }
+      if (existing.state !== 'upload_pending') return fail('IDEMPOTENCY_STATE_CONFLICT', 'The existing upload is no longer replayable', 409, requestId);
+    }
+  }
+  if (!objectKeyValue) {
+    const fileId = randomObjectId();
+    objectKeyValue = `gdrive/${kind === 'application-document' ? 'private' : 'public'}/${kind}/${fileId}`;
+    const rows = await sql`
+      insert into business_image_objects (
+        object_key, uploader_user_id, complex_id, state, kind,
+        upload_idempotency_key, upload_request_fingerprint
+      ) values (
+        ${objectKeyValue}, ${uploader.id}::uuid, ${uploader.complexId}::uuid,
+        'upload_pending', ${kind}, ${idempotencyKey}, ${fingerprint}
+      ) on conflict (object_key) do nothing
+      returning object_key
+    `;
+    if (!rows[0]) return fail('UPLOAD_RESERVATION_CONFLICT', 'Storage upload reservation conflicted', 409, requestId);
+  }
+  const fileId = objectKeyValue.split('/').pop() || '';
+  let metadata;
+  try {
+    metadata = await r2Put(env as R2StorageEnv, kind, fileId, file, {
+      danjionKind: kind,
+      danjionVisibility: kind === 'application-document' ? 'private' : 'public',
+      danjionUploaderUserId: uploader.id,
+      danjionComplexSlug: uploader.complexSlug
+    });
+  } catch {
+    return fail('UPLOAD_RECONCILIATION_PENDING', 'R2 object could not be persisted or confirmed', 503, requestId);
+  }
+  const activated = await sql`
+    update business_image_objects
+    set state = 'active', updated_at = now()
+    where object_key = ${objectKeyValue}
+      and uploader_user_id = ${uploader.id}::uuid
+      and complex_id = ${uploader.complexId}::uuid
+      and kind = ${kind}
+      and state = 'upload_pending'
+    returning object_key
+  `;
+  if (!activated[0]) return fail('UPLOAD_ACTIVATION_UNAVAILABLE', 'R2 upload could not be activated safely', 503, requestId);
+  return { objectKey: objectKeyValue, metadata, idempotencyReplayed: Boolean(idempotencyKey) };
 }
 
 function requiredDriveCredentials(env: DriveEnv): { clientId: string; clientSecret: string; refreshToken: string } | null {
@@ -2232,11 +2320,14 @@ export async function runTrackedOfficialNewsImageUpload(
   if (path !== '/api/v1/storage/objects' || request.method !== 'POST') return null;
 
   const driveEnv = env as DriveEnv;
-  if (driveEnv.STORAGE_MODE !== 'drive') {
+  if (driveEnv.STORAGE_MODE !== 'drive' && driveEnv.STORAGE_MODE !== 'r2') {
     return fail('STORAGE_NOT_CONFIGURED', 'Google Drive storage mode is not enabled', 503, requestId);
   }
-  if (!requiredDriveCredentials(driveEnv)) {
+  if (driveEnv.STORAGE_MODE === 'drive' && !requiredDriveCredentials(driveEnv)) {
     return fail('STORAGE_NOT_CONFIGURED', 'Google Drive OAuth credentials are not configured', 503, requestId);
+  }
+  if (driveEnv.STORAGE_MODE === 'r2' && !r2Enabled(driveEnv)) {
+    return fail('STORAGE_NOT_CONFIGURED', 'R2 storage binding is not configured', 503, requestId);
   }
   if (!env.DATABASE_URL) return fail('DATABASE_NOT_CONFIGURED', 'DATABASE_URL is not configured', 503, requestId);
 
@@ -2304,12 +2395,22 @@ export async function runTrackedOfficialNewsImageUpload(
     );
   }
 
-   let result: UploadSuccess | Response;
-   if (validation.kind === 'business-image') {
-     result = await runTrackedBusinessImageUpload(
+    let result: UploadSuccess | Response;
+    if (driveEnv.STORAGE_MODE === 'r2') {
+      result = await runR2TrackedUpload(
+        driveEnv,
+        sql,
+        file,
+        uploader,
+        validation.kind,
+        requestId,
+        rawIdempotencyKey
+      );
+    } else if (validation.kind === 'business-image') {
+      result = await runTrackedBusinessImageUpload(
        env, sql, file, uploader, requestId, rawIdempotencyKey
      );
-   } else if (validation.kind === 'official-news-image') {
+    } else if (validation.kind === 'official-news-image') {
      result = await runTrackedOfficialNewsImageUpload(
        env, sql, file, uploader, requestId, rawIdempotencyKey
      );
