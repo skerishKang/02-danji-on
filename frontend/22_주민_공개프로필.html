@@ -42,6 +42,14 @@
 .side-card{padding:20px!important}
 @media(max-width:900px){.profile-top{grid-template-columns:72px 1fr!important}.profile-actions{grid-column:1/-1!important;margin-top:10px!important}.level-panel{min-height:215px!important}}
 @media(max-width:760px){.profile-top{display:grid!important;grid-template-columns:64px 1fr!important}.profile-actions{grid-column:1/-1!important}.profile-hero{min-height:0!important}.level-panel{min-height:220px!important}.activity-item{min-height:0!important}}
+/* #901 P3-2: mobile never orphaned the last syllable of the resident nickname.
+   The base 34px!important below out-ranked the 760px 31px rule, so at 320px a long
+   닉네임 broke to a lone final glyph (산책메이트님 -> "님" alone). Re-assert the
+   mobile size + keep-all inside the same important layer instead of shrinking the
+   base rule. overflow-wrap:anywhere is last-resort only (unspaced long nickname). */
+@media(max-width:760px){.profile-name{font-size:31px!important;line-height:1.2!important;word-break:keep-all!important;overflow-wrap:anywhere!important}}
+.profile-name{word-break:keep-all;overflow-wrap:anywhere;min-width:0}
+.profile-top>div{min-width:0}
 </style><style id="integrated-compact-fix">main{padding-top:22px!important}.route{min-height:52px!important}.route-inner{min-height:52px!important}.profile-hero,.warmth-hero,.conversation-head{margin-top:0!important}</style><style id="front-audit-bottom-nav-standard-20260904">
 /* Frontend audit 1: all app content screens share one exact bottom navigation geometry. */
 @media (max-width:760px){

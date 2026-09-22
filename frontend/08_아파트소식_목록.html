@@ -11,7 +11,7 @@
     *{box-sizing:border-box}html{background:var(--paper);color:var(--ink);font-family:Pretendard,"Pretendard Variable","Noto Sans KR",Arial,sans-serif}body{margin:0;min-width:320px;background:var(--paper)}button{font:inherit;color:inherit;cursor:pointer}
     .site-header{height:var(--header);border-bottom:1px solid var(--line);background:rgba(246,242,233,.96);display:flex;align-items:center;position:sticky;top:0;z-index:40;backdrop-filter:blur(12px)}.header-inner{width:min(1280px,calc(100% - 64px));margin:auto;display:flex;align-items:center;justify-content:space-between}.brand{display:flex;align-items:baseline;gap:10px;border:0;background:none;padding:0;font-weight:900;font-size:25px;letter-spacing:-.05em}.brand small{font-size:11px;letter-spacing:.11em;color:#5f5c56;font-weight:850}.desktop-nav{display:flex;align-items:center;gap:42px;height:var(--header)}.desktop-nav button{height:100%;border:0;background:none;padding:0 2px;font-size:16px;font-weight:780;position:relative}.desktop-nav button.active::after{content:"";height:3px;position:absolute;left:0;right:0;bottom:0;background:var(--coral)}.identity{font-size:14px;font-weight:780;color:#58554f}.mobile-head{display:none}
     main{width:min(1280px,calc(100% - 64px));margin:auto;padding-bottom:100px}.route{height:58px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--line)}.route button{display:flex;align-items:center;gap:9px;border:0;background:none;padding:0;font-size:15px;font-weight:850}.route svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8}.route span{font-size:14px;color:var(--muted)}.route span::before{content:"/";margin-right:10px;color:#aaa49b}
-    .page-head{display:grid;grid-template-columns:minmax(0,1fr) 420px;gap:70px;align-items:end;padding:42px 0 27px}.eyebrow{display:flex;align-items:center;gap:10px;font-size:14px;font-weight:900;color:var(--coral);margin-bottom:13px}.eyebrow::before{content:"";width:28px;height:2px;background:var(--coral)}h1{font-size:58px;line-height:1;letter-spacing:-.055em;margin:0;font-weight:900}.head-copy{border-top:1px solid var(--ink);padding-top:17px;font-size:16px;line-height:1.7;color:var(--muted)}.head-copy b{display:block;font-size:18px;color:var(--ink);margin-bottom:5px}
+    .page-head{display:grid;grid-template-columns:minmax(0,1fr) 420px;gap:70px;align-items:end;padding:42px 0 27px}.eyebrow{display:flex;align-items:center;gap:10px;font-size:14px;font-weight:900;color:var(--coral);margin-bottom:13px}.eyebrow::before{content:"";width:28px;height:2px;background:var(--coral)}h1{font-size:clamp(40px,5.9vw,58px);line-height:1;letter-spacing:-.055em;margin:0;font-weight:900}.head-copy{border-top:1px solid var(--ink);padding-top:17px;font-size:16px;line-height:1.7;color:var(--muted)}.head-copy b{display:block;font-size:18px;color:var(--ink);margin-bottom:5px}
     .filters{border-top:1px solid var(--ink);padding:16px 0;display:flex;gap:7px;overflow:auto;scrollbar-width:none}.filters::-webkit-scrollbar{display:none}.filter{height:44px;padding:0 17px;border:1px solid var(--line);background:var(--paper2);font-size:14px;font-weight:820;white-space:nowrap}.filter.active{background:var(--ink);border-color:var(--ink);color:#fff}
     .feature[hidden],.news-row[hidden],.filter-empty[hidden]{display:none!important}
     .filter-empty{margin-top:18px;border:1px dashed var(--line);background:var(--paper2);padding:24px 22px;font-size:15px;font-weight:760;color:var(--muted);text-align:center}
@@ -51,6 +51,7 @@
   .toast{bottom:82px!important}
 }
 @media (min-width:761px){.mobile-bottom{display:none!important}}
+@media (min-width:761px) and (max-width:900px){.page-head{grid-template-columns:minmax(0,1fr) 300px;gap:36px}}
 </style>
 <style id="ownerpass-apartment-article-20260919">
 /* #768: two server-authoritative presentation modes under one Apartment News
@@ -92,6 +93,15 @@
  #storyDialog .dialog-body{padding:26px 20px 42px!important}
  #storyDialog .dialog-body h2{font-size:30px!important;line-height:1.28!important}
 }
+
+/* #901 P3-1: unspaced long Korean news titles must wrap instead of overflowing
+   the row. keep-all first (Korean breaks at spaces), overflow-wrap:anywhere is the
+   last-resort break for a single over-long run only — normal spacing is unchanged.
+   min-width:0 lets the grid text track shrink below its min-content floor. */
+.news-row strong{word-break:keep-all;overflow-wrap:anywhere;min-width:0}
+.news-row>strong,.news-row>span,.news-row>time{min-width:0}
+.news-row{grid-template-columns:125px minmax(0,1fr) 96px minmax(0,30px)}
+.feature h2{overflow-wrap:anywhere;min-width:0}
 
 </style>
 <link rel="stylesheet" href="assets/danjion-service-header.css">
