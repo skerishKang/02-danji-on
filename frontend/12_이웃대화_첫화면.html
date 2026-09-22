@@ -142,6 +142,10 @@ render();
  const CHIP={greeting:'hello',resident_story:'story',question:'question',together:'together'};
  const WRITE={hello:'14_가입인사_글쓰기.html',story:'15_단지이야기_글쓰기.html',question:'16_궁금해요_글쓰기.html',together:'17_같이해요_글쓰기.html'};
  function esc(value){return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+ // #899: 목록 행도 상세(13)와 동일 semantics 로 말머리(category)를 표시합니다.
+ // category 는 서버 권위 값(allowlist)이라 그대로 신뢰하지 않고 esc() 로 방어합니다.
+ // category 가 null/빈 값이면 기존과 같이 kind 라벨만 표시합니다.
+ function labelFor(p){return p.category?LABEL[p.kind]+' · '+esc(p.category):LABEL[p.kind]}
  function timeAgo(iso){
   const t=Date.parse(iso||''); if(!Number.isFinite(t))return '';
   const m=Math.floor((Date.now()-t)/60000);
@@ -154,7 +158,7 @@ render();
  function row(p){
   return `<article class="post-row" data-type="${CHIP[p.kind]}">
   <div class="author"><span class="avatar">${esc(p.author.nickname.slice(0,1))}</span><div><b>${esc(p.author.nickname)}</b><small>${esc(timeAgo(p.publishedAt||p.createdAt))}</small></div></div>
-  <div class="post-title"><span class="type">${LABEL[p.kind]}</span><a href="${withApiBase('13_이웃대화_글상세_댓글.html?post='+encodeURIComponent(p.id))}">${esc(p.title)}</a></div>
+  <div class="post-title"><span class="type">${labelFor(p)}</span><a href="${withApiBase('13_이웃대화_글상세_댓글.html?post='+encodeURIComponent(p.id))}">${esc(p.title)}</a></div>
   <div class="meta-actions"><span>♡ 공감 ${p.reactionCount}</span><span>댓글 ${p.commentCount}</span></div></article>`;
  }
  async function loadServer(){
