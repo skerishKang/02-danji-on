@@ -25,7 +25,8 @@ const FIELD_LIMITS: Record<string, number> = {
   publishedAt: 80,
   consentType: 80,
   policyVersion: 80,
-  confirm: 80
+  confirm: 80,
+  reason: 500
 };
 
 function errorResponse(code: string, message: string, status: number, requestId: string): Response {

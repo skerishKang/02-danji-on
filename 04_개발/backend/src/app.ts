@@ -1,5 +1,6 @@
 import core, { type CoreEnv } from './core-v1';
 import { handleAccountLifecycleRequest } from './account-lifecycle-v1';
+import { handleAccountDeletionRequest } from './account-deletion-request-v1';
 import { handleAdminApplicationDocumentRequest } from './admin-application-docs-v1';
 import { handleAdminUnitMasterRequest } from './admin-unit-master-v1';
 import { handleAdminAuditRequest } from './admin-audit-v1';
@@ -165,6 +166,8 @@ export default {
       if (businessShareResponse) return respond(businessShareResponse);
       const accountLifecycleResponse = await handleAccountLifecycleRequest(request, env, id);
       if (accountLifecycleResponse) return respond(accountLifecycleResponse);
+      const accountDeletionRequestResponse = await handleAccountDeletionRequest(request, env, id);
+      if (accountDeletionRequestResponse) return respond(accountDeletionRequestResponse);
       const productMutationRateLimitResponse = await handleProductMutationRateLimitRequest(request, env, id);
       if (productMutationRateLimitResponse) return respond(productMutationRateLimitResponse);
       const trackedStorageUploadResponse = await handleTrackedStorageUploadRequest(request, env, id);
