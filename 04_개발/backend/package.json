@@ -108,6 +108,7 @@
     "test:migration-gate": "node tests/migration-gate-contract.mjs",
     "test:migration-ledger-integrity": "node tests/migration-ledger-integrity-contract.mjs",
     "test:banglim-complex-units-seed-058": "node tests/banglim-complex-units-seed-058-contract.mjs",
+    "test:account-deletion-request": "node tests/account-deletion-request-contract.mjs",
     "test:deploy-provenance": "node tests/deploy-provenance-contract.mjs",
     "test:security-abuse-rate-limit": "node tests/security-abuse-rate-limit-contract.mjs",
     "test:product-rate-limit-routes": "tsx tests/product-rate-limit-route.test.mjs",

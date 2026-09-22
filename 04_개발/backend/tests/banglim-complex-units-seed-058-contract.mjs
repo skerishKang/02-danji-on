@@ -94,7 +94,7 @@ const prodNumbers = inventory
   .filter(f => !DEV_FILES.includes(f))
   .map(f => Number(f.slice(0, 3)))
   .sort((a, b) => a - b);
-assert.deepEqual(prodNumbers, Array.from({ length: 58 }, (_, i) => i + 1), 'production migrations must stay contiguous 001..058');
+assert.deepEqual(prodNumbers, Array.from({ length: 59 }, (_, i) => i + 1), 'production migrations must stay contiguous 001..059');
 
 const deferred = await computeMigrationPlan({
   ledger,

@@ -101,6 +101,7 @@
         {"id":"test:migration-gate","npm":"test:migration-gate","kind":"contract"},
 {"id":"test:migration-ledger-integrity","npm":"test:migration-ledger-integrity","kind":"contract"},
         {"id":"test:banglim-complex-units-seed-058","npm":"test:banglim-complex-units-seed-058","kind":"contract"},
+        {"id":"test:account-deletion-request","npm":"test:account-deletion-request","kind":"contract"},
         {"id":"test:community-c2-greeting-kind","npm":"test:community-c2-greeting-kind","kind":"contract"},
         {"id":"test:community-c2-post-category","npm":"test:community-c2-post-category","kind":"contract"},
         {"id":"test:complex-news-article-reactions","npm":"test:complex-news-article-reactions","kind":"contract"},

@@ -112,6 +112,7 @@ const EXPECTED_BACKEND_ORDER = [
   "test:migration-gate",
   "test:migration-ledger-integrity",
   "test:banglim-complex-units-seed-058",
+  "test:account-deletion-request",
   "test:community-c2-greeting-kind",
   "test:community-c2-post-category",
   "test:complex-news-article-reactions",
