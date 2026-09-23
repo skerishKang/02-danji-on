@@ -274,6 +274,79 @@ const accepted = await validateOfficialNewsImageReference(
 );
 assert.equal(accepted, null, 'a consistent active official-news image must be accepted');
 
+// #932 R2 parity: with STORAGE_MODE=r2 the Drive credential gate must not fire
+// (no Drive env vars present) and identity is verified through r2Head.
+{
+  let driveContacted = false;
+  globalThis.fetch = async () => { driveContacted = true; throw new Error('Drive must not be contacted in R2 mode'); };
+
+  const r2Objects = new Map();
+  r2Objects.set(`gdrive/public/official-news-image/${fileId}`, {
+    id: fileId,
+    name: 'news.jpg',
+    size: 1,
+    trashed: false,
+    customMetadata: {
+      danjionKind: 'official-news-image',
+      danjionVisibility: 'public',
+      danjionUploaderUserId: uploader,
+      danjionComplexSlug: complexSlug
+    },
+    httpMetadata: { contentType: 'image/jpeg' }
+  });
+  const r2Env = {
+    STORAGE_MODE: 'r2',
+    DANJION_STORAGE: {
+      head: async (key) => r2Objects.get(key) || null
+    }
+  };
+
+  // VALID_OBJECT_ACCEPTED in R2 mode — no Drive credentials required.
+  const r2Accepted = await validateOfficialNewsImageReference(
+    r2Env,
+    registrySql({ uploader_user_id: uploader, complex_id: complexId, state: 'active', kind: 'official-news-image' }),
+    objectKey, complexId, complexSlug, 'req-r2-accepted'
+  );
+  assert.equal(r2Accepted, null, 'R2 mode must accept a consistent active official-news image without Drive credentials');
+  assert.equal(driveContacted, false, 'R2 mode must never fall back to Drive');
+
+  // INACTIVE_OBJECT_REJECTED still fails before any storage read (Drive or R2).
+  r2Objects.clear();
+  const r2Pending = await validateOfficialNewsImageReference(
+    r2Env,
+    registrySql({ uploader_user_id: uploader, complex_id: complexId, state: 'delete_pending', kind: 'official-news-image' }),
+    objectKey, complexId, complexSlug, 'req-r2-pending'
+  );
+  assert.ok(r2Pending instanceof Response);
+  assert.equal(r2Pending.status, 409);
+  assert.equal((await r2Pending.json()).error.code, 'OFFICIAL_NEWS_IMAGE_NOT_ACTIVE');
+  assert.equal(driveContacted, false, 'R2 mode non-active object must be refused before any storage read');
+
+  // FOREIGN_COMPLEX_OBJECT_REJECTED still wins after R2 metadata is read.
+  r2Objects.set(`gdrive/public/official-news-image/${fileId}`, {
+    id: fileId,
+    name: 'news.jpg',
+    size: 1,
+    trashed: false,
+    customMetadata: {
+      danjionKind: 'official-news-image',
+      danjionVisibility: 'public',
+      danjionUploaderUserId: uploader,
+      danjionComplexSlug: 'other-complex'
+    },
+    httpMetadata: { contentType: 'image/jpeg' }
+  });
+  const r2Foreign = await validateOfficialNewsImageReference(
+    r2Env,
+    registrySql({ uploader_user_id: uploader, complex_id: complexId, state: 'active', kind: 'official-news-image' }),
+    objectKey, complexId, complexSlug, 'req-r2-foreign'
+  );
+  assert.ok(r2Foreign instanceof Response);
+  assert.equal(r2Foreign.status, 403);
+  assert.equal((await r2Foreign.json()).error.code, 'OFFICIAL_NEWS_IMAGE_REFERENCE_FORBIDDEN');
+  assert.equal(driveContacted, false, 'R2 mode must never fall back to Drive on a metadata mismatch');
+}
+
 /* ------------------------------------------------------------------ */
 /* BLOCKER 3: write-path channel guard                                  */
 /* ------------------------------------------------------------------ */
@@ -303,5 +376,6 @@ console.log('REFERENCED_DELETE=409');
 console.log('DRIVE_FAILURE_RECONCILABLE=PASS');
 console.log('FINALIZE_FAILURE_RECONCILABLE=PASS');
 console.log('REGISTRY_UPLOADER_EQUALS_DRIVE_UPLOADER=PASS');
+console.log('R2_OFFICIAL_NEWS_REFERENCE_PARITY=PASS');
 console.log('DANJION_NOTICE_ATTACHMENT_REJECTED=PASS');
 console.log('official-news-image-844-lifecycle: PASS');

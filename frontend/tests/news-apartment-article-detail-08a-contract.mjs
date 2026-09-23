@@ -50,8 +50,11 @@ assert.ok(list.includes('seen.has(row.id)'),
 assert.ok(list.includes("posts.find(p => p.channel === 'chair_greeting')") &&
           list.includes("posts.filter(p => p.channel !== 'chair_greeting')"),
   'CHAIR_GREETING_PRESERVED: the chair feature lane keeps its server-channel contract');
-assert.ok(list.includes('<i class="mode-badge">장문</i>'),
-  'article rows stay visually distinguishable in the list via the existing mode badge');
+// #913 Phase B: the badge is a DOM node (className + textContent), not an HTML string.
+assert.ok(
+  list.includes("badge.className = 'mode-badge'") && list.includes("badge.textContent = '장문'"),
+  'article rows stay visually distinguishable in the list via the existing mode badge'
+);
 assert.ok(list.includes("p.authorityLabel ? p.authorityLabel + ' · ' + categoryLabel(p.category) : categoryLabel(p.category)"),
   'list rows label their server authority so 입주자대표회의 and 관리사무소 are tellable in one feed');
 assert.ok(!list.includes("bridge.listPosts('all')"),

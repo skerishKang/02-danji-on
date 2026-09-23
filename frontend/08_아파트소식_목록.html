@@ -186,34 +186,85 @@ function renderStories(posts) {
   const chair = posts.find(p => p.channel === 'chair_greeting');
   const news = posts.filter(p => p.channel !== 'chair_greeting');
 
-  // Feature (chair greeting)
+  // Feature (chair greeting) — DOM-only (#913 Phase B): server title/body never
+  // reach an HTML parser, so a payload title/body stays inert text.
   if (chair && featureEl) {
-    featureEl.innerHTML = `
-      <div class="feature-photo"><img alt="${chair.title}" src="assets/bangnim-road-hill.png"/><span class="photo-label">우리 아파트 전경</span></div>
-      <div class="feature-copy">
-        <div class="feature-meta"><span>${chair.authorityLabel || '입주대표회장'} · 아파트소식 첫 글</span><time>${formatDate(chair.publishedAt)}</time></div>
-        <h2>${chair.title}</h2>
-        <p>${(chair.body || '').slice(0, 200)}...</p>
-        <a class="feature-link" href="09_회장인사_상세.html?postId=${chair.id}">
-          <span>회장말씀 전체 보기</span><span>→</span>
-        </a>
-      </div>
-    `;
+    const photo = document.createElement('div');
+    photo.className = 'feature-photo';
+    const photoImg = document.createElement('img');
+    photoImg.alt = String(chair.title || '');
+    photoImg.src = 'assets/bangnim-road-hill.png';
+    const photoLabel = document.createElement('span');
+    photoLabel.className = 'photo-label';
+    photoLabel.textContent = '우리 아파트 전경';
+    photo.append(photoImg, photoLabel);
+
+    const copy = document.createElement('div');
+    copy.className = 'feature-copy';
+
+    const meta = document.createElement('div');
+    meta.className = 'feature-meta';
+    const metaAuthority = document.createElement('span');
+    metaAuthority.textContent = `${chair.authorityLabel || '입주대표회장'} · 아파트소식 첫 글`;
+    const metaTime = document.createElement('time');
+    metaTime.textContent = formatDate(chair.publishedAt);
+    meta.append(metaAuthority, metaTime);
+
+    const heading = document.createElement('h2');
+    heading.textContent = String(chair.title || '');
+
+    const excerpt = document.createElement('p');
+    excerpt.textContent = `${(chair.body || '').slice(0, 200)}...`;
+
+    const link = document.createElement('a');
+    link.className = 'feature-link';
+    link.href = `09_회장인사_상세.html?postId=${encodeURIComponent(String(chair.id))}`;
+    const linkLabel = document.createElement('span');
+    linkLabel.textContent = '회장말씀 전체 보기';
+    const linkArrow = document.createElement('span');
+    linkArrow.textContent = '→';
+    link.append(linkLabel, linkArrow);
+
+    copy.append(meta, heading, excerpt, link);
+    featureEl.replaceChildren(photo, copy);
   }
 
   // News rows. #817: with apartment_news and management_office sharing one feed,
   // each row carries its server-mirrored authority label so residents can tell
   // 입주자대표회의 from 관리사무소 at a glance (label only, never an inference).
-  const rows = news.map(p => `
-    <button class="news-row" data-post-id="${p.id}" data-display-mode="${p.displayMode || 'highlight'}" type="button">
-      <span class="type">${p.authorityLabel ? p.authorityLabel + ' · ' + categoryLabel(p.category) : categoryLabel(p.category)}</span>
-      <strong>${p.displayMode === 'article' ? '<i class="mode-badge">장문</i>' : ''}${p.title}</strong>
-      <time>${formatDate(p.publishedAt)}</time>
-      <span class="arrow">→</span>
-    </button>
-  `).join('');
+  // #913 Phase B: DOM-only — no template string, no innerHTML.
+  const rows = news.map(p => {
+    const row = document.createElement('button');
+    row.className = 'news-row';
+    row.type = 'button';
+    row.dataset.postId = String(p.id);
+    row.dataset.displayMode = p.displayMode || 'highlight';
+
+    const type = document.createElement('span');
+    type.className = 'type';
+    type.textContent = p.authorityLabel ? p.authorityLabel + ' · ' + categoryLabel(p.category) : categoryLabel(p.category);
+
+    const strong = document.createElement('strong');
+    if (p.displayMode === 'article') {
+      const badge = document.createElement('i');
+      badge.className = 'mode-badge';
+      badge.textContent = '장문';
+      strong.append(badge);
+    }
+    strong.append(document.createTextNode(String(p.title || '')));
+
+    const time = document.createElement('time');
+    time.textContent = formatDate(p.publishedAt);
+
+    const arrow = document.createElement('span');
+    arrow.className = 'arrow';
+    arrow.textContent = '→';
+
+    row.append(type, strong, time, arrow);
+    return row;
+  });
   if (newsList && news.length > 0) {
-    newsList.innerHTML = rows;
+    newsList.replaceChildren(...rows);
   }
 }
 

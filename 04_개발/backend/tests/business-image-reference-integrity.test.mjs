@@ -89,7 +89,7 @@ assert.equal(invalidNamespace.status, 400);
 // by storage-reference-v1, not by the storage route owner (storage-v1).
 assert.ok(reference.includes('export async function validateBusinessImageReference('));
 assert.ok(reference.includes("parsed.visibility !== 'public' || parsed.kind !== 'business-image'"));
-assert.ok(reference.includes('metadataMatches(driveEnv, parsed, metadata)'));
+assert.ok(reference.includes('metadataMatches(driveEnv, parsed, metadata, r2Mode)'));
 assert.ok(reference.includes('props.danjionUploaderUserId !== expectedUploaderUserId'));
 assert.ok(reference.includes('props.danjionComplexSlug !== expectedComplexSlug'));
 assert.doesNotMatch(
