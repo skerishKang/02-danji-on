@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     env:
-      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}\n      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
     steps:
       - name: Verify Cloudflare API token read-only
         shell: bash
@@ -26,6 +26,23 @@ jobs:
               print("CF_VERIFY_SECRET_PRESENT=NO")
               sys.exit(2)
           print("CF_VERIFY_SECRET_PRESENT=YES")
+          print("CF_SECRET_LENGTH=" + str(len(token)))
+          print("CF_SECRET_PREFIX_CFUT=" + ("YES" if token.startswith("cfut_") else "NO"))
+          print("CF_SECRET_PREFIX_CFAT=" + ("YES" if token.startswith("cfat_") else "NO"))
+          print("CF_SECRET_PREFIX_BEARER=" + ("YES" if token.lower().startswith("bearer ") else "NO"))
+          print("CF_SECRET_CONTAINS_WHITESPACE=" + ("YES" if any(ch.isspace() for ch in token) else "NO"))
+          print("CF_SECRET_CONTAINS_QUOTE=" + ("YES" if ('"' in token or "'" in token) else "NO"))
+          print("CF_SECRET_CONTAINS_AUTHORIZATION_LABEL=" + ("YES" if "authorization:" in token.lower() else "NO"))
+          print("CF_SECRET_CONTAINS_CURL_TEXT=" + ("YES" if "curl " in token.lower() else "NO"))
+
+          endpoint = "https://api.cloudflare.com/client/v4/user/tokens/verify"
+          if token.startswith("cfat_"):
+              account_id = (os.environ.get("CLOUDFLARE_ACCOUNT_ID") or "").strip()
+              if not account_id:
+                  print("CF_VERIFY_ACCOUNT_ID_PRESENT=NO")
+                  sys.exit(4)
+              print("CF_VERIFY_ACCOUNT_ID_PRESENT=YES")
+              endpoint = f"https://api.cloudflare.com/client/v4/accounts/{account_id}/tokens/verify"
 
           with tempfile.NamedTemporaryFile() as tmp:
               proc = subprocess.run(
@@ -35,7 +52,7 @@ jobs:
                       "-w", "%{http_code}",
                       "-H", f"Authorization: Bearer {token}",
                       "-H", "Accept: application/json",
-                      "https://api.cloudflare.com/client/v4/user/tokens/verify",
+                      endpoint,
                   ],
                   text=True,
                   capture_output=True,
