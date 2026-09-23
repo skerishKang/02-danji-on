@@ -152,11 +152,16 @@ assert.ok(economy.includes('where exists (select 1 from business_applications a 
 
 // C. REPLAY ORDER: a completed request replays before ownership/Drive revalidation.
 const authCall = createBlock.indexOf('requireVerifiedResident(request, env, sql, requestId, input.complexSlug)');
-const replayLookup = createBlock.indexOf('await existingBusinessApplication(sql, resident.id, rawKey)');
+const replayLookup = createBlock.indexOf('await existingBusinessApplication(sql, resident.id, rawKey, requestId)');
 const ownershipCall = createBlock.indexOf('validateGalleryOwnership(sql, galleryKeys');
 const driveCall = createBlock.indexOf('await validateBusinessImageReference(', replayLookup);
 assert.ok(authCall >= 0 && replayLookup > authCall && ownershipCall > replayLookup && driveCall > replayLookup,
   'C. completed idempotent replay must resolve after auth but before ownership and Drive revalidation');
+assert.ok(createBlock.includes('if (existing instanceof Response) return existing;'),
+  'C. replay lookup outage must fail closed locally instead of escaping as generic 500');
+assert.ok(createBlock.includes('if (racedExisting instanceof Response) return racedExisting;'),
+  'C. race-resolution lookup outage must also fail closed locally');
+
 
 // D. FAIL-CLOSED gallery read: never a success with an empty persisted gallery.
 assert.ok(replayHelper.includes("'GALLERY_READ_UNAVAILABLE'"),
