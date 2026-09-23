@@ -73,6 +73,13 @@ assert.ok(f25.includes('로그인 후 이용 가능합니다.'), 'f25 auth-requi
 assert.ok(f25.includes('문의 접수에 실패했습니다.'), 'f25 submit-failure copy');
 assert.ok(f25.includes('불러오는 중'), 'f25 must show a loading state');
 assert.ok(!f25.includes('localStorage'), 'f25 server path must not fabricate local persistence');
+/* #864: recovery categories map to canonical enums and the failure branch never uses dead 'account'. */
+assert.ok(f25.includes(`'계정·로그인':'account_login'`), 'f25 must map 계정·로그인 to account_login');
+assert.ok(f25.includes(`'우리집 연결':'household_link'`), 'f25 must map 우리집 연결 to household_link');
+assert.ok(!/activeType\(\)\s*===\s*['"]account['"]/.test(f25),
+  'f25 must not compare activeType() against the non-canonical account enum');
+assert.ok(f25.includes(`t==='account_login'||t==='household_link'`),
+  'f25 recovery failure branch must match canonical recovery enums');
 
 /* --- 28 나의활동: activity + summary, hide unsourced controls --- */
 before(f28, 'assets/resident-bridge.js', 'assets/pages/activity-28.js', 'f28');
