@@ -20,6 +20,7 @@ const EXPECTED_BACKEND_ORDER = [
   "typecheck",
   "test:storage",
   "test:storage-contract",
+  "test:qa-r2-storage-lane",
   "test:official-news-image-844-lifecycle",
   "test:contract",
   "test:auth",
