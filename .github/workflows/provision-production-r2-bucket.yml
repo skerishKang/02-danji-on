@@ -64,6 +64,27 @@ jobs:
           test "$remote" = "$expected"
           echo 'EXACT_MAIN_GUARD=PASS'
 
+      - name: Verify canonical source R2 target
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs = require('fs');
+          const cfg = JSON.parse(fs.readFileSync('04_개발/backend/wrangler.jsonc', 'utf8'));
+          const prod = cfg.env?.production?.r2_buckets ?? [];
+          const qa = cfg.env?.qa?.r2_buckets ?? [];
+          if (prod.length !== 1 || prod[0]?.binding !== 'DANJION_STORAGE' || prod[0]?.bucket_name !== 'danjion-storage') {
+            throw new Error('Production R2 source target is not DANJION_STORAGE -> danjion-storage.');
+          }
+          if (!qa.some((bucket) => bucket?.bucket_name === 'danjion-storage-qa')) {
+            throw new Error('QA R2 source bucket danjion-storage-qa is not declared.');
+          }
+          if (qa.some((bucket) => bucket?.bucket_name === 'danjion-storage')) {
+            throw new Error('QA/Production R2 bucket isolation violated.');
+          }
+          NODE
+          echo 'SOURCE_R2_TARGET_GUARD=PASS'
+
       - name: Verify Padiem Cloudflare account guard
         shell: bash
         run: |
@@ -87,7 +108,7 @@ jobs:
           list_file="$(mktemp)"
           status="$(curl --silent --show-error --output "$list_file" --write-out '%{http_code}' \
             -H "$auth_header" \
-            "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/r2/buckets")"
+            "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/r2/buckets?name_contains=danjion-storage&per_page=100")"
           test "$status" = '200' || { echo "::error::R2 bucket inventory request failed."; exit 1; }
           if jq -e --arg name 'danjion-storage' '.result.buckets[]? | select(.name == $name)' "$list_file" >/dev/null; then
             echo 'PRODUCTION_BUCKET_BEFORE=PRESENT'
@@ -97,7 +118,7 @@ jobs:
             create_file="$(mktemp)"
             create_status="$(curl --silent --show-error --output "$create_file" --write-out '%{http_code}' \
               -X POST -H "$auth_header" -H 'Content-Type: application/json' \
-              --data '{"name":"danjion-storage"}' \
+              --data '{"name":"danjion-storage","storageClass":"Standard"}' \
               "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/r2/buckets")"
             test "$create_status" = '200' || { echo "::error::Production R2 bucket creation failed."; exit 1; }
             test "$(jq -r '.result.name // empty' "$create_file")" = 'danjion-storage' || { echo "::error::Creation readback mismatch."; exit 1; }
@@ -112,7 +133,7 @@ jobs:
           readback_file="$(mktemp)"
           status="$(curl --silent --show-error --output "$readback_file" --write-out '%{http_code}' \
             -H "$auth_header" \
-            "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/r2/buckets")"
+            "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/r2/buckets?name_contains=danjion-storage&per_page=100")"
           test "$status" = '200' || { echo "::error::R2 bucket readback request failed."; exit 1; }
           jq -e --arg name 'danjion-storage' '.result.buckets[]? | select(.name == $name)' "$readback_file" >/dev/null \
             || { echo "::error::PRODUCTION_BUCKET_AFTER is not PRESENT."; exit 1; }
