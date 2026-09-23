@@ -14,8 +14,8 @@ assert.match(migration, /char_length\(public_bio\) <= 300/i, 'public bio must be
 assert.match(migration, /set_updated_at\(\)/i, 'profile extension needs updated-at trigger');
 
 assert.match(api, /requireVerifiedResident\(/, 'ordinary viewers must pass canonical verified-resident authorization');
-assert.match(api, /if \(resident\.residentVerificationExempt\) \{[\s\S]*resolvePadiemAuthority\(sql, resident\.id\)[\s\S]*authority\.scopes\.includes\(RESIDENT_VERIFICATION_EXEMPT_SCOPE\)[\s\S]*OPERATOR_PROFILE_LABEL[\s\S]*ACCOUNT_PROFILE_LABEL[\s\S]*return \{ id: resident\.id, complexId: null, profileLabel \};/,
-  '#920 exempt self must use the account-safe path and reserve operator label for the exact exemption scope');
+assert.match(api, /if \(resident\.residentVerificationExempt\) \{[\s\S]*resident\.residentVerificationExemptionSource === 'scope'[\s\S]*OPERATOR_PROFILE_LABEL[\s\S]*ACCOUNT_PROFILE_LABEL[\s\S]*return \{ id: resident\.id, complexId: null, profileLabel \};/,
+  '#920 exempt self must use the account-safe path and reserve operator label for the canonical scope source');
 assert.doesNotMatch(api, /residentVerificationExempt[\s\S]{0,160}profileLabel: OPERATOR_PROFILE_LABEL/,
   'temporary/#823 resident admission must never be unconditionally labelled operator');
 assert.match(api, /if \(resident\.status !== 403\) return resident;/,
