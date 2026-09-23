@@ -18,6 +18,7 @@ export type VerifiedResident = Actor & {
     }
   | {
       residentVerificationExempt: true;
+      residentVerificationExemptionSource: 'scope' | 'ordinary_test' | 'temporary';
       householdId: null;
       membershipId: null;
       membershipRole: null;
@@ -155,7 +156,10 @@ export async function requireVerifiedResident(
     const row = rows[0];
     if (!row) {
       const authority = await resolvePadiemAuthority(sql, actor.id);
-      if (!authority.scopes.includes(RESIDENT_VERIFICATION_EXEMPT_SCOPE)) {
+      let residentVerificationExemptionSource: 'scope' | 'ordinary_test' | 'temporary';
+      if (authority.scopes.includes(RESIDENT_VERIFICATION_EXEMPT_SCOPE)) {
+        residentVerificationExemptionSource = 'scope';
+      } else {
         // #823 fallback: the source-pinned ordinary test-resident allowlist.
         // It creates no grants, so the account keeps authority level 'none'
         // (never operator/admin), and the admission below keeps the same
@@ -165,22 +169,12 @@ export async function requireVerifiedResident(
         // issuance is not ready, a SIGNED-IN ordinary actor may use the general
         // resident surfaces. `requireActor()` above already refused a signed-out
         // request with 401, so this branch is unreachable for anonymous traffic.
-        // The switch is server-side and fail-closed (only the exact string
-        // 'true' enables it) and grants NO authority and NO household: the
-        // admission below still returns null household/membership fields, so
-        // every household-specific surface keeps requiring a real membership.
-        //
         // The temporary path is limited to principals with NO PADIEM authority.
-        // A wildcard/bounded admin without the explicit exempt scope is not
-        // silently converted into a resident: the wildcard '*' alone never
-        // exempts, so such a principal keeps the strict 403 it received before
-        // the temporary switch existed (and keeps its admin console, which never
-        // consults this gate).
         const temporaryAdmitted =
           authority.level === 'none' && isTemporaryResidentAccessEnabled(env);
-        if (!ordinaryExempt && !temporaryAdmitted) {
-          return fail('RESIDENT_VERIFICATION_REQUIRED', 'Verified resident access required', 403, requestId);
-        }
+        if (ordinaryExempt) residentVerificationExemptionSource = 'ordinary_test';
+        else if (temporaryAdmitted) residentVerificationExemptionSource = 'temporary';
+        else return fail('RESIDENT_VERIFICATION_REQUIRED', 'Verified resident access required', 403, requestId);
       }
 
       const complexRows = await sql`
@@ -200,6 +194,7 @@ export async function requireVerifiedResident(
         complexId: String(complex.complex_id),
         complexSlug: String(complex.complex_slug),
         residentVerificationExempt: true,
+        residentVerificationExemptionSource,
         householdId: null,
         membershipId: null,
         membershipRole: null
