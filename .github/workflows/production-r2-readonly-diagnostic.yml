@@ -1,0 +1,155 @@
+name: Production R2 Read-Only Diagnostic
+
+on:
+  workflow_dispatch:
+    inputs:
+      expected_main:
+        description: 'Exact main SHA authorized for this read-only Production R2 diagnostic'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: danjion-production-r2-readonly
+  cancel-in-progress: false
+
+jobs:
+  source-contract:
+    name: Production R2 read-only diagnostic source safety contract
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Verify bounded Production R2 read-only diagnostic contract
+        run: node 04_개발/backend/tests/production-r2-readonly-diagnostic-contract.mjs
+
+  diagnostic:
+    name: Bounded Production R2 read-only diagnostic
+    needs: source-contract
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Exact-main guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected='${{ inputs.expected_main }}'
+          test "$GITHUB_REF" = 'refs/heads/main'
+          actual="$(git rev-parse HEAD)"
+          remote="$(git ls-remote origin refs/heads/main | awk '{print $1}')"
+          test -n "$expected"
+          test "$actual" = "$expected"
+          test "$remote" = "$expected"
+          echo 'EXACT_MAIN_GUARD=PASS'
+
+      - name: Verify Padiem Cloudflare account guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          auth_header="Authorization: Bearer ${CLOUDFLARE_API_TOKEN}"
+          account_json="$(curl --silent --show-error --fail \
+            -H "$auth_header" \
+            "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}")"
+          account_name="$(printf '%s' "$account_json" | jq -r '.result.name // empty')"
+          if [ "$account_name" != "Padiem" ]; then
+            echo "::error::Cloudflare account guard failed; refusing Production R2 diagnostic."
+            exit 1
+          fi
+          echo 'CLOUDFLARE_ACCOUNT_GUARD=PASS'
+
+      - name: Read-only R2 List Buckets canonical endpoint
+        shell: bash
+        run: |
+          set -euo pipefail
+          auth_header="Authorization: Bearer ${CLOUDFLARE_API_TOKEN}"
+          list_file="$(mktemp)"
+          status="$(curl --silent --show-error --output "$list_file" --write-out '%{http_code}' \
+            -H "$auth_header" \
+            "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/r2/buckets")"
+          echo "R2_LIST_HTTP_STATUS=${status}"
+          if [ "$status" = '200' ] && jq -e '.success == true' "$list_file" >/dev/null; then
+            echo 'R2_LIST_SUCCESS=true'
+          else
+            echo 'R2_LIST_SUCCESS=false'
+            error_code="$(jq -r '.errors[0].code // empty' "$list_file")"
+            error_message="$(jq -r '.errors[0].message // empty' "$list_file")"
+            echo "R2_LIST_ERROR_CODE=${error_code:-UNKNOWN}"
+            echo "R2_LIST_ERROR_MESSAGE=${error_message:-UNKNOWN}"
+            echo "::error::Canonical R2 List Buckets request did not succeed."
+            exit 1
+          fi
+
+      - name: Read-only R2 filtered list compatibility probe
+        shell: bash
+        run: |
+          set -euo pipefail
+          auth_header="Authorization: Bearer ${CLOUDFLARE_API_TOKEN}"
+          filtered_file="$(mktemp)"
+          filtered_status="$(curl --silent --show-error --output "$filtered_file" --write-out '%{http_code}' \
+            -H "$auth_header" \
+            "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/r2/buckets?name_contains=danjion-storage&per_page=100")"
+          echo "R2_FILTERED_LIST_HTTP_STATUS=${filtered_status}"
+          if [ "$filtered_status" = '200' ] && jq -e '.success == true' "$filtered_file" >/dev/null; then
+            echo 'R2_FILTERED_LIST_SUCCESS=true'
+          else
+            echo 'R2_FILTERED_LIST_SUCCESS=false'
+            filtered_code="$(jq -r '.errors[0].code // empty' "$filtered_file")"
+            filtered_message="$(jq -r '.errors[0].message // empty' "$filtered_file")"
+            echo "R2_FILTERED_LIST_ERROR_CODE=${filtered_code:-UNKNOWN}"
+            echo "R2_FILTERED_LIST_ERROR_MESSAGE=${filtered_message:-UNKNOWN}"
+            echo "::error::Filtered R2 List Buckets compatibility probe did not succeed."
+            exit 1
+          fi
+
+      - name: Names-only bucket presence readback
+        shell: bash
+        run: |
+          set -euo pipefail
+          auth_header="Authorization: Bearer ${CLOUDFLARE_API_TOKEN}"
+          readback_file="$(mktemp)"
+          readback_status="$(curl --silent --show-error --output "$readback_file" --write-out '%{http_code}' \
+            -H "$auth_header" \
+            "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/r2/buckets?name_contains=danjion-storage&per_page=100")"
+          test "$readback_status" = '200' || { echo "::error::R2 bucket presence readback request failed."; exit 1; }
+          if jq -e --arg name 'danjion-storage' '.result.buckets[]? | select(.name == $name)' "$readback_file" >/dev/null; then
+            echo 'PRODUCTION_BUCKET_PRESENT=YES'
+          else
+            echo 'PRODUCTION_BUCKET_PRESENT=NO'
+          fi
+          if jq -e --arg name 'danjion-storage-qa' '.result.buckets[]? | select(.name == $name)' "$readback_file" >/dev/null; then
+            echo 'QA_BUCKET_PRESENT=YES'
+          else
+            echo 'QA_BUCKET_PRESENT=NO'
+          fi
+
+      - name: Record read-only diagnostic disposition
+        shell: bash
+        run: |
+          {
+            echo '## DanjiOn Production R2 read-only diagnostic'
+            echo ''
+            echo '- Environment: `production`'
+            echo '- Method: GET only (no mutation)'
+            echo '- Object access: NO'
+            echo '- Worker deploy: NO'
+            echo '- Pages deploy: NO'
+            echo '- Database operation: NO'
+            echo '- Secret mutation: NO'
+          } >> "$GITHUB_STEP_SUMMARY"
