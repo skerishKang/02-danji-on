@@ -1,6 +1,7 @@
 import { neon, type NeonQueryFunction } from '@neondatabase/serverless';
 import { requireActor, type AuthEnv } from './auth-v1';
 import { requireVerifiedResident } from './authorization-v2';
+import { DB_AVAILABILITY_CODE, DB_AVAILABILITY_MESSAGE, isDbAvailabilityError } from './db-availability-v1';
 import { authorityFor } from './complex-news-channel';
 
 export type CoreEnv = AuthEnv;
@@ -85,8 +86,13 @@ async function handlePublicGet(sql: Sql, id: string, url: URL): Promise<Response
   const path = url.pathname;
 
   if (path === '/api/health') {
-    const rows = await sql`select 1 as ok`;
-    return ok({ status: 'ok', database: Number(rows[0]?.ok) === 1 ? 'ok' : 'unknown' }, id);
+    try {
+      const rows = await sql`select 1 as ok`;
+      return ok({ status: 'ok', database: Number(rows[0]?.ok) === 1 ? 'ok' : 'unknown' }, id);
+    } catch (error) {
+      if (!isDbAvailabilityError(error)) throw error;
+      return fail(DB_AVAILABILITY_CODE, DB_AVAILABILITY_MESSAGE, 503, id);
+    }
   }
 
   let match = path.match(/^\/api\/v1\/complexes\/([^/]+)$/);

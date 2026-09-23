@@ -32,6 +32,7 @@
         {"id":"test:production-admin-principal-adopt-existing","npm":"test:production-admin-principal-adopt-existing","kind":"contract"},
         {"id":"test:auth-facade-public-base","npm":"test:auth-facade-public-base","kind":"contract"},
         {"id":"test:authz-v2","npm":"test:authz-v2","kind":"contract"},
+        {"id":"test:db-availability-v1","npm":"test:db-availability-v1","kind":"contract"},
         {"id":"test:community-write-exemption-route","npm":"test:community-write-exemption-route","kind":"contract"},
         {"id":"test:authz-v2-schema","npm":"test:authz-v2-schema","kind":"contract"},
         {"id":"test:authz-v2-migrations","npm":"test:authz-v2-migrations","kind":"contract"},

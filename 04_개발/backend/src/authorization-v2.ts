@@ -1,5 +1,6 @@
 import type { NeonQueryFunction } from '@neondatabase/serverless';
 import { requireActor, type Actor, type AuthEnv } from './auth-v1';
+import { DB_AVAILABILITY_CODE, DB_AVAILABILITY_MESSAGE, isDbAvailabilityError } from './db-availability-v1';
 import { resolvePadiemAuthority } from './padiem-authority-v1';
 import { resolveOrdinaryTestResidentExemption } from './resident-verification-ordinary-exemption-v1';
 import { isTemporaryResidentAccessEnabled } from './temporary-resident-access-v1';
@@ -217,6 +218,9 @@ export async function requireVerifiedResident(
     };
   } catch (error) {
     console.error('[DanjiOn Resident AuthZ]', requestId, error instanceof Error ? error.name : 'resident_authz_failed');
+    if (isDbAvailabilityError(error)) {
+      return fail(DB_AVAILABILITY_CODE, DB_AVAILABILITY_MESSAGE, 503, requestId);
+    }
     return fail('RESIDENT_AUTHZ_FAILED', 'Resident authorization could not be verified', 500, requestId);
   }
 }

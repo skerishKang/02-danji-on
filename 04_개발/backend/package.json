@@ -34,6 +34,7 @@
     "test:qa-persona-auth-target": "node tests/qa-persona-auth-target-contract.mjs",
     "test:qa-auth-diagnostic-classifier": "node tests/qa-auth-diagnostic-classifier-contract.mjs",
     "test:authz-v2": "tsx tests/authorization-v2.test.mjs",
+    "test:db-availability-v1": "tsx --import ./tests/helpers/neon-stub-loader.mjs tests/db-availability-v1-contract.mjs",
     "test:community-write-exemption-route": "tsx --import ./tests/helpers/neon-stub-loader.mjs tests/community-write-exemption-route.test.mjs",
     "test:authz-v2-schema": "node tests/authorization-v2-schema-contract.mjs",
     "test:authz-v2-migrations": "node tests/authorization-v2-migration-contract.mjs",
