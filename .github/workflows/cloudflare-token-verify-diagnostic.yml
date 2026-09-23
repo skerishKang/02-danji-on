@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: read
+  actions: write
 
 jobs:
   verify-token:
@@ -112,3 +113,21 @@ jobs:
           print("CF_VERIFY_RESULT=REJECTED")
           sys.exit(1)
           PY
+
+      - name: Probe GitHub Actions secret-write capability
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          status="$(curl -sS -o /tmp/gh-secret-key.json -w '%{http_code}' \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/secrets/public-key")"
+          echo "GH_SECRET_PUBLIC_KEY_HTTP_STATUS=${status}"
+          rm -f /tmp/gh-secret-key.json
+          if [ "${status}" = "200" ]; then
+            echo "GH_SECRET_WRITE_PATH_CANDIDATE=YES"
+          else
+            echo "GH_SECRET_WRITE_PATH_CANDIDATE=NO"
+          fi
