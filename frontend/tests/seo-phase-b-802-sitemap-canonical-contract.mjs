@@ -238,23 +238,26 @@ const canonicalTags = (html) => [...html.matchAll(/<link[^>]*rel=["']canonical["
   assert.ok(!directives.includes(DEFERRED_HOST), 'no robots.txt directive may name the deferred domain');
 }
 
-/* ---------- 6. the deferred domain stays documentation, never published data ---------- */
+/* ---------- 6. future-domain/indexability policy stays in source contracts, not sitemap payload ---------- */
 {
   const xml = await read('sitemap.xml');
   const robots = await read('robots.txt');
-  for (const [label, text] of [['sitemap.xml', xml], ['robots.txt', robots]]) {
-    assert.match(text, /DEFERRED/, `${label} must record the custom domain as deferred`);
-    assert.ok(!text.includes(`${CANONICAL_ORIGIN}/index.html`),
-      `${label} must not publish the redirecting /index.html form`);
-  }
+
+  assert.ok(!xml.includes(DEFERRED_HOST),
+    'the sitemap payload must never name the deferred custom domain');
+  assert.ok(!xml.includes(`${CANONICAL_ORIGIN}/index.html`),
+    'the sitemap must not publish the redirecting /index.html form');
+  assert.doesNotMatch(xml, /<!--[\s\S]*?-->/,
+    'the production sitemap stays minimal XML; policy commentary belongs in source contracts/runbooks');
+
+  assert.match(robots, /DEFERRED/,
+    'robots.txt must record the custom domain as deferred');
+  assert.ok(!robots.includes(`${CANONICAL_ORIGIN}/index.html`),
+    'robots.txt must not publish the redirecting /index.html form');
   assert.match(robots, /one bounded follow-up/,
     'robots.txt must keep the rule that a future cutover moves every surface at once');
   assert.match(robots, /canonical[\s\S]{0,240}Search Console/,
     'robots.txt must name the paired surfaces: canonical URL, sitemap and Search Console');
-  assert.match(xml, /PUBLIC is not INDEXABLE/,
-    'the sitemap header must record that the privacy classification is not an indexability decision');
-  assert.match(xml, /indexability/,
-    'the sitemap header must point a future editor at the owner decision that widens this set');
 }
 
 console.log(
