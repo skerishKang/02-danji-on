@@ -61,6 +61,27 @@ assert.deepEqual(
 
 assert.match(workflow, /name: Production Worker Bootstrap/);
 assert.match(workflow, /workflow_dispatch:/, 'production deployment must remain explicitly dispatchable');
+assert.match(workflow, /expected_main:/, '#932: Production Worker dispatch must require an exact authorized main SHA');
+assert.ok(
+  workflow.includes('authorized_main="${{ inputs.expected_main }}"'),
+  '#932: workflow_dispatch authority must bind the operator-supplied expected main SHA'
+);
+assert.match(workflow, /git fetch origin main --no-tags/, '#932: Production Worker workflow must fresh-fetch remote main before mutation');
+assert.match(workflow, /EXACT_MAIN_GUARD=PASS/, '#932: initial exact-main authority guard must fail closed before Production mutation');
+assert.match(workflow, /PREMIGRATION_EXACT_MAIN_GUARD=PASS/, '#932: optional migration mutation must recheck exact main immediately beforehand');
+assert.match(workflow, /PREDEPLOY_EXACT_MAIN_GUARD=PASS/, '#932: Worker deploy must recheck exact main immediately beforehand');
+assert.ok(
+  workflow.indexOf('Verify exact current main authority') < workflow.indexOf('Migration inventory and classification (read-only)'),
+  '#932: exact-main guard must run before the Production migration lane'
+);
+assert.ok(
+  workflow.indexOf('Reconfirm exact main before optional migration mutation') < workflow.indexOf('Apply pending production-safe migrations'),
+  '#932: exact-main must be rechecked immediately before an authorized migration mutation'
+);
+assert.ok(
+  workflow.indexOf('Reconfirm exact main immediately before Worker deploy') < workflow.indexOf('Deploy production Worker with encrypted secrets'),
+  '#932: exact-main must be rechecked immediately before Worker deployment'
+);
 assert.match(workflow, /environment: production/, 'production mutation must use the GitHub production environment boundary');
 assert.match(workflow, /\[production-bootstrap\]/, 'the one-time merge-triggered bootstrap must require an explicit commit marker');
 assert.match(workflow, /node-version: '24'/);
