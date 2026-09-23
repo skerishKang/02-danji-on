@@ -289,19 +289,33 @@ async function fingerprint(input: ApplicationInput): Promise<string> {
   return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('');
 }
 
-async function existingBusinessApplication(sql: Sql, applicantUserId: string, submissionKey: string) {
-  const rows = await sql`
-    select id, relation_type, relation_raw, resolved_relation_type, business_name, category_name, service_summary,
-           price_text, contact_method, service_area, benefit_text,
-           availability_text, representative_image_object_key, status,
-           review_note, approved_business_id, submission_key,
-           submission_fingerprint, created_at, updated_at
-    from business_applications
-    where applicant_user_id = ${applicantUserId}::uuid
-      and submission_key = ${submissionKey}
-    limit 1
-  `;
-  return rows[0] ?? null;
+export async function existingBusinessApplication(
+  sql: Sql,
+  applicantUserId: string,
+  submissionKey: string,
+  requestId: string
+): Promise<Record<string, unknown> | Response | null> {
+  try {
+    const rows = await sql`
+      select id, relation_type, relation_raw, resolved_relation_type, business_name, category_name, service_summary,
+             price_text, contact_method, service_area, benefit_text,
+             availability_text, representative_image_object_key, status,
+             review_note, approved_business_id, submission_key,
+             submission_fingerprint, created_at, updated_at
+      from business_applications
+      where applicant_user_id = ${applicantUserId}::uuid
+        and submission_key = ${submissionKey}
+      limit 1
+    `;
+    return (rows[0] as Record<string, unknown> | undefined) ?? null;
+  } catch {
+    return fail(
+      'APPLICATION_REPLAY_LOOKUP_UNAVAILABLE',
+      'Existing application replay state could not be read',
+      503,
+      requestId
+    );
+  }
 }
 
 // GAP-5 BLOCKER: a replayed create must return the same document set the
@@ -639,8 +653,9 @@ async function createBusinessApplication(
   // later because a photo object was retired, and a replayed gallery read failure
   // must fail closed rather than report an empty gallery.
   if (rawKey && requestFingerprint) {
-    const existing = await existingBusinessApplication(sql, resident.id, rawKey);
-    if (existing) return await idempotentReplayResponse(sql, existing as Record<string, unknown>, requestFingerprint, requestId);
+    const existing = await existingBusinessApplication(sql, resident.id, rawKey, requestId);
+    if (existing instanceof Response) return existing;
+    if (existing) return await idempotentReplayResponse(sql, existing, requestFingerprint, requestId);
   }
 
   // Only a genuinely NEW request reaches ownership/Drive checks. Gallery
@@ -858,8 +873,9 @@ async function createBusinessApplication(
   // Resolve it through the same fail-closed replay contract: a matching
   // fingerprint returns the stored gallery, and a gallery read failure returns
   // 503 rather than reporting an empty gallery.
-  const racedExisting = await existingBusinessApplication(sql, resident.id, rawKey);
-  const racedReplay = await resolveCreateReplay(sql, racedExisting as Record<string, unknown> | null, requestFingerprint, requestId);
+  const racedExisting = await existingBusinessApplication(sql, resident.id, rawKey, requestId);
+  if (racedExisting instanceof Response) return racedExisting;
+  const racedReplay = await resolveCreateReplay(sql, racedExisting, requestFingerprint, requestId);
   if (racedReplay) return racedReplay;
   return fail('CONFLICT', 'Idempotent application could not be resolved', 409, requestId);
 }

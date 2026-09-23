@@ -102,13 +102,18 @@ const createStart = economy.indexOf('async function createBusinessApplication(')
 const createEnd = economy.indexOf('async function resubmitBusinessApplication(', createStart);
 const createBlock = economy.slice(createStart, createEnd);
 const createAuth = createBlock.indexOf('requireVerifiedResident(request, env, sql, requestId, input.complexSlug)');
-const replayLookup = createBlock.indexOf('await existingBusinessApplication(sql, resident.id, rawKey)');
+const replayLookup = createBlock.indexOf('await existingBusinessApplication(sql, resident.id, rawKey, requestId)');
 const createValidate = createBlock.indexOf('await validateBusinessImageReference(');
 const createInsert = createBlock.indexOf('insert into business_applications');
 assert.ok(createAuth >= 0 && replayLookup > createAuth,
   'verified-resident auth must precede idempotent replay lookup');
 assert.ok(createValidate > replayLookup,
   'completed idempotent replay must resolve before external image revalidation');
+assert.ok(createBlock.includes('if (existing instanceof Response) return existing;'),
+  'idempotency pre-read failures must be handled locally instead of escaping as generic 500');
+assert.ok(createBlock.includes('if (racedExisting instanceof Response) return racedExisting;'),
+  'race-resolution replay lookup failures must also fail closed locally');
+
 assert.ok(createInsert > createValidate,
   'new application insert must occur only after image reference validation');
 assert.ok(createBlock.includes('resident.id'));
