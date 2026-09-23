@@ -74,8 +74,11 @@ assert.ok(
   !list.includes('${pinnedHtml}'),
   '06 must not inject a second pinned card into .notice-list'
 );
+// #913 Phase A: the list head is now DOM-built (textContent) instead of an innerHTML
+// template; the sibling structure (div.list-head > h2 "전체 공지") is preserved.
 assert.ok(
-  list.includes('<div class="list-head"><h2>전체 공지</h2></div>${noticeHtml}'),
+  list.includes("listHead.className = 'list-head'") &&
+    list.includes("listHeading.textContent = '전체 공지'"),
   '06 server render must keep the sibling list head structure'
 );
 
@@ -92,10 +95,12 @@ assert.ok(
 );
 assert.ok(
   list.includes('<p class="notice-empty" id="noticeEmpty" hidden>검색 결과가 없습니다.</p>'),
-  '06 server render must re-emit the sibling-final-v3 empty state node'
+  '06 must keep the static sibling-final-v3 empty state node'
 );
+// #913 Phase A: the server render re-emits the empty state via DOM id assignment
+// (the static literal + the runtime re-emit still sum to the original count of 2).
 assert.equal(
-  countOf(list, 'id="noticeEmpty"'),
+  countOf(list, 'id="noticeEmpty"') + countOf(list, "empty.id = 'noticeEmpty'"),
   2,
   '06 must keep the static empty state and re-emit one for the server render'
 );
@@ -116,11 +121,14 @@ assert.ok(
 // Server rows must always be filter members, otherwise the empty state could show while rows
 // are visible. data-category must never be rendered empty.
 assert.ok(
-  !list.includes('data-category="${p.category || \'\'}"'),
+  !list.includes("row.dataset.category = p.category || ''") &&
+    !list.includes('data-category="${p.category || \'\'}"'),
   '06 server rows must not render an empty data-category that escapes the filter set'
 );
+// #913 Phase A: the fallback now flows through a dataset assignment (DOM-safe) while
+// keeping the exact channel fallback so rows stay filter members.
 assert.ok(
-  list.includes('data-category="${p.category || p.channel || \'danjion_notice\'}"'),
+  list.includes("row.dataset.category = p.category || p.channel || 'danjion_notice'"),
   '06 server rows must fall back to the channel so they stay filter members'
 );
 // The #354 demo filter semantics are untouched.

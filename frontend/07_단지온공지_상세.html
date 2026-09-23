@@ -264,6 +264,23 @@ const rawPostId = (params.get('postId') || '').trim();
 const SERVER_POST_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const postId = SERVER_POST_ID_RE.test(rawPostId) ? rawPostId : '';
 
+// #913: server bodies are plain text; paragraphs and line breaks are DOM-built only.
+function renderPlainBody(container, body) {
+  container.replaceChildren();
+  const normalized = String(body || '').replace(/\\r\\n|\\n|\\r/g, '\n');
+  const sections = normalized.split(/\n{2,}/).map(s => s.trim()).filter(Boolean);
+  for (const section of sections) {
+    const paragraph = document.createElement('p');
+    paragraph.className = 'opening';
+    const lines = section.split('\n');
+    lines.forEach((line, index) => {
+      if (index > 0) paragraph.append(document.createElement('br'));
+      paragraph.append(document.createTextNode(line));
+    });
+    container.append(paragraph);
+  }
+}
+
 async function loadPost() {
   let post = null;
   if (postId) {
@@ -280,11 +297,8 @@ async function loadPost() {
     leadEl.textContent = post.body?.slice(0, 200) || '';
     document.title = '단지온공지 · ' + post.title;
 
-    const bodyText = post.body || '';
-    const sections = bodyText.split('\n\n').filter(s => s.trim());
-    const html = sections.map(s => '<p class="opening">' + s.replace(/\n/g, '<br/>') + '</p>').join('');
-    contentEl.innerHTML = html;
-    indexEl.innerHTML = '';
+    renderPlainBody(contentEl, post.body || '');
+    indexEl.replaceChildren();
   }
 }
 
