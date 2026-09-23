@@ -1,4 +1,5 @@
 import { neon, type NeonQueryFunction } from '@neondatabase/serverless';
+import { admitResidentSelfSurface } from './authorization-v2';
 import { requireActor } from './auth-v1';
 import type { CoreEnv } from './core-v1';
 
@@ -51,19 +52,15 @@ async function requireNotificationActor(
     from app_users u
     where u.id = ${actor.id}::uuid
       and u.account_status = 'active'
-      and exists (
-        select 1
-        from household_memberships hm
-        join households h on h.id = hm.household_id and h.complex_id = hm.complex_id
-        join complex_units cu on cu.id = h.complex_unit_id and cu.complex_id = h.complex_id
-        where hm.user_id = u.id
-          and hm.status = 'verified'
-          and h.status = 'active'
-          and cu.status = 'active'
-      )
     limit 1
   `;
   if (!rows[0]) return fail('RESIDENT_REQUIRED', 'Verified resident access required', 403, requestId);
+  // #920: gate through the canonical self-surface admission (membership or
+  // exemption/temporary policy) instead of a local household-only SQL check.
+  // Complex-bound rows stay filtered below via hm.complex_id = n.complex_id.
+  if (!(await admitResidentSelfSurface(sql, env, actor))) {
+    return fail('RESIDENT_REQUIRED', 'Verified resident access required', 403, requestId);
+  }
   return { id: String(actor.id) };
 }
 

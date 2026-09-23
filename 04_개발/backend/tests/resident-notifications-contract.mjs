@@ -23,6 +23,15 @@ assert.match(migration, /'conversation'/i, 'message notification must link to th
 assert.doesNotMatch(migration, /new\.body/i, 'notification persistence must not copy the message body');
 
 assert.match(api, /requireActor\(/, 'notification API must authenticate through the canonical actor boundary');
+assert.match(api, /admitResidentSelfSurface\(/,
+  '#920 notifications must gate through the canonical self-surface admission (membership or exemption)');
+{
+  const gate = api.slice(api.indexOf('async function requireNotificationActor'), api.indexOf('async function listNotifications'));
+  assert.doesNotMatch(gate, /from household_memberships/,
+    'requireNotificationActor must not keep a local household-only SQL gate');
+  assert.match(gate, /admitResidentSelfSurface\(/,
+    'requireNotificationActor must call the canonical self-surface admission');
+}
 assert.match(api, /hm\.status = 'verified'/, 'notification API must remain resident-only');
 assert.match(api, /u\.account_status = 'active'/, 'closed accounts must not use resident notification APIs');
 assert.match(api, /where n\.user_id = \$\{actor\.id\}::uuid/i,
@@ -35,6 +44,10 @@ assert.match(api, /where n\.user_id = \$\{actor\.id\}::uuid[\s\S]*and n\.read_at
   'read-all mutation must only affect the authenticated recipient');
 assert.doesNotMatch(api, /building_code|unit_code|\bemail\b|auth_user_id/i,
   'notification API must not read or expose residence/provider PII');
+assert.match(api, /n\.complex_id is null\s+or exists/,
+  'list must allow account-scoped (complex_id null) notifications for exempt self');
+assert.match(api, /and hm\.complex_id = n\.complex_id/,
+  'complex-bound notifications must still require membership in that same complex');
 
 for (const route of [
   '/api/v1/me/notifications',
