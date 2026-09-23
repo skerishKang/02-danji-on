@@ -212,6 +212,7 @@ assert.ok(!(exemptOperator instanceof Response));
 assert.equal(exemptOperator.id, 'user-E');
 assert.equal(exemptOperator.complexId, 'complex-id-1');
 assert.equal(exemptOperator.residentVerificationExempt, true);
+assert.equal(exemptOperator.residentVerificationExemptionSource, 'scope');
 assert.equal(exemptOperator.householdId, null);
 assert.equal(exemptOperator.membershipId, null);
 assert.equal(exemptOperator.membershipRole, null);
@@ -220,6 +221,7 @@ const exemptSuper = await requireVerifiedResident(request('sub-W'), env, sql, 'r
 assert.ok(!(exemptSuper instanceof Response));
 assert.equal(exemptSuper.id, 'user-W');
 assert.equal(exemptSuper.residentVerificationExempt, true);
+assert.equal(exemptSuper.residentVerificationExemptionSource, 'scope');
 assert.equal(exemptSuper.householdId, null);
 
 // #823: the grant path must SHORT-CIRCUIT — admin/exempt-grant admissions
@@ -252,6 +254,7 @@ const ordinaryExempt = await requireVerifiedResident(request('sub-T'), env, sql,
 assert.ok(!(ordinaryExempt instanceof Response), 'the allowlisted credential test account must pass');
 assert.equal(ordinaryExempt.id, 'user-T');
 assert.equal(ordinaryExempt.residentVerificationExempt, true);
+assert.equal(ordinaryExempt.residentVerificationExemptionSource, 'ordinary_test');
 assert.equal(ordinaryExempt.householdId, null, 'the exemption must never synthesize a householdId');
 assert.equal(ordinaryExempt.membershipId, null, 'the exemption must never synthesize a membershipId');
 assert.equal(ordinaryExempt.membershipRole, null, 'the exemption must never synthesize a membershipRole');
@@ -264,6 +267,7 @@ assert.deepEqual(await responseError(unverifiedSocial), { status: 403, code: 'RE
 const verifiedSocial = await requireVerifiedResident(request('sub-U2'), env, sql, 'req-U2', 'complex-1');
 assert.ok(!(verifiedSocial instanceof Response));
 assert.equal(verifiedSocial.residentVerificationExempt, true);
+assert.equal(verifiedSocial.residentVerificationExemptionSource, 'ordinary_test');
 
 // Exact address only: lookalikes and wildcard-shaped addresses never match.
 const lookalikeEmail = await requireVerifiedResident(request('sub-V'), env, sql, 'req-V', 'complex-1');

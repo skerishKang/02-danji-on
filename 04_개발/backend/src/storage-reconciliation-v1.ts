@@ -1,10 +1,12 @@
 import { neon, type NeonQueryFunction } from '@neondatabase/serverless';
 import type { CoreEnv } from './core-v1';
+import { r2Delete, r2Enabled, r2Head, type R2StorageEnv } from './storage-r2-v1';
 
 type Sql = NeonQueryFunction<false, false>;
 
 type ReconciliationEnv = CoreEnv & {
   STORAGE_MODE?: string;
+  DANJION_STORAGE?: R2Bucket;
   GOOGLE_DRIVE_CLIENT_ID?: string;
   GOOGLE_DRIVE_CLIENT_SECRET?: string;
   GOOGLE_DRIVE_REFRESH_TOKEN?: string;
@@ -63,6 +65,7 @@ function requiredDriveCredentials(env: ReconciliationEnv): {
 }
 
 function reconciliationConfigured(env: ReconciliationEnv): boolean {
+  if (env.STORAGE_MODE === 'r2') return Boolean(env.DATABASE_URL) && r2Enabled(env);
   return env.STORAGE_MODE === 'drive'
     && Boolean(env.DATABASE_URL)
     && Boolean(env.GOOGLE_DRIVE_PUBLIC_BUSINESS_FOLDER_ID?.trim())
@@ -108,7 +111,7 @@ async function googleFetch(env: ReconciliationEnv, url: string, init: RequestIni
 }
 
 function fileIdFromObjectKey(objectKey: string): string | null {
-  for (const prefix of [BUSINESS_IMAGE_PREFIX, APPLICATION_DOCUMENT_PREFIX]) {
+  for (const prefix of [BUSINESS_IMAGE_PREFIX, APPLICATION_DOCUMENT_PREFIX, 'gdrive/public/official-news-image/']) {
     if (objectKey.startsWith(prefix)) {
       const fileId = objectKey.slice(prefix.length);
       return DRIVE_FILE_ID.test(fileId) ? fileId : null;
@@ -134,6 +137,15 @@ function metadataIdentityMatches(
       && props.danjionUploaderUserId === claim.uploader_user_id
       && props.danjionComplexSlug === claim.complex_slug;
   }
+  if (claim.kind === 'official-news-image') {
+    const props = metadata.appProperties || {};
+    return metadata.id === fileId
+      && metadata.trashed !== true
+      && props.danjionKind === 'official-news-image'
+      && props.danjionVisibility === 'public'
+      && props.danjionUploaderUserId === claim.uploader_user_id
+      && props.danjionComplexSlug === claim.complex_slug;
+  }
   const folderId = env.GOOGLE_DRIVE_PUBLIC_BUSINESS_FOLDER_ID?.trim();
   return Boolean(folderId)
     && metadata.id === fileId
@@ -154,6 +166,13 @@ async function readDriveMetadata(env: ReconciliationEnv, fileId: string): Promis
   return response.json() as Promise<DriveMetadata>;
 }
 
+async function readStorageMetadata(env: ReconciliationEnv, claim: BusinessImageReconciliationClaim, fileId: string): Promise<DriveMetadata | null> {
+  if (r2Enabled(env)) {
+    return r2Head(env as R2StorageEnv, claim.kind, fileId);
+  }
+  return readDriveMetadata(env, fileId);
+}
+
 async function trashDriveFile(env: ReconciliationEnv, fileId: string): Promise<DriveMetadata | null> {
   const response = await googleFetch(
     env,
@@ -167,6 +186,16 @@ async function trashDriveFile(env: ReconciliationEnv, fileId: string): Promise<D
   if (response.status === 404) return null;
   if (!response.ok) throw new Error(`Google Drive trash failed (${response.status})`);
   return response.json() as Promise<DriveMetadata>;
+}
+
+async function trashStorageObject(env: ReconciliationEnv, claim: BusinessImageReconciliationClaim, fileId: string): Promise<DriveMetadata | null> {
+  if (r2Enabled(env)) {
+    const metadata = await r2Head(env as R2StorageEnv, claim.kind, fileId);
+    if (!metadata) return null;
+    await r2Delete(env as R2StorageEnv, claim.kind, fileId);
+    return metadata;
+  }
+  return trashDriveFile(env, fileId);
 }
 
 export function reconciliationBackoffSeconds(attemptCount: number): number {
@@ -309,7 +338,7 @@ export async function reconcileClaimedBusinessImage(
 
   let metadata: DriveMetadata | null;
   try {
-    metadata = await readDriveMetadata(env, fileId);
+    metadata = await readStorageMetadata(env, claim, fileId);
   } catch {
     return deferOutcome(sql, claim, leaseToken, 'DRIVE_METADATA_UNAVAILABLE');
   }
@@ -345,7 +374,7 @@ export async function reconcileClaimedBusinessImage(
   }
 
   try {
-    const patched = await trashDriveFile(env, fileId);
+    const patched = await trashStorageObject(env, claim, fileId);
     if (!patched) {
       return await finalizeDeleteRetired(sql, claim, leaseToken) ? 'retired' : 'stale';
     }
@@ -355,7 +384,7 @@ export async function reconcileClaimedBusinessImage(
 
   let confirmed: DriveMetadata | null;
   try {
-    confirmed = await readDriveMetadata(env, fileId);
+    confirmed = await readStorageMetadata(env, claim, fileId);
   } catch {
     return deferOutcome(sql, claim, leaseToken, 'DRIVE_TRASH_CONFIRMATION_UNAVAILABLE');
   }

@@ -39,7 +39,7 @@ const OTHER_ID = '33333333-3333-4333-8333-333333333333';
 /* --- the status panel is additive and starts hidden --- */
 assert.ok(apply25a.includes('class="section owner-only" hidden="" id="myApplicationsSection"'),
   '25A must add the owner-only status panel in its hidden default state');
-const formOpen = apply25a.indexOf('<form class="form mode-owner" id="requestForm">');
+const formOpen = apply25a.indexOf('<form class="form mode-owner" id="requestForm"');
 const panelAt = apply25a.indexOf('id="myApplicationsSection"');
 const originalFirst = apply25a.indexOf('<h2>가게와 신청자</h2>');
 assert.ok(formOpen > -1 && panelAt > formOpen && originalFirst > panelAt,
