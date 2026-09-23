@@ -6,6 +6,7 @@ const wrangler = JSON.parse(await readFile(new URL('wrangler.jsonc', root), 'utf
 const worker = await readFile(new URL('src/worker-v2.ts', root), 'utf8');
 const signup = await readFile(new URL('src/signup-contact-verification-v1.ts', root), 'utf8');
 const workflow = await readFile(new URL('../../.github/workflows/production-worker-bootstrap.yml', root), 'utf8');
+const r2ProvisionWorkflow = await readFile(new URL('../../.github/workflows/production-r2-bucket-provision.yml', root), 'utf8');
 const productionSmoke = await readFile(new URL('tests/production-readonly-smoke.mjs', root), 'utf8');
 
 const production = wrangler.env?.production;
@@ -166,5 +167,28 @@ assert.match(
   /\(github\.event_name == 'workflow_dispatch' && inputs\.confirm_production\)/,
   '#438: production deploy authority gate must remain unchanged'
 );
+
+assert.match(r2ProvisionWorkflow, /name: Production R2 Bucket Provision/);
+assert.match(r2ProvisionWorkflow, /workflow_dispatch:/, '#932: Production R2 provisioning must be manual dispatch only');
+assert.doesNotMatch(r2ProvisionWorkflow, /^\s*schedule:/m, '#932: bucket provisioning must never be scheduled');
+assert.match(r2ProvisionWorkflow, /environment:\s*production/, '#932: provisioning must use the GitHub Production environment boundary');
+assert.match(r2ProvisionWorkflow, /TARGET_BUCKET:\s*danjion-storage/, '#932: only the canonical Production R2 bucket may be targeted');
+assert.match(r2ProvisionWorkflow, /CLOUDFLARE_API_TOKEN:\s*\$\{\{ secrets\.CLOUDFLARE_API_TOKEN \}\}/);
+assert.match(r2ProvisionWorkflow, /CLOUDFLARE_ACCOUNT_ID:\s*\$\{\{ secrets\.CLOUDFLARE_ACCOUNT_ID \}\}/);
+assert.match(r2ProvisionWorkflow, /Exact main authority guard/, '#932: provisioning must pin fresh exact main');
+assert.match(r2ProvisionWorkflow, /account_name.*Padiem/s, '#932: provisioning must fail closed outside the Padiem Cloudflare account');
+assert.match(r2ProvisionWorkflow, /SOURCE_R2_TARGET_GUARD=PASS/, '#932: source binding and QA isolation guard must run before mutation');
+assert.match(r2ProvisionWorkflow, /\/r2\/buckets/, '#932: provisioning must use only the Cloudflare R2 bucket API');
+assert.match(r2ProvisionWorkflow, /-X POST[\s\S]*\/r2\/buckets|\$\{api\}/, '#932: absent canonical bucket may be created through the bounded bucket endpoint');
+assert.match(r2ProvisionWorkflow, /BUCKET_CREATE=SKIPPED_ALREADY_EXISTS/, '#932: existing bucket must be a no-op');
+assert.match(r2ProvisionWorkflow, /BUCKET_READBACK=PASS/, '#932: names-only post-create readback is required');
+assert.doesNotMatch(r2ProvisionWorkflow, /-X DELETE|r2\/buckets\/[^\s]+\/objects|wrangler\s+delete|bucket\s+delete/i, '#932: no bucket/object delete path is allowed');
+assert.doesNotMatch(r2ProvisionWorkflow, /danjion-storage-qa/, '#932: QA bucket name must never be a provisioning target');
+assert.doesNotMatch(r2ProvisionWorkflow, /wrangler\s+deploy|pages\s+deploy|DANJION_PRODUCTION_DB_URL|DATABASE_URL/, '#932: provisioning must not deploy Worker/Pages or materialize DB credentials');
+assert.match(r2ProvisionWorkflow, /OBJECT_MUTATION=0/);
+assert.match(r2ProvisionWorkflow, /PAGES_DEPLOY=0/);
+assert.match(r2ProvisionWorkflow, /WORKER_DEPLOY=0/);
+assert.match(r2ProvisionWorkflow, /PRODUCTION_DB_MUTATION=0/);
+assert.match(r2ProvisionWorkflow, /SECRET_MUTATION=0/);
 
 console.log('Production bootstrap safety contract: PASS');
