@@ -25,11 +25,11 @@ jobs:
     runs-on: ubuntu-latest
     environment: production
     outputs:
-      enabled: ${{ steps.activation.outputs.enabled }}
+      state: ${{ steps.activation.outputs.state }}
       expected_main: ${{ steps.authority.outputs.expected_main }}
     env:
       DANJION_RESTORE_SOURCE_ARMED: 'false'
-      DANJION_BACKUP_RESTORE_DRILL_ENABLED: ${{ secrets.DANJION_BACKUP_RESTORE_DRILL_ENABLED }}
+      DANJION_BACKUP_RESTORE_DRILL_ENABLED: ${{ vars.DANJION_BACKUP_RESTORE_DRILL_ENABLED }}
 
     steps:
       - uses: actions/checkout@v4
@@ -60,19 +60,19 @@ jobs:
         run: |
           set -euo pipefail
 
-          if [ "${DANJION_RESTORE_SOURCE_ARMED}" != "true" ] || [ "${DANJION_BACKUP_RESTORE_DRILL_ENABLED:-}" != "true" ]; then
-            echo "enabled=false" >> "${GITHUB_OUTPUT}"
+          if [ "${DANJION_RESTORE_SOURCE_ARMED}" != "true" ] || [ "${DANJION_BACKUP_RESTORE_DRILL_ENABLED:-}" != "enabled" ]; then
+            echo "state=disabled" >> "${GITHUB_OUTPUT}"
             echo "RESTORE_DRILL_ACTIVATION=DISABLED"
             exit 0
           fi
 
-          echo "enabled=true" >> "${GITHUB_OUTPUT}"
+          echo "state=active" >> "${GITHUB_OUTPUT}"
           echo "RESTORE_DRILL_ACTIVATION=ENABLED"
 
   isolated-restore-verification:
     name: Restore encrypted dump into isolated non-production drill target
     needs: drill-gate
-    if: needs.drill-gate.outputs.enabled == 'true'
+    if: needs.drill-gate.outputs.state == 'active'
     runs-on: ubuntu-latest
     environment: production
     env:
@@ -143,7 +143,7 @@ jobs:
   disabled-disposition:
     name: Restore drill disabled no-op
     needs: drill-gate
-    if: needs.drill-gate.outputs.enabled != 'true'
+    if: needs.drill-gate.outputs.state != 'active'
     runs-on: ubuntu-latest
     steps:
       - name: Record disabled disposition
