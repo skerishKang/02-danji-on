@@ -1,0 +1,109 @@
+name: QA Auth Diagnostic
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-auth-diagnostic.yml'
+      - '04_개발/backend/scripts/qa-auth-diagnostic.mjs'
+      - '04_개발/backend/scripts/qa-auth-diagnostic-classifier.mjs'
+      - '04_개발/backend/tests/qa-auth-diagnostic-classifier-contract.mjs'
+  workflow_dispatch:
+    inputs:
+      expected_main:
+        description: 'Exact main SHA authorized for the read-only QA auth diagnostic'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: danjion-qa-auth-diagnostic
+  cancel-in-progress: false
+
+jobs:
+  source-contract:
+    name: QA auth diagnostic source safety contract
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Verify QA auth diagnostic classifier contract
+        run: node 04_개발/backend/tests/qa-auth-diagnostic-classifier-contract.mjs
+
+  live-diagnostic:
+    name: QA auth runtime diagnostic (read-only)
+    needs: source-contract
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    environment: qa
+    env:
+      APP_ENV: qa
+      DANJION_QA_API_URL: ${{ vars.DANJION_QA_API_URL }}
+      DANJION_QA_FRONTEND_URL: ${{ vars.DANJION_QA_FRONTEND_URL }}
+      DANJION_QA_SUPER_EMAIL: ${{ secrets.DANJION_QA_SUPER_EMAIL }}
+      DANJION_QA_SUPER_PASSWORD: ${{ secrets.DANJION_QA_SUPER_PASSWORD }}
+      DANJION_QA_OPERATIONAL_EMAIL: ${{ secrets.DANJION_QA_OPERATIONAL_EMAIL }}
+      DANJION_QA_OPERATIONAL_PASSWORD: ${{ secrets.DANJION_QA_OPERATIONAL_PASSWORD }}
+      DANJION_QA_RESIDENT_EMAIL: ${{ secrets.DANJION_QA_RESIDENT_EMAIL }}
+      DANJION_QA_RESIDENT_PASSWORD: ${{ secrets.DANJION_QA_RESIDENT_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Exact-main guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected='${{ inputs.expected_main }}'
+          test "$GITHUB_REF" = 'refs/heads/main'
+          actual="$(git rev-parse HEAD)"
+          remote="$(git ls-remote origin refs/heads/main | awk '{print $1}')"
+          test -n "$expected"
+          test "$actual" = "$expected"
+          test "$remote" = "$expected"
+          echo 'QA auth diagnostic exact-main guard: PASS'
+
+      - name: Validate QA-only target and credential presence
+        shell: bash
+        run: |
+          set -euo pipefail
+          for key in DANJION_QA_API_URL DANJION_QA_FRONTEND_URL DANJION_QA_SUPER_EMAIL DANJION_QA_SUPER_PASSWORD DANJION_QA_OPERATIONAL_EMAIL DANJION_QA_OPERATIONAL_PASSWORD DANJION_QA_RESIDENT_EMAIL DANJION_QA_RESIDENT_PASSWORD; do
+            test -n "${!key:-}" || { echo "::error::Missing QA auth diagnostic input: ${key}"; exit 1; }
+          done
+          test "${#DANJION_QA_SUPER_PASSWORD}" -ge 8
+          test "${#DANJION_QA_OPERATIONAL_PASSWORD}" -ge 8
+          test "${#DANJION_QA_RESIDENT_PASSWORD}" -ge 8
+          node - <<'NODE'
+          const api = new URL(process.env.DANJION_QA_API_URL);
+          const front = new URL(process.env.DANJION_QA_FRONTEND_URL);
+          if (api.protocol !== 'https:' || api.hostname !== 'padiem-danjion-api-qa.padiem.workers.dev' || api.pathname !== '/') throw new Error('QA API origin invalid');
+          if (front.protocol !== 'https:' || front.hostname !== 'danjion-qa.pages.dev' || front.pathname !== '/') throw new Error('QA frontend origin invalid');
+          if (api.hostname.includes('production') || front.hostname === 'danjion.pages.dev') throw new Error('Production target forbidden');
+          NODE
+          echo 'QA auth diagnostic isolation guard: PASS'
+
+      - name: Run the read-only QA auth diagnostic
+        run: node 04_개발/backend/scripts/qa-auth-diagnostic.mjs
+
+      - name: Record bounded disposition
+        shell: bash
+        run: |
+          {
+            echo '## DanjiOn QA auth runtime diagnostic (read-only)'
+            echo ''
+            echo '- Environment: `qa`'
+            echo '- Personas: `QA_SUPER`, `QA_OPERATIONAL`, `QA_RESIDENT`'
+            echo '- Mutation endpoints: `NEVER CALLED`'
+            echo '- Household fixture: `NOT RUN`'
+            echo '- Production target: `NO`'
+            echo '- Secret output: `NO`'
+          } >> "$GITHUB_STEP_SUMMARY"
