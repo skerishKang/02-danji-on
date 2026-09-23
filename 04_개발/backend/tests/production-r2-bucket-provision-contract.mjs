@@ -57,7 +57,7 @@ assert.ok(
   workflow.includes('danjion-storage') && !workflow.includes('danjion-storage-qa-create'),
   'workflow must reference canonical buckets only',
 );
-const creates = workflow.match(/\{"name":"danjion-storage"\}/g) || [];
+const creates = workflow.match(/\{\"name\":\"danjion-storage\",\"storageClass\":\"Standard\"\}/g) || [];
 assert.equal(creates.length, 1, 'exactly one bounded Standard-class create payload for danjion-storage');
 must(/name_contains=danjion-storage&per_page=100/, 'bucket inventory/readback must be narrowly filtered');
 must(/BUCKET_CREATE=SKIPPED_ALREADY_EXISTS/, 'existing bucket must skip create');
