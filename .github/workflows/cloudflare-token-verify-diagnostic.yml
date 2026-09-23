@@ -36,8 +36,26 @@ jobs:
           print("CF_SECRET_CONTAINS_AUTHORIZATION_LABEL=" + ("YES" if "authorization:" in token.lower() else "NO"))
           print("CF_SECRET_CONTAINS_CURL_TEXT=" + ("YES" if "curl " in token.lower() else "NO"))
 
+          import re
+          candidate = token
+          extracted = False
+          if not (candidate.startswith("cfut_") or candidate.startswith("cfat_")):
+              m = re.search(r"Authorization:\\s*:\\s*Bearer\\s+([^\\s\\\"']+)", token, re.IGNORECASE)
+              if not m:
+                  m = re.search(r"Bearer\\s+([^\\s\\\"']+)", token, re.IGNORECASE)
+              if m:
+                  candidate = m.group(1).strip()
+                  extracted = True
+
+          print("CF_SECRET_TOKEN_EXTRACTED=" + ("YES" if extracted else "NO"))
+          print("CF_CANDIDATE_LENGTH=" + str(len(candidate)))
+          print("CF_CANDIDATE_PREFIX_CFUT=" + ("YES" if candidate.startswith("cfut_") else "NO"))
+          print("CF_CANDIDATE_PREFIX_CFAT=" + ("YES" if candidate.startswith("cfat_") else "NO"))
+          if extracted:
+              print("::add-mask::" + candidate)
+
           endpoint = "https://api.cloudflare.com/client/v4/user/tokens/verify"
-          if token.startswith("cfat_"):
+          if candidate.startswith("cfat_"):
               account_id = (os.environ.get("CLOUDFLARE_ACCOUNT_ID") or "").strip()
               if not account_id:
                   print("CF_VERIFY_ACCOUNT_ID_PRESENT=NO")
@@ -51,7 +69,7 @@ jobs:
                       "curl", "-sS", "--max-time", "20",
                       "-o", tmp.name,
                       "-w", "%{http_code}",
-                      "-H", f"Authorization: Bearer {token}",
+                      "-H", f"Authorization: Bearer {candidate}",
                       "-H", "Accept: application/json",
                       endpoint,
                   ],
