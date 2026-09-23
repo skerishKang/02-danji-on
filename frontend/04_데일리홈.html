@@ -305,7 +305,7 @@ async function loadHomeAuthority(){
   ['.news-row[data-route^="08_"] b',newsBase+'/posts?channel=apartment_news&limit=1','현재 공개된 아파트소식이 없습니다.','아파트소식을 불러오지 못했습니다.']
  ].map(async pair=>{const el=q(pair[0]);try{const json=await homePublicJson(pair[1]);const rows=json&&json.data;const title=Array.isArray(rows)&&rows[0]?String(rows[0].title||''):'';if(el)el.textContent=title||pair[2]}catch(e){if(el)el.textContent=pair[3];console.info('[danjion] home news slot unavailable:',String(e&&e.message||e))}}));
  try{
-  if(typeof DanjionSession==='undefined'||!HOME_API_BASE)throw new Error('session runtime unavailable');
+  if(typeof DanjionSession==='undefined'||(!HOME_API_BASE&&!DanjionSession.isCanonicalProduction()))throw new Error('session runtime unavailable');
   const result=await DanjionSession.request(fetch,DanjionSession.joinUrl(HOME_API_BASE,newsBase+'/resident-news'));
   const posts=result&&result.ok&&result.data&&Array.isArray(result.data.posts)?result.data.posts:[];
   const title=posts[0]?String(posts[0].title||''):'';
