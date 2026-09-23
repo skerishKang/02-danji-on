@@ -6,7 +6,9 @@ import { readFile } from 'node:fs/promises';
 // 06_단지온공지_목록 / 07_단지온공지_상세 / 09_회장인사_상세.
 // Rendering is DOM-only (createElement/textContent/createTextNode); no raw server
 // interpolation into innerHTML, no regex pseudo-sanitizer, no rich-HTML contract.
-// #844-owned surfaces (08/08A/danjion-news-bridge) are PHASE_B_DEFERRED and untouched.
+// #844-owned surfaces (08/08A/danjion-news-bridge) are covered by Phase B in
+// leaf-b913-official-content-xss-phase-b-844-contract.mjs; Phase A still pins
+// that 08 no longer keeps the deferred innerHTML sinks.
 // Bounded, offline, deterministic: static source assertions + extracted-function runtime.
 
 const root = new URL('../', import.meta.url);
@@ -340,11 +342,19 @@ const MULTILINE = 'line one\nline two\nline three';
 }
 
 // ---------------------------------------------------------------------------
-// 4. Phase B deferral is explicit — #844-owned sinks are out of scope here
+// 4. Phase B landed on 08 — the old deferred sinks must be gone
 // ---------------------------------------------------------------------------
 const apartment = await readFile(new URL('08_아파트소식_목록.html', root), 'utf8');
-assert.ok(apartment.includes('featureEl.innerHTML') || apartment.includes('innerHTML'),
-  'PHASE_B_DEFERRED #844: 08 list sinks stay untouched in Phase A');
+const apartmentModule = moduleOf(apartment, '08');
+assert.equal(/\binnerHTML\s*=/.test(apartmentModule), false,
+  'PHASE_B #844: 08 list module must not assign innerHTML');
+assert.equal(/\bouterHTML\s*=/.test(apartmentModule), false,
+  'PHASE_B #844: 08 list module must not assign outerHTML');
+assert.ok(/document\.createElement\(/.test(apartmentModule) && /textContent/.test(apartmentModule),
+  'PHASE_B #844: 08 list module must render via createElement + textContent');
+assert.ok(!apartment.includes('${chair.title}') && !apartment.includes('${chair.body}') &&
+  !apartment.includes('${p.title}'),
+  'PHASE_B #844: server title/body must not be interpolated into a template');
 
 console.log('SCRIPT_EXECUTION=0 EVENT_HANDLER_NODE=0 JAVASCRIPT_URL_NODE=0');
 console.log('leaf-b913-official-content-xss-phase-a-contract: PASS');

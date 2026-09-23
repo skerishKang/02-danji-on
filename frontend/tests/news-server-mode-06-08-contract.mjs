@@ -160,8 +160,11 @@ assert.ok(
   apartment.includes("go(FILES.chair + (pid ? '?postId=' + encodeURIComponent(pid) : ''));"),
   '08 must route to the chair detail with the preserved postId'
 );
+// #913 Phase B: the feature link is DOM-built; postId still lands in the href query
+// so the router's href postId extractor keeps working.
 assert.ok(
-  apartment.includes('href="09_회장인사_상세.html?postId=${chair.id}"'),
+  apartment.includes('09_회장인사_상세.html?postId=${encodeURIComponent(String(chair.id))}') ||
+    apartment.includes('href="09_회장인사_상세.html?postId=${chair.id}"'),
   '08 server render must keep emitting the postId on the feature link'
 );
 assert.ok(

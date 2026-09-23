@@ -202,10 +202,20 @@ for (const needle of [
   "registry.kind !== 'official-news-image'",
   "String(registry.complex_id) !== expectedComplexId",
   "String(registry.state) !== 'active'",
-  'metadataMatches(driveEnv, parsed, metadata)'
+  'metadataMatches(driveEnv, parsed, metadata, r2Mode)'
 ]) {
   assert.ok(referenceBlock.includes(needle), `official-news reference validation must include: ${needle}`);
 }
+// #932 Production STORAGE_MODE=r2: the official-news reference validator must
+// share the #809 R2 parity branch instead of forcing a Drive-only credential gate.
+assert.ok(referenceBlock.includes('const r2Mode = r2Enabled(env as R2StorageEnv);'),
+  '#932 R2 parity: official-news reference must branch on r2Enabled');
+assert.ok(referenceBlock.includes('!r2Mode && (!driveConfigured(driveEnv) || !requiredDriveCredentials(driveEnv))'),
+  '#932 R2 parity: Drive credentials are only required outside r2 mode');
+assert.ok(referenceBlock.includes('r2Head(env as R2StorageEnv, parsed.kind, parsed.fileId)'),
+  '#932 R2 parity: R2 mode must verify identity through r2Head');
+assert.ok(referenceBlock.includes('metadataMatches(driveEnv, parsed, metadata, r2Mode)'),
+  '#932 R2 parity: metadataMatches must receive the same r2Mode flag');
 assert.equal(referenceBlock.includes('danjionUploaderUserId !=='), false,
   'Amendment B: attaching a photo must not require the same uploader as the post editor');
 assert.ok(adminOperational.includes('validateOfficialNewsImageReference'),

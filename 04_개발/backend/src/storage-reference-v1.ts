@@ -102,7 +102,11 @@ export async function validateOfficialNewsImageReference(
   requestId: string
 ): Promise<Response | null> {
   const driveEnv = env as DriveEnv;
-  if (!driveConfigured(driveEnv) || !requiredDriveCredentials(driveEnv)) {
+  // #844 / #932: Production STORAGE_MODE is r2. Mirror the #809 business-image
+  // gate so a Drive credential check never rejects a valid R2 official-news
+  // object; Drive mode keeps the original gate byte-for-byte.
+  const r2Mode = r2Enabled(env as R2StorageEnv);
+  if (!r2Mode && (!driveConfigured(driveEnv) || !requiredDriveCredentials(driveEnv))) {
     return fail('STORAGE_NOT_CONFIGURED', 'Google Drive storage is not configured for official news image verification', 503, requestId);
   }
 
@@ -161,7 +165,9 @@ export async function validateOfficialNewsImageReference(
 
   let metadata: DriveMetadata | null;
   try {
-    metadata = await readDriveMetadata(driveEnv, parsed);
+    metadata = r2Mode
+      ? await r2Head(env as R2StorageEnv, parsed.kind, parsed.fileId)
+      : await readDriveMetadata(driveEnv, parsed);
   } catch {
     return fail(
       'OFFICIAL_NEWS_IMAGE_REFERENCE_UNAVAILABLE',
@@ -170,7 +176,7 @@ export async function validateOfficialNewsImageReference(
       requestId
     );
   }
-  if (!metadata || !metadataMatches(driveEnv, parsed, metadata)) {
+  if (!metadata || !metadataMatches(driveEnv, parsed, metadata, r2Mode)) {
     return fail(
       'INVALID_OFFICIAL_NEWS_IMAGE_REFERENCE',
       'Official news image is missing or no longer a valid DanjiOn official-news image',
