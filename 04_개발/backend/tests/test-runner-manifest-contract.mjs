@@ -22,6 +22,7 @@ const EXPECTED_BACKEND_ORDER = [
   "test:storage-contract",
   "test:qa-r2-storage-lane",
   "test:r2-upload-idempotency",
+  "test:r2-delete-lifecycle-parity",
   "test:official-news-image-844-lifecycle",
   "test:contract",
   "test:auth",

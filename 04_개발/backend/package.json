@@ -12,6 +12,7 @@
     "test:storage-contract": "node tests/storage-contract.mjs",
     "test:qa-r2-storage-lane": "node tests/qa-r2-storage-lane-contract.mjs",
     "test:r2-upload-idempotency": "tsx tests/r2-upload-idempotency.test.mjs",
+    "test:r2-delete-lifecycle-parity": "tsx --import ./tests/helpers/neon-stub-loader.mjs tests/r2-delete-lifecycle-parity.test.mjs",
     "test:runtime-qa-r2-storage": "node tests/runtime-qa-r2-storage.mjs",
     "test:official-news-image-844-lifecycle": "tsx tests/official-news-image-844-lifecycle.test.mjs",
     "test:contract": "node tests/contract.mjs",
