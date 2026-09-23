@@ -1,0 +1,70 @@
+name: QA R2 Storage Validation
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-r2-storage-validation.yml'
+      - '04_개발/backend/tests/runtime-qa-r2-storage.mjs'
+      - '04_개발/backend/tests/qa-r2-storage-lane-contract.mjs'
+  workflow_dispatch:
+    inputs:
+      expected_main:
+        description: 'Exact main SHA authorized for this QA R2 validation'
+        required: true
+        type: string
+      run_live:
+        description: 'Run the remote-only QA R2 runtime harness (QA mutations only)'
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  source-contract:
+    name: QA R2 harness source safety contract
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Verify remote-only QA R2 harness contract
+        run: node 04_개발/backend/tests/qa-r2-storage-lane-contract.mjs
+
+  live-qa-r2:
+    name: Remote-only QA R2 storage runtime
+    needs: source-contract
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_live }}
+    runs-on: ubuntu-latest
+    environment: qa
+    env:
+      DANJION_QA_API_URL: ${{ vars.DANJION_QA_API_URL }}
+      DANJION_QA_FRONTEND_URL: ${{ vars.DANJION_QA_FRONTEND_URL }}
+      DANJION_QA_EMAIL: ${{ secrets.DANJION_QA_EMAIL }}
+      DANJION_QA_PASSWORD: ${{ secrets.DANJION_QA_PASSWORD }}
+      DANJION_QA_COMPLEX_SLUG: ${{ vars.DANJION_QA_COMPLEX_SLUG }}
+      DANJION_QA_REMOTE: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+      - name: Exact-main guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected='${{ inputs.expected_main }}'
+          test "$GITHUB_REF" = 'refs/heads/main'
+          actual="$(git rev-parse HEAD)"
+          remote="$(git ls-remote origin refs/heads/main | awk '{print $1}')"
+          test -n "$expected"
+          test "$actual" = "$expected"
+          test "$remote" = "$expected"
+          echo 'QA R2 validation exact-main guard: PASS'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Run remote-only QA R2 storage harness
+        run: node 04_개발/backend/tests/runtime-qa-r2-storage.mjs --remote
