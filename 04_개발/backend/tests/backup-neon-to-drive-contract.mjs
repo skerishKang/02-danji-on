@@ -15,31 +15,104 @@ if (process.platform !== 'win32') {
   assert.equal(syntax.status, 0, `backup shell syntax invalid: ${syntax.stderr || syntax.stdout}`);
 }
 
+// Extracts one step's `run: |` body from the workflow YAML so the activation contract can be
+// asserted against the executable gate script rather than the whole file.
+function extractStepRunBlock(source, stepName) {
+  const lines = source.split(/\r?\n/);
+  const nameIdx = lines.findIndex((line) => line.trim() === `- name: ${stepName}`);
+  assert.ok(nameIdx >= 0, `workflow step not found: ${stepName}`);
+  let runIdx = -1;
+  for (let i = nameIdx + 1; i < lines.length; i += 1) {
+    if (/^\s*-\s/.test(lines[i])) break;
+    if (/^\s*run:\s*\|\s*$/.test(lines[i])) { runIdx = i; break; }
+  }
+  assert.ok(runIdx > nameIdx, `run block not found for step: ${stepName}`);
+  const runIndent = lines[runIdx].match(/^\s*/)[0].length;
+  const body = [];
+  for (let i = runIdx + 1; i < lines.length; i += 1) {
+    const line = lines[i];
+    if (line.trim() !== '' && line.match(/^\s*/)[0].length <= runIndent) break;
+    body.push(line);
+  }
+  const nonEmpty = body.filter((line) => line.trim() !== '');
+  const bodyIndent = Math.min(...nonEmpty.map((line) => line.match(/^\s*/)[0].length));
+  return body.map((line) => line.slice(bodyIndent)).join('\n').trim();
+}
+
+// The value the Production environment variable DANJION_BACKUP_ENABLED must hold. It is not a
+// secret; it is a human-auditable switch token. The activation output token must never equal it
+// (nor be boolean), otherwise the job output value can collide with a masked secret value and
+// the runner silently drops it before downstream `if` conditions are evaluated.
+const REQUIRED_ENABLE_SWITCH_VALUE = 'enabled';
+
 assert.match(workflow, /cron:\s*'17 18 \* \* \*'/, 'daily candidate schedule must remain 24h');
-assert.match(workflow, /environment:\s*production/, 'backup must use the production environment boundary');
-assert.match(workflow, /DANJION_BACKUP_SOURCE_ARMED:\s*'true'/, 'source arm is owner-authorized (#714); runtime activation still requires the separate environment variable');
-assert.match(workflow, /DANJION_BACKUP_ENABLED:\s*\$\{\{\s*vars\.DANJION_BACKUP_ENABLED\s*\}\}/, 'non-sensitive enable switch must use the Production environment vars context');
-assert.doesNotMatch(workflow, /DANJION_BACKUP_ENABLED:\s*\$\{\{\s*secrets\.DANJION_BACKUP_ENABLED\s*\}\}/, 'enable switch must not use secrets context because secret masking can suppress job outputs');
-assert.match(workflow, /DANJION_BACKUP_ENABLED:-\}" != "enabled"/, 'enable variable must require the explicit enabled token');
-assert.match(workflow, /state=active/, 'activation output must use a non-boolean active token');
-assert.match(workflow, /state=disabled/, 'activation output must use a non-boolean disabled token');
-assert.doesNotMatch(workflow, /enabled=(?:true|false)/, 'job outputs must not reuse boolean tokens that can collide with secret masking');
-assert.match(workflow, /needs\.activation-gate\.outputs\.state == 'active'/, 'backup job must depend on active state');
-assert.match(workflow, /needs\.activation-gate\.outputs\.state != 'active'/, 'disabled job must handle every non-active state');
-assert.match(workflow, /Exact main authority guard/, 'exact-main guard is required');
+assert.match(workflow, /environment:\s*production/, 'PRODUCTION_ENVIRONMENT_PRESERVED=PASS');
+assert.match(workflow, /Exact main authority guard/, 'EXACT_MAIN_GUARD_PRESERVED=PASS');
+assert.match(workflow, /Reconfirm exact main immediately before backup/, 'exact-main must be rechecked immediately before backup');
+
+/* ---- ENABLE_SWITCH_CONTEXT_FIX (#714) ---- */
+assert.match(
+  workflow,
+  /DANJION_BACKUP_ENABLED:\s*\$\{\{\s*vars\.DANJION_BACKUP_ENABLED\s*\}\}/,
+  'ENABLE_SWITCH_USES_VARS_CONTEXT=PASS',
+);
+assert.doesNotMatch(workflow, /secrets\.DANJION_BACKUP_ENABLED/, 'ENABLE_SWITCH_DOES_NOT_USE_SECRETS_CONTEXT=PASS');
+assert.match(workflow, /DANJION_BACKUP_SOURCE_ARMED:\s*'true'/, 'source arm is owner-authorized (#714); runtime activation still requires the separate non-secret DANJION_BACKUP_ENABLED variable');
+
+/* ---- JOB_OUTPUT_MASKING_FIX (#714) ---- */
+assert.match(
+  workflow,
+  /state:\s*\$\{\{\s*steps\.activation\.outputs\.state\s*\}\}/,
+  'JOB_OUTPUT_ACTIVE_DISABLED_PRESENT=PASS',
+);
+for (const forbidden of [
+  /steps\.activation\.outputs\.enabled/,
+  /needs\.activation-gate\.outputs\.enabled/,
+  /^\s*enabled:\s*\$\{\{\s*steps\.activation/m,
+  /echo\s+"enabled=/,
+  /\benabled=(?:true|false)\b/,
+]) {
+  assert.doesNotMatch(workflow, forbidden, `removed boolean job-output plumbing must not return: ${forbidden}`);
+}
+assert.match(workflow, /needs\.activation-gate\.outputs\.state == 'active'/, 'BACKUP_JOB_IF_ACTIVE=PASS');
+assert.match(workflow, /needs\.activation-gate\.outputs\.state != 'active'/, 'DISABLED_JOB_IF_NOT_ACTIVE=PASS');
+
+const activationGate = extractStepRunBlock(workflow, 'Backup activation gate');
+assert.match(activationGate, /\[ "\$\{DANJION_BACKUP_SOURCE_ARMED\}" != "true" \]/, 'SOURCE_ARM_REQUIRED=PASS');
+assert.match(
+  activationGate,
+  new RegExp(`\\$\\{DANJION_BACKUP_ENABLED:-\\}" != "${REQUIRED_ENABLE_SWITCH_VALUE}"`),
+  'ENABLE_VARIABLE_REQUIRED=PASS',
+);
+assert.match(activationGate, /DANJION_BACKUP_ENABLED:-/, 'an unset enable variable must fail closed through the :- default, not abort the step');
+
+const emittedTokens = [...activationGate.matchAll(/echo\s+"(state=[^"]*)"\s*>>\s*"\$\{GITHUB_OUTPUT\}"/g)]
+  .map((match) => match[1].slice('state='.length));
+assert.deepEqual([...emittedTokens].sort(), ['active', 'disabled'], 'activation must emit exactly the active/disabled tokens');
+for (const token of emittedTokens) {
+  assert.ok(
+    !['true', 'false', '1', '0', 'yes', 'no', 'on', 'off'].includes(token.toLowerCase()),
+    `ACTIVATION_OUTPUT_TOKEN_NOT_BOOLEAN=PASS violated by token: ${token}`,
+  );
+  assert.notEqual(token, REQUIRED_ENABLE_SWITCH_VALUE, `ACTIVATION_OUTPUT_TOKEN_NOT_ENABLE_SWITCH_VALUE=PASS violated by token: ${token}`);
+  assert.notEqual(token, 'true', 'the source-arm literal must not be reused as an output token');
+}
+
+const activationBlock = workflow.split(/\n  encrypted-backup:/)[0];
+assert.match(activationBlock, /DANJION_BACKUP_ENABLED/, 'activation job must receive only the non-secret enable switch');
+assert.doesNotMatch(activationBlock, /DANJION_PRODUCTION_DB_URL/, 'disabled activation job must not materialize DB URL');
+assert.doesNotMatch(activationBlock, /DANJION_BACKUP_ENCRYPTION_PASSPHRASE/, 'disabled activation job must not materialize encryption secret');
+assert.doesNotMatch(activationBlock, /DANJION_DRIVE_RCLONE_CONFIG/, 'disabled activation job must not materialize Drive OAuth secret');
+assert.match(workflow, /SENSITIVE_BACKUP_SECRET_MATERIALIZED=0/, 'disabled disposition must explicitly prove sensitive backup secrets were not materialized');
 assert.match(workflow, /DANJION_PRODUCTION_DB_URL/, 'must reuse canonical production DB secret name');
 assert.match(workflow, /DANJION_BACKUP_ENCRYPTION_PASSPHRASE/, 'encryption secret binding is required');
 assert.match(workflow, /DANJION_DRIVE_RCLONE_CONFIG/, 'owner OAuth rclone config secret binding is required');
 assert.match(workflow, /DANJION_DRIVE_FOLDER_ID/, 'dedicated Drive folder binding is required');
 assert.doesNotMatch(workflow, /actions\/upload-artifact/i, 'database backup must never become a GitHub artifact');
-const activationBlock = workflow.split(/\n  encrypted-backup:/)[0];
-assert.match(activationBlock, /vars\.DANJION_BACKUP_ENABLED/, 'activation job must receive only the non-sensitive enable variable');
-assert.doesNotMatch(activationBlock, /secrets\.DANJION_BACKUP_ENABLED/, 'activation job must not materialize the obsolete enable secret');
-assert.doesNotMatch(activationBlock, /DANJION_PRODUCTION_DB_URL/, 'disabled activation job must not materialize DB URL');
-assert.doesNotMatch(activationBlock, /DANJION_BACKUP_ENCRYPTION_PASSPHRASE/, 'disabled activation job must not materialize encryption secret');
-assert.doesNotMatch(activationBlock, /DANJION_DRIVE_RCLONE_CONFIG/, 'disabled activation job must not materialize Drive OAuth secret');
-assert.match(workflow, /Reconfirm exact main immediately before backup/, 'exact-main must be rechecked immediately before backup');
-assert.match(workflow, /SENSITIVE_BACKUP_SECRET_MATERIALIZED=0/, 'disabled disposition must explicitly prove sensitive backup secrets were not materialized');
+
+/* ---- restore drill must stay untouched by this fix ---- */
+const restoreWorkflow = readFileSync(join(repoRoot, '.github', 'workflows', 'verify-neon-backup-restore.yml'), 'utf8');
+assert.match(restoreWorkflow, /DANJION_RESTORE_SOURCE_ARMED:\s*'false'/, 'RESTORE_ARM_UNCHANGED=PASS');
 
 assert.match(script, /RETENTION_GENERATIONS=30/, 'retention must remain bounded to 30 generations');
 assert.match(script, /POSTGRES_IMAGE="postgres:18"/, 'pg_dump client must be pinned to a non-older major');
@@ -80,4 +153,17 @@ assert.doesNotMatch(script, /(?:-e|--env)\s+DATABASE_URL=/, 'DB URL value must n
 assert.match(script, /--drive-use-trash=false/, 'retention must permanently remove generations beyond the bounded 30-file policy');
 assert.doesNotMatch(script, /\bpsql\b[\s\S]*(insert|update|delete|alter|drop|create)\b/i, 'backup script must not contain Production SQL writes');
 
+process.stdout.write('ENABLE_SWITCH_USES_VARS_CONTEXT=PASS\n');
+process.stdout.write('ENABLE_SWITCH_DOES_NOT_USE_SECRETS_CONTEXT=PASS\n');
+process.stdout.write('JOB_OUTPUT_TRUE_FALSE_ABSENT=PASS\n');
+process.stdout.write('JOB_OUTPUT_ACTIVE_DISABLED_PRESENT=PASS\n');
+process.stdout.write('BACKUP_JOB_IF_ACTIVE=PASS\n');
+process.stdout.write('DISABLED_JOB_IF_NOT_ACTIVE=PASS\n');
+process.stdout.write('SOURCE_ARM_REQUIRED=PASS\n');
+process.stdout.write('ENABLE_VARIABLE_REQUIRED=PASS\n');
+process.stdout.write('EXACT_MAIN_GUARD_PRESERVED=PASS\n');
+process.stdout.write('PRODUCTION_ENVIRONMENT_PRESERVED=PASS\n');
+process.stdout.write('RESTORE_ARM_UNCHANGED=PASS\n');
+process.stdout.write('ACTIVATION_OUTPUT_TOKEN_NOT_BOOLEAN=PASS\n');
+process.stdout.write('ACTIVATION_OUTPUT_TOKEN_NOT_ENABLE_SWITCH_VALUE=PASS\n');
 process.stdout.write('backup-neon-to-drive-contract: PASS\n');

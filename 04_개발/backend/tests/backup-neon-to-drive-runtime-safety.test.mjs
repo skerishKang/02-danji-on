@@ -311,6 +311,83 @@ function assertNoSecretLeak(run) {
   }
 }
 
+/* ---------------- WORKFLOW ACTIVATION GATE / RUNNER MASKING MODEL (#714) ----------------
+ * The Production backup run 35827610656 reported `BACKUP_ACTIVATION=ENABLED` and then
+ * `##[warning]Skip output 'enabled' since it may contain secret.` The activation job wrote
+ * `enabled=true` to $GITHUB_OUTPUT while the enable switch was a Production environment SECRET
+ * whose runtime value was also `true`, so the runner withheld the output and the downstream
+ * `if` conditions never saw the activation state: encrypted-backup=skipped,
+ * disabled-no-op=success, FIRST_PRODUCTION_BACKUP=NOT_EXECUTED.
+ *
+ * This section executes the REAL activation gate step lifted from the workflow YAML and applies
+ * a masking model to the outputs it produces. Hermetic: sentinel values only, no real secret.
+ */
+function extractStepRunBlock(source, stepName) {
+  const lines = source.split(/\r?\n/);
+  const nameIdx = lines.findIndex((line) => line.trim() === `- name: ${stepName}`);
+  assert.ok(nameIdx >= 0, `workflow step not found: ${stepName}`);
+  let runIdx = -1;
+  for (let i = nameIdx + 1; i < lines.length; i += 1) {
+    if (/^\s*-\s/.test(lines[i])) break;
+    if (/^\s*run:\s*\|\s*$/.test(lines[i])) { runIdx = i; break; }
+  }
+  assert.ok(runIdx > nameIdx, `run block not found for step: ${stepName}`);
+  const runIndent = lines[runIdx].match(/^\s*/)[0].length;
+  const body = [];
+  for (let i = runIdx + 1; i < lines.length; i += 1) {
+    const line = lines[i];
+    if (line.trim() !== '' && line.match(/^\s*/)[0].length <= runIndent) break;
+    body.push(line);
+  }
+  const nonEmpty = body.filter((line) => line.trim() !== '');
+  const bodyIndent = Math.min(...nonEmpty.map((line) => line.match(/^\s*/)[0].length));
+  return body.map((line) => line.slice(bodyIndent)).join('\n').trim();
+}
+
+function parseGithubOutput(text) {
+  const outputs = {};
+  for (const line of text.split(/\r?\n/)) {
+    const idx = line.indexOf('=');
+    if (idx > 0) outputs[line.slice(0, idx)] = line.slice(idx + 1);
+  }
+  return outputs;
+}
+
+// Models the runner rule behind #714: an output whose value equals a masked secret value is
+// withheld from every downstream job.
+function modelRunnerMasking(outputs, maskedValues) {
+  const collisions = [];
+  for (const [key, value] of Object.entries(outputs)) {
+    for (const [label, masked] of Object.entries(maskedValues)) {
+      if (masked !== '' && value === masked) collisions.push(`${key}~${label}`);
+    }
+  }
+  return collisions;
+}
+
+function runActivationGate(gateScript, overrides) {
+  const dir = mkdtempSync(join(tmpdir(), 'danjion-gate-'));
+  const gatePath = join(dir, 'gate.sh');
+  const outputPath = join(dir, 'github-output.txt');
+  writeFileSync(gatePath, gateScript);
+  writeFileSync(outputPath, '');
+  const base = { ...process.env };
+  delete base.DANJION_BACKUP_ENABLED;
+  delete base.DANJION_BACKUP_SOURCE_ARMED;
+  const result = spawnSync(bashPath, [toBashPath(gatePath)], {
+    encoding: 'utf8',
+    env: { ...base, GITHUB_OUTPUT: toBashPath(outputPath), ...overrides },
+    timeout: 30000,
+  });
+  return {
+    status: result.status,
+    stdout: result.stdout ?? '',
+    stderr: result.stderr ?? '',
+    outputs: parseGithubOutput(readFileSync(outputPath, 'utf8')),
+    dir,
+  };
+}
+
 if (!bashPath) {
   process.stdout.write('RUNTIME_HARNESS=SKIPPED_NO_BASH\n');
   process.stdout.write('backup-neon-to-drive-runtime-safety: SKIPPED (no non-WSL bash available on this host)\n');
@@ -474,6 +551,76 @@ try {
   cleanups.push(mutated.sandboxRoot);
   const unsafeDeletes = deleteNames(mutated).filter((n) => UNRELATED_NAMES.includes(n) || MALFORMED_NAMES.includes(n));
 
+  /* ---------------- 6. ACTIVATION GATE / RUNNER MASKING MODEL (#714) ---------------- */
+  const BOOLEAN_TOKENS = ['true', 'false', '1', '0', 'yes', 'no', 'on', 'off'];
+  const ENABLE_SWITCH_VALUE = 'enabled';
+  const workflowSource = readFileSync(join(repoRoot, '.github', 'workflows', 'backup-neon-to-drive.yml'), 'utf8');
+  const activationJobBlock = workflowSource.split(/\n  encrypted-backup:/)[0];
+  // Structural separation: an activation job that binds no secret at all cannot produce an
+  // output value the runner would ever mask.
+  assert.doesNotMatch(activationJobBlock, /\$\{\{\s*secrets\./, 'ACTIVATION_JOB_SECRET_BINDINGS=0 violated');
+  assert.match(
+    activationJobBlock,
+    /DANJION_BACKUP_ENABLED:\s*\$\{\{\s*vars\.DANJION_BACKUP_ENABLED\s*\}\}/,
+    'the enable switch must be resolved from the vars context',
+  );
+
+  const gateScript = extractStepRunBlock(workflowSource, 'Backup activation gate');
+  const activeGate = runActivationGate(gateScript, {
+    DANJION_BACKUP_SOURCE_ARMED: 'true',
+    DANJION_BACKUP_ENABLED: ENABLE_SWITCH_VALUE,
+  });
+  const unsetSwitchGate = runActivationGate(gateScript, { DANJION_BACKUP_SOURCE_ARMED: 'true' });
+  const emptySwitchGate = runActivationGate(gateScript, { DANJION_BACKUP_SOURCE_ARMED: 'true', DANJION_BACKUP_ENABLED: '' });
+  const unarmedGate = runActivationGate(gateScript, {
+    DANJION_BACKUP_SOURCE_ARMED: 'false',
+    DANJION_BACKUP_ENABLED: ENABLE_SWITCH_VALUE,
+  });
+  const booleanSwitchGate = runActivationGate(gateScript, { DANJION_BACKUP_SOURCE_ARMED: 'true', DANJION_BACKUP_ENABLED: 'true' });
+  for (const gate of [activeGate, unsetSwitchGate, emptySwitchGate, unarmedGate, booleanSwitchGate]) cleanups.push(gate.dir);
+
+  assert.equal(activeGate.status, 0, `armed+provisioned gate must exit 0: ${activeGate.stderr}`);
+  assert.deepEqual(activeGate.outputs, { state: 'active' }, 'armed+provisioned gate must publish state=active');
+  assert.ok(activeGate.stdout.includes('BACKUP_ACTIVATION=ENABLED'), 'armed+provisioned gate must report ENABLED');
+
+  for (const [label, gate] of [
+    ['unset-enable-variable', unsetSwitchGate],
+    ['empty-enable-variable', emptySwitchGate],
+    ['source-not-armed', unarmedGate],
+    ['boolean-enable-variable', booleanSwitchGate],
+  ]) {
+    assert.equal(gate.status, 0, `${label}: the gate must fail closed without aborting the step: ${gate.stderr}`);
+    assert.deepEqual(gate.outputs, { state: 'disabled' }, `${label}: must publish state=disabled`);
+    assert.ok(gate.stdout.includes('BACKUP_ACTIVATION=DISABLED'), `${label}: must report DISABLED`);
+  }
+
+  for (const token of [activeGate.outputs.state, unsetSwitchGate.outputs.state]) {
+    assert.ok(!BOOLEAN_TOKENS.includes(token.toLowerCase()), `ACTIVATION_OUTPUT_TOKEN_NOT_BOOLEAN violated by token: ${token}`);
+    assert.notEqual(token, ENABLE_SWITCH_VALUE, `ACTIVATION_OUTPUT_TOKEN_NOT_ENABLE_SWITCH_VALUE violated by token: ${token}`);
+  }
+
+  // Worst-case masking model: treat every value bound into the activation job as if it could be
+  // masked, then require that no published output value collides with one of them.
+  const maskedModel = { DANJION_BACKUP_ENABLED: ENABLE_SWITCH_VALUE, DANJION_BACKUP_SOURCE_ARMED: 'true' };
+  const gateMaskCollisions = modelRunnerMasking(activeGate.outputs, maskedModel);
+  assert.deepEqual(gateMaskCollisions, [], `GATE_OUTPUT_MASK_COLLISION=0 violated: ${gateMaskCollisions.join(',')}`);
+
+  // MUTATION PROOF: restore the exact historical gate shape (boolean secret value + boolean
+  // output token) and show that the masking model catches the withheld output.
+  const historicalGate = gateScript
+    .replace('"${DANJION_BACKUP_ENABLED:-}" != "enabled"', '"${DANJION_BACKUP_ENABLED:-}" != "true"')
+    .replace('echo "state=disabled"', 'echo "enabled=false"')
+    .replace('echo "state=active"', 'echo "enabled=true"');
+  assert.notEqual(historicalGate, gateScript, 'mutation must actually restore the historical boolean output form');
+  const historicalGateRun = runActivationGate(historicalGate, { DANJION_BACKUP_SOURCE_ARMED: 'true', DANJION_BACKUP_ENABLED: 'true' });
+  cleanups.push(historicalGateRun.dir);
+  const historicalMaskCollisions = modelRunnerMasking(historicalGateRun.outputs, { DANJION_BACKUP_ENABLED: 'true' });
+  assert.deepEqual(historicalGateRun.outputs, { enabled: 'true' }, 'the historical gate must publish the boolean output');
+  assert.ok(
+    historicalMaskCollisions.length > 0,
+    'MUTATION_PROOF: the historical boolean output must collide with the masked enable value'
+  );
+
   /* ---------------- REPORT ---------------- */
   process.stdout.write('SCRIPT_SYNTAX=bash-n PASS\n');
   process.stdout.write(`BACKUP_RUNTIME_SAFETY_TRACE=${ok.events.length}events\n`);
@@ -496,6 +643,15 @@ try {
   process.stdout.write('RETENTION_LISTING_FAIL_CLOSED=' + (retentionListingFailClosed ? 'YES' : 'NO') + '\n');
   process.stdout.write('BACKUP_ACTIVATION_READINESS=' + (retentionListingFailClosed ? 'NOT_BLOCKED_BY_RETENTION_LISTING' : 'BLOCKED_RETENTION_LISTING') + '\n');
   process.stdout.write(`MUTATION_PROOF=weakened-guard-unsafe-deletes=${unsafeDeletes.length}\n`);
+  process.stdout.write('GATE_MASKING_MODEL=PASS\n');
+  process.stdout.write(`ACTIVATION_GATE_ACTIVE_TOKEN=${activeGate.outputs.state}\n`);
+  process.stdout.write(`ACTIVATION_GATE_DISABLED_TOKEN=${unsetSwitchGate.outputs.state}\n`);
+  process.stdout.write('ACTIVATION_GATE_FAIL_CLOSED=unset,empty,unarmed,boolean\n');
+  process.stdout.write('ACTIVATION_OUTPUT_TOKEN_NOT_BOOLEAN=PASS\n');
+  process.stdout.write('ACTIVATION_OUTPUT_TOKEN_NOT_ENABLE_SWITCH_VALUE=PASS\n');
+  process.stdout.write('ACTIVATION_JOB_SECRET_BINDINGS=0\n');
+  process.stdout.write(`GATE_OUTPUT_MASK_COLLISION=${gateMaskCollisions.length}\n`);
+  process.stdout.write(`MUTATION_PROOF_GATE=historical-boolean-output-collisions=${historicalMaskCollisions.length}\n`);
   process.stdout.write('STATIC_CONTRACT=separate(backup-neon-to-drive-contract.mjs)\n');
   process.stdout.write('RUNTIME_HARNESS=PASS\n');
 
