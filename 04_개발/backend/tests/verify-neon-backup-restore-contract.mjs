@@ -18,8 +18,15 @@ if (process.platform !== 'win32') {
 assert.match(workflow, /workflow_dispatch:/, 'restore drill must be manual dispatch only');
 assert.doesNotMatch(workflow, /^\s*schedule:/m, 'restore drill must never be scheduled');
 assert.match(workflow, /DANJION_RESTORE_SOURCE_ARMED:\s*'false'/, 'restore drill must stay hard-disabled until a later owner-authorized arm change');
-assert.match(workflow, /DANJION_BACKUP_RESTORE_DRILL_ENABLED/, 'explicit drill enable secret gate is required');
-assert.match(workflow, /needs\.drill-gate\.outputs\.enabled == 'true'/, 'drill job must depend on the enable gate');
+assert.match(workflow, /DANJION_BACKUP_RESTORE_DRILL_ENABLED:\s*\$\{\{\s*vars\.DANJION_BACKUP_RESTORE_DRILL_ENABLED\s*\}\}/, 'non-sensitive drill enable switch must use the Production environment vars context');
+assert.doesNotMatch(workflow, /DANJION_BACKUP_RESTORE_DRILL_ENABLED:\s*\$\{\{\s*secrets\.DANJION_BACKUP_RESTORE_DRILL_ENABLED\s*\}\}/, 'drill enable switch must not use secrets context because runner masking can suppress job outputs');
+assert.match(workflow, /DANJION_BACKUP_RESTORE_DRILL_ENABLED:-\}" != "enabled"/, 'drill enable variable must require the explicit enabled token');
+assert.match(workflow, /state:\s*\$\{\{\s*steps\.activation\.outputs\.state\s*\}\}/, 'restore activation output must use state plumbing');
+assert.match(workflow, /state=active/, 'restore activation output must use active token');
+assert.match(workflow, /state=disabled/, 'restore activation output must use disabled token');
+assert.doesNotMatch(workflow, /echo\s+"enabled=(?:true|false)"/, 'restore job outputs must not reuse boolean tokens');
+assert.match(workflow, /needs\.drill-gate\.outputs\.state == 'active'/, 'drill job must depend on active state');
+assert.match(workflow, /needs\.drill-gate\.outputs\.state != 'active'/, 'disabled drill job must handle every non-active state');
 assert.match(workflow, /Exact main authority guard/, 'exact-main guard is required');
 assert.match(workflow, /Reconfirm exact main immediately before drill/, 'exact-main must be rechecked immediately before the drill');
 assert.match(workflow, /verify-neon-backup-restore-contract\.mjs/, 'the source safety contract must run inside the gate job');
@@ -31,7 +38,8 @@ assert.match(workflow, /DANJION_DRIVE_FOLDER_ID/, 'dedicated Drive folder bindin
 assert.doesNotMatch(workflow, /actions\/upload-artifact/i, 'restore drill material must never become a GitHub artifact');
 
 const gateBlock = workflow.split(/\n  isolated-restore-verification:/)[0];
-assert.match(gateBlock, /DANJION_BACKUP_RESTORE_DRILL_ENABLED/, 'activation job must receive only the drill enable secret');
+assert.match(gateBlock, /vars\.DANJION_BACKUP_RESTORE_DRILL_ENABLED/, 'activation job must receive only the non-sensitive drill enable variable');
+assert.doesNotMatch(gateBlock, /\$\{\{\s*secrets\./, 'restore activation job must bind zero Production secrets');
 assert.doesNotMatch(gateBlock, /DANJION_RESTORE_DRILL_DB_URL/, 'disabled gate job must not materialize the drill target URL');
 assert.doesNotMatch(gateBlock, /DANJION_DRIVE_RCLONE_CONFIG/, 'disabled gate job must not materialize Drive OAuth secret');
 assert.doesNotMatch(gateBlock, /DANJION_BACKUP_ENCRYPTION_PASSPHRASE/, 'disabled gate job must not materialize the decryption passphrase');
@@ -77,4 +85,9 @@ for (const secret of [
   assert.ok(!new RegExp(`echo [^\\n]*\\$\\{${secret}`).test(script), `${secret} value must never be echoed`);
 }
 
+process.stdout.write('RESTORE_ENABLE_SWITCH_USES_VARS_CONTEXT=PASS\n');
+process.stdout.write('RESTORE_ENABLE_SWITCH_DOES_NOT_USE_SECRETS_CONTEXT=PASS\n');
+process.stdout.write('RESTORE_JOB_OUTPUT_TRUE_FALSE_ABSENT=PASS\n');
+process.stdout.write('RESTORE_JOB_OUTPUT_ACTIVE_DISABLED_PRESENT=PASS\n');
+process.stdout.write('RESTORE_ACTIVATION_JOB_SECRET_BINDINGS=0\n');
 process.stdout.write('verify-neon-backup-restore-contract: PASS\n');
