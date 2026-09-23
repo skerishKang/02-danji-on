@@ -1,0 +1,131 @@
+name: Production R2 Bucket Provision
+
+on:
+  workflow_dispatch:
+    inputs:
+      expected_main:
+        description: 'Exact origin/main SHA authorized by CENTRAL'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: danjion-production-r2-bucket-provision
+  cancel-in-progress: false
+
+jobs:
+  provision:
+    name: Provision canonical Production R2 bucket
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      TARGET_BUCKET: danjion-storage
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Exact main authority guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main --no-tags
+          actual_main="$(git rev-parse origin/main)"
+          expected_main="${{ inputs.expected_main }}"
+
+          if [ "${GITHUB_SHA}" != "${expected_main}" ] || [ "${actual_main}" != "${expected_main}" ]; then
+            echo "::error::Exact-main authority mismatch."
+            exit 1
+          fi
+
+          echo "EXACT_MAIN_GUARD=PASS"
+
+      - name: Verify bounded source target
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs = require('fs');
+          const cfg = JSON.parse(fs.readFileSync('04_개발/backend/wrangler.jsonc', 'utf8'));
+          const prod = cfg.env?.production?.r2_buckets ?? [];
+          const qa = cfg.env?.qa?.r2_buckets ?? [];
+          if (prod.length !== 1 || prod[0]?.binding !== 'DANJION_STORAGE' || prod[0]?.bucket_name !== 'danjion-storage') {
+            throw new Error('Production R2 binding is not the canonical DANJION_STORAGE -> danjion-storage target.');
+          }
+          if (qa.some((b) => b?.bucket_name === 'danjion-storage')) {
+            throw new Error('QA/Production R2 isolation violated.');
+          }
+          NODE
+          echo "SOURCE_R2_TARGET_GUARD=PASS"
+
+      - name: Verify Cloudflare production authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          for key in CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID; do
+            if [ -z "${!key:-}" ]; then
+              echo "::error::Missing required Cloudflare Production environment credential."
+              exit 1
+            fi
+          done
+
+          account_json="$(curl --silent --show-error --fail             -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}"             "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}")"
+          account_name="$(printf '%s' "${account_json}" | jq -r '.result.name // empty')"
+
+          if [ "${account_name}" != "Padiem" ]; then
+            echo "::error::Cloudflare account guard failed; refusing Production R2 mutation."
+            exit 1
+          fi
+
+          echo "CLOUDFLARE_ACCOUNT_GUARD=PASS"
+
+      - name: Create canonical bucket only if absent
+        shell: bash
+        run: |
+          set -euo pipefail
+          api="https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/r2/buckets"
+
+          before="$(curl --silent --show-error --fail             -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}"             "${api}?name_contains=${TARGET_BUCKET}&per_page=100")"
+          before_count="$(printf '%s' "${before}" | jq --arg name "${TARGET_BUCKET}" '[.result.buckets[]? | select(.name == $name)] | length')"
+
+          if [ "${before_count}" -gt 1 ]; then
+            echo "::error::Unexpected duplicate exact bucket-name readback."
+            exit 1
+          fi
+
+          if [ "${before_count}" -eq 1 ]; then
+            echo "BUCKET_CREATE=SKIPPED_ALREADY_EXISTS"
+          else
+            create_body="$(jq -cn --arg name "${TARGET_BUCKET}" '{name:$name,storageClass:"Standard"}')"
+            created="$(curl --silent --show-error --fail               -X POST               -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}"               -H "Content-Type: application/json"               --data "${create_body}"               "${api}")"
+            created_name="$(printf '%s' "${created}" | jq -r '.result.name // empty')"
+            if [ "${created_name}" != "${TARGET_BUCKET}" ]; then
+              echo "::error::R2 bucket create response did not match the authorized target."
+              exit 1
+            fi
+            echo "BUCKET_CREATE=PASS"
+          fi
+
+          after="$(curl --silent --show-error --fail             -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}"             "${api}?name_contains=${TARGET_BUCKET}&per_page=100")"
+          after_count="$(printf '%s' "${after}" | jq --arg name "${TARGET_BUCKET}" '[.result.buckets[]? | select(.name == $name)] | length')"
+
+          if [ "${after_count}" -ne 1 ]; then
+            echo "::error::Canonical Production R2 bucket readback failed."
+            exit 1
+          fi
+
+          echo "BUCKET_READBACK=PASS"
+          echo "PRODUCTION_R2_BUCKET=${TARGET_BUCKET}"
+          echo "QA_R2_BUCKET_MUTATION=0"
+          echo "OBJECT_MUTATION=0"
+          echo "PAGES_DEPLOY=0"
+          echo "WORKER_DEPLOY=0"
+          echo "PRODUCTION_DB_MUTATION=0"
+          echo "SECRET_MUTATION=0"
