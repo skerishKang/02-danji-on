@@ -7,6 +7,7 @@ type WorkerEnv = CoreEnv & BetterAuthEnv & {
   CORS_ALLOWED_ORIGINS?: string;
   COMMUNITY_PUBLISH_MODE?: string;
   STORAGE_MODE?: string;
+  DANJION_STORAGE?: R2Bucket;
   BUSINESS_IMAGE_RECONCILIATION_ENABLED?: string;
   GOOGLE_DRIVE_CLIENT_ID?: string;
   GOOGLE_DRIVE_CLIENT_SECRET?: string;
