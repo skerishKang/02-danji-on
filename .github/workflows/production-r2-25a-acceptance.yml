@@ -1,0 +1,81 @@
+name: Production R2 25A Acceptance
+
+on:
+  workflow_dispatch:
+    inputs:
+      expected_main:
+        description: 'Exact main SHA authorized for bounded Production R2 25A acceptance'
+        required: true
+        type: string
+      run_live:
+        description: 'Explicitly authorize bounded Production product-data mutation acceptance'
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: danjion-production-r2-25a-acceptance
+  cancel-in-progress: false
+
+jobs:
+  source-contract:
+    name: Production R2 25A source contract
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: node 04_개발/backend/tests/production-r2-25a-acceptance-contract.mjs
+
+  live-production:
+    name: Bounded Production R2 25A acceptance
+    needs: source-contract
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_live }}
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      APP_ENV: production
+      DANJION_PRODUCTION_API_URL: https://padiem-danjion-api-production.padiem.workers.dev
+      DANJION_PRODUCTION_FRONTEND_URL: https://danjion.pages.dev
+      DANJION_PRODUCTION_25A_EMAIL: ${{ secrets.DANJION_PRODUCTION_25A_EMAIL }}
+      DANJION_PRODUCTION_25A_PASSWORD: ${{ secrets.DANJION_PRODUCTION_25A_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Exact-main and Production target guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected='${{ inputs.expected_main }}'
+          actual="$(git rev-parse HEAD)"
+          remote="$(git ls-remote origin refs/heads/main | awk '{print $1}')"
+          test "$GITHUB_REF" = 'refs/heads/main'
+          test "$actual" = "$expected" && test "$remote" = "$expected"
+          test "$DANJION_PRODUCTION_API_URL" = 'https://padiem-danjion-api-production.padiem.workers.dev'
+          test "$DANJION_PRODUCTION_FRONTEND_URL" = 'https://danjion.pages.dev'
+          test -n "$DANJION_PRODUCTION_25A_EMAIL" && test -n "$DANJION_PRODUCTION_25A_PASSWORD"
+          test -z "${DATABASE_URL:-}" && test -z "${DANJION_PRODUCTION_DB_URL:-}"
+          echo 'PRODUCTION_25A_EXACT_MAIN_GUARD=PASS'
+          echo 'PRODUCTION_25A_ONE_ACCOUNT_GUARD=PASS'
+      - name: Run bounded Production R2 25A acceptance
+        run: node 04_개발/backend/scripts/production-r2-25a-acceptance.mjs
+      - name: Record bounded mutation disposition
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo '## Production R2 25A acceptance'
+            echo '- Account provisioning: `NO`'
+            echo '- Household provisioning: `NO`'
+            echo '- Mutation retries: `NO`'
+            echo '- Secret output: `NO`'
+          } >> "$GITHUB_STEP_SUMMARY"
