@@ -24,6 +24,7 @@ button,input,textarea,select{font:inherit;color:inherit}
 .upload-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.upload{border:1px dashed #9f978b;padding:18px;min-height:124px;background:#fff}.upload b{display:block;margin-bottom:7px}.upload p{margin:0 0 12px;font-size:13px;line-height:1.55;color:var(--muted)}.upload input[type=file]{width:100%;font-size:13px}.file-add{margin-top:2px;border:1px solid var(--ink);background:var(--paper2);padding:8px 12px;font-size:13px;font-weight:900}.file-add[disabled]{cursor:not-allowed;opacity:.45}.file-status{display:block;margin-top:8px;font-size:12px;color:var(--green);font-weight:800}.file-list{display:grid;gap:6px;margin:10px 0 0;padding:0;list-style:none}.file-row{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0;border-top:1px solid var(--line);padding-top:7px;font-size:12px}.file-row span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.file-remove{flex:0 0 auto;border:0;background:none;color:var(--coral);font-size:12px;font-weight:900;padding:2px 0}.upload-error{display:block;margin-top:7px;color:#a3351d;font-size:12px;font-weight:800}
 .notice{background:#f1e9dc;padding:18px 20px;font-size:14px;line-height:1.75}.notice strong{color:var(--navy)}
 .actions{display:flex;justify-content:center;padding:27px}.submit{min-width:240px;min-height:58px;border:0;background:var(--coral);color:#fff;font-size:17px;font-weight:950}.toast{position:fixed;left:50%;bottom:30px;transform:translate(-50%,20px);opacity:0;background:var(--ink);color:#fff;padding:13px 18px;font-size:13px;font-weight:800;transition:.22s;pointer-events:none}.toast.show{opacity:1;transform:translate(-50%,0)}
+.application-error-summary{margin:0 0 18px;padding:16px 18px;border:1px solid #a3351d;border-left:4px solid #a3351d;background:#fbe7e2;color:#7a2414;font-size:15px;font-weight:850;line-height:1.55;scroll-margin-top:96px}.application-error-summary[hidden]{display:none}.application-error-summary:focus-visible{outline:3px solid var(--navy);outline-offset:2px}
 .mode-report .owner-only{display:none}.mode-owner .report-only{display:none}.other-field[hidden]{display:none}
 @media(max-width:680px){.wrap{width:min(100% - 28px,980px);padding-top:26px}.upload-grid,.field-grid{grid-template-columns:1fr}.wide{grid-column:auto}.section{padding:22px 18px}.actions{padding:22px 18px}.submit{width:100%}.title{font-size:43px}.lead{font-size:16px}.brand small{display:none}}
 </style>
@@ -98,7 +99,8 @@ body{min-height:100vh;overflow-x:hidden}.request-underlay{position:fixed;inset:0
 <button class="active" id="ownerTab" type="button">내 가게 등록 신청</button>
 <button id="reportTab" type="button">이웃가게 제보</button>
 </div>
-<form class="form mode-owner" id="requestForm">
+<div aria-live="assertive" class="application-error-summary" hidden id="applicationErrorSummary" role="alert" tabindex="-1"></div>
+<form class="form mode-owner" id="requestForm" novalidate>
 <section class="section owner-only" hidden="" id="myApplicationsSection">
 <h2>내 신청 현황</h2>
 <p class="hint" id="myApplicationNote"></p>
@@ -195,6 +197,7 @@ function setMode(m){
 // owner<->report switch (and a leftover error could block the next submit).
 // Submission authority (submitOwner/submitReport gating, isCanonicalProduction,
 // server success handling) is intentionally untouched.
+// #923: a stale application-level validation summary is cleared with the same reset.
 function resetUploadState(){
   Object.keys(fileGroups).forEach(id=>{
     const group=fileGroups[id];
@@ -206,6 +209,7 @@ function resetUploadState(){
     if(group.status)group.status.textContent='0 / '+group.max+group.unit;
   });
   resetOwnerSubmissionKey();
+  if(typeof clearApplicationError==='function')clearApplicationError();
 }
 function currentMode(){return f.className.includes('mode-report')?'report':'owner'}
 function toggleEtc(select,wrap,input,side){
@@ -271,6 +275,41 @@ bindAccumulatingFiles(document.querySelector('#extraDocs'),document.querySelecto
 
 let timer;
 function showToast(msg){toast.textContent=msg;toast.classList.add('show');clearTimeout(timer);timer=setTimeout(()=>toast.classList.remove('show'),2300)}
+// #923: application-level validation recovery. Rules stay fail-closed; only the
+// visibility path changes — summary announce + scroll/focus the first actionable
+// target while keeping the existing inline attachment/field error.
+const applicationErrorSummary=document.getElementById('applicationErrorSummary');
+let __lastApplicationErrorText='';
+function prefersReducedMotion(){
+  try{return window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches}catch(_){return false}
+}
+function clearApplicationError(){
+  __lastApplicationErrorText='';
+  if(applicationErrorSummary){applicationErrorSummary.textContent='';applicationErrorSummary.hidden=true}
+}
+function revealApplicationError(message,focusTarget){
+  const text=String(message||'').trim();
+  if(!text)return;
+  if(applicationErrorSummary){
+    // Avoid infinite identical announcements while still re-announcing on change.
+    if(applicationErrorSummary.textContent!==text){
+      applicationErrorSummary.textContent=text;
+    }
+    applicationErrorSummary.hidden=false;
+  }
+  __lastApplicationErrorText=text;
+  showToast(text);
+  const target=(focusTarget&&typeof focusTarget.focus==='function')?focusTarget:applicationErrorSummary;
+  if(target&&typeof target.scrollIntoView==='function'){
+    try{target.scrollIntoView({behavior:prefersReducedMotion()?'auto':'smooth',block:'center'})}catch(_){try{target.scrollIntoView(false)}catch(__){}}
+  }
+  if(target&&typeof target.focus==='function'){
+    if(!target.matches('a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])')){
+      target.setAttribute('tabindex','-1');
+    }
+    try{target.focus({preventScroll:true})}catch(_){try{target.focus()}catch(__){}}
+  }
+}
 const OWNER_RELATIONS=new Set(['self','co','family','etc']);
 let __applicationReportBridge=null;
 let __applicationReportComplexSlug='';
@@ -287,8 +326,8 @@ async function ensureApplicationReportBridge(){
 }
 function ownerSubmissionKey(){if(!__ownerSubmissionKey)__ownerSubmissionKey='application:'+(crypto.randomUUID?crypto.randomUUID():Date.now().toString(36));return __ownerSubmissionKey}
 function resetOwnerSubmissionKey(){__ownerSubmissionKey=null}
-f.addEventListener('input',resetOwnerSubmissionKey);
-f.addEventListener('change',resetOwnerSubmissionKey);
+f.addEventListener('input',()=>{resetOwnerSubmissionKey();if(typeof clearApplicationError==='function')clearApplicationError()});
+f.addEventListener('change',()=>{resetOwnerSubmissionKey();if(typeof clearApplicationError==='function')clearApplicationError()});
 function ownerInput(name){const el=f.elements[name];return el?String(el.value||'').trim():''}
 async function uploadBusinessImage(file,idempotencyKey){
   const body=new FormData();
@@ -325,6 +364,15 @@ async function uploadApplicationDocument(file,idempotencyKey){
 // Server success is claimed only after a real createRecommendation success;
 // 4xx/5xx/network failures never show a success toast.
 function reportInput(name){const el=f.elements[name];return el?String(el.value||'').trim():''}
+function firstInvalidVisibleField(){
+  const candidates=f.querySelectorAll('input:not([type="hidden"]):not([disabled]),select:not([disabled]),textarea:not([disabled])');
+  for(const el of candidates){
+    if(!el.checkValidity||el.checkValidity())continue;
+    if(el.closest('[hidden]')||el.offsetParent===null)continue;
+    return el;
+  }
+  return applicationErrorSummary;
+}
 async function submitReport(){
   // Static/demo lane only. Canonical Production serves same-origin, so an empty apiBase is a
   // legitimate server lane there — not a demo signal (same rule the myApplications panel uses).
@@ -336,32 +384,42 @@ async function submitReport(){
   const businessName=reportInput('reportShopName');
   const serviceSummary=reportInput('reportWhat');
   const relationRaw=reportInput('reportRelation');
-  if(!businessName||!serviceSummary||!relationRaw){showToast('필수 항목을 다시 확인해 주세요.');return}
+  if(!businessName||!serviceSummary||!relationRaw){
+    const firstMissing=!businessName?document.querySelector('[name="reportShopName"]'):!serviceSummary?document.querySelector('[name="reportWhat"]'):document.querySelector('[name="reportRelation"]');
+    revealApplicationError('필수 항목을 다시 확인해 주세요.',firstMissing||applicationErrorSummary);
+    return;
+  }
   let relationDetail='';
   if(relationRaw==='etc'){
     relationDetail=reportInput('reportRelationEtc');
-    if(!relationDetail){showToast('필수 항목을 다시 확인해 주세요.');return}
+    if(!relationDetail){revealApplicationError('필수 항목을 다시 확인해 주세요.',document.querySelector('[name="reportRelationEtc"]')||applicationErrorSummary);return}
   }
   __reportSubmitting=true;
+  clearApplicationError();
   try{
     const bridge=await ensureApplicationReportBridge();
     const result=await bridge.createRecommendation({relationRaw,businessName,serviceSummary,
       serviceArea:reportInput('reportLocation'),reporterNote:reportInput('reportReason'),
       relationDetail,reportPrice:reportInput('reportPrice'),reportHours:reportInput('reportHours')});
     if(!result.ok){
-      showToast(result.reason==='auth-required'
+      const message=result.reason==='auth-required'
         ?'로그인 후 이용 가능합니다.'
         :result.reason==='resident-verification-required'
           ?'우리집 연결을 완료한 뒤 제보할 수 있습니다.'
-          :'접수를 완료하지 못했습니다. 잠시 후 다시 시도해 주세요.');
+          :'접수를 완료하지 못했습니다. 잠시 후 다시 시도해 주세요.';
+      revealApplicationError(message,applicationErrorSummary);
       return;
     }
+    clearApplicationError();
     showToast('제보가 접수됐습니다. 확인 후 등록됩니다.');
   }finally{__reportSubmitting=false}
 }
 f.addEventListener('submit',async e=>{
   e.preventDefault();
-  if(!f.reportValidity()) return;
+  if(!f.reportValidity()){
+    revealApplicationError('필수 항목을 다시 확인해 주세요.',firstInvalidVisibleField());
+    return;
+  }
   const isReport=f.classList.contains('mode-report');
   if(isReport){
     await submitReport();
@@ -376,24 +434,50 @@ f.addEventListener('submit',async e=>{
   const businessName=ownerInput('ownerShopName');
   const categoryName=ownerInput('category');
   const serviceSummary=ownerInput('servicePrice');
-  if(!OWNER_RELATIONS.has(relationRaw)){showToast('선택한 관계로는 아직 서버 신청을 연결할 수 없습니다.');return}
-  if(!businessName||!categoryName||!serviceSummary){showToast('필수 항목을 다시 확인해 주세요.');return}
+  if(!OWNER_RELATIONS.has(relationRaw)){
+    revealApplicationError('선택한 관계로는 아직 서버 신청을 연결할 수 없습니다.',document.querySelector('[name="ownerRelation"]')||applicationErrorSummary);
+    return;
+  }
+  if(!businessName||!categoryName||!serviceSummary){
+    const firstMissing=!businessName?document.querySelector('[name="ownerShopName"]'):!categoryName?document.querySelector('[name="category"]'):document.querySelector('[name="servicePrice"]');
+    revealApplicationError('필수 항목을 다시 확인해 주세요.',firstMissing||applicationErrorSummary);
+    return;
+  }
   __ownerSubmitting=true;
+  clearApplicationError();
   try{
     const bridge=await ensureApplicationReportBridge();
     const photoFiles=fileGroups.photos.entries;
     const proofFiles=fileGroups.ownerProof.entries;
     const otherFiles=fileGroups.ownerOtherDocs.entries;
     const extraFiles=fileGroups.extraDocs.entries;
-    if(photoFiles.length>MAX_PHOTOS){showToast(`가게 사진은 최대 ${MAX_PHOTOS}장까지 첨부할 수 있습니다.`);return}
-    if(proofFiles.length<1||proofFiles.length>MAX_OWNER_DOCS){showToast('운영 확인서류는 1~3개를 첨부해 주세요.');return}
-    if(otherFiles.length>3||extraFiles.length>3){showToast('증빙·참고자료는 각 최대 3개까지 첨부할 수 있습니다.');return}
+    if(photoFiles.length>MAX_PHOTOS){
+      const message=`가게 사진은 최대 ${MAX_PHOTOS}장까지 첨부할 수 있습니다.`;
+      if(fileGroups.photos.error)fileGroups.photos.error.textContent=message;
+      revealApplicationError(message,fileGroups.photos.error||applicationErrorSummary);
+      return;
+    }
+    if(proofFiles.length<1||proofFiles.length>MAX_OWNER_DOCS){
+      const message='운영 확인서류는 1~3개를 첨부해 주세요.';
+      if(fileGroups.ownerProof.error)fileGroups.ownerProof.error.textContent='운영 확인서류를 1~3개 첨부해 주세요.';
+      revealApplicationError(message,fileGroups.ownerProof.error||applicationErrorSummary);
+      return;
+    }
+    if(otherFiles.length>3||extraFiles.length>3){
+      const message='증빙·참고자료는 각 최대 3개까지 첨부할 수 있습니다.';
+      const over=otherFiles.length>3?fileGroups.ownerOtherDocs:fileGroups.extraDocs;
+      if(over&&over.error)over.error.textContent=message;
+      revealApplicationError(message,(over&&over.error)||applicationErrorSummary);
+      return;
+    }
     const uploadedKeys=[];
     for(const entry of photoFiles){
       if(entry.key){uploadedKeys.push(entry.key);continue}
       const upload=await uploadBusinessImage(entry.file,entry.idempotencyKey);
       if(!upload.ok){
-        showToast(upload.reason==='auth-required'?'로그인 후 이용 가능합니다.':upload.reason==='resident-verification-required'?'우리집 연결을 완료한 뒤 사진을 올릴 수 있습니다.':upload.reason==='file-too-large'?'사진은 파일당 최대 8MB입니다.':upload.reason==='file-type'?'사진은 JPG, PNG, WebP만 첨부할 수 있습니다.':upload.reason==='storage-unavailable'?'사진 저장 서버가 아직 준비되지 않았습니다. 잠시 후 다시 시도하거나 ceo@padiem.net으로 사진을 보내 주세요.':'사진 업로드에 실패했습니다. 선택한 파일은 보존되며 다시 시도할 수 있습니다.');
+        const message=upload.reason==='auth-required'?'로그인 후 이용 가능합니다.':upload.reason==='resident-verification-required'?'우리집 연결을 완료한 뒤 사진을 올릴 수 있습니다.':upload.reason==='file-too-large'?'사진은 파일당 최대 8MB입니다.':upload.reason==='file-type'?'사진은 JPG, PNG, WebP만 첨부할 수 있습니다.':upload.reason==='storage-unavailable'?'사진 저장 서버가 아직 준비되지 않았습니다. 잠시 후 다시 시도하거나 ceo@padiem.net으로 사진을 보내 주세요.':'사진 업로드에 실패했습니다. 선택한 파일은 보존되며 다시 시도할 수 있습니다.';
+        if(fileGroups.photos.error)fileGroups.photos.error.textContent=message;
+        revealApplicationError(message,fileGroups.photos.error||applicationErrorSummary);
         return;
       }
       entry.key=upload.objectKey;uploadedKeys.push(entry.key);
@@ -405,8 +489,9 @@ f.addEventListener('submit',async e=>{
         if(!entry.key){
           const upload=await uploadApplicationDocument(entry.file,entry.idempotencyKey);
           if(!upload.ok){
-            showToast(upload.reason==='auth-required'?'로그인 후 이용 가능합니다.':upload.reason==='resident-verification-required'?'우리집 연결을 완료한 뒤 확인서류를 올릴 수 있습니다.':upload.reason==='file-too-large'?'서류는 파일당 최대 10MB입니다.':upload.reason==='file-type'?'서류는 PDF, JPG, PNG, WebP만 첨부할 수 있습니다.':upload.reason==='storage-unavailable'?'서류 저장 서버가 아직 준비되지 않았습니다. 잠시 후 다시 시도하거나 ceo@padiem.net으로 서류를 보내 주세요.':'확인서류 업로드에 실패했습니다. 선택한 파일은 보존되며 다시 시도할 수 있습니다.');
+            const message=upload.reason==='auth-required'?'로그인 후 이용 가능합니다.':upload.reason==='resident-verification-required'?'우리집 연결을 완료한 뒤 확인서류를 올릴 수 있습니다.':upload.reason==='file-too-large'?'서류는 파일당 최대 10MB입니다.':upload.reason==='file-type'?'서류는 PDF, JPG, PNG, WebP만 첨부할 수 있습니다.':upload.reason==='storage-unavailable'?'서류 저장 서버가 아직 준비되지 않았습니다. 잠시 후 다시 시도하거나 ceo@padiem.net으로 서류를 보내 주세요.':'확인서류 업로드에 실패했습니다. 선택한 파일은 보존되며 다시 시도할 수 있습니다.';
             group.error.textContent='업로드에 실패했습니다. 등록 신청하기를 다시 눌러 재시도하세요.';
+            revealApplicationError(message,group.error||applicationErrorSummary);
             return;
           }
           entry.key=upload.objectKey;
@@ -419,9 +504,11 @@ f.addEventListener('submit',async e=>{
       availabilityText:ownerInput('hours'),contactMethod:ownerInput('contact'),photoObjectKeys:uploadedKeys,documents},
       {idempotencyKey:ownerSubmissionKey()});
     if(!result.ok){
-      showToast(result.reason==='auth-required'?'로그인 후 이용 가능합니다.':'접수를 완료하지 못했습니다. 잠시 후 다시 시도해 주세요.');
+      const message=result.reason==='auth-required'?'로그인 후 이용 가능합니다.':'접수를 완료하지 못했습니다. 잠시 후 다시 시도해 주세요.';
+      revealApplicationError(message,applicationErrorSummary);
       return;
     }
+    clearApplicationError();
     resetOwnerSubmissionKey();
     showToast('신청과 확인서류가 접수됐습니다. 검토 후 승인 상태를 내정보에서 확인할 수 있습니다.');
   }finally{__ownerSubmitting=false}

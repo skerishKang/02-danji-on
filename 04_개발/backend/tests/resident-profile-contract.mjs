@@ -14,14 +14,24 @@ assert.match(migration, /char_length\(public_bio\) <= 300/i, 'public bio must be
 assert.match(migration, /set_updated_at\(\)/i, 'profile extension needs updated-at trigger');
 
 assert.match(api, /requireVerifiedResident\(/, 'ordinary viewers must pass canonical verified-resident authorization');
+assert.match(api, /if \(resident\.residentVerificationExempt\) \{[\s\S]*resident\.residentVerificationExemptionSource === 'scope'[\s\S]*OPERATOR_PROFILE_LABEL[\s\S]*ACCOUNT_PROFILE_LABEL[\s\S]*return \{ id: resident\.id, complexId: null, profileLabel \};/,
+  '#920 exempt self must use the account-safe path and reserve operator label for the canonical scope source');
+assert.doesNotMatch(api, /residentVerificationExempt[\s\S]{0,160}profileLabel: OPERATOR_PROFILE_LABEL/,
+  'temporary/#823 resident admission must never be unconditionally labelled operator');
+assert.match(api, /if \(resident\.status !== 403\) return resident;/,
+  'the own-profile exemption must still never pre-empt a non-403 gate outcome for ordinary residents');
 assert.match(api, /RESIDENT_VERIFICATION_EXEMPT_SCOPE = 'resident\.verification\.exempt'/,
   'operator self-profile bypass must require the explicit resident-verification exemption scope');
 assert.match(api, /authority\.scopes\.includes\(RESIDENT_VERIFICATION_EXEMPT_SCOPE\)/,
   'operator self-profile bypass must inspect the actor own explicit scopes');
 assert.doesNotMatch(api, /authority\.wildcard[^\n]*OPERATOR_PROFILE_LABEL/,
   'wildcard authority alone must never become the profile-edit exemption');
+assert.match(api, /return viewer\.complexId\s*\?\s*loadPublicProfile\(/,
+  'loadOwnProfile must only reach the household-scoped public profile when complexId is present');
 assert.match(api, /loadOwnAccountProfile\(sql, viewer\.id\)/,
   'pre-verification self profile and exempt operators use the self-only account profile loader');
+assert.match(api, /async function viewerForOwnProfile[\s\S]*?if \(resident\.status !== 403\)[\s\S]*?RESIDENT_VERIFICATION_EXEMPT_SCOPE/,
+  'canonical scope fallback remains only after the verified-resident gate refuses');
 assert.match(api, /ACCOUNT_PROFILE_LABEL = 'account'/,
   'an authenticated account must have a non-resident self-profile state before household verification');
 assert.match(api, /return \{ id: actor\.id, complexId: null, profileLabel: ACCOUNT_PROFILE_LABEL \}/,

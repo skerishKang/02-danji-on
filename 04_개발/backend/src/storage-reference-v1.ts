@@ -10,6 +10,7 @@ import {
   type DriveEnv,
   type DriveMetadata
 } from './storage-v1';
+import { r2Enabled, r2Head, type R2StorageEnv } from './storage-r2-v1';
 
 type Sql = NeonQueryFunction<false, false>;
 
@@ -30,7 +31,11 @@ export async function validateBusinessImageReference(
   requestId: string
 ): Promise<Response | null> {
   const driveEnv = env as DriveEnv;
-  if (!driveConfigured(driveEnv) || !requiredDriveCredentials(driveEnv)) {
+  // #809: in R2 mode the same identity contract is verified through the R2
+  // binding, so a Drive credential gate must not reject a valid R2 object.
+  // Drive mode keeps the original gate byte-for-byte.
+  const r2Mode = r2Enabled(env as R2StorageEnv);
+  if (!r2Mode && (!driveConfigured(driveEnv) || !requiredDriveCredentials(driveEnv))) {
     return fail('STORAGE_NOT_CONFIGURED', 'Google Drive storage is not configured for business image verification', 503, requestId);
   }
 
@@ -46,7 +51,9 @@ export async function validateBusinessImageReference(
 
   let metadata: DriveMetadata | null;
   try {
-    metadata = await readDriveMetadata(driveEnv, parsed);
+    metadata = r2Mode
+      ? await r2Head(env as R2StorageEnv, parsed.kind, parsed.fileId)
+      : await readDriveMetadata(driveEnv, parsed);
   } catch {
     return fail(
       'BUSINESS_IMAGE_REFERENCE_UNAVAILABLE',
@@ -55,7 +62,7 @@ export async function validateBusinessImageReference(
       requestId
     );
   }
-  if (!metadata || !metadataMatches(driveEnv, parsed, metadata)) {
+  if (!metadata || !metadataMatches(driveEnv, parsed, metadata, r2Mode)) {
     return fail(
       'INVALID_BUSINESS_IMAGE_REFERENCE',
       'Representative image is missing or no longer a valid DanjiOn business image',

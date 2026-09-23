@@ -199,6 +199,7 @@ function probeData(value) {
   assert.equal(admitted.id, 'user-N', 'the admission keeps the real actor identity');
   assert.equal(admitted.complexId, 'complex-id-1', 'the admission resolves the requested complex');
   assert.equal(admitted.residentVerificationExempt, true, 'a temporary admission is an exemption, not a verification');
+  assert.equal(admitted.residentVerificationExemptionSource, 'temporary', 'temporary access must remain distinguishable from operator exemption');
   assert.equal(admitted.householdId, null, 'FAKE_HOUSEHOLD=0: no household may be invented');
   assert.equal(admitted.membershipId, null, 'FAKE_MEMBERSHIP=0: no membership may be invented');
   assert.equal(admitted.membershipRole, null, 'no membership role may be invented');
@@ -362,8 +363,8 @@ function probeData(value) {
   // having NO PADIEM authority at all.
   assert.match(
     authorization,
-    /const temporaryAdmitted =\s*\n\s*authority\.level === 'none' && isTemporaryResidentAccessEnabled\(env\);\s*\n\s*if \(!ordinaryExempt && !temporaryAdmitted\) \{\s*\n\s*return fail\('RESIDENT_VERIFICATION_REQUIRED', 'Verified resident access required', 403, requestId\);/,
-    'TEMP OFF (or any PADIEM authority) must fall back to the unchanged strict resident-verification refusal'
+    /const temporaryAdmitted =\s*\n\s*authority\.level === 'none' && isTemporaryResidentAccessEnabled\(env\);[\s\S]*if \(ordinaryExempt\) residentVerificationExemptionSource = 'ordinary_test';\s*\n\s*else if \(temporaryAdmitted\) residentVerificationExemptionSource = 'temporary';\s*\n\s*else return fail\('RESIDENT_VERIFICATION_REQUIRED', 'Verified resident access required', 403, requestId\);/,
+    'TEMP OFF (or any PADIEM authority) must still fall back to the unchanged strict resident-verification refusal'
   );
 
   // No operator/admin authority resolver may consult the switch.

@@ -11,6 +11,7 @@ main{width:min(920px,calc(100% - 40px));margin:auto;padding-bottom:70px}.route{h
 .article{padding:42px 0 34px;border-bottom:1px solid var(--ink)}.type{color:var(--coral);font-size:13px;font-weight:900}.author{display:flex;align-items:center;gap:12px;margin:18px 0 22px}.avatar{width:44px;height:44px;border-radius:50%;background:var(--navy);color:#fff;display:grid;place-items:center;font-weight:900}.author b{display:block}.author small{color:var(--muted);font-size:13px}h1{font-size:38px;line-height:1.3;letter-spacing:-.045em;margin:0 0 19px}.body{font-size:18px;line-height:1.85;white-space:pre-line}.actions{display:flex;gap:10px;margin-top:28px}.actions button{min-height:46px;padding:0 16px;border:1px solid var(--line);background:var(--paper2);font-weight:850}.actions .liked{background:#fff0ec;border-color:#f3a696;color:var(--coral)}
 .comments{padding-top:32px}.comments h2{font-size:25px;margin:0 0 16px}.comment-list{list-style:none;padding:0;margin:0;border-top:1px solid var(--line)}.comment{padding:20px 0;border-bottom:1px solid var(--line)}.comment-head{display:flex;align-items:center;gap:8px}.comment-head b{font-size:15px}.comment-head span,.comment-head time{font-size:12px;color:var(--muted)}.comment p{font-size:16px;line-height:1.65;margin:9px 0 10px}.comment-tools{display:flex;gap:14px}.comment-tools button{border:0;background:none;padding:0;color:var(--muted);font-size:13px;font-weight:800}.replies{margin:12px 0 0 28px;padding-left:15px;border-left:2px solid var(--soft)}.reply{padding:9px 0}.reply b{font-size:14px}.reply p{margin:4px 0;font-size:14px}.reply-form,.server-reply-form{display:none;margin-top:10px}.reply-form.open,.server-reply-form.open{display:flex;gap:8px}.reply-form input,.server-reply-form input{flex:1;min-width:0;height:40px;border:1px solid var(--line);background:#fff;padding:0 10px}.reply-form button,.server-reply-form button{height:40px;border:0;background:var(--navy);color:#fff;padding:0 13px;font-weight:850}.interaction-status{flex-basis:100%;font-size:13px;font-weight:800;color:var(--coral);line-height:1.45}.interaction-status:empty{display:none}
 .composer{margin-top:28px;padding:20px;background:var(--paper2);border:1px solid var(--line)}.composer b{display:block;margin-bottom:10px}.composer textarea{width:100%;min-height:110px;border:1px solid var(--line);background:#fff;padding:13px;resize:vertical;font-size:16px}.composer-foot{display:flex;justify-content:space-between;align-items:center;margin-top:10px}.composer-foot small{color:var(--muted)}.composer-foot button{height:44px;border:0;background:var(--coral);color:#fff;padding:0 18px;font-weight:900}.mobile-bottom{display:none}
+.post-recovery{padding:48px 0 40px;border-bottom:1px solid var(--ink)}.post-recovery[hidden]{display:none}.post-recovery-title{font-size:clamp(24px,4vw,32px);line-height:1.35;letter-spacing:-.035em;margin:0 0 12px;font-weight:900;color:var(--ink)}.post-recovery p{font-size:17px;line-height:1.7;color:var(--muted);margin:0 0 24px;max-width:36em}.post-recovery .recovery-link{display:inline-flex;align-items:center;min-height:48px;padding:0 20px;border:1px solid var(--ink);background:var(--paper2);font-weight:900;text-decoration:none;color:var(--ink)}.post-recovery .recovery-link:focus-visible{outline:3px solid var(--coral);outline-offset:2px}
 @media(max-width:760px){.site-header{height:60px}.header-inner{width:100%;padding:0 20px}.brand{font-size:21px}.brand small,.nav{display:none}main{width:100%;padding:0 20px 30px}.route{height:52px;margin:0 -20px;padding:0 20px;background:var(--paper2)}.article{padding:28px 0 25px}h1{font-size:27px}.body{font-size:17px}.actions{position:sticky;bottom:68px;background:var(--paper);padding:9px 0;z-index:10}.comments{padding-top:25px}.composer{margin:20px -20px 0;border-left:0;border-right:0}.composer-foot{align-items:flex-end}.composer-foot small{max-width:58%}.mobile-bottom{position:fixed;display:grid;grid-template-columns:repeat(4,1fr);left:0;right:0;bottom:0;height:68px;background:rgba(255,253,248,.98);border-top:1px solid var(--line);z-index:30}.mobile-bottom a{display:grid;place-items:center;align-content:center;font-size:11px;font-weight:800;color:#706d67}.mobile-bottom a.active{color:var(--coral)}}
 
 /* 008 mobile bottom icon repair 20260904 */
@@ -86,8 +87,9 @@ main{width:min(920px,calc(100% - 40px));margin:auto;padding-bottom:70px}.route{h
 <body data-danjion-page="13">
 <header class="site-header danjion-service-header"><div class="header-inner"><a class="brand" href="./index.html?intro=1"><span class="wordmark">단지온</span><small>DANJION by PADIEM</small></a><nav aria-label="주요 메뉴" class="desktop-nav"><a href="04_데일리홈.html">홈</a><a href="./index.html?intro=1">인트로</a><a href="01_이웃가게_발견.html">이웃가게</a><a aria-current="page" class="active" href="05_우리단지_첫화면.html">우리단지</a><a href="19_내정보_메인.html">내정보</a></nav><div class="identity" data-account-host>방림명지로드힐</div></div></header>
 <main><div class="route"><a href="12_이웃대화_첫화면.html" id="backLink">← 이웃대화</a><span>/ 글 상세</span></div>
-<article class="article"><span class="type" id="typeLabel"></span><div class="author"><span class="avatar" id="avatar"></span><div><b id="author"></b><small id="levelTime"></small></div></div><h1 id="title">이웃대화 글</h1><div class="body" id="body"></div><div class="actions"><button id="likeBtn" type="button">♡ 공감 <span id="likeCount"></span></button><button id="focusComment" type="button">댓글 <span id="commentCount"></span></button><span class="interaction-status" id="interactionStatus" role="status" aria-live="polite"></span></div></article>
-<section class="comments"><h2>댓글 <span id="commentTitleCount"></span></h2><ol class="comment-list" id="commentList"></ol>
+<section aria-labelledby="postRecoveryHeading" class="post-recovery" hidden id="postRecovery" tabindex="-1"><p class="post-recovery-title" id="postRecoveryHeading">게시글 정보를 찾을 수 없습니다.</p><p id="postRecoveryDetail">잘못되었거나 만료된 링크일 수 있습니다. 이웃대화 목록에서 다시 확인해 주세요.</p><a class="recovery-link" href="12_이웃대화_첫화면.html" id="postRecoveryLink">이웃대화 목록으로</a></section>
+<article class="article" id="postShell"><span class="type" id="typeLabel"></span><div class="author"><span class="avatar" id="avatar"></span><div><b id="author"></b><small id="levelTime"></small></div></div><h1 id="title">이웃대화 글</h1><div class="body" id="body"></div><div class="actions"><button id="likeBtn" type="button">♡ 공감 <span id="likeCount"></span></button><button id="focusComment" type="button">댓글 <span id="commentCount"></span></button><span class="interaction-status" id="interactionStatus" role="status" aria-live="polite"></span></div></article>
+<section class="comments" id="postComments"><h2>댓글 <span id="commentTitleCount"></span></h2><ol class="comment-list" id="commentList"></ol>
 <form class="composer" id="commentForm"><b>댓글 쓰기</b><textarea id="commentText" maxlength="300" placeholder="따뜻한 인사나 도움이 되는 답변을 남겨보세요."></textarea><div class="composer-foot"><small>서로 존중하는 말로 이야기해 주세요.</small><button type="submit">댓글 등록</button></div></form></section>
 </main>
 <nav aria-label="모바일 주요 메뉴" class="mobile-bottom"><button aria-label="홈" data-route="04_데일리홈.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><path d="m3 10 9-7 9 7v10h-6v-6H9v6H3z"></path></svg><span>홈</span></button><button aria-label="이웃가게" data-route="01_이웃가게_발견.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><path d="M4 7h16l-1 13H5L4 7Z"></path><path d="M8 7V5a4 4 0 0 1 8 0v2"></path></svg><span>이웃가게</span></button><button aria-label="우리단지" class="active" data-route="05_우리단지_첫화면.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><path d="M4 21V9l8-6 8 6v12"></path><path d="M8 13h8M8 17h8"></path></svg><span>우리단지</span></button><button aria-label="내정보" data-route="19_내정보_메인.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><circle cx="12" cy="8" r="4"></circle><path d="M4 21a8 8 0 0 1 16 0"></path></svg><span>내정보</span></button></nav>
@@ -97,14 +99,41 @@ main{width:min(920px,calc(100% - 40px));margin:auto;padding-bottom:70px}.route{h
 <script src="assets/community-bridge.js"></script>
 <script id="danjion-community-detail-live-wiring-329">
 (()=>{
- const apiBase=(window.DanjionSession&&DanjionSession.danjionApiBase())||'';
- if(!apiBase&&!DanjionSession.isCanonicalProduction())return;
- // #863: carry apiBase only when it is actually set — never emit an empty ?apiBase=.
- function withApiBase(url){return apiBase?url+(url.indexOf('?')<0?'?':'&')+'apiBase='+encodeURIComponent(apiBase):url}
- const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
- const postId=(new URLSearchParams(location.search).get('post')||'').toLowerCase();
- if(!UUID.test(postId))return;
- const bridge=DanjionCommunityBridge.createCommunityBridge({apiBase});
+  const apiBase=(window.DanjionSession&&DanjionSession.danjionApiBase())||'';
+  // #923: missing/invalid ?post= must never leave an empty detail shell and must
+  // never reach the server post fetch. Recovery renders first, fail-closed.
+  const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  const rawPostId=(new URLSearchParams(location.search).get('post')||'').trim();
+  const postId=rawPostId.toLowerCase();
+  const COMMUNITY_LIST='12_이웃대화_첫화면.html';
+  function showPostRecovery(kind){
+   const recovery=document.getElementById('postRecovery');
+   const shell=document.getElementById('postShell');
+   const comments=document.getElementById('postComments');
+   const heading=document.getElementById('postRecoveryHeading');
+   const detail=document.getElementById('postRecoveryDetail');
+   const link=document.getElementById('postRecoveryLink');
+   if(heading)heading.textContent='게시글 정보를 찾을 수 없습니다.';
+   if(detail)detail.textContent=kind==='missing'
+    ?'이웃대화 글 주소에 게시글 식별자가 없습니다. 목록에서 다시 선택해 주세요.'
+    :'잘못되었거나 만료된 링크일 수 있습니다. 이웃대화 목록에서 다시 확인해 주세요.';
+   if(link){
+    link.href=COMMUNITY_LIST;
+    link.textContent='이웃대화 목록으로';
+   }
+   if(shell)shell.hidden=true;
+   if(comments)comments.hidden=true;
+   if(recovery){
+    recovery.hidden=false;
+    recovery.focus({preventScroll:true});
+   }
+  }
+  if(!UUID.test(postId))showPostRecovery(rawPostId?'invalid':'missing');
+  if(!UUID.test(postId))return;
+  if(!apiBase&&!DanjionSession.isCanonicalProduction())return;
+  // #863: carry apiBase only when it is actually set — never emit an empty ?apiBase=.
+  function withApiBase(url){return apiBase?url+(url.indexOf('?')<0?'?':'&')+'apiBase='+encodeURIComponent(apiBase):url}
+  const bridge=DanjionCommunityBridge.createCommunityBridge({apiBase});
  const LABEL={greeting:'가입인사',resident_story:'단지이야기',question:'궁금해요',together:'같이해요'};
  const CHIP={greeting:'hello',resident_story:'story',question:'question',together:'together'};
  const likeBtn=document.getElementById('likeBtn'),likeCount=document.getElementById('likeCount');

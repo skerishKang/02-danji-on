@@ -52,6 +52,8 @@ assert.match(rate, /resident-verification\\\/code/);
 assert.match(inquiries, /resident_verification_code_request/);
 assert.match(inquiries, /if \(inquiryType === 'resident_verification_code_request'\)[\s\S]*requireActor/,
   'code request must work for an authenticated but unverified account');
+assert.match(inquiries, /RECOVERY_INQUIRY_TYPES\.has\(inquiryType\)[\s\S]*requireActor/,
+  '#864 account_login/household_link recovery create must stay on the actor path');
 assert.match(inquiries, /else \{[\s\S]*requireVerifiedResident/,
   'ordinary inquiry categories must retain verified-resident authorization');
 

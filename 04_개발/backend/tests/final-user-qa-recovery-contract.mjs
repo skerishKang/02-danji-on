@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 
 const repo = new URL('../../../', import.meta.url);
 const read = (path) => readFile(new URL(path, repo), 'utf8');
-const [settings, blocks, inquiries, accountPage, myPage, notifications, coupon, applyPage] = await Promise.all([
+const [settings, blocks, inquiries, accountPage, myPage, notifications, coupon, applyPage, inquiryPage] = await Promise.all([
   read('04_개발/backend/src/resident-settings-v1.ts'),
   read('04_개발/backend/src/resident-blocks-v1.ts'),
   read('04_개발/backend/src/inquiries-v1.ts'),
@@ -11,7 +11,8 @@ const [settings, blocks, inquiries, accountPage, myPage, notifications, coupon, 
   read('frontend/19_내정보_메인.html'),
   read('frontend/27_알림함.html'),
   read('frontend/03_주민혜택_쿠폰.html'),
-  read('frontend/25A_신청제보.html')
+  read('frontend/25A_신청제보.html'),
+  read('frontend/25_1대1문의.html')
 ]);
 
 // #862: account-owned settings do not issue or require resident authority.
@@ -36,7 +37,17 @@ assert.match(inquiries, /const resident = await requireVerifiedResident\(request
 assert.match(inquiries, /inquiryType === 'resident_verification_code_request'[\s\S]*requireActor/);
 assert.match(inquiries, /RECOVERY_INQUIRY_TYPES\.has\(inquiryType\)[\s\S]*requireActor/);
 assert.doesNotMatch(inquiries, /insert into household_memberships|insert into resident_verifications/);
-console.log('PASS #864 recovery create/read/close account scope; ordinary inquiry resident-gated; no grant mutation');
+// CASE matrix: signed-out recovery is 401; ordinary resident-scoped stays fail-closed.
+assert.match(inquiries, /requireActor\(request, env, sql, requestId\)/);
+assert.match(inquiries, /else \{[\s\S]*requireVerifiedResident\(request, env, sql, requestId, complexSlug\)/);
+// #864 frontend: canonical recovery enums only — never the dead 'account' alias.
+assert.match(inquiryPage, /'계정·로그인':'account_login'/);
+assert.match(inquiryPage, /'우리집 연결':'household_link'/);
+assert.doesNotMatch(inquiryPage, /activeType\(\)===['"]account['"]/,
+  'f25 must not compare against the non-canonical account enum');
+assert.match(inquiryPage, /t==='account_login'\|\|t==='household_link'/);
+assert.match(inquiryPage, /로그인 후 이용 가능합니다\./);
+console.log('PASS #864 recovery create/read/close account scope; ordinary inquiry resident-gated; no grant mutation; f25 uses canonical recovery enums');
 
 // #861/#865: application API close, explicit provider boundary, and truthful sign-out failure.
 assert.match(accountPage, /DanjionSession\.danjionApiBase\(\)/);
