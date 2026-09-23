@@ -29,6 +29,7 @@
     "test:production-admin-principal-adopt-existing": "node tests/production-admin-principal-adopt-existing-contract.mjs",
     "test:auth-facade-public-base": "tsx tests/auth-facade-public-base-contract.mjs",
     "test:qa-persona-auth-target": "node tests/qa-persona-auth-target-contract.mjs",
+    "test:qa-auth-diagnostic-classifier": "node tests/qa-auth-diagnostic-classifier-contract.mjs",
     "test:authz-v2": "tsx tests/authorization-v2.test.mjs",
     "test:community-write-exemption-route": "tsx --import ./tests/helpers/neon-stub-loader.mjs tests/community-write-exemption-route.test.mjs",
     "test:authz-v2-schema": "node tests/authorization-v2-schema-contract.mjs",
