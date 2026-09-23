@@ -276,7 +276,16 @@ async function viewerForOwnProfile(
     // path (complexId=null → loadOwnAccountProfile); public other-profile
     // lookups stay on getProfile()/viewerForComplex unchanged.
     if (resident.residentVerificationExempt) {
-      return { id: resident.id, complexId: null, profileLabel: OPERATOR_PROFILE_LABEL };
+      // residentVerificationExempt is also used by #823 ordinary-test and #868
+      // temporary resident admission. Only an actor with the exact canonical
+      // exemption scope may be labelled as an operator; all other exempt self
+      // profiles stay account-labelled so temporary access is never presented
+      // as administrator/operator status.
+      const authority = await resolvePadiemAuthority(sql, resident.id);
+      const profileLabel = authority.scopes.includes(RESIDENT_VERIFICATION_EXEMPT_SCOPE)
+        ? OPERATOR_PROFILE_LABEL
+        : ACCOUNT_PROFILE_LABEL;
+      return { id: resident.id, complexId: null, profileLabel };
     }
     return { id: resident.id, complexId: resident.complexId, profileLabel: PROFILE_LABEL };
   }
