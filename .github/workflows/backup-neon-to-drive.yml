@@ -3,7 +3,9 @@ name: Production Neon Encrypted Drive Backup
 on:
   schedule:
     # Candidate RPO=24h. 18:17 UTC = 03:17 KST.
-    # Inert until DANJION_BACKUP_ENABLED=true is explicitly provisioned.
+    # Inert until the production environment variable DANJION_BACKUP_ENABLED=enabled is
+    # explicitly provisioned. The switch is a non-sensitive variable, never a secret, so no
+    # job output can collide with a masked secret value.
     - cron: '17 18 * * *'
   workflow_dispatch:
     inputs:
@@ -25,11 +27,14 @@ jobs:
     runs-on: ubuntu-latest
     environment: production
     outputs:
-      enabled: ${{ steps.activation.outputs.enabled }}
+      state: ${{ steps.activation.outputs.state }}
       expected_main: ${{ steps.authority.outputs.expected_main }}
     env:
       DANJION_BACKUP_SOURCE_ARMED: 'true'
-      DANJION_BACKUP_ENABLED: ${{ secrets.DANJION_BACKUP_ENABLED }}
+      # Non-sensitive enable switch: an environment VARIABLE, not a secret. A boolean-shaped
+      # secret here made the downstream job output value identical to a masked secret, and the
+      # runner dropped the output ("Skip output 'enabled' since it may contain secret.").
+      DANJION_BACKUP_ENABLED: ${{ vars.DANJION_BACKUP_ENABLED }}
 
     steps:
       - uses: actions/checkout@v4
@@ -65,19 +70,22 @@ jobs:
         run: |
           set -euo pipefail
 
-          if [ "${DANJION_BACKUP_SOURCE_ARMED}" != "true" ] || [ "${DANJION_BACKUP_ENABLED:-}" != "true" ]; then
-            echo "enabled=false" >> "${GITHUB_OUTPUT}"
+          # The output token is intentionally NOT boolean and NOT equal to the enable switch
+          # value: a job output whose value equals a masked secret value is silently dropped by
+          # the runner before downstream jobs evaluate their `if` conditions.
+          if [ "${DANJION_BACKUP_SOURCE_ARMED}" != "true" ] || [ "${DANJION_BACKUP_ENABLED:-}" != "enabled" ]; then
+            echo "state=disabled" >> "${GITHUB_OUTPUT}"
             echo "BACKUP_ACTIVATION=DISABLED"
             exit 0
           fi
 
-          echo "enabled=true" >> "${GITHUB_OUTPUT}"
+          echo "state=active" >> "${GITHUB_OUTPUT}"
           echo "BACKUP_ACTIVATION=ENABLED"
 
   encrypted-backup:
     name: Encrypted pg_dump to bounded Google Drive folder
     needs: activation-gate
-    if: needs.activation-gate.outputs.enabled == 'true'
+    if: needs.activation-gate.outputs.state == 'active'
     runs-on: ubuntu-latest
     environment: production
     env:
@@ -146,7 +154,7 @@ jobs:
   disabled-disposition:
     name: Backup disabled no-op
     needs: activation-gate
-    if: needs.activation-gate.outputs.enabled != 'true'
+    if: needs.activation-gate.outputs.state != 'active'
     runs-on: ubuntu-latest
     steps:
       - name: Record disabled disposition
