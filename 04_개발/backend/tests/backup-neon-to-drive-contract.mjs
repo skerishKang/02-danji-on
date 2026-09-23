@@ -15,7 +15,7 @@ if (process.platform !== 'win32') {
   assert.equal(syntax.status, 0, `backup shell syntax invalid: ${syntax.stderr || syntax.stdout}`);
 }
 
-assert.match(workflow, /cron:\s*'17 18 \\* \\* \\*'/, 'daily candidate schedule must remain 24h');
+assert.match(workflow, /cron:\s*'17 18 \* \* \*'/, 'daily candidate schedule must remain 24h');
 assert.match(workflow, /environment:\s*production/, 'backup must use the production environment boundary');
 assert.match(workflow, /DANJION_BACKUP_SOURCE_ARMED:\s*'true'/, 'source arm is owner-authorized (#714); runtime activation still requires the separate environment variable');
 assert.match(workflow, /DANJION_BACKUP_ENABLED:\s*\$\{\{\s*vars\.DANJION_BACKUP_ENABLED\s*\}\}/, 'non-sensitive enable switch must use the Production environment vars context');
