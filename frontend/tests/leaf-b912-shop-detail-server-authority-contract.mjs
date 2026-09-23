@@ -49,6 +49,17 @@ assert.equal(
   '02 must load inquiry-bridge.js exactly once'
 );
 
+assert.match(
+  detail,
+  /\.owner-note strong\{[^}]*font-family:inherit/,
+  'owner-note headline must inherit the canonical page sans stack'
+);
+assert.doesNotMatch(
+  detail,
+  /\.owner-note strong\{[^}]*font-family:"Noto Serif KR",Batang,serif/,
+  'owner-note must not regress to the isolated serif/Batang stack'
+);
+
 /* ------------------------------------------------------------------ *
  * 2. Server mode = explicit apiBase OR canonical production (empty base)
  * ------------------------------------------------------------------ */
