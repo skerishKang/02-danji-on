@@ -3,9 +3,7 @@ name: Production Neon Encrypted Drive Backup
 on:
   schedule:
     # Candidate RPO=24h. 18:17 UTC = 03:17 KST.
-    # Inert until the production environment variable DANJION_BACKUP_ENABLED=enabled is
-    # explicitly provisioned. The switch is a non-sensitive variable, never a secret, so no
-    # job output can collide with a masked secret value.
+    # Inert until DANJION_BACKUP_ENABLED=enabled is explicitly provisioned as a Production environment variable.
     - cron: '17 18 * * *'
   workflow_dispatch:
     inputs:
@@ -31,9 +29,6 @@ jobs:
       expected_main: ${{ steps.authority.outputs.expected_main }}
     env:
       DANJION_BACKUP_SOURCE_ARMED: 'true'
-      # Non-sensitive enable switch: an environment VARIABLE, not a secret. A boolean-shaped
-      # secret here made the downstream job output value identical to a masked secret, and the
-      # runner dropped the output ("Skip output 'enabled' since it may contain secret.").
       DANJION_BACKUP_ENABLED: ${{ vars.DANJION_BACKUP_ENABLED }}
 
     steps:
@@ -70,9 +65,6 @@ jobs:
         run: |
           set -euo pipefail
 
-          # The output token is intentionally NOT boolean and NOT equal to the enable switch
-          # value: a job output whose value equals a masked secret value is silently dropped by
-          # the runner before downstream jobs evaluate their `if` conditions.
           if [ "${DANJION_BACKUP_SOURCE_ARMED}" != "true" ] || [ "${DANJION_BACKUP_ENABLED:-}" != "enabled" ]; then
             echo "state=disabled" >> "${GITHUB_OUTPUT}"
             echo "BACKUP_ACTIVATION=DISABLED"
