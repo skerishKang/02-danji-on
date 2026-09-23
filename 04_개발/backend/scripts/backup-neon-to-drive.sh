@@ -101,13 +101,31 @@ rclone --config "${rclone_config}" copyto \
   --immutable --quiet
 
 # Retention is filename-bounded. Never delete unrelated Drive files.
-mapfile -t backups < <(
-  rclone --config "${rclone_config}" lsf "danjion_backup:" \
-    --drive-root-folder-id "${DANJION_DRIVE_FOLDER_ID}" \
-    --files-only --format p --quiet |
-    grep -E '^danjion-prod-[0-9]{8}T[0-9]{6}Z-[0-9a-fA-F]{12}\.dump\.gpg$' |
-    LC_ALL=C sort -r
-)
+# Capture the listing first so an rclone failure cannot be hidden by the
+# process-substitution pipeline and incorrectly report a successful backup.
+retention_listing="${tmpdir}/retention-listing.txt"
+if ! rclone --config "${rclone_config}" lsf "danjion_backup:" \
+  --drive-root-folder-id "${DANJION_DRIVE_FOLDER_ID}" \
+  --files-only --format p --quiet > "${retention_listing}"; then
+  echo "BACKUP_RESULT=FAIL"
+  exit 1
+fi
+
+retention_matches="${tmpdir}/retention-matches.txt"
+grep_status=0
+grep -E '^danjion-prod-[0-9]{8}T[0-9]{6}Z-[0-9a-fA-F]{12}\.dump\.gpg$' \
+  "${retention_listing}" > "${retention_matches}" || grep_status=$?
+if [ "${grep_status}" -gt 1 ]; then
+  echo "BACKUP_RESULT=FAIL"
+  exit 1
+fi
+
+retention_sorted="${tmpdir}/retention-sorted.txt"
+if ! LC_ALL=C sort -r "${retention_matches}" > "${retention_sorted}"; then
+  echo "BACKUP_RESULT=FAIL"
+  exit 1
+fi
+mapfile -t backups < "${retention_sorted}"
 
 if [ "${#backups[@]}" -gt "${RETENTION_GENERATIONS}" ]; then
   for ((i=RETENTION_GENERATIONS; i<${#backups[@]}; i++)); do

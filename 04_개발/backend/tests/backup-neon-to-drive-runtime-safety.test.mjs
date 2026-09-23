@@ -520,16 +520,15 @@ try {
   // H. retention listing failure
   const caseH = runScenario('H-retention_listing_failure', { inventory: ALL_INVENTORY, flags: { DANJION_MOCK_FAIL_LSF: '1' } });
   record('H_retention_listing_failure', caseH);
-  // Safety invariants that must hold in EVERY disposition of this case.
   assert.ok(has(caseH, 'rclone', 'lsf=FAIL'), 'H: the listing failure must be observable in the trace');
   assert.equal(uploadOkCount(caseH), 1, 'H: the pre-listing upload is expected to have completed');
   assert.equal(deleteNames(caseH).length, 0, 'H: a failed listing must never delete anything');
   assert.equal(caseH.events.some((e) => e.detail === 'upload_source=NON_ENCRYPTED'), false, 'H: plaintext upload must stay 0');
+  assert.notEqual(caseH.status, 0, 'H: a failed retention listing must fail the backup');
+  assert.ok(caseH.stdout.includes('BACKUP_RESULT=FAIL'), 'H: a failed retention listing must report BACKUP_RESULT=FAIL');
   assertNoSecretLeak(caseH);
-  // Disposition is MEASURED, never pinned to the current defect. If the production script is
-  // later repaired to fail closed on a retention listing failure, this flips to YES with no
-  // harness change, so no defect-pinning assertion (such as status === 0) may be added here.
   const retentionListingFailClosed = caseH.status !== 0 && caseH.stdout.includes('BACKUP_RESULT=FAIL');
+  assert.ok(retentionListingFailClosed, 'H: retention listing failure must be fail-closed');
 
   // I. retention delete failure
   const caseI = runScenario('I-retention_delete_failure', { inventory: ALL_INVENTORY, flags: { DANJION_MOCK_FAIL_DELETE: '1' } });

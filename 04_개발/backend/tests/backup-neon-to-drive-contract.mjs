@@ -138,6 +138,14 @@ assert.match(script, /--drive-root-folder-id/, 'Drive access must be rooted to t
 assert.match(script, /copyto[\s\S]*"\$\{encrypted_dump\}"/, 'only encrypted dump variable may be uploaded');
 assert.doesNotMatch(script, /copyto[\s\S]{0,180}plain_dump/, 'plaintext dump must never be an upload source');
 assert.match(script, /\^danjion-prod-\[0-9\]\{8\}T\[0-9\]\{6\}Z-/, 'retention deletion must be strict-prefix bounded');
+assert.match(script, /retention_listing="\$\{tmpdir\}\/retention-listing\.txt"/, 'retention listing must be captured to a file');
+assert.match(
+  script,
+  /if ! rclone[\s\S]*?lsf "danjion_backup:"[\s\S]*?> "\$\{retention_listing\}"/,
+  'retention listing failure must be checked before filtering or deletion',
+);
+assert.doesNotMatch(script, /mapfile -t backups < <\(\s*rclone[\s\S]*?lsf/, 'rclone listing must not be hidden inside process substitution');
+assert.match(script, /grep_status=0[\s\S]*?grep_status=\$\?[\s\S]*?\[ "\$\{grep_status\}" -gt 1 \][\s\S]*?BACKUP_RESULT=FAIL/, 'retention filter errors must fail closed');
 assert.match(script, /deletefile "danjion_backup:\$\{backups\[\$i\]\}"/, 'retention may delete only filtered backup names');
 
 for (const forbidden of [
@@ -166,4 +174,5 @@ process.stdout.write('PRODUCTION_ENVIRONMENT_PRESERVED=PASS\n');
 process.stdout.write('RESTORE_ARM_UNCHANGED=PASS\n');
 process.stdout.write('ACTIVATION_OUTPUT_TOKEN_NOT_BOOLEAN=PASS\n');
 process.stdout.write('ACTIVATION_OUTPUT_TOKEN_NOT_ENABLE_SWITCH_VALUE=PASS\n');
+process.stdout.write('RETENTION_LISTING_FAIL_CLOSED=PASS\n');
 process.stdout.write('backup-neon-to-drive-contract: PASS\n');
