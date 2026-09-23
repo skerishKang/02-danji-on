@@ -199,6 +199,7 @@ function probeData(value) {
   assert.equal(admitted.id, 'user-N', 'the admission keeps the real actor identity');
   assert.equal(admitted.complexId, 'complex-id-1', 'the admission resolves the requested complex');
   assert.equal(admitted.residentVerificationExempt, true, 'a temporary admission is an exemption, not a verification');
+  assert.equal(admitted.residentVerificationExemptionSource, 'temporary', 'temporary access must remain distinguishable from operator exemption');
   assert.equal(admitted.householdId, null, 'FAKE_HOUSEHOLD=0: no household may be invented');
   assert.equal(admitted.membershipId, null, 'FAKE_MEMBERSHIP=0: no membership may be invented');
   assert.equal(admitted.membershipRole, null, 'no membership role may be invented');
