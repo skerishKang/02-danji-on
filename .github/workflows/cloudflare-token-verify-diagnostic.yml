@@ -40,9 +40,9 @@ jobs:
           candidate = token
           extracted = False
           if not (candidate.startswith("cfut_") or candidate.startswith("cfat_")):
-              m = re.search(r"Authorization:\\s*:\\s*Bearer\\s+([^\\s\\\"']+)", token, re.IGNORECASE)
+              m = re.search(r"Authorization:\s*:\s*Bearer\s+([^\s\"']+)", token, re.IGNORECASE)
               if not m:
-                  m = re.search(r"Bearer\\s+([^\\s\\\"']+)", token, re.IGNORECASE)
+                  m = re.search(r"Bearer\s+([^\s\"']+)", token, re.IGNORECASE)
               if m:
                   candidate = m.group(1).strip()
                   extracted = True
