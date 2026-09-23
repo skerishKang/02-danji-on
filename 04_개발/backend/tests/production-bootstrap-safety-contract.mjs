@@ -167,4 +167,7 @@ assert.match(
   '#438: production deploy authority gate must remain unchanged'
 );
 
+// #932: keep the dedicated R2 provisioning workflow contract inside the manifest-covered Backend CI lane.
+await import(new URL('tests/production-r2-bucket-provision-contract.mjs', root));
+
 console.log('Production bootstrap safety contract: PASS');
