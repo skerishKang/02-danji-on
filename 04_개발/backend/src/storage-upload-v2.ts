@@ -78,7 +78,7 @@ function randomObjectId(): string {
   return crypto.randomUUID().replace(/-/g, '');
 }
 
-async function runR2TrackedUpload(
+export async function runR2TrackedUpload(
   env: DriveEnv,
   sql: Sql,
   file: File,
@@ -93,6 +93,7 @@ async function runR2TrackedUpload(
       ? await applicationDocumentUploadRequestFingerprint(file, uploader.complexSlug)
       : await officialNewsImageUploadRequestFingerprint(file, uploader.complexSlug);
   let objectKeyValue: string | null = null;
+  let wasReplay = false;
   if (idempotencyKey) {
     const rows = await sql`
       select object_key, uploader_user_id::text, complex_id::text, state,
@@ -109,6 +110,7 @@ async function runR2TrackedUpload(
         return fail('IDEMPOTENCY_KEY_REUSED', 'The Idempotency-Key was already used with different file content', 409, requestId);
       }
       objectKeyValue = String(existing.object_key || '');
+      wasReplay = true;
       if (existing.state === 'active') {
         const fileId = objectKeyValue.split('/').pop() || '';
         const metadata = await import('./storage-r2-v1').then(({ r2Head }) => r2Head(env as R2StorageEnv, kind, fileId));
@@ -156,7 +158,7 @@ async function runR2TrackedUpload(
     returning object_key
   `;
   if (!activated[0]) return fail('UPLOAD_ACTIVATION_UNAVAILABLE', 'R2 upload could not be activated safely', 503, requestId);
-  return { objectKey: objectKeyValue, metadata, idempotencyReplayed: Boolean(idempotencyKey) };
+  return { objectKey: objectKeyValue, metadata, idempotencyReplayed: wasReplay };
 }
 
 function requiredDriveCredentials(env: DriveEnv): { clientId: string; clientSecret: string; refreshToken: string } | null {
