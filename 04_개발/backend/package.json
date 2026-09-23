@@ -10,6 +10,8 @@
     "typecheck": "tsc --noEmit",
     "test:storage": "node tests/storage-policy.mjs",
     "test:storage-contract": "node tests/storage-contract.mjs",
+    "test:qa-r2-storage-lane": "node tests/qa-r2-storage-lane-contract.mjs",
+    "test:runtime-qa-r2-storage": "node tests/runtime-qa-r2-storage.mjs",
     "test:official-news-image-844-lifecycle": "tsx tests/official-news-image-844-lifecycle.test.mjs",
     "test:contract": "node tests/contract.mjs",
     "test:auth": "tsx tests/auth-v1.test.mjs",
