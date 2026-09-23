@@ -6,10 +6,12 @@ import {
   type StorageKind,
   type StorageVisibility
 } from './storage-policy.mjs';
+import { r2Delete, r2Enabled, r2Get, r2Head, type R2StorageEnv } from './storage-r2-v1';
 
 type Sql = NeonQueryFunction<false, false>;
 export type DriveEnv = CoreEnv & {
   STORAGE_MODE?: string;
+  DANJION_STORAGE?: R2Bucket;
   GOOGLE_DRIVE_CLIENT_ID?: string;
   GOOGLE_DRIVE_CLIENT_SECRET?: string;
   GOOGLE_DRIVE_REFRESH_TOKEN?: string;
@@ -178,7 +180,14 @@ export async function readDriveMetadata(env: DriveEnv, parsed: ParsedObjectKey):
   return response.json() as Promise<DriveMetadata>;
 }
 
-export function metadataMatches(env: DriveEnv, parsed: ParsedObjectKey, metadata: DriveMetadata): boolean {
+export function metadataMatches(env: DriveEnv, parsed: ParsedObjectKey, metadata: DriveMetadata, isR2 = r2Enabled(env)): boolean {
+  if (isR2) {
+    const props = metadata.appProperties || {};
+    return metadata.id === parsed.fileId &&
+      metadata.trashed !== true &&
+      props.danjionKind === parsed.kind &&
+      props.danjionVisibility === parsed.visibility;
+  }
   const expectedFolder = folderFor(env, parsed.kind);
   if (!expectedFolder || metadata.trashed || !metadata.parents?.includes(expectedFolder)) return false;
   const props = metadata.appProperties || {};
@@ -189,14 +198,66 @@ function retirementMetadataMatches(
   env: DriveEnv,
   parsed: ParsedObjectKey,
   metadata: DriveMetadata,
-  expectedUploaderUserId: string
+  expectedUploaderUserId: string,
+  isR2 = r2Enabled(env)
 ): boolean {
-  const expectedFolder = folderFor(env, parsed.kind);
   const props = metadata.appProperties || {};
+  if (isR2) {
+    // R2 objects carry no Drive folder membership; the kind lane, visibility and
+    // uploader markers in the R2 custom metadata are the retirement authority.
+    return metadata.id === parsed.fileId &&
+      metadata.trashed !== true &&
+      props.danjionKind === 'business-image' &&
+      props.danjionVisibility === 'public' &&
+      props.danjionUploaderUserId === expectedUploaderUserId;
+  }
+  const expectedFolder = folderFor(env, parsed.kind);
   return Boolean(expectedFolder) && metadata.parents?.includes(expectedFolder!) === true &&
     props.danjionKind === 'business-image' &&
     props.danjionVisibility === 'public' &&
     props.danjionUploaderUserId === expectedUploaderUserId;
+}
+
+// #910 R2 DELETE lifecycle parity: the delete lifecycle (registry reference
+// checks, durable delete intent acquisition, retirement finalization) is
+// identical across storage backends; only the physical object read/removal
+// differs. The backend is resolved per object so a bounded migration window
+// (STORAGE_MODE=r2 while Drive credentials still exist) still retires
+// Drive-only legacy objects through the Drive lane.
+type StorageDeleteBackend = 'r2' | 'drive';
+
+/**
+ * Read the delete-side object metadata from the backend that owns the object.
+ * R2 mode + R2 head hit -> the R2 lane owns it. R2 mode + miss -> fall back to
+ * Drive only while Drive credentials still exist (the same bounded migration
+ * condition the #910 streaming lane uses); R2-only deployments fail closed with
+ * metadata=null (the caller answers 404 instead of touching Drive).
+ * Drive mode is byte-identical to before: exactly one readDriveMetadata call.
+ */
+async function readDeleteObjectMetadata(
+  env: DriveEnv,
+  parsed: ParsedObjectKey
+): Promise<{ backend: StorageDeleteBackend; metadata: DriveMetadata | null }> {
+  if (r2Enabled(env)) {
+    const r2Metadata = await r2Head(env as R2StorageEnv, parsed.kind, parsed.fileId);
+    if (r2Metadata) return { backend: 'r2', metadata: r2Metadata };
+    if (!requiredDriveCredentials(env)) {
+      return { backend: 'r2', metadata: null };
+    }
+  }
+  return { backend: 'drive', metadata: await readDriveMetadata(env, parsed) };
+}
+
+/**
+ * Backend resolution for reconcile lanes whose Drive path never read object
+ * metadata: Drive mode returns immediately without any extra storage call, so
+ * existing Drive behavior stays byte-identical.
+ */
+async function resolveDeleteBackend(env: DriveEnv, parsed: ParsedObjectKey): Promise<StorageDeleteBackend> {
+  if (!r2Enabled(env)) return 'drive';
+  const head = await r2Head(env as R2StorageEnv, parsed.kind, parsed.fileId);
+  if (head) return 'r2';
+  return requiredDriveCredentials(env) ? 'drive' : 'r2';
 }
 
 // validateBusinessImageReference now lives in ./storage-reference-v1 (shared
@@ -426,30 +487,44 @@ async function trashOfficialNewsImageAndFinalize(
   env: DriveEnv,
   sql: Sql,
   parsed: ParsedObjectKey,
-  requestId: string
+  requestId: string,
+  backend: StorageDeleteBackend
 ): Promise<Response> {
-  let response: Response;
-  try {
-    response = await googleFetch(env, `${DRIVE_API}/files/${encodeURIComponent(parsed.fileId)}?supportsAllDrives=true`, {
-      method: 'PATCH',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ trashed: true })
-    });
-  } catch {
-    return fail(
-      'OFFICIAL_NEWS_IMAGE_RETIREMENT_RECONCILABLE',
-      'Official news image is marked for deletion but Google Drive could not be reached; retirement stays reconcilable',
-      503,
-      requestId
-    );
-  }
-  if (!response.ok && response.status !== 404) {
-    return fail(
-      'OFFICIAL_NEWS_IMAGE_RETIREMENT_RECONCILABLE',
-      'Official news image is marked for deletion but Google Drive rejected the trash request; retirement stays reconcilable',
-      503,
-      requestId
-    );
+  if (backend === 'r2') {
+    try {
+      await r2Delete(env as R2StorageEnv, parsed.kind, parsed.fileId);
+    } catch {
+      return fail(
+        'OFFICIAL_NEWS_IMAGE_RETIREMENT_RECONCILABLE',
+        'Official news image is marked for deletion but the R2 object could not be removed; retirement stays reconcilable',
+        503,
+        requestId
+      );
+    }
+  } else {
+    let response: Response;
+    try {
+      response = await googleFetch(env, `${DRIVE_API}/files/${encodeURIComponent(parsed.fileId)}?supportsAllDrives=true`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ trashed: true })
+      });
+    } catch {
+      return fail(
+        'OFFICIAL_NEWS_IMAGE_RETIREMENT_RECONCILABLE',
+        'Official news image is marked for deletion but Google Drive could not be reached; retirement stays reconcilable',
+        503,
+        requestId
+      );
+    }
+    if (!response.ok && response.status !== 404) {
+      return fail(
+        'OFFICIAL_NEWS_IMAGE_RETIREMENT_RECONCILABLE',
+        'Official news image is marked for deletion but Google Drive rejected the trash request; retirement stays reconcilable',
+        503,
+        requestId
+      );
+    }
   }
 
   const finalized = await finalizeOfficialNewsImageRetired(sql, parsed.objectKey, requestId);
@@ -496,7 +571,21 @@ async function reconcileOfficialNewsImageRetirement(
       requestId
     );
   }
-  return trashOfficialNewsImageAndFinalize(env, sql, parsed, requestId);
+  // R2 mode: resolve which backend owns the object (Drive mode adds no storage call).
+  let backend: StorageDeleteBackend = 'drive';
+  if (r2Enabled(env)) {
+    try {
+      backend = await resolveDeleteBackend(env, parsed);
+    } catch {
+      return fail(
+        'OFFICIAL_NEWS_IMAGE_RETIREMENT_RECONCILABLE',
+        'Official news image is marked for deletion but the storage backend could not be reached; retirement stays reconcilable',
+        503,
+        requestId
+      );
+    }
+  }
+  return trashOfficialNewsImageAndFinalize(env, sql, parsed, requestId, backend);
 }
 
 /**
@@ -769,8 +858,16 @@ async function streamObject(request: Request, env: DriveEnv, requestId: string, 
     return fail('NOT_FOUND', 'Public storage object not found', 404, requestId);
   }
 
-  const metadata = await readDriveMetadata(env, parsed);
-  if (!metadata || !metadataMatches(env, parsed, metadata)) return fail('NOT_FOUND', 'Storage object not found', 404, requestId);
+  const r2Mode = r2Enabled(env);
+  // R2 mode must not fall through to Drive when head misses: Drive credentials are
+  // absent in R2-only deployments and readDriveMetadata would throw a bare 500.
+  let metadata: DriveMetadata | null;
+  if (r2Mode) {
+    metadata = await r2Head(env as R2StorageEnv, parsed.kind, parsed.fileId);
+  } else {
+    metadata = await readDriveMetadata(env, parsed);
+  }
+  if (!metadata || !metadataMatches(env, parsed, metadata, r2Mode)) return fail('NOT_FOUND', 'Storage object not found', 404, requestId);
 
   // #844 Amendment D: an official-news image is publicly streamed only while it is an active
   // registry object that a *published* official-news post actually references. An uploaded but
@@ -788,9 +885,31 @@ async function streamObject(request: Request, env: DriveEnv, requestId: string, 
     if (denied) return denied;
   }
 
-  const response = await googleFetch(env, `${DRIVE_API}/files/${encodeURIComponent(parsed.fileId)}?alt=media&supportsAllDrives=true`);
-  if (response.status === 404) return fail('NOT_FOUND', 'Storage object not found', 404, requestId);
-  if (!response.ok || !response.body) throw new Error(`Google Drive file read failed (${response.status})`);
+  const r2Object = r2Mode ? await r2Get(env as R2StorageEnv, parsed.kind, parsed.fileId) : null;
+  if (r2Mode && !r2Object) {
+    // Dual-mode migration fallback: only attempt Drive when credentials exist.
+    // R2-only QA/production must fail closed with 404 instead of a Drive-auth 500.
+    if (driveConfigured(env) && requiredDriveCredentials(env)) {
+      const fallback = await googleFetch(env, `${DRIVE_API}/files/${encodeURIComponent(parsed.fileId)}?alt=media&supportsAllDrives=true`);
+      if (fallback.status === 404) return fail('NOT_FOUND', 'Storage object not found', 404, requestId);
+      if (!fallback.ok || !fallback.body) throw new Error(`Google Drive file read failed (${fallback.status})`);
+      const headers = new Headers({
+        'content-type': metadata.mimeType || 'application/octet-stream',
+        'cache-control': privateRoute ? 'private, no-store' : 'public, max-age=3600',
+        'x-content-type-options': 'nosniff',
+        'x-danjion-request-id': requestId
+      });
+      if (metadata.size) headers.set('content-length', metadata.size);
+      return new Response(fallback.body, { status: 200, headers });
+    }
+    return fail('NOT_FOUND', 'Storage object not found', 404, requestId);
+  }
+  const response = r2Mode
+    ? new Response(r2Object!.body)
+    : await googleFetch(env, `${DRIVE_API}/files/${encodeURIComponent(parsed.fileId)}?alt=media&supportsAllDrives=true`);
+  if (!r2Mode && (response.status === 404 || !response.ok || !response.body)) {
+    return fail('NOT_FOUND', 'Storage object not found', 404, requestId);
+  }
   const headers = new Headers({
     'content-type': metadata.mimeType || 'application/octet-stream',
     'cache-control': privateRoute ? 'private, no-store' : 'public, max-age=3600',
@@ -805,31 +924,45 @@ async function trashBusinessImageAndFinalize(
   env: DriveEnv,
   sql: Sql,
   parsed: ParsedObjectKey,
-  requestId: string
+  requestId: string,
+  backend: StorageDeleteBackend
 ): Promise<Response> {
-  let response: Response;
-  try {
-    response = await googleFetch(env, `${DRIVE_API}/files/${encodeURIComponent(parsed.fileId)}?supportsAllDrives=true`, {
-      method: 'PATCH',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ trashed: true })
-    });
-  } catch {
-    return fail(
-      'BUSINESS_IMAGE_RETIREMENT_PENDING',
-      'Business image delete intent is recorded but Google Drive retirement is not yet confirmed',
-      503,
-      requestId
-    );
-  }
+  if (backend === 'r2') {
+    try {
+      await r2Delete(env as R2StorageEnv, parsed.kind, parsed.fileId);
+    } catch {
+      return fail(
+        'BUSINESS_IMAGE_RETIREMENT_PENDING',
+        'Business image delete intent is recorded but R2 retirement is not yet confirmed',
+        503,
+        requestId
+      );
+    }
+  } else {
+    let response: Response;
+    try {
+      response = await googleFetch(env, `${DRIVE_API}/files/${encodeURIComponent(parsed.fileId)}?supportsAllDrives=true`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ trashed: true })
+      });
+    } catch {
+      return fail(
+        'BUSINESS_IMAGE_RETIREMENT_PENDING',
+        'Business image delete intent is recorded but Google Drive retirement is not yet confirmed',
+        503,
+        requestId
+      );
+    }
 
-  if (!response.ok && response.status !== 404) {
-    return fail(
-      'BUSINESS_IMAGE_RETIREMENT_PENDING',
-      'Business image delete intent is recorded but Google Drive retirement is not yet confirmed',
-      503,
-      requestId
-    );
+    if (!response.ok && response.status !== 404) {
+      return fail(
+        'BUSINESS_IMAGE_RETIREMENT_PENDING',
+        'Business image delete intent is recorded but Google Drive retirement is not yet confirmed',
+        503,
+        requestId
+      );
+    }
   }
 
   const finalizeError = await finalizeBusinessImageRetired(sql, parsed.objectKey, requestId);
@@ -844,13 +977,30 @@ async function reconcileBusinessImageRetirement(
   parsed: ParsedObjectKey,
   requestId: string
 ): Promise<Response> {
+  let backend: StorageDeleteBackend = 'drive';
   let metadata: DriveMetadata | null;
   try {
-    metadata = await readDriveMetadata(env, parsed);
+    if (r2Enabled(env)) {
+      const r2Metadata = await r2Head(env as R2StorageEnv, parsed.kind, parsed.fileId);
+      if (r2Metadata) {
+        backend = 'r2';
+        metadata = r2Metadata;
+      } else if (requiredDriveCredentials(env)) {
+        // Bounded migration window: the object lives only on Drive.
+        metadata = await readDriveMetadata(env, parsed);
+      } else {
+        // R2-only deployment: the object is confirmed absent; fail closed and
+        // finalize instead of throwing from a Drive credential path.
+        backend = 'r2';
+        metadata = null;
+      }
+    } else {
+      metadata = await readDriveMetadata(env, parsed);
+    }
   } catch {
     return fail(
       'BUSINESS_IMAGE_RETIREMENT_PENDING',
-      'Business image retirement state could not be reconciled with Google Drive',
+      'Business image retirement state could not be reconciled with storage',
       503,
       requestId
     );
@@ -862,7 +1012,7 @@ async function reconcileBusinessImageRetirement(
     return ok({ objectKey: parsed.objectKey, deleted: true, retired: true, reconciled: true }, requestId);
   }
 
-  if (!retirementMetadataMatches(env, parsed, metadata, actor.id)) {
+  if (!retirementMetadataMatches(env, parsed, metadata, actor.id, backend === 'r2')) {
     return fail(
       'BUSINESS_IMAGE_RETIREMENT_PENDING',
       'Business image retirement metadata could not be verified safely',
@@ -877,7 +1027,7 @@ async function reconcileBusinessImageRetirement(
     return ok({ objectKey: parsed.objectKey, deleted: true, retired: true, reconciled: true }, requestId);
   }
 
-  return trashBusinessImageAndFinalize(env, sql, parsed, requestId);
+  return trashBusinessImageAndFinalize(env, sql, parsed, requestId, backend);
 }
 
 async function removeRegisteredBusinessImage(
@@ -902,13 +1052,16 @@ async function removeRegisteredBusinessImage(
     return fail('BUSINESS_IMAGE_NOT_ACTIVE', 'Business image is not active for lifecycle mutation', 409, requestId);
   }
 
+  let backend: StorageDeleteBackend = 'drive';
   let metadata: DriveMetadata | null;
   try {
-    metadata = await readDriveMetadata(env, parsed);
+    const resolved = await readDeleteObjectMetadata(env, parsed);
+    backend = resolved.backend;
+    metadata = resolved.metadata;
   } catch {
     return fail('BUSINESS_IMAGE_REFERENCE_UNAVAILABLE', 'Business image could not be verified against storage', 503, requestId);
   }
-  if (!metadata || !metadataMatches(env, parsed, metadata)) return fail('NOT_FOUND', 'Storage object not found', 404, requestId);
+  if (!metadata || !metadataMatches(env, parsed, metadata, backend === 'r2')) return fail('NOT_FOUND', 'Storage object not found', 404, requestId);
   const denied = await authorizeObject(auth.actor, metadata, requestId);
   if (denied) return denied;
 
@@ -924,8 +1077,8 @@ async function removeRegisteredBusinessImage(
     return fail('BUSINESS_IMAGE_NOT_ACTIVE', 'Business image is not active for deletion', 409, requestId);
   }
 
-  // The DB delete intent is committed before this external Drive side effect.
-  return trashBusinessImageAndFinalize(env, auth.sql, parsed, requestId);
+  // The DB delete intent is committed before this external storage side effect.
+  return trashBusinessImageAndFinalize(env, auth.sql, parsed, requestId, backend);
 }
 
 async function removeLegacyUnregisteredBusinessImage(
@@ -934,13 +1087,16 @@ async function removeLegacyUnregisteredBusinessImage(
   parsed: ParsedObjectKey,
   requestId: string
 ): Promise<Response> {
+  let backend: StorageDeleteBackend = 'drive';
   let metadata: DriveMetadata | null;
   try {
-    metadata = await readDriveMetadata(env, parsed);
+    const resolved = await readDeleteObjectMetadata(env, parsed);
+    backend = resolved.backend;
+    metadata = resolved.metadata;
   } catch {
     return fail('BUSINESS_IMAGE_REFERENCE_UNAVAILABLE', 'Business image could not be verified against storage', 503, requestId);
   }
-  if (!metadata || !metadataMatches(env, parsed, metadata)) return fail('NOT_FOUND', 'Storage object not found', 404, requestId);
+  if (!metadata || !metadataMatches(env, parsed, metadata, backend === 'r2')) return fail('NOT_FOUND', 'Storage object not found', 404, requestId);
   const denied = await authorizeObject(auth.actor, metadata, requestId);
   if (denied) return denied;
 
@@ -950,18 +1106,26 @@ async function removeLegacyUnregisteredBusinessImage(
   const conflict = await businessImageDeleteConflict(auth.sql, parsed.objectKey, requestId);
   if (conflict) return conflict;
 
-  let response: Response;
-  try {
-    response = await googleFetch(env, `${DRIVE_API}/files/${encodeURIComponent(parsed.fileId)}?supportsAllDrives=true`, {
-      method: 'PATCH',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ trashed: true })
-    });
-  } catch {
-    return fail('BUSINESS_IMAGE_RETIREMENT_PENDING', 'Google Drive retirement could not be confirmed', 503, requestId);
-  }
-  if (!response.ok && response.status !== 404) {
-    return fail('BUSINESS_IMAGE_RETIREMENT_PENDING', 'Google Drive retirement could not be confirmed', 503, requestId);
+  if (backend === 'r2') {
+    try {
+      await r2Delete(env as R2StorageEnv, parsed.kind, parsed.fileId);
+    } catch {
+      return fail('BUSINESS_IMAGE_RETIREMENT_PENDING', 'R2 retirement could not be confirmed', 503, requestId);
+    }
+  } else {
+    let response: Response;
+    try {
+      response = await googleFetch(env, `${DRIVE_API}/files/${encodeURIComponent(parsed.fileId)}?supportsAllDrives=true`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ trashed: true })
+      });
+    } catch {
+      return fail('BUSINESS_IMAGE_RETIREMENT_PENDING', 'Google Drive retirement could not be confirmed', 503, requestId);
+    }
+    if (!response.ok && response.status !== 404) {
+      return fail('BUSINESS_IMAGE_RETIREMENT_PENDING', 'Google Drive retirement could not be confirmed', 503, requestId);
+    }
   }
   return ok({ objectKey: parsed.objectKey, deleted: true, legacyUnregistered: true }, requestId);
 }
@@ -971,25 +1135,35 @@ async function removeObject(request: Request, env: DriveEnv, requestId: string):
   if (auth instanceof Response) return auth;
   const parsed = parseObjectKey(new URL(request.url).searchParams.get('objectKey') || '');
   if (!parsed) return fail('INVALID_OBJECT_KEY', 'Invalid storage object key', 400, requestId);
+  // #910 R2 DELETE lifecycle parity: no R2 shortcut exists here. Every kind runs
+  // the same registry/reference/authority lifecycle as the Drive lane; only the
+  // physical object read/removal is backend-resolved per object.
 
   // Resident evidence remains exactly on its existing uploader/HOLD path and
   // never enters the business-image lifecycle registry.
   if (parsed.kind === 'resident-evidence') {
+    let backend: StorageDeleteBackend = 'drive';
     let metadata: DriveMetadata | null;
     try {
-      metadata = await readDriveMetadata(env, parsed);
+      const resolved = await readDeleteObjectMetadata(env, parsed);
+      backend = resolved.backend;
+      metadata = resolved.metadata;
     } catch {
       return fail('STORAGE_UNAVAILABLE', 'Storage object could not be verified', 503, requestId);
     }
-    if (!metadata || !metadataMatches(env, parsed, metadata)) return fail('NOT_FOUND', 'Storage object not found', 404, requestId);
+    if (!metadata || !metadataMatches(env, parsed, metadata, backend === 'r2')) return fail('NOT_FOUND', 'Storage object not found', 404, requestId);
     const denied = await authorizeObject(auth.actor, metadata, requestId);
     if (denied) return denied;
-    const response = await googleFetch(env, `${DRIVE_API}/files/${encodeURIComponent(parsed.fileId)}?supportsAllDrives=true`, {
-      method: 'PATCH',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ trashed: true })
-    });
-    if (!response.ok) throw new Error(`Google Drive delete failed (${response.status})`);
+    if (backend === 'r2') {
+      await r2Delete(env as R2StorageEnv, parsed.kind, parsed.fileId);
+    } else {
+      const response = await googleFetch(env, `${DRIVE_API}/files/${encodeURIComponent(parsed.fileId)}?supportsAllDrives=true`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ trashed: true })
+      });
+      if (!response.ok) throw new Error(`Google Drive delete failed (${response.status})`);
+    }
     return ok({ objectKey: parsed.objectKey, deleted: true }, requestId);
   }
 
@@ -1003,21 +1177,28 @@ async function removeObject(request: Request, env: DriveEnv, requestId: string):
    if (parsed.kind === 'application-document') {
      const conflict = await applicationDocumentDeleteConflict(auth.sql, parsed.objectKey, requestId);
      if (conflict) return conflict;
+     let backend: StorageDeleteBackend = 'drive';
      let metadata: DriveMetadata | null;
      try {
-       metadata = await readDriveMetadata(env, parsed);
+       const resolved = await readDeleteObjectMetadata(env, parsed);
+       backend = resolved.backend;
+       metadata = resolved.metadata;
      } catch {
        return fail('STORAGE_UNAVAILABLE', 'Storage object could not be verified', 503, requestId);
      }
-     if (!metadata || !metadataMatches(env, parsed, metadata)) return fail('NOT_FOUND', 'Storage object not found', 404, requestId);
+     if (!metadata || !metadataMatches(env, parsed, metadata, backend === 'r2')) return fail('NOT_FOUND', 'Storage object not found', 404, requestId);
      const denied = await authorizeObject(auth.actor, metadata, requestId);
      if (denied) return denied;
-     const response = await googleFetch(env, `${DRIVE_API}/files/${encodeURIComponent(parsed.fileId)}?supportsAllDrives=true`, {
-       method: 'PATCH',
-       headers: { 'content-type': 'application/json' },
-       body: JSON.stringify({ trashed: true })
-     });
-     if (!response.ok) throw new Error(`Google Drive delete failed (${response.status})`);
+     if (backend === 'r2') {
+       await r2Delete(env as R2StorageEnv, parsed.kind, parsed.fileId);
+     } else {
+       const response = await googleFetch(env, `${DRIVE_API}/files/${encodeURIComponent(parsed.fileId)}?supportsAllDrives=true`, {
+         method: 'PATCH',
+         headers: { 'content-type': 'application/json' },
+         body: JSON.stringify({ trashed: true })
+       });
+       if (!response.ok) throw new Error(`Google Drive delete failed (${response.status})`);
+     }
      return ok({ objectKey: parsed.objectKey, deleted: true }, requestId);
    }
 
@@ -1059,13 +1240,16 @@ async function removeObject(request: Request, env: DriveEnv, requestId: string):
        return fail('OFFICIAL_NEWS_IMAGE_NOT_ACTIVE', 'Official news image is not active for lifecycle mutation', 409, requestId);
      }
 
+     let backend: StorageDeleteBackend = 'drive';
      let metadata: DriveMetadata | null;
      try {
-       metadata = await readDriveMetadata(env, parsed);
+       const resolved = await readDeleteObjectMetadata(env, parsed);
+       backend = resolved.backend;
+       metadata = resolved.metadata;
      } catch {
        return fail('STORAGE_UNAVAILABLE', 'Storage object could not be verified', 503, requestId);
      }
-     if (!metadata || !metadataMatches(env, parsed, metadata)) return fail('NOT_FOUND', 'Storage object not found', 404, requestId);
+     if (!metadata || !metadataMatches(env, parsed, metadata, backend === 'r2')) return fail('NOT_FOUND', 'Storage object not found', 404, requestId);
 
      // BLOCKER 1: the reference check and the active -> delete_pending acquisition share one DB
      // serialization boundary, so a concurrent post reference can never land in between.
@@ -1081,8 +1265,8 @@ async function removeObject(request: Request, env: DriveEnv, requestId: string):
        return fail('OFFICIAL_NEWS_IMAGE_NOT_ACTIVE', 'Official news image is not active for deletion', 409, requestId);
      }
 
-     // The durable delete_pending intent is committed before this external Drive side effect.
-     return trashOfficialNewsImageAndFinalize(env, auth.sql, parsed, requestId);
+     // The durable delete_pending intent is committed before this external storage side effect.
+     return trashOfficialNewsImageAndFinalize(env, auth.sql, parsed, requestId, backend);
    }
 
    return fail('INVALID_OBJECT_KEY', 'Invalid storage object key', 400, requestId);
@@ -1094,8 +1278,8 @@ export async function handleStorageRequest(request: Request, env: CoreEnv, reque
   const matchesStorageRoute = path === '/api/v1/storage/objects' ||
     path === '/api/v1/storage/public' || path === '/api/v1/storage/private';
   if (!matchesStorageRoute) return null;
-  if (!driveConfigured(driveEnv)) return fail('STORAGE_NOT_CONFIGURED', 'Google Drive storage mode is not enabled', 503, requestId);
-  if (!requiredDriveCredentials(driveEnv)) return fail('STORAGE_NOT_CONFIGURED', 'Google Drive OAuth credentials are not configured', 503, requestId);
+  if (!driveConfigured(driveEnv) && !r2Enabled(driveEnv)) return fail('STORAGE_NOT_CONFIGURED', 'Storage mode is not enabled', 503, requestId);
+  if (driveConfigured(driveEnv) && !requiredDriveCredentials(driveEnv)) return fail('STORAGE_NOT_CONFIGURED', 'Google Drive OAuth credentials are not configured', 503, requestId);
 
   // POST /api/v1/storage/objects is owned by storage-upload-v2 (dispatched
   // before this route in app.ts and never null for that method+path), so no

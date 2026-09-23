@@ -18,6 +18,7 @@ export type VerifiedResident = Actor & {
     }
   | {
       residentVerificationExempt: true;
+      residentVerificationExemptionSource: 'scope' | 'ordinary_test' | 'temporary';
       householdId: null;
       membershipId: null;
       membershipRole: null;
@@ -155,7 +156,10 @@ export async function requireVerifiedResident(
     const row = rows[0];
     if (!row) {
       const authority = await resolvePadiemAuthority(sql, actor.id);
-      if (!authority.scopes.includes(RESIDENT_VERIFICATION_EXEMPT_SCOPE)) {
+      let residentVerificationExemptionSource: 'scope' | 'ordinary_test' | 'temporary';
+      if (authority.scopes.includes(RESIDENT_VERIFICATION_EXEMPT_SCOPE)) {
+        residentVerificationExemptionSource = 'scope';
+      } else {
         // #823 fallback: the source-pinned ordinary test-resident allowlist.
         // It creates no grants, so the account keeps authority level 'none'
         // (never operator/admin), and the admission below keeps the same
@@ -165,22 +169,12 @@ export async function requireVerifiedResident(
         // issuance is not ready, a SIGNED-IN ordinary actor may use the general
         // resident surfaces. `requireActor()` above already refused a signed-out
         // request with 401, so this branch is unreachable for anonymous traffic.
-        // The switch is server-side and fail-closed (only the exact string
-        // 'true' enables it) and grants NO authority and NO household: the
-        // admission below still returns null household/membership fields, so
-        // every household-specific surface keeps requiring a real membership.
-        //
         // The temporary path is limited to principals with NO PADIEM authority.
-        // A wildcard/bounded admin without the explicit exempt scope is not
-        // silently converted into a resident: the wildcard '*' alone never
-        // exempts, so such a principal keeps the strict 403 it received before
-        // the temporary switch existed (and keeps its admin console, which never
-        // consults this gate).
         const temporaryAdmitted =
           authority.level === 'none' && isTemporaryResidentAccessEnabled(env);
-        if (!ordinaryExempt && !temporaryAdmitted) {
-          return fail('RESIDENT_VERIFICATION_REQUIRED', 'Verified resident access required', 403, requestId);
-        }
+        if (ordinaryExempt) residentVerificationExemptionSource = 'ordinary_test';
+        else if (temporaryAdmitted) residentVerificationExemptionSource = 'temporary';
+        else return fail('RESIDENT_VERIFICATION_REQUIRED', 'Verified resident access required', 403, requestId);
       }
 
       const complexRows = await sql`
@@ -200,6 +194,7 @@ export async function requireVerifiedResident(
         complexId: String(complex.complex_id),
         complexSlug: String(complex.complex_slug),
         residentVerificationExempt: true,
+        residentVerificationExemptionSource,
         householdId: null,
         membershipId: null,
         membershipRole: null
@@ -223,6 +218,54 @@ export async function requireVerifiedResident(
   } catch (error) {
     console.error('[DanjiOn Resident AuthZ]', requestId, error instanceof Error ? error.name : 'resident_authz_failed');
     return fail('RESIDENT_AUTHZ_FAILED', 'Resident authorization could not be verified', 500, requestId);
+  }
+}
+
+/**
+ * Canonical self-surface admission without a complexSlug (#920).
+ *
+ * Reuses the same fail-closed chain as `requireVerifiedResident` when no
+ * membership row exists:
+ *   1. real verified household membership (any complex),
+ *   2. exact active `resident.verification.exempt` grant,
+ *   3. #823 ordinary test-resident allowlist fallback,
+ *   4. #868 temporary resident access (only while authority level is none).
+ *
+ * Wildcard `*` alone never admits. Operators without the explicit exempt
+ * scope stay denied unless they already hold a real membership. Complex-bound
+ * callers must keep their own `hm.complex_id = ...` scoping; this helper only
+ * answers the self-surface gate and never widens cross-complex access.
+ *
+ * Placement note: this helper must stay AFTER `requireVerifiedResident` so the
+ * #868 temporary switch is first consulted only after `requireActor()` inside
+ * that gate (temporary-resident-access source invariant).
+ */
+export async function admitResidentSelfSurface(
+  sql: Sql,
+  env: AuthEnv,
+  actor: Actor
+): Promise<boolean> {
+  const membership = await sql`
+    select 1
+    from household_memberships hm
+    join households h on h.id = hm.household_id and h.complex_id = hm.complex_id
+    join complex_units cu on cu.id = h.complex_unit_id and cu.complex_id = hm.complex_id
+    where hm.user_id = ${actor.id}
+      and hm.status = 'verified'
+      and h.status = 'active'
+      and cu.status = 'active'
+    limit 1
+  `;
+  if (membership[0]) return true;
+
+  try {
+    const authority = await resolvePadiemAuthority(sql, actor.id);
+    if (authority.scopes.includes(RESIDENT_VERIFICATION_EXEMPT_SCOPE)) return true;
+    if (await resolveOrdinaryTestResidentExemption(sql, actor)) return true;
+    if (authority.level !== 'none') return false;
+    return isTemporaryResidentAccessEnabled(env);
+  } catch {
+    return false;
   }
 }
 

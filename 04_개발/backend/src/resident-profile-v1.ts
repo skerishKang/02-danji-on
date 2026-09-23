@@ -269,6 +269,22 @@ async function viewerForOwnProfile(
 ): Promise<OwnProfileViewer | Response> {
   const resident = await viewerForComplex(request, env, sql, requestId, complexSlug);
   if (!(resident instanceof Response)) {
+    // #920: requireVerifiedResident admits exempt/temporary/ordinary actors
+    // with residentVerificationExempt=true and householdId=null while still
+    // returning the requested complexId. loadPublicProfile would then require
+    // a verified household row and 404. Exempt self must take the account-safe
+    // path (complexId=null → loadOwnAccountProfile); public other-profile
+    // lookups stay on getProfile()/viewerForComplex unchanged.
+    if (resident.residentVerificationExempt) {
+      // The resident gate already classified the exemption source. Reuse that
+      // canonical decision instead of re-querying authority here: only an exact
+      // resident.verification.exempt scope may carry the operator label, while
+      // #823 ordinary-test and #868 temporary admissions stay account-labelled.
+      const profileLabel = resident.residentVerificationExemptionSource === 'scope'
+        ? OPERATOR_PROFILE_LABEL
+        : ACCOUNT_PROFILE_LABEL;
+      return { id: resident.id, complexId: null, profileLabel };
+    }
     return { id: resident.id, complexId: resident.complexId, profileLabel: PROFILE_LABEL };
   }
   if (resident.status !== 403) return resident;

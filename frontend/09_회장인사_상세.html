@@ -98,6 +98,22 @@ function formatDate(ts) {
   try { return new Date(ts).toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' }); } catch { return ''; }
 }
 
+// #913: server bodies are plain text; paragraphs and line breaks are DOM-built only.
+function renderPlainBody(container, body) {
+  container.replaceChildren();
+  const normalized = String(body || '').replace(/\\r\\n|\\n|\\r/g, '\n');
+  const sections = normalized.split(/\n{2,}/).map(s => s.trim()).filter(Boolean);
+  for (const section of sections) {
+    const paragraph = document.createElement('p');
+    const lines = section.split('\n');
+    lines.forEach((line, index) => {
+      if (index > 0) paragraph.append(document.createElement('br'));
+      paragraph.append(document.createTextNode(line));
+    });
+    container.append(paragraph);
+  }
+}
+
 async function loadGreeting() {
   if (!postId) return;
   const result = await bridge.getPost(postId);
@@ -119,7 +135,7 @@ async function loadGreeting() {
 
   const bodyEl = document.querySelector('.article-body');
   if (bodyEl && post.body) {
-    bodyEl.innerHTML = post.body;
+    renderPlainBody(bodyEl, post.body);
   }
 
   document.title = '단지온 · 회장 인사 · ' + post.title;

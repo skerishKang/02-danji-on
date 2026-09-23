@@ -55,9 +55,9 @@ const [
   const exemptScope = "const RESIDENT_VERIFICATION_EXEMPT_SCOPE = 'resident.verification.exempt'";
   assert.ok(authorization.includes(exemptScope),
     'the exemption must key on the exact canonical scope and nothing else');
-  assert.ok(/residentVerificationExempt:\s*true,\s*householdId:\s*null,\s*membershipId:\s*null,\s*membershipRole:\s*null/.test(
+  assert.ok(/residentVerificationExempt:\s*true,[\s\S]*residentVerificationExemptionSource,[\s\S]*householdId:\s*null,\s*membershipId:\s*null,\s*membershipRole:\s*null/.test(
     authorization.replace(/\s+/g, ' ')
-  ), 'the exempt admission must return null household fields (never invented ids)');
+  ), 'the exempt admission must return null household fields and an explicit exemption source (never invented ids)');
   assert.ok(/residentVerificationExempt:\s*false/.test(authorization),
     'the ordinary admission must be explicitly distinguishable from the exemption');
   // The exemption must never mint a household identity anywhere in the module.

@@ -77,8 +77,8 @@ assert.match(apply25a, /const OWNER_RELATIONS=new Set\(\['self','co','family','e
   'H: owner lane must validate exactly the four canonical raw relations; co/etc must never be coerced to a backend enum');
 assert.match(apply25a, /createOwnerApplication\(\{relationRaw,/,
   'H: owner submit must send the canonical relationRaw verbatim (no frontend pre-resolution)');
-assert.match(apply25a, /if\(!OWNER_RELATIONS\.has\(relationRaw\)\)\{showToast\('선택한 관계로는 아직 서버 신청을 연결할 수 없습니다\.'\);return\}/,
-  'H: unsupported relation must fail closed with an honest notice instead of a guessed relation');
+assert.match(apply25a, /if\(!OWNER_RELATIONS\.has\(relationRaw\)\)\{\s*revealApplicationError\('선택한 관계로는 아직 서버 신청을 연결할 수 없습니다\.',document\.querySelector\('\[name="ownerRelation"\]'\)\|\|applicationErrorSummary\);\s*return;\s*\}/,
+  'H: unsupported relation must fail closed with an honest summary notice instead of a guessed relation');
 /* photo handling: #766 bounded accumulation + retry state + canonical storage contract */
 assert.match(apply25a, /const MAX_PHOTOS=3;/,
   'PHOTO: selection must cap at the backend 0..3 photo contract');
