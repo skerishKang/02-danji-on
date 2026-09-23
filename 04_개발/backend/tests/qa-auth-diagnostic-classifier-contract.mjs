@@ -29,7 +29,7 @@ const FRONTEND = 'https://danjion-qa.pages.dev';
 function makeFetch(script) {
   const calls = [];
   const fetchImpl = async (input, init = {}) => {
-    const url = typeof input === 'string' ? input : input.url;
+    const url = typeof input === 'string' ? input : (input.url || input.href);
     const method = String(init.method || 'GET').toUpperCase();
     calls.push({ url, method });
     const next = script.shift();
@@ -144,7 +144,7 @@ async function testSecretRedaction() {
   const report = buildReport({
     personas: { QA_SUPER: { ROOT_CLASS: ROOT_CLASS.SUCCESS, DETAIL: `echo ${secret}` } },
     probes: {},
-    writeCallCount: 0,
+    forbiddenMutationCount: 0,
     secretValues: [secret]
   });
   const serialized = JSON.stringify(report);
@@ -153,16 +153,55 @@ async function testSecretRedaction() {
   assert.equal(report.SECRET_EXPOSURE, 'NO');
 }
 
-async function testReadOnlyWriteCountZero() {
+async function testForbiddenMutationCountZero() {
   const fetchImpl = makeFetch(successSigninScript());
   await diagnosePersona(API, FRONTEND, PERSONA, PASSWORD, fetchImpl);
   const mutationCalls = fetchImpl.calls.filter((call) => call.method !== 'GET' && call.method !== 'HEAD' && isMutationPath(call.url));
   assert.equal(mutationCalls.length, 0, 'read-only diagnostic must never call a mutation endpoint');
 
-  const report = buildReport({ personas: {}, probes: {}, writeCallCount: 0 });
-  assert.equal(report.READ_ONLY_WRITE_COUNT, 0);
+  const signinCall = fetchImpl.calls.find((call) => call.url.endsWith('/api/auth/sign-in/email'));
+  assert.equal(signinCall?.method, 'POST', 'sign-in POST is an allowed diagnostic operation');
+
+  const report = buildReport({ personas: {}, probes: {}, forbiddenMutationCount: 0 });
+  assert.equal(report.FORBIDDEN_MUTATION_COUNT, 0);
   assert.ok(!isMutationPath('/api/auth/sign-in/email'), 'sign-in is a diagnostic probe, not a mutation path');
   assert.ok(isMutationPath('/api/auth/sign-up/email'), 'sign-up must be flagged as a mutation path');
+}
+
+async function testInfrastructureCorrelationScope() {
+  const personaFailure = { QA_SUPER: { ROOT_CLASS: ROOT_CLASS.AUTH_SERVER_FAILURE }, QA_OPERATIONAL: { ROOT_CLASS: ROOT_CLASS.AUTH_SERVER_FAILURE } };
+
+  const personaOnly = buildReport({
+    personas: personaFailure,
+    probes: {
+      health: { rootClass: ROOT_CLASS.SUCCESS },
+      jwks: { rootClass: ROOT_CLASS.SUCCESS }
+    }
+  });
+  assert.equal(personaOnly.INFRA_CORRELATED, 'NO');
+  assert.equal(personaOnly.NEON_COLD_START_SUSPECTED, 'NO');
+
+  const singleProbe = buildReport({
+    personas: { QA_SUPER: { ROOT_CLASS: ROOT_CLASS.AUTH_SERVER_FAILURE } },
+    probes: {
+      health: { rootClass: ROOT_CLASS.AUTH_SERVER_FAILURE },
+      jwks: { rootClass: ROOT_CLASS.SUCCESS }
+    }
+  });
+  assert.equal(singleProbe.INFRA_CORRELATED, 'NO');
+  assert.equal(singleProbe.NEON_COLD_START_SUSPECTED, 'NO');
+
+  for (const healthClass of [ROOT_CLASS.AUTH_SERVER_FAILURE, ROOT_CLASS.DB_INFRA_FAILURE]) {
+    const dualProbe = buildReport({
+      personas: {},
+      probes: {
+        health: { rootClass: healthClass },
+        jwks: { rootClass: ROOT_CLASS.AUTH_SERVER_FAILURE }
+      }
+    });
+    assert.equal(dualProbe.INFRA_CORRELATED, 'YES');
+    assert.equal(dualProbe.NEON_COLD_START_SUSPECTED, 'YES');
+  }
 }
 
 async function testMalformedSecretFailClosed() {
@@ -225,9 +264,10 @@ const tests = [
   ['transient 503 retry success', testTransient503RetrySuccess],
   ['deterministic 401 no retry', testDeterministic401NoRetry],
   ['secret redaction', testSecretRedaction],
-  ['read-only write count zero', testReadOnlyWriteCountZero],
+  ['forbidden mutation count zero', testForbiddenMutationCountZero],
   ['malformed secret fail-closed', testMalformedSecretFailClosed],
   ['classification unit rules', testClassificationUnitRules],
+  ['infrastructure correlation scope', testInfrastructureCorrelationScope],
   ['production target forbidden', testProductionTargetForbidden]
 ];
 

@@ -140,25 +140,25 @@ export async function withBoundedRetry(runAttempt, { maxAttempts = MAX_RETRY_ATT
 }
 
 export function classifyInfraCorrelation(probeResults) {
-  const failed = probeResults.filter((result) => RETRYABLE_CLASSES.has(result.rootClass));
-  const infraCorrelated = failed.length >= 2;
+  const health = probeResults.find((result) => result.label === 'health');
+  const jwks = probeResults.find((result) => result.label === 'jwks');
+  const infraCorrelated = [health, jwks].every((result) => result && RETRYABLE_CLASSES.has(result.rootClass));
   return {
     INFRA_CORRELATED: infraCorrelated ? 'YES' : 'NO',
     NEON_COLD_START_SUSPECTED: infraCorrelated ? 'YES' : 'NO'
   };
 }
 
-export function buildReport({ personas, probes, writeCallCount = 0, secretValues = [] }) {
-  const probeRoots = Object.values(probes || {}).map((probe) => ({ rootClass: probe.rootClass }));
-  const personaRoots = Object.values(personas || {}).map((persona) => ({ rootClass: persona.ROOT_CLASS }));
-  const correlation = classifyInfraCorrelation([...probeRoots, ...personaRoots]);
+export function buildReport({ personas, probes, forbiddenMutationCount = 0, secretValues = [] }) {
+  const probeRoots = Object.entries(probes || {}).map(([label, probe]) => ({ label, rootClass: probe.rootClass }));
+  const correlation = classifyInfraCorrelation(probeRoots);
 
   const report = {
     timestamp: new Date().toISOString(),
     personas: personas || {},
     probes: probes || {},
     ...correlation,
-    READ_ONLY_WRITE_COUNT: writeCallCount,
+    FORBIDDEN_MUTATION_COUNT: forbiddenMutationCount,
     SECRET_EXPOSURE: 'NO'
   };
 

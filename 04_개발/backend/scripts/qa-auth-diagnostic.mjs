@@ -220,11 +220,11 @@ async function main() {
     process.env[persona.emailEnv] || ''
   ]).filter(Boolean);
 
-  let writeCallCount = 0;
+  let forbiddenMutationCount = 0;
   const countingFetch = async (input, init = {}) => {
     const url = typeof input === 'string' ? input : input.url;
     const method = String(init.method || 'GET').toUpperCase();
-    if (method !== 'GET' && method !== 'HEAD' && isMutationPath(url)) writeCallCount += 1;
+    if (method !== 'GET' && method !== 'HEAD' && isMutationPath(url)) forbiddenMutationCount += 1;
     return fetch(input, init);
   };
 
@@ -257,7 +257,7 @@ async function main() {
     );
   }
 
-  const report = buildReport({ personas, probes, writeCallCount, secretValues });
+  const report = buildReport({ personas, probes, forbiddenMutationCount, secretValues });
   console.log(JSON.stringify(report, null, 2));
 
   const anyFailure = Object.values(personas).some((persona) => persona.ROOT_CLASS !== ROOT_CLASS.SUCCESS);
