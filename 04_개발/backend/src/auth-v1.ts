@@ -7,6 +7,7 @@ import {
   type JSONWebKeySet,
   type JWTPayload
 } from 'jose';
+import { DB_AVAILABILITY_CODE, DB_AVAILABILITY_MESSAGE, isDbAvailabilityError } from './db-availability-v1';
 
 export interface AuthEnv {
   DATABASE_URL: string;
@@ -360,6 +361,9 @@ export async function requireActor(
     return actor;
   } catch (error) {
     console.error('[DanjiOn Auth Link]', requestId, error instanceof Error ? error.name : 'identity_link_failed');
+    if (isDbAvailabilityError(error)) {
+      return fail(DB_AVAILABILITY_CODE, DB_AVAILABILITY_MESSAGE, 503, requestId);
+    }
     return fail('AUTH_IDENTITY_LINK_FAILED', 'Authenticated user could not be linked', 500, requestId);
   }
 }
