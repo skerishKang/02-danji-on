@@ -1,14 +1,19 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { fingerprintTarget } from '../scripts/verify-restore-target-identity.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(here, '..', '..', '..');
 const workflow = readFileSync(join(repoRoot, '.github', 'workflows', 'verify-neon-backup-restore.yml'), 'utf8');
 const scriptPath = join(here, '..', 'scripts', 'verify-neon-backup-restore.sh');
+const identityHelperPath = join(here, '..', 'scripts', 'verify-restore-target-identity.mjs');
 const script = readFileSync(scriptPath, 'utf8');
+const identityHelper = readFileSync(identityHelperPath, 'utf8');
 
 if (process.platform !== 'win32') {
   const syntax = spawnSync('bash', ['-n', scriptPath], { encoding: 'utf8' });
@@ -32,6 +37,12 @@ assert.match(workflow, /Reconfirm exact main immediately before drill/, 'exact-m
 assert.match(workflow, /verify-neon-backup-restore-contract\.mjs/, 'the source safety contract must run inside the gate job');
 assert.match(workflow, /backup_filename/, 'the drill must bind an exact Drive object name input');
 assert.match(workflow, /DANJION_RESTORE_DRILL_DB_URL/, 'isolated drill target URL binding is required');
+assert.match(
+  workflow,
+  /DANJION_RESTORE_APPROVED_TARGET_SHA256:\s*\$\{\{\s*secrets\.DANJION_RESTORE_APPROVED_TARGET_SHA256\s*\}\}/,
+  'approved target identity fingerprint binding is required',
+);
+assert.match(workflow, /DANJION_RESTORE_APPROVED_TARGET_SHA256/, 'approved target identity must be checked by the active drill binding gate');
 assert.match(workflow, /DANJION_BACKUP_ENCRYPTION_PASSPHRASE/, 'decryption secret binding is required');
 assert.match(workflow, /DANJION_DRIVE_RCLONE_CONFIG/, 'owner OAuth rclone config binding is required');
 assert.match(workflow, /DANJION_DRIVE_FOLDER_ID/, 'dedicated Drive folder binding is required');
@@ -41,6 +52,7 @@ const gateBlock = workflow.split(/\n  isolated-restore-verification:/)[0];
 assert.match(gateBlock, /vars\.DANJION_BACKUP_RESTORE_DRILL_ENABLED/, 'activation job must receive only the non-sensitive drill enable variable');
 assert.doesNotMatch(gateBlock, /\$\{\{\s*secrets\./, 'restore activation job must bind zero Production secrets');
 assert.doesNotMatch(gateBlock, /DANJION_RESTORE_DRILL_DB_URL/, 'disabled gate job must not materialize the drill target URL');
+assert.doesNotMatch(gateBlock, /DANJION_RESTORE_APPROVED_TARGET_SHA256/, 'disabled gate job must not materialize the approved target fingerprint');
 assert.doesNotMatch(gateBlock, /DANJION_DRIVE_RCLONE_CONFIG/, 'disabled gate job must not materialize Drive OAuth secret');
 assert.doesNotMatch(gateBlock, /DANJION_BACKUP_ENCRYPTION_PASSPHRASE/, 'disabled gate job must not materialize the decryption passphrase');
 
@@ -52,6 +64,20 @@ assert.match(script, /danjion-prod-\[0-9\]\{8\}T\[0-9\]\{6\}Z-/, 'requested obje
 assert.match(script, /old-shape-61609481/, 'the drill must reject the pinned Production Neon project id');
 assert.match(script, /wispy-rain-16787448/, 'the drill must reject the shared-QA project id');
 assert.match(script, /forbidden Production or shared-QA project/, 'target rejection must be fail-closed');
+assert.match(script, /DANJION_RESTORE_APPROVED_TARGET_SHA256/, 'approved target fingerprint must be required by the restore script');
+const identityCheckPos = script.indexOf('verify-restore-target-identity.mjs');
+const tempDirPos = script.indexOf('tmpdir="$(mktemp -d)"');
+const driveFetchPos = script.indexOf('rclone --config "${rclone_config}" copy');
+assert.ok(identityCheckPos >= 0 && tempDirPos > identityCheckPos, 'target identity must be checked before temporary material is created');
+assert.ok(identityCheckPos >= 0 && driveFetchPos > identityCheckPos, 'target identity must be checked before Drive fetch or restore');
+assert.match(identityHelper, /createHash\('sha256'\)/, 'target identity must use SHA-256');
+assert.match(identityHelper, /RESTORE_TARGET_IDENTITY=PASS/, 'target identity helper must expose only a sanitized pass marker');
+assert.match(identityHelper, /MALFORMED_TARGET_URL/, 'malformed target URLs must fail closed');
+assert.match(identityHelper, /NON_NEON_TARGET/, 'non-Neon target URLs must fail closed');
+assert.match(identityHelper, /FORBIDDEN_TARGET_PROJECT/, 'known Production/shared-QA project markers must fail closed');
+assert.match(identityHelper, /IDENTITY_MISMATCH/, 'unapproved target identities must fail closed');
+assert.doesNotMatch(identityHelper, /process\.(?:stdout|stderr)\.write\([^)]*DANJION_RESTORE_DRILL_DB_URL/, 'target URL must never be printed');
+assert.doesNotMatch(identityHelper, /process\.(?:stdout|stderr)\.write\([^)]*APPROVED_TARGET_SHA256[^)]*[^=]/, 'approved identity material must never be printed');
 
 assert.match(script, /rclone[^\n]*copy "danjion_backup:"/, 'Drive access must be a scoped folder-rooted copy');
 assert.match(script, /--drive-root-folder-id/, 'Drive access must be rooted to the dedicated folder');
@@ -81,10 +107,135 @@ for (const secret of [
   'DANJION_DRIVE_RCLONE_CONFIG',
   'DANJION_DRIVE_FOLDER_ID',
   'DANJION_RESTORE_DRILL_DB_URL',
+  'DANJION_RESTORE_APPROVED_TARGET_SHA256',
 ]) {
   assert.ok(!new RegExp(`echo [^\\n]*\\$\\{${secret}`).test(script), `${secret} value must never be echoed`);
 }
 
+/* ---- executable approved-target identity matrix (synthetic fixtures only) ---- */
+const syntheticApprovedUrl =
+  'postgresql://sentinel_user:sentinel_password@ep-sentinel-isolated-123456.us-east-2.aws.neon.tech/sentinel_db?sslmode=require';
+const syntheticCanonicalUrl =
+  'postgresql://ep-sentinel-isolated-123456.us-east-2.aws.neon.tech/sentinel_db?sslmode=require';
+const syntheticApprovedFingerprint = createHash('sha256').update(syntheticCanonicalUrl, 'utf8').digest('hex');
+assert.equal(
+  fingerprintTarget(syntheticApprovedUrl),
+  syntheticApprovedFingerprint,
+  'approved target fingerprint must ignore credentials and use the canonical endpoint identity',
+);
+assert.equal(
+  fingerprintTarget(syntheticApprovedUrl.replace('sentinel_password', 'rotated_sentinel_password')),
+  syntheticApprovedFingerprint,
+  'target fingerprint must remain stable across credential rotation',
+);
+
+const identityBaseEnv = { ...process.env };
+delete identityBaseEnv.DANJION_RESTORE_DRILL_DB_URL;
+delete identityBaseEnv.DANJION_RESTORE_APPROVED_TARGET_SHA256;
+
+function runIdentityCase(url, approvedIdentity, helper = identityHelperPath) {
+  const result = spawnSync(process.execPath, [helper], {
+    encoding: 'utf8',
+    env: {
+      ...identityBaseEnv,
+      DANJION_RESTORE_DRILL_DB_URL: url,
+      DANJION_RESTORE_APPROVED_TARGET_SHA256: approvedIdentity,
+    },
+  });
+  return {
+    status: result.status,
+    stdout: result.stdout ?? '',
+    stderr: result.stderr ?? '',
+    combined: `${result.stdout ?? ''}${result.stderr ?? ''}`,
+  };
+}
+
+const approvedIdentityRun = runIdentityCase(syntheticApprovedUrl, syntheticApprovedFingerprint);
+const productionMarkerRun = runIdentityCase(
+  'postgresql://sentinel_user:sentinel_password@ep-sentinel-production.aws.neon.tech/sentinel_db?project=old-shape-61609481',
+  syntheticApprovedFingerprint,
+);
+const sharedQaMarkerRun = runIdentityCase(
+  'postgresql://sentinel_user:sentinel_password@ep-sentinel-qa.aws.neon.tech/sentinel_db?project=wispy-rain-16787448',
+  syntheticApprovedFingerprint,
+);
+const productionLikeRun = runIdentityCase(
+  'postgresql://sentinel_user:sentinel_password@ep-sentinel-production-123456.us-east-2.aws.neon.tech/sentinel_db?sslmode=require',
+  syntheticApprovedFingerprint,
+);
+const sharedQaLikeRun = runIdentityCase(
+  'postgresql://sentinel_user:sentinel_password@ep-sentinel-qa-654321.us-east-2.aws.neon.tech/sentinel_db?sslmode=require',
+  syntheticApprovedFingerprint,
+);
+const unknownTargetRun = runIdentityCase(
+  'postgresql://sentinel_user:sentinel_password@ep-sentinel-unknown-654321.us-east-2.aws.neon.tech/other_db?sslmode=require',
+  syntheticApprovedFingerprint,
+);
+const nonNeonTargetRun = runIdentityCase(
+  'postgresql://sentinel_user:sentinel_password@db.example.invalid/other_db?sslmode=require',
+  syntheticApprovedFingerprint,
+);
+const missingIdentityRun = runIdentityCase(syntheticApprovedUrl, '');
+const malformedIdentityRun = runIdentityCase(syntheticApprovedUrl, 'not-a-sha256');
+const malformedTargetRun = runIdentityCase('not-a-postgres-url', syntheticApprovedFingerprint);
+
+assert.equal(approvedIdentityRun.status, 0, 'approved isolated target fixture must pass');
+assert.equal(productionMarkerRun.status !== 0, true, 'production project marker target must fail');
+assert.equal(sharedQaMarkerRun.status !== 0, true, 'shared-QA project marker target must fail');
+assert.equal(productionLikeRun.status !== 0, true, 'production-like target without a project marker must fail');
+assert.equal(sharedQaLikeRun.status !== 0, true, 'shared-QA-like target without a project marker must fail');
+assert.equal(unknownTargetRun.status !== 0, true, 'unknown/unapproved target must fail');
+assert.equal(nonNeonTargetRun.status !== 0, true, 'non-Neon target must fail');
+assert.equal(missingIdentityRun.status !== 0, true, 'missing approved identity binding must fail');
+assert.equal(malformedIdentityRun.status !== 0, true, 'malformed approved identity must fail');
+assert.equal(malformedTargetRun.status !== 0, true, 'malformed target URL must fail');
+for (const run of [
+  approvedIdentityRun,
+  productionMarkerRun,
+  sharedQaMarkerRun,
+  productionLikeRun,
+  sharedQaLikeRun,
+  unknownTargetRun,
+  nonNeonTargetRun,
+  missingIdentityRun,
+  malformedIdentityRun,
+  malformedTargetRun,
+]) {
+  assert.equal(run.combined.includes('sentinel_password'), false, 'target fixture password must never be printed');
+  assert.equal(run.combined.includes(syntheticApprovedFingerprint), false, 'approved fingerprint must never be printed');
+}
+
+const mutationDir = mkdtempSync(join(tmpdir(), 'danjion-restore-identity-mutation-'));
+try {
+  const mutatedHelperPath = join(mutationDir, 'verify-restore-target-identity.mjs');
+  const mutationNeedle = 'if (actualIdentity !== approvedIdentity) {';
+  const mutatedSource = identityHelper.replace(
+    mutationNeedle,
+    'if (false && actualIdentity !== approvedIdentity) {',
+  );
+  assert.notEqual(mutatedSource, identityHelper, 'identity mismatch mutation must change the helper');
+  writeFileSync(mutatedHelperPath, mutatedSource);
+  const mutatedUnknownRun = runIdentityCase(
+    'postgresql://sentinel_user:sentinel_password@ep-sentinel-unknown-654321.us-east-2.aws.neon.tech/other_db?sslmode=require',
+    syntheticApprovedFingerprint,
+    mutatedHelperPath,
+  );
+  assert.equal(mutatedUnknownRun.status, 0, 'mutation proof must demonstrate the removed mismatch guard weakens rejection');
+} finally {
+  rmSync(mutationDir, { recursive: true, force: true });
+}
+
+process.stdout.write('RESTORE_TARGET_IDENTITY_APPROVED_FIXTURE=PASS\n');
+process.stdout.write('RESTORE_TARGET_IDENTITY_PRODUCTION_MARKER=FAIL\n');
+process.stdout.write('RESTORE_TARGET_IDENTITY_SHARED_QA_MARKER=FAIL\n');
+process.stdout.write('RESTORE_TARGET_IDENTITY_PRODUCTION_LIKE=FAIL\n');
+process.stdout.write('RESTORE_TARGET_IDENTITY_SHARED_QA_LIKE=FAIL\n');
+process.stdout.write('RESTORE_TARGET_IDENTITY_UNKNOWN=FAIL\n');
+process.stdout.write('RESTORE_TARGET_IDENTITY_NON_NEON=FAIL\n');
+process.stdout.write('RESTORE_TARGET_IDENTITY_MISSING_BINDING=FAIL\n');
+process.stdout.write('RESTORE_TARGET_IDENTITY_MALFORMED_IDENTITY=FAIL\n');
+process.stdout.write('RESTORE_TARGET_IDENTITY_MALFORMED=FAIL\n');
+process.stdout.write('RESTORE_TARGET_IDENTITY_MUTATION_PROOF=PASS\n');
 process.stdout.write('RESTORE_ENABLE_SWITCH_USES_VARS_CONTEXT=PASS\n');
 process.stdout.write('RESTORE_ENABLE_SWITCH_DOES_NOT_USE_SECRETS_CONTEXT=PASS\n');
 process.stdout.write('RESTORE_JOB_OUTPUT_TRUE_FALSE_ABSENT=PASS\n');
