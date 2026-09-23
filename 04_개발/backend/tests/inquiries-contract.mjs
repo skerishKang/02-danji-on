@@ -21,6 +21,13 @@ assert.doesNotMatch(migrationSql, /\b(?:attachment\w*|object_key|file_url)\b/i,
   'photo attachment columns must remain outside decision-free inquiry core');
 
 assert.match(api, /requireVerifiedResident\(/, 'resident inquiry surfaces require verified resident');
+assert.match(api, /requireActor\(/, 'authenticated account actor boundary is available');
+assert.match(api, /RECOVERY_INQUIRY_TYPES = new Set\(\['resident_verification_code_request', 'account_login', 'household_link'\]\)/,
+  '#864 recovery create types stay account-scoped');
+assert.match(api, /RECOVERY_INQUIRY_TYPES\.has\(inquiryType\)[\s\S]*requireActor/,
+  '#864 account_login/household_link create must not require verified resident');
+assert.doesNotMatch(api, /insert into household_memberships|insert into resident_verifications|insert into padiem_operator_grants/,
+  'inquiry create must never mint resident/operator authority');
 assert.match(api, /requireOperationalAuthority\(/, 'operator inquiry surfaces reuse operational RBAC');
 assert.match(api, /'inquiry\.respond'.*'council\.inquiry\.respond'/s);
 assert.match(api, /\/api\/v1\/me\/inquiries/);
