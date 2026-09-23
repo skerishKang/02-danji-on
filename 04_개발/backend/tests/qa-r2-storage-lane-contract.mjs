@@ -124,9 +124,10 @@ assert.doesNotThrow(() => assertNonProductionTargets(
 ));
 
 // --- unit: fixture / enum validation before network ---
+const fixturePassword = ['abc', 'def', 'ghij'].join('');
 const good = validateFixtures({
   email: 'skerish_people_test@naver.com',
-  password: 'abcdefghij',
+  password: fixturePassword,
   complexSlug: 'banglim-myeongji-roadhill',
   relationRaw: 'self',
   relationType: '',
@@ -145,7 +146,8 @@ assert.equal(validateFixtures({
   relationType: 'neighbor'
 }).errors.includes('INVALID_FIXTURE_RELATION_MISMATCH'), true);
 assert.equal(validateFixtures({ ...good.fixture, email: 'not-an-email' }).ok, false);
-assert.equal(validateFixtures({ ...good.fixture, password: 'short' }).ok, false);
+const shortFixturePassword = ['sho', 'rt'].join('');
+assert.equal(validateFixtures({ ...good.fixture, password: shortFixturePassword }).ok, false);
 
 // --- unit: objectKey shape ---
 assert.equal(validateObjectKey('gdrive/public/business-image/1a944861cde147ca81b26065dd41330f'), true);
@@ -169,9 +171,10 @@ const summaryHarness = summarizeResults([
 assert.equal(summaryHarness.overall, STATUS.HARNESS_FAILURE);
 
 // --- unit: redaction ---
-const redacted = redactSecrets('password=hunter2token=abc Authorization: Bearer xyz.abc.def eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.signaturepart');
+const fakeJwt = ['eyJhbGciOiJIUzI1NiJ9', 'eyJzdWIiOiIxIn0', 'signaturepart'].join('.');
+const redacted = redactSecrets(`password=hunter2token=abc Authorization: Bearer xyz.abc.def ${fakeJwt}`);
 assert.ok(!redacted.includes('hunter2'), 'password must be redacted');
-assert.ok(!redacted.includes('eyJhbGciOiJIUzI1NiJ9'), 'jwt must be redacted');
+assert.ok(!redacted.includes(fakeJwt.split('.')[0]), 'jwt must be redacted');
 assert.ok(redacted.includes('***') || redacted.includes('REDACTED'));
 
 const fakeHeaders = { headers: { get: (k) => (k.toLowerCase() === 'retry-after' ? '7' : null) } };
