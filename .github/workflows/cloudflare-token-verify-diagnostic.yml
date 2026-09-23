@@ -1,0 +1,79 @@
+name: Cloudflare Token Verify Diagnostic
+
+on:
+  push:
+    branches:
+      - diag/896-cloudflare-token-verify
+
+permissions:
+  contents: read
+
+jobs:
+  verify-token:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+    steps:
+      - name: Verify Cloudflare API token read-only
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json, os, sys, urllib.error, urllib.request
+
+          token = (os.environ.get("CLOUDFLARE_API_TOKEN") or "").strip()
+          if not token:
+              print("CF_VERIFY_SECRET_PRESENT=NO")
+              sys.exit(2)
+
+          print("CF_VERIFY_SECRET_PRESENT=YES")
+          req = urllib.request.Request(
+              "https://api.cloudflare.com/client/v4/user/tokens/verify",
+              headers={
+                  "Authorization": f"Bearer {token}",
+                  "Accept": "application/json",
+                  "User-Agent": "danjion-cloudflare-token-verify/1.0",
+              },
+              method="GET",
+          )
+
+          http_status = None
+          payload = {}
+          try:
+              with urllib.request.urlopen(req, timeout=20) as response:
+                  http_status = response.status
+                  raw = response.read().decode("utf-8", "replace")
+          except urllib.error.HTTPError as exc:
+              http_status = exc.code
+              raw = exc.read().decode("utf-8", "replace")
+          except Exception as exc:
+              print("CF_VERIFY_TRANSPORT_ERROR=" + type(exc).__name__)
+              sys.exit(3)
+
+          try:
+              payload = json.loads(raw) if raw else {}
+          except Exception:
+              payload = {}
+
+          result = payload.get("result") if isinstance(payload, dict) else None
+          errors = payload.get("errors") if isinstance(payload, dict) else None
+          first_error = errors[0] if isinstance(errors, list) and errors else {}
+
+          success = bool(payload.get("success")) if isinstance(payload, dict) else False
+          status = result.get("status") if isinstance(result, dict) else None
+          error_code = first_error.get("code") if isinstance(first_error, dict) else None
+          error_message = first_error.get("message") if isinstance(first_error, dict) else None
+
+          print(f"CF_VERIFY_HTTP_STATUS={http_status}")
+          print("CF_VERIFY_SUCCESS=" + ("true" if success else "false"))
+          print("CF_VERIFY_STATUS=" + (str(status) if status is not None else ""))
+          print("CF_VERIFY_ERROR_CODE=" + (str(error_code) if error_code is not None else ""))
+          print("CF_VERIFY_ERROR_MESSAGE=" + (str(error_message) if error_message is not None else ""))
+
+          if http_status == 200 and success and status == "active":
+              print("CF_VERIFY_RESULT=ACTIVE")
+              sys.exit(0)
+
+          print("CF_VERIFY_RESULT=REJECTED")
+          sys.exit(1)
+          PY
