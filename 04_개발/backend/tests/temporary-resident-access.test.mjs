@@ -363,8 +363,8 @@ function probeData(value) {
   // having NO PADIEM authority at all.
   assert.match(
     authorization,
-    /const temporaryAdmitted =\s*\n\s*authority\.level === 'none' && isTemporaryResidentAccessEnabled\(env\);\s*\n\s*if \(!ordinaryExempt && !temporaryAdmitted\) \{\s*\n\s*return fail\('RESIDENT_VERIFICATION_REQUIRED', 'Verified resident access required', 403, requestId\);/,
-    'TEMP OFF (or any PADIEM authority) must fall back to the unchanged strict resident-verification refusal'
+    /const temporaryAdmitted =\s*\n\s*authority\.level === 'none' && isTemporaryResidentAccessEnabled\(env\);[\s\S]*if \(ordinaryExempt\) residentVerificationExemptionSource = 'ordinary_test';\s*\n\s*else if \(temporaryAdmitted\) residentVerificationExemptionSource = 'temporary';\s*\n\s*else return fail\('RESIDENT_VERIFICATION_REQUIRED', 'Verified resident access required', 403, requestId\);/,
+    'TEMP OFF (or any PADIEM authority) must still fall back to the unchanged strict resident-verification refusal'
   );
 
   // No operator/admin authority resolver may consult the switch.
