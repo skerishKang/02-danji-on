@@ -1,7 +1,7 @@
 # OPS Reliability Runbook v1 — Backup / Recovery / Alerting Baseline
 
 Issue: #695 · PHASE=READ_ONLY_INVENTORY_AND_RUNBOOK · PRODUCTION_MUTATION=0
-Status: inventory complete 2026-09-18 (main 3773a2c). Provider facts verified read-only via provider consoles (Neon console, Cloudflare dashboard). No mutation performed.
+Status: inventory baseline completed 2026-09-18 (main 3773a2c). Operational backup state updated 2026-09-23: the first real encrypted Production logical backup completed successfully in run `35836417391`; Production DB writes remained 0. The isolated non-Production restore drill is still not executed and remains separately owner-gated.
 
 ## 1. Scope and authority
 
@@ -23,12 +23,15 @@ Status: inventory complete 2026-09-18 (main 3773a2c). Provider facts verified re
 | Pages deploy path | `.github/workflows/pages-production-release.yml` — `workflow_dispatch` only, requires `confirm_production` |
 | Review deploy path | `.github/workflows/danjion-review-auto-deploy.yml` — main push, isolated `danjion-review` Pages project, never production |
 
-### 2.2 What does NOT exist yet (gap confirmed)
+### 2.2 Inventory-time gaps and current disposition
 
-- No continuous uptime / error-rate alerting (release-time checks only).
-- No database availability/error alerting.
-- No documented backup authority, retention, restore procedure, or recovery drill.
-- No incident severity/owner/evidence-retention contract.
+The bullets below were true at the 2026-09-18 inventory baseline. Current status is recorded inline so the historical audit remains readable without presenting superseded facts as current.
+
+- Continuous uptime / error-rate alerting remains incomplete beyond release-time and bounded monitoring checks.
+- Database availability/error observability remains incomplete; #950 tracks sanitized 503-class availability classification.
+- Backup authority and encrypted logical-backup execution are now implemented under #714. First real Production backup run `35836417391` passed on 2026-09-23.
+- Restore procedure source exists and was hardened by PR #942, but the isolated non-Production restore drill has **not** run and remains separately owner-gated.
+- Incident severity/owner/evidence-retention contract is documented in §6 below.
 
 ## 3. Inventory — provider facts (verified read-only 2026-09-18 via provider consoles)
 
@@ -115,10 +118,10 @@ Severity / owner / retention:
 
 | Metric | Target |
 |---|---|
-| RPO | Current platform PITR window: **6 hours**. Source-ready candidate mitigation: encrypted logical dump to Google Drive once daily (**24h candidate RPO**), retaining 30 generations. Activation remains owner-gated under #714/#793; this document does not assert the schedule is live. |
-| RTO | Owner decision required. Candidate inputs: branch-restore time (drill, §5) + Worker deploy time |
+| RPO | Current platform PITR window remains **6 hours**. The encrypted logical-backup workflow is now source-armed and enabled through the Production environment variable `DANJION_BACKUP_ENABLED=enabled`; first real Production backup run `35836417391` passed. The scheduled cadence is once daily (**24h candidate RPO**) with 30 encrypted generations retained. The formal owner-approved RPO target is still pending final recovery-policy closure. |
+| RTO | Owner decision required. Candidate inputs: isolated restore-drill time (§5) + Worker deploy time. The restore drill has not run yet. |
 
-Both require owner confirmation; the drill (§5) is the measurement instrument.
+The backup mechanism is active; the formal RPO/RTO policy remains open until the isolated restore drill supplies measured recovery evidence.
 
 ## 8. Rollback vs restore decision boundary
 
@@ -135,9 +138,9 @@ Both require owner confirmation; the drill (§5) is the measurement instrument.
 
 ## 10. Follow-up implementation issues (separate approval gates)
 
-1. **Backup hardening** — #714 / source child #793. Source path: scheduled encrypted PostgreSQL custom-format logical dump to a dedicated Google Drive folder, candidate cadence once daily (24h), retention 30 encrypted generations. The merged source must remain fail-closed unless `DANJION_BACKUP_ENABLED=true` and all required production/Drive/encryption secret bindings are explicitly provisioned. No plaintext dump may leave the runner; no GitHub backup artifact is permitted. **Status: source implementation complete (#793 CLOSED); activation pending owner approval and credential provisioning (#797).**
+1. **Backup hardening** — #714 / source child #793. Scheduled encrypted PostgreSQL custom-format logical dump to a dedicated Google Drive folder, once daily (24h candidate RPO), retention 30 encrypted generations. Activation now uses the Production environment variable `DANJION_BACKUP_ENABLED=enabled` together with explicit production/Drive/encryption secret bindings. No plaintext dump may leave the runner; no GitHub backup artifact is permitted. **Status: source implementation complete; activation completed; first real Production backup run `35836417391` PASS.**
 2. **Uptime/error alerting** — add Cloudflare account notifications (or external monitor) for Worker + Pages health. (Enabled by §3.2 facts — none configured today.)
-3. **Recovery drill execution** — restore one encrypted logical backup candidate into an isolated private non-production target, verify schema/aggregates/read-smoke, record RTO evidence, and tear down. **Design/implementation child: #796. Source-ready fail-closed drill: `verify-neon-backup-restore.yml` (dispatch-only, hard `DANJION_RESTORE_SOURCE_ARMED=false`); execution is a separate owner-approved activation gated by a later arm change plus `DANJION_BACKUP_RESTORE_DRILL_ENABLED=true` and an owner-provisioned isolated drill target.**
+3. **Recovery drill execution** — restore one encrypted logical backup candidate into an isolated private non-production target, verify schema/aggregates/read-smoke, record RTO evidence, and tear down. **The source-ready drill is `verify-neon-backup-restore.yml`; PR #942 hardened its activation output contract. It remains dispatch-only with `DANJION_RESTORE_SOURCE_ARMED=false`. Execution is separately owner-gated and requires a later arm change, Production environment variable `DANJION_BACKUP_RESTORE_DRILL_ENABLED=enabled`, and an owner-provisioned isolated drill target. Production and shared QA are forbidden restore targets.**
 4. **RPO/RTO confirmation** — record owner-approved targets after drill results.
 5. **Branch hygiene** (housekeeping, low priority) — owner-approved cleanup of the 3 stale sandbox branches.
 
@@ -159,17 +162,19 @@ RETENTION_GENERATIONS=30
 DESTINATION=dedicated Google Drive folder via owner OAuth rclone config
 ```
 
-Activation prerequisites are owner-controlled and are not created by repository code:
+Current activation contract:
 
-- `DANJION_BACKUP_ENABLED=true`
-- existing `DANJION_PRODUCTION_DB_URL` production environment secret
+- repository source arm: `DANJION_BACKUP_SOURCE_ARMED=true`
+- Production environment variable: `DANJION_BACKUP_ENABLED=enabled`
+- existing `DANJION_PRODUCTION_DB_URL` Production environment secret
 - `DANJION_BACKUP_ENCRYPTION_PASSPHRASE`
 - `DANJION_DRIVE_RCLONE_CONFIG` (owner-authorized rclone OAuth config for Google Drive)
 - `DANJION_DRIVE_FOLDER_ID`
+- obsolete secret named `DANJION_BACKUP_ENABLED`: absent after the activation fix
 
 Safety boundaries:
 
-- scheduled workflow is a no-op unless **both** source arm and enable secret are true; #793 keeps `DANJION_BACKUP_SOURCE_ARMED=false`, so merge cannot activate backups by itself;
+- scheduled workflow is a no-op unless **both** the source arm is `true` and the Production environment variable equals the exact token `enabled`;
 - Production database access is dump/read only;
 - the dump session sets `default_transaction_read_only=on`;
 - plaintext dump is destroyed before the rclone OAuth config is materialized and before any upload;
@@ -183,19 +188,35 @@ Service-account note: Google documents that service accounts do not have Drive s
 
 ## 12. Current #714 disposition
 
+Superseding operational state as of 2026-09-23:
+
 ```text
 SOURCE_IMPLEMENTATION=#793 CLOSED_COMPLETED
-ACTIVATION_CHILD=#797 OPEN_OWNER_GATED
-RESTORE_CHILD=#796 OPEN_ISOLATED_NON_PRODUCTION_ONLY
-DANJION_BACKUP_SOURCE_ARMED=false
-BACKUP_ACTIVATION=NO
-PRODUCTION_DB_READ=0
+BACKUP_SOURCE_ARMED=true
+BACKUP_ENABLE_CONTEXT=vars.DANJION_BACKUP_ENABLED
+BACKUP_ENABLE_TOKEN=enabled
+FIRST_REAL_PRODUCTION_BACKUP=PASS
+BACKUP_RUN_ID=35836417391
+BACKUP_RUN_ATTEMPT=1
+BACKUP_HEAD=47589a80667cb329e8fb0d903eacbbe71bd2b007
+BACKUP_RESULT=PASS
+DUMP_BYTES=454294
+ENCRYPTED_BYTES=165412
 PRODUCTION_DB_WRITE=0
-DRIVE_WRITE=0
-DRIVE_DELETE=0
-SECRET_MUTATION=0
+AUTO_RETRY=0
+SECRET_EXPOSURE=NO
+
+RESTORE_GATE_HARDENING=#942 MERGED
+DANJION_RESTORE_SOURCE_ARMED=false
 RESTORE_EXECUTION=0
-PRODUCTION_MUTATION=0
+PRODUCTION_RESTORE=FORBIDDEN
+SHARED_QA_RESTORE=FORBIDDEN
+
+NEXT_GATE=ISOLATED_RESTORE_TARGET_AND_ACTIVATION_READINESS_REVIEW
 ```
 
-The source merge does not constitute activation. A separate owner-authorized source-arm change, explicit Production environment secret provisioning, and CENTRAL exact-head review are required before any live backup run. Restore verification is independently gated by #796 and must use a temporary private non-production target; Production and the shared QA project remain out of scope.
+The successful first backup proves the encrypted logical-backup path can read Production without writing to it, encrypt the dump, destroy plaintext, upload the encrypted object to the bounded Drive destination, and read the object back. It does **not** prove restore readiness or RTO.
+
+The remaining #714 operational gate is an explicitly approved isolated non-Production restore drill. Before execution, CENTRAL/owner must review the isolated target, source-arm change, `DANJION_BACKUP_RESTORE_DRILL_ENABLED=enabled` variable, exact backup filename, teardown plan, and readback criteria. Production and shared QA remain forbidden targets.
+
+No paid Neon plan change is implied or authorized by this runbook.
