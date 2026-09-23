@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { resolveCreateReplay } from '../src/resident-economy-v2.ts';
+import { existingBusinessApplication, resolveCreateReplay } from '../src/resident-economy-v2.ts';
 
 // GAP-4 CENTRAL-REVIEW: executable guard for the idempotent replay path.
 // Strings prove structure; this proves runtime behaviour:
@@ -103,6 +103,29 @@ function makeSql({
   const { sql } = makeSql();
   const res = await resolveCreateReplay(sql, null, FINGERPRINT, REQUEST_ID);
   assert.equal(res, null, 'no completed match must return null so create proceeds');
+}
+
+
+// #945 Production 25A regression: the idempotency pre-read is before current
+// reference validation, so a database/read outage must fail closed locally
+// instead of escaping to the top-level API catch as generic HTTP 500.
+{
+  const sql = async () => {
+    throw new Error('synthetic replay lookup outage');
+  };
+  const res = await existingBusinessApplication(sql, '11111111-1111-4111-8111-111111111111', 'prod-25a-invalid', 'req-945-outage');
+  assert.ok(res instanceof Response, 'replay lookup outage must return a bounded Response');
+  assert.equal(res.status, 503, 'replay lookup outage must fail closed with 503, never generic 500');
+  const body = await res.json();
+  assert.equal(body.error.code, 'APPLICATION_REPLAY_LOOKUP_UNAVAILABLE');
+}
+
+// Healthy no-match remains null so the create path proceeds to the existing
+// gallery/reference checks, where an unregistered key retains INVALID_PHOTO_KEY 400 semantics.
+{
+  const sql = async () => [];
+  const res = await existingBusinessApplication(sql, '11111111-1111-4111-8111-111111111111', 'prod-25a-missing', 'req-945-missing');
+  assert.equal(res, null, 'healthy replay lookup miss must fall through to reference validation');
 }
 
 console.log('PASS business application photos replay: order-independent, no object revalidation, fail-closed gallery and document reads');
