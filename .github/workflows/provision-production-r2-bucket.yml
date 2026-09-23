@@ -1,0 +1,161 @@
+name: Provision Production R2 Bucket
+
+on:
+  workflow_dispatch:
+    inputs:
+      expected_main:
+        description: 'Exact main SHA authorized for this Production R2 bucket provisioning'
+        required: true
+        type: string
+      confirm_production:
+        description: 'Explicitly confirm Production R2 bucket mutation (danjion-storage only)'
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: danjion-production-r2-bucket
+  cancel-in-progress: false
+
+jobs:
+  source-contract:
+    name: Production R2 provisioning source safety contract
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Verify bounded Production R2 provisioning contract
+        run: node 04_개발/backend/tests/production-r2-bucket-provision-contract.mjs
+
+  provision-bucket:
+    name: Bounded Production R2 bucket provisioning
+    needs: source-contract
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.confirm_production }}
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Exact-main guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected='${{ inputs.expected_main }}'
+          test "$GITHUB_REF" = 'refs/heads/main'
+          actual="$(git rev-parse HEAD)"
+          remote="$(git ls-remote origin refs/heads/main | awk '{print $1}')"
+          test -n "$expected"
+          test "$actual" = "$expected"
+          test "$remote" = "$expected"
+          echo 'EXACT_MAIN_GUARD=PASS'
+
+      - name: Verify canonical source R2 target
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs = require('fs');
+          const cfg = JSON.parse(fs.readFileSync('04_개발/backend/wrangler.jsonc', 'utf8'));
+          const prod = cfg.env?.production?.r2_buckets ?? [];
+          const qa = cfg.env?.qa?.r2_buckets ?? [];
+          if (prod.length !== 1 || prod[0]?.binding !== 'DANJION_STORAGE' || prod[0]?.bucket_name !== 'danjion-storage') {
+            throw new Error('Production R2 source target is not DANJION_STORAGE -> danjion-storage.');
+          }
+          if (!qa.some((bucket) => bucket?.bucket_name === 'danjion-storage-qa')) {
+            throw new Error('QA R2 source bucket danjion-storage-qa is not declared.');
+          }
+          if (qa.some((bucket) => bucket?.bucket_name === 'danjion-storage')) {
+            throw new Error('QA/Production R2 bucket isolation violated.');
+          }
+          NODE
+          echo 'SOURCE_R2_TARGET_GUARD=PASS'
+
+      - name: Verify Padiem Cloudflare account guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          auth_header="Authorization: Bearer ${CLOUDFLARE_API_TOKEN}"
+          account_json="$(curl --silent --show-error --fail \
+            -H "$auth_header" \
+            "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}")"
+          account_name="$(printf '%s' "$account_json" | jq -r '.result.name // empty')"
+          if [ "$account_name" != "Padiem" ]; then
+            echo "::error::Cloudflare account guard failed; refusing production mutation."
+            exit 1
+          fi
+          echo 'CLOUDFLARE_ACCOUNT_GUARD=PASS'
+
+      - name: Bounded bucket inventory and create-if-absent
+        shell: bash
+        run: |
+          set -euo pipefail
+          auth_header="Authorization: Bearer ${CLOUDFLARE_API_TOKEN}"
+          list_file="$(mktemp)"
+          status="$(curl --silent --show-error --output "$list_file" --write-out '%{http_code}' \
+            -H "$auth_header" \
+            "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/r2/buckets?name_contains=danjion-storage&per_page=100")"
+          test "$status" = '200' || { echo "::error::R2 bucket inventory request failed."; exit 1; }
+          if jq -e --arg name 'danjion-storage' '.result.buckets[]? | select(.name == $name)' "$list_file" >/dev/null; then
+            echo 'PRODUCTION_BUCKET_BEFORE=PRESENT'
+            echo 'BUCKET_CREATE=SKIPPED_ALREADY_EXISTS'
+          else
+            echo 'PRODUCTION_BUCKET_BEFORE=ABSENT'
+            create_file="$(mktemp)"
+            create_status="$(curl --silent --show-error --output "$create_file" --write-out '%{http_code}' \
+              -X POST -H "$auth_header" -H 'Content-Type: application/json' \
+              --data '{"name":"danjion-storage","storageClass":"Standard"}' \
+              "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/r2/buckets")"
+            test "$create_status" = '200' || { echo "::error::Production R2 bucket creation failed."; exit 1; }
+            test "$(jq -r '.result.name // empty' "$create_file")" = 'danjion-storage' || { echo "::error::Creation readback mismatch."; exit 1; }
+            echo 'BUCKET_CREATE=PASS'
+          fi
+
+      - name: Names-only post-create readback
+        shell: bash
+        run: |
+          set -euo pipefail
+          auth_header="Authorization: Bearer ${CLOUDFLARE_API_TOKEN}"
+          readback_file="$(mktemp)"
+          status="$(curl --silent --show-error --output "$readback_file" --write-out '%{http_code}' \
+            -H "$auth_header" \
+            "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/r2/buckets?name_contains=danjion-storage&per_page=100")"
+          test "$status" = '200' || { echo "::error::R2 bucket readback request failed."; exit 1; }
+          jq -e --arg name 'danjion-storage' '.result.buckets[]? | select(.name == $name)' "$readback_file" >/dev/null \
+            || { echo "::error::PRODUCTION_BUCKET_AFTER is not PRESENT."; exit 1; }
+          jq -e --arg name 'danjion-storage-qa' '.result.buckets[]? | select(.name == $name)' "$readback_file" >/dev/null \
+            || { echo "::error::QA bucket danjion-storage-qa is absent."; exit 1; }
+          echo 'PRODUCTION_BUCKET_AFTER=PRESENT'
+          echo 'QA_BUCKET_PRESERVED=YES'
+
+      - name: Record bounded provisioning disposition
+        shell: bash
+        run: |
+          {
+            echo '## DanjiOn Production R2 bucket provisioning'
+            echo ''
+            echo '- Environment: `production`'
+            echo '- TARGET_BUCKET_EXACT=danjion-storage'
+            echo '- Target bucket: `danjion-storage`'
+            echo '- QA bucket preserved: YES (`danjion-storage-qa`)'
+            echo '- Object mutation: NO'
+            echo '- Bucket delete: NO'
+            echo '- Worker deploy: NO'
+            echo '- Pages deploy: NO'
+            echo '- Database operation: NO'
+          } >> "$GITHUB_STEP_SUMMARY"
+
