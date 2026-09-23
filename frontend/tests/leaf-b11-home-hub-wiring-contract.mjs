@@ -68,6 +68,8 @@ for (const forbidden of ['/api/v1/me/benefits', '/api/v1/admin', '/api/v1/me/bus
 /* --- CENTRAL review fix 1: verified-resident lane uses the canonical authenticated transport --- */
 assert.ok(f04.includes("await DanjionSession.request(fetch,DanjionSession.joinUrl(HOME_API_BASE,newsBase+'/resident-news'))"),
   '04 resident-news row must go through the canonical DanjionSession credentials-included transport');
+assert.ok(f04.includes("if(typeof DanjionSession==='undefined'||(!HOME_API_BASE&&!DanjionSession.isCanonicalProduction()))throw new Error('session runtime unavailable')"),
+  '04 resident-news lane must allow canonical same-origin mode when danjionApiBase() intentionally returns an empty string');
 assert.ok(!/homePublicJson\([^)]*resident-news/.test(f04) && !f04.includes("newsBase+'/resident-news?limit=1'"),
   '04 must not fetch resident-news over the anonymous public transport');
 assert.ok(f04.includes('result.data.posts'), '04 must read the server {data:{posts}} envelope shape for resident-news');
