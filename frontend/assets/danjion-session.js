@@ -106,6 +106,73 @@
     return value;
   }
 
+  const FONT_SIZE_STORAGE_KEY = 'danjion-font-size';
+  const FONT_SIZE_VALUES = Object.freeze(['small', 'normal', 'large']);
+  const FONT_SIZE_SCALE = Object.freeze({ small: '0.94', normal: '1', large: '1.1' });
+
+  function normalizeFontSize(value) {
+    const text = String(value || '').trim().toLowerCase();
+    return FONT_SIZE_VALUES.includes(text) ? text : 'normal';
+  }
+
+  function readFontSizePreference() {
+    try {
+      return normalizeFontSize(global.localStorage?.getItem(FONT_SIZE_STORAGE_KEY));
+    } catch (_) {
+      return 'normal';
+    }
+  }
+
+  function syncFontSizeControls(size) {
+    if (typeof document === 'undefined' || !document.querySelectorAll) return;
+    document.querySelectorAll('.size-option,[data-size]').forEach((node) => {
+      if (!node.dataset || !node.dataset.size) return;
+      const active = node.dataset.size === size;
+      node.classList.toggle('active', active);
+      if (node.hasAttribute('aria-pressed')) node.setAttribute('aria-pressed', String(active));
+    });
+  }
+
+  function applyFontSizePreference(value) {
+    const size = normalizeFontSize(value);
+    try {
+      global.localStorage?.setItem(FONT_SIZE_STORAGE_KEY, size);
+    } catch (_) {}
+    if (typeof document !== 'undefined') {
+      try {
+        document.documentElement.style.setProperty('--scale', FONT_SIZE_SCALE[size]);
+      } catch (_) {}
+      if (document.body) document.body.dataset.fontSize = size;
+      syncFontSizeControls(size);
+    }
+    return size;
+  }
+
+  function bootFontSizePreference() {
+    if (typeof document === 'undefined') return;
+    const size = readFontSizePreference();
+    try {
+      document.documentElement.style.setProperty('--scale', FONT_SIZE_SCALE[size]);
+    } catch (_) {}
+    if (document.body) {
+      document.body.dataset.fontSize = size;
+      syncFontSizeControls(size);
+      return;
+    }
+    document.addEventListener('DOMContentLoaded', () => {
+      if (document.body) document.body.dataset.fontSize = readFontSizePreference();
+      syncFontSizeControls(readFontSizePreference());
+    }, { once: true });
+  }
+
+  bootFontSizePreference();
+  if (typeof global.addEventListener === 'function') {
+    global.addEventListener('storage', (event) => {
+      if (!event || event.key !== FONT_SIZE_STORAGE_KEY || !event.newValue) return;
+      applyFontSizePreference(event.newValue);
+    });
+  }
+
   async function request(fetchImpl, url, init = {}) {
     try {
       const response = await fetchImpl(url, {
@@ -510,6 +577,10 @@
     // #865: settings logout must reuse the canonical selective marker cleanup
     // instead of sessionStorage.clear(), which wipes unrelated leaf state.
     clearLocalAuthMarkers,
+    FONT_SIZE_STORAGE_KEY,
+    readFontSizePreference,
+    applyFontSizePreference,
+    normalizeFontSize,
     AUTH_BRIDGE_DISPOSITIONS,
     AUTH_BRIDGE_FAILURES,
     accountStripEligible,

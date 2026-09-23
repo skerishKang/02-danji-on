@@ -354,3 +354,29 @@ small{font-size:13px!important;line-height:1.45}
   html body[data-danjion-page="25"] .request-sheet .head .brand small{display:none!important}
   html body[data-danjion-page="25"] .request-sheet .head .close-task{font-size:28px!important;width:44px!important;height:44px!important;display:grid!important;place-items:center!important;padding:0!important}
 }
+
+/* Issue #921: shared font-size preference on canonical content screens.
+   danjion-session.js sets body[data-font-size] from localStorage['danjion-font-size'].
+   zoom scales main content only; .mobile-bottom lives outside main so fixed
+   bottom-nav geometry stays intact at 320/390px. */
+html{--danjion-font-scale:1}
+body[data-font-size="large"]{--danjion-font-scale:1.1}
+body[data-font-size="small"]{--danjion-font-scale:0.94}
+body[data-font-size="large"] main{
+  zoom:var(--danjion-font-scale);
+  width:min(calc(1280px / 1.1), calc((100% - 64px) / 1.1));
+  margin-left:auto;margin-right:auto;
+}
+body[data-font-size="small"] main{
+  zoom:var(--danjion-font-scale);
+  width:min(calc(1280px / 0.94), calc((100% - 64px) / 0.94));
+  margin-left:auto;margin-right:auto;
+}
+@media(max-width:760px){
+  body[data-font-size="large"] main{width:calc(100% / 1.1);max-width:none}
+  body[data-font-size="small"] main{width:calc(100% / 0.94);max-width:none}
+}
+body[data-font-size="large"] :where(p,li,label,small,time,.row-copy span,.row-copy b,.story p,.message-body,.answer-row p,.notice-item,.mail-row),
+body[data-font-size="small"] :where(p,li,label,small,time,.row-copy span,.row-copy b,.story p,.message-body,.answer-row p,.notice-item,.mail-row){
+  font-size:calc(1em * var(--danjion-font-scale));
+}
