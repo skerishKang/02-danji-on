@@ -63,6 +63,8 @@ const SAFE_ID = /^[A-Za-z0-9._:-]{1,80}$/;
 type AppEnv = CoreEnv & BetterAuthEnv & SignupContactVerificationEnv & HouseholdCodeEnv & AdminHouseholdCodeEnv & {
   CORS_ALLOWED_ORIGINS?: string;
   COMMUNITY_PUBLISH_MODE?: string;
+  STORAGE_MODE?: string;
+  DANJION_STORAGE?: R2Bucket;
 };
 
 function requestId(request: Request): string {
