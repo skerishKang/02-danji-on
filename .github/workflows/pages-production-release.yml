@@ -99,18 +99,38 @@ jobs:
         run: |
           set -euo pipefail
           auth_header="Authorization: Bearer ${CLOUDFLARE_API_TOKEN}"
-          account_json="$(curl --silent --show-error --fail \
-            -H "$auth_header" \
-            "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}")"
+          # #896: Cloudflare's API intermittently failed authenticated requests while
+          # the account, token and project were provably valid (2026-09-23 incident
+          # "Intermittent authentication errors for API and R2": a connection reset,
+          # then HTTP 403, while an identical account call passed minutes earlier).
+          # Fetch both guard reads through a bounded retry/backoff helper so a
+          # transient API-side auth/transport failure cannot block the release
+          # before any mutation; after the bounded attempts the guard still fails
+          # closed and refuses Pages production mutation.
+          cf_guard_json() {
+            local url="$1"
+            local attempt
+            local cf_guard_body
+            for attempt in 1 2 3 4 5; do
+              if cf_guard_body="$(curl --silent --show-error --fail -H "$auth_header" "$url")"; then
+                printf '%s' "$cf_guard_body"
+                return 0
+              fi
+              echo "::warning::Cloudflare guard request attempt ${attempt}/5 failed; bounded retry with backoff." >&2
+              sleep $(( attempt * 2 ))
+            done
+            echo "::error::Cloudflare guard request failed after 5 bounded attempts; refusing Pages production mutation." >&2
+            return 1
+          }
+
+          account_json="$(cf_guard_json "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}")"
           account_name="$(printf '%s' "$account_json" | jq -r '.result.name // empty')"
           if [ "$account_name" != "Padiem" ]; then
             echo "::error::Cloudflare account guard failed; refusing Pages production mutation."
             exit 1
           fi
 
-          project_json="$(curl --silent --show-error --fail \
-            -H "$auth_header" \
-            "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/pages/projects/${PAGES_PROJECT}")"
+          project_json="$(cf_guard_json "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/pages/projects/${PAGES_PROJECT}")"
           project_name="$(printf '%s' "$project_json" | jq -r '.result.name // empty')"
           production_branch="$(printf '%s' "$project_json" | jq -r '.result.production_branch // empty')"
           if [ "$project_name" != "$PAGES_PROJECT" ] || [ "$production_branch" != "$PAGES_PRODUCTION_BRANCH" ]; then

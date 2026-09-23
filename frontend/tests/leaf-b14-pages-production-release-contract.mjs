@@ -112,3 +112,68 @@ assert.throws(
 );
 console.log('RELEASE_SUMMARY_MUTATION_PROOF: PASS');
 console.log('leaf-b14-pages-production-release-contract: PASS');
+
+/* #896: the Cloudflare account/project guard must survive transient Cloudflare API
+   auth/transport failures with a BOUNDED retry/backoff instead of failing before
+   any Pages mutation. Observed 2026-09-23 while the Cloudflare incident
+   "Intermittent authentication errors for API and R2" was open: run 35848152267
+   died on `curl: (35)` connection reset and run 35849190456 died on HTTP 403,
+   while an identical account call passed in run 35847785472 minutes earlier.
+   After the bounded attempts the guard must stay fail-closed. */
+export function verifyCloudflareGuardRetry(workflowText) {
+  const guardStepMatch = workflowText.match(/name:\s*Verify Padiem account and canonical Pages project[\s\S]*?(?=\n\s*-\s*name:)/);
+  assert.ok(guardStepMatch, 'Cloudflare account/project guard step must exist');
+  const guard = guardStepMatch[0];
+
+  assert.equal((guard.match(/cf_guard_json "https:\/\/api\.cloudflare\.com\/client\/v4\/accounts\//g) || []).length, 2,
+    'both guard requests (account + Pages project) must go through the bounded retry helper');
+  assert.match(guard, /for attempt in 1 2 3 4 5; do/,
+    'guard retry must be bounded to a small finite attempt list');
+  assert.doesNotMatch(guard, /while\s+true|while\s*:/,
+    'guard must not retry in an unbounded loop');
+  assert.match(guard, /return 1/,
+    'guard helper must fail closed after the bounded attempts are exhausted');
+  assert.equal((guard.match(/exit 1/g) || []).length, 2,
+    'both account and project mismatch paths must stay fail-closed (exit 1)');
+  assert.match(guard, /set -euo pipefail/, 'guard step must keep strict shell flags');
+
+  return true;
+}
+
+// Verify shipped workflow
+verifyCloudflareGuardRetry(workflow);
+console.log('CLOUDFLARE_GUARD_BOUNDED_RETRY: PASS');
+
+// Mutation Proof A: an unbounded retry loop must be rejected
+const unboundedRetryWorkflow = workflow.replace('for attempt in 1 2 3 4 5; do', 'while true; do');
+assert.notEqual(unboundedRetryWorkflow, workflow, 'workflow mutation must differ from original shipped workflow');
+assert.throws(
+  () => verifyCloudflareGuardRetry(unboundedRetryWorkflow),
+  /guard retry must be bounded to a small finite attempt list|guard must not retry in an unbounded loop/,
+  'unbounded retry must fail the guard retry contract'
+);
+console.log('CLOUDFLARE_GUARD_UNBOUNDED_MUTATION_PROOF: PASS');
+
+// Mutation Proof B: bypassing the bounded helper for one guard request must be rejected
+const bypassedHelperWorkflow = workflow.replace(
+  'project_json="$(cf_guard_json "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/pages/projects/${PAGES_PROJECT}")"',
+  'project_json="$(curl --silent --show-error --fail -H "$auth_header" "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/pages/projects/${PAGES_PROJECT}")"'
+);
+assert.notEqual(bypassedHelperWorkflow, workflow, 'workflow mutation must differ from original shipped workflow');
+assert.throws(
+  () => verifyCloudflareGuardRetry(bypassedHelperWorkflow),
+  /both guard requests \(account \+ Pages project\) must go through the bounded retry helper/,
+  'a direct un-retried guard request must fail the guard retry contract'
+);
+console.log('CLOUDFLARE_GUARD_HELPER_BYPASS_MUTATION_PROOF: PASS');
+
+// Mutation Proof C: dropping the fail-closed return must be rejected
+const openGuardWorkflow = workflow.replace('            return 1\n', '            return 0\n');
+assert.notEqual(openGuardWorkflow, workflow, 'workflow mutation must differ from original shipped workflow');
+assert.throws(
+  () => verifyCloudflareGuardRetry(openGuardWorkflow),
+  /guard helper must fail closed after the bounded attempts are exhausted/,
+  'an open (non-failing) guard helper must fail the guard retry contract'
+);
+console.log('CLOUDFLARE_GUARD_FAIL_CLOSED_MUTATION_PROOF: PASS');
+console.log('leaf-b14-pages-production-release-contract-retry-hardening: PASS');
