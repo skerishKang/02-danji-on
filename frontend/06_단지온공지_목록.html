@@ -195,12 +195,20 @@ function renderPinned(pinned) {
   }
   pinnedSlot.dataset.postId = pinned.id;
   if (pinned.category) pinnedSlot.dataset.category = pinned.category;
-  pinnedSlot.innerHTML = `
-    <span class="pin-label">중요 공지 · 처음 읽어주세요</span>
-    <h2>${pinned.title}</h2>
-    <p>${(pinned.body || '').slice(0, 150)}...</p>
-    <button class="pinned-link" type="button">공지 상세 보기 →</button>
-  `;
+  // #913: server title/body are plain text and are injected as text nodes only.
+  pinnedSlot.replaceChildren();
+  const label = document.createElement('span');
+  label.className = 'pin-label';
+  label.textContent = '중요 공지 · 처음 읽어주세요';
+  const title = document.createElement('h2');
+  title.textContent = pinned.title || '';
+  const preview = document.createElement('p');
+  preview.textContent = String(pinned.body || '').replace(/\\r\\n|\\n|\\r/g, '\n').slice(0, 150) + '...';
+  const link = document.createElement('button');
+  link.className = 'pinned-link';
+  link.type = 'button';
+  link.textContent = '공지 상세 보기 →';
+  pinnedSlot.append(label, title, preview, link);
 }
 
 function renderPosts(posts) {
@@ -209,18 +217,39 @@ function renderPosts(posts) {
 
   renderPinned(pinned);
 
-  const noticeHtml = rest.map(p => `
-    <button class="notice-row" data-post-id="${p.id}" data-category="${p.category || p.channel || 'danjion_notice'}" type="button">
-      <span class="type">${p.category || p.channel}</span>
-      <strong>${p.title}</strong>
-      <time>${formatDate(p.publishedAt)}</time>
-      <span class="arrow">→</span>
-    </button>
-  `).join('');
-
+  // #913: rebuild the list with DOM nodes so server strings never enter an HTML parser.
+  const listHead = document.createElement('div');
+  listHead.className = 'list-head';
+  const listHeading = document.createElement('h2');
+  listHeading.textContent = '전체 공지';
+  listHead.append(listHeading);
+  const rows = rest.map(p => {
+    const row = document.createElement('button');
+    row.className = 'notice-row';
+    row.type = 'button';
+    row.dataset.postId = p.id;
+    row.dataset.category = p.category || p.channel || 'danjion_notice';
+    const type = document.createElement('span');
+    type.className = 'type';
+    type.textContent = p.category || p.channel || '';
+    const title = document.createElement('strong');
+    title.textContent = p.title || '';
+    const time = document.createElement('time');
+    time.textContent = formatDate(p.publishedAt);
+    const arrow = document.createElement('span');
+    arrow.className = 'arrow';
+    arrow.textContent = '→';
+    row.append(type, title, time, arrow);
+    return row;
+  });
   // The server render replaces the whole list, so the sibling-final-v3 empty state has to be
-  // re-emitted here; the static #noticeEmpty node does not survive the innerHTML swap.
-  noticeContainer.innerHTML = `<div class="list-head"><h2>전체 공지</h2></div>${noticeHtml}<p class="notice-empty" id="noticeEmpty" hidden>검색 결과가 없습니다.</p>`;
+  // re-emitted here; the static #noticeEmpty node does not survive the swap (#358 defect 2).
+  const empty = document.createElement('p');
+  empty.className = 'notice-empty';
+  empty.id = 'noticeEmpty';
+  empty.hidden = true;
+  empty.textContent = '검색 결과가 없습니다.';
+  noticeContainer.replaceChildren(listHead, ...rows, empty);
 
   // One filter authority: reuse the sibling-final-v3 filter so category, query and the empty
   // state stay consistent for server rows too (#358 defect 2).
