@@ -31,6 +31,9 @@ must(
   'must fresh-read remote main for exact-main guard',
 );
 must(/EXACT_MAIN_GUARD=PASS/, 'exact-main guard must report PASS');
+must(/SOURCE_R2_TARGET_GUARD=PASS/, 'fresh-main source must pin the canonical Production R2 target');
+must(/DANJION_STORAGE/, 'source target guard must pin the canonical R2 binding name');
+must(/bucket_name !== 'danjion-storage'/, 'source target guard must pin the canonical Production bucket');
 
 // --- production environment + sanctioned Cloudflare credential names ---
 must(/environment:\s*production/, 'provisioning must use production environment');
@@ -55,7 +58,8 @@ assert.ok(
   'workflow must reference canonical buckets only',
 );
 const creates = workflow.match(/\{"name":"danjion-storage"\}/g) || [];
-assert.equal(creates.length, 1, 'exactly one bounded create payload for danjion-storage');
+assert.equal(creates.length, 1, 'exactly one bounded Standard-class create payload for danjion-storage');
+must(/name_contains=danjion-storage&per_page=100/, 'bucket inventory/readback must be narrowly filtered');
 must(/BUCKET_CREATE=SKIPPED_ALREADY_EXISTS/, 'existing bucket must skip create');
 must(/PRODUCTION_BUCKET_AFTER=PRESENT/, 'post-create readback must confirm presence');
 must(/QA_BUCKET_PRESERVED=YES/, 'QA bucket danjion-storage-qa must stay preserved');
