@@ -226,6 +226,54 @@ export async function requireVerifiedResident(
   }
 }
 
+/**
+ * Canonical self-surface admission without a complexSlug (#920).
+ *
+ * Reuses the same fail-closed chain as `requireVerifiedResident` when no
+ * membership row exists:
+ *   1. real verified household membership (any complex),
+ *   2. exact active `resident.verification.exempt` grant,
+ *   3. #823 ordinary test-resident allowlist fallback,
+ *   4. #868 temporary resident access (only while authority level is none).
+ *
+ * Wildcard `*` alone never admits. Operators without the explicit exempt
+ * scope stay denied unless they already hold a real membership. Complex-bound
+ * callers must keep their own `hm.complex_id = ...` scoping; this helper only
+ * answers the self-surface gate and never widens cross-complex access.
+ *
+ * Placement note: this helper must stay AFTER `requireVerifiedResident` so the
+ * #868 temporary switch is first consulted only after `requireActor()` inside
+ * that gate (temporary-resident-access source invariant).
+ */
+export async function admitResidentSelfSurface(
+  sql: Sql,
+  env: AuthEnv,
+  actor: Actor
+): Promise<boolean> {
+  const membership = await sql`
+    select 1
+    from household_memberships hm
+    join households h on h.id = hm.household_id and h.complex_id = hm.complex_id
+    join complex_units cu on cu.id = h.complex_unit_id and cu.complex_id = hm.complex_id
+    where hm.user_id = ${actor.id}
+      and hm.status = 'verified'
+      and h.status = 'active'
+      and cu.status = 'active'
+    limit 1
+  `;
+  if (membership[0]) return true;
+
+  try {
+    const authority = await resolvePadiemAuthority(sql, actor.id);
+    if (authority.scopes.includes(RESIDENT_VERIFICATION_EXEMPT_SCOPE)) return true;
+    if (await resolveOrdinaryTestResidentExemption(sql, actor)) return true;
+    if (authority.level !== 'none') return false;
+    return isTemporaryResidentAccessEnabled(env);
+  } catch {
+    return false;
+  }
+}
+
 export async function requirePadiemOperator(
   request: Request,
   env: AuthEnv,
