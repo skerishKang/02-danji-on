@@ -25,6 +25,19 @@ const ENV = {
   GOOGLE_DRIVE_REFRESH_TOKEN: 'stub-refresh'
 };
 
+const ENV_R2_MISSING = {
+  DATABASE_URL: 'postgresql://unused-in-stub-test',
+  APP_ENV: 'qa',
+  DEV_AUTH_BYPASS: 'true',
+  STORAGE_MODE: 'r2',
+  DANJION_STORAGE: {
+    async head() { return null; },
+    async get() { return null; },
+    async put() { throw new Error('unexpected R2 put'); },
+    async delete() { throw new Error('unexpected R2 delete'); }
+  }
+};
+
 const realFetch = globalThis.fetch;
 
 function stubDrive({ mimeType = 'application/pdf', mediaOk = true } = {}) {
@@ -372,6 +385,26 @@ const adminUrl = `http://test/api/v1/admin/business-applications/${APP_ID}/docum
     restoreFetch();
   }
   console.log('PASS 16 image inline disposition');
+}
+
+// 17. R2-only missing private object fails closed without attempting Drive credentials/network
+{
+  let fetchCalls = 0;
+  globalThis.fetch = async () => {
+    fetchCalls += 1;
+    return new Response('unexpected network', { status: 500 });
+  };
+  try {
+    const { sql } = stubSql({ status: 'pending' });
+    const res = await handleResidentApplicationDocumentWithSql(getRequest(mineUrl), ENV_R2_MISSING, sql, 'pb-17');
+    assert.equal(res.status, 404);
+    const body = await res.json();
+    assert.equal(body.error.code, 'NOT_FOUND');
+  } finally {
+    restoreFetch();
+  }
+  assert.equal(fetchCalls, 0, 'R2-only missing object must never fall through to Drive/network');
+  console.log('PASS 17 R2-only missing private document fails closed without Drive fallback');
 }
 
 console.log('PASS GAP-5 Phase-B runtime: 12 required cases plus guards and disposition (stub SQL + stub Drive)');
