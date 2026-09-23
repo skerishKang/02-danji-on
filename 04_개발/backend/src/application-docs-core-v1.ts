@@ -115,6 +115,14 @@ async function accessToken(env: DriveEnv): Promise<string> {
   return data.access_token;
 }
 
+function driveCredentialsAvailable(env: DriveEnv): boolean {
+  return Boolean(
+    env.GOOGLE_DRIVE_CLIENT_ID?.trim()
+    && env.GOOGLE_DRIVE_CLIENT_SECRET?.trim()
+    && env.GOOGLE_DRIVE_REFRESH_TOKEN?.trim()
+  );
+}
+
 async function streamDriveFile(
   env: DriveEnv,
   fileId: string,
@@ -140,6 +148,11 @@ async function streamDriveFile(
       });
       headers.set('content-length', String(metadata.size || object.size));
       return new Response(object.body, { status: 200, headers });
+    }
+    // Preserve bounded migration fallback only when Drive credentials are actually
+    // available. R2-only QA must fail closed instead of throwing from accessToken().
+    if (!driveCredentialsAvailable(env)) {
+      return fail('NOT_FOUND', 'Storage object not found', 404, requestId);
     }
   }
   const token = await accessToken(env);
