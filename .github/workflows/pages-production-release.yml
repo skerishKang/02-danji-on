@@ -94,6 +94,37 @@ jobs:
           fi
           echo "Cloudflare deployment authority is present. Values were not printed."
 
+      - name: Normalize Cloudflare API token secret
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os
+          import re
+          import sys
+
+          raw = (os.environ.get("CLOUDFLARE_API_TOKEN") or "").strip()
+          candidate = raw
+          mode = "raw"
+
+          if not re.fullmatch(r"cf(?:ut|at)_[A-Za-z0-9_-]{40,}", candidate):
+              match = re.search(
+                  r"Authorization:\s*:\s*Bearer\s+(cf(?:ut|at)_[A-Za-z0-9_-]{40,})",
+                  raw,
+                  re.IGNORECASE,
+              )
+              if not match:
+                  print("::error::CLOUDFLARE_API_TOKEN is neither a canonical token nor a supported copied curl wrapper.")
+                  sys.exit(1)
+              candidate = match.group(1)
+              mode = "copied-curl-wrapper"
+
+          print("::add-mask::" + candidate)
+          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as env_file:
+              env_file.write("CLOUDFLARE_API_TOKEN=" + candidate + "\n")
+          print(f"Cloudflare API token normalized ({mode}); value was not printed.")
+          PY
+
       - name: Verify Padiem account and canonical Pages project
         shell: bash
         run: |
