@@ -455,8 +455,8 @@ const loadAdminContext = (location) => {
     assert.ok(!/method\s*:\s*['"](?:POST|PATCH|PUT|DELETE)['"]/.test(src),
       'page/authority layers must not directly own mutation transports');
   }
-  assert.equal((consoleSrc.match(/method\s*:\s*'PATCH'/g) || []).length, 5,
-    'the console bridge may own only application-review, official-news, benefit, household-membership review, and unit-master PATCH transports');
+  assert.equal((consoleSrc.match(/method\s*:\s*'PATCH'/g) || []).length, 6,
+    'the console bridge may own only application-review, resident-news review, official-news, benefit, household-membership review, and unit-master PATCH transports');
   assert.equal((consoleSrc.match(/method\s*:\s*'POST'/g) || []).length, 5,
     'the console bridge may own only official-news, benefit, household-code create, household-message dry-run preview, and unit-master create POST transports');
   assert.equal((consoleSrc.match(/method\s*:\s*'DELETE'/g) || []).length, 1,
@@ -467,6 +467,8 @@ const loadAdminContext = (location) => {
     'unit-master edit must use the admin complex-units PATCH family');
   assert.ok(consoleSrc.includes("'/api/v1/admin/business-applications/'"),
     'business-application review must remain an explicitly activated mutation family');
+  assert.ok(consoleSrc.includes("'/resident-news/submissions/'") && consoleSrc.includes('reviewResidentNewsSubmission'),
+    'resident-news review must remain a dedicated operator PATCH family, separate from business review');
   assert.ok(consoleSrc.includes("'/api/v1/admin/complexes/'") && consoleSrc.includes(" + '/posts'"),
     'official-news create must use the admin complex posts family');
   assert.ok(consoleSrc.includes("'/api/v1/admin/posts/'"),
