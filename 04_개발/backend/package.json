@@ -27,6 +27,7 @@
     "test:production-auth-readonly-diagnostic": "node tests/production-auth-readonly-diagnostic-contract.mjs",
     "test:production-readonly-diagnostic": "node tests/production-readonly-diagnostic-contract.mjs",
     "test:production-r2-readonly-diagnostic": "node tests/production-r2-readonly-diagnostic-contract.mjs",
+    "test:production-r2-25a-readback-integrity": "node tests/production-r2-25a-readback-integrity.test.mjs",
     "test:central-governance-main-audit": "node tests/central-governance-main-audit-contract.mjs",
     "test:production-admin-principal-provision": "node tests/production-admin-principal-provision-contract.mjs",
     "test:production-admin-principal-adopt-existing": "node tests/production-admin-principal-adopt-existing-contract.mjs",

@@ -1,9 +1,18 @@
+import { createHash } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 
 const PROD_API = 'padiem-danjion-api-production.padiem.workers.dev';
 const PROD_PAGES = 'danjion.pages.dev';
 const COMPLEX = 'banglim-myeongji-roadhill';
 const OBJECT_KEY = /^gdrive\/public\/business-image\/[A-Za-z0-9_-]{8,}$/;
+
+// #955 byte integrity: the public readback must be proven against the exact uploaded bytes.
+// Authority is storage-v1.ts streamObject(), which serves the stored object body verbatim and
+// sets content-type from R2 httpMetadata.contentType -- for this synthetic PNG fixture that is
+// image/png. HTTP 200 alone never proves the bytes came back intact.
+export const SAFE_READBACK_MEDIA_TYPES = Object.freeze(['image/png']);
+export const FIXTURE_EXPECTED_BYTE_LENGTH = 64;
+export const FIXTURE_EXPECTED_SHA256 = '6c2b98e2ea644e21db99b6dbc0884490d5303bf1f290f4dbbae74f5b515da8b0';
 
 const required = (name) => {
   const value = process.env[name]?.trim();
@@ -39,7 +48,7 @@ const request = async (url, init = {}) => {
   return { response, body: await json(response) };
 };
 
-const png = () => {
+export const png = () => {
   const bytes = Buffer.alloc(64);
   bytes.writeUInt32BE(0x89504e47, 0);
   bytes.writeUInt32BE(0x0d0a1a0a, 4);
@@ -48,6 +57,48 @@ const png = () => {
   bytes.writeUInt32BE(8, 20);
   return new Uint8Array(bytes);
 };
+
+// #955: media type of a Content-Type header, parameters stripped and lowercased.
+export const mediaType = (value) => String(value || '').split(';', 1)[0].trim().toLowerCase();
+
+export const sha256Hex = (bytes) => createHash('sha256').update(bytes).digest('hex');
+
+// #955: raw public-object readback. The generic `request()` helper JSON-decodes, which discards a
+// binary body as null, so this path must never decode -- it only captures the raw bytes.
+export const rawReadback = async (url, init = {}, fetchImpl = fetch) => {
+  const response = await fetchImpl(url, { ...init, redirect: 'manual' });
+  return {
+    status: response.status,
+    contentType: response.headers.get('content-type') || '',
+    bytes: new Uint8Array(await response.arrayBuffer())
+  };
+};
+
+// #955: pure, offline-testable byte-integrity evaluation. Fail closed on every non-intact shape
+// even when the transport reported 200: unsafe content type, empty body, truncated body, or a
+// same-length body whose bytes are not the uploaded fixture.
+export const evaluateReadbackIntegrity = (readback, expectedBytes) => {
+  const expected = Buffer.from(expectedBytes || []);
+  const actual = Buffer.from(readback?.bytes || []);
+  const sameLength = expected.byteLength > 0 && actual.byteLength === expected.byteLength;
+  const checks = {
+    http200: readback?.status === 200,
+    contentTypeSafe: SAFE_READBACK_MEDIA_TYPES.includes(mediaType(readback?.contentType)),
+    emptyBody: actual.byteLength === 0,
+    byteLengthMatch: sameLength,
+    sha256Match: sameLength && sha256Hex(actual) === sha256Hex(expected)
+  };
+  let failure = null;
+  if (!checks.http200) failure = `READBACK_HTTP_${readback?.status ?? 0}`;
+  else if (!checks.contentTypeSafe) failure = 'READBACK_CONTENT_TYPE_UNSAFE';
+  else if (checks.emptyBody) failure = 'READBACK_EMPTY_BODY';
+  else if (!checks.byteLengthMatch) failure = 'READBACK_BYTE_LENGTH_MISMATCH';
+  else if (!checks.sha256Match) failure = 'READBACK_SHA256_MISMATCH';
+  return { ok: failure === null, failure, checks };
+};
+
+export const verifyPublicReadback = async (url, init, expectedBytes, fetchImpl = fetch) =>
+  evaluateReadbackIntegrity(await rawReadback(url, init, fetchImpl), expectedBytes);
 
 async function main() {
   assert(process.env.APP_ENV === 'production', 'APP_ENV');
@@ -84,10 +135,17 @@ async function main() {
   console.log('SIGNIN=PASS');
 
   const idempotency = `prod-25a-${Date.now()}`;
+  // #955: preserve the exact synthetic bytes so the public readback can be compared to them.
+  const UPLOAD_BYTES = png();
+  const UPLOAD_BYTE_LENGTH = UPLOAD_BYTES.byteLength;
+  const UPLOAD_SHA256 = sha256Hex(UPLOAD_BYTES);
+  assert(UPLOAD_BYTE_LENGTH === FIXTURE_EXPECTED_BYTE_LENGTH, 'UPLOAD_FIXTURE_BYTES_UNSTABLE');
+  assert(UPLOAD_SHA256 === FIXTURE_EXPECTED_SHA256, 'UPLOAD_FIXTURE_BYTES_UNSTABLE');
+  console.log('UPLOAD_FIXTURE_BYTES_STABLE=PASS');
   const form = new FormData();
   form.set('kind', 'business-image');
   form.set('complexSlug', COMPLEX);
-  form.set('file', new File([png()], `${idempotency}.png`, { type: 'image/png' }));
+  form.set('file', new File([UPLOAD_BYTES], `${idempotency}.png`, { type: 'image/png' }));
   const upload = await request(new URL('/api/v1/storage/objects', api), {
     method: 'POST',
     headers: { ...headers(pages, jwt), 'idempotency-key': idempotency },
@@ -99,9 +157,13 @@ async function main() {
   console.log('R2_OBJECT_UPLOAD=PASS');
   console.log('OBJECT_KEY_RETURNED=PASS');
 
-  const readback = await request(new URL(`/api/v1/storage/public?objectKey=${encodeURIComponent(objectKey)}`, api), { headers: headers(pages) });
-  assert(readback.response.status === 200, `READBACK_HTTP_${readback.response.status}`);
+  const readbackIntegrity = await verifyPublicReadback(new URL(`/api/v1/storage/public?objectKey=${encodeURIComponent(objectKey)}`, api), { headers: headers(pages) }, UPLOAD_BYTES);
+  assert(readbackIntegrity.ok, readbackIntegrity.failure || 'READBACK_INTEGRITY_FAILED');
   console.log('PUBLIC_OBJECT_READBACK=PASS');
+  console.log('PUBLIC_READBACK_HTTP_200=PASS');
+  console.log('PUBLIC_READBACK_BYTE_LENGTH_MATCH=PASS');
+  console.log('PUBLIC_READBACK_SHA256_MATCH=PASS');
+  console.log('PUBLIC_READBACK_CONTENT_TYPE_SAFE=PASS');
 
   const app = await request(new URL('/api/v1/me/business-applications', api), {
     method: 'POST',
