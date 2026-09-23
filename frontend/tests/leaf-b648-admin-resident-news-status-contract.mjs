@@ -53,4 +53,32 @@ assert.equal(
   'admin console must never receive or render raw private storage object keys'
 );
 
+assert.ok(
+  /id:\s*'residentNews'[\s\S]*?residentNewsReviewActions:\s*true/.test(frontend),
+  'resident-news section must explicitly enable its dedicated review controls'
+);
+assert.ok(
+  frontend.includes('async function reviewResidentNewsSubmission') &&
+    frontend.includes("'/api/v1/operator/complexes/'") &&
+    frontend.includes("'/resident-news/submissions/'") &&
+    frontend.includes("method: 'PATCH'"),
+  'admin bridge must PATCH the canonical operator resident-news submission route'
+);
+assert.ok(
+  frontend.includes("['reviewing', 'approve', 'reject'].includes(nextAction)"),
+  'resident-news review bridge must restrict actions to the backend-reviewed enum'
+);
+assert.ok(
+  adminPage.includes('function residentNewsReviewControls') &&
+    adminPage.includes('consoleApi.reviewResidentNewsSubmission') &&
+    adminPage.includes("'reviewing','검토 시작'") &&
+    adminPage.includes("'approve','게시 승인'") &&
+    adminPage.includes("'reject','거절'"),
+  'admin page must render the dedicated resident-news review action set'
+);
+assert.ok(
+  adminPage.includes('else if(residentNewsReviewAction)card.append(residentNewsReviewAction)'),
+  'resident-news review controls must be inserted into the card action chain'
+);
+
 console.log('leaf-b648-admin-resident-news-status-contract: PASS');

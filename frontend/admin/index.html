@@ -212,6 +212,45 @@
       });
       wrap.append(note,actions,live);return wrap;
     }
+    function residentNewsReviewControls(row,panel,section,apiBase){
+      if(!section.residentNewsReviewActions)return null;
+      const current=String(row.status||'');
+      if(current==='approved'||current==='rejected')return el('p','처리 완료된 주민소식입니다.','admin-review-complete');
+      if(current!=='submitted'&&current!=='reviewing')return null;
+      const wrap=el('div',undefined,'admin-review-controls');
+      const note=document.createElement('textarea');note.maxLength=1000;note.placeholder='검토 메모 (선택)';note.setAttribute('aria-label','주민소식 검토 메모');
+      const actions=el('div',undefined,'admin-review-actions');
+      const live=el('p','', 'admin-review-status');live.setAttribute('aria-live','polite');
+      const specs=[];
+      if(current==='submitted')specs.push(['reviewing','검토 시작','','이 주민소식을 검토 상태로 변경하시겠습니까?']);
+      specs.push(
+        ['approve','게시 승인','primary','이 주민소식을 승인하고 게시하시겠습니까?'],
+        ['reject','거절','danger','이 주민소식을 거절하시겠습니까?']
+      );
+      const buttons=specs.map(([action,label,cls,confirmText])=>{
+        const button=el('button',label,cls);button.type='button';
+        button.addEventListener('click',async()=>{
+          if(!window.confirm(confirmText))return;
+          buttons.forEach((b)=>b.disabled=true);note.disabled=true;live.className='admin-review-status';live.textContent=label+' 처리 중…';
+          const outcome=await consoleApi.reviewResidentNewsSubmission(fetch,apiBase,row.id,action,note.value);
+          if(outcome.state==='updated'){
+            live.textContent=label+' 처리됐습니다. 최신 목록을 다시 불러옵니다.';
+            await renderSection(panel,section,apiBase);
+            return;
+          }
+          if(outcome.state==='signed-out'){showRestricted('signed-out');return}
+          if(outcome.state==='scope-denied')live.textContent='현재 관리자 권한으로 주민소식을 검토할 수 없습니다.';
+          else if(outcome.state==='not-found')live.textContent='주민소식 제출 건을 찾을 수 없습니다.';
+          else if(outcome.state==='conflict')live.textContent='현재 주민소식 상태에서는 이 작업을 수행할 수 없습니다'+(outcome.code?' · '+outcome.code:'')+'.';
+          else if(outcome.state==='network-error')live.textContent='API 연결에 실패했습니다. 잠시 후 다시 시도해 주세요.';
+          else if(outcome.state==='invalid-request')live.textContent='주민소식 검토 요청이 올바르지 않습니다.';
+          else live.textContent='처리에 실패했습니다'+(outcome.code?' · '+outcome.code:'')+'.';
+          live.className='admin-review-status error';buttons.forEach((b)=>b.disabled=false);note.disabled=false;
+        });
+        actions.append(button);return button;
+      });
+      wrap.append(note,actions,live);return wrap;
+    }
     function labeledField(labelText,control,full){
       const label=el('label',undefined,'admin-field'+(full?' full':''));label.append(el('span',labelText),control);return label;
     }
@@ -675,12 +714,14 @@
           if(section.id==='householdReviews')appendHouseholdReviewFacts(card,row);
           if(section.id==='residentNews')appendResidentNewsAttachments(card,row,apiBase);
           const reviewControls=applicationReviewControls(row,panel,section,apiBase);
+          const residentNewsReviewAction=residentNewsReviewControls(row,panel,section,apiBase);
           const postControls=postEditControls(row,panel,section,apiBase);
           const benefitControls=benefitEditControls(row,panel,section,apiBase);
           const householdReviewAction=householdReviewControls(row,panel,section,apiBase);
           const householdCodeAction=householdCodeControls(row,panel,section,apiBase);
           const unitMasterAction=unitMasterControls(row,panel,section,apiBase);
           if(reviewControls)card.append(reviewControls);
+          else if(residentNewsReviewAction)card.append(residentNewsReviewAction);
           else if(postControls)card.append(postControls);
           else if(benefitControls)card.append(benefitControls);
           else if(householdReviewAction)card.append(householdReviewAction);

@@ -38,8 +38,9 @@
       id: 'residentNews',
       requiredScope: 'resident_news.review',
       title: '주민소식 검토',
-      description: '게시 대기 중인 주민소식 원고를 조회합니다.',
-      path: (slug) => `/api/v1/operator/complexes/${slug}/resident-news/submissions?status=submitted`
+      description: '게시 대기 중인 주민소식 원고를 조회하고 검토·게시·거절할 수 있습니다.',
+      path: (slug) => `/api/v1/operator/complexes/${slug}/resident-news/submissions?status=submitted`,
+      residentNewsReviewActions: true
     },
     {
       id: 'posts',
@@ -166,6 +167,40 @@
     if (result.ok) return { state: 'updated', data: result.data, status: result.status, code };
     if (result.status === 401) return { state: 'signed-out', status: 401, code };
     if (result.status === 403) return { state: 'scope-denied', status: 403, code };
+    if (result.status === 409) return { state: 'conflict', status: 409, code };
+    if (result.reason === 'network-error' || result.status === 0) return { state: 'network-error', status: 0, code };
+    return { state: 'error', status: Number(result.status || 0), code };
+  }
+
+  async function reviewResidentNewsSubmission(fetchImpl, apiBase, submissionId, action, reviewNote, slug) {
+    const id = String(submissionId || '').trim();
+    const nextAction = String(action || '').trim();
+    const note = String(reviewNote || '').trim();
+    if (!UUID_RE.test(id) || !['reviewing', 'approve', 'reject'].includes(nextAction) || note.length > 1000) {
+      return { state: 'invalid-request', status: 0, code: 'INVALID_RESIDENT_NEWS_REVIEW_REQUEST' };
+    }
+
+    const session = global.DanjionSession;
+    const result = await session.request(
+      fetchImpl,
+      session.joinUrl(
+        String(apiBase || ''),
+        '/api/v1/operator/complexes/' + encodeURIComponent(slug || COMPLEX_SLUG)
+          + '/resident-news/submissions/' + encodeURIComponent(id)
+      ),
+      {
+        method: 'PATCH',
+        body: JSON.stringify({
+          action: nextAction,
+          reviewNote: note || null
+        })
+      }
+    );
+    const code = result && result.error && result.error.code ? String(result.error.code) : '';
+    if (result.ok) return { state: 'updated', data: result.data, status: result.status, code };
+    if (result.status === 401) return { state: 'signed-out', status: 401, code };
+    if (result.status === 403) return { state: 'scope-denied', status: 403, code };
+    if (result.status === 404) return { state: 'not-found', status: 404, code };
     if (result.status === 409) return { state: 'conflict', status: 409, code };
     if (result.reason === 'network-error' || result.status === 0) return { state: 'network-error', status: 0, code };
     return { state: 'error', status: Number(result.status || 0), code };
@@ -535,6 +570,7 @@
     consoleSections,
     loadSection,
     reviewBusinessApplication,
+    reviewResidentNewsSubmission,
     createOfficialPost,
     updateOfficialPost,
     loadBenefitBusinesses,
