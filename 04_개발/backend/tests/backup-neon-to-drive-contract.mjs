@@ -17,9 +17,15 @@ if (process.platform !== 'win32') {
 
 assert.match(workflow, /cron:\s*'17 18 \* \* \*'/, 'daily candidate schedule must remain 24h');
 assert.match(workflow, /environment:\s*production/, 'backup must use the production environment boundary');
-assert.match(workflow, /DANJION_BACKUP_ENABLED/, 'explicit activation secret gate is required');
-assert.match(workflow, /DANJION_BACKUP_SOURCE_ARMED:\s*'true'/, 'source arm is owner-authorized (#714); runtime activation still requires the separate DANJION_BACKUP_ENABLED secret');
-assert.match(workflow, /needs\.activation-gate\.outputs\.enabled == 'true'/, 'backup job must depend on enable gate');
+assert.match(workflow, /DANJION_BACKUP_SOURCE_ARMED:\s*'true'/, 'source arm is owner-authorized (#714); runtime activation still requires the separate environment variable');
+assert.match(workflow, /DANJION_BACKUP_ENABLED:\s*\$\{\{\s*vars\.DANJION_BACKUP_ENABLED\s*\}\}/, 'non-sensitive enable switch must use the Production environment vars context');
+assert.doesNotMatch(workflow, /DANJION_BACKUP_ENABLED:\s*\$\{\{\s*secrets\.DANJION_BACKUP_ENABLED\s*\}\}/, 'enable switch must not use secrets context because secret masking can suppress job outputs');
+assert.match(workflow, /DANJION_BACKUP_ENABLED:-\}" != "enabled"/, 'enable variable must require the explicit enabled token');
+assert.match(workflow, /state=active/, 'activation output must use a non-boolean active token');
+assert.match(workflow, /state=disabled/, 'activation output must use a non-boolean disabled token');
+assert.doesNotMatch(workflow, /enabled=(?:true|false)/, 'job outputs must not reuse boolean tokens that can collide with secret masking');
+assert.match(workflow, /needs\.activation-gate\.outputs\.state == 'active'/, 'backup job must depend on active state');
+assert.match(workflow, /needs\.activation-gate\.outputs\.state != 'active'/, 'disabled job must handle every non-active state');
 assert.match(workflow, /Exact main authority guard/, 'exact-main guard is required');
 assert.match(workflow, /DANJION_PRODUCTION_DB_URL/, 'must reuse canonical production DB secret name');
 assert.match(workflow, /DANJION_BACKUP_ENCRYPTION_PASSPHRASE/, 'encryption secret binding is required');
@@ -27,7 +33,8 @@ assert.match(workflow, /DANJION_DRIVE_RCLONE_CONFIG/, 'owner OAuth rclone config
 assert.match(workflow, /DANJION_DRIVE_FOLDER_ID/, 'dedicated Drive folder binding is required');
 assert.doesNotMatch(workflow, /actions\/upload-artifact/i, 'database backup must never become a GitHub artifact');
 const activationBlock = workflow.split(/\n  encrypted-backup:/)[0];
-assert.match(activationBlock, /DANJION_BACKUP_ENABLED/, 'activation job must receive only the enable secret');
+assert.match(activationBlock, /vars\.DANJION_BACKUP_ENABLED/, 'activation job must receive only the non-sensitive enable variable');
+assert.doesNotMatch(activationBlock, /secrets\.DANJION_BACKUP_ENABLED/, 'activation job must not materialize the obsolete enable secret');
 assert.doesNotMatch(activationBlock, /DANJION_PRODUCTION_DB_URL/, 'disabled activation job must not materialize DB URL');
 assert.doesNotMatch(activationBlock, /DANJION_BACKUP_ENCRYPTION_PASSPHRASE/, 'disabled activation job must not materialize encryption secret');
 assert.doesNotMatch(activationBlock, /DANJION_DRIVE_RCLONE_CONFIG/, 'disabled activation job must not materialize Drive OAuth secret');
