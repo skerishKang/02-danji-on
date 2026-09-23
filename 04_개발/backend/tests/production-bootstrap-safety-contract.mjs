@@ -27,8 +27,18 @@ assert.deepEqual(
   ['DATABASE_URL', 'BETTER_AUTH_SECRET', 'DANJION_CONTACT_REF_SECRET', 'HOUSEHOLD_CODE_PEPPER'],
   'production deploy must fail closed unless core auth/database secrets are present'
 );
-assert.equal(production.vars?.BUSINESS_IMAGE_RECONCILIATION_ENABLED, 'false', 'first production bootstrap must keep background Drive reconciliation off until its runtime is fully configured');
-assert.equal(production.vars?.STORAGE_MODE, 'drive', '#809: production must declare the Drive storage runtime while credentials stay fail-closed until provisioned');
+assert.equal(production.vars?.BUSINESS_IMAGE_RECONCILIATION_ENABLED, 'false', 'production cutover must keep background reconciliation off until separately authorized');
+assert.equal(production.vars?.STORAGE_MODE, 'r2', '#932: production must select the verified R2 storage runtime');
+assert.deepEqual(
+  production.r2_buckets,
+  [{ binding: 'DANJION_STORAGE', bucket_name: 'danjion-storage' }],
+  '#932: production R2 mode must bind only the canonical production bucket'
+);
+assert.notEqual(
+  wrangler.env?.qa?.r2_buckets?.[0]?.bucket_name,
+  production.r2_buckets?.[0]?.bucket_name,
+  '#932: QA and Production R2 buckets must remain isolated'
+);
 assert.deepEqual(production.triggers?.crons, ['*/15 * * * *'], 'the production schedule remains declared for later activation');
 
 assert.match(worker, /BUSINESS_IMAGE_RECONCILIATION_ENABLED\?: string/);

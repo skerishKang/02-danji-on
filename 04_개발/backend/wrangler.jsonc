@@ -79,7 +79,7 @@
         "APP_ENV": "production",
         "TEMP_RESIDENT_ACCESS_MODE": "true",
         "COMMUNITY_PUBLISH_MODE": "immediate",
-        "STORAGE_MODE": "drive",
+        "STORAGE_MODE": "r2",
         "DEV_AUTH_BYPASS": "false",
         "BUSINESS_IMAGE_RECONCILIATION_ENABLED": "false",
         "DANJION_AUTH_BASE_URL": "https://padiem-danjion-api-production.padiem.workers.dev",
