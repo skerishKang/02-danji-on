@@ -94,6 +94,7 @@
 
   const APPLICATION_REVIEW_STATUSES = Object.freeze(['approved', 'changes_requested', 'rejected']);
   const POST_STATUSES = Object.freeze(['draft', 'published', 'archived']);
+  const POST_CHANNELS = Object.freeze(['danjion_notice', 'apartment_news', 'management_office', 'chair_greeting']);
   const BENEFIT_STATUSES = Object.freeze(['draft', 'active', 'expired', 'suspended']);
   const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -213,8 +214,16 @@
     const title = String(value.title || '').trim();
     const body = String(value.body || '').trim();
     const status = String(value.status || '').trim();
+    const channel = String(value.channel || '').trim();
+    const hasAttachment = Object.prototype.hasOwnProperty.call(value, 'attachmentObjectKey');
+    const attachmentObjectKey = hasAttachment ? (String(value.attachmentObjectKey || '').trim() || null) : undefined;
     if (!sourceName || !category || !title || !body || !POST_STATUSES.includes(status)) return null;
-    return { sourceName, category, title, body, status };
+    if (channel && !POST_CHANNELS.includes(channel)) return null;
+    return {
+      sourceName, category, title, body, status,
+      ...(channel ? { channel } : {}),
+      ...(hasAttachment ? { attachmentObjectKey } : {})
+    };
   }
 
   function classifyPostMutation(result) {
@@ -565,6 +574,7 @@
     PRIVILEGED_PLACEHOLDERS,
     APPLICATION_REVIEW_STATUSES,
     POST_STATUSES,
+    POST_CHANNELS,
     BENEFIT_STATUSES,
     extractRows,
     consoleSections,
