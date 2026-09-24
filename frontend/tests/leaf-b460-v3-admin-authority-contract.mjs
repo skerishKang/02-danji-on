@@ -459,10 +459,14 @@ const loadAdminContext = (location) => {
   }
   assert.equal((consoleSrc.match(/method\s*:\s*'PATCH'/g) || []).length, 6,
     'the console bridge may own only application-review, resident-news review, official-news, benefit, household-membership review, and unit-master PATCH transports');
-  assert.equal((consoleSrc.match(/method\s*:\s*'POST'/g) || []).length, 5,
-    'the console bridge may own only official-news, benefit, household-code create, household-message dry-run preview, and unit-master create POST transports');
-  assert.equal((consoleSrc.match(/method\s*:\s*'DELETE'/g) || []).length, 1,
-    'the console bridge may own only household-code revoke DELETE transport');
+  assert.equal((consoleSrc.match(/method\s*:\s*'POST'/g) || []).length, 6,
+    'the console bridge may own only official-news post, official-news image upload, benefit, household-code create, household-message dry-run preview, and unit-master create POST transports');
+  assert.equal((consoleSrc.match(/method\s*:\s*'DELETE'/g) || []).length, 2,
+    'the console bridge may own only official-news image retirement and household-code revoke DELETE transports');
+  assert.ok(consoleSrc.includes("'/api/v1/storage/objects'") && consoleSrc.includes("form.append('kind', 'official-news-image')"),
+    'the additional POST transport is the bounded official-news multipart upload');
+  assert.ok(consoleSrc.includes("'/api/v1/storage/objects?objectKey='") && consoleSrc.includes('deleteOfficialNewsImage'),
+    'the additional DELETE transport is the bounded official-news image retirement');
   assert.ok(consoleSrc.includes(" + '/unit-master'"),
     'unit-master create must use the admin complex unit-master family');
   assert.ok(consoleSrc.includes("'/api/v1/admin/complex-units/'"),
