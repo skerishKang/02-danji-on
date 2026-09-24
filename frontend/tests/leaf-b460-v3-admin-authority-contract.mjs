@@ -426,8 +426,8 @@ const loadAdminContext = (location) => {
     'official-news section must expose the bounded create surface');
   assert.ok(adminPage.includes("postEditControls(row,panel,section,apiBase)"),
     'official-news rows must expose bounded edit/status controls');
-  assert.ok(adminPage.includes("createOfficialPost(fetch,apiBase,postPayload(fields))"),
-    'page must delegate post creation to the reviewed console bridge');
+  assert.ok(adminPage.includes("createOfficialPost(fetch,apiBase,postPayload(fields,uploadedObjectKey))"),
+    'page must delegate post creation to the reviewed console bridge with only the server-issued optional attachment key');
   assert.ok(adminPage.includes("updateOfficialPost(fetch,apiBase,row.id,postPayload(fields))"),
     'page must delegate post edits to the reviewed console bridge');
   assert.ok(adminPage.includes("benefitComposer(panel,section,apiBase)"),
