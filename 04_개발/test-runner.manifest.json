@@ -118,6 +118,7 @@
         {"id":"test:deploy-provenance","npm":"test:deploy-provenance","kind":"contract"},
         {"id":"test:cross-platform-executable-contract","npm":"test:cross-platform-executable-contract","kind":"contract"},
         {"id":"test:admin-field-limit-972","npm":"test:admin-field-limit-972","kind":"contract"},
+        {"id":"test:admin-review-note-limit-994","npm":"test:admin-review-note-limit-994","kind":"contract"},
         {"id":"test:runner-manifest-contract","npm":"test:runner-manifest-contract","kind":"contract"}
       ]
     },

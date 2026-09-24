@@ -181,7 +181,7 @@
       const current=String(row.status||'');
       if(current!=='pending'&&current!=='changes_requested')return el('p','처리 완료된 신청입니다.','admin-review-complete');
       const wrap=el('div',undefined,'admin-review-controls');
-      const note=document.createElement('textarea');note.maxLength=2000;note.placeholder='검토 메모 (선택)';note.setAttribute('aria-label','검토 메모');
+      const note=document.createElement('textarea');note.maxLength=1000;note.placeholder='검토 메모 (선택)';note.setAttribute('aria-label','검토 메모');
       const actions=el('div',undefined,'admin-review-actions');
       const live=el('p','', 'admin-review-status');live.setAttribute('aria-live','polite');
       const specs=[

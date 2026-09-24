@@ -129,6 +129,7 @@ const EXPECTED_BACKEND_ORDER = [
   "test:deploy-provenance",
   "test:cross-platform-executable-contract",
   "test:admin-field-limit-972",
+  "test:admin-review-note-limit-994",
   "test:runner-manifest-contract",
 ];
 
