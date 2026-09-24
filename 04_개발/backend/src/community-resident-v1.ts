@@ -87,17 +87,22 @@ function asDate(value: unknown): string | null {
 }
 
 function mapPost(row: Record<string, unknown>) {
+  const status = String(row.status || '');
+  const viewerIsOwner = row.viewer_is_owner === true;
   return {
     id: String(row.id),
     kind: String(row.kind),
     category: row.category ? String(row.category) : null,
     title: String(row.title),
     body: String(row.body),
-    status: String(row.status),
+    status,
     author: { nickname: String(row.author_nickname ?? '') },
     reactionCount: Number(row.reaction_count ?? 0),
     commentCount: Number(row.comment_count ?? 0),
     viewerLiked: Boolean(row.viewer_liked),
+    viewerCanEdit: viewerIsOwner && status !== 'deleted',
+    viewerCanDelete: viewerIsOwner && status !== 'deleted',
+    viewerCanReport: status === 'published' && !viewerIsOwner,
     publishedAt: asDate(row.published_at),
     createdAt: asDate(row.created_at),
     updatedAt: asDate(row.updated_at)
@@ -105,12 +110,17 @@ function mapPost(row: Record<string, unknown>) {
 }
 
 function mapComment(row: Record<string, unknown>) {
+  const status = String(row.status || '');
+  const postStatus = String(row.post_status || '');
+  const viewerIsOwner = row.viewer_is_owner === true;
   return {
     id: String(row.id),
     postId: String(row.post_id),
     body: String(row.body),
-    status: String(row.status),
+    status,
     author: { nickname: String(row.author_nickname ?? '') },
+    viewerCanDelete: viewerIsOwner && status !== 'deleted',
+    viewerCanReport: status === 'published' && postStatus === 'published' && !viewerIsOwner,
     publishedAt: asDate(row.published_at),
     createdAt: asDate(row.created_at),
     updatedAt: asDate(row.updated_at)
@@ -164,6 +174,7 @@ export async function handleCommunityResidentRequest(
     const rows = kind
       ? await sql`
           select p.id, p.kind, p.category, p.title, p.body, p.status, p.published_at, p.created_at, p.updated_at,
+                 (p.author_user_id = ${resident.id}::uuid) as viewer_is_owner,
                  u.display_name as author_nickname,
                  (select count(*) from community_reactions r where r.post_id = p.id and r.reaction_type = 'like')::int as reaction_count,
                  (select count(*) from community_comments c where c.post_id = p.id and c.status = 'published')::int as comment_count,
@@ -179,6 +190,7 @@ export async function handleCommunityResidentRequest(
         `
       : await sql`
           select p.id, p.kind, p.category, p.title, p.body, p.status, p.published_at, p.created_at, p.updated_at,
+                 (p.author_user_id = ${resident.id}::uuid) as viewer_is_owner,
                  u.display_name as author_nickname,
                  (select count(*) from community_reactions r where r.post_id = p.id and r.reaction_type = 'like')::int as reaction_count,
                  (select count(*) from community_comments c where c.post_id = p.id and c.status = 'published')::int as comment_count,
@@ -219,6 +231,7 @@ export async function handleCommunityResidentRequest(
     row.reaction_count = 0;
     row.comment_count = 0;
     row.viewer_liked = false;
+    row.viewer_is_owner = true;
     return ok(mapPost(row), requestId, 201);
   }
 
@@ -229,6 +242,7 @@ export async function handleCommunityResidentRequest(
     if (request.method === 'GET') {
       const rows = await sql`
         select p.id, p.kind, p.category, p.title, p.body, p.status, p.published_at, p.created_at, p.updated_at,
+               (p.author_user_id = ${resident.id}::uuid) as viewer_is_owner,
                u.display_name as author_nickname,
                (select count(*) from community_reactions r where r.post_id = p.id and r.reaction_type = 'like')::int as reaction_count,
                (select count(*) from community_comments c where c.post_id = p.id and c.status = 'published')::int as comment_count,
@@ -270,6 +284,7 @@ export async function handleCommunityResidentRequest(
       row.reaction_count = 0;
       row.comment_count = 0;
       row.viewer_liked = false;
+      row.viewer_is_owner = true;
       return ok(mapPost(row), requestId);
     }
 
@@ -297,6 +312,7 @@ export async function handleCommunityResidentRequest(
     if (request.method === 'GET') {
       const rows = await sql`
         select c.id, c.post_id, c.body, c.status, c.published_at, c.created_at, c.updated_at,
+               (c.author_user_id = ${resident.id}::uuid) as viewer_is_owner,
                u.display_name as author_nickname
         from community_comments c
         join app_users u on u.id = c.author_user_id
@@ -307,7 +323,10 @@ export async function handleCommunityResidentRequest(
           and (c.status = 'published' or c.author_user_id = ${resident.id}::uuid)
         order by c.created_at asc
       `;
-      return ok(rows.map((row) => mapComment(row as Record<string, unknown>)), requestId);
+      return ok(rows.map((row) => mapComment({
+        ...(row as Record<string, unknown>),
+        post_status: post.status
+      })), requestId);
     }
 
     if (request.method === 'POST') {
@@ -324,6 +343,8 @@ export async function handleCommunityResidentRequest(
       `;
       const row = rows[0] as Record<string, unknown>;
       row.author_nickname = resident.displayName;
+      row.viewer_is_owner = true;
+      row.post_status = next.status;
       return ok(mapComment(row), requestId, 201);
     }
   }
