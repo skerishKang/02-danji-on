@@ -188,7 +188,8 @@ try {
   await page.goto(`${frontendBase}/admin/`, { waitUntil: 'domcontentloaded', timeout: 30_000 });
   await page.getByRole('button', { name: '단지소식', exact: true }).waitFor({ state: 'visible', timeout: 20_000 });
   await page.getByRole('button', { name: '단지소식', exact: true }).click();
-  await page.getByRole('heading', { name: '새 단지소식 작성', exact: true }).waitFor({ state: 'visible', timeout: 20_000 });
+  const composer = page.locator('section.admin-post-editor.create');
+  await composer.getByRole('heading', { name: '새 단지소식 작성', exact: true }).waitFor({ state: 'visible', timeout: 20_000 });
   report('PRODUCTION_ADMIN_POST_COMPOSER_VISIBLE');
 
   const suffix = Date.now().toString(36);
@@ -196,18 +197,18 @@ try {
   const body = `#844 bounded Production acceptance ${suffix}\n이미지 게시·공개 렌더·텍스트 전용 회귀를 확인합니다.`;
 
   stage = 'ADMIN_UI_SOURCE';
-  await page.getByLabel('출처', { exact: true }).fill('입주자대표회의');
+  await composer.getByLabel('출처', { exact: true }).fill('입주자대표회의');
   stage = 'ADMIN_UI_CATEGORY';
-  await page.getByLabel('분류', { exact: true }).fill('현장기록');
+  await composer.getByLabel('분류', { exact: true }).fill('현장기록');
   stage = 'ADMIN_UI_TITLE';
-  await page.getByLabel('소식 제목', { exact: true }).fill(title);
+  await composer.getByLabel('소식 제목', { exact: true }).fill(title);
   stage = 'ADMIN_UI_BODY';
-  await page.getByLabel('소식 본문', { exact: true }).fill(body);
-  await page.getByLabel('공식 채널', { exact: true }).selectOption('apartment_news');
-  await page.getByLabel('표시 방식', { exact: true }).selectOption('article');
-  await page.getByLabel('게시 상태', { exact: true }).selectOption('published');
-  await page.getByLabel('대표 사진', { exact: true }).setInputFiles(filePayload);
-  await page.getByText('선택됨 · 게시할 때 업로드됩니다.', { exact: true }).waitFor({ state: 'visible' });
+  await composer.getByLabel('소식 본문', { exact: true }).fill(body);
+  await composer.getByLabel('공식 채널', { exact: true }).selectOption('apartment_news');
+  await composer.getByLabel('표시 방식', { exact: true }).selectOption('article');
+  await composer.getByLabel('게시 상태', { exact: true }).selectOption('published');
+  await composer.getByLabel('대표 사진', { exact: true }).setInputFiles(filePayload);
+  await composer.getByText('선택됨 · 게시할 때 업로드됩니다.', { exact: true }).waitFor({ state: 'visible' });
   report('OFFICIAL_NEWS_PHOTO_PICKER');
   report('ARTICLE_MODE_SELECTED');
 
@@ -238,7 +239,7 @@ try {
 
   page.once('dialog', (dialog) => dialog.accept());
   mutationStarted = true;
-  await page.getByRole('button', { name: '새 소식 저장', exact: true }).click();
+  await composer.getByRole('button', { name: '새 소식 저장', exact: true }).click();
 
   stage = 'UPLOAD';
   const storageResponse = await storageResponsePromise;
