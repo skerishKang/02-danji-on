@@ -319,7 +319,7 @@ function handleSocialStart(request: Request, env: BetterAuthEnv): Response {
  * id, client secret, env value, credential length, or callback/internal config.
  * The provider set comes from the same source as Better Auth registration.
  * ----------------------------------------------------------------------------- */
-export const AUTH_CAPABILITY_PATH = '/auth/capabilities';
+export const AUTH_CAPABILITY_PATH = '/api/auth/capabilities';
 
 function handleAuthCapabilities(env: BetterAuthEnv): Response {
   return Response.json(

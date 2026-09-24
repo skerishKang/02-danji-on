@@ -7,7 +7,7 @@
  *   2. the COMPLETE-credential-pair rule (an id-only or secret-only
  *      configuration must never be advertised as available),
  *   3. Naver staying permanently absent from the UI capability list (#586),
- *   4. the GET /auth/capabilities endpoint shape, cache policy, and its
+ *   4. the GET /api/auth/capabilities endpoint shape, cache policy, and its
  *      guarantee that no credential material and no DB query ever leave it.
  *
  * Only fabricated 'fake-…' values are used; no secret is printed or logged.
@@ -81,8 +81,8 @@ assert.deepEqual(naverMixed, ['google'], 'a complete Naver pair must never leak 
 assert.equal(naverMixed.includes('naver'), false, 'naver must never appear in the UI capability list');
 console.log('NAVER_CONFIGURED_UI_BUTTON=NO=PASS');
 
-/* --- public GET /auth/capabilities endpoint --------------------------------- */
-assert.equal(AUTH_CAPABILITY_PATH, '/auth/capabilities', 'the capability route must stay stable');
+/* --- public GET /api/auth/capabilities endpoint --------------------------------- */
+assert.equal(AUTH_CAPABILITY_PATH, '/api/auth/capabilities', 'the capability route must stay stable');
 
 const outboundUrls = [];
 const originalFetch = globalThis.fetch;
@@ -101,11 +101,11 @@ try {
   });
 
   const capabilityResponse = await handleBetterAuthRequest(
-    new Request('https://x.test/auth/capabilities', { method: 'GET' }),
+    new Request('https://x.test/api/auth/capabilities', { method: 'GET' }),
     env
   );
-  assert.ok(capabilityResponse, 'GET /auth/capabilities must be handled by the auth facade');
-  assert.equal(capabilityResponse.status, 200, 'GET /auth/capabilities must return 200');
+  assert.ok(capabilityResponse, 'GET /api/auth/capabilities must be handled by the auth facade');
+  assert.equal(capabilityResponse.status, 200, 'GET /api/auth/capabilities must return 200');
   assert.equal(capabilityResponse.headers.get('cache-control'), 'no-store',
     'the capability response must never be cached');
 
@@ -127,10 +127,10 @@ try {
   // GET-only: the same path with another method must not be served by the
   // capability route (and, being outside /api/auth/, must fall through to null).
   const postResponse = await handleBetterAuthRequest(
-    new Request('https://x.test/auth/capabilities', { method: 'POST' }),
+    new Request('https://x.test/api/auth/capabilities', { method: 'POST' }),
     env
   );
-  assert.equal(postResponse, null, 'POST /auth/capabilities must not be handled by the capability route');
+  assert.equal(postResponse, null, 'POST /api/auth/capabilities must not be handled by the capability route');
 
   // The capability read must never touch the database or any outbound service.
   assert.deepEqual(outboundUrls, [], 'the capability route must perform zero outbound fetch (DB query 0)');

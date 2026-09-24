@@ -7,7 +7,7 @@ import { expect, test, type Page } from '@playwright/test';
  * available" branches explicitly instead of assuming a provider set.
  */
 async function stubSocialProviders(page: Page, providers: string[]): Promise<void> {
-  await page.route('**/auth/capabilities', (route) => route.fulfill({
+  await page.route('**/api/auth/capabilities', (route) => route.fulfill({
     status: 200,
     contentType: 'application/json',
     body: JSON.stringify({ data: { socialProviders: providers } })
@@ -50,7 +50,7 @@ test.describe('Current 04 React completion', () => {
     if (viewportWidth <= 768) return;
 
     await stubSocialProviders(page, []);
-    const capabilityRead = page.waitForResponse((response) => response.url().includes('/auth/capabilities'));
+    const capabilityRead = page.waitForResponse((response) => response.url().includes('/api/auth/capabilities'));
     await page.goto('/');
     await capabilityRead;
 

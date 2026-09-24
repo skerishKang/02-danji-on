@@ -23,7 +23,7 @@ import {
 /* --- A. behavioral normalizer -------------------------------------- */
 assert.deepEqual(UI_SOCIAL_PROVIDER_ORDER, ['kakao', 'google'],
   'product order must be kakao then google, never alphabetical');
-assert.equal(AUTH_CAPABILITY_PATH, '/auth/capabilities', 'capability route must stay stable');
+assert.equal(AUTH_CAPABILITY_PATH, '/api/auth/capabilities', 'capability route must stay stable');
 
 assert.deepEqual(normalizeUiSocialProviders(['google', 'evil', 'naver', 'google', null]), ['google'],
   'unknown, naver, duplicate, and null entries must all drop');

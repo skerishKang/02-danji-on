@@ -11,7 +11,7 @@
 export const UI_SOCIAL_PROVIDER_ORDER = Object.freeze(['kakao', 'google']);
 
 /** Canonical public runtime-capability route on the auth Worker. */
-export const AUTH_CAPABILITY_PATH = '/auth/capabilities';
+export const AUTH_CAPABILITY_PATH = '/api/auth/capabilities';
 
 /**
  * Fail-closed normalizer for `data.socialProviders`. Unknown names, wrong

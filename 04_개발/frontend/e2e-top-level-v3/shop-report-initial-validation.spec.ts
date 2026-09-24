@@ -7,7 +7,7 @@ import { test, expect, type Page } from '@playwright/test';
 // Real DOM/browser level coverage for invariants A-D (inactive-mode disabled,
 // etc-field gating, immediate deep-link use, stale-state-free tab transitions).
 
-const BASE = 'http://127.0.0.1:4174';
+const BASE = `http://127.0.0.1:${process.env.DANJION_E2E_PORT || '4174'}`;
 const PAGE_PATH = '/25A_' + encodeURIComponent('신청제보') + '.html';
 
 type Guard = {
