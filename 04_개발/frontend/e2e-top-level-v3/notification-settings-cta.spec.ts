@@ -56,8 +56,8 @@ test('#858 consistency.js keeps the 27 notification-settings side CTA at runtime
 });
 
 test('#858 primary .settings-link lands on 24_설정.html#notifications', async ({ page }) => {
-  await gotoPage(page, '27_알림함.html');
   await mockAuthenticatedSettingsSession(page);
+  await gotoPage(page, '27_알림함.html');
   await page.locator('.filter-bar .settings-link').click();
   await expect(page).toHaveURL(TARGET_URL);
   await expect(page.locator(SETTINGS_PANEL)).toBeVisible();
@@ -65,8 +65,8 @@ test('#858 primary .settings-link lands on 24_설정.html#notifications', async 
 });
 
 test('#858 side .side-action lands on 24_설정.html#notifications', async ({ page }) => {
-  await gotoPage(page, '27_알림함.html');
   await mockAuthenticatedSettingsSession(page);
+  await gotoPage(page, '27_알림함.html');
   await page.locator('.notice-layout > aside.side .side-action').click();
   await expect(page).toHaveURL(TARGET_URL);
   await expect(page.locator(SETTINGS_PANEL)).toBeVisible();
