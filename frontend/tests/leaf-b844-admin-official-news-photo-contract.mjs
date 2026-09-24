@@ -11,11 +11,13 @@ import { readFile } from 'node:fs/promises';
 import { resolveOfficialNewsImageUrl, OFFICIAL_NEWS_IMAGE_KEY } from '../assets/danjion-news-bridge.js';
 
 const root = new URL('../../', import.meta.url);
-const [adminApp, adminApi, storageTs, detail] = await Promise.all([
+const [adminApp, adminApi, storageTs, detail, staticAdmin, adminConsole] = await Promise.all([
   readFile(new URL('04_개발/frontend/src/AdminApp.tsx', root), 'utf8'),
   readFile(new URL('04_개발/frontend/src/admin-api.ts', root), 'utf8'),
   readFile(new URL('04_개발/frontend/src/storage.ts', root), 'utf8'),
-  readFile(new URL('frontend/08A_아파트소식_상세.html', root), 'utf8')
+  readFile(new URL('frontend/08A_아파트소식_상세.html', root), 'utf8'),
+  readFile(new URL('frontend/admin/index.html', root), 'utf8'),
+  readFile(new URL('frontend/assets/danjion-admin-console.js', root), 'utf8')
 ]);
 
 /* ---------------- BLOCKER 2: submit-time upload ---------------- */
@@ -62,6 +64,23 @@ assert.ok(adminApp.includes('value="apartment_news"') && adminApp.includes('valu
   'MANAGEMENT_OFFICE_SELECTABLE: both official channels are selectable');
 assert.ok(submitBlock.includes('channel: postChannel'),
   'the composer sends the channel explicitly with the create request');
+assert.ok(adminApp.includes("useState<'highlight' | 'article'>('highlight')"),
+  'DEFAULT_DISPLAY_MODE=highlight until an operator explicitly selects the long-form article lane');
+assert.ok(adminApp.includes('value="highlight"') && adminApp.includes('value="article"'),
+  'ARTICLE_MODE_SELECTABLE: the React admin authoring surface exposes both display modes');
+assert.ok(submitBlock.includes('displayMode: postDisplayMode'),
+  'the React composer sends the server-authoritative display mode explicitly');
+assert.ok(adminApi.includes("displayMode?: 'highlight' | 'article'"),
+  'admin-api preserves the bounded display mode on create');
+assert.ok(staticAdmin.includes("postDisplayModeSelect") &&
+  staticAdmin.includes("['article','상세 글 (아파트소식 상세)']"),
+  'the canonical static Production admin console exposes the article selector too');
+assert.ok(staticAdmin.includes('displayMode:fields.displayMode.value') &&
+  staticAdmin.includes('channel:fields.channel.value'),
+  'the static Production composer sends explicit channel + displayMode');
+assert.ok(adminConsole.includes("const POST_DISPLAY_MODES = Object.freeze(['highlight', 'article'])") &&
+  adminConsole.includes('POST_DISPLAY_MODES.includes(displayMode)'),
+  'the static admin bridge validates the same server-authoritative display-mode enum');
 assert.ok(adminApi.includes('channel?: string'),
   'admin-api createPost accepts an explicit channel');
 assert.ok(storageTs.includes("{ surface: 'admin' }") === false && adminApp.includes("{ surface: 'admin' }"),
@@ -92,6 +111,41 @@ assert.equal(submitBlock.indexOf("storageAdapter.upload('official-news-image'") 
   'the upload sits behind the reuse guard');
 assert.ok(submitBlock.includes('if (postImageFile || postImageKey) setPostImageError(detail)'),
   'a failed create keeps the uploaded object for the next attempt');
+
+/* ---------------- Production V3 static admin parity ---------------- */
+
+const staticComposerStart = staticAdmin.indexOf('function postComposer(');
+const staticEditStart = staticAdmin.indexOf('function postEditControls(', staticComposerStart);
+assert.ok(staticComposerStart > 0 && staticEditStart > staticComposerStart,
+  'Production V3 static admin composer must exist');
+const staticComposer = staticAdmin.slice(staticComposerStart, staticEditStart);
+assert.ok(staticComposer.includes("imageInput.type='file'") &&
+  staticComposer.includes("imageInput.accept='image/jpeg,image/png,image/webp'"),
+  'Production V3 exposes one bounded official-news image picker');
+assert.ok(staticComposer.includes("imageInput.setAttribute('aria-label','대표 사진')"),
+  'Production picker has a stable browser-acceptance label');
+assert.ok(staticComposer.includes("consoleApi.uploadOfficialNewsImage("),
+  'Production V3 submit path uses the dedicated official-news upload bridge');
+assert.ok(staticComposer.indexOf("consoleApi.uploadOfficialNewsImage(") >
+  staticComposer.indexOf("save.addEventListener('click'"),
+  'Production upload is submit-time only');
+assert.ok(staticComposer.includes('uploadedObjectKey=upload.objectKey') &&
+  staticComposer.includes('postPayload(fields,uploadedObjectKey)'),
+  'Production create submits only the server-issued key');
+assert.ok(staticComposer.includes('Preserve uploadedObjectKey on create failure'),
+  'Production create failure retains the key for retry instead of multiplying orphans');
+assert.ok(staticComposer.includes('consoleApi.deleteOfficialNewsImage('),
+  'Production remove/replace can retire an unreferenced uploaded object');
+assert.ok(adminConsole.includes('async function uploadOfficialNewsImage(') &&
+  adminConsole.includes("form.append('kind', 'official-news-image')") &&
+  adminConsole.includes("form.append('complexSlug', slug || COMPLEX_SLUG)") &&
+  adminConsole.includes("credentials: 'include'"),
+  'static bridge performs authenticated multipart official-news upload without the JSON request helper');
+assert.ok(adminConsole.includes('async function deleteOfficialNewsImage(') &&
+  adminConsole.includes("'/api/v1/storage/objects?objectKey='"),
+  'static bridge owns bounded cleanup of an unreferenced official-news object');
+assert.ok(!staticComposer.slice(0, staticComposer.indexOf("save.addEventListener('click'")).includes('uploadOfficialNewsImage('),
+  'select/remove before submit never uploads');
 
 /* ---------------- bridge helper (real function) ---------------- */
 

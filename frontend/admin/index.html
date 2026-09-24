@@ -261,15 +261,27 @@
       statuses.forEach((value)=>{const option=document.createElement('option');option.value=value;option.textContent=labels[value];option.selected=value===current;select.append(option)});
       return select;
     }
+    function postChannelSelect(current){
+      const select=document.createElement('select');select.setAttribute('aria-label','공식 채널');
+      [['apartment_news','입주자대표회의 소식'],['management_office','관리사무소 소식']].forEach(([value,label])=>{const option=document.createElement('option');option.value=value;option.textContent=label;option.selected=value===current;select.append(option)});
+      return select;
+    }
+    function postDisplayModeSelect(current){
+      const select=document.createElement('select');select.setAttribute('aria-label','표시 방식');
+      [['highlight','간단 소식 (팝업)'],['article','상세 글 (아파트소식 상세)']].forEach(([value,label])=>{const option=document.createElement('option');option.value=value;option.textContent=label;option.selected=value===current;select.append(option)});
+      return select;
+    }
     function postFields(row,includeArchived){
       const source=document.createElement('input');source.value=String(row?.source_name||row?.sourceName||'단지온 운영자');source.maxLength=80;source.setAttribute('aria-label','출처');
       const category=document.createElement('input');category.value=String(row?.category||'');category.maxLength=80;category.setAttribute('aria-label','분류');
       const title=document.createElement('input');title.value=String(row?.title||'');title.maxLength=200;title.setAttribute('aria-label','소식 제목');
       const body=document.createElement('textarea');body.value=String(row?.body||'');body.maxLength=10000;body.setAttribute('aria-label','소식 본문');
       const status=postStatusSelect(String(row?.status||'draft'),includeArchived);
-      return {source,category,title,body,status};
+      const channel=postChannelSelect(String(row?.channel||'apartment_news'));
+      const displayMode=postDisplayModeSelect(String(row?.display_mode||row?.displayMode||'highlight'));
+      return {source,category,title,body,status,channel,displayMode};
     }
-    function postPayload(fields){return {sourceName:fields.source.value,category:fields.category.value,title:fields.title.value,body:fields.body.value,status:fields.status.value}}
+    function postPayload(fields,attachmentObjectKey){return {sourceName:fields.source.value,category:fields.category.value,title:fields.title.value,body:fields.body.value,status:fields.status.value,channel:fields.channel.value,displayMode:fields.displayMode.value,...(attachmentObjectKey?{attachmentObjectKey}:{})}}
     function postErrorMessage(outcome){
       if(outcome.state==='scope-denied')return '현재 관리자 권한으로 단지소식을 변경할 수 없습니다.';
       if(outcome.state==='not-found')return '수정할 단지소식을 찾을 수 없습니다.';
@@ -285,23 +297,87 @@
         labeledField('분류',fields.category,false),
         labeledField('제목',fields.title,true),
         labeledField('본문',fields.body,true),
+        labeledField('공식 채널',fields.channel,false),
+        labeledField('표시 방식',fields.displayMode,false),
         labeledField('게시 상태',fields.status,false)
       );
       editor.append(grid);
     }
     function postComposer(panel,section,apiBase){
       const editor=el('section',undefined,'admin-post-editor create');editor.append(el('h3','새 단지소식 작성'));
-      const fields=postFields({status:'draft'},false);appendPostFields(editor,fields);
+      const fields=postFields({status:'draft',channel:'apartment_news',display_mode:'highlight'},false);appendPostFields(editor,fields);
+
+      // #844 Production V3: file selection is local-only. The R2 upload starts only
+      // from the explicit save action, and a failed post create keeps the returned
+      // object key so a retry never multiplies orphan objects.
+      let selectedFile=null,uploadedObjectKey=null,uploadIdempotencyKey=null,previewUrl=null;
+      const imageInput=document.createElement('input');imageInput.type='file';imageInput.accept='image/jpeg,image/png,image/webp';imageInput.setAttribute('aria-label','대표 사진');
+      const imageStatus=el('p','사진 없음','admin-post-status');imageStatus.setAttribute('aria-live','polite');
+      const preview=document.createElement('img');preview.alt='선택한 대표 사진 미리보기';preview.hidden=true;preview.style.maxWidth='100%';preview.style.height='auto';preview.style.borderRadius='10px';
+      const removeImage=el('button','사진 제거');removeImage.type='button';removeImage.hidden=true;
+      const imageWrap=el('div',undefined,'admin-field full');imageWrap.append(el('span','대표 사진 (JPG·PNG·WebP, 8MB 이하 1장)'),imageInput,preview,imageStatus,removeImage);
+      editor.append(imageWrap);
+
+      const releasePreview=()=>{if(previewUrl&&previewUrl.startsWith('blob:'))URL.revokeObjectURL(previewUrl);previewUrl=null;preview.removeAttribute('src');preview.hidden=true};
+      const localImageError=(file)=>{
+        if(!file)return '사진 파일을 선택해 주세요.';
+        if(file.size<=0)return '빈 파일은 업로드할 수 없습니다.';
+        if(file.size>8*1024*1024)return '사진은 8MB 이하만 업로드할 수 있습니다.';
+        if(!['image/jpeg','image/png','image/webp'].includes(file.type))return 'JPG·PNG·WebP 형식만 업로드할 수 있습니다.';
+        return '';
+      };
+      const resetSelection=()=>{releasePreview();selectedFile=null;uploadIdempotencyKey=null;imageInput.value='';removeImage.hidden=true;imageStatus.textContent='사진 없음';imageStatus.className='admin-post-status'};
+      const retireUploaded=async()=>{
+        if(!uploadedObjectKey)return true;
+        const result=await consoleApi.deleteOfficialNewsImage(fetch,apiBase,uploadedObjectKey);
+        if(result.state==='updated'){uploadedObjectKey=null;return true}
+        if(result.state==='signed-out'){showRestricted('signed-out');return false}
+        imageStatus.textContent='업로드한 사진을 정리하지 못했습니다'+(result.code?' · '+result.code:'')+'.';
+        imageStatus.className='admin-post-status error';return false;
+      };
+
+      imageInput.addEventListener('change',async()=>{
+        const file=imageInput.files&&imageInput.files[0]||null;
+        const error=localImageError(file);
+        if(error){imageStatus.textContent=error;imageStatus.className='admin-post-status error';imageInput.value='';return}
+        imageInput.disabled=true;removeImage.disabled=true;
+        if(uploadedObjectKey&&!(await retireUploaded())){imageInput.disabled=false;removeImage.disabled=false;return}
+        releasePreview();selectedFile=file;uploadIdempotencyKey='news-'+(globalThis.crypto&&crypto.randomUUID?crypto.randomUUID():Date.now().toString(36)+'-'+Math.random().toString(36).slice(2));
+        previewUrl=URL.createObjectURL(file);preview.src=previewUrl;preview.hidden=false;removeImage.hidden=false;
+        imageStatus.textContent='선택됨 · 게시할 때 업로드됩니다.';imageStatus.className='admin-post-status';
+        imageInput.disabled=false;removeImage.disabled=false;
+      });
+      removeImage.addEventListener('click',async()=>{
+        imageInput.disabled=true;removeImage.disabled=true;
+        if(uploadedObjectKey&&!(await retireUploaded())){imageInput.disabled=false;removeImage.disabled=false;return}
+        resetSelection();imageInput.disabled=false;removeImage.disabled=false;
+      });
+
       const actions=el('div',undefined,'admin-post-actions');
       const save=el('button','새 소식 저장');save.type='button';
       const live=el('p','', 'admin-post-status');live.setAttribute('aria-live','polite');
       save.addEventListener('click',async()=>{
         if(fields.status.value==='published'&&!window.confirm('작성한 단지소식을 바로 게시하시겠습니까?'))return;
-        save.disabled=true;live.className='admin-post-status';live.textContent='저장 중…';
-        const outcome=await consoleApi.createOfficialPost(fetch,apiBase,postPayload(fields));
-        if(outcome.state==='updated'){live.textContent='저장됐습니다. 최신 목록을 다시 불러옵니다.';await renderSection(panel,section,apiBase);return}
+        save.disabled=true;imageInput.disabled=true;removeImage.disabled=true;live.className='admin-post-status';
+        if(selectedFile&&!uploadedObjectKey){
+          live.textContent='대표 사진 업로드 중…';
+          const upload=await consoleApi.uploadOfficialNewsImage(fetch,apiBase,selectedFile,uploadIdempotencyKey);
+          if(upload.state!=='updated'){
+            if(upload.state==='signed-out'){showRestricted('signed-out');return}
+            live.textContent='사진 업로드에 실패했습니다'+(upload.code?' · '+upload.code:'')+'.';
+            live.className='admin-post-status error';save.disabled=false;imageInput.disabled=false;removeImage.disabled=false;return;
+          }
+          uploadedObjectKey=upload.objectKey;imageStatus.textContent='업로드 완료 · 게시 저장 대기';imageStatus.className='admin-post-status';
+        }
+        live.textContent='저장 중…';
+        const outcome=await consoleApi.createOfficialPost(fetch,apiBase,postPayload(fields,uploadedObjectKey));
+        if(outcome.state==='updated'){
+          live.textContent='저장됐습니다. 최신 목록을 다시 불러옵니다.';
+          uploadedObjectKey=null;releasePreview();await renderSection(panel,section,apiBase);return
+        }
         if(outcome.state==='signed-out'){showRestricted('signed-out');return}
-        live.textContent=postErrorMessage(outcome);live.className='admin-post-status error';save.disabled=false;
+        // Preserve uploadedObjectKey on create failure: retry uses the same R2 object.
+        live.textContent=postErrorMessage(outcome);live.className='admin-post-status error';save.disabled=false;imageInput.disabled=false;removeImage.disabled=false;
       });
       actions.append(save,live);editor.append(actions);return editor;
     }

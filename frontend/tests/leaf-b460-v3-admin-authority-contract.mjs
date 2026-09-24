@@ -277,7 +277,8 @@ const loadAdminContext = (location) => {
     category: '생활소식',
     title: '엘리베이터 점검 안내',
     body: '점검 일정을 안내드립니다.',
-    status: 'draft'
+    status: 'draft',
+    displayMode: 'highlight'
   });
   assert.equal(created.state, 'updated');
   assert.equal(postCalls[0].init.method, 'POST');
@@ -287,7 +288,8 @@ const loadAdminContext = (location) => {
     category: '생활소식',
     title: '엘리베이터 점검 안내',
     body: '점검 일정을 안내드립니다.',
-    status: 'draft'
+    status: 'draft',
+    displayMode: 'highlight'
   });
 
   const updated = await C.updateOfficialPost(
@@ -424,8 +426,8 @@ const loadAdminContext = (location) => {
     'official-news section must expose the bounded create surface');
   assert.ok(adminPage.includes("postEditControls(row,panel,section,apiBase)"),
     'official-news rows must expose bounded edit/status controls');
-  assert.ok(adminPage.includes("createOfficialPost(fetch,apiBase,postPayload(fields))"),
-    'page must delegate post creation to the reviewed console bridge');
+  assert.ok(adminPage.includes("createOfficialPost(fetch,apiBase,postPayload(fields,uploadedObjectKey))"),
+    'page must delegate post creation to the reviewed console bridge with only the server-issued optional attachment key');
   assert.ok(adminPage.includes("updateOfficialPost(fetch,apiBase,row.id,postPayload(fields))"),
     'page must delegate post edits to the reviewed console bridge');
   assert.ok(adminPage.includes("benefitComposer(panel,section,apiBase)"),
@@ -457,10 +459,14 @@ const loadAdminContext = (location) => {
   }
   assert.equal((consoleSrc.match(/method\s*:\s*'PATCH'/g) || []).length, 6,
     'the console bridge may own only application-review, resident-news review, official-news, benefit, household-membership review, and unit-master PATCH transports');
-  assert.equal((consoleSrc.match(/method\s*:\s*'POST'/g) || []).length, 5,
-    'the console bridge may own only official-news, benefit, household-code create, household-message dry-run preview, and unit-master create POST transports');
-  assert.equal((consoleSrc.match(/method\s*:\s*'DELETE'/g) || []).length, 1,
-    'the console bridge may own only household-code revoke DELETE transport');
+  assert.equal((consoleSrc.match(/method\s*:\s*'POST'/g) || []).length, 6,
+    'the console bridge may own only official-news post, official-news image upload, benefit, household-code create, household-message dry-run preview, and unit-master create POST transports');
+  assert.equal((consoleSrc.match(/method\s*:\s*'DELETE'/g) || []).length, 2,
+    'the console bridge may own only official-news image retirement and household-code revoke DELETE transports');
+  assert.ok(consoleSrc.includes("'/api/v1/storage/objects'") && consoleSrc.includes("form.append('kind', 'official-news-image')"),
+    'the additional POST transport is the bounded official-news multipart upload');
+  assert.ok(consoleSrc.includes("'/api/v1/storage/objects?objectKey='") && consoleSrc.includes('deleteOfficialNewsImage'),
+    'the additional DELETE transport is the bounded official-news image retirement');
   assert.ok(consoleSrc.includes(" + '/unit-master'"),
     'unit-master create must use the admin complex unit-master family');
   assert.ok(consoleSrc.includes("'/api/v1/admin/complex-units/'"),

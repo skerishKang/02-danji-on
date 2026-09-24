@@ -686,7 +686,8 @@ test('#609 admin official-news creates a draft then publishes it through the exi
         id: postId,
         source_name: body.sourceName,
         category: body.category,
-        channel: 'danjion_notice',
+        channel: body.channel,
+        display_mode: body.displayMode,
         title: body.title,
         body: body.body,
         status: body.status,
@@ -704,7 +705,7 @@ test('#609 admin official-news creates a draft then publishes it through the exi
     if (url.pathname === '/api/v1/admin/posts/' + postId && method === 'PATCH') {
       const body = JSON.parse(request.postData() || '{}');
       patchBodies.push(body);
-      rows = [{ ...rows[0], source_name: body.sourceName, category: body.category, title: body.title, body: body.body, status: body.status }];
+      rows = [{ ...rows[0], source_name: body.sourceName, category: body.category, title: body.title, body: body.body, status: body.status, channel: body.channel, display_mode: body.displayMode }];
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -750,7 +751,9 @@ test('#609 admin official-news creates a draft then publishes it through the exi
     category: '생활소식',
     title: '엘리베이터 점검 안내',
     body: '오후 2시부터 엘리베이터 정기점검을 진행합니다.',
-    status: 'draft'
+    status: 'draft',
+    channel: 'apartment_news',
+    displayMode: 'highlight'
   });
 
   const card = page.locator('.admin-card').filter({ hasText: '엘리베이터 점검 안내' });
