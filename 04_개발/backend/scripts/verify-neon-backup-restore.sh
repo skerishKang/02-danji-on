@@ -6,6 +6,7 @@ umask 077
 : "${DANJION_DRIVE_RCLONE_CONFIG:?required}"
 : "${DANJION_DRIVE_FOLDER_ID:?required}"
 : "${DANJION_RESTORE_DRILL_DB_URL:?required}"
+: "${DANJION_RESTORE_APPROVED_TARGET_SHA256:?required}"
 : "${DANJION_RESTORE_BACKUP_FILENAME:?required}"
 
 POSTGRES_IMAGE="postgres:18"
@@ -37,6 +38,13 @@ for marker in "${FORBIDDEN_TARGET_MARKERS[@]}"; do
     fail "drill target resolves to a forbidden Production or shared-QA project"
   fi
 done
+
+# A Neon connection URL normally contains an endpoint hostname, not the
+# provider project ID. Require the owner-approved, credential-redacted target
+# fingerprint before any Drive, plaintext, or database operation begins.
+if ! node 04_개발/backend/scripts/verify-restore-target-identity.mjs; then
+  fail "drill target identity is not approved"
+fi
 
 tmpdir="$(mktemp -d)"
 rclone_config="${tmpdir}/rclone.conf"
