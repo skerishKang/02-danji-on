@@ -473,6 +473,14 @@ document.addEventListener('click', event => {
 
 dialog.querySelectorAll('[data-close-story]').forEach(button => button.addEventListener('click', () => dialog.close()));
 dialog.addEventListener('click', event => { if (event.target === dialog && !window.matchMedia('(max-width:760px)').matches) dialog.close(); });
+// Mobile uses non-modal dialog.show(), so native <dialog> cancel/Escape does not
+// close it. Preserve the established #638 Escape-close contract only on this
+// mobile branch; desktop showModal() keeps the browser's native cancel behavior.
+document.addEventListener('keydown', event => {
+  if (event.key !== 'Escape' || !dialog.open || !window.matchMedia('(max-width:760px)').matches) return;
+  event.preventDefault();
+  dialog.close();
+});
 // Closing the reader (button, Escape, backdrop or back) drops ?post= so a shared
 // link and the address bar always describe the screen that is actually open.
 dialog.addEventListener('close', clearPostUrl);
