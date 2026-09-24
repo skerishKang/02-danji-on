@@ -1,6 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
 
-const BASE = 'http://127.0.0.1:4174';
+const BASE = `http://127.0.0.1:${process.env.DANJION_E2E_PORT || '4174'}`;
 const COMPLEX = 'banglim-myeongji-roadhill';
 const BUSINESSES = [
   {

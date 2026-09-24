@@ -40,6 +40,7 @@
         {"id":"test:operational-authz-v2","npm":"test:operational-authz-v2","kind":"contract"},
         {"id":"test:admin-operational-rbac","npm":"test:admin-operational-rbac","kind":"contract"},
         {"id":"test:resident-profile-label-983","npm":"test:resident-profile-label-983","kind":"contract"},
+        {"id":"test:admin-auth-before-resource-lookup-975","npm":"test:admin-auth-before-resource-lookup-975","kind":"contract"},
         {"id":"test:benefit-null-time-range-patch","npm":"test:benefit-null-time-range-patch","kind":"contract"},
         {"id":"test:padiem-authority","npm":"test:padiem-authority","kind":"contract"},
         {"id":"test:admin-authority-contract","npm":"test:admin-authority-contract","kind":"contract"},
@@ -192,6 +193,7 @@
         {"id":"test:leaf-b788-visual-syntax-integrity","npm":"test:leaf-b788-visual-syntax-integrity","kind":"contract"},
         {"id":"test:leaf-b858-notification-settings-route","npm":"test:leaf-b858-notification-settings-route","kind":"contract"},
         {"id":"test:leaf-982-settings-signed-out-gate","npm":"test:leaf-982-settings-signed-out-gate","kind":"contract"},
+        {"id":"test:leaf-981-community-reply-mobile-a11y","npm":"test:leaf-981-community-reply-mobile-a11y","kind":"contract"},
         {"id":"test:leaf-b976-neighbor-modal-xss","npm":"test:leaf-b976-neighbor-modal-xss","kind":"contract"}
       ]
     }
