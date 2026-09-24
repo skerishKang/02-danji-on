@@ -10,7 +10,8 @@ import { test, expect, type Page } from '@playwright/test';
 //
 // This is the runtime contract: consistency.js runs, the CTA-carrying side panel
 // survives, and clicking either CTA lands on the canonical settings target with the
-// #notifications panel actually on screen.
+// #notifications panel actually on screen. Issue #982 now gates the Settings shell,
+// so the navigation tests provide a valid shared-session response before clicking.
 
 const TARGET_URL = /\/24_[^/]*\.html#notifications$/;
 const SETTINGS_PANEL = 'article#notifications';
@@ -20,6 +21,19 @@ async function gotoPage(page: Page, file: string): Promise<string[]> {
   page.on('pageerror', error => pageErrors.push(error.message));
   await page.goto('/' + encodeURI(file), { waitUntil: 'load' });
   return pageErrors;
+}
+
+async function mockAuthenticatedSettingsSession(page: Page): Promise<void> {
+  await page.route('**/api/auth/get-session', async route => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        session: { id: 'e2e-settings-session' },
+        user: { id: 'e2e-settings-user' },
+      }),
+    });
+  });
 }
 
 test('#858 consistency.js keeps the 27 notification-settings side CTA at runtime', async ({ page }) => {
@@ -37,6 +51,7 @@ test('#858 consistency.js keeps the 27 notification-settings side CTA at runtime
 
 test('#858 primary .settings-link lands on 24_설정.html#notifications', async ({ page }) => {
   await gotoPage(page, '27_알림함.html');
+  await mockAuthenticatedSettingsSession(page);
   await page.locator('.filter-bar .settings-link').click();
   await expect(page).toHaveURL(TARGET_URL);
   await expect(page.locator(SETTINGS_PANEL)).toBeVisible();
@@ -45,6 +60,7 @@ test('#858 primary .settings-link lands on 24_설정.html#notifications', async 
 
 test('#858 side .side-action lands on 24_설정.html#notifications', async ({ page }) => {
   await gotoPage(page, '27_알림함.html');
+  await mockAuthenticatedSettingsSession(page);
   await page.locator('.notice-layout > aside.side .side-action').click();
   await expect(page).toHaveURL(TARGET_URL);
   await expect(page.locator(SETTINGS_PANEL)).toBeVisible();
