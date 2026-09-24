@@ -124,6 +124,7 @@ const write = {
   title: '동시성 검증',
   body: '본문',
   channel: 'apartment_news',
+  displayMode: 'article',
   status: 'published',
   publishedAt: null
 };
@@ -143,6 +144,13 @@ assert.deepEqual(deleteWins.events, ['lock-missed-write-skipped']);
 // The patch lane shares the same locked shape and the same zero-row conflict signal.
 assert.equal((await updateOfficialNewsPostWithAttachment(makeAttachSql({ attachable: true }).sql, 'post-1', write)).length, 1);
 assert.equal((await updateOfficialNewsPostWithAttachment(makeAttachSql({ attachable: false }).sql, 'post-1', write)).length, 0);
+
+assert.ok(attachSource.includes('display_mode'),
+  'official-news attachment writes must persist the server-authoritative display mode');
+assert.ok(attachSource.includes('${write.displayMode}'),
+  'the attachment transaction must bind the requested display mode');
+assert.ok(adminOperational.includes("!['highlight','article'].includes(displayMode)"),
+  'admin create/patch must bound display mode to highlight|article');
 
 // IMPOSSIBLE_REFERENCE_PLUS_NONACTIVE_STATE: the lock CTE can only ever match an active row, so
 // a delete_pending/upload_pending object can never be attached even if the preliminary validator
