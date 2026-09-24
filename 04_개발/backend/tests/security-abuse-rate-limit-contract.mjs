@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
 const root = new URL('../', import.meta.url);
-const [auth, authSchema, limiter, migration, app, community, household, economy] = await Promise.all([
+const [auth, authSchema, limiter, migration, app, community, household, economy, wranglerRaw] = await Promise.all([
   readFile(new URL('src/auth-better-v1.ts', root), 'utf8'),
   readFile(new URL('src/auth-better-schema.ts', root), 'utf8'),
   readFile(new URL('src/product-rate-limit-v1.ts', root), 'utf8'),
@@ -10,8 +10,10 @@ const [auth, authSchema, limiter, migration, app, community, household, economy]
   readFile(new URL('src/app.ts', root), 'utf8'),
   readFile(new URL('src/community-resident-v1.ts', root), 'utf8'),
   readFile(new URL('src/household-family-v2.ts', root), 'utf8'),
-  readFile(new URL('src/resident-economy-v2.ts', root), 'utf8')
+  readFile(new URL('src/resident-economy-v2.ts', root), 'utf8'),
+  readFile(new URL('wrangler.jsonc', root), 'utf8')
 ]);
+const wrangler = JSON.parse(wranglerRaw);
 
 // Better Auth keeps its built-in global/sensitive endpoint policy while moving
 // serverless state to its own danjion_auth database model.
@@ -48,6 +50,19 @@ assert.match(limiter, /on conflict \(actor_user_id, action, window_start\)[\s\S]
 assert.match(limiter, /status:\s*429/);
 assert.match(limiter, /'retry-after':\s*String\(retryAfter\)/);
 assert.match(limiter, /RATE_LIMIT_PASS != AUTHORIZATION_PASS/);
+assert.match(limiter, /PRODUCT_MUTATION_RATE_LIMIT_MODE/, 
+  'development suspension must stay an explicit environment switch, never delete the limiter');
+assert.match(limiter, /!== 'disabled'/,
+  'missing or unknown mode must fail safe to rate-limit enforcement');
+for (const [label, vars] of [
+  ['development', wrangler.vars],
+  ['preview', wrangler.env.preview.vars],
+  ['qa', wrangler.env.qa.vars],
+  ['production', wrangler.env.production.vars]
+]) {
+  assert.equal(vars.PRODUCT_MUTATION_RATE_LIMIT_MODE, 'disabled',
+    `${label} must explicitly suspend product mutation throttling during active development`);
+}
 
 const expectedPolicies = [
   ["community_post_create", 5, '10 * 60'],
