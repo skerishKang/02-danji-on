@@ -8,6 +8,7 @@ on:
       - '04_개발/frontend/tests/production-apartment-news-image-acceptance-contract.mjs'
       - 'frontend/admin/index.html'
       - 'frontend/assets/danjion-admin-console.js'
+      - 'frontend/assets/danjion-admin-official-news-storage.js'
       - 'frontend/08A_아파트소식_상세.html'
       - '04_개발/backend/src/admin-operational-v2.ts'
       - '04_개발/backend/src/official-news-attachment-v1.ts'
