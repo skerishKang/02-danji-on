@@ -137,3 +137,11 @@ for (const forbiddenLog of [
 ]) assert.ok(!script.includes(forbiddenLog), `script must not emit ${forbiddenLog}`);
 
 console.log('production-apartment-news-image-acceptance-contract: PASS');
+
+// Live harness must target the actual accessible names exposed by the deployed V3 admin controls.
+assert.ok(admin.includes("title.setAttribute('aria-label','소식 제목')"));
+assert.ok(admin.includes("body.setAttribute('aria-label','소식 본문')"));
+assert.ok(script.includes("getByLabel('소식 제목', { exact: true })"));
+assert.ok(script.includes("getByLabel('소식 본문', { exact: true })"));
+assert.ok(!script.includes("getByLabel('제목', { exact: true }).fill(title)"));
+assert.ok(!script.includes("getByLabel('본문', { exact: true }).fill(body)"));

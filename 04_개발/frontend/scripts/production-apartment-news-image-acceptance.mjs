@@ -195,10 +195,14 @@ try {
   const title = `#844 Production image E2E ${suffix}`;
   const body = `#844 bounded Production acceptance ${suffix}\n이미지 게시·공개 렌더·텍스트 전용 회귀를 확인합니다.`;
 
+  stage = 'ADMIN_UI_SOURCE';
   await page.getByLabel('출처', { exact: true }).fill('입주자대표회의');
+  stage = 'ADMIN_UI_CATEGORY';
   await page.getByLabel('분류', { exact: true }).fill('현장기록');
-  await page.getByLabel('제목', { exact: true }).fill(title);
-  await page.getByLabel('본문', { exact: true }).fill(body);
+  stage = 'ADMIN_UI_TITLE';
+  await page.getByLabel('소식 제목', { exact: true }).fill(title);
+  stage = 'ADMIN_UI_BODY';
+  await page.getByLabel('소식 본문', { exact: true }).fill(body);
   await page.getByLabel('공식 채널', { exact: true }).selectOption('apartment_news');
   await page.getByLabel('표시 방식', { exact: true }).selectOption('article');
   await page.getByLabel('게시 상태', { exact: true }).selectOption('published');
