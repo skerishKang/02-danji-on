@@ -77,7 +77,8 @@
     "test:leaf-b788-visual-syntax-integrity": "node tests/leaf-b788-visual-syntax-integrity-contract.mjs",
     "test:leaf-b858-notification-settings-route": "node ../../frontend/tests/leaf-b858-notification-settings-route-contract.mjs",
     "test:e2e": "playwright test",
-    "test:e2e:headed": "playwright test --headed"
+    "test:e2e:headed": "playwright test --headed",
+    "test:leaf-b976-neighbor-modal-xss": "node tests/leaf-b976-neighbor-modal-xss-contract.mjs"
   },
   "dependencies": {
     "better-auth": "1.7.1",

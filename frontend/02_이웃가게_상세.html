@@ -721,19 +721,26 @@
  if(!layer||!body||!title)return;
  const close=()=>{layer.classList.remove('open');layer.setAttribute('aria-hidden','true');document.body.style.overflow=''};
   const shopName=()=>{const node=document.querySelector('.hero-copy h1');const raw=node?(node.innerText||node.textContent||''):'';return raw.replace(/\s+/g,' ').trim()||'이웃가게'};
- const open=(kind)=>{
-   title.textContent=kind==='review'?'후기쓰기':'1:1 문의하기';
+ // #976: Keep the stored business name out of the HTML template. The heading is
+ // populated through textContent after the fixed modal markup is installed.
+ const renderForm=(kind,name)=>{
    if(kind==='review'){
-     body.innerHTML=`<span class="shop-form-kicker">RESIDENT REVIEW</span><h3>${shopName()} 후기를 남겨주세요.</h3><p>직접 이용한 경험을 다른 주민과 나눠주세요.</p>
+     body.innerHTML=`<span class="shop-form-kicker">RESIDENT REVIEW</span><h3 data-shop-name></h3><p>직접 이용한 경험을 다른 주민과 나눠주세요.</p>
      <form id="shopReviewForm"><label for="reviewScore">만족도</label><select id="reviewScore" required><option value="">선택해 주세요</option><option value="5">매우 만족</option><option value="4">만족</option><option value="3">보통</option><option value="2">아쉬움</option><option value="1">불만족</option></select>
      <label for="reviewText">후기</label><textarea id="reviewText" maxlength="700" required placeholder="이용한 서비스와 좋았던 점, 참고할 점을 적어주세요."></textarea>
      <div class="shop-form-actions"><button type="button" data-sheet-close>취소</button><button class="primary" type="submit">후기 등록</button></div></form>`;
    }else{
-     body.innerHTML=`<span class="shop-form-kicker">SHOP MESSAGE</span><h3>${shopName()}에 문의하세요.</h3><p>예약, 가격, 이용 가능 시간처럼 궁금한 내용을 바로 보낼 수 있습니다.</p>
+     body.innerHTML=`<span class="shop-form-kicker">SHOP MESSAGE</span><h3 data-shop-name></h3><p>예약, 가격, 이용 가능 시간처럼 궁금한 내용을 바로 보낼 수 있습니다.</p>
      <form id="shopInquiryForm"><label for="shopInquirySubject">문의 제목</label><input id="shopInquirySubject" maxlength="60" required placeholder="예: 토요일 오후 예약 가능한가요?"/>
      <label for="shopInquiryText">문의 내용</label><textarea id="shopInquiryText" maxlength="1000" required placeholder="가게에 전달할 내용을 적어주세요."></textarea>
      <div class="shop-form-actions"><button type="button" data-sheet-close>취소</button><button class="primary" type="submit">문의 보내기</button></div></form>`;
    }
+   const nameNode=body.querySelector('[data-shop-name]');
+   if(nameNode) nameNode.textContent=kind==='review'?`${name} 후기를 남겨주세요.`:`${name}에 문의하세요.`;
+ };
+ const open=(kind)=>{
+   title.textContent=kind==='review'?'후기쓰기':'1:1 문의하기';
+   renderForm(kind,shopName());
    layer.classList.add('open');layer.setAttribute('aria-hidden','false');document.body.style.overflow='hidden';
    body.querySelector('[data-sheet-close]')?.addEventListener('click',close);
     body.querySelector('form')?.addEventListener('submit',async e=>{
