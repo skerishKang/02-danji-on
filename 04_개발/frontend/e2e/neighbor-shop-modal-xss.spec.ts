@@ -1,3 +1,6 @@
+import { existsSync, readFileSync, statSync } from 'node:fs';
+import { extname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { expect, test } from '@playwright/test';
 
 const maliciousNames = [
@@ -7,6 +10,18 @@ const maliciousNames = [
   '&lt;img src=x onerror="window.__shopModalXss=true"&gt;',
   '&amp;lt;svg onload="window.__shopModalXss=true"&amp;gt;',
 ];
+
+const staticRoot = resolve(fileURLToPath(new URL('../../../frontend/', import.meta.url)));
+const contentTypes: Record<string, string> = {
+  '.html': 'text/html; charset=utf-8',
+  '.js': 'text/javascript; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.json': 'application/json',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.svg': 'image/svg+xml',
+};
 
 test('neighbor shop detail modal XSS boundary renders business names as text without executable descendants', async ({ page }) => {
     const pageErrors: string[] = [];
@@ -19,6 +34,20 @@ test('neighbor shop detail modal XSS boundary renders business names as text wit
     page.on('console', (message) => {
       if (message.type() === 'error') consoleErrors.push(message.text());
     });
+    await page.route('http://127.0.0.1:4173/**', (route) => {
+      const requestUrl = new URL(route.request().url());
+      if (requestUrl.pathname.startsWith('/api/')) return route.continue();
+      const relativePath = decodeURIComponent(requestUrl.pathname).replace(/^\/+/, '') || 'index.html';
+      const filePath = resolve(staticRoot, relativePath);
+      if (!filePath.startsWith(staticRoot) || !existsSync(filePath) || !statSync(filePath).isFile()) {
+        return route.fulfill({ status: 404, contentType: 'text/plain; charset=utf-8', body: 'not found' });
+      }
+      return route.fulfill({
+        status: 200,
+        contentType: contentTypes[extname(filePath).toLowerCase()] || 'application/octet-stream',
+        body: readFileSync(filePath),
+      });
+    });
     await page.route('**/api/auth/get-session', (route) => route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -27,7 +56,7 @@ test('neighbor shop detail modal XSS boundary renders business names as text wit
 
     // The canonical page is the top-level frontend static surface, not the
     // separate Vite app root used by the default e2e web server.
-    const detailUrl = new URL('../../../frontend/02_이웃가게_상세.html', import.meta.url).href;
+    const detailUrl = 'http://127.0.0.1:4173/02_이웃가게_상세.html';
     await page.goto(`${detailUrl}?shop=florist#reviews`);
     await expect(page.locator('[data-tab="reviews"]')).toBeVisible();
     await page.locator('[data-tab="reviews"]').click();
