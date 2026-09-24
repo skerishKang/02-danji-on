@@ -59,9 +59,10 @@ for (const needle of [
   "select.setAttribute('aria-label','소식 채널')",
   "select.setAttribute('aria-label','표시 방식')",
   "['highlight','목록 강조'],['article','상세 글']",
-  "channel:fields.channel.value",
-  "displayMode:fields.displayMode.value",
-  "attachmentObjectKey:fields.image.preparedKey",
+  "const payload={sourceName:fields.source.value,category:fields.category.value,title:fields.title.value,body:fields.body.value,status:fields.status.value}",
+  "if(channelChanged||displayModeChanged||attachmentChanged)payload.channel=fields.channel.value",
+  "if(displayModeChanged)payload.displayMode=fields.displayMode.value",
+  "if(attachmentChanged)payload.attachmentObjectKey=image.removeExisting?null:(image.preparedKey??image.uploadedKey??null)",
   "postFields({status:'draft',channel:'apartment_news',display_mode:'highlight',source_name:'입주자대표회의'}",
   "isPhotoChannel(value){return value==='apartment_news'||value==='management_office'}",
   "createOfficialPost(fetch,apiBase,postPayload(fields))",
@@ -85,6 +86,14 @@ assert.equal(admin.includes('object_key'), false,
 assert.equal(admin.includes("status.textContent=image.uploadedKey"), false);
 assert.equal(admin.includes("textContent=objectKey"), false);
 
+// Legacy no-photo/no-mode-change submissions must stay byte-contract compatible
+// with #609: the new fields are only emitted when the operator actually opts in.
+assert.ok(admin.includes("const attachmentChanged=image.removeExisting||!!image.file||!!image.uploadedKey"));
+assert.ok(admin.includes("const channelChanged=fields.channel.value!==fields.originalChannel"));
+assert.ok(admin.includes("const displayModeChanged=fields.displayMode.value!==fields.originalDisplayMode"));
+assert.equal(admin.includes("return {sourceName:fields.source.value,category:fields.category.value,title:fields.title.value,body:fields.body.value,status:fields.status.value,channel:"), false,
+  'legacy composer must not unconditionally append #844 fields');
+
 console.log('CANONICAL_PRODUCTION_ADMIN_SOURCE=frontend/admin/index.html');
 console.log('OFFICIAL_NEWS_PHOTO_PICKER=PASS');
 console.log('OFFICIAL_NEWS_UPLOAD_ON_SUBMIT_ONLY=PASS');
@@ -92,4 +101,5 @@ console.log('OFFICIAL_NEWS_STORAGE_BRIDGE=PASS');
 console.log('OFFICIAL_NEWS_CHANNEL_EXPLICIT=PASS');
 console.log('OFFICIAL_NEWS_ATTACHMENT_PAYLOAD_PRESERVED=PASS');
 console.log('OFFICIAL_NEWS_DISPLAY_MODE_EXPLICIT=PASS');
+console.log('LEGACY_NO_PHOTO_PAYLOAD_COMPAT=PASS');
 console.log('leaf-b844-production-v3-admin-photo-parity-contract: PASS');
