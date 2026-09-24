@@ -7,6 +7,9 @@
   const MAX_BODY_CHARS = 10000;
   const MAX_COMMENT_CHARS = 300;
   const MAX_CATEGORY_CHARS = 40;
+  const MAX_REPORT_DETAIL_CHARS = 1000;
+  const REPORT_TARGET_TYPES = Object.freeze(['post', 'comment']);
+  const REPORT_REASONS = Object.freeze(['abuse', 'threat', 'privacy', 'defamation_risk', 'spam', 'other']);
   // Canonical per-kind 말머리 allowlist (#767). Mirrors the server-authoritative
   // list in 04_개발/backend/src/community-resident-v1.ts; the bridge never invents
   // a category the server would reject. Kinds absent here can never send one.
@@ -19,6 +22,10 @@
   function normalizeAuthor(raw) {
     const author = raw && typeof raw === 'object' ? raw : {};
     return { nickname: String(author.nickname ?? '') };
+  }
+
+  function trimmedString(value) {
+    return typeof value === 'string' ? value.trim() : '';
   }
 
   function normalizePost(raw) {
@@ -38,6 +45,9 @@
       reactionCount: Number.isFinite(reactions) && reactions > 0 ? Math.floor(reactions) : 0,
       commentCount: Number.isFinite(comments) && comments > 0 ? Math.floor(comments) : 0,
       viewerLiked: raw.viewerLiked === true,
+      viewerCanEdit: raw.viewerCanEdit === true,
+      viewerCanDelete: raw.viewerCanDelete === true,
+      viewerCanReport: raw.viewerCanReport === true,
       publishedAt: raw.publishedAt ?? null,
       createdAt: raw.createdAt ?? null,
       updatedAt: raw.updatedAt ?? null
@@ -52,6 +62,8 @@
       body: String(raw.body ?? ''),
       status: String(raw.status || ''),
       author: normalizeAuthor(raw.author),
+      viewerCanDelete: raw.viewerCanDelete === true,
+      viewerCanReport: raw.viewerCanReport === true,
       publishedAt: raw.publishedAt ?? null,
       createdAt: raw.createdAt ?? null,
       updatedAt: raw.updatedAt ?? null
@@ -64,6 +76,14 @@
     return {
       ...base,
       parentCommentId: String(raw.parentCommentId || '')
+    };
+  }
+
+  function pageMetadata(result) {
+    const source = result && result.raw && typeof result.raw === 'object' ? result.raw : result || {};
+    return {
+      nextCursor: typeof source.nextCursor === 'string' && source.nextCursor ? source.nextCursor : null,
+      hasMore: source.hasMore === true
     };
   }
 
@@ -80,6 +100,24 @@
     if (!result || result.reason !== 'auth-required') return {};
     const authBridge = typeof result.authBridge === 'string' ? result.authBridge : null;
     return authBridge ? { authBridge } : {};
+  }
+
+  function normalizeDeleted(raw, fallbackId) {
+    const data = raw && typeof raw === 'object' ? raw : {};
+    return {
+      id: String(data.id || fallbackId),
+      status: String(data.status || '')
+    };
+  }
+
+  function normalizeReport(raw) {
+    const data = raw && typeof raw === 'object' ? raw : {};
+    const createdAt = data.createdAt == null ? null : String(data.createdAt);
+    return {
+      id: data.id == null ? null : String(data.id),
+      status: String(data.status || ''),
+      createdAt
+    };
   }
 
   // Canonical apiBase/session semantics come from DanjionSession (#324).
@@ -107,21 +145,28 @@
       return { id, valid: UUID.test(id) };
     }
 
+    function commentPath(commentId) {
+      const id = String(commentId || '').toLowerCase();
+      return { id, valid: UUID.test(id) };
+    }
+
     return {
       async listPosts(kind, options = {}) {
         const topic = kind == null ? null : String(kind);
         if (topic !== null && !POST_KINDS.includes(topic)) {
-          return { mode: 'client', error: 'POST_KIND_INVALID', posts: [] };
+          return { mode: 'client', error: 'POST_KIND_INVALID', posts: [], nextCursor: null, hasMore: false };
         }
-        if (!serverOnly()) return { mode: 'static', posts: [] };
+        if (!serverOnly()) return { mode: 'static', posts: [], nextCursor: null, hasMore: false };
         const params = new URLSearchParams();
         if (topic) params.set('kind', topic);
         const limit = Number(options.limit);
         params.set('limit', String(Number.isInteger(limit) && limit >= 1 && limit <= 50 ? limit : 20));
+        const cursor = trimmedString(options.cursor);
+        if (cursor) params.set('cursor', cursor);
         const result = await request(`${base}/posts?${params.toString()}`);
-        if (!result.ok) return { mode: failureMode(result), status: result.status, error: result.error, ...failureDetail(result), posts: [] };
+        if (!result.ok) return { mode: failureMode(result), status: result.status, error: result.error, ...failureDetail(result), posts: [], nextCursor: null, hasMore: false };
         const rows = Array.isArray(result.data) ? result.data : [];
-        return { mode: 'server', status: result.status, posts: rows.map(normalizePost).filter(Boolean) };
+        return { mode: 'server', status: result.status, posts: rows.map(normalizePost).filter(Boolean), ...pageMetadata(result) };
       },
 
       async getPost(postId) {
@@ -156,14 +201,48 @@
         return { ok: true, mode: 'server', status: result.status, post: normalizePost(result.data) };
       },
 
-      async listComments(postId) {
+      async updatePost(postId, input = {}) {
         const { id, valid } = postPath(postId);
-        if (!serverOnly()) return { mode: 'static', postId: id, comments: [] };
-        if (!valid) return { mode: 'client', error: 'POST_ID_INVALID', postId: id, comments: [] };
-        const result = await request(`${base}/posts/${encodeURIComponent(id)}/comments`);
-        if (!result.ok) return { mode: failureMode(result), status: result.status, error: result.error, ...failureDetail(result), postId: id, comments: [] };
+        if (!serverOnly()) return { ok: false, mode: 'static', error: 'SERVER_MODE_REQUIRED', post: null };
+        if (!valid) return { ok: false, mode: 'client', error: 'POST_ID_INVALID', post: null };
+        const source = input && typeof input === 'object' ? input : {};
+        const title = trimmedString(source.title);
+        if (!title || title.length > MAX_TITLE_CHARS) return { ok: false, mode: 'client', error: 'POST_TITLE_INVALID', post: null };
+        const body = trimmedString(source.body);
+        if (!body || body.length > MAX_BODY_CHARS) return { ok: false, mode: 'client', error: 'POST_BODY_INVALID', post: null };
+        const result = await request(`${base}/posts/${encodeURIComponent(id)}`, {
+          method: 'PATCH',
+          body: JSON.stringify({ title, body })
+        });
+        if (!result.ok) return { ok: false, mode: failureMode(result), status: result.status, error: result.error, ...failureDetail(result), post: null };
+        return { ok: true, mode: 'server', status: result.status, post: normalizePost(result.data) };
+      },
+
+      async deletePost(postId) {
+        const { id, valid } = postPath(postId);
+        if (!serverOnly()) return { ok: false, mode: 'static', error: 'SERVER_MODE_REQUIRED', post: null };
+        if (!valid) return { ok: false, mode: 'client', error: 'POST_ID_INVALID', post: null };
+        const result = await request(`${base}/posts/${encodeURIComponent(id)}`, { method: 'DELETE' });
+        if (!result.ok) return { ok: false, mode: failureMode(result), status: result.status, error: result.error, ...failureDetail(result), post: null };
+        const post = normalizeDeleted(result.data, id);
+        return { ok: true, mode: 'server', status: result.status, deleted: post.status === 'deleted', post };
+      },
+
+      async listComments(postId, options = {}) {
+        const { id, valid } = postPath(postId);
+        if (!serverOnly()) return { mode: 'static', postId: id, comments: [], nextCursor: null, hasMore: false };
+        if (!valid) return { mode: 'client', error: 'POST_ID_INVALID', postId: id, comments: [], nextCursor: null, hasMore: false };
+        const params = new URLSearchParams();
+        const hasLimit = Object.prototype.hasOwnProperty.call(options, 'limit');
+        const limit = Number(options.limit);
+        if (hasLimit) params.set('limit', String(Number.isInteger(limit) && limit >= 1 && limit <= 50 ? limit : 20));
+        const cursor = trimmedString(options.cursor);
+        if (cursor) params.set('cursor', cursor);
+        const query = params.toString();
+        const result = await request(`${base}/posts/${encodeURIComponent(id)}/comments${query ? `?${query}` : ''}`);
+        if (!result.ok) return { mode: failureMode(result), status: result.status, error: result.error, ...failureDetail(result), postId: id, comments: [], nextCursor: null, hasMore: false };
         const rows = Array.isArray(result.data) ? result.data : [];
-        return { mode: 'server', status: result.status, postId: id, comments: rows.map(normalizeComment).filter(Boolean) };
+        return { mode: 'server', status: result.status, postId: id, comments: rows.map(normalizeComment).filter(Boolean), ...pageMetadata(result) };
       },
 
       async addComment(postId, body) {
@@ -180,16 +259,34 @@
         return { ok: true, mode: 'server', status: result.status, comment: normalizeComment(result.data) };
       },
 
+      async deleteComment(commentId) {
+        const { id, valid } = commentPath(commentId);
+        if (!serverOnly()) return { ok: false, mode: 'static', error: 'SERVER_MODE_REQUIRED', comment: null };
+        if (!valid) return { ok: false, mode: 'client', error: 'COMMENT_ID_INVALID', comment: null };
+        const result = await request(`${base}/comments/${encodeURIComponent(id)}`, { method: 'DELETE' });
+        if (!result.ok) return { ok: false, mode: failureMode(result), status: result.status, error: result.error, ...failureDetail(result), comment: null };
+        const comment = normalizeDeleted(result.data, id);
+        return { ok: true, mode: 'server', status: result.status, deleted: comment.status === 'deleted', comment };
+      },
+
       async listReplies(postId, parentCommentId) {
+        const options = arguments[2] || {};
         const post = postPath(postId);
         const parent = postPath(parentCommentId);
-        if (!serverOnly()) return { mode: 'static', postId: post.id, parentCommentId: parent.id, replies: [] };
-        if (!post.valid) return { mode: 'client', error: 'POST_ID_INVALID', postId: post.id, parentCommentId: parent.id, replies: [] };
-        if (!parent.valid) return { mode: 'client', error: 'COMMENT_ID_INVALID', postId: post.id, parentCommentId: parent.id, replies: [] };
-        const result = await request(`${base}/posts/${encodeURIComponent(post.id)}/comments/${encodeURIComponent(parent.id)}/replies`);
-        if (!result.ok) return { mode: failureMode(result), status: result.status, error: result.error, ...failureDetail(result), postId: post.id, parentCommentId: parent.id, replies: [] };
+        if (!serverOnly()) return { mode: 'static', postId: post.id, parentCommentId: parent.id, replies: [], nextCursor: null, hasMore: false };
+        if (!post.valid) return { mode: 'client', error: 'POST_ID_INVALID', postId: post.id, parentCommentId: parent.id, replies: [], nextCursor: null, hasMore: false };
+        if (!parent.valid) return { mode: 'client', error: 'COMMENT_ID_INVALID', postId: post.id, parentCommentId: parent.id, replies: [], nextCursor: null, hasMore: false };
+        const params = new URLSearchParams();
+        const hasLimit = Object.prototype.hasOwnProperty.call(options, 'limit');
+        const limit = Number(options.limit);
+        if (hasLimit) params.set('limit', String(Number.isInteger(limit) && limit >= 1 && limit <= 50 ? limit : 20));
+        const cursor = trimmedString(options.cursor);
+        if (cursor) params.set('cursor', cursor);
+        const query = params.toString();
+        const result = await request(`${base}/posts/${encodeURIComponent(post.id)}/comments/${encodeURIComponent(parent.id)}/replies${query ? `?${query}` : ''}`);
+        if (!result.ok) return { mode: failureMode(result), status: result.status, error: result.error, ...failureDetail(result), postId: post.id, parentCommentId: parent.id, replies: [], nextCursor: null, hasMore: false };
         const rows = Array.isArray(result.data) ? result.data : [];
-        return { mode: 'server', status: result.status, postId: post.id, parentCommentId: parent.id, replies: rows.map(normalizeReply).filter(Boolean) };
+        return { mode: 'server', status: result.status, postId: post.id, parentCommentId: parent.id, replies: rows.map(normalizeReply).filter(Boolean), ...pageMetadata(result) };
       },
 
       async addReply(postId, parentCommentId, body) {
@@ -217,6 +314,26 @@
         });
         if (!result.ok) return { ok: false, mode: failureMode(result), status: result.status, error: result.error, ...failureDetail(result) };
         return { ok: true, mode: 'server', status: result.status, active: result.data?.active === true };
+      },
+
+      async reportTarget(input = {}) {
+        if (!serverOnly()) return { ok: false, mode: 'static', error: 'SERVER_MODE_REQUIRED', report: null };
+        const source = input && typeof input === 'object' ? input : {};
+        const targetType = trimmedString(source.targetType);
+        if (!REPORT_TARGET_TYPES.includes(targetType)) return { ok: false, mode: 'client', error: 'REPORT_TARGET_TYPE_INVALID', report: null };
+        const targetId = trimmedString(source.targetId).toLowerCase();
+        if (!UUID.test(targetId)) return { ok: false, mode: 'client', error: 'REPORT_TARGET_ID_INVALID', report: null };
+        const reason = trimmedString(source.reason);
+        if (!REPORT_REASONS.includes(reason)) return { ok: false, mode: 'client', error: 'REPORT_REASON_INVALID', report: null };
+        const detail = trimmedString(source.detail);
+        if (detail.length > MAX_REPORT_DETAIL_CHARS) return { ok: false, mode: 'client', error: 'REPORT_DETAIL_INVALID', report: null };
+        const result = await request(`${base}/reports`, {
+          method: 'POST',
+          body: JSON.stringify({ targetType, targetId, reason, detail })
+        });
+        if (!result.ok) return { ok: false, mode: failureMode(result), status: result.status, error: result.error, ...failureDetail(result), report: null };
+        const report = normalizeReport(result.data);
+        return { ok: true, mode: 'server', status: result.status, duplicate: report.status === 'already_reported', report };
       }
     };
   }
@@ -229,6 +346,9 @@
     POST_KINDS,
     POST_CATEGORIES,
     MAX_CATEGORY_CHARS,
+    MAX_REPORT_DETAIL_CHARS,
+    REPORT_TARGET_TYPES,
+    REPORT_REASONS,
     DEFAULT_COMPLEX_SLUG
   };
 })();

@@ -1,7 +1,13 @@
 import { createAuthClient } from 'better-auth/react';
 import { jwtClient, usernameClient } from 'better-auth/client/plugins';
+import {
+  AUTH_CAPABILITY_PATH,
+  socialProvidersFromCapabilityBody,
+  type UiSocialProvider
+} from './v2/integration/social-provider-capability.mjs';
 
 export type SocialLoginProvider = 'kakao' | 'naver' | 'google';
+export type { UiSocialProvider } from './v2/integration/social-provider-capability.mjs';
 
 const authBaseURL = import.meta.env.VITE_AUTH_BASE_URL?.trim();
 const apiBaseURL = import.meta.env.VITE_API_BASE_URL?.trim();
@@ -230,6 +236,29 @@ export async function resetPasswordWithToken(token: string, newPassword: string)
   });
   assertAuthSuccess(result, '비밀번호를 변경하지 못했습니다.');
   return result.data;
+}
+
+/**
+ * #984: bounded public runtime-capability read. The backend runtime capability
+ * response is the only source of truth for which social providers are usable;
+ * this client never infers readiness from its own environment. The read never
+ * throws: any transport, HTTP, or parse failure resolves to an empty list so
+ * the UI hides social buttons instead of guessing
+ * (SOCIAL_PROVIDER_FAILURE_POLICY=HIDE_SOCIAL_BUTTONS). Unknown providers,
+ * wrong types, duplicates, and Naver are dropped by the fail-closed parser.
+ */
+export async function getAuthRuntimeCapabilities(): Promise<{ socialProviders: UiSocialProvider[] }> {
+  try {
+    const response = await fetch(apiUrl(AUTH_CAPABILITY_PATH), {
+      method: 'GET',
+      headers: { accept: 'application/json' }
+    });
+    if (!response.ok) return { socialProviders: [] };
+    const body = await response.json().catch(() => null);
+    return { socialProviders: socialProvidersFromCapabilityBody(body) };
+  } catch {
+    return { socialProviders: [] };
+  }
 }
 
 export async function getProductApiBearerToken(): Promise<string | null> {

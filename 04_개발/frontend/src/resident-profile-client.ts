@@ -1,14 +1,9 @@
 import { authenticatedFetch } from './auth-fetch';
+import { mapResidentProfile, type ResidentPublicProfile } from './resident-profile-mapper';
 
-export type ResidentPublicProfile = {
-  userId: string;
-  nickname: string;
-  avatarUrl: string | null;
-  residentLabel: 'verified_resident' | string;
-  joinedMonth: string;
-  publicBio: string;
-  publicActivityCount: number;
-};
+export type { ResidentPublicProfile } from './resident-profile-mapper';
+export { parseResidentLabel } from './resident-profile-label';
+export type { ResidentProfileLabel, ResidentProfileServerLabel } from './resident-profile-label';
 
 export type ResidentProfilePatch = {
   nickname?: string;
@@ -44,28 +39,6 @@ const mockOthers = new Map<string, ResidentPublicProfile>([[MOCK_OTHER_ID, {
   publicActivityCount: 12
 }]]);
 
-function row(raw: unknown): Record<string, unknown> {
-  return raw && typeof raw === 'object' ? raw as Record<string, unknown> : {};
-}
-
-function nonNegativeCount(value: unknown): number {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : 0;
-}
-
-function mapProfile(raw: unknown): ResidentPublicProfile {
-  const value = row(raw);
-  return {
-    userId: String(value.userId ?? ''),
-    nickname: String(value.nickname ?? ''),
-    avatarUrl: typeof value.avatarUrl === 'string' ? value.avatarUrl : null,
-    residentLabel: String(value.residentLabel ?? 'verified_resident'),
-    joinedMonth: String(value.joinedMonth ?? ''),
-    publicBio: String(value.publicBio ?? ''),
-    publicActivityCount: nonNegativeCount(value.publicActivityCount)
-  };
-}
-
 async function request(path: string, init?: RequestInit): Promise<ResidentPublicProfile> {
   const response = await authenticatedFetch(`${API_BASE}${path}`, {
     ...init,
@@ -79,7 +52,7 @@ async function request(path: string, init?: RequestInit): Promise<ResidentPublic
     const message = 'error' in payload ? payload.error?.message : undefined;
     throw new Error(message || `Resident profile API request failed: ${response.status}`);
   }
-  return mapProfile((payload as ApiEnvelope<unknown>).data);
+  return mapResidentProfile((payload as ApiEnvelope<unknown>).data);
 }
 
 function query(): string {

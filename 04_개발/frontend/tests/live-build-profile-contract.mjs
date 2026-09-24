@@ -80,7 +80,7 @@ assert.match(pagesWorkflow, /\/api\/health/);
 assert.match(pagesWorkflow, /\/api\/auth\/jwks/);
 assert.ok(
   pagesWorkflow.indexOf('Require live production API and Better Auth before Pages mutation')
-    < pagesWorkflow.indexOf('Deploy canonical Pages production'),
+    < pagesWorkflow.indexOf('Recheck exact main authority and deploy canonical Pages production'),
   'API/JWKS preflight must happen before Pages mutation'
 );
 assert.match(pagesWorkflow, /wrangler@4\.131\.0 pages deploy dist/);
@@ -96,7 +96,7 @@ const deployCommand = (() => {
   return end === -1 ? rest : rest.slice(0, end);
 })();
 assert.doesNotMatch(deployCommand, /--branch/, 'Pages production deploy must stay branch-free (#432)');
-assert.match(pagesWorkflow, /--commit-hash "\$GITHUB_SHA"/);
+assert.match(pagesWorkflow, /--commit-hash "\$EXPECTED_MAIN"/);
 assert.match(pagesWorkflow, /Verify canonical deployment readback/,
   'canonical deployment must be read back as production before the release can pass');
 assert.match(pagesWorkflow, /did not converge to the deployed V3 artifact/,

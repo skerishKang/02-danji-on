@@ -33,6 +33,7 @@ export type OfficialNewsAttachmentWrite = {
   title: string;
   body: string;
   channel: string;
+  displayMode: 'highlight' | 'article';
   status: string;
   publishedAt: string | null;
 };
@@ -53,7 +54,7 @@ export async function insertOfficialNewsPostWithAttachment(
     )
     insert into complex_posts (
       complex_id, author_user_id, source_name, category, title, body,
-      attachment_object_key, status, published_at, channel
+      attachment_object_key, status, published_at, channel, display_mode
     )
     select
       ${write.complexId}::uuid,
@@ -65,9 +66,10 @@ export async function insertOfficialNewsPostWithAttachment(
       locked.object_key,
       ${write.status},
       case when ${write.status} = 'published' then coalesce(${write.publishedAt}::timestamptz, now()) else null end,
-      ${write.channel}
+      ${write.channel},
+      ${write.displayMode}
     from locked
-    returning id, source_name, category, title, body, status, published_at, created_at, channel
+    returning id, source_name, category, title, body, status, published_at, created_at, channel, display_mode
   `;
   return rows as Record<string, unknown>[];
 }
@@ -95,10 +97,11 @@ export async function updateOfficialNewsPostWithAttachment(
         attachment_object_key = locked.object_key,
         status = ${write.status},
         channel = ${write.channel},
+        display_mode = ${write.displayMode},
         published_at = case when ${write.status} = 'published' then coalesce(p.published_at, now()) else p.published_at end
     from locked
     where p.id = ${postId}::uuid
-    returning p.id, p.source_name, p.category, p.title, p.body, p.status, p.published_at, p.updated_at, p.channel
+    returning p.id, p.source_name, p.category, p.title, p.body, p.status, p.published_at, p.updated_at, p.channel, p.display_mode
   `;
   return rows as Record<string, unknown>[];
 }

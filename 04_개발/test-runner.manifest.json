@@ -32,6 +32,7 @@
         {"id":"test:production-admin-principal-provision","npm":"test:production-admin-principal-provision","kind":"contract"},
         {"id":"test:production-admin-principal-adopt-existing","npm":"test:production-admin-principal-adopt-existing","kind":"contract"},
         {"id":"test:auth-facade-public-base","npm":"test:auth-facade-public-base","kind":"contract"},
+        {"id":"test:social-provider-runtime-capability-984","npm":"test:social-provider-runtime-capability-984","kind":"contract"},
         {"id":"test:authz-v2","npm":"test:authz-v2","kind":"contract"},
         {"id":"test:db-availability-v1","npm":"test:db-availability-v1","kind":"contract"},
         {"id":"test:community-write-exemption-route","npm":"test:community-write-exemption-route","kind":"contract"},
@@ -39,6 +40,9 @@
         {"id":"test:authz-v2-migrations","npm":"test:authz-v2-migrations","kind":"contract"},
         {"id":"test:operational-authz-v2","npm":"test:operational-authz-v2","kind":"contract"},
         {"id":"test:admin-operational-rbac","npm":"test:admin-operational-rbac","kind":"contract"},
+        {"id":"test:resident-profile-label-983","npm":"test:resident-profile-label-983","kind":"contract"},
+        {"id":"test:admin-auth-before-resource-lookup-975","npm":"test:admin-auth-before-resource-lookup-975","kind":"contract"},
+        {"id":"test:benefit-null-time-range-patch","npm":"test:benefit-null-time-range-patch","kind":"contract"},
         {"id":"test:padiem-authority","npm":"test:padiem-authority","kind":"contract"},
         {"id":"test:admin-authority-contract","npm":"test:admin-authority-contract","kind":"contract"},
         {"id":"test:admin-bootstrap","npm":"test:admin-bootstrap","kind":"contract"},
@@ -79,6 +83,8 @@
         {"id":"test:complex-news-channel","npm":"test:complex-news-channel","kind":"contract"},
         {"id":"test:complex-news-channel-write","npm":"test:complex-news-channel-write","kind":"contract"},
         {"id":"test:business-category-benefit","npm":"test:business-category-benefit","kind":"contract"},
+        {"id":"test:public-complex-eligibility","npm":"test:public-complex-eligibility","kind":"contract"},
+        {"id":"test:core-public-route-identifiers","npm":"test:core-public-route-identifiers","kind":"contract"},
         {"id":"test:saved-shops-server","npm":"test:saved-shops-server","kind":"contract"},
         {"id":"test:community-replies","npm":"test:community-replies","kind":"contract"},
         {"id":"test:community-notifications","npm":"test:community-notifications","kind":"contract"},
@@ -114,6 +120,8 @@
         {"id":"test:application-documents-owner-id","npm":"test:application-documents-owner-id","kind":"contract"},
         {"id":"test:deploy-provenance","npm":"test:deploy-provenance","kind":"contract"},
         {"id":"test:cross-platform-executable-contract","npm":"test:cross-platform-executable-contract","kind":"contract"},
+        {"id":"test:admin-field-limit-972","npm":"test:admin-field-limit-972","kind":"contract"},
+        {"id":"test:admin-review-note-limit-994","npm":"test:admin-review-note-limit-994","kind":"contract"},
         {"id":"test:runner-manifest-contract","npm":"test:runner-manifest-contract","kind":"contract"}
       ]
     },
@@ -140,6 +148,7 @@
         {"id":"test:v2-account-closure-contract","npm":"test:v2-account-closure-contract","kind":"contract"},
         {"id":"test:v2-community-replies-contract","npm":"test:v2-community-replies-contract","kind":"contract"},
         {"id":"test:v2-auth-entry-contract","npm":"test:v2-auth-entry-contract","kind":"contract"},
+        {"id":"test:leaf-984-social-provider-runtime-capability-contract","npm":"test:leaf-984-social-provider-runtime-capability-contract","kind":"contract"},
         {"id":"test:v2-current-shell-contract","npm":"test:v2-current-shell-contract","kind":"contract"},
         {"id":"test:v2-current-home-contract","npm":"test:v2-current-home-contract","kind":"contract"},
         {"id":"test:v2-current-shops-contract","npm":"test:v2-current-shops-contract","kind":"contract"},
@@ -184,7 +193,10 @@
         {"id":"test:pr-review-preview-workflow","npm":"test:pr-review-preview-workflow","kind":"contract"},
         {"id":"test:admin-authority-role-contract","npm":"test:admin-authority-role-contract","kind":"contract"},
         {"id":"test:leaf-b788-visual-syntax-integrity","npm":"test:leaf-b788-visual-syntax-integrity","kind":"contract"},
-        {"id":"test:leaf-b858-notification-settings-route","npm":"test:leaf-b858-notification-settings-route","kind":"contract"}
+        {"id":"test:leaf-b858-notification-settings-route","npm":"test:leaf-b858-notification-settings-route","kind":"contract"},
+        {"id":"test:leaf-982-settings-signed-out-gate","npm":"test:leaf-982-settings-signed-out-gate","kind":"contract"},
+        {"id":"test:leaf-981-community-reply-mobile-a11y","npm":"test:leaf-981-community-reply-mobile-a11y","kind":"contract"},
+        {"id":"test:leaf-b976-neighbor-modal-xss","npm":"test:leaf-b976-neighbor-modal-xss","kind":"contract"}
       ]
     }
   },

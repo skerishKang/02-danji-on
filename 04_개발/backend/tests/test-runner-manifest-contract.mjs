@@ -43,6 +43,7 @@ const EXPECTED_BACKEND_ORDER = [
   "test:production-admin-principal-provision",
   "test:production-admin-principal-adopt-existing",
   "test:auth-facade-public-base",
+  "test:social-provider-runtime-capability-984",
   "test:authz-v2",
   "test:db-availability-v1",
   "test:community-write-exemption-route",
@@ -50,6 +51,9 @@ const EXPECTED_BACKEND_ORDER = [
   "test:authz-v2-migrations",
   "test:operational-authz-v2",
   "test:admin-operational-rbac",
+  "test:resident-profile-label-983",
+  "test:admin-auth-before-resource-lookup-975",
+  "test:benefit-null-time-range-patch",
   "test:padiem-authority",
   "test:admin-authority-contract",
   "test:admin-bootstrap",
@@ -90,6 +94,8 @@ const EXPECTED_BACKEND_ORDER = [
   "test:complex-news-channel",
   "test:complex-news-channel-write",
   "test:business-category-benefit",
+  "test:public-complex-eligibility",
+  "test:core-public-route-identifiers",
   "test:saved-shops-server",
   "test:community-replies",
   "test:community-notifications",
@@ -125,6 +131,8 @@ const EXPECTED_BACKEND_ORDER = [
   "test:application-documents-owner-id",
   "test:deploy-provenance",
   "test:cross-platform-executable-contract",
+  "test:admin-field-limit-972",
+  "test:admin-review-note-limit-994",
   "test:runner-manifest-contract",
 ];
 
@@ -148,6 +156,7 @@ const EXPECTED_FRONTEND_ORDER = [
   "test:v2-account-closure-contract",
   "test:v2-community-replies-contract",
   "test:v2-auth-entry-contract",
+  "test:leaf-984-social-provider-runtime-capability-contract",
   "test:v2-current-shell-contract",
   "test:v2-current-home-contract",
   "test:v2-current-shops-contract",
@@ -193,6 +202,9 @@ const EXPECTED_FRONTEND_ORDER = [
    "test:admin-authority-role-contract",
    "test:leaf-b788-visual-syntax-integrity",
    "test:leaf-b858-notification-settings-route",
+   "test:leaf-982-settings-signed-out-gate",
+   "test:leaf-981-community-reply-mobile-a11y",
+   "test:leaf-b976-neighbor-modal-xss",
  ];
 
 const EXPECTED_CI_ONLY = [

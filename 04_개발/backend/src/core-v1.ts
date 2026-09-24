@@ -3,6 +3,8 @@ import { requireActor, type AuthEnv } from './auth-v1';
 import { requireVerifiedResident } from './authorization-v2';
 import { DB_AVAILABILITY_CODE, DB_AVAILABILITY_MESSAGE, isDbAvailabilityError } from './db-availability-v1';
 import { authorityFor } from './complex-news-channel';
+import { PUBLIC_COMPLEX_STATUSES } from './public-complex-eligibility-v1';
+import { UUID } from './application-docs-core-v1';
 
 export type CoreEnv = AuthEnv;
 
@@ -34,6 +36,14 @@ function ok(data: unknown, id: string, status = 200): Response {
 
 function fail(code: string, message: string, status: number, id: string): Response {
   return json({ error: { code, message }, requestId: id }, status, id);
+}
+
+function decodePublicComplexSlug(raw: string): string | null {
+  try {
+    return decodeURIComponent(raw);
+  } catch {
+    return null;
+  }
 }
 
 function sqlFor(env: CoreEnv): Sql {
@@ -97,11 +107,12 @@ async function handlePublicGet(sql: Sql, id: string, url: URL): Promise<Response
 
   let match = path.match(/^\/api\/v1\/complexes\/([^/]+)$/);
   if (match) {
-    const slug = decodeURIComponent(match[1]);
+    const slug = decodePublicComplexSlug(match[1]);
+    if (!slug) return fail('INVALID_COMPLEX_SLUG', 'Invalid complex slug', 400, id);
     const rows = await sql`
       select id, slug, name, address, status
       from complexes
-      where slug = ${slug} and status in ('active','pilot')
+      where slug = ${slug} and status = any(${PUBLIC_COMPLEX_STATUSES}::text[])
       limit 1
     `;
     if (!rows[0]) return fail('NOT_FOUND', 'Complex not found', 404, id);
@@ -110,7 +121,8 @@ async function handlePublicGet(sql: Sql, id: string, url: URL): Promise<Response
 
   match = path.match(/^\/api\/v1\/complexes\/([^/]+)\/businesses$/);
   if (match) {
-    const slug = decodeURIComponent(match[1]);
+    const slug = decodePublicComplexSlug(match[1]);
+    if (!slug) return fail('INVALID_COMPLEX_SLUG', 'Invalid complex slug', 400, id);
     const rawQuery = url.searchParams.get('q')?.trim() || null;
     const query = rawQuery ? `%${rawQuery}%` : null;
     const category = url.searchParams.get('category')?.trim() || null;
@@ -165,7 +177,7 @@ async function handlePublicGet(sql: Sql, id: string, url: URL): Promise<Response
       join complexes c on c.id = r.complex_id
       left join business_categories bc on bc.id = b.category_id
       where c.slug = ${slug}
-        and c.status in ('active','pilot')
+        and c.status = any(${PUBLIC_COMPLEX_STATUSES}::text[])
         and b.status = 'approved'
         and r.verification_status = 'verified'
         and (${relation}::text is null or r.relation_type = ${relation})
@@ -199,8 +211,10 @@ async function handlePublicGet(sql: Sql, id: string, url: URL): Promise<Response
 
   match = path.match(/^\/api\/v1\/complexes\/([^/]+)\/businesses\/([0-9a-fA-F-]+)$/);
   if (match) {
-    const slug = decodeURIComponent(match[1]);
+    const slug = decodePublicComplexSlug(match[1]);
+    if (!slug) return fail('INVALID_COMPLEX_SLUG', 'Invalid complex slug', 400, id);
     const businessId = match[2];
+    if (!UUID.test(businessId)) return fail('NOT_FOUND', 'Business not found', 404, id);
     const rows = await sql`
       select b.id, b.kind, b.name, b.summary, b.description, b.price_text,
              b.service_area, b.availability_text,
@@ -221,6 +235,7 @@ async function handlePublicGet(sql: Sql, id: string, url: URL): Promise<Response
       join complexes c on c.id = r.complex_id
       left join business_categories bc on bc.id = b.category_id
       where c.slug = ${slug}
+        and c.status = any(${PUBLIC_COMPLEX_STATUSES}::text[])
         and b.id = ${businessId}::uuid
         and b.status = 'approved'
         and r.verification_status = 'verified'
@@ -251,7 +266,8 @@ async function handlePublicGet(sql: Sql, id: string, url: URL): Promise<Response
 
   match = path.match(/^\/api\/v1\/complexes\/([^/]+)\/benefits$/);
   if (match) {
-    const slug = decodeURIComponent(match[1]);
+    const slug = decodePublicComplexSlug(match[1]);
+    if (!slug) return fail('INVALID_COMPLEX_SLUG', 'Invalid complex slug', 400, id);
     const rows = await sql`
       select be.id, be.title, be.description, be.conditions, be.value_text as value, be.code,
              be.starts_at, be.ends_at,
@@ -259,7 +275,12 @@ async function handlePublicGet(sql: Sql, id: string, url: URL): Promise<Response
       from benefits be
       join complexes c on c.id = be.complex_id
       join businesses b on b.id = be.business_id
+      join business_complex_relations r
+        on r.business_id = b.id
+       and r.complex_id = c.id
+       and r.verification_status = 'verified'
       where c.slug = ${slug}
+        and c.status = any(${PUBLIC_COMPLEX_STATUSES}::text[])
         and be.status = 'active'
         and b.status = 'approved'
         and (be.starts_at is null or be.starts_at <= now())
@@ -271,7 +292,8 @@ async function handlePublicGet(sql: Sql, id: string, url: URL): Promise<Response
 
   match = path.match(/^\/api\/v1\/complexes\/([^/]+)\/posts$/);
   if (match) {
-    const slug = decodeURIComponent(match[1]);
+    const slug = decodePublicComplexSlug(match[1]);
+    if (!slug) return fail('INVALID_COMPLEX_SLUG', 'Invalid complex slug', 400, id);
     const category = url.searchParams.get('category')?.trim() || null;
     const channel = channelFilter(url.searchParams.get('channel'));
     if (channel === '__invalid__') return fail('INVALID_CHANNEL', 'Invalid channel filter', 400, id);
@@ -284,6 +306,7 @@ async function handlePublicGet(sql: Sql, id: string, url: URL): Promise<Response
       from complex_posts p
       join complexes c on c.id = p.complex_id
       where c.slug = ${slug}
+        and c.status = any(${PUBLIC_COMPLEX_STATUSES}::text[])
         and p.status = 'published'
         and (${category}::text is null or ${category} = 'all' or p.category = ${category})
         and (${channel}::text is null or ${channel} = 'all' or p.channel = ${channel})
@@ -295,8 +318,10 @@ async function handlePublicGet(sql: Sql, id: string, url: URL): Promise<Response
 
   match = path.match(/^\/api\/v1\/complexes\/([^/]+)\/posts\/([0-9a-fA-F-]+)$/);
   if (match) {
-    const slug = decodeURIComponent(match[1]);
+    const slug = decodePublicComplexSlug(match[1]);
+    if (!slug) return fail('INVALID_COMPLEX_SLUG', 'Invalid complex slug', 400, id);
     const postId = match[2];
+    if (!UUID.test(postId)) return fail('NOT_FOUND', 'Post not found', 404, id);
     const rows = await sql`
       select p.id, p.source_name, p.category, p.channel, p.display_mode, p.title, p.body,
              p.attachment_object_key, p.published_at,
@@ -305,6 +330,7 @@ async function handlePublicGet(sql: Sql, id: string, url: URL): Promise<Response
       from complex_posts p
       join complexes c on c.id = p.complex_id
       where c.slug = ${slug}
+        and c.status = any(${PUBLIC_COMPLEX_STATUSES}::text[])
         and p.id = ${postId}::uuid
         and p.status = 'published'
       limit 1

@@ -242,16 +242,16 @@ try {
 
 /* ===================================================================
  * H. PRODUCTION WORKFLOW CONTRACT
- * - Proves: node frontend/scripts/build-attribution.mjs dist "$GITHUB_SHA"
+ * - Proves: node frontend/scripts/build-attribution.mjs dist "$EXPECTED_MAIN"
  * - Proves: stamp executes before pages deploy dist
- * - Proves: pages deploy passes --commit-hash "$GITHUB_SHA"
- * - VISIBLE_BUILD_SHA == DEPLOYED_CLOUDFLARE_COMMIT_SHA == $GITHUB_SHA
+ * - Proves: pages deploy passes --commit-hash "$EXPECTED_MAIN"
+ * - VISIBLE_BUILD_SHA == DEPLOYED_CLOUDFLARE_COMMIT_SHA == $EXPECTED_MAIN
  * =================================================================== */
 export function verifyProductionWorkflow(workflowText) {
-  const stampLine = 'node frontend/scripts/build-attribution.mjs dist "$GITHUB_SHA"';
+  const stampLine = 'node frontend/scripts/build-attribution.mjs dist "$EXPECTED_MAIN"';
   const stampIdx = workflowText.indexOf(stampLine);
   if (stampIdx === -1) {
-    throw new Error('WORKFLOW_MUTATION_FAIL: missing production build-attribution stamp with $GITHUB_SHA');
+    throw new Error('WORKFLOW_MUTATION_FAIL: missing production build-attribution stamp with $EXPECTED_MAIN');
   }
 
   const deployMatch = workflowText.match(/npx\s+wrangler[^\n]*pages\s+deploy\s+dist\b/);
@@ -265,8 +265,8 @@ export function verifyProductionWorkflow(workflowText) {
   }
 
   const deployBlock = workflowText.slice(deployIdx, deployIdx + 300);
-  if (!deployBlock.includes('--commit-hash "$GITHUB_SHA"')) {
-    throw new Error('WORKFLOW_MUTATION_FAIL: production deploy must pass --commit-hash "$GITHUB_SHA"');
+  if (!deployBlock.includes('--commit-hash "$EXPECTED_MAIN"')) {
+    throw new Error('WORKFLOW_MUTATION_FAIL: production deploy must pass --commit-hash "$EXPECTED_MAIN"');
   }
 
   return true;
@@ -328,7 +328,7 @@ assert.ok(
  *   Mutation D: Relocating stamp after deploy
  * =================================================================== */
 // Mutation A: Removal of build-attribution invocation in Production workflow
-const mutA = prodWorkflow.replace('node frontend/scripts/build-attribution.mjs dist "$GITHUB_SHA"', '');
+const mutA = prodWorkflow.replace('node frontend/scripts/build-attribution.mjs dist "$EXPECTED_MAIN"', '');
 assert.throws(
   () => verifyProductionWorkflow(mutA),
   /missing production build-attribution stamp/,
@@ -343,11 +343,11 @@ assert.throws(
   'J: removing QA build-attribution invocation must fail contract'
 );
 
-// Mutation C1: Using static/unrelated value instead of $GITHUB_SHA in Production
-const mutC1 = prodWorkflow.replace('"$GITHUB_SHA"', '"20260921-static-fake-sha"');
+// Mutation C1: Using static/unrelated value instead of $EXPECTED_MAIN in Production
+const mutC1 = prodWorkflow.replace('"$EXPECTED_MAIN"', '"20260921-static-fake-sha"');
 assert.throws(
   () => verifyProductionWorkflow(mutC1),
-  /missing production build-attribution stamp with \$GITHUB_SHA/,
+  /missing production build-attribution stamp with \$EXPECTED_MAIN/,
   'J: static/unrelated value in production workflow must fail contract'
 );
 
@@ -361,8 +361,8 @@ assert.throws(
 
 // Mutation D1: Moving stamp after deploy in Production workflow
 const mutD1 = prodWorkflow
-  .replace('node frontend/scripts/build-attribution.mjs dist "$GITHUB_SHA"\n', '')
-  + '\nnode frontend/scripts/build-attribution.mjs dist "$GITHUB_SHA"\n';
+  .replace('node frontend/scripts/build-attribution.mjs dist "$EXPECTED_MAIN"\n', '')
+  + '\nnode frontend/scripts/build-attribution.mjs dist "$EXPECTED_MAIN"\n';
 assert.throws(
   () => verifyProductionWorkflow(mutD1),
   /production stamp must precede pages deploy/,

@@ -1,12 +1,22 @@
 import assert from 'node:assert/strict';
 import {
   PRODUCT_MUTATION_LIMITS,
-  productMutationLimitForRequest
+  productMutationLimitForRequest,
+  productMutationRateLimitEnabled
 } from '../src/product-rate-limit-v1.ts';
 
 function request(method, path) {
   return new Request(`https://danjion.test${path}`, { method });
 }
+
+assert.equal(productMutationRateLimitEnabled({}), true,
+  'missing mode must fail safe to enforcement');
+assert.equal(productMutationRateLimitEnabled({ PRODUCT_MUTATION_RATE_LIMIT_MODE: 'enforce' }), true,
+  'explicit enforce mode must keep product mutation limits active');
+assert.equal(productMutationRateLimitEnabled({ PRODUCT_MUTATION_RATE_LIMIT_MODE: 'disabled' }), false,
+  'explicit development suspension must bypass only the limiter pre-handler');
+assert.equal(productMutationRateLimitEnabled({ PRODUCT_MUTATION_RATE_LIMIT_MODE: ' DISABLED ' }), false,
+  'development suspension sentinel is whitespace/case tolerant');
 
 const cases = [
   ['/api/v1/complexes/complex-1/community/posts', 'community_post_create'],

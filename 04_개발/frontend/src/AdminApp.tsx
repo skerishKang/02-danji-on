@@ -73,6 +73,7 @@ export default function AdminApp() {
   // #844 BLOCKER 2: the composer keeps only a LOCAL file + object-URL preview. The server upload
   // happens at submit time, so selecting then removing/replacing before submit mutates nothing.
   const [postChannel, setPostChannel] = useState<'apartment_news' | 'management_office'>('apartment_news');
+  const [postDisplayMode, setPostDisplayMode] = useState<'highlight' | 'article'>('highlight');
   const [postImageFile, setPostImageFile] = useState<File | null>(null);
   // BLOCKER B: the server object key is retained across a failed create so a retry reuses the very
   // same object instead of uploading a new active object every attempt.
@@ -268,7 +269,7 @@ export default function AdminApp() {
         setPostImageKey(attachmentObjectKey);
         setPostImageBusy(false);
       }
-      await adminAdapter.createPost({ ...postForm, channel: postChannel, attachmentObjectKey });
+      await adminAdapter.createPost({ ...postForm, channel: postChannel, displayMode: postDisplayMode, attachmentObjectKey });
       // The object is now referenced by a published post: it must NOT be deleted on success.
       releasePreview(postImagePreview);
       setPostImagePreview(null);
@@ -476,6 +477,7 @@ export default function AdminApp() {
             <label className="full"><span>제목</span><input value={postForm.title} onChange={(event) => setPostForm({ ...postForm, title: event.target.value })} placeholder="예: 8월 입주자대표회의 활동 안내" /></label>
             <label className="full"><span>내용</span><textarea value={postForm.body} onChange={(event) => setPostForm({ ...postForm, body: event.target.value })} rows={8} /></label>
             <label className="full"><span>공식 채널</span><select value={postChannel} onChange={(event) => setPostChannel(event.target.value === 'management_office' ? 'management_office' : 'apartment_news')}><option value="apartment_news">입주자대표회의 소식 (apartment_news)</option><option value="management_office">관리사무소 소식 (management_office)</option></select></label>
+            <label className="full"><span>표시 방식</span><select value={postDisplayMode} onChange={(event) => setPostDisplayMode(event.target.value === 'article' ? 'article' : 'highlight')}><option value="highlight">간단 소식 (팝업)</option><option value="article">상세 글 (아파트소식 상세)</option></select></label>
             <label className="full"><span>대표 사진 (JPG·PNG·WebP, 8MB 이하 1장)</span><input type="file" accept="image/jpeg,image/png,image/webp" disabled={postImageBusy || busyId === 'post'} onChange={(event) => { const picked = event.target.files?.[0] ?? null; event.target.value = ''; void selectPostImage(picked); }} /></label>
             {postImageBusy && <p className="admin-summary">사진 업로드 중입니다...</p>}
             {postImageError && <p className="admin-summary" role="alert">{postImageError}</p>}

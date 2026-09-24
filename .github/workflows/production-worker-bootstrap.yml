@@ -8,6 +8,10 @@ on:
         required: true
         default: false
         type: boolean
+      expected_main:
+        description: 'Exact origin/main SHA authorized by CENTRAL for this Production Worker release'
+        required: true
+        type: string
       migration_dry_run:
         description: 'Reconcile migrations in read-only mode; plan only, never apply'
         required: false
@@ -74,6 +78,33 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Verify exact current main authority
+        id: exact-main-authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main --no-tags
+          actual_main="$(git rev-parse origin/main)"
+          target_sha="${GITHUB_SHA}"
+
+          if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
+            authorized_main="${{ inputs.expected_main }}"
+            if [ -z "${authorized_main}" ]; then
+              echo "::error::Expected main SHA is required for a Production Worker dispatch."
+              exit 1
+            fi
+          else
+            authorized_main="${target_sha}"
+          fi
+
+          if [ "${target_sha}" != "${authorized_main}" ] || [ "${actual_main}" != "${authorized_main}" ]; then
+            echo "::error::Exact-main authority mismatch; refusing Production Worker mutation."
+            exit 1
+          fi
+
+          echo "authorized_main=${authorized_main}" >> "${GITHUB_OUTPUT}"
+          echo "EXACT_MAIN_GUARD=PASS"
 
       - uses: actions/setup-node@v4
         with:
@@ -157,6 +188,20 @@ jobs:
             echo "pending_apply_count=${apply_count}" >> "$GITHUB_OUTPUT"
             echo "apply_authorized=true" >> "$GITHUB_OUTPUT"
           fi
+
+      - name: Reconfirm exact main before optional migration mutation
+        if: steps.migration-gate.outputs.apply_authorized == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main --no-tags
+          actual_main="$(git rev-parse origin/main)"
+          authorized_main="${{ steps.exact-main-authority.outputs.authorized_main }}"
+          if [ "${GITHUB_SHA}" != "${authorized_main}" ] || [ "${actual_main}" != "${authorized_main}" ]; then
+            echo "::error::Exact-main authority changed before migration mutation; refusing Production mutation."
+            exit 1
+          fi
+          echo "PREMIGRATION_EXACT_MAIN_GUARD=PASS"
 
       - name: Apply pending production-safe migrations
         if: steps.migration-gate.outputs.apply_authorized == 'true'
@@ -323,6 +368,19 @@ jobs:
 
           echo "path=${secrets_file}" >> "$GITHUB_OUTPUT"
           echo "Secret payload prepared. Secret values were not printed."
+
+      - name: Reconfirm exact main immediately before Worker deploy
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main --no-tags
+          actual_main="$(git rev-parse origin/main)"
+          authorized_main="${{ steps.exact-main-authority.outputs.authorized_main }}"
+          if [ "${GITHUB_SHA}" != "${authorized_main}" ] || [ "${actual_main}" != "${authorized_main}" ]; then
+            echo "::error::Exact-main authority changed before Worker deploy; refusing Production mutation."
+            exit 1
+          fi
+          echo "PREDEPLOY_EXACT_MAIN_GUARD=PASS"
 
       - name: Deploy production Worker with encrypted secrets
         shell: bash

@@ -4,6 +4,10 @@ import type { CoreEnv } from './core-v1';
 
 type Sql = NeonQueryFunction<false, false>;
 
+type ProductRateLimitEnv = CoreEnv & {
+  PRODUCT_MUTATION_RATE_LIMIT_MODE?: string;
+};
+
 export type ProductMutationLimitKey =
   | 'community_post_create'
   | 'community_comment_create'
@@ -75,6 +79,14 @@ function rateLimited(policy: ProductMutationPolicy, retryAfterSeconds: number, r
       'cache-control': 'no-store'
     }
   });
+}
+
+export function productMutationRateLimitEnabled(env: ProductRateLimitEnv): boolean {
+  // Development/acceptance environments may explicitly suspend product-mutation
+  // throttling while the product is still under active implementation. Absence,
+  // typos, and every value other than the exact `disabled` sentinel fail safe to
+  // enforcement so launch hardening only requires removing/flipping one binding.
+  return env.PRODUCT_MUTATION_RATE_LIMIT_MODE?.trim().toLowerCase() !== 'disabled';
 }
 
 export function productMutationLimitForRequest(request: Request): ProductMutationLimitKey | null {
@@ -190,9 +202,10 @@ export async function consumeProductMutationLimit(
 
 export async function handleProductMutationRateLimitRequest(
   request: Request,
-  env: CoreEnv,
+  env: ProductRateLimitEnv,
   requestId: string
 ): Promise<Response | null> {
+  if (!productMutationRateLimitEnabled(env)) return null;
   const policyKey = productMutationLimitForRequest(request);
   if (!policyKey) return null;
   if (!env.DATABASE_URL) return fail('DATABASE_NOT_CONFIGURED', 'DATABASE_URL is not configured', 503, requestId);

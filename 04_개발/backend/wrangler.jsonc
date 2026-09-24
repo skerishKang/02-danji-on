@@ -15,6 +15,7 @@
   ],
   "vars": {
     "APP_ENV": "development",
+    "PRODUCT_MUTATION_RATE_LIMIT_MODE": "disabled",
     "DEV_AUTH_BYPASS": "false",
     "TEMP_RESIDENT_ACCESS_MODE": "false",
     "CORS_ALLOWED_ORIGINS": "http://localhost:5173,http://127.0.0.1:5173"
@@ -26,6 +27,7 @@
       "preview_urls": true,
       "vars": {
         "APP_ENV": "preview",
+        "PRODUCT_MUTATION_RATE_LIMIT_MODE": "disabled",
         "DEV_AUTH_BYPASS": "false",
         "CORS_ALLOWED_ORIGINS": "https://*.padiem-danjion-web-preview.pages.dev"
       }
@@ -42,6 +44,7 @@
       ],
       "vars": {
         "APP_ENV": "qa",
+        "PRODUCT_MUTATION_RATE_LIMIT_MODE": "disabled",
         "TEMP_RESIDENT_ACCESS_MODE": "true",
         "STORAGE_MODE": "r2",
         "DEV_AUTH_BYPASS": "false",
@@ -77,6 +80,7 @@
       },
       "vars": {
         "APP_ENV": "production",
+        "PRODUCT_MUTATION_RATE_LIMIT_MODE": "disabled",
         "TEMP_RESIDENT_ACCESS_MODE": "true",
         "COMMUNITY_PUBLISH_MODE": "immediate",
         "STORAGE_MODE": "r2",

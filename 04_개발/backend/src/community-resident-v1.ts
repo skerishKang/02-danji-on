@@ -1,5 +1,6 @@
 import { neon, type NeonQueryFunction } from '@neondatabase/serverless';
 import { requireVerifiedResident } from './authorization-v2';
+import { buildCommunityPage, COMMUNITY_COMMENT_SORT, COMMUNITY_FEED_SORT, decodeCommunityCursor } from './community-cursor-v1';
 import type { CoreEnv } from './core-v1';
 
 type Sql = NeonQueryFunction<false, false>;
@@ -23,8 +24,13 @@ const MAX_CATEGORY_CHARS = 40;
 const REPORT_REASONS = new Set<ReportReason>(['abuse', 'threat', 'privacy', 'defamation_risk', 'spam', 'other']);
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-function ok(data: unknown, requestId: string, status = 200): Response {
-  return Response.json({ data, requestId }, {
+function ok(
+  data: unknown,
+  requestId: string,
+  status = 200,
+  pagination?: { nextCursor: string | null; hasMore: boolean }
+): Response {
+  return Response.json({ data, requestId, ...(pagination || {}) }, {
     status,
     headers: { 'x-danjion-request-id': requestId, 'cache-control': 'no-store' }
   });
@@ -87,17 +93,22 @@ function asDate(value: unknown): string | null {
 }
 
 function mapPost(row: Record<string, unknown>) {
+  const status = String(row.status || '');
+  const viewerIsOwner = row.viewer_is_owner === true;
   return {
     id: String(row.id),
     kind: String(row.kind),
     category: row.category ? String(row.category) : null,
     title: String(row.title),
     body: String(row.body),
-    status: String(row.status),
+    status,
     author: { nickname: String(row.author_nickname ?? '') },
     reactionCount: Number(row.reaction_count ?? 0),
     commentCount: Number(row.comment_count ?? 0),
     viewerLiked: Boolean(row.viewer_liked),
+    viewerCanEdit: viewerIsOwner && status !== 'deleted',
+    viewerCanDelete: viewerIsOwner && status !== 'deleted',
+    viewerCanReport: status === 'published' && !viewerIsOwner,
     publishedAt: asDate(row.published_at),
     createdAt: asDate(row.created_at),
     updatedAt: asDate(row.updated_at)
@@ -105,12 +116,17 @@ function mapPost(row: Record<string, unknown>) {
 }
 
 function mapComment(row: Record<string, unknown>) {
+  const status = String(row.status || '');
+  const postStatus = String(row.post_status || '');
+  const viewerIsOwner = row.viewer_is_owner === true;
   return {
     id: String(row.id),
     postId: String(row.post_id),
     body: String(row.body),
-    status: String(row.status),
+    status,
     author: { nickname: String(row.author_nickname ?? '') },
+    viewerCanDelete: viewerIsOwner && status !== 'deleted',
+    viewerCanReport: status === 'published' && postStatus === 'published' && !viewerIsOwner,
     publishedAt: asDate(row.published_at),
     createdAt: asDate(row.created_at),
     updatedAt: asDate(row.updated_at)
@@ -160,38 +176,45 @@ export async function handleCommunityResidentRequest(
     if (rawKind && !kind) return fail('VALIDATION_ERROR', 'Invalid community post kind', 400, requestId);
     const rawLimit = Number(url.searchParams.get('limit') || '20');
     const limit = Number.isInteger(rawLimit) && rawLimit >= 1 && rawLimit <= 50 ? rawLimit : 20;
+    const cursorScope = `feed:${kind || 'all'}`;
+    const cursor = decodeCommunityCursor(url.searchParams.get('cursor'), cursorScope, COMMUNITY_FEED_SORT);
+    if (url.searchParams.has('cursor') && !cursor) {
+      return fail('VALIDATION_ERROR', 'Invalid community feed cursor', 400, requestId);
+    }
 
-    const rows = kind
-      ? await sql`
-          select p.id, p.kind, p.category, p.title, p.body, p.status, p.published_at, p.created_at, p.updated_at,
-                 u.display_name as author_nickname,
-                 (select count(*) from community_reactions r where r.post_id = p.id and r.reaction_type = 'like')::int as reaction_count,
-                 (select count(*) from community_comments c where c.post_id = p.id and c.status = 'published')::int as comment_count,
-                 exists(select 1 from community_reactions vr where vr.post_id = p.id and vr.user_id = ${resident.id}::uuid and vr.reaction_type = 'like') as viewer_liked
-          from community_posts p
-          join app_users u on u.id = p.author_user_id
-          where p.complex_id = ${resident.complexId}::uuid
-            and p.status = 'published'
-            and p.visibility = 'verified_residents'
-            and p.kind = ${kind}
-          order by p.published_at desc, p.created_at desc
-          limit ${limit}
-        `
-      : await sql`
-          select p.id, p.kind, p.category, p.title, p.body, p.status, p.published_at, p.created_at, p.updated_at,
-                 u.display_name as author_nickname,
-                 (select count(*) from community_reactions r where r.post_id = p.id and r.reaction_type = 'like')::int as reaction_count,
-                 (select count(*) from community_comments c where c.post_id = p.id and c.status = 'published')::int as comment_count,
-                 exists(select 1 from community_reactions vr where vr.post_id = p.id and vr.user_id = ${resident.id}::uuid and vr.reaction_type = 'like') as viewer_liked
-          from community_posts p
-          join app_users u on u.id = p.author_user_id
-          where p.complex_id = ${resident.complexId}::uuid
-            and p.status = 'published'
-            and p.visibility = 'verified_residents'
-          order by p.published_at desc, p.created_at desc
-          limit ${limit}
-        `;
-    return ok(rows.map((row) => mapPost(row as Record<string, unknown>)), requestId);
+    // Shared projection for feed(kind), feed(all), and single-post reads: select p.id, p.kind, p.category, p.title, p.body, p.status.
+    const kindFilter = kind ? sql`and p.kind = ${kind}` : sql``;
+    const cursorFilter = cursor
+      ? sql`and (p.published_at, p.created_at, p.id) < (${cursor.keys[0]}::timestamptz, ${cursor.keys[1]}::timestamptz, ${cursor.keys[2]}::uuid)`
+      : sql``;
+    const rows = await sql`
+      select p.id, p.kind, p.category, p.title, p.body, p.status, p.published_at, p.created_at, p.updated_at,
+             (p.author_user_id = ${resident.id}::uuid) as viewer_is_owner,
+             u.display_name as author_nickname,
+             (select count(*) from community_reactions r where r.post_id = p.id and r.reaction_type = 'like')::int as reaction_count,
+             (select count(*) from community_comments c where c.post_id = p.id and c.status = 'published')::int as comment_count,
+             exists(select 1 from community_reactions vr where vr.post_id = p.id and vr.user_id = ${resident.id}::uuid and vr.reaction_type = 'like') as viewer_liked
+      from community_posts p
+      join app_users u on u.id = p.author_user_id
+      where p.complex_id = ${resident.complexId}::uuid
+        and p.status = 'published'
+        and p.visibility = 'verified_residents'
+        ${kindFilter}
+        ${cursorFilter}
+      order by p.published_at desc, p.created_at desc, p.id desc
+      limit ${limit + 1}
+    `;
+    const page = buildCommunityPage(
+      rows as Record<string, unknown>[],
+      limit,
+      cursorScope,
+      COMMUNITY_FEED_SORT,
+      (row) => [row.published_at, row.created_at, row.id]
+    );
+    return ok(page.rows.map((row) => mapPost(row)), requestId, 200, {
+      nextCursor: page.nextCursor,
+      hasMore: page.hasMore
+    });
   }
 
   if (feedMatch && request.method === 'POST') {
@@ -219,6 +242,7 @@ export async function handleCommunityResidentRequest(
     row.reaction_count = 0;
     row.comment_count = 0;
     row.viewer_liked = false;
+    row.viewer_is_owner = true;
     return ok(mapPost(row), requestId, 201);
   }
 
@@ -229,6 +253,7 @@ export async function handleCommunityResidentRequest(
     if (request.method === 'GET') {
       const rows = await sql`
         select p.id, p.kind, p.category, p.title, p.body, p.status, p.published_at, p.created_at, p.updated_at,
+               (p.author_user_id = ${resident.id}::uuid) as viewer_is_owner,
                u.display_name as author_nickname,
                (select count(*) from community_reactions r where r.post_id = p.id and r.reaction_type = 'like')::int as reaction_count,
                (select count(*) from community_comments c where c.post_id = p.id and c.status = 'published')::int as comment_count,
@@ -270,6 +295,7 @@ export async function handleCommunityResidentRequest(
       row.reaction_count = 0;
       row.comment_count = 0;
       row.viewer_liked = false;
+      row.viewer_is_owner = true;
       return ok(mapPost(row), requestId);
     }
 
@@ -295,8 +321,19 @@ export async function handleCommunityResidentRequest(
     if (!post) return fail('NOT_FOUND', 'Community post not found', 404, requestId);
 
     if (request.method === 'GET') {
+      const rawLimit = Number(url.searchParams.get('limit') || '20');
+      const limit = Number.isInteger(rawLimit) && rawLimit >= 1 && rawLimit <= 50 ? rawLimit : 20;
+      const cursorScope = `comments:${postId.toLowerCase()}`;
+      const cursor = decodeCommunityCursor(url.searchParams.get('cursor'), cursorScope, COMMUNITY_COMMENT_SORT);
+      if (url.searchParams.has('cursor') && !cursor) {
+        return fail('VALIDATION_ERROR', 'Invalid community comments cursor', 400, requestId);
+      }
+      const cursorFilter = cursor
+        ? sql`and (c.created_at, c.id) > (${cursor.keys[0]}::timestamptz, ${cursor.keys[1]}::uuid)`
+        : sql``;
       const rows = await sql`
         select c.id, c.post_id, c.body, c.status, c.published_at, c.created_at, c.updated_at,
+               (c.author_user_id = ${resident.id}::uuid) as viewer_is_owner,
                u.display_name as author_nickname
         from community_comments c
         join app_users u on u.id = c.author_user_id
@@ -305,9 +342,21 @@ export async function handleCommunityResidentRequest(
           and c.parent_comment_id is null
           and c.status <> 'deleted'
           and (c.status = 'published' or c.author_user_id = ${resident.id}::uuid)
-        order by c.created_at asc
+          ${cursorFilter}
+        order by c.created_at asc, c.id asc
+        limit ${limit + 1}
       `;
-      return ok(rows.map((row) => mapComment(row as Record<string, unknown>)), requestId);
+      const page = buildCommunityPage(
+        rows as Record<string, unknown>[],
+        limit,
+        cursorScope,
+        COMMUNITY_COMMENT_SORT,
+        (row) => [row.created_at, row.id]
+      );
+      return ok(page.rows.map((row) => mapComment({
+        ...row,
+        post_status: post.status
+      })), requestId, 200, { nextCursor: page.nextCursor, hasMore: page.hasMore });
     }
 
     if (request.method === 'POST') {
@@ -324,6 +373,8 @@ export async function handleCommunityResidentRequest(
       `;
       const row = rows[0] as Record<string, unknown>;
       row.author_nickname = resident.displayName;
+      row.viewer_is_owner = true;
+      row.post_status = next.status;
       return ok(mapComment(row), requestId, 201);
     }
   }

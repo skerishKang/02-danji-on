@@ -118,6 +118,7 @@
 <dialog id="storyDialog"><header class="dialog-top"><button aria-label="아파트소식 목록으로 돌아가기" class="dialog-back modal-back" data-close-story="" type="button">← 아파트소식</button><button aria-label="닫기" class="dialog-close" data-close-story="" type="button">×</button></header><div class="dialog-body"><span class="dialog-type"></span><h2></h2><time></time><p></p><div class="article-body" hidden></div><div class="story-actions" hidden><button aria-pressed="false" class="story-react" type="button"><span class="story-react-label">공감</span><b class="story-react-count">0</b></button><span aria-live="polite" class="story-boundary" role="status"></span></div><div class="dialog-note">아파트소식은 입대의가 중요하다고 판단한 진행사항과 현장기록을 선별해 전합니다.</div></div></dialog>
 <nav aria-label="모바일 주요 메뉴" class="mobile-bottom"><button aria-label="홈" data-route="04_데일리홈.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><path d="m3 10 9-7 9 7v10h-6v-6H9v6H3z"></path></svg><span>홈</span></button><button aria-label="이웃가게" data-route="01_이웃가게_발견.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><path d="M4 7h16l-1 13H5L4 7Z"></path><path d="M8 7V5a4 4 0 0 1 8 0v2"></path></svg><span>이웃가게</span></button><button aria-label="우리단지" class="active" data-route="05_우리단지_첫화면.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><path d="M4 21V9l8-6 8 6v12"></path><path d="M8 13h8M8 17h8"></path></svg><span>우리단지</span></button><button aria-label="내정보" data-route="19_내정보_메인.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><circle cx="12" cy="8" r="4"></circle><path d="M4 21a8 8 0 0 1 16 0"></path></svg><span>내정보</span></button></nav>
 <script src="assets/danjion-session.js"></script>
+<script src="assets/dialog-focus.js"></script>
 <script type="module">
 import { createNewsBridge, DANJION_COMPLEX_SLUG } from './assets/danjion-news-bridge.js';
 
@@ -472,6 +473,14 @@ document.addEventListener('click', event => {
 
 dialog.querySelectorAll('[data-close-story]').forEach(button => button.addEventListener('click', () => dialog.close()));
 dialog.addEventListener('click', event => { if (event.target === dialog && !window.matchMedia('(max-width:760px)').matches) dialog.close(); });
+// Mobile uses non-modal dialog.show(), so native <dialog> cancel/Escape does not
+// close it. Preserve the established #638 Escape-close contract only on this
+// mobile branch; desktop showModal() keeps the browser's native cancel behavior.
+document.addEventListener('keydown', event => {
+  if (event.key !== 'Escape' || !dialog.open || !window.matchMedia('(max-width:760px)').matches) return;
+  event.preventDefault();
+  dialog.close();
+});
 // Closing the reader (button, Escape, backdrop or back) drops ?post= so a shared
 // link and the address bar always describe the screen that is actually open.
 dialog.addEventListener('close', clearPostUrl);

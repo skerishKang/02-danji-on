@@ -2,8 +2,9 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
 const root = new URL('../', import.meta.url);
-const [profileClient, safetyClient, integration, messages, main] = await Promise.all([
+const [profileClient, profileMapper, safetyClient, integration, messages, main] = await Promise.all([
   readFile(new URL('src/resident-profile-client.ts', root), 'utf8'),
+  readFile(new URL('src/resident-profile-mapper.ts', root), 'utf8'),
   readFile(new URL('src/resident-safety-client.ts', root), 'utf8'),
   readFile(new URL('src/v2/integration/V2ResidentProfileIntegration.tsx', root), 'utf8'),
   readFile(new URL('src/v2/integration/V2MessagesIntegration.tsx', root), 'utf8'),
@@ -15,9 +16,9 @@ assert.match(profileClient, /\/api\/v1\/me\/profile\?\$\{query\(\)\}/,
 assert.match(profileClient, /\/api\/v1\/profiles\/\$\{encodeURIComponent\(userId\)\}\?\$\{query\(\)\}/,
   'other resident profile must use canonical same-complex backend route');
 assert.match(profileClient, /authenticatedFetch\(/);
-assert.match(profileClient, /publicActivityCount: number/,
-  'typed profile contract must carry server-derived public activity count');
-assert.match(profileClient, /publicActivityCount: nonNegativeCount\(value\.publicActivityCount\)/,
+assert.match(profileMapper, /publicActivityCount: number/,
+  'typed profile mapper must carry server-derived public activity count');
+assert.match(profileMapper, /publicActivityCount: nonNegativeCount\(value\.publicActivityCount\)/,
   'API count must be normalized as a non-negative number');
 assert.doesNotMatch(profileClient, /localStorage|sessionStorage|indexedDB/i);
 

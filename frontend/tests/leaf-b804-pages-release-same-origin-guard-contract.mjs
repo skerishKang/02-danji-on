@@ -190,7 +190,7 @@ const authFacade = await read(AUTH_FACADE);
   // canonical deployment readback + commit readback
   assert.ok(workflow.includes('Canonical Pages deployment API readback: PASS'),
     'the canonical deployment readback must remain');
-  assert.ok(workflow.includes('$GITHUB_SHA'), 'the $GITHUB_SHA commit readback must remain');
+  assert.ok(workflow.includes('$EXPECTED_MAIN'), 'the exact authorized commit readback must remain');
   // root byte parity + critical leaf parity + true 404 parity
   assert.ok(workflow.includes('Canonical DanjiOn Pages root + critical leaf content parity + true 404: PASS'),
     'root/leaf byte parity + true 404 parity must remain');

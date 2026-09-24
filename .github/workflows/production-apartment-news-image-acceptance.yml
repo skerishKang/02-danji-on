@@ -1,0 +1,128 @@
+name: Production Apartment News Image Acceptance
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/production-apartment-news-image-acceptance.yml'
+      - '04_개발/frontend/scripts/production-apartment-news-image-acceptance.mjs'
+      - '04_개발/frontend/tests/production-apartment-news-image-acceptance-contract.mjs'
+      - '04_개발/backend/src/admin-operational-v2.ts'
+      - '04_개발/backend/src/official-news-attachment-v1.ts'
+      - 'frontend/admin/index.html'
+      - 'frontend/assets/danjion-admin-console.js'
+  workflow_dispatch:
+    inputs:
+      expected_main:
+        description: 'Exact main SHA authorized for bounded Production Apartment News image E2E'
+        required: true
+        type: string
+      run_live:
+        description: 'Explicitly authorize bounded Production Apartment News product-data acceptance'
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: danjion-production-apartment-news-image-acceptance
+  cancel-in-progress: false
+
+jobs:
+  source-contract:
+    name: Apartment News Production acceptance source contract
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Verify source-only Production acceptance contract
+        run: node 04_개발/frontend/tests/production-apartment-news-image-acceptance-contract.mjs
+
+  live-e2e:
+    name: Bounded Production Apartment News image browser E2E
+    needs: source-contract
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_live }}
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      DANJION_PRODUCTION_FRONTEND_URL: https://danjion.pages.dev
+      # #844 canonical path: dedicated retained Production test personas.
+      # Legacy acceptance secret names remain bounded compatibility fallbacks.
+      DANJION_PRODUCTION_OPERATOR_EMAIL: ${{ secrets.DANJION_PRODUCTION_TEST_OPERATIONAL_EMAIL || secrets.DANJION_PRODUCTION_OPERATOR_EMAIL }}
+      DANJION_PRODUCTION_OPERATOR_PASSWORD: ${{ secrets.DANJION_PRODUCTION_TEST_OPERATIONAL_PASSWORD || secrets.DANJION_PRODUCTION_OPERATOR_PASSWORD }}
+      DANJION_PRODUCTION_25A_EMAIL: ${{ secrets.DANJION_PRODUCTION_TEST_RESIDENT_EMAIL || secrets.DANJION_PRODUCTION_25A_EMAIL }}
+      DANJION_PRODUCTION_25A_PASSWORD: ${{ secrets.DANJION_PRODUCTION_TEST_RESIDENT_PASSWORD || secrets.DANJION_PRODUCTION_25A_PASSWORD }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: 04_개발/frontend/package-lock.json
+
+      - name: Exact-main and Production authority guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected='${{ inputs.expected_main }}'
+          actual="$(git rev-parse HEAD)"
+          remote="$(git ls-remote origin refs/heads/main | awk '{print $1}')"
+          test "$GITHUB_REF" = 'refs/heads/main'
+          test -n "$expected"
+          test "$actual" = "$expected"
+          test "$remote" = "$expected"
+          test "$DANJION_PRODUCTION_FRONTEND_URL" = 'https://danjion.pages.dev'
+          test -n "$DANJION_PRODUCTION_OPERATOR_EMAIL"
+          test -n "$DANJION_PRODUCTION_OPERATOR_PASSWORD"
+          test "${#DANJION_PRODUCTION_OPERATOR_PASSWORD}" -ge 8
+          test -n "$DANJION_PRODUCTION_25A_EMAIL"
+          test -n "$DANJION_PRODUCTION_25A_PASSWORD"
+          test "${#DANJION_PRODUCTION_25A_PASSWORD}" -ge 8
+          test "${DANJION_PRODUCTION_25A_EMAIL,,}" != "${DANJION_PRODUCTION_OPERATOR_EMAIL,,}"
+          test -z "${DATABASE_URL:-}"
+          test -z "${DANJION_PRODUCTION_DB_URL:-}"
+          echo 'PRODUCTION_844_EXACT_MAIN_GUARD=PASS'
+          echo 'PRODUCTION_844_ONE_OPERATOR_GUARD=PASS'
+          echo 'PRODUCTION_844_UNAUTHORIZED_PRINCIPAL_GUARD=PASS'
+          echo 'PRODUCTION_844_TEST_PERSONA_GUARD=PASS'
+
+      - name: Install frontend dependencies
+        working-directory: 04_개발/frontend
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        working-directory: 04_개발/frontend
+        run: npx playwright install --with-deps chromium
+
+      - name: Run bounded Production Apartment News image acceptance
+        working-directory: 04_개발/frontend
+        run: node scripts/production-apartment-news-image-acceptance.mjs
+
+      - name: Record bounded mutation disposition
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo '## Production Apartment News image acceptance'
+            echo '- Environment: production'
+            echo '- Dedicated retained OPERATIONAL test persona: YES'
+            echo '- Dedicated/general test resident negative persona: YES'
+            echo '- Production browser origin: danjion.pages.dev'
+            echo '- Intended write: 1 official-news image + 1 published article'
+            echo '- Intended cleanup after acceptance: detach image + retire image + archive article'
+            echo '- Signed-out negative probes: read/write denial only, no mutation'
+            echo '- Account provisioning: NO'
+            echo '- Household provisioning: NO'
+            echo '- Mutation retries: NO'
+            echo '- Worker deploy: NO'
+            echo '- Pages deploy: NO'
+            echo '- Secret output: NO'
+          } >> "$GITHUB_STEP_SUMMARY"
