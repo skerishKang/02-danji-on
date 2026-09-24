@@ -302,11 +302,15 @@ async function createPost(
   const title = String(payload.title ?? '').trim();
   const body = String(payload.body ?? '').trim();
   const status = String(payload.status ?? 'published').trim();
+  const displayMode = String(payload.displayMode ?? 'highlight').trim();
   if (!sourceName || !category || !title || !body) {
     return fail('VALIDATION_ERROR', 'sourceName, category, title and body are required', 400, requestId);
   }
   if (!['draft','published','archived'].includes(status)) {
     return fail('VALIDATION_ERROR', 'Invalid post status', 400, requestId);
+  }
+  if (!['highlight','article'].includes(displayMode)) {
+    return fail('VALIDATION_ERROR', 'Invalid post display mode', 400, requestId);
   }
 
   const publishedAt = String(payload.publishedAt ?? '').trim() || null;
@@ -341,6 +345,7 @@ async function createPost(
       title,
       body,
       channel,
+      displayMode,
       status,
       publishedAt
     });
@@ -357,15 +362,15 @@ async function createPost(
   const rows = await sql`
     insert into complex_posts (
       complex_id, author_user_id, source_name, category, title, body,
-      attachment_object_key, status, published_at, channel
+      attachment_object_key, status, published_at, channel, display_mode
     ) values (
       ${operator.complexId}::uuid,
       ${operator.id}::uuid,
       ${sourceName}, ${category}, ${title}, ${body}, ${attachment}, ${status},
       case when ${status} = 'published' then coalesce(${publishedAt}::timestamptz, now()) else null end,
-      ${channel}
+      ${channel}, ${displayMode}
     )
-    returning id, source_name, category, title, body, status, published_at, created_at, channel
+    returning id, source_name, category, title, body, status, published_at, created_at, channel, display_mode
   `;
   return ok(rows[0], requestId, 201);
 }
@@ -397,10 +402,11 @@ async function patchPost(
   const title = payload.title === undefined ? String(current.title) : String(payload.title).trim();
   const body = payload.body === undefined ? String(current.body) : String(payload.body).trim();
   const status = payload.status === undefined ? String(current.status) : String(payload.status).trim();
+  const displayMode = payload.displayMode === undefined ? String(current.display_mode || 'highlight') : String(payload.displayMode).trim();
   const attachment = payload.attachmentObjectKey === undefined
     ? (current.attachment_object_key ? String(current.attachment_object_key) : null)
     : (String(payload.attachmentObjectKey).trim() || null);
-  if (!sourceName || !category || !title || !body || !['draft','published','archived'].includes(status)) {
+  if (!sourceName || !category || !title || !body || !['draft','published','archived'].includes(status) || !['highlight','article'].includes(displayMode)) {
     return fail('VALIDATION_ERROR', 'Invalid post update', 400, requestId);
   }
   const channel = deriveChannel(sourceName, payload.channel);
@@ -434,6 +440,7 @@ async function patchPost(
       title,
       body,
       channel,
+      displayMode,
       status,
       publishedAt: null
     });
@@ -451,10 +458,10 @@ async function patchPost(
     update complex_posts
     set source_name = ${sourceName}, category = ${category}, title = ${title}, body = ${body},
         attachment_object_key = ${attachment}, status = ${status},
-        channel = ${channel},
+        channel = ${channel}, display_mode = ${displayMode},
         published_at = case when ${status} = 'published' then coalesce(published_at, now()) else published_at end
     where id = ${postId}::uuid
-    returning id, source_name, category, title, body, status, published_at, updated_at, channel
+    returning id, source_name, category, title, body, status, published_at, updated_at, channel, display_mode
   `;
   return ok(updated[0], requestId);
 }
@@ -606,7 +613,7 @@ export async function handleAdminOperationalRequest(
       return fail('VALIDATION_ERROR', 'Invalid post status filter', 400, requestId);
     }
     const rows = await sql`
-      select p.id, p.source_name, p.category, p.channel, p.title, p.body,
+      select p.id, p.source_name, p.category, p.channel, p.display_mode, p.title, p.body,
              p.attachment_object_key, p.status, p.published_at, p.created_at, p.updated_at
       from complex_posts p
       where p.complex_id = ${operator.complexId}::uuid
