@@ -311,6 +311,10 @@ async function createPost(
 
   const publishedAt = String(payload.publishedAt ?? '').trim() || null;
   const attachment = String(payload.attachmentObjectKey ?? '').trim() || null;
+  const displayMode = String(payload.displayMode ?? 'highlight').trim();
+  if (displayMode !== 'highlight' && displayMode !== 'article') {
+    return fail('INVALID_DISPLAY_MODE', 'Invalid display mode', 400, requestId);
+  }
   const channel = deriveChannel(sourceName, payload.channel);
   if (!channel) return fail('INVALID_CHANNEL', 'Invalid channel', 400, requestId);
   // #844 BLOCKER 3: a photo attachment is only valid on the two official apartment-news channels.
@@ -341,6 +345,7 @@ async function createPost(
       title,
       body,
       channel,
+      displayMode,
       status,
       publishedAt
     });
@@ -357,15 +362,15 @@ async function createPost(
   const rows = await sql`
     insert into complex_posts (
       complex_id, author_user_id, source_name, category, title, body,
-      attachment_object_key, status, published_at, channel
+      attachment_object_key, status, published_at, channel, display_mode
     ) values (
       ${operator.complexId}::uuid,
       ${operator.id}::uuid,
       ${sourceName}, ${category}, ${title}, ${body}, ${attachment}, ${status},
       case when ${status} = 'published' then coalesce(${publishedAt}::timestamptz, now()) else null end,
-      ${channel}
+      ${channel}, ${displayMode}
     )
-    returning id, source_name, category, title, body, status, published_at, created_at, channel
+    returning id, source_name, category, title, body, status, published_at, created_at, channel, display_mode
   `;
   return ok(rows[0], requestId, 201);
 }
@@ -400,8 +405,14 @@ async function patchPost(
   const attachment = payload.attachmentObjectKey === undefined
     ? (current.attachment_object_key ? String(current.attachment_object_key) : null)
     : (String(payload.attachmentObjectKey).trim() || null);
+  const displayMode = payload.displayMode === undefined
+    ? String(current.display_mode || 'highlight')
+    : String(payload.displayMode).trim();
   if (!sourceName || !category || !title || !body || !['draft','published','archived'].includes(status)) {
     return fail('VALIDATION_ERROR', 'Invalid post update', 400, requestId);
+  }
+  if (displayMode !== 'highlight' && displayMode !== 'article') {
+    return fail('INVALID_DISPLAY_MODE', 'Invalid display mode', 400, requestId);
   }
   const channel = deriveChannel(sourceName, payload.channel);
   if (!channel) return fail('INVALID_CHANNEL', 'Invalid channel', 400, requestId);
@@ -434,6 +445,7 @@ async function patchPost(
       title,
       body,
       channel,
+      displayMode,
       status,
       publishedAt: null
     });
@@ -451,10 +463,10 @@ async function patchPost(
     update complex_posts
     set source_name = ${sourceName}, category = ${category}, title = ${title}, body = ${body},
         attachment_object_key = ${attachment}, status = ${status},
-        channel = ${channel},
+        channel = ${channel}, display_mode = ${displayMode},
         published_at = case when ${status} = 'published' then coalesce(published_at, now()) else published_at end
     where id = ${postId}::uuid
-    returning id, source_name, category, title, body, status, published_at, updated_at, channel
+    returning id, source_name, category, title, body, status, published_at, updated_at, channel, display_mode
   `;
   return ok(updated[0], requestId);
 }
@@ -606,7 +618,7 @@ export async function handleAdminOperationalRequest(
       return fail('VALIDATION_ERROR', 'Invalid post status filter', 400, requestId);
     }
     const rows = await sql`
-      select p.id, p.source_name, p.category, p.channel, p.title, p.body,
+      select p.id, p.source_name, p.category, p.channel, p.display_mode, p.title, p.body,
              p.attachment_object_key, p.status, p.published_at, p.created_at, p.updated_at
       from complex_posts p
       where p.complex_id = ${operator.complexId}::uuid
