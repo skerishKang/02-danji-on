@@ -24,21 +24,18 @@ async function gotoPage(page: Page, file: string): Promise<string[]> {
 }
 
 async function mockAuthenticatedSettingsSession(page: Page): Promise<void> {
-  await page.route('**/*', async route => {
-    const url = new URL(route.request().url());
-    if (url.pathname !== '/api/auth/get-session') {
-      await route.continue();
-      return;
-    }
-
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({
-        session: { id: 'e2e-settings-session' },
-        user: { id: 'e2e-settings-user' },
-      }),
-    });
+  await page.addInitScript(() => {
+    const originalFetch = window.fetch.bind(window);
+    window.fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+      const url = new URL(typeof input === 'string' ? input : input instanceof URL ? input.href : input.url, window.location.href);
+      if (url.pathname === '/api/auth/get-session') {
+        return new Response(JSON.stringify({
+          session: { id: 'e2e-settings-session' },
+          user: { id: 'e2e-settings-user' },
+        }), { status: 200, headers: { 'content-type': 'application/json' } });
+      }
+      return originalFetch(input, init);
+    };
   });
 }
 
