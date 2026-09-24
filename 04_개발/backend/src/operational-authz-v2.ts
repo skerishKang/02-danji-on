@@ -73,6 +73,76 @@ async function auditOperationalDecision(
 }
 
 /**
+ * #975 minimum operational-principal boundary for ID-based admin routes.
+ *
+ * An ID-based admin route cannot resolve the owning complex before it reads the
+ * row, so the exact complex-scoped authority above can only run once the row is
+ * known. Left at that, the route leaks a resource existence oracle: a signed-out
+ * or ungranted caller could tell an existing id (401/403 after the lookup) from
+ * an unknown one (404).
+ *
+ * This helper is the lower boundary that closes it. It answers exactly one
+ * question — "does this actor hold at least one active operational grant at
+ * all?" — over the same two grant tables and the same fail-closed predicates
+ * (status = 'active', unexpired) used by `requireOperationalAuthority`, so it can
+ * never deny an actor the exact check would have authorized. It is deliberately
+ * NOT an authorization decision and must never replace the exact complex-scoped
+ * permission: an eligible actor still has to pass `requireOperationalAuthority`
+ * for the resource's own complex.
+ *
+ * Returns null when the actor may continue. Otherwise it returns the canonical
+ * denial shared with `requireOperationalAuthority` (identical code, message and
+ * status) so an ungranted caller observes one and the same policy class for
+ * existing, unknown and malformed ids. Every denial is audited; a database
+ * failure fails closed with 500.
+ */
+export async function operationalPrincipalDenial(
+  sql: Sql,
+  actor: Actor,
+  requestId: string,
+  requestedScope: string
+): Promise<Response | null> {
+  try {
+    const rows = await sql`
+      select
+        exists (
+          select 1
+          from padiem_operator_grants g
+          where g.user_id = ${actor.id}
+            and g.status = 'active'
+            and (g.expires_at is null or g.expires_at > now())
+        ) as padiem_eligible,
+        exists (
+          select 1
+          from complex_operator_grants g
+          where g.user_id = ${actor.id}
+            and g.operator_kind = 'resident_council'
+            and g.status = 'active'
+            and (g.expires_at is null or g.expires_at > now())
+        ) as council_eligible
+    `;
+
+    const row = rows[0];
+    if (row && (row.padiem_eligible === true || row.council_eligible === true)) return null;
+
+    await auditOperationalDecision(
+      sql,
+      actor,
+      requestId,
+      null,
+      requestedScope,
+      'denied',
+      'OPERATIONAL_ELIGIBILITY_MISSING',
+      { stage: 'minimum-principal-boundary' }
+    );
+    return fail('OPERATIONAL_FORBIDDEN', 'PADIEM or resident-council authorization required', 403, requestId);
+  } catch (error) {
+    console.error('[DanjiOn Operational Boundary]', requestId, error instanceof Error ? error.name : 'operational_boundary_failed');
+    return fail('OPERATIONAL_AUTHZ_FAILED', 'Operational authorization could not be verified and audited', 500, requestId);
+  }
+}
+
+/**
  * Authorizes one day-to-day DanjiOn operation against the product-owner governance model:
  * PADIEM platform operator OR explicitly granted resident-council operator for this complex.
  *

@@ -42,6 +42,7 @@
     "test:authz-v2-migrations": "node tests/authorization-v2-migration-contract.mjs",
     "test:operational-authz-v2": "tsx tests/operational-authz-v2.test.mjs",
     "test:admin-operational-rbac": "node tests/admin-operational-rbac-contract.mjs",
+    "test:admin-auth-before-resource-lookup-975": "tsx --import ./tests/helpers/neon-stub-loader.mjs tests/admin-auth-before-resource-lookup-975.test.mjs",
     "test:padiem-authority": "tsx tests/padiem-authority-v1.test.mjs",
     "test:admin-authority-contract": "node tests/admin-authority-contract.mjs",
     "test:admin-bootstrap": "tsx tests/admin-bootstrap-v1.test.mjs",

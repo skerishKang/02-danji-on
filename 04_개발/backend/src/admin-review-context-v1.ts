@@ -1,6 +1,10 @@
 import { neon, type NeonQueryFunction } from '@neondatabase/serverless';
+import { requireActor } from './auth-v1';
+// #975: the canonical UUID validator (same one #973 uses for public route
+// identifiers) gates this ID-based admin route before any ::uuid cast.
+import { UUID } from './application-docs-core-v1';
 import type { CoreEnv } from './core-v1';
-import { requireOperationalAuthority } from './operational-authz-v2';
+import { operationalPrincipalDenial, requireOperationalAuthority } from './operational-authz-v2';
 
 type Sql = NeonQueryFunction<false, false>;
 
@@ -70,6 +74,24 @@ export async function handleAdminReviewContextRequest(request: Request, env: Cor
   if (!env.DATABASE_URL) return fail('DATABASE_NOT_CONFIGURED', 'DATABASE_URL is not configured', 503, requestId);
 
   const sql: Sql = neon(env.DATABASE_URL);
+
+  // #975 Stage 1: the minimum actor boundary runs before the review-context
+  // read, so a signed-out caller receives one and the same 401 for an existing
+  // and an unknown application id and no applicant, membership-verification or
+  // application row is ever read for it.
+  const actor = await requireActor(request, env, sql, requestId);
+  if (actor instanceof Response) return actor;
+
+  const applicationId = match[1];
+
+  // #975 Stage 2 guard: a malformed id is answered exactly like an absent
+  // application behind that same boundary and never reaches a ::uuid cast.
+  if (!UUID.test(applicationId)) {
+    const denial = await operationalPrincipalDenial(sql, actor, requestId, BUSINESS_REVIEW_SCOPE);
+    if (denial) return denial;
+    return fail('NOT_FOUND', 'Business application not found', 404, requestId);
+  }
+
   const rows = await sql`
     select
       a.id,
@@ -101,13 +123,22 @@ export async function handleAdminReviewContextRequest(request: Request, env: Cor
     left join complex_memberships m
       on m.user_id = a.applicant_user_id
      and m.complex_id = a.complex_id
-    where a.id = ${match[1]}::uuid
+    where a.id = ${applicationId}::uuid
     limit 1
   `;
 
   const row = rows[0];
-  if (!row) return fail('NOT_FOUND', 'Business application not found', 404, requestId);
+  if (!row) {
+    // #975: the resource-specific 404 is only for a caller that already cleared
+    // the minimum operational-principal boundary, so applicant existence,
+    // verification context and application existence are not oracle-able.
+    const denial = await operationalPrincipalDenial(sql, actor, requestId, BUSINESS_REVIEW_SCOPE);
+    if (denial) return denial;
+    return fail('NOT_FOUND', 'Business application not found', 404, requestId);
+  }
 
+  // #975 Stage 3: the exact complex-scoped authority for the application's own
+  // complex remains the authoritative gate; Stage 1 never replaces it.
   const operator = await requireOperationalAuthority(
     request,
     env,
