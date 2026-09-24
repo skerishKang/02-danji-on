@@ -12,6 +12,13 @@ type Sql = NeonQueryFunction<false, false>;
 
 const MAX_BODY_BYTES = 128 * 1024;
 
+type BenefitTimestamp = {
+  value: string | null;
+  epochMs: number | null;
+};
+
+const BENEFIT_ISO_TIMESTAMP = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,9}))?(Z|[+-]\d{2}:\d{2})$/i;
+
 const POLICY = {
   businessReview: {
     padiem: 'business.review',
@@ -61,6 +68,55 @@ async function bodyJson(request: Request, requestId: string): Promise<Record<str
   } catch {
     return fail('INVALID_JSON', 'Invalid JSON', 400, requestId);
   }
+}
+
+// #970: validate optional benefit timestamps before SQL and preserve explicit clears.
+function normalizeBenefitTimestamp(value: unknown): BenefitTimestamp | null {
+  if (value === null || value === undefined) return { value: null, epochMs: null };
+  if (value instanceof Date) {
+    if (!Number.isFinite(value.getTime())) return null;
+    return { value: value.toISOString(), epochMs: value.getTime() };
+  }
+  if (typeof value !== 'string') return null;
+
+  const text = value.trim();
+  if (!text) return { value: null, epochMs: null };
+  const match = BENEFIT_ISO_TIMESTAMP.exec(text);
+  if (!match) return null;
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const hour = Number(match[4]);
+  const minute = Number(match[5]);
+  const second = Number(match[6]);
+  const millisecond = Number((match[7] || '').padEnd(3, '0').slice(0, 3));
+  const offset = match[8];
+
+  if (offset.toUpperCase() !== 'Z') {
+    const offsetHour = Number(offset.slice(1, 3));
+    const offsetMinute = Number(offset.slice(4, 6));
+    if (offsetHour > 23 || offsetMinute > 59) return null;
+  }
+
+  // Date.parse accepts impossible civil dates by rolling them forward. Check
+  // the calendar fields before accepting the value so 2026-02-30 cannot pass.
+  const calendar = new Date(0);
+  calendar.setUTCFullYear(year, month - 1, day);
+  calendar.setUTCHours(hour, minute, second, millisecond);
+  if (
+    calendar.getUTCFullYear() !== year ||
+    calendar.getUTCMonth() !== month - 1 ||
+    calendar.getUTCDate() !== day ||
+    calendar.getUTCHours() !== hour ||
+    calendar.getUTCMinutes() !== minute ||
+    calendar.getUTCSeconds() !== second ||
+    calendar.getUTCMilliseconds() !== millisecond
+  ) return null;
+
+  const epochMs = Date.parse(text);
+  if (!Number.isFinite(epochMs)) return null;
+  return { value: new Date(epochMs).toISOString(), epochMs };
 }
 
 async function authority(
@@ -548,13 +604,34 @@ async function patchBenefit(
   const description = payload.description === undefined ? String(current.description ?? '') : String(payload.description);
   const conditions = payload.conditions === undefined
     ? (current.conditions ? String(current.conditions) : null)
-    : (String(payload.conditions).trim() || null);
+    : (payload.conditions === null ? null : String(payload.conditions).trim() || null);
   const status = payload.status === undefined ? String(current.status) : String(payload.status).trim();
-  const startsAt = payload.startsAt === undefined ? (current.starts_at ? String(current.starts_at) : null) : (String(payload.startsAt).trim() || null);
-  const endsAt = payload.endsAt === undefined ? (current.ends_at ? String(current.ends_at) : null) : (String(payload.endsAt).trim() || null);
   if (!title || !['draft','active','expired','suspended'].includes(status)) {
     return fail('VALIDATION_ERROR', 'Invalid benefit update', 400, requestId);
   }
+
+  const effectiveStartsAt = payload.startsAt === undefined
+    ? normalizeBenefitTimestamp(current.starts_at)
+    : normalizeBenefitTimestamp(payload.startsAt);
+  if (!effectiveStartsAt) {
+    return fail('VALIDATION_ERROR', 'startsAt must be a valid ISO timestamp', 400, requestId);
+  }
+  const effectiveEndsAt = payload.endsAt === undefined
+    ? normalizeBenefitTimestamp(current.ends_at)
+    : normalizeBenefitTimestamp(payload.endsAt);
+  if (!effectiveEndsAt) {
+    return fail('VALIDATION_ERROR', 'endsAt must be a valid ISO timestamp', 400, requestId);
+  }
+  if (
+    effectiveStartsAt.epochMs !== null &&
+    effectiveEndsAt.epochMs !== null &&
+    effectiveStartsAt.epochMs > effectiveEndsAt.epochMs
+  ) {
+    return fail('VALIDATION_ERROR', 'startsAt must be before or equal to endsAt', 400, requestId);
+  }
+
+  const startsAt = effectiveStartsAt.value;
+  const endsAt = effectiveEndsAt.value;
   const updated = await sql`
     update benefits
     set title = ${title}, description = ${description}, conditions = ${conditions},
