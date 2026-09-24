@@ -94,6 +94,7 @@
 
   const APPLICATION_REVIEW_STATUSES = Object.freeze(['approved', 'changes_requested', 'rejected']);
   const POST_STATUSES = Object.freeze(['draft', 'published', 'archived']);
+  const POST_DISPLAY_MODES = Object.freeze(['highlight', 'article']);
   const BENEFIT_STATUSES = Object.freeze(['draft', 'active', 'expired', 'suspended']);
   const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -213,8 +214,11 @@
     const title = String(value.title || '').trim();
     const body = String(value.body || '').trim();
     const status = String(value.status || '').trim();
-    if (!sourceName || !category || !title || !body || !POST_STATUSES.includes(status)) return null;
-    return { sourceName, category, title, body, status };
+    const channel = String(value.channel || '').trim();
+    const displayMode = String(value.displayMode || 'highlight').trim();
+    const attachmentObjectKey = value.attachmentObjectKey == null ? null : String(value.attachmentObjectKey).trim() || null;
+    if (!sourceName || !category || !title || !body || !POST_STATUSES.includes(status) || !POST_DISPLAY_MODES.includes(displayMode)) return null;
+    return { sourceName, category, title, body, status, ...(channel ? { channel } : {}), displayMode, attachmentObjectKey };
   }
 
   function classifyPostMutation(result) {
@@ -565,6 +569,7 @@
     PRIVILEGED_PLACEHOLDERS,
     APPLICATION_REVIEW_STATUSES,
     POST_STATUSES,
+    POST_DISPLAY_MODES,
     BENEFIT_STATUSES,
     extractRows,
     consoleSections,
