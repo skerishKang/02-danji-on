@@ -130,7 +130,10 @@ try {
     new Request('https://x.test/api/auth/capabilities', { method: 'POST' }),
     env
   );
-  assert.equal(postResponse, null, 'POST /api/auth/capabilities must not be handled by the capability route');
+  assert.ok(postResponse, 'POST /api/auth/capabilities must be rejected explicitly');
+  assert.equal(postResponse.status, 405, 'POST /api/auth/capabilities must return 405');
+  assert.equal(postResponse.headers.get('allow'), 'GET', 'capability endpoint must advertise GET as the only allowed method');
+  assert.equal(postResponse.headers.get('cache-control'), 'no-store', 'method rejection must not be cached');
 
   // The capability read must never touch the database or any outbound service.
   assert.deepEqual(outboundUrls, [], 'the capability route must perform zero outbound fetch (DB query 0)');
