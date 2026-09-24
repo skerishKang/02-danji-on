@@ -90,9 +90,9 @@
     "test:complex-news-channel-write": "tsx tests/complex-news-channel-write-contract.mjs",
     "test:complex-news-channel-040-lifecycle": "node tests/run-postgres-lifecycle.mjs tests/complex-news-channel-040-postgres-lifecycle.sh",
     "test:business-category-benefit": "node tests/business-category-benefit-contract.mjs",
-    "test:public-complex-eligibility": "tsx tests/public-complex-eligibility-v1.test.mjs",
     "test:saved-shops-server": "node tests/saved-shops-server-contract.mjs",
     "test:community-replies": "node tests/community-replies-contract.mjs",
+    "test:community-979-cursor-pagination": "tsx --import ./tests/helpers/neon-stub-loader.mjs tests/community-979-cursor-pagination.test.mjs",
     "test:community-notifications": "node tests/community-notifications-contract.mjs",
     "test:resident-messages": "node tests/resident-messages-contract.mjs",
     "test:resident-notifications": "node tests/resident-notifications-contract.mjs",
@@ -126,7 +126,8 @@
     "test:production-neon-connectivity-diagnostic": "node tests/production-neon-connectivity-diagnostic-contract.mjs",
     "test:backup-neon-to-drive": "node tests/backup-neon-to-drive-contract.mjs",
     "test:backup-neon-to-drive-runtime-safety": "node tests/backup-neon-to-drive-runtime-safety.test.mjs",
-    "test:verify-neon-backup-restore": "node tests/verify-neon-backup-restore-contract.mjs"
+    "test:verify-neon-backup-restore": "node tests/verify-neon-backup-restore-contract.mjs",
+    "test:public-complex-eligibility": "tsx tests/public-complex-eligibility-v1.test.mjs"
   },
   "dependencies": {
     "@neondatabase/serverless": "1.1.0",
