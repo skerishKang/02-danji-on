@@ -151,6 +151,7 @@ try {
   );
   if (unauthorizedWrite.status() !== 403) throw new Error(`UNAUTHORIZED_WRITE_HTTP_${unauthorizedWrite.status()}`);
   report('UNAUTHORIZED_WRITE_DENIED');
+  report('TEST_RESIDENT_OFFICIAL_WRITE_DENIED');
   await unauthorizedContext.close();
   unauthorizedContext = null;
 
@@ -161,6 +162,7 @@ try {
   });
   if (signin.status() !== 200) throw new Error(`SIGNIN_HTTP_${signin.status()}`);
   report('SIGN_IN');
+  report('TEST_OPERATIONAL_SIGNIN');
 
   const session = await context.request.get(`${frontendBase}/api/auth/get-session`, {
     headers: { Origin: frontendBase },
@@ -179,6 +181,7 @@ try {
   const authorized = authorityData?.wildcard === true || scopes.includes('official-content.manage');
   if (!authorized) throw new Error('OFFICIAL_CONTENT_AUTHORITY_MISSING');
   report('OFFICIAL_CONTENT_AUTHORITY');
+  report('TEST_OPERATIONAL_OFFICIAL_CONTENT_AUTHORITY');
 
   stage = 'ADMIN_UI';
   const page = await context.newPage();
