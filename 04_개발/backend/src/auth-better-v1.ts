@@ -335,8 +335,12 @@ export async function handleBetterAuthRequest(request: Request, env: BetterAuthE
     return handleSocialStart(request, env);
   }
 
-  if (request.method === 'GET' && path === AUTH_CAPABILITY_PATH) {
-    return handleAuthCapabilities(env);
+  if (path === AUTH_CAPABILITY_PATH) {
+    if (request.method === 'GET') return handleAuthCapabilities(env);
+    return new Response(null, {
+      status: 405,
+      headers: { allow: 'GET', 'cache-control': 'no-store' }
+    });
   }
 
   const auth = createDanjionAuth(env, resolveAuthPublicBaseUrl(env, request));
