@@ -179,7 +179,9 @@ render();
    feedState.loading=true;
    loadMore.disabled=true;
    loadMore.textContent=append?'게시글 더 불러오는 중입니다.':'게시글 다시 시도';
-   const result=await (showAll?bridge.listPosts(null,{limit:20,cursor:append?feedState.cursor:null}):bridge.listPosts(KIND[selected],{limit:20,cursor:append?feedState.cursor:null}));
+   const result=await (showAll
+    ?(append?bridge.listPosts(null,{limit:50,cursor:append?feedState.cursor:null}):bridge.listPosts(null,{limit:50}))
+    :(append?bridge.listPosts(KIND[selected],{limit:20,cursor:append?feedState.cursor:null}):bridge.listPosts(KIND[selected],{limit:20})));
    if(generation!==feedState.generation)return;
    feedState.loading=false;
    if(result.mode!=='server'){

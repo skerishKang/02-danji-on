@@ -343,7 +343,7 @@ main{width:min(920px,calc(100% - 40px));margin:auto;padding-bottom:70px}.route{h
   commentState.loading=true;
   commentLoadMore.disabled=true;
   commentLoadMore.textContent=append?'댓글 더 불러오는 중입니다.':'댓글 다시 시도';
-  const result=await bridge.listComments(postId,{limit:20,cursor:append?commentState.cursor:null});
+  const result=await (append?bridge.listComments(postId,{limit:20,cursor:commentState.cursor}):bridge.listComments(postId));
   if(generation!==commentState.generation)return;
   commentState.loading=false;
   if(result.mode!=='server'){
