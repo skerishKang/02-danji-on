@@ -216,15 +216,17 @@
     const body = String(value.body || '').trim();
     const status = String(value.status || '').trim();
     const channel = String(value.channel || '').trim();
-    const displayMode = String(value.displayMode || 'highlight').trim();
+    const hasDisplayMode = Object.prototype.hasOwnProperty.call(value, 'displayMode');
+    const displayMode = hasDisplayMode ? String(value.displayMode || '').trim() : '';
     const hasAttachment = Object.prototype.hasOwnProperty.call(value, 'attachmentObjectKey');
     const attachmentObjectKey = hasAttachment ? (String(value.attachmentObjectKey || '').trim() || null) : undefined;
     if (!sourceName || !category || !title || !body || !POST_STATUSES.includes(status)) return null;
     if (channel && !POST_CHANNELS.includes(channel)) return null;
-    if (!POST_DISPLAY_MODES.includes(displayMode)) return null;
+    if (hasDisplayMode && !POST_DISPLAY_MODES.includes(displayMode)) return null;
     return {
-      sourceName, category, title, body, status, displayMode,
+      sourceName, category, title, body, status,
       ...(channel ? { channel } : {}),
+      ...(hasDisplayMode ? { displayMode } : {}),
       ...(hasAttachment ? { attachmentObjectKey } : {})
     };
   }
