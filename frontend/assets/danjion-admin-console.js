@@ -227,6 +227,63 @@
     };
   }
 
+  const OFFICIAL_NEWS_IMAGE_KEY = /^gdrive\/public\/official-news-image\/[A-Za-z0-9_-]{10,200}$/;
+
+  async function uploadOfficialNewsImage(fetchImpl, apiBase, file, idempotencyKey, slug) {
+    if (!file || typeof file.size !== 'number' || typeof file.type !== 'string') {
+      return { state: 'invalid-request', status: 0, code: 'INVALID_FILE' };
+    }
+    if (file.size <= 0 || file.size > 8 * 1024 * 1024 ||
+        !['image/jpeg','image/png','image/webp'].includes(file.type)) {
+      return { state: 'invalid-request', status: 0, code: 'INVALID_OFFICIAL_NEWS_IMAGE' };
+    }
+    const session = global.DanjionSession;
+    const form = new FormData();
+    form.append('kind', 'official-news-image');
+    form.append('complexSlug', slug || COMPLEX_SLUG);
+    form.append('file', file, file.name || 'official-news-image');
+    const headers = {};
+    if (idempotencyKey) headers['Idempotency-Key'] = String(idempotencyKey);
+    try {
+      const response = await fetchImpl(
+        session.joinUrl(String(apiBase || ''), '/api/v1/storage/objects'),
+        { method: 'POST', credentials: 'include', headers, body: form }
+      );
+      const payload = await response.json().catch(() => null);
+      const code = payload && payload.error && payload.error.code ? String(payload.error.code) : '';
+      if (response.status === 401) return { state: 'signed-out', status: 401, code };
+      if (response.status === 403) return { state: 'scope-denied', status: 403, code };
+      if (!response.ok) return { state: 'error', status: response.status, code };
+      const objectKey = payload && payload.data && String(payload.data.objectKey || '');
+      if (response.status !== 201 || !OFFICIAL_NEWS_IMAGE_KEY.test(objectKey)) {
+        return { state: 'error', status: response.status, code: 'INVALID_OFFICIAL_NEWS_UPLOAD_RESPONSE' };
+      }
+      return { state: 'updated', status: response.status, data: payload.data, objectKey };
+    } catch {
+      return { state: 'network-error', status: 0, code: '' };
+    }
+  }
+
+  async function deleteOfficialNewsImage(fetchImpl, apiBase, objectKey) {
+    const key = String(objectKey || '').trim();
+    if (!OFFICIAL_NEWS_IMAGE_KEY.test(key)) {
+      return { state: 'invalid-request', status: 0, code: 'INVALID_OFFICIAL_NEWS_IMAGE_KEY' };
+    }
+    const session = global.DanjionSession;
+    const result = await session.request(
+      fetchImpl,
+      session.joinUrl(String(apiBase || ''), '/api/v1/storage/objects?objectKey=' + encodeURIComponent(key)),
+      { method: 'DELETE' }
+    );
+    const code = result && result.error && result.error.code ? String(result.error.code) : '';
+    if (result && result.ok) return { state: 'updated', status: result.status, data: result.data, code };
+    if (result && result.status === 401) return { state: 'signed-out', status: 401, code };
+    if (result && result.status === 403) return { state: 'scope-denied', status: 403, code };
+    if (result && result.status === 409) return { state: 'conflict', status: 409, code };
+    if (!result || result.reason === 'network-error' || result.status === 0) return { state: 'network-error', status: 0, code };
+    return { state: 'error', status: Number(result.status || 0), code };
+  }
+
   function classifyPostMutation(result) {
     const code = result && result.error && result.error.code ? String(result.error.code) : '';
     if (result && result.ok) return { state: 'updated', data: result.data, status: result.status, code };
@@ -584,6 +641,8 @@
     reviewResidentNewsSubmission,
     createOfficialPost,
     updateOfficialPost,
+    uploadOfficialNewsImage,
+    deleteOfficialNewsImage,
     loadBenefitBusinesses,
     createResidentBenefit,
     updateResidentBenefit,
