@@ -24,7 +24,13 @@ async function gotoPage(page: Page, file: string): Promise<string[]> {
 }
 
 async function mockAuthenticatedSettingsSession(page: Page): Promise<void> {
-  await page.route('**/api/auth/get-session', async route => {
+  await page.route('**/*', async route => {
+    const url = new URL(route.request().url());
+    if (url.pathname !== '/api/auth/get-session') {
+      await route.continue();
+      return;
+    }
+
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
