@@ -112,6 +112,41 @@ assert.equal(submitBlock.indexOf("storageAdapter.upload('official-news-image'") 
 assert.ok(submitBlock.includes('if (postImageFile || postImageKey) setPostImageError(detail)'),
   'a failed create keeps the uploaded object for the next attempt');
 
+/* ---------------- Production V3 static admin parity ---------------- */
+
+const staticComposerStart = staticAdmin.indexOf('function postComposer(');
+const staticEditStart = staticAdmin.indexOf('function postEditControls(', staticComposerStart);
+assert.ok(staticComposerStart > 0 && staticEditStart > staticComposerStart,
+  'Production V3 static admin composer must exist');
+const staticComposer = staticAdmin.slice(staticComposerStart, staticEditStart);
+assert.ok(staticComposer.includes("imageInput.type='file'") &&
+  staticComposer.includes("imageInput.accept='image/jpeg,image/png,image/webp'"),
+  'Production V3 exposes one bounded official-news image picker');
+assert.ok(staticComposer.includes("imageInput.setAttribute('aria-label','대표 사진')"),
+  'Production picker has a stable browser-acceptance label');
+assert.ok(staticComposer.includes("consoleApi.uploadOfficialNewsImage("),
+  'Production V3 submit path uses the dedicated official-news upload bridge');
+assert.ok(staticComposer.indexOf("consoleApi.uploadOfficialNewsImage(") >
+  staticComposer.indexOf("save.addEventListener('click'"),
+  'Production upload is submit-time only');
+assert.ok(staticComposer.includes('uploadedObjectKey=upload.objectKey') &&
+  staticComposer.includes('postPayload(fields,uploadedObjectKey)'),
+  'Production create submits only the server-issued key');
+assert.ok(staticComposer.includes('Preserve uploadedObjectKey on create failure'),
+  'Production create failure retains the key for retry instead of multiplying orphans');
+assert.ok(staticComposer.includes('consoleApi.deleteOfficialNewsImage('),
+  'Production remove/replace can retire an unreferenced uploaded object');
+assert.ok(adminConsole.includes('async function uploadOfficialNewsImage(') &&
+  adminConsole.includes("form.append('kind', 'official-news-image')") &&
+  adminConsole.includes("form.append('complexSlug', slug || COMPLEX_SLUG)") &&
+  adminConsole.includes("credentials: 'include'"),
+  'static bridge performs authenticated multipart official-news upload without the JSON request helper');
+assert.ok(adminConsole.includes('async function deleteOfficialNewsImage(') &&
+  adminConsole.includes("'/api/v1/storage/objects?objectKey='"),
+  'static bridge owns bounded cleanup of an unreferenced official-news object');
+assert.ok(!staticComposer.slice(0, staticComposer.indexOf("save.addEventListener('click'")).includes('uploadOfficialNewsImage('),
+  'select/remove before submit never uploads');
+
 /* ---------------- bridge helper (real function) ---------------- */
 
 assert.equal(resolveOfficialNewsImageUrl('/api', `gdrive/public/official-news-image/${'a'.repeat(12)}`),
