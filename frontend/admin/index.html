@@ -302,15 +302,25 @@
       const title=document.createElement('input');title.value=String(row?.title||'');title.maxLength=200;title.setAttribute('aria-label','소식 제목');
       const body=document.createElement('textarea');body.value=String(row?.body||'');body.maxLength=10000;body.setAttribute('aria-label','소식 본문');
       const status=postStatusSelect(String(row?.status||'draft'),includeArchived);
-      const channel=postChannelSelect(postChannelFor(row));
-      const displayMode=postDisplayModeSelect(String(row?.display_mode||row?.displayMode||'highlight'));
+      const originalChannel=postChannelFor(row);
+      const originalDisplayMode=String(row?.display_mode||row?.displayMode||'highlight');
+      const channel=postChannelSelect(originalChannel);
+      const displayMode=postDisplayModeSelect(originalDisplayMode);
       const legacyAttachment=row?.['attachment_'+'object'+'_key'];
       const existingKey=String(row?.attachmentObjectKey||legacyAttachment||'').trim()||null;
-      const image={file:null,preview:null,existingKey,uploadedKey:null,idempotencyKey:null,removeExisting:false,input:null,status:null,previewEl:null,removeBtn:null};
-      return {source,category,title,body,status,channel,displayMode,image};
+      const image={file:null,preview:null,existingKey,uploadedKey:null,preparedKey:undefined,idempotencyKey:null,removeExisting:false,input:null,status:null,previewEl:null,removeBtn:null};
+      return {source,category,title,body,status,channel,displayMode,originalChannel,originalDisplayMode,image};
     }
     function postPayload(fields){
-      return {sourceName:fields.source.value,category:fields.category.value,title:fields.title.value,body:fields.body.value,status:fields.status.value,channel:fields.channel.value,displayMode:fields.displayMode.value,attachmentObjectKey:fields.image.preparedKey??fields.image.existingKey??null};
+      const payload={sourceName:fields.source.value,category:fields.category.value,title:fields.title.value,body:fields.body.value,status:fields.status.value};
+      const image=fields.image;
+      const attachmentChanged=image.removeExisting||!!image.file||!!image.uploadedKey;
+      const channelChanged=fields.channel.value!==fields.originalChannel;
+      const displayModeChanged=fields.displayMode.value!==fields.originalDisplayMode;
+      if(channelChanged||displayModeChanged||attachmentChanged)payload.channel=fields.channel.value;
+      if(displayModeChanged)payload.displayMode=fields.displayMode.value;
+      if(attachmentChanged)payload.attachmentObjectKey=image.removeExisting?null:(image.preparedKey??image.uploadedKey??null);
+      return payload;
     }
     function postErrorMessage(outcome){
       if(outcome.state==='scope-denied')return '현재 관리자 권한으로 단지소식을 변경할 수 없습니다.';
