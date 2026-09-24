@@ -542,7 +542,7 @@ const exactAuthorityStart = authzSource.indexOf('export async function requireOp
 const absenceBoundary = authzSource.slice(absenceBoundaryStart, exactAuthorityStart);
 assert.match(absenceBoundary, /g\.scope = \$\{requestedScope\}/,
   'absence disclosure must require the requested PADIEM operation scope');
-assert.match(absenceBoundary, /g\.scope = '\\*'/,
+assert.match(absenceBoundary, /g\.scope = '\*'/,
   'absence disclosure must preserve the canonical PADIEM wildcard');
 assert.doesNotMatch(absenceBoundary, /council_eligible|from complex_operator_grants/,
   'complex-scoped council authority cannot authorize an absent resource without an owning complex');
