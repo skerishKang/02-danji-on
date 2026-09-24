@@ -288,7 +288,8 @@ const loadAdminContext = (location) => {
     category: '생활소식',
     title: '엘리베이터 점검 안내',
     body: '점검 일정을 안내드립니다.',
-    status: 'draft'
+    status: 'draft',
+    displayMode: 'highlight'
   });
 
   const updated = await C.updateOfficialPost(
