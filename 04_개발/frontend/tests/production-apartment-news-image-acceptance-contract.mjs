@@ -113,8 +113,8 @@ for (const forbiddenLog of [
 
 for (const token of [
   'officialNewsStorage.uploadOfficialNewsImage(fetch,apiBase,image.file,image.idempotencyKey,consoleApi.COMPLEX_SLUG)',
-  'displayMode:fields.displayMode.value',
-  'attachmentObjectKey',
+  'if(displayModeChanged)payload.displayMode=fields.displayMode.value',
+  'if(attachmentChanged)payload.attachmentObjectKey=',
   "select.setAttribute('aria-label','표시 방식')"
 ]) assert.ok(admin.includes(token), 'canonical admin missing: ' + token);
 for (const token of [
