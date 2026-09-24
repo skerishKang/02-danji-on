@@ -200,6 +200,7 @@ const EXPECTED_FRONTEND_ORDER = [
    "test:leaf-b788-visual-syntax-integrity",
    "test:leaf-b858-notification-settings-route",
    "test:leaf-982-settings-signed-out-gate",
+   "test:leaf-981-community-reply-mobile-a11y",
    "test:leaf-b976-neighbor-modal-xss",
  ];
 
