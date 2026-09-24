@@ -182,6 +182,7 @@ export async function handleCommunityResidentRequest(
       return fail('VALIDATION_ERROR', 'Invalid community feed cursor', 400, requestId);
     }
 
+    // Shared projection for feed(kind), feed(all), and single-post reads: select p.id, p.kind, p.category, p.title, p.body, p.status.
     const kindFilter = kind ? sql`and p.kind = ${kind}` : sql``;
     const cursorFilter = cursor
       ? sql`and (p.published_at, p.created_at, p.id) < (${cursor.keys[0]}::timestamptz, ${cursor.keys[1]}::timestamptz, ${cursor.keys[2]}::uuid)`
