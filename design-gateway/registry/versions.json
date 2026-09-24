@@ -29,6 +29,27 @@
       "notes": "Comparison-only React V2 build produced by KILO3 (former PR #400), mounted from preview-bundles/v2-runtime with a fully relative asset base and mock/read-only data mode. No production secrets, no production API binding. Never promoted from this gateway."
     },
     {
+      "id": "v2-runtime-post984",
+      "name": "Post-#984 V2 React Runtime (comparison build)",
+      "status": "COMPARISON_ONLY",
+      "runtime": "react-v2",
+      "source": {
+        "path": "04_개발/frontend",
+        "ref": "main",
+        "sha": "3267a7fed7057c38c2863bca9ebea097ca7bafea",
+        "capturedAt": "2026-09-25"
+      },
+      "frozen": true,
+      "doNotMerge": false,
+      "bundle": {
+        "mode": "mounted",
+        "mountPath": "design-gateway/preview-bundles/v2-runtime-post984",
+        "entry": "index.html",
+        "state": "READY"
+      },
+      "notes": "Post-#984 comparison-only React V2 build produced by DANJION3 from exact main 3267a7f, mounted as a separate immutable comparison artifact. Runtime social-provider capability behavior is mocked/read-only for gateway review: Kakao/Google only after fail-closed normalization, Naver product UI absent. No production secrets, production API binding, live auth, or live data. Never promoted from this gateway."
+    },
+    {
       "id": "v3-current",
       "name": "V3 Static Design Authority",
       "status": "DESIGN_AUTHORITY",

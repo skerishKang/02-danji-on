@@ -46,12 +46,13 @@ preview-bundles/<id>/ dir  ────────► run check + build + verif
 | versionId | producer | bundle | state |
 |---|---|---|---|
 | `v2-runtime` | KILO3 | `mounted` at `preview-bundles/v2-runtime/` — V2 React built with relative base + mock/read-only data (`BUILD_INFO.builder=KILO3`, `sourceSha=f23c4e1…`) | READY |
+| `v2-runtime-post984` | DANJION3 | `mounted` at `preview-bundles/v2-runtime-post984/` — post-#984 V2 React comparison build from exact main `3267a7f…`, capability behavior mocked/read-only, Kakao/Google fail-closed UI | READY |
 | `v3-current` | KILO2 | `assembled` from `design-gateway/versions/v3-current/` (entry `index.html`) | READY |
 | `legacy-a` | KILO2 | `assembled` from `design-gateway/versions/legacy-a/` (entry `index.html`) | READY |
 | `legacy-b` | KILO2 | `assembled` from `design-gateway/versions/legacy-b/` (entry `index.html`) | READY |
 | `pr378` | KILO2 | `assembled` from `design-gateway/versions/pr378/` (entry `site/index.html`) — frozen PR #378 artifact, DO-NOT-MERGE | READY |
 
-Only `v2-runtime` uses `mode: mounted` (needs a producer bundle). The other four
+`v2-runtime` and `v2-runtime-post984` use `mode: mounted` (need producer bundles). The other four
 use `mode: assembled` (build-time read-only copy from KILO2's frozen
 `design-gateway/versions/<id>/` packages) and need no `preview-bundles/` mount.
 

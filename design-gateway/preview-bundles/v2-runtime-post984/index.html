@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#F7F7F4" />
+    <meta name="description" content="같은 아파트 주민의 가게와 서비스를 먼저 발견하는 단지온" />
+    <title>단지온</title>
+    <script>
+(function () {
+  var nativeFetch = window.fetch.bind(window);
+  window.fetch = function (input, init) {
+    var raw = typeof input === 'string' ? input : (input && input.url) || '';
+    var url = new URL(raw, window.location.href);
+    if (url.pathname === '/api/auth/capabilities') {
+      var mode = new URL(window.location.href).searchParams.get('capability') || 'default';
+      var body = mode === 'empty'
+        ? { data: { socialProviders: [] } }
+        : mode === 'malformed'
+          ? { data: { socialProviders: { unavailable: true } } }
+          : { data: { socialProviders: ['kakao', 'google', 'naver'] } };
+      return Promise.resolve(new Response(JSON.stringify(body), {
+        status: 200,
+        headers: { 'content-type': 'application/json' }
+      }));
+    }
+    return nativeFetch(input, init);
+  };
+})();
+</script>
+<script type="module" crossorigin src="./assets/resident-DRapf4s8.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/resident-DeTlShds.css">
+  </head>
+  <body>
+    <div id="root"></div>
+    <meta name="robots" content="noindex, nofollow" /><script type="application/json" id="danjion-v2-preview-meta">{"sourceSha":"3267a7fed7057c38c2863bca9ebea097ca7bafea","buildSha":"3267a7fed705","sourceBranch":"main","capturedAt":"2026-09-24 23:08"}</script><div data-danjion-v2-preview="overlay" style="position:fixed;left:0;right:0;bottom:0;z-index:2147483000;pointer-events:none;display:flex;justify-content:center" aria-hidden="true"><div style="background:#b42318;color:#fff;font:600 12px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif;letter-spacing:.02em;padding:6px 14px;border-radius:8px 8px 0 0;box-shadow:0 -2px 12px rgba(0,0,0,.25);text-align:center">COMPARISON ONLY · 비교작용 스냅샷 · NOT A DEPLOYMENT<br><code style="font-size:11px;opacity:.9">source=3267a7fed7057c38c2863bca9ebea097ca7bafea · branch=main · captured=2026-09-24 23:08</code></div></div><script>(function(){var m=document.getElementById("danjion-v2-preview-meta");var s=" [COMPARISON ONLY]";function a(){if(!document.title.endsWith(s)){document.title=document.title+s;}}a();if(m){new MutationObserver(a).observe(document.head,{subtree:true,childList:true,characterData:true});}})();</script>
+  </body>
+</html>
