@@ -283,6 +283,11 @@
       OFFICIAL_POST_CHANNELS.forEach((value)=>{const option=document.createElement('option');option.value=value;option.textContent=OFFICIAL_POST_CHANNEL_LABELS[value];option.selected=value===current;select.append(option)});
       return select;
     }
+    function postDisplayModeSelect(current){
+      const select=document.createElement('select');select.setAttribute('aria-label','표시 방식');
+      [['highlight','목록 강조'],['article','상세 글']].forEach(([value,label])=>{const option=document.createElement('option');option.value=value;option.textContent=label;option.selected=value===current;select.append(option)});
+      return select;
+    }
     function isPhotoChannel(value){return value==='apartment_news'||value==='management_office'}
     function validateOfficialPostImage(file){
       if(!file||!file.size)throw new Error('빈 사진은 첨부할 수 없습니다.');
@@ -329,12 +334,13 @@
       const body=document.createElement('textarea');body.value=String(row?.body||'');body.maxLength=10000;body.setAttribute('aria-label','소식 본문');
       const status=postStatusSelect(String(row?.status||'draft'),includeArchived);
       const channel=postChannelSelect(postChannelFor(row));
+      const displayMode=postDisplayModeSelect(String(row?.display_mode||row?.displayMode||'highlight'));
       const existingKey=String(row?.attachment_object_key||row?.attachmentObjectKey||'').trim()||null;
       const image={file:null,preview:null,existingKey,uploadedKey:null,idempotencyKey:null,removeExisting:false,input:null,status:null,previewEl:null,removeBtn:null};
-      return {source,category,title,body,status,channel,image};
+      return {source,category,title,body,status,channel,displayMode,image};
     }
     function postPayload(fields,attachmentObjectKey){
-      return {sourceName:fields.source.value,category:fields.category.value,title:fields.title.value,body:fields.body.value,status:fields.status.value,channel:fields.channel.value,attachmentObjectKey};
+      return {sourceName:fields.source.value,category:fields.category.value,title:fields.title.value,body:fields.body.value,status:fields.status.value,channel:fields.channel.value,displayMode:fields.displayMode.value,attachmentObjectKey};
     }
     function postErrorMessage(outcome){
       if(outcome.state==='scope-denied')return '현재 관리자 권한으로 단지소식을 변경할 수 없습니다.';
@@ -399,6 +405,7 @@
       grid.append(
         labeledField('출처',fields.source,false),
         labeledField('소식 채널',fields.channel,false),
+        labeledField('표시 방식',fields.displayMode,false),
         labeledField('분류',fields.category,false),
         labeledField('제목',fields.title,true),
         labeledField('본문',fields.body,true),
@@ -424,7 +431,7 @@
     }
     function postComposer(panel,section,apiBase){
       const editor=el('section',undefined,'admin-post-editor create');editor.append(el('h3','새 단지소식 작성'));
-      const fields=postFields({status:'draft',channel:'apartment_news',source_name:'입주자대표회의'},false);appendPostFields(editor,fields,apiBase);
+      const fields=postFields({status:'draft',channel:'apartment_news',display_mode:'highlight',source_name:'입주자대표회의'},false);appendPostFields(editor,fields,apiBase);
       const actions=el('div',undefined,'admin-post-actions');
       const save=el('button','새 소식 저장');save.type='button';
       const live=el('p','', 'admin-post-status');live.setAttribute('aria-live','polite');
