@@ -144,12 +144,35 @@
 }
 </style>
 <link rel="stylesheet" href="assets/danjion-service-header.css">
+<style id="settings-signed-out-gate-982">
+  .settings-access-gate{width:min(1180px,calc(100% - 64px));min-height:calc(100vh - var(--header) - 62px);margin:0 auto;display:grid;place-items:center;padding:56px 0}
+  .settings-access-gate[hidden]{display:none}
+  .settings-access-card{width:min(620px,100%);border:1px solid var(--line);background:var(--paper);padding:40px;text-align:center;box-shadow:0 18px 50px rgba(16,29,48,.08)}
+  .settings-access-card small{display:block;color:var(--coral);font-weight:900;letter-spacing:.08em;margin-bottom:10px}
+  .settings-access-card [role="heading"]{font-size:clamp(32px,5vw,50px);margin:0 0 14px;letter-spacing:-.045em}
+  .settings-access-card p{margin:0 auto;color:var(--muted);line-height:1.7;max-width:470px}
+  .settings-access-actions{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;margin-top:26px}
+  .settings-access-actions a{min-height:48px;display:inline-flex;align-items:center;justify-content:center;padding:0 20px;border:1px solid var(--ink);text-decoration:none;color:var(--ink);font-weight:900;background:#fff}
+  .settings-access-actions .primary{background:var(--ink);color:#fff}
+  @media(max-width:760px){.settings-access-gate{width:100%;padding:28px 20px 96px}.settings-access-card{padding:30px 20px}.settings-access-actions{display:grid}.settings-access-actions a{width:100%}}
+</style>
 </head>
 <body data-danjion-page="24">
 <header class="site-header danjion-service-header"><div class="header-inner"><a class="brand" href="04_데일리홈.html"><span class="wordmark">단지온</span><small>DANJION by PADIEM</small></a><nav aria-label="주요 메뉴" class="desktop-nav"><a href="04_데일리홈.html">홈</a><a href="./index.html?intro=1">인트로</a><a href="01_이웃가게_발견.html">이웃가게</a><a href="05_우리단지_첫화면.html">우리단지</a><a aria-current="page" class="active" href="19_내정보_메인.html">내정보</a></nav><div class="identity" data-account-host>방림명지로드힐</div><span class="mobile-title">설정</span></div></header>
 <div class="route"><div class="route-inner"><button class="back" onclick="location.href='19_내정보_메인.html'">← 내정보</button><span class="route-note">설정은 이 기기와 내 계정에 저장됩니다.</span></div></div>
-<main>
-<section class="page-head"><div><div class="eyebrow">MY SETTINGS</div><h1>설정</h1></div><div class="page-copy"><b>읽기 편하고, 안전하게 이용하세요.</b>자주 쓰는 설정을 찾기 쉽게 나누었습니다.</div></section>
+  <section class="settings-access-gate" id="settingsAccessGate" aria-live="polite">
+    <div class="settings-access-card">
+      <small>MY SETTINGS</small>
+      <div id="settingsAccessTitle" role="heading" aria-level="1">설정을 확인하고 있습니다.</div>
+      <p id="settingsAccessCopy">로그인 상태를 안전하게 확인한 뒤 계정 설정을 보여드립니다.</p>
+      <div class="settings-access-actions">
+        <a class="primary" id="settingsGuestLogin" href="index.html?auth=login" hidden>로그인 · 가입</a>
+        <a href="04_데일리홈.html">홈으로</a>
+      </div>
+    </div>
+  </section>
+  <main id="settingsPrivateContent" hidden>
+  <section class="page-head"><div><div class="eyebrow">MY SETTINGS</div><h1>설정</h1></div><div class="page-copy"><b>읽기 편하고, 안전하게 이용하세요.</b>자주 쓰는 설정을 찾기 쉽게 나누었습니다.</div></section>
 <section class="type-panel"><article class="type-preview"><small>TEXT SIZE PREVIEW</small><div class="preview-copy"><h2>우리 단지의 소식을<br/>편안하게 읽어보세요.</h2><p>선택한 크기는 단지온의 공지, 게시글, 메시지와 버튼 글자에 함께 적용됩니다.</p></div></article><article class="type-control"><h2>글자 크기</h2><p>버튼을 누르면 왼쪽 문장과 이 화면의 글자가 바로 바뀝니다.</p><div class="size-options"><button class="size-option" data-size="small"><span><b>작게</b><br/><span>정보를 한 화면에 많이 봅니다.</span></span></button><button class="size-option active" data-size="normal"><span><b>보통</b><br/><span>기본 글자 크기입니다.</span></span></button><button class="size-option" data-size="large"><span><b>크게</b><br/><span>본문과 버튼을 더 크게 봅니다.</span></span></button></div></article></section>
 <section class="settings-grid"><article class="panel" id="notifications"><header class="panel-head"><div><small>NOTIFICATIONS</small><h2>알림 설정</h2></div><span>필요한 알림만 받을 수 있어요.</span></header><div class="rows"><div class="row"><span class="row-copy"><b>단지온공지</b><span>이용방법·운영기준·중요 변경사항</span></span><button aria-checked="true" aria-label="단지온공지 알림" class="toggle on" data-consent-type="service_notifications" data-notification-toggle data-setting-support="supported" role="switch" type="button"></button></div><div class="row"><span class="row-copy"><b>우리단지 새 소식</b><span>단지온공지·아파트소식·주민소식</span></span><button aria-checked="true" aria-label="우리단지 새 소식 알림" class="toggle on" data-notification-toggle data-setting-support="needs-backend" role="switch" type="button"></button></div><div class="row"><span class="row-copy"><b>댓글과 답글</b><span>내 글에 남겨진 새 반응</span></span><button aria-checked="true" aria-label="댓글과 답글 알림" class="toggle on" data-notification-toggle data-setting-support="needs-backend" role="switch" type="button"></button></div><div class="row"><span class="row-copy"><b>1:1 메시지 받기</b><span>끄면 새 메시지를 받을 수 없습니다.</span></span><button aria-checked="true" aria-label="1대1 메시지 받기 알림" class="toggle on" data-notification-toggle data-setting-support="needs-backend" role="switch" type="button"></button></div></div></article>
 <article class="panel"><header class="panel-head"><div><small>PRIVACY &amp; ACCOUNT</small><h2>개인정보·계정</h2></div><span>동·호는 다른 주민에게 공개하지 않아요.</span></header><div class="rows"><div class="row"><span class="row-copy"><b>공개 프로필</b><span>닉네임·단지레벨·게시글·댓글·후기</span></span><button class="arrow" data-settings-target="profile" type="button">→</button></div><div class="row"><span class="row-copy"><b>우리집 연결</b><span>서버에서 연결 상태를 확인합니다.</span></span><button aria-label="우리집 연결 열기" class="arrow" data-settings-target="household" type="button">→</button></div></div></article></section>
@@ -444,6 +467,9 @@ if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt
 <script id="danjion-settings-server">
 (function(){
   function toast(t){if(typeof window.showToast==='function')window.showToast(t);}
+  function hydrateMemberSettings(){
+  function $(id){return document.getElementById(id);}
+  var S=globalThis.DanjionSession;
   function applySwitch(btn,on){btn.classList.toggle('on',!!on);btn.setAttribute('aria-checked',String(!!on));}
 
   var notificationToggles=[].slice.call(document.querySelectorAll('#notifications [data-notification-toggle]'));
@@ -557,6 +583,30 @@ if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt
   if(list&&count){
     bridge.blockedUsers().then(function(r){if(r&&r.ok)renderBlocks(r.blocks);else{list.textContent='';list.innerHTML='<div class="empty" style="display:grid">차단 목록을 확인할 수 없습니다.</div>';count.textContent='—';}}).catch(function(){list.textContent='차단 목록을 확인할 수 없습니다.';count.textContent='—';});
   }
+  }
+  function showGuestGate(state){
+    var gate=document.getElementById('settingsAccessGate'),privateContent=document.getElementById('settingsPrivateContent'),title=document.getElementById('settingsAccessTitle'),copy=document.getElementById('settingsAccessCopy'),login=document.getElementById('settingsGuestLogin');
+    if(privateContent)privateContent.hidden=true;
+    if(gate)gate.hidden=false;
+    if(title)title.textContent=state==='error'?'로그인 상태를 확인할 수 없습니다.':'설정은 로그인 후 확인할 수 있습니다.';
+    if(copy)copy.textContent=state==='error'?'계정 보호를 위해 설정을 열지 않았습니다. 다시 로그인한 뒤 이용해 주세요.':'알림·개인정보·차단·계정 설정은 로그인한 회원에게만 표시됩니다.';
+    if(login)login.hidden=false;
+  }
+  function showPrivateContent(){
+    var gate=document.getElementById('settingsAccessGate'),privateContent=document.getElementById('settingsPrivateContent');
+    if(gate)gate.hidden=true;
+    if(privateContent)privateContent.hidden=false;
+  }
+  function resolveAccess(){
+    if(!S||typeof S.fetchSession!=='function'){showGuestGate('error');return;}
+    S.fetchSession(fetch).then(function(result){
+      var ready=typeof S.nativeSessionReady==='function'&&S.nativeSessionReady(result);
+      if(!ready){showGuestGate('guest');return;}
+      showPrivateContent();
+      hydrateMemberSettings();
+    },function(){showGuestGate('error');});
+  }
+  resolveAccess();
 })();
 </script>
 </body></html>
