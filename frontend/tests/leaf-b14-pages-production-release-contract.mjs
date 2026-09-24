@@ -5,7 +5,7 @@ import { spawnSync } from 'node:child_process';
 const workflow = await readFile(new URL('../../.github/workflows/pages-production-release.yml', import.meta.url), 'utf8');
 
 /* #432: canonical production upload must not force a branch-directed preview deploy. */
-assert.match(workflow, /npx wrangler@4\.131\.0 pages deploy dist[\s\S]*--project-name "\$PAGES_PROJECT"[\s\S]*--commit-hash "\$GITHUB_SHA"/,
+assert.match(workflow, /npx wrangler@4\.131\.0 pages deploy dist[\s\S]*--project-name "\$PAGES_PROJECT"[\s\S]*--commit-hash "\$EXPECTED_MAIN"/,
   'production workflow must deploy the V3 artifact with explicit project and source SHA');
 assert.doesNotMatch(workflow, /pages deploy dist[\s\S]{0,250}--branch "\$PAGES_PRODUCTION_BRANCH"/,
   'canonical production deploy must not pass --branch');
@@ -17,8 +17,12 @@ assert.match(workflow, /canonical_deployment\.environment/,
   'workflow must verify canonical deployment environment');
 assert.match(workflow, /deployment_env" != "production"/,
   'deployment detail readback must fail closed outside production');
-assert.match(workflow, /canonical_commit[\s\S]*GITHUB_SHA/,
-  'canonical deployment source SHA must be compared when Cloudflare exposes it');
+assert.match(workflow, /canonical_commit[\s\S]*EXPECTED_MAIN/,
+  'canonical deployment source SHA must match the exact authorized main SHA');
+assert.match(workflow, /\[ -z "\$canonical_commit" \][\s\S]*!= "\$EXPECTED_MAIN"/,
+  'canonical deployment source SHA must fail closed when Cloudflare omits provenance');
+assert.match(workflow, /deployment_commit[\s\S]*EXPECTED_MAIN/,
+  'deployment detail source SHA must match the exact authorized main SHA');
 
 /* HTTP 200 alone is insufficient: canonical bytes and #430 markers must match. */
 assert.match(workflow, /expected_sha="\$\(sha256sum dist\/index\.html/,
@@ -177,3 +181,160 @@ assert.throws(
 );
 console.log('CLOUDFLARE_GUARD_FAIL_CLOSED_MUTATION_PROOF: PASS');
 console.log('leaf-b14-pages-production-release-contract-retry-hardening: PASS');
+
+/* #974: bind the actual Pages production mutation to the separately authorized
+   full main SHA, and fail closed if main or the checkout moves. */
+function namedStep(text, name) {
+  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const match = text.match(new RegExp(`      - name: ${escaped}\\n[\\s\\S]*?(?=\\n      - (?:name:|uses:)|$)`));
+  assert.ok(match, `required workflow step must exist: ${name}`);
+  return match[0];
+}
+
+function assertBashSyntax(step, name) {
+  const script = step.match(/        run: \|\n([\s\S]*)$/);
+  assert.ok(script, `${name} must contain a literal run script`);
+  const check = spawnSync('bash', ['-n'], { input: script[1], encoding: 'utf8' });
+  assert.equal(check.status, 0, `${name} bash syntax failed: ${check.stderr || check.stdout}`);
+}
+
+export function verifyExactMainReleaseAuthority(workflowText) {
+  assert.match(
+    workflowText,
+    /expected_main:\n\s+description: 'Exact origin\/main SHA authorized by CENTRAL[^\n]*'\n\s+required: true\n\s+type: string/,
+    'required exact-main input must exist',
+  );
+  assert.doesNotMatch(workflowText, /^\s{2}(?:push|pull_request|schedule):/m,
+    'Production Pages release must remain manual-only');
+
+  const checkout = workflowText.match(/      - uses: actions\/checkout@v4\n\s+with:\n\s+ref: \$\{\{ inputs\.expected_main \}\}\n\s+fetch-depth: 1/);
+  assert.ok(checkout, 'checkout must bind directly to the immutable expected_main input');
+
+  const inputStep = namedStep(workflowText, 'Validate exact main release authority input');
+  assertBashSyntax(inputStep, 'exact-main input validation step');
+  assert.match(inputStep, /GITHUB_REF.*refs\/heads\/main/,
+    'non-main dispatch must be denied before checkout');
+  assert.match(inputStep, /\[ -z "\$\{EXPECTED_MAIN\}" \]/,
+    'missing expected_main must fail closed');
+  assert.match(inputStep, /\^\[0-9a-fA-F\]\{40\}\$/,
+    'expected_main must require a full 40-character hexadecimal SHA');
+
+  const sourceStep = namedStep(workflowText, 'Verify exact current main authority before source assembly');
+  assertBashSyntax(sourceStep, 'exact-main source authority step');
+  assert.match(sourceStep, /local_sha="\$\(git rev-parse HEAD\)"/,
+    'source authority must read back checked-out HEAD');
+  assert.match(sourceStep, /git ls-remote origin refs\/heads\/main/,
+    'source authority must fresh-read remote main');
+  assert.match(sourceStep, /local_sha.*EXPECTED_MAIN.*remote_sha.*EXPECTED_MAIN/,
+    'source authority must compare both checkout and remote main to expected_main');
+  assert.match(sourceStep, /PRECHECKOUT_SOURCE_AUTHORITY=PASS/,
+    'source authority must emit a safe PASS marker');
+
+  const deployStep = namedStep(workflowText, 'Recheck exact main authority and deploy canonical Pages production');
+  assertBashSyntax(deployStep, 'pre-deploy exact-main + Pages deploy step');
+  const predeployRead = deployStep.indexOf('predeploy_remote_sha="$(git ls-remote origin refs/heads/main');
+  const mutationBoundary = deployStep.indexOf('npx wrangler@4.131.0 pages deploy dist');
+  assert.ok(predeployRead >= 0 && predeployRead < mutationBoundary,
+    'fresh remote-main equality must be rechecked immediately before Pages mutation');
+  assert.match(deployStep, /predeploy_local_sha.*EXPECTED_MAIN.*predeploy_remote_sha.*EXPECTED_MAIN/,
+    'pre-deploy guard must compare checkout and current main to expected_main');
+  assert.match(deployStep, /--commit-hash "\$EXPECTED_MAIN"/,
+    'Pages provenance must record the exact authorized SHA');
+  assert.doesNotMatch(deployStep, /--commit-hash "\$GITHUB_SHA"/,
+    'Pages provenance must not use the mutable dispatch SHA');
+  const deployCommands = deployStep
+    .split('\n')
+    .filter((line) => !line.trim().startsWith('#'))
+    .join('\n');
+  assert.equal((deployCommands.match(/npx wrangler@4\.131\.0 pages deploy/g) || []).length, 1,
+    'one dispatched run must execute exactly one Pages mutation');
+  assert.doesNotMatch(deployCommands, /while\b|until\b|for\s+\w+\s+in/,
+    'Production mutation must not be automatically retried');
+
+  const readbackStep = namedStep(workflowText, 'Verify canonical deployment readback');
+  assertBashSyntax(readbackStep, 'canonical deployment SHA readback step');
+  assert.match(readbackStep, /\[ -z "\$canonical_commit" \][\s\S]*!= "\$EXPECTED_MAIN"/,
+    'canonical provenance must be present and equal expected_main');
+  assert.match(readbackStep, /\[ -z "\$deployment_commit" \][\s\S]*!= "\$EXPECTED_MAIN"/,
+    'deployment-detail provenance must be present and equal expected_main');
+
+  assert.match(workflowText, /MAX_DISPATCH: '1'/,
+    'MAX_DISPATCH=1 policy must remain explicit');
+  assert.match(workflowText, /AUTO_RETRY: '0'/,
+    'AUTO_RETRY=0 policy must remain explicit');
+  assert.match(workflowText, /FAILED_PRODUCTION_RUN_RERUN_FORBIDDEN: 'true'/,
+    'failed Production run rerun prohibition must remain explicit');
+  assert.match(workflowText, /build-attribution\.mjs dist "\$EXPECTED_MAIN"/,
+    'artifact provenance must be stamped from expected_main');
+
+  return true;
+}
+
+verifyExactMainReleaseAuthority(workflow);
+console.log('EXPECTED_MAIN_INPUT_REQUIRED=PASS');
+console.log('FULL_SHA_VALIDATION=PASS');
+console.log('CHECKOUT_BINDS_EXPECTED_SHA=PASS');
+console.log('CURRENT_MAIN_EQUALITY_GUARD=PASS');
+console.log('PRE_DEPLOY_SHA_READBACK=PASS');
+console.log('STALE_MAIN_FAIL_CLOSED=PASS');
+console.log('MALFORMED_SHA_FAIL_CLOSED=PASS');
+console.log('MOVING_MAIN_RACE_CLOSED=PASS');
+console.log('PRODUCTION_DEPLOY_NOT_RUN_BY_TEST=PASS');
+
+const requiredInputBlock = `      expected_main:
+        description: 'Exact origin/main SHA authorized by CENTRAL for this Production Pages release'
+        required: true
+        type: string
+`;
+const missingInputWorkflow = workflow.replace(requiredInputBlock, '');
+assert.notEqual(missingInputWorkflow, workflow, 'missing-input mutation must change the workflow');
+assert.throws(() => verifyExactMainReleaseAuthority(missingInputWorkflow),
+  /required exact-main input must exist/);
+console.log('MISSING_EXPECTED_MAIN_MUTATION_PROOF=PASS');
+
+const malformedInputWorkflow = workflow.replace(
+  'if ! [[ "${EXPECTED_MAIN}" =~ ^[0-9a-fA-F]{40}$ ]]; then',
+  'if false; then',
+);
+assert.notEqual(malformedInputWorkflow, workflow, 'malformed-input mutation must change the workflow');
+assert.throws(() => verifyExactMainReleaseAuthority(malformedInputWorkflow),
+  /full 40-character hexadecimal SHA/);
+console.log('MALFORMED_EXPECTED_MAIN_MUTATION_PROOF=PASS');
+
+const staleMainWorkflow = workflow.replace(
+  'if [ "${local_sha}" != "${EXPECTED_MAIN}" ] || [ "${remote_sha}" != "${EXPECTED_MAIN}" ]; then',
+  'if false; then',
+);
+assert.notEqual(staleMainWorkflow, workflow, 'stale-main mutation must change the workflow');
+assert.throws(() => verifyExactMainReleaseAuthority(staleMainWorkflow),
+  /compare both checkout and remote main to expected_main/);
+console.log('STALE_EXPECTED_MAIN_MUTATION_PROOF=PASS');
+
+const checkedOutMismatchWorkflow = workflow.replace(
+  'if [ "${predeploy_local_sha}" != "${EXPECTED_MAIN}" ] || [ "${predeploy_remote_sha}" != "${EXPECTED_MAIN}" ]; then',
+  'if false; then',
+);
+assert.notEqual(checkedOutMismatchWorkflow, workflow, 'checked-out mismatch mutation must change the workflow');
+assert.throws(() => verifyExactMainReleaseAuthority(checkedOutMismatchWorkflow),
+  /pre-deploy guard must compare checkout and current main to expected_main/);
+console.log('CHECKED_OUT_SHA_MISMATCH_MUTATION_PROOF=PASS');
+
+const missingPredeployRemoteWorkflow = workflow.replace(
+  'predeploy_remote_sha="$(git ls-remote origin refs/heads/main | awk \'NR==1 {print $1}\')"',
+  'predeploy_remote_sha=""',
+);
+assert.notEqual(missingPredeployRemoteWorkflow, workflow, 'pre-deploy remote-read mutation must change the workflow');
+assert.throws(() => verifyExactMainReleaseAuthority(missingPredeployRemoteWorkflow),
+  /fresh remote-main equality must be rechecked immediately before Pages mutation/);
+console.log('PREDEPLOY_REMOTE_READ_MUTATION_PROOF=PASS');
+
+const emptyPostdeployCommitWorkflow = workflow.replace(
+  '[ -z "$canonical_commit" ]',
+  '[ -n "$canonical_commit" ]',
+);
+assert.notEqual(emptyPostdeployCommitWorkflow, workflow, 'empty post-deploy provenance mutation must change the workflow');
+assert.throws(() => verifyExactMainReleaseAuthority(emptyPostdeployCommitWorkflow),
+  /canonical provenance must be present and equal expected_main/);
+console.log('EMPTY_POSTDEPLOY_PROVENANCE_MUTATION_PROOF=PASS');
+
+console.log('leaf-b14-pages-production-release-contract-exact-main: PASS');
