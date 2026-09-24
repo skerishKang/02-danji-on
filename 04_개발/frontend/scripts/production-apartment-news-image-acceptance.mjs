@@ -73,9 +73,11 @@ try {
   stage = 'LIVE_SOURCE_PARITY';
   await assertLiveParity('admin/index.html', new URL('../../../frontend/admin/index.html', import.meta.url));
   await assertLiveParity('assets/danjion-admin-console.js', new URL('../../../frontend/assets/danjion-admin-console.js', import.meta.url));
+  await assertLiveParity('assets/danjion-admin-official-news-storage.js', new URL('../../../frontend/assets/danjion-admin-official-news-storage.js', import.meta.url));
   await assertLiveParity('08A_아파트소식_상세.html', new URL('../../../frontend/08A_아파트소식_상세.html', import.meta.url));
   report('LIVE_ADMIN_INDEX_PARITY');
   report('LIVE_ADMIN_BRIDGE_PARITY');
+  report('LIVE_ADMIN_STORAGE_BRIDGE_PARITY');
   report('LIVE_08A_PARITY');
 
   stage = 'BROWSER';
