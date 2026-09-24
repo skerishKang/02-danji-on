@@ -82,13 +82,13 @@ async function auditOperationalDecision(
  * an unknown one (404).
  *
  * This helper is the lower boundary that closes it. It answers exactly one
- * question — "does this actor hold at least one active operational grant at
- * all?" — over the same two grant tables and the same fail-closed predicates
- * (status = 'active', unexpired) used by `requireOperationalAuthority`, so it can
- * never deny an actor the exact check would have authorized. It is deliberately
- * NOT an authorization decision and must never replace the exact complex-scoped
- * permission: an eligible actor still has to pass `requireOperationalAuthority`
- * for the resource's own complex.
+ * question — "does this actor hold context-independent PADIEM authority for
+ * this requested operation?" — using the same active/unexpired and exact-or-*
+ * scope predicates as `requireOperationalAuthority`. Council authority is
+ * intentionally excluded because it is complex-scoped and an absent resource
+ * provides no complex to authorize against. This is deliberately NOT an
+ * authorization decision for existing resources: those still have to pass
+ * `requireOperationalAuthority` for the resource's own complex.
  *
  * Returns null when the actor may continue. Otherwise it returns the canonical
  * denial shared with `requireOperationalAuthority` (identical code, message and
@@ -111,20 +111,19 @@ export async function operationalPrincipalDenial(
           where g.user_id = ${actor.id}
             and g.status = 'active'
             and (g.expires_at is null or g.expires_at > now())
-        ) as padiem_eligible,
-        exists (
-          select 1
-          from complex_operator_grants g
-          where g.user_id = ${actor.id}
-            and g.operator_kind = 'resident_council'
-            and g.status = 'active'
-            and (g.expires_at is null or g.expires_at > now())
-        ) as council_eligible
+            and (g.scope = ${requestedScope} or g.scope = '*')
+        ) as padiem_eligible
     `;
 
     const row = rows[0];
-    if (row && (row.padiem_eligible === true || row.council_eligible === true)) return null;
+    if (row?.padiem_eligible === true) return null;
 
+    // An absent ID has no owning complex. A resident-council grant is
+    // complex-scoped, so treating "any council grant" as sufficient here would
+    // leak existence: unknown -> 404 while an existing resource in another
+    // complex -> 403. Council actors therefore fail closed at this absence
+    // boundary and still receive their normal exact authority decision once a
+    // concrete resource supplies its complex in Stage 3.
     await auditOperationalDecision(
       sql,
       actor,
@@ -132,8 +131,8 @@ export async function operationalPrincipalDenial(
       null,
       requestedScope,
       'denied',
-      'OPERATIONAL_ELIGIBILITY_MISSING',
-      { stage: 'minimum-principal-boundary' }
+      'OPERATIONAL_SCOPE_MISSING_AT_ABSENCE_BOUNDARY',
+      { stage: 'absence-disclosure-boundary' }
     );
     return fail('OPERATIONAL_FORBIDDEN', 'PADIEM or resident-council authorization required', 403, requestId);
   } catch (error) {

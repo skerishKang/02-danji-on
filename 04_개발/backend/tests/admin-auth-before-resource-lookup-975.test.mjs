@@ -103,17 +103,27 @@ function makeHarness({ grants = 'none', exists = false, row = null, written = nu
         const id = subject === OPERATOR_SUBJECT ? OPERATOR_ID : subject === OUTSIDER_SUBJECT ? OUTSIDER_ID : null;
         return id ? [{ id, auth_user_id: subject, display_name: 'Auth Order', account_status: 'active' }] : [];
       }
-      case 'eligibility':
+      case 'eligibility': {
+        const scopeBound = text.includes('g.scope =') && text.includes("or g.scope = '*'");
         return [{
-          padiem_eligible: grants === 'padiem',
-          council_eligible: grants === 'council'
+          // The pre-CENTRAL implementation asked only whether ANY PADIEM grant
+          // existed. Keep that distinction observable so a wrong-scope grant
+          // would reproduce the oracle unless source binds requestedScope.
+          padiem_eligible:
+            grants === 'padiem' ||
+            grants === 'padiem_wildcard' ||
+            (grants === 'padiem_wrong_scope' && !scopeBound),
+          // Kept in the harness so the old "any council grant" implementation
+          // would also reproduce the cross-complex absence oracle.
+          council_eligible: grants === 'council' || grants === 'council_other_complex'
         }];
+      }
       case 'authority':
         return [{
           complex_id: COMPLEX_ID,
           complex_slug: COMPLEX_SLUG,
-          padiem_grant_id: grants === 'padiem' ? 'grant-padiem' : null,
-          padiem_granted_scope: grants === 'padiem' ? String(params[1]) : null,
+          padiem_grant_id: grants === 'padiem' || grants === 'padiem_wildcard' ? 'grant-padiem' : null,
+          padiem_granted_scope: grants === 'padiem_wildcard' ? '*' : grants === 'padiem' ? String(params[1]) : null,
           council_grant_id: grants === 'council' ? 'grant-council' : null,
           council_granted_scope: grants === 'council' ? String(params[3]) : null
         }];
@@ -366,6 +376,45 @@ for (const target of TARGETS) {
   matrix[`UNAUTHORIZED_UNKNOWN_${k}`] = '403_OPERATIONAL_FORBIDDEN_SAME_POLICY_CLASS';
   matrix[`UNAUTHORIZED_${k}_ORACLE`] = 'NONE';
 
+  // --- PARTIAL AUTHORITY MUST NOT REOPEN THE ORACLE -----------------------
+  // A PADIEM operator holding some other scope must see the same 403 for an
+  // existing and unknown id. The pre-CENTRAL helper incorrectly treated any
+  // PADIEM grant as enough to disclose a resource-specific 404 for unknown ids.
+  const wrongScopeExisting = await run({
+    id: target.existingId, subject: OPERATOR_SUBJECT, grants: 'padiem_wrong_scope', exists: true, target
+  });
+  const wrongScopeUnknown = await run({
+    id: target.unknownId, subject: OPERATOR_SUBJECT, grants: 'padiem_wrong_scope', exists: false, target
+  });
+  assert.equal(wrongScopeExisting.response.status, 403, `WRONG_SCOPE_EXISTING ${k} must be 403`);
+  assert.equal(wrongScopeUnknown.response.status, 403, `WRONG_SCOPE_UNKNOWN ${k} must be 403`);
+  assert.deepEqual(identity(wrongScopeExisting), identity(wrongScopeUnknown),
+    `WRONG_SCOPE PADIEM ${k} existing/unknown must not reveal existence`);
+
+  // Council authority is exact-complex scoped. With no row there is no complex
+  // to prove, so unknown ids must fail closed rather than treating "any council
+  // grant" as permission to receive a resource-specific 404.
+  const otherComplexCouncilExisting = await run({
+    id: target.existingId, subject: OPERATOR_SUBJECT, grants: 'council_other_complex', exists: true, target
+  });
+  const otherComplexCouncilUnknown = await run({
+    id: target.unknownId, subject: OPERATOR_SUBJECT, grants: 'council_other_complex', exists: false, target
+  });
+  assert.equal(otherComplexCouncilExisting.response.status, 403,
+    `OTHER_COMPLEX_COUNCIL_EXISTING ${k} must be 403`);
+  assert.equal(otherComplexCouncilUnknown.response.status, 403,
+    `OTHER_COMPLEX_COUNCIL_UNKNOWN ${k} must be 403`);
+  assert.deepEqual(identity(otherComplexCouncilExisting), identity(otherComplexCouncilUnknown),
+    `OTHER_COMPLEX_COUNCIL ${k} existing/unknown must not reveal existence`);
+
+  const councilUnknown = await run({
+    id: target.unknownId, subject: OPERATOR_SUBJECT, grants: 'council', exists: false, target
+  });
+  assert.equal(councilUnknown.response.status, 403,
+    `COUNCIL_UNKNOWN ${k} must fail closed because no owning complex exists`);
+  assert.equal(councilUnknown.body.error.code, 'OPERATIONAL_FORBIDDEN',
+    `COUNCIL_UNKNOWN ${k} must use the canonical policy denial`);
+
   // --- AUTHORIZED_UNKNOWN / AUTHORIZED_EXISTING ---------------------------
   const authorizedUnknown = await run({
     id: target.unknownId, subject: OPERATOR_SUBJECT, grants: 'padiem', exists: false, target
@@ -488,6 +537,15 @@ assert.ok(reviewSource.indexOf('UUID.test(applicationId)') > reviewActor,
 // The boundary helper is additive only: it must never replace the exact authority.
 assert.match(authzSource, /export async function operationalPrincipalDenial/,
   'the #975 boundary must live in the canonical operational AuthZ module');
+const absenceBoundaryStart = authzSource.indexOf('export async function operationalPrincipalDenial');
+const exactAuthorityStart = authzSource.indexOf('export async function requireOperationalAuthority', absenceBoundaryStart);
+const absenceBoundary = authzSource.slice(absenceBoundaryStart, exactAuthorityStart);
+assert.match(absenceBoundary, /g\.scope = \$\{requestedScope\}/,
+  'absence disclosure must require the requested PADIEM operation scope');
+assert.match(absenceBoundary, /g\.scope = '\\*'/,
+  'absence disclosure must preserve the canonical PADIEM wildcard');
+assert.doesNotMatch(absenceBoundary, /council_eligible|from complex_operator_grants/,
+  'complex-scoped council authority cannot authorize an absent resource without an owning complex');
 assert.match(authzSource, /operator_kind = 'resident_council'/, 'council eligibility keeps the canonical operator kind');
 assert.doesNotMatch(authzSource, /x-danjion-role|x-danjion-verified|x-danjion-complex/i,
   'client headers must never grant the #975 boundary');
@@ -510,3 +568,6 @@ console.log(`INVALID_UUID_DB_QUERY=0`);
 console.log(`PG_UUID_CAST_ERROR=NO`);
 console.log(`MALFORMED_ID=4XX_NOT_500`);
 console.log(`COUNCIL_SCOPED_AUTHORITY=PRESERVED`);
+console.log(`WRONG_SCOPE_PADIEM_ORACLE=NONE`);
+console.log(`OTHER_COMPLEX_COUNCIL_ORACLE=NONE`);
+console.log(`COUNCIL_UNKNOWN=403_CONTEXT_REQUIRED`);

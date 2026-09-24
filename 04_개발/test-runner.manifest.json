@@ -119,6 +119,7 @@
         {"id":"test:deploy-provenance","npm":"test:deploy-provenance","kind":"contract"},
         {"id":"test:cross-platform-executable-contract","npm":"test:cross-platform-executable-contract","kind":"contract"},
         {"id":"test:admin-field-limit-972","npm":"test:admin-field-limit-972","kind":"contract"},
+        {"id":"test:admin-review-note-limit-994","npm":"test:admin-review-note-limit-994","kind":"contract"},
         {"id":"test:runner-manifest-contract","npm":"test:runner-manifest-contract","kind":"contract"}
       ]
     },
@@ -190,6 +191,7 @@
         {"id":"test:admin-authority-role-contract","npm":"test:admin-authority-role-contract","kind":"contract"},
         {"id":"test:leaf-b788-visual-syntax-integrity","npm":"test:leaf-b788-visual-syntax-integrity","kind":"contract"},
         {"id":"test:leaf-b858-notification-settings-route","npm":"test:leaf-b858-notification-settings-route","kind":"contract"},
+        {"id":"test:leaf-982-settings-signed-out-gate","npm":"test:leaf-982-settings-signed-out-gate","kind":"contract"},
         {"id":"test:leaf-b976-neighbor-modal-xss","npm":"test:leaf-b976-neighbor-modal-xss","kind":"contract"}
       ]
     }

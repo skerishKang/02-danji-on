@@ -130,6 +130,7 @@ const EXPECTED_BACKEND_ORDER = [
   "test:deploy-provenance",
   "test:cross-platform-executable-contract",
   "test:admin-field-limit-972",
+  "test:admin-review-note-limit-994",
   "test:runner-manifest-contract",
 ];
 
@@ -198,6 +199,7 @@ const EXPECTED_FRONTEND_ORDER = [
    "test:admin-authority-role-contract",
    "test:leaf-b788-visual-syntax-integrity",
    "test:leaf-b858-notification-settings-route",
+   "test:leaf-982-settings-signed-out-gate",
    "test:leaf-b976-neighbor-modal-xss",
  ];
 
