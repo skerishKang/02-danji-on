@@ -29,6 +29,10 @@ assert.match(page, /if\(!ready\)\{showGuestGate\('guest'\);return;\}[\s\S]*showP
   'member hydration must begin only after an authenticated session resolves');
 
 const wiring = page.slice(page.indexOf('<script id="danjion-settings-server">'), page.indexOf('</script>', page.indexOf('<script id="danjion-settings-server">')));
+const sessionBindingIndex = wiring.indexOf('var S=globalThis.DanjionSession;');
+const hydrateFunctionIndex = wiring.indexOf('function hydrateMemberSettings(){');
+assert.ok(sessionBindingIndex >= 0 && hydrateFunctionIndex >= 0 && sessionBindingIndex < hydrateFunctionIndex,
+  'shared DanjionSession binding must live in the outer Settings scope used by resolveAccess');
 for (const call of ['bridge.settings(', 'bridge.blockedUsers(', 'bridge.updateSetting(']) {
   assert.ok(wiring.includes(call), `member API wiring must remain present: ${call}`);
 }

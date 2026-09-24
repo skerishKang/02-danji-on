@@ -467,9 +467,9 @@ if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt
 <script id="danjion-settings-server">
 (function(){
   function toast(t){if(typeof window.showToast==='function')window.showToast(t);}
+  var S=globalThis.DanjionSession;
   function hydrateMemberSettings(){
   function $(id){return document.getElementById(id);}
-  var S=globalThis.DanjionSession;
   function applySwitch(btn,on){btn.classList.toggle('on',!!on);btn.setAttribute('aria-checked',String(!!on));}
 
   var notificationToggles=[].slice.call(document.querySelectorAll('#notifications [data-notification-toggle]'));

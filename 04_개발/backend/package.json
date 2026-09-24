@@ -130,7 +130,8 @@
     "test:verify-neon-backup-restore": "node tests/verify-neon-backup-restore-contract.mjs",
     "test:public-complex-eligibility": "tsx tests/public-complex-eligibility-v1.test.mjs",
     "test:benefit-null-time-range-patch": "tsx --import ./tests/helpers/neon-stub-loader.mjs tests/benefit-null-time-range-patch.test.mjs",
-    "test:core-public-route-identifiers": "tsx --import ./tests/helpers/neon-stub-loader.mjs tests/core-public-route-identifiers.test.mjs"
+    "test:core-public-route-identifiers": "tsx --import ./tests/helpers/neon-stub-loader.mjs tests/core-public-route-identifiers.test.mjs",
+    "test:admin-review-note-limit-994": "tsx tests/admin-review-note-limit-994-contract.mjs"
   },
   "dependencies": {
     "@neondatabase/serverless": "1.1.0",

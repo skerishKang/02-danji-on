@@ -8,13 +8,12 @@ import { test, expect, type Page } from '@playwright/test';
 // call removeAll('.side'), which hard-removed the whole <aside class="side"> —
 // including the .side-action CTA — even though the static markup was correct.
 //
-// This is the runtime contract: consistency.js runs, the CTA-carrying side panel
-// survives, and clicking either CTA lands on the canonical Settings route. Issue
-// #982 now gates the Settings shell, so these signed-out route checks assert the
-// bounded access gate and hidden private content; authenticated reveal/hydration is
-// covered by the dedicated Issue #982 contract.
+// #982 adds a signed-out Settings gate. These tests therefore cover both boundaries:
+// authenticated CTA navigation must reveal the canonical notifications panel, while
+// direct signed-out Settings navigation must keep private member content hidden.
 
 const TARGET_URL = /\/24_[^/]*\.html#notifications$/;
+const SETTINGS_PANEL = 'article#notifications';
 const SETTINGS_GATE = '#settingsAccessGate';
 const SETTINGS_PRIVATE_CONTENT = '#settingsPrivateContent';
 
@@ -25,37 +24,67 @@ async function gotoPage(page: Page, file: string): Promise<string[]> {
   return pageErrors;
 }
 
+async function mockAuthenticatedSettingsSession(page: Page): Promise<void> {
+  await page.route('**/*', async route => {
+    const url = new URL(route.request().url());
+    if (url.pathname !== '/api/auth/get-session') {
+      await route.continue();
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        session: { id: 'e2e-settings-session' },
+        user: { id: 'e2e-settings-user' },
+      }),
+    });
+  });
+}
+
 test('#858 consistency.js keeps the 27 notification-settings side CTA at runtime', async ({ page }) => {
   const pageErrors = await gotoPage(page, '27_알림함.html');
-
-  // consistency.js's page-27 branch must not delete the CTA-carrying side panel.
   await expect(page.locator('.notice-layout > aside.side')).toHaveCount(1);
   await expect(page.locator('.notice-layout > aside.side .side-action')).toBeVisible();
-
-  // The primary filter-bar entry stays alive too.
   await expect(page.locator('.filter-bar .settings-link')).toBeVisible();
-
   expect(pageErrors, '27_알림함.html must load without runtime errors').toEqual([]);
 });
 
-test('#858 primary .settings-link lands on gated 24_설정.html#notifications', async ({ page }) => {
-  await gotoPage(page, '27_알림함.html');
+test('#858 primary .settings-link reveals authenticated 24_설정.html#notifications', async ({ page }) => {
+  await mockAuthenticatedSettingsSession(page);
+  const pageErrors = await gotoPage(page, '27_알림함.html');
   await page.locator('.filter-bar .settings-link').click();
   await expect(page).toHaveURL(TARGET_URL);
-  await expect(page.locator(SETTINGS_GATE)).toBeVisible();
-  await expect(page.locator(SETTINGS_PRIVATE_CONTENT)).toBeHidden();
+  await expect(page.locator(SETTINGS_PANEL)).toBeVisible();
+  await expect(page.locator(SETTINGS_PANEL)).toBeInViewport();
+  expect(pageErrors, 'authenticated Settings navigation must have no page errors').toEqual([]);
 });
 
-test('#858 side .side-action lands on gated 24_설정.html#notifications', async ({ page }) => {
-  await gotoPage(page, '27_알림함.html');
+test('#858 side .side-action reveals authenticated 24_설정.html#notifications', async ({ page }) => {
+  await mockAuthenticatedSettingsSession(page);
+  const pageErrors = await gotoPage(page, '27_알림함.html');
   await page.locator('.notice-layout > aside.side .side-action').click();
   await expect(page).toHaveURL(TARGET_URL);
+  await expect(page.locator(SETTINGS_PANEL)).toBeVisible();
+  await expect(page.locator(SETTINGS_PANEL)).toBeInViewport();
+  expect(pageErrors, 'authenticated Settings navigation must have no page errors').toEqual([]);
+});
+
+test('#982 direct signed-out Settings route hides private shell and makes no member API calls', async ({ page }) => {
+  const memberApiRequests: string[] = [];
+  page.on('request', request => {
+    const url = new URL(request.url());
+    if (url.pathname.startsWith('/api/v1/')) memberApiRequests.push(url.pathname);
+  });
+  const pageErrors = await gotoPage(page, '24_설정.html');
   await expect(page.locator(SETTINGS_GATE)).toBeVisible();
   await expect(page.locator(SETTINGS_PRIVATE_CONTENT)).toBeHidden();
+  await expect(page.locator('#settingsGuestLogin')).toBeVisible();
+  expect(memberApiRequests, 'signed-out Settings must not hydrate member APIs').toEqual([]);
+  expect(pageErrors, 'signed-out Settings gate must have no page errors').toEqual([]);
 });
 
 test('#858 page-28 scoped side removal is unchanged', async ({ page }) => {
   await gotoPage(page, '28_나의활동.html');
-  // Page 28 keeps its own already-scoped removal; the #858 fix must not touch it.
   await expect(page.locator('.activity-layout > .side')).toHaveCount(0);
 });
