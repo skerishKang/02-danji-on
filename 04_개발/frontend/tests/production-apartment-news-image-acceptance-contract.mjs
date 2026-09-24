@@ -50,6 +50,7 @@ for (const absence of [
 for (const path of [
   'admin/index.html',
   'assets/danjion-admin-console.js',
+  'assets/danjion-admin-official-news-storage.js',
   '08A_아파트소식_상세.html'
 ]) assert.ok(script.includes("assertLiveParity('" + path + "'"), 'missing live parity: ' + path);
 assert.ok(script.includes("redirect: 'follow'"));
@@ -111,14 +112,15 @@ for (const forbiddenLog of [
 ]) assert.ok(!script.includes(forbiddenLog), 'must not log sensitive/runtime identifier: ' + forbiddenLog);
 
 for (const token of [
-  "body.set('kind','official-news-image')",
+  'officialNewsStorage.uploadOfficialNewsImage(fetch,apiBase,image.file,image.idempotencyKey,consoleApi.COMPLEX_SLUG)',
   'displayMode:fields.displayMode.value',
   'attachmentObjectKey',
   "select.setAttribute('aria-label','표시 방식')"
 ]) assert.ok(admin.includes(token), 'canonical admin missing: ' + token);
 for (const token of [
   "const POST_DISPLAY_MODES = Object.freeze(['highlight', 'article'])",
-  "sourceName, category, title, body, status, displayMode",
+  "Object.prototype.hasOwnProperty.call(value, 'displayMode')",
+  "...(hasDisplayMode ? { displayMode } : {})",
   'attachmentObjectKey'
 ]) assert.ok(bridge.includes(token), 'canonical admin bridge missing: ' + token);
 
