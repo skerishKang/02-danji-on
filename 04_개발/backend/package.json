@@ -90,6 +90,7 @@
     "test:complex-news-channel-write": "tsx tests/complex-news-channel-write-contract.mjs",
     "test:complex-news-channel-040-lifecycle": "node tests/run-postgres-lifecycle.mjs tests/complex-news-channel-040-postgres-lifecycle.sh",
     "test:business-category-benefit": "node tests/business-category-benefit-contract.mjs",
+    "test:public-complex-eligibility": "tsx tests/public-complex-eligibility-v1.test.mjs",
     "test:saved-shops-server": "node tests/saved-shops-server-contract.mjs",
     "test:community-replies": "node tests/community-replies-contract.mjs",
     "test:community-notifications": "node tests/community-notifications-contract.mjs",
