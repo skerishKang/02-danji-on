@@ -216,9 +216,15 @@
     const status = String(value.status || '').trim();
     const channel = String(value.channel || '').trim();
     const displayMode = String(value.displayMode || 'highlight').trim();
+    const attachmentProvided = Object.prototype.hasOwnProperty.call(value, 'attachmentObjectKey');
     const attachmentObjectKey = value.attachmentObjectKey == null ? null : String(value.attachmentObjectKey).trim() || null;
     if (!sourceName || !category || !title || !body || !POST_STATUSES.includes(status) || !POST_DISPLAY_MODES.includes(displayMode)) return null;
-    return { sourceName, category, title, body, status, ...(channel ? { channel } : {}), displayMode, attachmentObjectKey };
+    return {
+      sourceName, category, title, body, status,
+      ...(channel ? { channel } : {}),
+      displayMode,
+      ...(attachmentProvided ? { attachmentObjectKey } : {})
+    };
   }
 
   function classifyPostMutation(result) {
