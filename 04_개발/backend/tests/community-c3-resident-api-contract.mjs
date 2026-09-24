@@ -28,6 +28,12 @@ for (const route of [
 }
 
 assert.match(api, /author_user_id\s*=\s*\$\{resident\.id\}::uuid/, 'mutations must enforce ownership server-side');
+assert.match(api, /\(p\.author_user_id = \$\{resident\.id\}::uuid\) as viewer_is_owner/, 'post DTO capability must be computed from the authenticated resident');
+assert.match(api, /\(c\.author_user_id = \$\{resident\.id\}::uuid\) as viewer_is_owner/, 'comment DTO capability must be computed from the authenticated resident');
+assert.match(api, /viewerCanEdit: viewerIsOwner && status !== 'deleted'/, 'post edit capability must be server-authoritative');
+assert.match(api, /viewerCanDelete: viewerIsOwner && status !== 'deleted'/, 'post/comment delete capability must be server-authoritative');
+assert.match(api, /viewerCanReport: status === 'published' && !viewerIsOwner/, 'post report affordance must exclude the owner and unpublished rows');
+assert.match(api, /viewerCanReport: status === 'published' && postStatus === 'published' && !viewerIsOwner/, 'comment report affordance must require a published post/comment and a non-owner viewer');
 assert.match(api, /complex_id\s*=\s*\$\{resident\.complexId\}::uuid/g, 'mutations and reads must stay complex-scoped');
 assert.match(api, /on conflict \(post_id, user_id, reaction_type\) do nothing/i, 'reactions must be idempotent');
 assert.match(api, /COMMUNITY_PUBLISH_MODE/);
