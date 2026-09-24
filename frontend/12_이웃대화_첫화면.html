@@ -22,6 +22,7 @@ main{width:min(1280px,calc(100% - 64px));margin:auto;padding-bottom:80px}.route{
 .mobile-bottom svg{display:block!important;width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;overflow:visible}
 .mobile-bottom span{display:block}
 }
+.load-more-wrap{display:flex;justify-content:center;padding:22px 0 4px}.load-more-wrap button{min-height:40px;padding:0 18px;border:1px solid var(--line);background:var(--paper2);font-weight:850}.load-more-wrap button[hidden]{display:none}.load-more-wrap button:disabled{cursor:wait;opacity:.65}
 </style>
 <style id="front-audit-bottom-nav-standard-20260904">
 /* Frontend audit 1: all app content screens share one exact bottom navigation geometry. */
@@ -99,7 +100,7 @@ main{width:min(1280px,calc(100% - 64px));margin:auto;padding-bottom:80px}.route{
 </section>
 <section class="board">
 <header class="board-head"><h2>지금 올라온 이야기</h2><div class="board-tools"><button class="all-filter" type="button">전체 보기</button></div></header>
-<div id="postList"></div>
+<div id="postList"></div><div class="load-more-wrap"><button id="postLoadMore" type="button" hidden>게시글 더 보기</button></div>
 </section>
 </main>
 <button aria-label="현재 카테고리 글쓰기" class="mobile-write" id="mobileWrite" type="button">＋</button>
@@ -135,8 +136,9 @@ render();
  const apiBase=(window.DanjionSession&&DanjionSession.danjionApiBase())||'';
  // #863: carry apiBase only when it is actually set — never emit an empty ?apiBase=.
  function withApiBase(url){return apiBase?url+(url.indexOf('?')<0?'?':'&')+'apiBase='+encodeURIComponent(apiBase):url}
- const bridge=DanjionCommunityBridge.createCommunityBridge({apiBase});
- const list=document.getElementById('postList');
+  const bridge=DanjionCommunityBridge.createCommunityBridge({apiBase});
+  const list=document.getElementById('postList'),loadMore=document.getElementById('postLoadMore');
+  let feedState={key:'',cursor:null,hasMore:false,posts:[],generation:0,loading:false};
  const KIND={hello:'greeting',story:'resident_story',question:'question',together:'together'};
  const LABEL={greeting:'가입인사',resident_story:'단지이야기',question:'궁금해요',together:'같이해요'};
  const CHIP={greeting:'hello',resident_story:'story',question:'question',together:'together'};
@@ -161,23 +163,48 @@ render();
   <div class="post-title"><span class="type">${labelFor(p)}</span><a href="${withApiBase('13_이웃대화_글상세_댓글.html?post='+encodeURIComponent(p.id))}">${esc(p.title)}</a></div>
   <div class="meta-actions"><span>♡ 공감 ${p.reactionCount}</span><span>댓글 ${p.commentCount}</span></div></article>`;
  }
- async function loadServer(){
-  const topicEl=document.querySelector('.topic.active');
-  const selected=topicEl?topicEl.dataset.type:'hello';
-  const showAll=Boolean(document.querySelector('.all-filter.active'));
-  if(!showAll&&!KIND[selected])return;
-  list.innerHTML=notice('이웃대화를 불러오는 중입니다.');
-  const result=showAll?await bridge.listPosts(null,{limit:50}):await bridge.listPosts(KIND[selected]);
-  if(result.mode!=='server'){
-   const message=result.mode==='auth-required'?'로그인 후 이웃대화를 확인할 수 있습니다.':'이웃대화를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.';
-   list.innerHTML=notice(message);
-   return;
+
+ async function loadServer(append=false){
+   const topicEl=document.querySelector('.topic.active');
+   const selected=topicEl?topicEl.dataset.type:'hello';
+   const showAll=Boolean(document.querySelector('.all-filter.active'));
+   if(!showAll&&!KIND[selected])return;
+   const key=showAll?'all':KIND[selected];
+   if(append&&(!feedState.hasMore||feedState.loading))return;
+   if(!append){
+    feedState={key,cursor:null,hasMore:false,posts:[],generation:feedState.generation+1,loading:false};
+    list.innerHTML=notice('이웃대화를 불러오는 중입니다.');
+   }
+   const generation=feedState.generation;
+   feedState.loading=true;
+   loadMore.disabled=true;
+   loadMore.textContent=append?'게시글 더 불러오는 중입니다.':'게시글 다시 시도';
+   const result=await (showAll?bridge.listPosts(null,{limit:20,cursor:append?feedState.cursor:null}):bridge.listPosts(KIND[selected],{limit:20,cursor:append?feedState.cursor:null}));
+   if(generation!==feedState.generation)return;
+   feedState.loading=false;
+   if(result.mode!=='server'){
+    const message=result.mode==='auth-required'?'로그인 후 이웃대화를 확인할 수 있습니다.':'이웃대화를 불러오지 못했습니다.';
+    if(!append)list.innerHTML=notice(message);
+    feedState.hasMore=true;
+    loadMore.hidden=false;
+    loadMore.disabled=false;
+    loadMore.textContent='게시글 다시 시도';
+    return;
+   }
+   const incoming=showAll?result.posts.filter(p=>LABEL[p.kind]):result.posts;
+   const byId=new Map(feedState.posts.map(p=>[p.id,p]));
+   incoming.forEach(p=>byId.set(p.id,p));
+   feedState.posts=[...byId.values()];
+   feedState.cursor=result.nextCursor;
+   feedState.hasMore=result.hasMore===true;
+   if(!feedState.posts.length){list.innerHTML=notice('아직 등록된 이웃대화가 없습니다.')}
+   else list.innerHTML=feedState.posts.map(row).join('');
+   loadMore.hidden=!feedState.hasMore;
+   loadMore.disabled=false;
+   loadMore.textContent='게시글 더 보기';
   }
-  const posts=showAll?result.posts.filter(p=>LABEL[p.kind]):result.posts;
-  if(!posts.length){list.innerHTML=notice('아직 등록된 이웃대화가 없습니다.');return}
-  list.innerHTML=posts.map(row).join('');
- }
- document.querySelectorAll('.topic,.all-filter').forEach(b=>b.addEventListener('click',()=>{void loadServer()}));
+  document.querySelectorAll('.topic,.all-filter').forEach(b=>b.addEventListener('click',()=>{void loadServer(false)}));
+  loadMore.addEventListener('click',()=>{void loadServer(true)});
  document.addEventListener('click',ev=>{
   const btn=ev.target.closest('#writeMain,#mobileWrite'); if(!btn)return;
   const topicEl=document.querySelector('.topic.active');

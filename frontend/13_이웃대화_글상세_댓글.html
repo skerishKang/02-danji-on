@@ -21,6 +21,7 @@ main{width:min(920px,calc(100% - 40px));margin:auto;padding-bottom:70px}.route{h
 .mobile-bottom svg{display:block!important;width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;overflow:visible}
 .mobile-bottom span{display:block}
 }
+.load-more-wrap{display:flex;justify-content:center;padding:18px 0}.load-more-wrap button,.replies-more{min-height:40px;padding:0 16px;border:1px solid var(--line);background:var(--paper2);font-weight:850}.load-more-wrap button[hidden]{display:none}.load-more-wrap button:disabled,.replies-more:disabled{cursor:wait;opacity:.65}.replies-more{display:block;margin:8px 0 2px}.reply-empty{color:var(--muted);font-size:13px}
 </style><style id="front-audit-bottom-nav-standard-20260904">
 /* Frontend audit 1: all app content screens share one exact bottom navigation geometry. */
 @media (max-width:760px){
@@ -89,7 +90,7 @@ main{width:min(920px,calc(100% - 40px));margin:auto;padding-bottom:70px}.route{h
 <main><div class="route"><a href="12_이웃대화_첫화면.html" id="backLink">← 이웃대화</a><span>/ 글 상세</span></div>
 <section aria-labelledby="postRecoveryHeading" class="post-recovery" hidden id="postRecovery" tabindex="-1"><p class="post-recovery-title" id="postRecoveryHeading">게시글 정보를 찾을 수 없습니다.</p><p id="postRecoveryDetail">잘못되었거나 만료된 링크일 수 있습니다. 이웃대화 목록에서 다시 확인해 주세요.</p><a class="recovery-link" href="12_이웃대화_첫화면.html" id="postRecoveryLink">이웃대화 목록으로</a></section>
 <article class="article" id="postShell"><span class="type" id="typeLabel"></span><div class="author"><span class="avatar" id="avatar"></span><div><b id="author"></b><small id="levelTime"></small></div></div><h1 id="title">이웃대화 글</h1><div class="body" id="body"></div><div class="actions"><button id="likeBtn" type="button">♡ 공감 <span id="likeCount"></span></button><button id="focusComment" type="button">댓글 <span id="commentCount"></span></button><div class="post-action-tools" id="postActionTools" hidden><button id="postEditBtn" type="button" hidden>수정</button><button id="postDeleteBtn" type="button" hidden>삭제</button><button id="postReportBtn" type="button" hidden>신고</button></div><span class="interaction-status" id="interactionStatus" role="status" aria-live="polite"></span></div><form class="post-edit-panel" id="postEditPanel" hidden><label for="postEditTitle">제목</label><input id="postEditTitle" maxlength="160" required/><label for="postEditBody">내용</label><textarea id="postEditBody" maxlength="10000" required></textarea><div class="panel-actions"><button id="postEditSubmit" type="submit">수정 저장</button><button id="postEditCancel" type="button">취소</button></div></form></article>
-<section class="report-panel" id="reportPanel" hidden aria-labelledby="reportTitle"><h2 id="reportTitle">신고하기</h2><form id="reportForm"><label for="reportReason">신고 사유</label><select id="reportReason"><option value="abuse">욕설 또는 공격</option><option value="threat">위협적인 내용</option><option value="privacy">개인정보 노출</option><option value="defamation_risk">허위·비방 위험</option><option value="spam">스팸</option><option value="other">기타</option></select><label for="reportDetail">상세 내용 <small>(선택, 1000자까지)</small></label><textarea id="reportDetail" maxlength="1000"></textarea><div class="panel-actions"><button id="reportSubmit" type="submit">신고 접수</button><button id="reportCancel" type="button">취소</button></div><p class="interaction-status" id="reportStatus" role="status" aria-live="polite"></p></form></section><section class="comments" id="postComments"><h2>댓글 <span id="commentTitleCount"></span></h2><ol class="comment-list" id="commentList"></ol>
+<section class="report-panel" id="reportPanel" hidden aria-labelledby="reportTitle"><h2 id="reportTitle">신고하기</h2><form id="reportForm"><label for="reportReason">신고 사유</label><select id="reportReason"><option value="abuse">욕설 또는 공격</option><option value="threat">위협적인 내용</option><option value="privacy">개인정보 노출</option><option value="defamation_risk">허위·비방 위험</option><option value="spam">스팸</option><option value="other">기타</option></select><label for="reportDetail">상세 내용 <small>(선택, 1000자까지)</small></label><textarea id="reportDetail" maxlength="1000"></textarea><div class="panel-actions"><button id="reportSubmit" type="submit">신고 접수</button><button id="reportCancel" type="button">취소</button></div><p class="interaction-status" id="reportStatus" role="status" aria-live="polite"></p></form></section><section class="comments" id="postComments"><h2>댓글 <span id="commentTitleCount"></span></h2><ol class="comment-list" id="commentList"></ol><div class="load-more-wrap"><button id="commentLoadMore" type="button" hidden>댓글 더 보기</button></div>
 <form class="composer" id="commentForm"><b>댓글 쓰기</b><textarea id="commentText" maxlength="300" placeholder="따뜻한 인사나 도움이 되는 답변을 남겨보세요."></textarea><div class="composer-foot"><small>서로 존중하는 말로 이야기해 주세요.</small><button type="submit">댓글 등록</button></div></form></section>
 </main>
 <nav aria-label="모바일 주요 메뉴" class="mobile-bottom"><button aria-label="홈" data-route="04_데일리홈.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><path d="m3 10 9-7 9 7v10h-6v-6H9v6H3z"></path></svg><span>홈</span></button><button aria-label="이웃가게" data-route="01_이웃가게_발견.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><path d="M4 7h16l-1 13H5L4 7Z"></path><path d="M8 7V5a4 4 0 0 1 8 0v2"></path></svg><span>이웃가게</span></button><button aria-label="우리단지" class="active" data-route="05_우리단지_첫화면.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><path d="M4 21V9l8-6 8 6v12"></path><path d="M8 13h8M8 17h8"></path></svg><span>우리단지</span></button><button aria-label="내정보" data-route="19_내정보_메인.html" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><circle cx="12" cy="8" r="4"></circle><path d="M4 21a8 8 0 0 1 16 0"></path></svg><span>내정보</span></button></nav>
@@ -138,8 +139,8 @@ main{width:min(920px,calc(100% - 40px));margin:auto;padding-bottom:70px}.route{h
   const bridge=DanjionCommunityBridge.createCommunityBridge({apiBase});
  const LABEL={greeting:'가입인사',resident_story:'단지이야기',question:'궁금해요',together:'같이해요'};
  const CHIP={greeting:'hello',resident_story:'story',question:'question',together:'together'};
- const likeBtn=document.getElementById('likeBtn'),likeCount=document.getElementById('likeCount');
- const commentList=document.getElementById('commentList'),commentForm=document.getElementById('commentForm');
+  const likeBtn=document.getElementById('likeBtn'),likeCount=document.getElementById('likeCount');
+  const commentList=document.getElementById('commentList'),commentForm=document.getElementById('commentForm'),commentLoadMore=document.getElementById('commentLoadMore');
  const commentText=document.getElementById('commentText'),backLink=document.getElementById('backLink');
  const commentCount=document.getElementById('commentCount'),commentTitleCount=document.getElementById('commentTitleCount');
   const foot=document.querySelector('.composer-foot small'),interactionStatus=document.getElementById('interactionStatus');
@@ -148,18 +149,21 @@ main{width:min(920px,calc(100% - 40px));margin:auto;padding-bottom:70px}.route{h
   const reportPanel=document.getElementById('reportPanel'),reportForm=document.getElementById('reportForm'),reportTitle=document.getElementById('reportTitle'),reportReason=document.getElementById('reportReason'),reportDetail=document.getElementById('reportDetail'),reportStatus=document.getElementById('reportStatus'),reportCancel=document.getElementById('reportCancel');
   const HINT='서로 존중하는 말로 이야기해 주세요.';
   let post=null,liked=false,count=0,busy=false,flashTimer=null,loadFailure='',reportTargetState=null;
+  let commentState={comments:[],cursor:null,hasMore:false,loading:false,generation:0};
+  const replyStates=new Map();
  function enterServerLoadingState(){
-  document.getElementById('typeLabel').textContent='';
-  document.getElementById('avatar').textContent='';
-  document.getElementById('author').textContent='';
-  document.getElementById('levelTime').textContent='';
-  document.getElementById('title').textContent='게시물을 불러오는 중입니다.';
-  document.getElementById('body').textContent='';
-  likeCount.textContent='';
-  likeBtn.classList.remove('liked');
-  commentCount.textContent='0';
-  commentTitleCount.textContent='0';
-  commentList.innerHTML='<li class="comment"><p>댓글을 불러오는 중입니다.</p></li>';
+   document.getElementById('typeLabel').textContent='';
+   document.getElementById('avatar').textContent='';
+   document.getElementById('author').textContent='';
+   document.getElementById('levelTime').textContent='';
+   document.getElementById('title').textContent='게시물을 불러오는 중입니다.';
+   document.getElementById('body').textContent='';
+   likeCount.textContent='';
+   likeBtn.classList.remove('liked');
+   commentCount.textContent='0';
+   commentTitleCount.textContent='0';
+   commentList.innerHTML='<li class="comment"><p>댓글을 불러오는 중입니다.</p></li>';
+   commentLoadMore.hidden=true;
  }
  enterServerLoadingState();
  function esc(value){return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
@@ -219,37 +223,69 @@ main{width:min(920px,calc(100% - 40px));margin:auto;padding-bottom:70px}.route{h
   }
   function closeReport(){
    reportPanel.hidden=true;
-   reportTargetState=null;
-  }
+    reportTargetState=null;
+   }
 
- function gatedCommentState(msg){
-  commentList.innerHTML='<li class="comment"><p>'+esc(msg)+'</p></li>';
-  commentCount.textContent='0';
-  commentTitleCount.textContent='0';
- }
+   function gatedCommentState(msg){
+   commentList.innerHTML='<li class="comment"><p>'+esc(msg)+'</p></li>';
+   commentCount.textContent='0';
+   commentTitleCount.textContent='0';
+   commentLoadMore.hidden=true;
+  }
   function serverCommentHTML(c){
    const id=esc(c.id);
    const pending=c.status!=='published'?'<span>게시 대기 중</span>':'';
    const deleteButton=c.viewerCanDelete?'<button type="button" data-server-comment-delete="'+id+'">삭제</button>':'';
    const reportButton=c.viewerCanReport?'<button type="button" data-server-comment-report="'+id+'">신고</button>':'';
-   return '<li class="comment" data-server-comment="'+id+'"><div class="comment-head"><b>'+esc(c.author.nickname)+'</b><time>'+esc(timeAgo(c.publishedAt||c.createdAt))+'</time></div><p>'+esc(c.body)+'</p><div class="comment-tools">'+pending+'<button type="button" data-server-reply="'+id+'">답글</button>'+deleteButton+reportButton+'</div><div class="replies" data-server-replies="'+id+'"></div><form class="server-reply-form" data-server-reply-form="'+id+'"><input maxlength="300" placeholder="'+esc(c.author.nickname)+'님에게 답글"><button type="submit">등록</button></form></li>';
+   return '<li class="comment" data-server-comment="'+id+'"><div class="comment-head"><b>'+esc(c.author.nickname)+'</b><time>'+esc(timeAgo(c.publishedAt||c.createdAt))+'</time></div><p>'+esc(c.body)+'</p><div class="comment-tools">'+pending+'<button type="button" data-server-reply-toggle="'+id+'">답글 보기</button><button type="button" data-server-reply="'+id+'">답글</button>'+deleteButton+reportButton+'</div><div class="replies" data-server-replies="'+id+'"></div><form class="server-reply-form" data-server-reply-form="'+id+'"><input maxlength="300" placeholder="'+esc(c.author.nickname)+'님에게 답글"><button type="submit">등록</button></form></li>';
   }
- async function loadReplies(commentId){
-  const host=commentList.querySelector('[data-server-replies="'+commentId+'"]');
-  if(!host)return;
-  const result=await bridge.listReplies(postId,commentId);
-  if(result.mode!=='server'){
-   host.replaceChildren();
-   const row=document.createElement('div');
-   row.className='reply';
-   const message=document.createElement('p');
-   message.textContent=failMessage(result);
-   row.append(message);
-   host.append(row);
-   return;
+  function replyHTML(r){return '<div class="reply" data-server-reply-id="'+esc(r.id)+'"><b>↳ '+esc(r.author.nickname)+'</b><p>'+esc(r.body)+'</p></div>'}
+  function renderReplyState(commentId,state){
+   const host=commentList.querySelector('[data-server-replies="'+commentId+'"]');
+   if(!host)return;
+   const body=state.items.length?state.items.map(replyHTML).join(''):state.loaded?'<p class="reply-empty">답글이 없습니다.</p>':'';
+   const more=state.hasMore?'<button class="replies-more" type="button" data-server-replies-more="'+esc(commentId)+'">답글 더 보기</button>':'';
+   host.innerHTML=body+more;
+   const toggle=commentList.querySelector('[data-server-reply-toggle="'+commentId+'"]');
+   if(toggle){toggle.disabled=state.loading;toggle.textContent=state.loading?'답글 불러오는 중입니다.':state.hasMore?'답글 더 보기':'답글 보기'}
   }
-  host.innerHTML=result.replies.map(r=>'<div class="reply"><b>↳ '+esc(r.author.nickname)+'</b><p>'+esc(r.body)+'</p></div>').join('');
- }
+  async function loadReplies(commentId,append=false){
+   const state=replyStates.get(commentId)||{items:[],cursor:null,hasMore:false,loaded:false,loading:false};
+   replyStates.set(commentId,state);
+   if(state.loading||(append&&(!state.hasMore||!state.cursor)))return;
+   state.loading=true;
+   renderReplyState(commentId,state);
+   const result=append
+    ?await bridge.listReplies(postId,commentId,{limit:20,cursor:state.cursor})
+    :await bridge.listReplies(postId,commentId);
+   state.loading=false;
+   if(result.mode!=='server'){
+    state.hasMore=Boolean(state.cursor);
+    renderReplyState(commentId,state);
+    if(!state.loaded){
+     const host=commentList.querySelector('[data-server-replies="'+commentId+'"]');
+     const message=document.createElement('p');
+     message.textContent=failMessage(result);
+     host.replaceChildren();
+     host.append(message);
+    }
+    flash(failMessage(result));
+    return;
+   }
+   const byId=new Map(state.items.map(reply=>[reply.id,reply]));
+   result.replies.forEach(reply=>byId.set(reply.id,reply));
+   state.items=[...byId.values()];
+   state.cursor=result.nextCursor;
+   state.hasMore=result.hasMore===true;
+   state.loaded=true;
+   renderReplyState(commentId,state);
+  }
+  function appendReply(parentId,reply){
+   const state=replyStates.get(parentId);
+   if(!state||!state.loaded)return;
+   if(!state.items.some(item=>item.id===reply.id))state.items.push(reply);
+   renderReplyState(parentId,state);
+  }
  async function loadPost(){
   const result=await bridge.getPost(postId);
    if(result.mode!=='server'||!result.post){
@@ -288,31 +324,76 @@ main{width:min(920px,calc(100% - 40px));margin:auto;padding-bottom:70px}.route{h
    commentText.disabled=true;
    const submit=commentForm.querySelector('button[type="submit"]');
    if(submit)submit.disabled=true;
-   gatedCommentState('글이 공개된 뒤 댓글과 공감을 이용할 수 있습니다.');
-   return;
+   gatedCommentState('글이 공개된 뒤 댓글과 공감을 이용할 수 있습니다.');    return;
   }
   likeBtn.disabled=false;
-  commentText.disabled=false;
-  const submit=commentForm.querySelector('button[type="submit"]');
-  if(submit)submit.disabled=false;
-  loadComments();
- }
- async function loadComments(){
-  const result=await bridge.listComments(postId);
+   commentText.disabled=false;
+   const submit=commentForm.querySelector('button[type="submit"]');
+   if(submit)submit.disabled=false;
+   await loadComments();
+  }
+ async function loadComments(append=false){
+  if(commentState.loading||(append&&!commentState.hasMore))return;
+  if(!append){
+   commentState={comments:[],cursor:null,hasMore:false,loading:false,generation:commentState.generation+1};
+   replyStates.clear();
+   commentList.innerHTML='<li class="comment"><p>댓글을 불러오는 중입니다.</p></li>';
+  }
+  const generation=commentState.generation;
+  commentState.loading=true;
+  commentLoadMore.disabled=true;
+  commentLoadMore.textContent=append?'댓글 더 불러오는 중입니다.':'댓글 다시 시도';
+  const result=await bridge.listComments(postId,{limit:20,cursor:append?commentState.cursor:null});
+  if(generation!==commentState.generation)return;
+  commentState.loading=false;
   if(result.mode!=='server'){
    const msg=failMessage(result);
-   gatedCommentState(msg);
+   if(!append){
+    gatedCommentState(msg);
    flash(msg);
+   }else{
+    flash(msg);
+   }
+   commentState.hasMore=true;
+   commentLoadMore.hidden=false;
+   commentLoadMore.disabled=false;
+   commentLoadMore.textContent='댓글 다시 시도';
    return;
   }
-   commentList.innerHTML=result.comments.map(serverCommentHTML).join('');
-   commentCount.textContent=result.comments.length;
-   commentTitleCount.textContent=result.comments.length;
-   if(post)post.commentCount=result.comments.length;
-   await Promise.all(result.comments.map(c=>loadReplies(c.id)));
- }
- document.addEventListener('click',ev=>{
-   if(ev.target.closest('#likeBtn')){
+  const existing=new Set(commentState.comments.map(comment=>comment.id));
+  const incoming=result.comments.filter(comment=>!existing.has(comment.id));
+  if(!append)commentList.innerHTML=result.comments.map(serverCommentHTML).join('');
+  else incoming.forEach(comment=>commentList.insertAdjacentHTML('beforeend',serverCommentHTML(comment)));
+   commentState.comments.push(...incoming);
+   commentState.cursor=result.nextCursor;
+   commentState.hasMore=result.hasMore===true;
+   const total=post&&Number.isFinite(post.commentCount)?post.commentCount:commentState.comments.length;
+   commentCount.textContent=total;
+   commentTitleCount.textContent=total;
+   commentLoadMore.hidden=!commentState.hasMore;
+   commentLoadMore.disabled=false;
+   commentLoadMore.textContent='댓글 더 보기';
+  }
+
+  document.addEventListener('click',ev=>{
+    if(ev.target.closest('#commentLoadMore')){
+     ev.preventDefault();ev.stopImmediatePropagation();
+     void loadComments(true);
+     return;
+    }
+    if(ev.target.closest('[data-server-replies-more]')){
+     ev.preventDefault();ev.stopImmediatePropagation();
+     const id=ev.target.closest('[data-server-replies-more]').dataset.serverRepliesMore;
+     void loadReplies(id,true);
+     return;
+    }
+    const replyToggle=ev.target.closest('[data-server-reply-toggle]');
+    if(replyToggle){
+     ev.preventDefault();ev.stopImmediatePropagation();
+     void loadReplies(replyToggle.dataset.serverReplyToggle,false);
+     return;
+    }
+    if(ev.target.closest('#likeBtn')){
     ev.preventDefault();ev.stopImmediatePropagation();
     if(!post){flash(loadFailure||'게시물을 불러온 뒤 이용해 주세요.');return}
     if(busy)return;
@@ -357,13 +438,13 @@ main{width:min(920px,calc(100% - 40px));margin:auto;padding-bottom:70px}.route{h
    const commentDelete=ev.target.closest('[data-server-comment-delete]');
    if(commentDelete){
     ev.preventDefault();ev.stopImmediatePropagation();
-    if(busy)return;
-    if(!window.confirm('이 댓글을 삭제할까요?'))return;
-    const id=commentDelete.dataset.serverCommentDelete;
-    busy=true;
-    bridge.deleteComment(id).then(async r=>{
-     if(r.ok&&r.mode==='server'&&r.deleted){flash('댓글을 삭제했습니다.');await loadComments()}
-     else flash(failMessage(r));
+     if(busy)return;
+     if(!window.confirm('이 댓글을 삭제할까요?'))return;
+     const id=commentDelete.dataset.serverCommentDelete;
+     busy=true;
+     bridge.deleteComment(id).then(async r=>{
+      if(r.ok&&r.mode==='server'&&r.deleted){if(post)post.commentCount=Math.max(0,post.commentCount-1);flash('댓글을 삭제했습니다.');await loadComments(false)}
+      else flash(failMessage(r));
     }).finally(()=>{busy=false});
     return;
    }
@@ -418,9 +499,9 @@ main{width:min(920px,calc(100% - 40px));margin:auto;padding-bottom:70px}.route{h
    if(!v){flash('답글을 입력해 주세요.');return}
    if(v.length>300){flash('답글은 300자까지 입력할 수 있습니다.');return}
    bridge.addReply(postId,parentId,v).then(r=>{
-    if(r.ok&&r.mode==='server'){input.value='';replyForm.classList.remove('open');loadReplies(parentId)}
-    else flash(failMessage(r));
-   });
+     if(r.ok&&r.mode==='server'){input.value='';replyForm.classList.remove('open');appendReply(parentId,r.reply)}
+     else flash(failMessage(r));
+    });
    return;
   }
   if(ev.target!==commentForm)return;
@@ -428,10 +509,10 @@ main{width:min(920px,calc(100% - 40px));margin:auto;padding-bottom:70px}.route{h
   const v=commentText.value.trim();
   if(!v){flash('댓글을 입력해 주세요.');return}
   if(v.length>300){flash('댓글은 300자까지 입력할 수 있습니다.');return}
-  bridge.addComment(postId,v).then(r=>{
-   if(r.ok&&r.mode==='server'){commentText.value='';loadComments()}
-   else flash(failMessage(r));
-  });
+  bridge.addComment(postId,v).then(async r=>{
+    if(r.ok&&r.mode==='server'){commentText.value='';await loadPost()}
+    else flash(failMessage(r));
+   });
  },true);
  loadPost();
 })();
