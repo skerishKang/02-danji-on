@@ -56,7 +56,10 @@ assert.ok(prepareBlock.includes('if(image.uploadedKey)return image.uploadedKey')
 for (const needle of [
   "OFFICIAL_POST_CHANNELS=['danjion_notice','apartment_news','management_office','chair_greeting']",
   "select.setAttribute('aria-label','소식 채널')",
+  "select.setAttribute('aria-label','표시 방식')",
+  "['highlight','목록 강조'],['article','상세 글']",
   "channel:fields.channel.value",
+  "displayMode:fields.displayMode.value",
   "attachmentObjectKey",
   "postFields({status:'draft',channel:'apartment_news',source_name:'입주자대표회의'}",
   "isPhotoChannel(value){return value==='apartment_news'||value==='management_office'}"
@@ -66,8 +69,11 @@ for (const needle of [
 for (const needle of [
   "const POST_CHANNELS = Object.freeze(['danjion_notice', 'apartment_news', 'management_office', 'chair_greeting'])",
   "const channel = String(value.channel || '').trim()",
+  "const displayMode = String(value.displayMode || 'highlight').trim()",
+  "const POST_DISPLAY_MODES = Object.freeze(['highlight', 'article'])",
   "Object.prototype.hasOwnProperty.call(value, 'attachmentObjectKey')",
   "...(channel ? { channel } : {})",
+  "sourceName, category, title, body, status, displayMode",
   "...(hasAttachment ? { attachmentObjectKey } : {})"
 ]) assert.ok(adminConsole.includes(needle), `admin bridge missing: ${needle}`);
 
@@ -80,4 +86,5 @@ console.log('OFFICIAL_NEWS_PHOTO_PICKER=PASS');
 console.log('OFFICIAL_NEWS_UPLOAD_ON_SUBMIT_ONLY=PASS');
 console.log('OFFICIAL_NEWS_CHANNEL_EXPLICIT=PASS');
 console.log('OFFICIAL_NEWS_ATTACHMENT_PAYLOAD_PRESERVED=PASS');
+console.log('OFFICIAL_NEWS_DISPLAY_MODE_EXPLICIT=PASS');
 console.log('leaf-b844-production-v3-admin-photo-parity-contract: PASS');
