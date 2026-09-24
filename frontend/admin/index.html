@@ -272,7 +272,7 @@
       return select;
     }
     function postFields(row,includeArchived){
-      const source=document.createElement('input');source.value=String(row?.source_name||row?.sourceName||'입주자대표회의');source.maxLength=80;source.setAttribute('aria-label','출처');
+      const source=document.createElement('input');source.value=String(row?.source_name||row?.sourceName||'단지온 운영자');source.maxLength=80;source.setAttribute('aria-label','출처');
       const category=document.createElement('input');category.value=String(row?.category||'');category.maxLength=80;category.setAttribute('aria-label','분류');
       const title=document.createElement('input');title.value=String(row?.title||'');title.maxLength=200;title.setAttribute('aria-label','소식 제목');
       const body=document.createElement('textarea');body.value=String(row?.body||'');body.maxLength=10000;body.setAttribute('aria-label','소식 본문');

@@ -51,6 +51,8 @@ jobs:
       DANJION_PRODUCTION_FRONTEND_URL: https://danjion.pages.dev
       DANJION_PRODUCTION_OPERATOR_EMAIL: ${{ secrets.DANJION_PRODUCTION_OPERATOR_EMAIL }}
       DANJION_PRODUCTION_OPERATOR_PASSWORD: ${{ secrets.DANJION_PRODUCTION_OPERATOR_PASSWORD }}
+      DANJION_PRODUCTION_25A_EMAIL: ${{ secrets.DANJION_PRODUCTION_25A_EMAIL }}
+      DANJION_PRODUCTION_25A_PASSWORD: ${{ secrets.DANJION_PRODUCTION_25A_PASSWORD }}
 
     steps:
       - uses: actions/checkout@v4
@@ -79,10 +81,15 @@ jobs:
           test -n "$DANJION_PRODUCTION_OPERATOR_EMAIL"
           test -n "$DANJION_PRODUCTION_OPERATOR_PASSWORD"
           test "${#DANJION_PRODUCTION_OPERATOR_PASSWORD}" -ge 8
+          test -n "$DANJION_PRODUCTION_25A_EMAIL"
+          test -n "$DANJION_PRODUCTION_25A_PASSWORD"
+          test "${#DANJION_PRODUCTION_25A_PASSWORD}" -ge 8
+          test "${DANJION_PRODUCTION_25A_EMAIL,,}" != "${DANJION_PRODUCTION_OPERATOR_EMAIL,,}"
           test -z "${DATABASE_URL:-}"
           test -z "${DANJION_PRODUCTION_DB_URL:-}"
           echo 'PRODUCTION_844_EXACT_MAIN_GUARD=PASS'
           echo 'PRODUCTION_844_ONE_OPERATOR_GUARD=PASS'
+          echo 'PRODUCTION_844_UNAUTHORIZED_PRINCIPAL_GUARD=PASS'
 
       - name: Install frontend dependencies
         working-directory: 04_개발/frontend

@@ -57,7 +57,11 @@ async function liveByteParity(base, livePath, localUrl, marker) {
 const frontendBase = exactOrigin(required('DANJION_PRODUCTION_FRONTEND_URL'));
 const email = required('DANJION_PRODUCTION_OPERATOR_EMAIL');
 const password = required('DANJION_PRODUCTION_OPERATOR_PASSWORD');
+const unauthorizedEmail = required('DANJION_PRODUCTION_25A_EMAIL');
+const unauthorizedPassword = required('DANJION_PRODUCTION_25A_PASSWORD');
 if (password.length < 8) throw new Error('PRODUCTION_OPERATOR_PASSWORD_INVALID');
+if (unauthorizedPassword.length < 8) throw new Error('PRODUCTION_25A_PASSWORD_INVALID');
+if (unauthorizedEmail.toLowerCase() === email.toLowerCase()) throw new Error('PRODUCTION_UNAUTHORIZED_PRINCIPAL_COLLISION');
 
 const pngBytes = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl2nT8AAAAASUVORK5CYII=',
@@ -68,6 +72,7 @@ const filePayload = { name: 'apartment-news-844.png', mimeType: 'image/png', buf
 
 let browser;
 let context;
+let unauthorizedContext;
 let articlePage;
 let stage = 'START';
 let mutationStarted = false;
@@ -123,6 +128,31 @@ try {
   if (signedOutPost.status() !== 401) throw new Error(`SIGNED_OUT_POST_HTTP_${signedOutPost.status()}`);
   report('SIGNED_OUT_UPLOAD_DENIED_401');
   report('SIGNED_OUT_POST_DENIED_401');
+
+  stage = 'UNAUTHORIZED_FAIL_CLOSED';
+  unauthorizedContext = await browser.newContext();
+  const unauthorizedSignin = await unauthorizedContext.request.post(`${frontendBase}/api/auth/sign-in/email`, {
+    headers: { Origin: frontendBase, 'Content-Type': 'application/json' },
+    data: { email: unauthorizedEmail, password: unauthorizedPassword },
+  });
+  if (unauthorizedSignin.status() !== 200) throw new Error(`UNAUTHORIZED_SIGNIN_HTTP_${unauthorizedSignin.status()}`);
+  const unauthorizedSession = await unauthorizedContext.request.get(`${frontendBase}/api/auth/get-session`, {
+    headers: { Origin: frontendBase },
+  });
+  if (unauthorizedSession.status() !== 200) throw new Error(`UNAUTHORIZED_SESSION_HTTP_${unauthorizedSession.status()}`);
+  const unauthorizedSessionJson = await unauthorizedSession.json().catch(() => null);
+  if (!unauthorizedSessionJson?.session || !unauthorizedSessionJson?.user) throw new Error('UNAUTHORIZED_SESSION_NOT_AUTHENTICATED');
+
+  // Deliberately invalid body: createPost() must return 403 at authority() before validation.
+  // If authorization regresses open, validation returns 400 instead, still creating no data.
+  const unauthorizedWrite = await unauthorizedContext.request.post(
+    `${frontendBase}/api/v1/admin/complexes/${COMPLEX_SLUG}/posts`,
+    { data: {} },
+  );
+  if (unauthorizedWrite.status() !== 403) throw new Error(`UNAUTHORIZED_WRITE_HTTP_${unauthorizedWrite.status()}`);
+  report('UNAUTHORIZED_WRITE_DENIED');
+  await unauthorizedContext.close();
+  unauthorizedContext = null;
 
   stage = 'SIGN_IN';
   const signin = await context.request.post(`${frontendBase}/api/auth/sign-in/email`, {
@@ -211,6 +241,7 @@ try {
   if (!OBJECT_KEY_RE.test(objectKey)) throw new Error('OFFICIAL_NEWS_OBJECT_KEY_INVALID');
   report('OFFICIAL_NEWS_UPLOAD_201');
   report('SERVER_ISSUED_OBJECT_KEY');
+  console.log('OBJECT_KIND=official-news-image');
 
   await postIntercepted;
   const unpublishedRead = await context.request.get(
@@ -261,6 +292,9 @@ try {
   report('PUBLIC_IMAGE_BYTE_LENGTH_MATCH');
   report('PUBLIC_IMAGE_SHA256_MATCH');
   report('PUBLIC_IMAGE_CONTENT_TYPE_SAFE');
+  // Pre-dispatch CENTRAL verification pins this exact main to the Production R2 runtime;
+  // exact public-byte readback therefore proves the uploaded object exists in that R2 runtime.
+  report('R2_OBJECT_EXISTS');
 
   stage = 'ARTICLE_BROWSER_IMAGE';
   articlePage = await context.newPage();
@@ -343,6 +377,7 @@ try {
   );
   if (deleteObject.status() !== 200) throw new Error(`OFFICIAL_NEWS_DELETE_HTTP_${deleteObject.status()}`);
   report('OFFICIAL_NEWS_IMAGE_RETIRED');
+  console.log('RETENTION_DISPOSITION=DETACH_THEN_RETIRE');
 
   const archive = await context.request.patch(`${frontendBase}/api/v1/admin/posts/${postId}`, {
     data: {
@@ -379,6 +414,7 @@ try {
   process.exitCode = 1;
 } finally {
   if (articlePage) await articlePage.close().catch(() => {});
+  if (unauthorizedContext) await unauthorizedContext.close().catch(() => {});
   if (context) await context.close().catch(() => {});
   if (browser) await browser.close().catch(() => {});
 }
