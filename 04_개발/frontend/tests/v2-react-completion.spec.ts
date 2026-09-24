@@ -1,7 +1,22 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
+
+/**
+ * #984: the account entry renders social providers from the runtime capability
+ * read only. This static V2 preview has no auth backend, so the suite stubs the
+ * capability response to exercise the "providers available" and "none
+ * available" branches explicitly instead of assuming a provider set.
+ */
+async function stubSocialProviders(page: Page, providers: string[]): Promise<void> {
+  await page.route('**/auth/capabilities', (route) => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({ data: { socialProviders: providers } })
+  }));
+}
 
 test.describe('Current 04 React completion', () => {
   test('daily home → account entry is real React UI without claiming resident verification', async ({ page }) => {
+    await stubSocialProviders(page, ['kakao', 'google']);
     await page.goto('/');
 
     await expect(page.getByRole('heading', { name: '필요한 일, 우리 단지에서 먼저 찾습니다.' })).toBeVisible();
@@ -28,6 +43,24 @@ test.describe('Current 04 React completion', () => {
 
     await page.keyboard.press('Escape');
     await expect(auth).toHaveCount(0);
+  });
+
+  test('#984 hides every social entry when the runtime reports no available provider', async ({ page }) => {
+    const viewportWidth = page.viewportSize()?.width ?? Number.POSITIVE_INFINITY;
+    if (viewportWidth <= 768) return;
+
+    await stubSocialProviders(page, []);
+    const capabilityRead = page.waitForResponse((response) => response.url().includes('/auth/capabilities'));
+    await page.goto('/');
+    await capabilityRead;
+
+    await page.getByRole('button', { name: '가입·로그인', exact: true }).click();
+    const auth = page.locator('[data-v2-auth-entry]');
+    await expect(auth).toBeVisible();
+    await expect(auth.locator('.v2-auth-social')).toHaveCount(0);
+    await expect(auth.getByRole('button', { name: 'Kakao로 가입', exact: true })).toHaveCount(0);
+    await expect(auth.getByRole('button', { name: 'Google로 가입', exact: true })).toHaveCount(0);
+    await expect(auth.getByRole('button', { name: '가입하기', exact: true })).toBeEnabled();
   });
 
   test('direct account choices expose account-first signup and email/phone login without resident-auth claims', async ({ page }) => {
