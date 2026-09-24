@@ -126,6 +126,7 @@ const EXPECTED_BACKEND_ORDER = [
   "test:application-documents-owner-id",
   "test:deploy-provenance",
   "test:cross-platform-executable-contract",
+  "test:admin-field-limit-972",
   "test:runner-manifest-contract",
 ];
 
