@@ -51,10 +51,14 @@ const apiEvents = [];
 try {
   stage = 'LIVE_SOURCE_PARITY';
   const liveResponse = await fetch(new URL(LIVE_PAGE, `${frontendBase}/`), {
-    redirect: 'manual',
+    redirect: 'follow',
     headers: { accept: 'text/html' },
   });
   if (liveResponse.status !== 200) throw new Error(`LIVE_PAGE_HTTP_${liveResponse.status}`);
+  const liveFinalUrl = new URL(liveResponse.url);
+  if (liveFinalUrl.protocol !== 'https:' || liveFinalUrl.hostname !== EXPECTED_FRONTEND_HOST) {
+    throw new Error('LIVE_PAGE_REDIRECT_TARGET_INVALID');
+  }
   const liveBytes = Buffer.from(await liveResponse.arrayBuffer());
   const localBytes = await readFile(new URL('../../../frontend/25A_신청제보.html', import.meta.url));
   if (liveBytes.byteLength !== localBytes.byteLength || sha256(liveBytes) !== sha256(localBytes)) {
