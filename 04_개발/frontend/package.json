@@ -66,6 +66,7 @@
     "test:stage5i-household-claim-wiring": "node tests/stage5i-household-claim-wiring-contract.mjs",
     "test:stage5j-index3-account-entry": "node tests/stage5j-index3-account-entry-contract.mjs",
     "test:stage5j-messages-notifications-wiring": "node tests/stage5j-messages-notifications-wiring-contract.mjs",
+    "test:notification-resource-deeplink": "node ../../frontend/tests/notification-resource-deeplink-contract.mjs",
     "test:stage5k-owner-relation-raw": "node tests/stage5k-owner-relation-raw-contract.mjs",
     "test:stage5k-community-wiring": "node tests/stage5k-community-wiring-contract.mjs",
     "test:stage5l-greeting-wiring": "node tests/stage5l-greeting-wiring-contract.mjs",
@@ -75,9 +76,9 @@
     "test:admin-authority-role-contract": "node tests/admin-authority-role-contract.mjs",
     "test:leaf-b788-visual-syntax-integrity": "node tests/leaf-b788-visual-syntax-integrity-contract.mjs",
     "test:leaf-b858-notification-settings-route": "node ../../frontend/tests/leaf-b858-notification-settings-route-contract.mjs",
-    "test:leaf-b976-neighbor-modal-xss": "node tests/leaf-b976-neighbor-modal-xss-contract.mjs",
     "test:e2e": "playwright test",
-    "test:e2e:headed": "playwright test --headed"
+    "test:e2e:headed": "playwright test --headed",
+    "test:leaf-b976-neighbor-modal-xss": "node tests/leaf-b976-neighbor-modal-xss-contract.mjs"
   },
   "dependencies": {
     "better-auth": "1.7.1",

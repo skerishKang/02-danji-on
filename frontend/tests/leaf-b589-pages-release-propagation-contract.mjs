@@ -37,7 +37,7 @@ assert.match(
 );
 assert.match(
   workflow,
-  /release=\$\{GITHUB_SHA\}-leaf-\$\{leaf_round\}-\$\{leaf_tokens\[\$i\]\}/,
+  /release=\$\{EXPECTED_MAIN\}-leaf-\$\{leaf_round\}-\$\{leaf_tokens\[\$i\]\}/,
   '#589: every target/round fetch must carry a distinct cache-buster'
 );
 assert.match(
@@ -47,12 +47,12 @@ assert.match(
 );
 assert.match(
   workflow,
-  /if curl --silent --show-error --fail --location \\\n\s+--header 'Cache-Control: no-cache'[\s\S]*\$\{CANONICAL_PAGES_URL\}\/\$\{encoded_path\}\?release=\$\{GITHUB_SHA\}-leaf-/,
+  /if curl --silent --show-error --fail --location \\\n\s+--header 'Cache-Control: no-cache'[\s\S]*\$\{CANONICAL_PAGES_URL\}\/\$\{encoded_path\}\?release=\$\{EXPECTED_MAIN\}-leaf-/,
   '#602: leaf parity fetches must follow Cloudflare clean-URL redirects before hashing'
 );
 assert.doesNotMatch(
   workflow,
-  /if curl --silent --show-error --fail \\\n\s+--header 'Cache-Control: no-cache'[\s\S]*\$\{CANONICAL_PAGES_URL\}\/\$\{encoded_path\}\?release=\$\{GITHUB_SHA\}-leaf-/,
+  /if curl --silent --show-error --fail \\\n\s+--header 'Cache-Control: no-cache'[\s\S]*\$\{CANONICAL_PAGES_URL\}\/\$\{encoded_path\}\?release=\$\{EXPECTED_MAIN\}-leaf-/,
   '#602: primary leaf verifier must not regress to non-redirect-following curl'
 );
 assert.match(

@@ -33,6 +33,10 @@ name: Pages Production Release
 on:
   workflow_dispatch:
     inputs:
+      expected_main:
+        description: 'Exact origin/main SHA authorized by CENTRAL for this Production Pages release'
+        required: true
+        type: string
       confirm_production:
         description: 'Deploy the V3 top-level frontend artifact to canonical Cloudflare Pages production'
         required: true
@@ -67,9 +71,56 @@ jobs:
       PAGES_PROJECT: danjion
       PAGES_PRODUCTION_BRANCH: main
       CANONICAL_PAGES_URL: https://danjion.pages.dev
+      EXPECTED_MAIN: ${{ inputs.expected_main }}
+      MAX_DISPATCH: '1'
+      AUTO_RETRY: '0'
+      FAILED_PRODUCTION_RUN_RERUN_FORBIDDEN: 'true'
 
     steps:
+      - name: Validate exact main release authority input
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${GITHUB_REF}" != 'refs/heads/main' ]; then
+            echo "::error::Production Pages release must be dispatched from refs/heads/main."
+            exit 1
+          fi
+          if [ -z "${EXPECTED_MAIN}" ]; then
+            echo "::error::expected_main is required for a Production Pages release."
+            exit 1
+          fi
+          if ! [[ "${EXPECTED_MAIN}" =~ ^[0-9a-fA-F]{40}$ ]]; then
+            echo "::error::expected_main must be one full 40-character hexadecimal commit SHA."
+            exit 1
+          fi
+          echo "EXPECTED_MAIN_INPUT_VALID=PASS"
+
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.expected_main }}
+          fetch-depth: 1
+
+      - name: Verify exact current main authority before source assembly
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! [[ "${EXPECTED_MAIN}" =~ ^[0-9a-fA-F]{40}$ ]]; then
+            echo "::error::expected_main must remain a full commit SHA at the shell boundary."
+            exit 1
+          fi
+          local_sha="$(git rev-parse HEAD)"
+          remote_sha="$(git ls-remote origin refs/heads/main | awk 'NR==1 {print $1}')"
+          if [ -z "${remote_sha}" ]; then
+            echo "::error::Could not read the current remote main SHA; refusing Production Pages release."
+            exit 1
+          fi
+          if [ "${local_sha}" != "${EXPECTED_MAIN}" ] || [ "${remote_sha}" != "${EXPECTED_MAIN}" ]; then
+            echo "::error::Checked-out HEAD or current remote main does not match expected_main; refusing Production Pages release."
+            exit 1
+          fi
+          echo "PRECHECKOUT_SOURCE_AUTHORITY=PASS"
+          echo "CHECKED_OUT_HEAD=${local_sha}"
+          echo "CURRENT_REMOTE_MAIN=${remote_sha}"
 
       - uses: actions/setup-node@v4
         with:
@@ -177,7 +228,7 @@ jobs:
           rm -rf dist/tests
           test -f dist/index.html
           test ! -e dist/tests
-          node frontend/scripts/build-attribution.mjs dist "$GITHUB_SHA"
+          node frontend/scripts/build-attribution.mjs dist "$EXPECTED_MAIN"
           rm -rf dist/scripts
           test ! -e dist/scripts
           echo "V3 artifact assembled from frontend/ (entry: index.html)"
@@ -313,18 +364,33 @@ jobs:
           fi
           echo "V3 artifact authority scan: PASS"
 
-      - name: Deploy canonical Pages production
+      - name: Recheck exact main authority and deploy canonical Pages production
         shell: bash
         run: |
           set -euo pipefail
+          if ! [[ "${EXPECTED_MAIN}" =~ ^[0-9a-fA-F]{40}$ ]]; then
+            echo "::error::expected_main must remain a full commit SHA immediately before Pages mutation."
+            exit 1
+          fi
+          predeploy_local_sha="$(git rev-parse HEAD)"
+          predeploy_remote_sha="$(git ls-remote origin refs/heads/main | awk 'NR==1 {print $1}')"
+          if [ -z "${predeploy_remote_sha}" ]; then
+            echo "::error::Could not re-read current remote main immediately before Pages mutation."
+            exit 1
+          fi
+          if [ "${predeploy_local_sha}" != "${EXPECTED_MAIN}" ] || [ "${predeploy_remote_sha}" != "${EXPECTED_MAIN}" ]; then
+            echo "::error::Exact-main authority changed before Pages mutation; refusing deployment."
+            exit 1
+          fi
           commit_message="$(git log -1 --pretty=%s)"
           # Production Direct Upload is intentionally unambiguous: do not pass
           # --branch here. Cloudflare documents bare pages deploy as production,
           # while branch-directed uploads may create preview/branch deployments.
           npx wrangler@4.131.0 pages deploy dist \
             --project-name "$PAGES_PROJECT" \
-            --commit-hash "$GITHUB_SHA" \
+            --commit-hash "$EXPECTED_MAIN" \
             --commit-message "$commit_message"
+          echo "PREDEPLOY_EXACT_MAIN_GUARD=PASS"
 
       - name: Verify canonical deployment readback
         shell: bash
@@ -347,8 +413,8 @@ jobs:
             echo "::error::Canonical Pages deployment is not production."
             exit 1
           fi
-          if [ -n "$canonical_commit" ] && [ "$canonical_commit" != "$GITHUB_SHA" ]; then
-            echo "::error::Canonical Pages deployment commit does not match the release SHA."
+          if [ -z "$canonical_commit" ] || [ "$canonical_commit" != "$EXPECTED_MAIN" ]; then
+            echo "::error::Canonical Pages deployment commit is missing or does not match expected_main."
             exit 1
           fi
 
@@ -361,8 +427,8 @@ jobs:
             echo "::error::Canonical deployment readback is not production."
             exit 1
           fi
-          if [ -n "$deployment_commit" ] && [ "$deployment_commit" != "$GITHUB_SHA" ]; then
-            echo "::error::Canonical deployment readback commit does not match the release SHA."
+          if [ -z "$deployment_commit" ] || [ "$deployment_commit" != "$EXPECTED_MAIN" ]; then
+            echo "::error::Canonical deployment readback commit is missing or does not match expected_main."
             exit 1
           fi
           echo "Canonical Pages deployment API readback: PASS"
@@ -378,7 +444,7 @@ jobs:
           for attempt in $(seq 1 18); do
             curl --silent --show-error --fail \
               --header 'Cache-Control: no-cache' \
-              "${CANONICAL_PAGES_URL}/?release=${GITHUB_SHA}-${attempt}" \
+              "${CANONICAL_PAGES_URL}/?release=${EXPECTED_MAIN}-${attempt}" \
               --output "$actual_file"
 
             actual_sha="$(sha256sum "$actual_file" | awk '{print $1}')"
@@ -459,7 +525,7 @@ jobs:
               if curl --silent --show-error --fail --location \
                 --header 'Cache-Control: no-cache' \
                 --header 'Pragma: no-cache' \
-                "${CANONICAL_PAGES_URL}/${encoded_path}?release=${GITHUB_SHA}-leaf-${leaf_round}-${leaf_tokens[$i]}" \
+                "${CANONICAL_PAGES_URL}/${encoded_path}?release=${EXPECTED_MAIN}-leaf-${leaf_round}-${leaf_tokens[$i]}" \
                 --output "$leaf_file"; then
                 actual_leaf_sha="$(sha256sum "$leaf_file" | awk '{print $1}')"
               else
@@ -496,7 +562,7 @@ jobs:
             --header 'Cache-Control: no-cache' \
             --output "$missing_file" \
             --write-out '%{http_code}' \
-            "${CANONICAL_PAGES_URL}/__danjion_missing_${GITHUB_SHA}?release=${GITHUB_SHA}-404")"
+            "${CANONICAL_PAGES_URL}/__danjion_missing_${EXPECTED_MAIN}?release=${EXPECTED_MAIN}-404")"
           if [ "$missing_status" != "404" ]; then
             echo "::error::Unknown canonical Pages path did not return HTTP 404 (got ${missing_status})."
             exit 1
@@ -524,6 +590,9 @@ jobs:
             printf '%s\n' "- Browser API/Auth: same-origin Pages Function facade (resolver returns '' on both canonical hosts)"
             echo '- Pages Function upstream: fixed production Worker `padiem-danjion-api-production.padiem.workers.dev`'
             echo '- Controlled preview: explicit `?apiBase=` only; canonical production override is refused'
+            echo '- Exact authorized main SHA: checked out and matched to current remote main before assembly'
+            echo '- Pre-deploy exact-main recheck: PASS'
+            echo '- `MAX_DISPATCH=1`; `AUTO_RETRY=0`; failed Production run rerun forbidden'
             echo '- Production API/JWKS preflight: PASS'
             echo '- V3 contract gate + artifact authority scan: PASS'
             echo '- Browser same-origin facade authority scan: PASS'
