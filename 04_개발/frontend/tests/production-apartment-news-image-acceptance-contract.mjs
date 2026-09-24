@@ -139,6 +139,11 @@ for (const forbiddenLog of [
 console.log('production-apartment-news-image-acceptance-contract: PASS');
 
 // Live harness must target the actual accessible names exposed by the deployed V3 admin controls.
+assert.ok(admin.includes("const editor=el('section',undefined,'admin-post-editor create')"));
+assert.ok(script.includes("const composer = page.locator('section.admin-post-editor.create')"));
+assert.ok(script.includes("composer.getByLabel('출처', { exact: true })"));
+assert.ok(script.includes("composer.getByRole('button', { name: '새 소식 저장', exact: true })"));
+assert.ok(!script.includes("await page.getByLabel('출처', { exact: true }).fill('입주자대표회의')"));
 assert.ok(admin.includes("title.setAttribute('aria-label','소식 제목')"));
 assert.ok(admin.includes("body.setAttribute('aria-label','소식 본문')"));
 assert.ok(script.includes("getByLabel('소식 제목', { exact: true })"));
