@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { residentMessagesClient } from '../../resident-messages-client';
 import { residentProfileClient, type ResidentPublicProfile } from '../../resident-profile-client';
+import { residentProfileLabelEyebrow, residentProfileLabelText } from '../../resident-profile-label';
 import { residentSafetyClient, type ResidentReportReason } from '../../resident-safety-client';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -178,7 +179,7 @@ export default function V2ResidentProfileIntegration() {
             공개 소개
             <textarea value={publicBio} maxLength={300} rows={3} disabled={busy} onChange={(event) => setPublicBio(event.target.value)} />
           </label>
-          <p>인증 주민 · 가입 {selfProfile.joinedMonth} · 공개 활동 {selfProfile.publicActivityCount}개</p>
+          <p>{residentProfileLabelText(selfProfile.residentLabel)} · 가입 {selfProfile.joinedMonth} · 공개 활동 {selfProfile.publicActivityCount}개</p>
           <button type="submit" className="v2-btn v2-btn-small" disabled={busy}>프로필 저장</button>
         </form>
       )}
@@ -191,10 +192,10 @@ export default function V2ResidentProfileIntegration() {
     <div className="v2-dialog-backdrop" data-v2-resident-profile-backdrop onMouseDown={(event) => { if (event.target === event.currentTarget) setOtherProfile(null); }}>
       <section className="v2-dialog" role="dialog" aria-modal="true" aria-labelledby="v2-resident-profile-title" data-v2-resident-profile-dialog>
         <button type="button" className="v2-dialog-close" onClick={() => setOtherProfile(null)}>닫기</button>
-        <span className="v2-eyebrow">VERIFIED RESIDENT</span>
+        <span className="v2-eyebrow">{residentProfileLabelEyebrow(otherProfile.residentLabel)}</span>
         <h2 id="v2-resident-profile-title">{otherProfile.nickname}</h2>
         <p>{otherProfile.publicBio || '공개 소개가 없습니다.'}</p>
-        <p>인증 주민 · 가입 {otherProfile.joinedMonth} · 공개 활동 {otherProfile.publicActivityCount}개</p>
+        <p>{residentProfileLabelText(otherProfile.residentLabel)} · 가입 {otherProfile.joinedMonth} · 공개 활동 {otherProfile.publicActivityCount}개</p>
         <div className="v2-dialog-actions">
           <button type="button" className="v2-btn v2-btn-primary" disabled={busy} onClick={() => void messageResident()}>메시지 보내기</button>
           <button type="button" className="v2-btn" disabled={busy} onClick={() => void blockResident()}>차단</button>
