@@ -50,6 +50,7 @@ const EXPECTED_BACKEND_ORDER = [
   "test:authz-v2-migrations",
   "test:operational-authz-v2",
   "test:admin-operational-rbac",
+  "test:benefit-null-time-range-patch",
   "test:padiem-authority",
   "test:admin-authority-contract",
   "test:admin-bootstrap",
@@ -127,6 +128,7 @@ const EXPECTED_BACKEND_ORDER = [
   "test:application-documents-owner-id",
   "test:deploy-provenance",
   "test:cross-platform-executable-contract",
+  "test:admin-field-limit-972",
   "test:runner-manifest-contract",
 ];
 

@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "test:runner-manifest-contract": "node tests/test-runner-manifest-contract.mjs",
+    "test:admin-field-limit-972": "tsx tests/admin-field-limit-972-contract.mjs",
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
     "typecheck": "tsc --noEmit",
@@ -128,6 +129,7 @@
     "test:backup-neon-to-drive-runtime-safety": "node tests/backup-neon-to-drive-runtime-safety.test.mjs",
     "test:verify-neon-backup-restore": "node tests/verify-neon-backup-restore-contract.mjs",
     "test:public-complex-eligibility": "tsx tests/public-complex-eligibility-v1.test.mjs",
+    "test:benefit-null-time-range-patch": "tsx --import ./tests/helpers/neon-stub-loader.mjs tests/benefit-null-time-range-patch.test.mjs",
     "test:core-public-route-identifiers": "tsx --import ./tests/helpers/neon-stub-loader.mjs tests/core-public-route-identifiers.test.mjs"
   },
   "dependencies": {
