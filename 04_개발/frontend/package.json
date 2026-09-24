@@ -31,6 +31,7 @@
     "test:v2-account-closure-contract": "node tests/v2-account-closure-contract.mjs",
     "test:v2-community-replies-contract": "node tests/v2-community-replies-contract.mjs",
     "test:v2-auth-entry-contract": "node tests/v2-auth-entry-contract.mjs",
+    "test:leaf-984-social-provider-runtime-capability-contract": "node tests/leaf-984-social-provider-runtime-capability-contract.mjs",
     "test:v2-current-shell-contract": "node tests/v2-current-shell-contract.mjs",
     "test:v2-current-home-contract": "node tests/v2-current-home-contract.mjs",
     "test:v2-current-shops-contract": "node tests/v2-current-shops-contract.mjs",
