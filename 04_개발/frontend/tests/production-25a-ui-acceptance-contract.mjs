@@ -39,6 +39,10 @@ assert.ok(script.includes("const EXPECTED_FRONTEND_HOST = 'danjion.pages.dev'"))
 assert.match(script, /context\.request\.post\(`\$\{frontendBase\}\/api\/auth\/sign-in\/email`/);
 assert.match(script, /context\.request\.get\(`\$\{frontendBase\}\/api\/auth\/get-session`/);
 assert.match(script, /page\.goto\(new URL\(LIVE_PAGE/);
+assert.ok(script.includes("redirect: 'follow'"));
+assert.ok(script.includes('LIVE_PAGE_REDIRECT_TARGET_INVALID'));
+assert.match(script, /liveFinalUrl\.hostname !== EXPECTED_FRONTEND_HOST/);
+assert.ok(!script.includes("redirect: 'manual'"));
 assert.ok(!script.includes('padiem-danjion-api-qa.padiem.workers.dev'));
 assert.ok(!script.includes('danjion-qa.pages.dev'));
 
