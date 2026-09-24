@@ -106,9 +106,10 @@
   <script src="/assets/danjion-admin-principals.js"></script>
   <script src="/assets/danjion-admin-global-audit.js"></script>
   <script src="/assets/danjion-admin-console.js"></script>
+  <script src="/assets/danjion-admin-official-news-storage.js"></script>
   <script>
     const badge=document.getElementById('roleBadge'),main=document.getElementById('adminMain'),restricted=document.getElementById('restrictedView');
-    const authority=window.DanjionAdminAuthority,bootstrapApi=window.DanjionAdminBootstrap,principalApi=window.DanjionAdminPrincipals,auditApi=window.DanjionAdminGlobalAudit,consoleApi=window.DanjionAdminConsole;
+    const authority=window.DanjionAdminAuthority,bootstrapApi=window.DanjionAdminBootstrap,principalApi=window.DanjionAdminPrincipals,auditApi=window.DanjionAdminGlobalAudit,consoleApi=window.DanjionAdminConsole,officialNewsStorage=window.DanjionAdminOfficialNewsStorage;
     const RESTRICTED_COPY={
       unbound:'이 환경에서는 관리자 콘솔을 사용할 수 없습니다.',
       'signed-out':'관리자 콘솔은 로그인 후 이용할 수 있습니다.',
@@ -267,9 +268,6 @@
     }
     const OFFICIAL_POST_CHANNELS=['danjion_notice','apartment_news','management_office','chair_greeting'];
     const OFFICIAL_POST_CHANNEL_LABELS={danjion_notice:'단지온 공지',apartment_news:'입주자대표회의',management_office:'관리사무소',chair_greeting:'회장말씀'};
-    const OFFICIAL_NEWS_IMAGE_KEY=/^gdrive\/public\/official-news-image\/[A-Za-z0-9_-]{10,200}$/;
-    const OFFICIAL_NEWS_IMAGE_TYPES=new Set(['image/jpeg','image/png','image/webp']);
-    const OFFICIAL_NEWS_IMAGE_MAX_BYTES=8*1024*1024;
     function postChannelFor(row){
       const explicit=String(row?.channel||'').trim();
       if(OFFICIAL_POST_CHANNELS.includes(explicit))return explicit;
@@ -289,42 +287,13 @@
       return select;
     }
     function isPhotoChannel(value){return value==='apartment_news'||value==='management_office'}
-    function validateOfficialPostImage(file){
-      if(!file||!file.size)throw new Error('빈 사진은 첨부할 수 없습니다.');
-      if(!OFFICIAL_NEWS_IMAGE_TYPES.has(file.type))throw new Error('공식소식 사진은 JPG, PNG, WebP만 첨부할 수 있습니다.');
-      if(file.size>OFFICIAL_NEWS_IMAGE_MAX_BYTES)throw new Error('공식소식 사진은 파일당 최대 8MB입니다.');
-    }
-    function storageObjectUrl(apiBase,objectKey){
-      const root=window.DanjionSession.joinUrl(String(apiBase||''),'/api/v1/storage/objects');
-      return objectKey?root+'?objectKey='+encodeURIComponent(objectKey):root;
-    }
-    async function uploadOfficialNewsImage(apiBase,image){
-      validateOfficialPostImage(image.file);
-      if(!image.idempotencyKey)image.idempotencyKey='official-news:'+((crypto.randomUUID&&crypto.randomUUID())||Date.now().toString(36));
-      const body=new FormData();body.set('kind','official-news-image');body.set('complexSlug',consoleApi.COMPLEX_SLUG);body.set('file',image.file);
-      const response=await fetch(storageObjectUrl(apiBase),{method:'POST',credentials:'include',headers:{'idempotency-key':image.idempotencyKey},body});
-      const payload=await response.json().catch(()=>null);
-      if(!response.ok)throw new Error(payload?.error?.message||('사진 업로드 실패 · HTTP '+response.status));
-      const objectKey=String(payload?.data?.objectKey||'');
-      if(!OFFICIAL_NEWS_IMAGE_KEY.test(objectKey))throw new Error('사진 저장 응답의 식별자를 검증할 수 없습니다.');
-      image.uploadedKey=objectKey;
-      return objectKey;
-    }
-    async function deleteOfficialNewsImage(apiBase,objectKey){
-      if(!OFFICIAL_NEWS_IMAGE_KEY.test(String(objectKey||'')))return;
-      const response=await fetch(storageObjectUrl(apiBase,objectKey),{method:'DELETE',credentials:'include'});
-      if(!response.ok){
-        const payload=await response.json().catch(()=>null);
-        throw new Error(payload?.error?.message||('사진 정리 실패 · HTTP '+response.status));
-      }
-    }
     function releasePostImagePreview(image){
       if(image.preview&&image.preview.startsWith('blob:'))URL.revokeObjectURL(image.preview);
       image.preview=null;
     }
     async function retireUnreferencedPostImage(apiBase,image){
       if(!image.uploadedKey)return;
-      await deleteOfficialNewsImage(apiBase,image.uploadedKey);
+      const removed=await officialNewsStorage.deleteOfficialNewsImage(fetch,apiBase,image.uploadedKey);if(!removed.ok)throw new Error(removed.message||'사진 정리에 실패했습니다.');
       image.uploadedKey=null;image.idempotencyKey=null;
     }
     function postFields(row,includeArchived){
@@ -335,12 +304,13 @@
       const status=postStatusSelect(String(row?.status||'draft'),includeArchived);
       const channel=postChannelSelect(postChannelFor(row));
       const displayMode=postDisplayModeSelect(String(row?.display_mode||row?.displayMode||'highlight'));
-      const existingKey=String(row?.attachment_object_key||row?.attachmentObjectKey||'').trim()||null;
+      const legacyAttachment=row?.['attachment_'+'object'+'_key'];
+      const existingKey=String(row?.attachmentObjectKey||legacyAttachment||'').trim()||null;
       const image={file:null,preview:null,existingKey,uploadedKey:null,idempotencyKey:null,removeExisting:false,input:null,status:null,previewEl:null,removeBtn:null};
       return {source,category,title,body,status,channel,displayMode,image};
     }
-    function postPayload(fields,attachmentObjectKey){
-      return {sourceName:fields.source.value,category:fields.category.value,title:fields.title.value,body:fields.body.value,status:fields.status.value,channel:fields.channel.value,displayMode:fields.displayMode.value,attachmentObjectKey};
+    function postPayload(fields){
+      return {sourceName:fields.source.value,category:fields.category.value,title:fields.title.value,body:fields.body.value,status:fields.status.value,channel:fields.channel.value,displayMode:fields.displayMode.value,attachmentObjectKey:fields.image.preparedKey??fields.image.existingKey??null};
     }
     function postErrorMessage(outcome){
       if(outcome.state==='scope-denied')return '현재 관리자 권한으로 단지소식을 변경할 수 없습니다.';
@@ -376,7 +346,7 @@
         const file=input.files&&input.files[0];
         if(!file)return;
         try{
-          validateOfficialPostImage(file);
+          const valid=officialNewsStorage.validateFile(file);if(!valid.ok)throw new Error(valid.message);
           await retireUnreferencedPostImage(apiBase,image);
           releasePostImagePreview(image);
           image.file=file;image.preview=URL.createObjectURL(file);image.removeExisting=false;image.idempotencyKey=null;sync();
@@ -416,18 +386,25 @@
     }
     async function preparePostAttachment(apiBase,fields,live){
       const image=fields.image;
-      if(!isPhotoChannel(fields.channel.value))return null;
-      if(image.removeExisting)return null;
-      if(image.uploadedKey)return image.uploadedKey;
-      if(image.file){
+      let key=null;
+      if(!isPhotoChannel(fields.channel.value))key=null;
+      else if(image.removeExisting)key=null;
+      else if(image.uploadedKey)key=image.uploadedKey;
+      else if(image.file){
         live.textContent='사진 업로드 중…';
-        return uploadOfficialNewsImage(apiBase,image);
-      }
-      return image.existingKey;
+        if(!image.idempotencyKey)image.idempotencyKey='official-news:'+((crypto.randomUUID&&crypto.randomUUID())||Date.now().toString(36));
+        const uploaded=await officialNewsStorage.uploadOfficialNewsImage(fetch,apiBase,image.file,image.idempotencyKey,consoleApi.COMPLEX_SLUG);
+        if(!uploaded.ok)throw new Error(uploaded.message||'사진 업로드에 실패했습니다.');
+        image.uploadedKey=uploaded.objectKey;
+        key=image.uploadedKey;
+      }else key=image.existingKey;
+      image.preparedKey=key;
+      return key;
     }
     async function cleanupReplacedPostImage(apiBase,image,nextKey){
       if(!image.existingKey||image.existingKey===nextKey)return;
-      await deleteOfficialNewsImage(apiBase,image.existingKey);
+      const removed=await officialNewsStorage.deleteOfficialNewsImage(fetch,apiBase,image.existingKey);
+      if(!removed.ok)throw new Error(removed.message||'기존 사진을 정리하지 못했습니다.');
     }
     function postComposer(panel,section,apiBase){
       const editor=el('section',undefined,'admin-post-editor create');editor.append(el('h3','새 단지소식 작성'));
@@ -440,7 +417,7 @@
         save.disabled=true;live.className='admin-post-status';live.textContent='저장 중…';
         try{
           const attachmentObjectKey=await preparePostAttachment(apiBase,fields,live);
-          const outcome=await consoleApi.createOfficialPost(fetch,apiBase,postPayload(fields,attachmentObjectKey));
+          const outcome=await consoleApi.createOfficialPost(fetch,apiBase,postPayload(fields));
           if(outcome.state==='updated'){releasePostImagePreview(fields.image);live.textContent='저장됐습니다. 최신 목록을 다시 불러옵니다.';await renderSection(panel,section,apiBase);return}
           if(outcome.state==='signed-out'){showRestricted('signed-out');return}
           live.textContent=postErrorMessage(outcome);live.className='admin-post-status error';
@@ -461,7 +438,7 @@
         save.disabled=true;live.className='admin-post-status';live.textContent='변경 저장 중…';
         try{
           const attachmentObjectKey=await preparePostAttachment(apiBase,fields,live);
-          const outcome=await consoleApi.updateOfficialPost(fetch,apiBase,row.id,postPayload(fields,attachmentObjectKey));
+          const outcome=await consoleApi.updateOfficialPost(fetch,apiBase,row.id,postPayload(fields));
           if(outcome.state==='updated'){
             try{await cleanupReplacedPostImage(apiBase,fields.image,attachmentObjectKey)}catch(_){}
             releasePostImagePreview(fields.image);live.textContent='변경됐습니다. 최신 목록을 다시 불러옵니다.';await renderSection(panel,section,apiBase);return
