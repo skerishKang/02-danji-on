@@ -1,7 +1,15 @@
 import { neon, type NeonQueryFunction } from '@neondatabase/serverless';
+import { requireActor, type Actor } from './auth-v1';
 import { deriveChannel } from './complex-news-channel';
 import type { CoreEnv } from './core-v1';
-import { requireOperationalAuthority, type OperationalAuthority } from './operational-authz-v2';
+// #975: the canonical UUID validator (same one #973 uses for public route
+// identifiers) must gate every ID-based admin route before any ::uuid cast.
+import { UUID } from './application-docs-core-v1';
+import {
+  operationalPrincipalDenial,
+  requireOperationalAuthority,
+  type OperationalAuthority
+} from './operational-authz-v2';
 import { validateBusinessImageReference, validateOfficialNewsImageReference } from './storage-reference-v1';
 import {
   insertOfficialNewsPostWithAttachment,
@@ -138,6 +146,28 @@ async function authority(
   );
 }
 
+/**
+ * #975 non-disclosing absence for ID-based admin routes.
+ *
+ * A resource-specific 404 is served only to a caller that already cleared the
+ * minimum operational-principal boundary. A caller that could not have been
+ * authorized for any complex receives the same canonical 403 policy class here
+ * as it would for an existing id, so an unknown (or malformed) id is never a
+ * resource existence oracle. The exact complex-scoped authority stays the
+ * authoritative gate for existing resources and is never replaced by this probe.
+ */
+async function absentResourceResponse(
+  sql: Sql,
+  actor: Actor,
+  requestId: string,
+  requestedScope: string,
+  message: string
+): Promise<Response> {
+  const denial = await operationalPrincipalDenial(sql, actor, requestId, requestedScope);
+  if (denial) return denial;
+  return fail('NOT_FOUND', message, 404, requestId);
+}
+
 async function applicationContext(sql: Sql, applicationId: string) {
   const rows = await sql`
     select a.id, a.status, a.approved_business_id, a.applicant_user_id,
@@ -265,9 +295,25 @@ async function patchApplication(
   applicationId: string,
   requestId: string
 ): Promise<Response> {
-  const current = await applicationContext(sql, applicationId);
-  if (!current) return fail('NOT_FOUND', 'Business application not found', 404, requestId);
+  // #975 Stage 1: the minimum actor boundary runs before the resource lookup, so
+  // a signed-out caller receives one and the same 401 for an existing and an
+  // unknown id and no business_applications row is ever read for it.
+  const actor = await requireActor(request, env, sql, requestId);
+  if (actor instanceof Response) return actor;
 
+  // #975 Stage 2 guard: a malformed id is answered exactly like an absent
+  // application behind that same boundary and never reaches a ::uuid cast.
+  if (!UUID.test(applicationId)) {
+    return absentResourceResponse(sql, actor, requestId, POLICY.businessReview.padiem, 'Business application not found');
+  }
+
+  const current = await applicationContext(sql, applicationId);
+  if (!current) {
+    return absentResourceResponse(sql, actor, requestId, POLICY.businessReview.padiem, 'Business application not found');
+  }
+
+  // #975 Stage 3: the exact complex-scoped authority for the application's own
+  // complex remains the authoritative gate; Stage 1 never replaces it.
   const operator = await authority(request, env, sql, requestId, String(current.complex_slug), POLICY.businessReview);
   if (operator instanceof Response) return operator;
 
@@ -438,6 +484,18 @@ async function patchPost(
   postId: string,
   requestId: string
 ): Promise<Response> {
+  // #975 Stage 1: the minimum actor boundary runs before the resource lookup, so
+  // a signed-out caller receives one and the same 401 for an existing and an
+  // unknown post and no complex_posts row is ever read for it.
+  const actor = await requireActor(request, env, sql, requestId);
+  if (actor instanceof Response) return actor;
+
+  // #975 Stage 2 guard: a malformed id is answered exactly like an absent post
+  // behind that same boundary and never reaches a ::uuid cast.
+  if (!UUID.test(postId)) {
+    return absentResourceResponse(sql, actor, requestId, POLICY.officialContent.padiem, 'Post not found');
+  }
+
   const rows = await sql`
     select p.*, c.slug as complex_slug
     from complex_posts p
@@ -446,8 +504,12 @@ async function patchPost(
     limit 1
   `;
   const current = rows[0];
-  if (!current) return fail('NOT_FOUND', 'Post not found', 404, requestId);
+  if (!current) {
+    return absentResourceResponse(sql, actor, requestId, POLICY.officialContent.padiem, 'Post not found');
+  }
 
+  // #975 Stage 3: the exact complex-scoped authority for the post's own complex
+  // remains the authoritative gate; Stage 1 never replaces it.
   const operator = await authority(request, env, sql, requestId, String(current.complex_slug), POLICY.officialContent);
   if (operator instanceof Response) return operator;
 
@@ -585,6 +647,19 @@ async function patchBenefit(
   benefitId: string,
   requestId: string
 ): Promise<Response> {
+  // #975 Stage 1: the minimum actor boundary runs before the resource lookup, so
+  // a signed-out caller receives one and the same 401 for an existing and an
+  // unknown benefit and no benefits row is ever read for it. The #970
+  // null/timestamp/range semantics below are untouched.
+  const actor = await requireActor(request, env, sql, requestId);
+  if (actor instanceof Response) return actor;
+
+  // #975 Stage 2 guard: a malformed id is answered exactly like an absent
+  // benefit behind that same boundary and never reaches a ::uuid cast.
+  if (!UUID.test(benefitId)) {
+    return absentResourceResponse(sql, actor, requestId, POLICY.benefitManage.padiem, 'Benefit not found');
+  }
+
   const rows = await sql`
     select be.*, c.slug as complex_slug
     from benefits be
@@ -593,8 +668,12 @@ async function patchBenefit(
     limit 1
   `;
   const current = rows[0];
-  if (!current) return fail('NOT_FOUND', 'Benefit not found', 404, requestId);
+  if (!current) {
+    return absentResourceResponse(sql, actor, requestId, POLICY.benefitManage.padiem, 'Benefit not found');
+  }
 
+  // #975 Stage 3: the exact complex-scoped authority for the benefit's own
+  // complex remains the authoritative gate; Stage 1 never replaces it.
   const operator = await authority(request, env, sql, requestId, String(current.complex_slug), POLICY.benefitManage);
   if (operator instanceof Response) return operator;
 
