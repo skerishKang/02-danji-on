@@ -90,6 +90,7 @@ const EXPECTED_BACKEND_ORDER = [
   "test:complex-news-channel",
   "test:complex-news-channel-write",
   "test:business-category-benefit",
+  "test:public-complex-eligibility",
   "test:saved-shops-server",
   "test:community-replies",
   "test:community-notifications",

@@ -126,7 +126,8 @@
     "test:production-neon-connectivity-diagnostic": "node tests/production-neon-connectivity-diagnostic-contract.mjs",
     "test:backup-neon-to-drive": "node tests/backup-neon-to-drive-contract.mjs",
     "test:backup-neon-to-drive-runtime-safety": "node tests/backup-neon-to-drive-runtime-safety.test.mjs",
-    "test:verify-neon-backup-restore": "node tests/verify-neon-backup-restore-contract.mjs"
+    "test:verify-neon-backup-restore": "node tests/verify-neon-backup-restore-contract.mjs",
+    "test:public-complex-eligibility": "tsx tests/public-complex-eligibility-v1.test.mjs"
   },
   "dependencies": {
     "@neondatabase/serverless": "1.1.0",
