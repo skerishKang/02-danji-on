@@ -95,6 +95,7 @@
   const APPLICATION_REVIEW_STATUSES = Object.freeze(['approved', 'changes_requested', 'rejected']);
   const POST_STATUSES = Object.freeze(['draft', 'published', 'archived']);
   const POST_CHANNELS = Object.freeze(['danjion_notice', 'apartment_news', 'management_office', 'chair_greeting']);
+  const POST_DISPLAY_MODES = Object.freeze(['highlight', 'article']);
   const BENEFIT_STATUSES = Object.freeze(['draft', 'active', 'expired', 'suspended']);
   const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -215,12 +216,14 @@
     const body = String(value.body || '').trim();
     const status = String(value.status || '').trim();
     const channel = String(value.channel || '').trim();
+    const displayMode = String(value.displayMode || 'highlight').trim();
     const hasAttachment = Object.prototype.hasOwnProperty.call(value, 'attachmentObjectKey');
     const attachmentObjectKey = hasAttachment ? (String(value.attachmentObjectKey || '').trim() || null) : undefined;
     if (!sourceName || !category || !title || !body || !POST_STATUSES.includes(status)) return null;
     if (channel && !POST_CHANNELS.includes(channel)) return null;
+    if (!POST_DISPLAY_MODES.includes(displayMode)) return null;
     return {
-      sourceName, category, title, body, status,
+      sourceName, category, title, body, status, displayMode,
       ...(channel ? { channel } : {}),
       ...(hasAttachment ? { attachmentObjectKey } : {})
     };
@@ -575,6 +578,7 @@
     APPLICATION_REVIEW_STATUSES,
     POST_STATUSES,
     POST_CHANNELS,
+    POST_DISPLAY_MODES,
     BENEFIT_STATUSES,
     extractRows,
     consoleSections,
