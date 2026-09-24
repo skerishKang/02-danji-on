@@ -33,6 +33,7 @@
     "test:production-admin-principal-provision": "node tests/production-admin-principal-provision-contract.mjs",
     "test:production-admin-principal-adopt-existing": "node tests/production-admin-principal-adopt-existing-contract.mjs",
     "test:auth-facade-public-base": "tsx tests/auth-facade-public-base-contract.mjs",
+    "test:social-provider-runtime-capability-984": "tsx tests/social-provider-runtime-capability-984-contract.mjs",
     "test:qa-persona-auth-target": "node tests/qa-persona-auth-target-contract.mjs",
     "test:qa-auth-diagnostic-classifier": "node tests/qa-auth-diagnostic-classifier-contract.mjs",
     "test:authz-v2": "tsx tests/authorization-v2.test.mjs",

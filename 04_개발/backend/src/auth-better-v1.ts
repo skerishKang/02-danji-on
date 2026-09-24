@@ -88,18 +88,51 @@ function emailVerificationRequired(env: BetterAuthEnv): boolean {
   return env.AUTH_REQUIRE_EMAIL_VERIFICATION?.trim().toLowerCase() !== 'false';
 }
 
-function configuredSocialProviders(env: BetterAuthEnv) {
-  const googleId = env.GOOGLE_CLIENT_ID?.trim();
-  const googleSecret = env.GOOGLE_CLIENT_SECRET?.trim();
-  const kakaoId = env.KAKAO_CLIENT_ID?.trim();
-  const kakaoSecret = env.KAKAO_CLIENT_SECRET?.trim();
-  const naverId = env.NAVER_CLIENT_ID?.trim();
-  const naverSecret = env.NAVER_CLIENT_SECRET?.trim();
+/* #984: single source of truth for social-provider readiness. Both the Better
+ * Auth registration map and the public UI-capability response read the same
+ * credential extraction and completeness rule below, so the server can never
+ * advertise a provider it did not register (or hide one it did). Only provider
+ * NAMES ever leave this module; credential material stays private here.
+ */
+type ProviderCredential = { id: string | undefined; secret: string | undefined };
+
+function socialProviderCredentials(env: BetterAuthEnv): Record<'google' | 'kakao' | 'naver', ProviderCredential> {
   return {
-    ...(googleId && googleSecret ? { google: { clientId: googleId, clientSecret: googleSecret, disableImplicitSignUp: true } } : {}),
-    ...(kakaoId && kakaoSecret ? { kakao: { clientId: kakaoId, clientSecret: kakaoSecret, disableImplicitSignUp: true } } : {}),
-    ...(naverId && naverSecret ? { naver: { clientId: naverId, clientSecret: naverSecret, disableImplicitSignUp: true } } : {})
+    google: { id: env.GOOGLE_CLIENT_ID?.trim(), secret: env.GOOGLE_CLIENT_SECRET?.trim() },
+    kakao: { id: env.KAKAO_CLIENT_ID?.trim(), secret: env.KAKAO_CLIENT_SECRET?.trim() },
+    naver: { id: env.NAVER_CLIENT_ID?.trim(), secret: env.NAVER_CLIENT_SECRET?.trim() }
   };
+}
+
+// A provider is usable only with a COMPLETE credential pair. An id-only or
+// secret-only configuration must never register or advertise the provider.
+function hasCompleteCredentialPair(credential: ProviderCredential): boolean {
+  return Boolean(credential.id && credential.secret);
+}
+
+function configuredSocialProviders(env: BetterAuthEnv) {
+  const credentials = socialProviderCredentials(env);
+  return {
+    ...(hasCompleteCredentialPair(credentials.google)
+      ? { google: { clientId: credentials.google.id!, clientSecret: credentials.google.secret!, disableImplicitSignUp: true } } : {}),
+    ...(hasCompleteCredentialPair(credentials.kakao)
+      ? { kakao: { clientId: credentials.kakao.id!, clientSecret: credentials.kakao.secret!, disableImplicitSignUp: true } } : {}),
+    ...(hasCompleteCredentialPair(credentials.naver)
+      ? { naver: { clientId: credentials.naver.id!, clientSecret: credentials.naver.secret!, disableImplicitSignUp: true } } : {})
+  };
+}
+
+/* #984: the UI-visible social providers. The product UI supports exactly Kakao
+ * and Google in product order. Naver credentials may be configured for other
+ * surfaces, but Naver stays intentionally hidden from the product UI (#586),
+ * so it is never added here. Returns provider names only.
+ */
+export type UiSocialProvider = 'kakao' | 'google';
+const UI_SOCIAL_PROVIDER_ORDER: readonly UiSocialProvider[] = ['kakao', 'google'];
+
+export function configuredUiSocialProviders(env: BetterAuthEnv): UiSocialProvider[] {
+  const credentials = socialProviderCredentials(env);
+  return UI_SOCIAL_PROVIDER_ORDER.filter((provider) => hasCompleteCredentialPair(credentials[provider]));
 }
 
 async function requireClosedProductAccount(env: BetterAuthEnv, authUserId: string): Promise<void> {
@@ -279,11 +312,31 @@ function handleSocialStart(request: Request, env: BetterAuthEnv): Response {
   });
 }
 
+/* --- #984: public runtime social-provider capability --------------------------
+ * The first-party UI reads this to render ONLY the social providers the runtime
+ * actually registered. Public, read-only, GET-only, no auth, no DB query, and
+ * no mutation. The payload carries provider AVAILABILITY alone — never a client
+ * id, client secret, env value, credential length, or callback/internal config.
+ * The provider set comes from the same source as Better Auth registration.
+ * ----------------------------------------------------------------------------- */
+export const AUTH_CAPABILITY_PATH = '/auth/capabilities';
+
+function handleAuthCapabilities(env: BetterAuthEnv): Response {
+  return Response.json(
+    { data: { socialProviders: configuredUiSocialProviders(env) } },
+    { headers: { 'cache-control': 'no-store' } }
+  );
+}
+
 export async function handleBetterAuthRequest(request: Request, env: BetterAuthEnv): Promise<Response | null> {
   const path = new URL(request.url).pathname;
 
   if (request.method === 'GET' && path === '/auth/social-start') {
     return handleSocialStart(request, env);
+  }
+
+  if (request.method === 'GET' && path === AUTH_CAPABILITY_PATH) {
+    return handleAuthCapabilities(env);
   }
 
   const auth = createDanjionAuth(env, resolveAuthPublicBaseUrl(env, request));

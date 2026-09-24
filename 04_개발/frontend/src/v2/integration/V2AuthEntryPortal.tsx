@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { createPortal } from 'react-dom';
 import {
+  getAuthRuntimeCapabilities,
   getProductApiBearerToken,
   signInWithEmail,
   signInWithPhone,
   signInWithSocial,
   signUpWithEmail,
   signUpWithSocial,
-  type SocialLoginProvider
+  type UiSocialProvider
 } from '../../auth-client';
 
 type AccountMode = 'signup' | 'signin';
@@ -33,6 +34,9 @@ export default function V2AuthEntryPortal() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [authenticated, setAuthenticated] = useState(false);
+  // #984: resolved from backend runtime capability. Starts empty so a provider
+  // is never rendered before it is known available (UNAVAILABLE_PROVIDER_FLASH=0).
+  const [socialProviders, setSocialProviders] = useState<UiSocialProvider[]>([]);
 
   useEffect(() => {
     const resolveHost = () => {
@@ -42,6 +46,17 @@ export default function V2AuthEntryPortal() {
     const observer = new MutationObserver(resolveHost);
     observer.observe(document.body, { childList: true, subtree: true });
     return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    // #984: fail-closed capability read. A failed/malformed response resolves
+    // to an empty list, so social buttons stay hidden while email/password
+    // signup, email/phone sign-in, and password recovery keep working.
+    void getAuthRuntimeCapabilities().then((capability) => {
+      if (!cancelled) setSocialProviders(capability.socialProviders);
+    });
+    return () => { cancelled = true; };
   }, []);
 
   useEffect(() => {
@@ -83,8 +98,15 @@ export default function V2AuthEntryPortal() {
     setError('');
   }
 
-  async function social(provider: SocialLoginProvider) {
+  async function social(provider: UiSocialProvider) {
     setError('');
+    // #984 defense-in-depth: the button is hidden for unavailable providers,
+    // but the call itself still fails closed if reached
+    // (UNAVAILABLE_PROVIDER_SOCIAL_CALL=0).
+    if (!socialProviders.includes(provider)) {
+      setError('현재 사용할 수 없는 소셜 로그인입니다.');
+      return;
+    }
     if (!LIVE_AUTH) {
       setError('개발 미리보기에서는 실제 소셜 계정을 만들거나 로그인하지 않습니다.');
       return;
@@ -223,10 +245,16 @@ export default function V2AuthEntryPortal() {
                 : '계정 로그인과 입주민 권한은 분리되어 있습니다. 로그인 후 입주민 확인 단계로 이어집니다.'}
             </div>
 
-            <div className="v2-auth-social" aria-label={mode === 'signup' ? '소셜 계정으로 가입' : '소셜 계정으로 로그인'}>
-              <button type="button" disabled={busy} onClick={() => void social('kakao')}>{mode === 'signup' ? 'Kakao로 가입' : 'Kakao'}</button>
-              <button type="button" disabled={busy} onClick={() => void social('google')}>{mode === 'signup' ? 'Google로 가입' : 'Google'}</button>
-            </div>
+            {socialProviders.length > 0 && (
+              <div className="v2-auth-social" aria-label={mode === 'signup' ? '소셜 계정으로 가입' : '소셜 계정으로 로그인'}>
+                {socialProviders.includes('kakao') && (
+                  <button type="button" disabled={busy} onClick={() => void social('kakao')}>{mode === 'signup' ? 'Kakao로 가입' : 'Kakao'}</button>
+                )}
+                {socialProviders.includes('google') && (
+                  <button type="button" disabled={busy} onClick={() => void social('google')}>{mode === 'signup' ? 'Google로 가입' : 'Google'}</button>
+                )}
+              </div>
+            )}
 
             {mode === 'signin' && <a href="/auth-recovery.html">비밀번호를 잊으셨나요?</a>}
           </div>
