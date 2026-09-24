@@ -39,6 +39,7 @@
         {"id":"test:authz-v2-migrations","npm":"test:authz-v2-migrations","kind":"contract"},
         {"id":"test:operational-authz-v2","npm":"test:operational-authz-v2","kind":"contract"},
         {"id":"test:admin-operational-rbac","npm":"test:admin-operational-rbac","kind":"contract"},
+        {"id":"test:resident-profile-label-983","npm":"test:resident-profile-label-983","kind":"contract"},
         {"id":"test:benefit-null-time-range-patch","npm":"test:benefit-null-time-range-patch","kind":"contract"},
         {"id":"test:padiem-authority","npm":"test:padiem-authority","kind":"contract"},
         {"id":"test:admin-authority-contract","npm":"test:admin-authority-contract","kind":"contract"},

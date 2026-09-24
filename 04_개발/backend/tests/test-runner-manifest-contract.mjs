@@ -50,6 +50,7 @@ const EXPECTED_BACKEND_ORDER = [
   "test:authz-v2-migrations",
   "test:operational-authz-v2",
   "test:admin-operational-rbac",
+  "test:resident-profile-label-983",
   "test:benefit-null-time-range-patch",
   "test:padiem-authority",
   "test:admin-authority-contract",
