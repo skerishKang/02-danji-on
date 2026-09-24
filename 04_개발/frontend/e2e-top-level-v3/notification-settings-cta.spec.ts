@@ -9,34 +9,20 @@ import { test, expect, type Page } from '@playwright/test';
 // including the .side-action CTA — even though the static markup was correct.
 //
 // This is the runtime contract: consistency.js runs, the CTA-carrying side panel
-// survives, and clicking either CTA lands on the canonical settings target with the
-// #notifications panel actually on screen. Issue #982 now gates the Settings shell,
-// so the navigation tests provide a valid shared-session response before clicking.
+// survives, and clicking either CTA lands on the canonical Settings route. Issue
+// #982 now gates the Settings shell, so these signed-out route checks assert the
+// bounded access gate and hidden private content; authenticated reveal/hydration is
+// covered by the dedicated Issue #982 contract.
 
 const TARGET_URL = /\/24_[^/]*\.html#notifications$/;
-const SETTINGS_PANEL = 'article#notifications';
+const SETTINGS_GATE = '#settingsAccessGate';
+const SETTINGS_PRIVATE_CONTENT = '#settingsPrivateContent';
 
 async function gotoPage(page: Page, file: string): Promise<string[]> {
   const pageErrors: string[] = [];
   page.on('pageerror', error => pageErrors.push(error.message));
   await page.goto('/' + encodeURI(file), { waitUntil: 'load' });
   return pageErrors;
-}
-
-async function mockAuthenticatedSettingsSession(page: Page): Promise<void> {
-  await page.addInitScript(() => {
-    const originalFetch = window.fetch.bind(window);
-    window.fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
-      const url = new URL(typeof input === 'string' ? input : input instanceof URL ? input.href : input.url, window.location.href);
-      if (url.pathname === '/api/auth/get-session') {
-        return new Response(JSON.stringify({
-          session: { id: 'e2e-settings-session' },
-          user: { id: 'e2e-settings-user' },
-        }), { status: 200, headers: { 'content-type': 'application/json' } });
-      }
-      return originalFetch(input, init);
-    };
-  });
 }
 
 test('#858 consistency.js keeps the 27 notification-settings side CTA at runtime', async ({ page }) => {
@@ -52,22 +38,20 @@ test('#858 consistency.js keeps the 27 notification-settings side CTA at runtime
   expect(pageErrors, '27_알림함.html must load without runtime errors').toEqual([]);
 });
 
-test('#858 primary .settings-link lands on 24_설정.html#notifications', async ({ page }) => {
-  await mockAuthenticatedSettingsSession(page);
+test('#858 primary .settings-link lands on gated 24_설정.html#notifications', async ({ page }) => {
   await gotoPage(page, '27_알림함.html');
   await page.locator('.filter-bar .settings-link').click();
   await expect(page).toHaveURL(TARGET_URL);
-  await expect(page.locator(SETTINGS_PANEL)).toBeVisible();
-  await expect(page.locator(SETTINGS_PANEL)).toBeInViewport();
+  await expect(page.locator(SETTINGS_GATE)).toBeVisible();
+  await expect(page.locator(SETTINGS_PRIVATE_CONTENT)).toBeHidden();
 });
 
-test('#858 side .side-action lands on 24_설정.html#notifications', async ({ page }) => {
-  await mockAuthenticatedSettingsSession(page);
+test('#858 side .side-action lands on gated 24_설정.html#notifications', async ({ page }) => {
   await gotoPage(page, '27_알림함.html');
   await page.locator('.notice-layout > aside.side .side-action').click();
   await expect(page).toHaveURL(TARGET_URL);
-  await expect(page.locator(SETTINGS_PANEL)).toBeVisible();
-  await expect(page.locator(SETTINGS_PANEL)).toBeInViewport();
+  await expect(page.locator(SETTINGS_GATE)).toBeVisible();
+  await expect(page.locator(SETTINGS_PRIVATE_CONTENT)).toBeHidden();
 });
 
 test('#858 page-28 scoped side removal is unchanged', async ({ page }) => {
