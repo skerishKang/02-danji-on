@@ -59,6 +59,10 @@
     .admin-post-actions button:disabled{opacity:.5;cursor:wait}
     .admin-post-status{min-height:20px;margin:0!important;font-size:12.5px!important;font-weight:750;color:var(--muted)!important}
     .admin-post-status.error{color:var(--coral)!important}
+    .admin-post-image{grid-column:1/-1;border:1px dashed var(--line);border-radius:12px;padding:12px;background:var(--paper2)}
+    .admin-post-image input[type=file]{width:100%;font-size:12px}.admin-post-image-row{display:flex;align-items:center;gap:10px;margin-top:8px;flex-wrap:wrap}
+    .admin-post-image-preview{display:block;max-width:180px;max-height:120px;border-radius:8px;object-fit:cover;border:1px solid var(--line)}
+    .admin-post-image-preview[hidden]{display:none}.admin-post-image-note{font-size:12px;color:var(--muted);margin:6px 0 0}.admin-post-image-remove{border:1px solid var(--line);background:#fff;border-radius:8px;padding:7px 10px;font-size:12px;font-weight:800;cursor:pointer}.admin-post-image-remove:disabled{opacity:.5;cursor:not-allowed}
     .admin-empty,.admin-state{padding:26px 18px;border:1px dashed var(--line);border-radius:16px;background:var(--paper2);color:var(--muted);font-size:13.5px;line-height:1.7;text-align:center}
     .privileged-grid{display:grid;gap:12px}
     .privileged-item{display:flex;justify-content:space-between;gap:14px;align-items:center;background:var(--paper2);border:1px solid var(--line);border-radius:16px;padding:16px 18px}
@@ -261,64 +265,204 @@
       statuses.forEach((value)=>{const option=document.createElement('option');option.value=value;option.textContent=labels[value];option.selected=value===current;select.append(option)});
       return select;
     }
+    const OFFICIAL_POST_CHANNELS=['danjion_notice','apartment_news','management_office','chair_greeting'];
+    const OFFICIAL_POST_CHANNEL_LABELS={danjion_notice:'단지온 공지',apartment_news:'입주자대표회의',management_office:'관리사무소',chair_greeting:'회장말씀'};
+    const OFFICIAL_NEWS_IMAGE_KEY=/^gdrive\/public\/official-news-image\/[A-Za-z0-9_-]{10,200}$/;
+    const OFFICIAL_NEWS_IMAGE_TYPES=new Set(['image/jpeg','image/png','image/webp']);
+    const OFFICIAL_NEWS_IMAGE_MAX_BYTES=8*1024*1024;
+    function postChannelFor(row){
+      const explicit=String(row?.channel||'').trim();
+      if(OFFICIAL_POST_CHANNELS.includes(explicit))return explicit;
+      const source=String(row?.source_name||row?.sourceName||'').trim();
+      if(source==='단지온 운영자')return 'danjion_notice';
+      if(source==='관리사무소')return 'management_office';
+      return 'apartment_news';
+    }
+    function postChannelSelect(current){
+      const select=document.createElement('select');select.setAttribute('aria-label','소식 채널');
+      OFFICIAL_POST_CHANNELS.forEach((value)=>{const option=document.createElement('option');option.value=value;option.textContent=OFFICIAL_POST_CHANNEL_LABELS[value];option.selected=value===current;select.append(option)});
+      return select;
+    }
+    function isPhotoChannel(value){return value==='apartment_news'||value==='management_office'}
+    function validateOfficialPostImage(file){
+      if(!file||!file.size)throw new Error('빈 사진은 첨부할 수 없습니다.');
+      if(!OFFICIAL_NEWS_IMAGE_TYPES.has(file.type))throw new Error('공식소식 사진은 JPG, PNG, WebP만 첨부할 수 있습니다.');
+      if(file.size>OFFICIAL_NEWS_IMAGE_MAX_BYTES)throw new Error('공식소식 사진은 파일당 최대 8MB입니다.');
+    }
+    function storageObjectUrl(apiBase,objectKey){
+      const root=window.DanjionSession.joinUrl(String(apiBase||''),'/api/v1/storage/objects');
+      return objectKey?root+'?objectKey='+encodeURIComponent(objectKey):root;
+    }
+    async function uploadOfficialNewsImage(apiBase,image){
+      validateOfficialPostImage(image.file);
+      if(!image.idempotencyKey)image.idempotencyKey='official-news:'+((crypto.randomUUID&&crypto.randomUUID())||Date.now().toString(36));
+      const body=new FormData();body.set('kind','official-news-image');body.set('complexSlug',consoleApi.COMPLEX_SLUG);body.set('file',image.file);
+      const response=await fetch(storageObjectUrl(apiBase),{method:'POST',credentials:'include',headers:{'idempotency-key':image.idempotencyKey},body});
+      const payload=await response.json().catch(()=>null);
+      if(!response.ok)throw new Error(payload?.error?.message||('사진 업로드 실패 · HTTP '+response.status));
+      const objectKey=String(payload?.data?.objectKey||'');
+      if(!OFFICIAL_NEWS_IMAGE_KEY.test(objectKey))throw new Error('사진 저장 응답의 식별자를 검증할 수 없습니다.');
+      image.uploadedKey=objectKey;
+      return objectKey;
+    }
+    async function deleteOfficialNewsImage(apiBase,objectKey){
+      if(!OFFICIAL_NEWS_IMAGE_KEY.test(String(objectKey||'')))return;
+      const response=await fetch(storageObjectUrl(apiBase,objectKey),{method:'DELETE',credentials:'include'});
+      if(!response.ok){
+        const payload=await response.json().catch(()=>null);
+        throw new Error(payload?.error?.message||('사진 정리 실패 · HTTP '+response.status));
+      }
+    }
+    function releasePostImagePreview(image){
+      if(image.preview&&image.preview.startsWith('blob:'))URL.revokeObjectURL(image.preview);
+      image.preview=null;
+    }
+    async function retireUnreferencedPostImage(apiBase,image){
+      if(!image.uploadedKey)return;
+      await deleteOfficialNewsImage(apiBase,image.uploadedKey);
+      image.uploadedKey=null;image.idempotencyKey=null;
+    }
     function postFields(row,includeArchived){
-      const source=document.createElement('input');source.value=String(row?.source_name||row?.sourceName||'단지온 운영자');source.maxLength=80;source.setAttribute('aria-label','출처');
+      const source=document.createElement('input');source.value=String(row?.source_name||row?.sourceName||'입주자대표회의');source.maxLength=80;source.setAttribute('aria-label','출처');
       const category=document.createElement('input');category.value=String(row?.category||'');category.maxLength=80;category.setAttribute('aria-label','분류');
       const title=document.createElement('input');title.value=String(row?.title||'');title.maxLength=200;title.setAttribute('aria-label','소식 제목');
       const body=document.createElement('textarea');body.value=String(row?.body||'');body.maxLength=10000;body.setAttribute('aria-label','소식 본문');
       const status=postStatusSelect(String(row?.status||'draft'),includeArchived);
-      return {source,category,title,body,status};
+      const channel=postChannelSelect(postChannelFor(row));
+      const existingKey=String(row?.attachment_object_key||row?.attachmentObjectKey||'').trim()||null;
+      const image={file:null,preview:null,existingKey,uploadedKey:null,idempotencyKey:null,removeExisting:false,input:null,status:null,previewEl:null,removeBtn:null};
+      return {source,category,title,body,status,channel,image};
     }
-    function postPayload(fields){return {sourceName:fields.source.value,category:fields.category.value,title:fields.title.value,body:fields.body.value,status:fields.status.value}}
+    function postPayload(fields,attachmentObjectKey){
+      return {sourceName:fields.source.value,category:fields.category.value,title:fields.title.value,body:fields.body.value,status:fields.status.value,channel:fields.channel.value,attachmentObjectKey};
+    }
     function postErrorMessage(outcome){
       if(outcome.state==='scope-denied')return '현재 관리자 권한으로 단지소식을 변경할 수 없습니다.';
       if(outcome.state==='not-found')return '수정할 단지소식을 찾을 수 없습니다.';
       if(outcome.state==='conflict')return '현재 상태에서는 이 변경을 적용할 수 없습니다'+(outcome.code?' · '+outcome.code:'')+'.';
       if(outcome.state==='network-error')return 'API 연결에 실패했습니다. 잠시 후 다시 시도해 주세요.';
-      if(outcome.state==='invalid-request')return '출처·분류·제목·본문·게시 상태를 모두 확인해 주세요.';
+      if(outcome.state==='invalid-request')return '출처·채널·분류·제목·본문·게시 상태를 모두 확인해 주세요.';
       return '처리에 실패했습니다'+(outcome.code?' · '+outcome.code:'')+'.';
     }
-    function appendPostFields(editor,fields){
+    function appendPostImageField(grid,fields,apiBase){
+      const image=fields.image;
+      const box=el('div',undefined,'admin-post-image');
+      const input=document.createElement('input');input.type='file';input.accept='image/jpeg,image/png,image/webp';input.setAttribute('aria-label','공식소식 사진');
+      const note=el('p','아파트소식·관리사무소 게시물에 사진 1장을 첨부할 수 있습니다. JPG/PNG/WebP · 최대 8MB.','admin-post-image-note');
+      const row=el('div',undefined,'admin-post-image-row');
+      const preview=document.createElement('img');preview.className='admin-post-image-preview';preview.alt='선택한 공식소식 사진 미리보기';preview.hidden=true;
+      const status=el('span','사진 없음','admin-post-status');status.setAttribute('aria-live','polite');
+      const remove=el('button','사진 제거','admin-post-image-remove');remove.type='button';
+      image.input=input;image.status=status;image.previewEl=preview;image.removeBtn=remove;
+      function sync(){
+        const allowed=isPhotoChannel(fields.channel.value);
+        input.disabled=!allowed;
+        remove.disabled=!allowed||(!image.file&&!image.uploadedKey&&!image.existingKey&&!image.removeExisting);
+        if(image.preview){preview.src=image.preview;preview.hidden=false}else{preview.removeAttribute('src');preview.hidden=true}
+        if(!allowed)status.textContent='이 채널은 사진 첨부를 지원하지 않습니다.';
+        else if(image.uploadedKey)status.textContent='업로드 완료 · 게시 저장 대기';
+        else if(image.file)status.textContent='선택됨 · 게시할 때 업로드';
+        else if(image.existingKey&&!image.removeExisting)status.textContent='현재 게시물 사진 연결됨';
+        else if(image.removeExisting)status.textContent='사진 제거 예정';
+        else status.textContent='사진 없음';
+      }
+      input.addEventListener('change',async()=>{
+        const file=input.files&&input.files[0];
+        if(!file)return;
+        try{
+          validateOfficialPostImage(file);
+          await retireUnreferencedPostImage(apiBase,image);
+          releasePostImagePreview(image);
+          image.file=file;image.preview=URL.createObjectURL(file);image.removeExisting=false;image.idempotencyKey=null;sync();
+        }catch(error){input.value='';status.textContent=error instanceof Error?error.message:'사진을 선택할 수 없습니다.'}
+      });
+      remove.addEventListener('click',async()=>{
+        try{
+          await retireUnreferencedPostImage(apiBase,image);
+          releasePostImagePreview(image);image.file=null;image.idempotencyKey=null;
+          if(image.existingKey)image.removeExisting=true;
+          input.value='';sync();
+        }catch(error){status.textContent=error instanceof Error?error.message:'사진을 정리하지 못했습니다.'}
+      });
+      fields.channel.addEventListener('change',async()=>{
+        if(!isPhotoChannel(fields.channel.value)){
+          try{await retireUnreferencedPostImage(apiBase,image)}catch(error){status.textContent=error instanceof Error?error.message:'사진을 정리하지 못했습니다.';return}
+          releasePostImagePreview(image);image.file=null;image.idempotencyKey=null;input.value='';
+          if(image.existingKey)image.removeExisting=true;
+        }
+        sync();
+      });
+      row.append(preview,status,remove);box.append(input,note,row);grid.append(box);sync();
+    }
+    function appendPostFields(editor,fields,apiBase){
       const grid=el('div',undefined,'admin-form-grid');
       grid.append(
         labeledField('출처',fields.source,false),
+        labeledField('소식 채널',fields.channel,false),
         labeledField('분류',fields.category,false),
         labeledField('제목',fields.title,true),
         labeledField('본문',fields.body,true),
         labeledField('게시 상태',fields.status,false)
       );
+      appendPostImageField(grid,fields,apiBase);
       editor.append(grid);
+    }
+    async function preparePostAttachment(apiBase,fields,live){
+      const image=fields.image;
+      if(!isPhotoChannel(fields.channel.value))return null;
+      if(image.removeExisting)return null;
+      if(image.uploadedKey)return image.uploadedKey;
+      if(image.file){
+        live.textContent='사진 업로드 중…';
+        return uploadOfficialNewsImage(apiBase,image);
+      }
+      return image.existingKey;
+    }
+    async function cleanupReplacedPostImage(apiBase,image,nextKey){
+      if(!image.existingKey||image.existingKey===nextKey)return;
+      await deleteOfficialNewsImage(apiBase,image.existingKey);
     }
     function postComposer(panel,section,apiBase){
       const editor=el('section',undefined,'admin-post-editor create');editor.append(el('h3','새 단지소식 작성'));
-      const fields=postFields({status:'draft'},false);appendPostFields(editor,fields);
+      const fields=postFields({status:'draft',channel:'apartment_news',source_name:'입주자대표회의'},false);appendPostFields(editor,fields,apiBase);
       const actions=el('div',undefined,'admin-post-actions');
       const save=el('button','새 소식 저장');save.type='button';
       const live=el('p','', 'admin-post-status');live.setAttribute('aria-live','polite');
       save.addEventListener('click',async()=>{
         if(fields.status.value==='published'&&!window.confirm('작성한 단지소식을 바로 게시하시겠습니까?'))return;
         save.disabled=true;live.className='admin-post-status';live.textContent='저장 중…';
-        const outcome=await consoleApi.createOfficialPost(fetch,apiBase,postPayload(fields));
-        if(outcome.state==='updated'){live.textContent='저장됐습니다. 최신 목록을 다시 불러옵니다.';await renderSection(panel,section,apiBase);return}
-        if(outcome.state==='signed-out'){showRestricted('signed-out');return}
-        live.textContent=postErrorMessage(outcome);live.className='admin-post-status error';save.disabled=false;
+        try{
+          const attachmentObjectKey=await preparePostAttachment(apiBase,fields,live);
+          const outcome=await consoleApi.createOfficialPost(fetch,apiBase,postPayload(fields,attachmentObjectKey));
+          if(outcome.state==='updated'){releasePostImagePreview(fields.image);live.textContent='저장됐습니다. 최신 목록을 다시 불러옵니다.';await renderSection(panel,section,apiBase);return}
+          if(outcome.state==='signed-out'){showRestricted('signed-out');return}
+          live.textContent=postErrorMessage(outcome);live.className='admin-post-status error';
+        }catch(error){live.textContent=error instanceof Error?error.message:'사진 또는 소식을 저장하지 못했습니다.';live.className='admin-post-status error'}
+        save.disabled=false;
       });
       actions.append(save,live);editor.append(actions);return editor;
     }
     function postEditControls(row,panel,section,apiBase){
       if(!section.postActions)return null;
       const editor=el('section',undefined,'admin-post-editor');
-      const fields=postFields(row,true);appendPostFields(editor,fields);
+      const fields=postFields(row,true);appendPostFields(editor,fields,apiBase);
       const actions=el('div',undefined,'admin-post-actions');
       const save=el('button','변경 저장');save.type='button';
       const live=el('p','', 'admin-post-status');live.setAttribute('aria-live','polite');
       save.addEventListener('click',async()=>{
         if(fields.status.value==='published'&&String(row.status||'')!=='published'&&!window.confirm('이 단지소식을 게시 상태로 변경하시겠습니까?'))return;
         save.disabled=true;live.className='admin-post-status';live.textContent='변경 저장 중…';
-        const outcome=await consoleApi.updateOfficialPost(fetch,apiBase,row.id,postPayload(fields));
-        if(outcome.state==='updated'){live.textContent='변경됐습니다. 최신 목록을 다시 불러옵니다.';await renderSection(panel,section,apiBase);return}
-        if(outcome.state==='signed-out'){showRestricted('signed-out');return}
-        live.textContent=postErrorMessage(outcome);live.className='admin-post-status error';save.disabled=false;
+        try{
+          const attachmentObjectKey=await preparePostAttachment(apiBase,fields,live);
+          const outcome=await consoleApi.updateOfficialPost(fetch,apiBase,row.id,postPayload(fields,attachmentObjectKey));
+          if(outcome.state==='updated'){
+            try{await cleanupReplacedPostImage(apiBase,fields.image,attachmentObjectKey)}catch(_){}
+            releasePostImagePreview(fields.image);live.textContent='변경됐습니다. 최신 목록을 다시 불러옵니다.';await renderSection(panel,section,apiBase);return
+          }
+          if(outcome.state==='signed-out'){showRestricted('signed-out');return}
+          live.textContent=postErrorMessage(outcome);live.className='admin-post-status error';
+        }catch(error){live.textContent=error instanceof Error?error.message:'사진 또는 소식을 저장하지 못했습니다.';live.className='admin-post-status error'}
+        save.disabled=false;
       });
       actions.append(save,live);editor.append(actions);return editor;
     }
