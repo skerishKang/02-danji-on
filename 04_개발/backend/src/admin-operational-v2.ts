@@ -404,7 +404,9 @@ async function patchPost(
   const status = payload.status === undefined ? String(current.status) : String(payload.status).trim();
   const attachment = payload.attachmentObjectKey === undefined
     ? (current.attachment_object_key ? String(current.attachment_object_key) : null)
-    : (String(payload.attachmentObjectKey).trim() || null);
+    : payload.attachmentObjectKey == null
+      ? null
+      : (String(payload.attachmentObjectKey).trim() || null);
   const displayMode = payload.displayMode === undefined
     ? String(current.display_mode || 'highlight')
     : String(payload.displayMode).trim();

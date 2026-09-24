@@ -165,6 +165,18 @@ assert.equal((storage.match(/for update/g) || []).length >= 1, true,
 assert.ok(attachSource.includes("where object_key = ${write.objectKey}"),
   'the lock must be scoped to the very object being attached');
 
+// Explicit null is the canonical detach signal emitted by the admin bridge. The backend must
+// preserve it as SQL NULL instead of stringifying it to "null" and routing it through attachment
+// validation as though it were a new object key.
+const patchPostStart = adminOperational.indexOf('async function patchPost(');
+const patchPostEnd = adminOperational.indexOf('async function createBenefit(', patchPostStart);
+const patchPostSource = adminOperational.slice(patchPostStart, patchPostEnd);
+assert.match(
+  patchPostSource,
+  /payload\.attachmentObjectKey == null\s*\? null\s*:\s*\(String\(payload\.attachmentObjectKey\)\.trim\(\) \|\| null\)/,
+  'attachmentObjectKey: null must detach the current official-news image'
+);
+
 // The admin create/patch path must use these transactional helpers and treat an empty result as
 // a hard conflict rather than a successful write.
 assert.ok(adminOperational.includes('insertOfficialNewsPostWithAttachment('));
