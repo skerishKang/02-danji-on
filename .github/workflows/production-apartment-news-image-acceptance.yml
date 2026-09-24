@@ -49,10 +49,12 @@ jobs:
     environment: production
     env:
       DANJION_PRODUCTION_FRONTEND_URL: https://danjion.pages.dev
-      DANJION_PRODUCTION_OPERATOR_EMAIL: ${{ secrets.DANJION_PRODUCTION_OPERATOR_EMAIL }}
-      DANJION_PRODUCTION_OPERATOR_PASSWORD: ${{ secrets.DANJION_PRODUCTION_OPERATOR_PASSWORD }}
-      DANJION_PRODUCTION_25A_EMAIL: ${{ secrets.DANJION_PRODUCTION_25A_EMAIL }}
-      DANJION_PRODUCTION_25A_PASSWORD: ${{ secrets.DANJION_PRODUCTION_25A_PASSWORD }}
+      # #844 canonical path: dedicated retained Production test personas.
+      # Legacy acceptance secret names remain bounded compatibility fallbacks.
+      DANJION_PRODUCTION_OPERATOR_EMAIL: ${{ secrets.DANJION_PRODUCTION_TEST_OPERATIONAL_EMAIL || secrets.DANJION_PRODUCTION_OPERATOR_EMAIL }}
+      DANJION_PRODUCTION_OPERATOR_PASSWORD: ${{ secrets.DANJION_PRODUCTION_TEST_OPERATIONAL_PASSWORD || secrets.DANJION_PRODUCTION_OPERATOR_PASSWORD }}
+      DANJION_PRODUCTION_25A_EMAIL: ${{ secrets.DANJION_PRODUCTION_TEST_RESIDENT_EMAIL || secrets.DANJION_PRODUCTION_25A_EMAIL }}
+      DANJION_PRODUCTION_25A_PASSWORD: ${{ secrets.DANJION_PRODUCTION_TEST_RESIDENT_PASSWORD || secrets.DANJION_PRODUCTION_25A_PASSWORD }}
 
     steps:
       - uses: actions/checkout@v4
@@ -90,6 +92,7 @@ jobs:
           echo 'PRODUCTION_844_EXACT_MAIN_GUARD=PASS'
           echo 'PRODUCTION_844_ONE_OPERATOR_GUARD=PASS'
           echo 'PRODUCTION_844_UNAUTHORIZED_PRINCIPAL_GUARD=PASS'
+          echo 'PRODUCTION_844_TEST_PERSONA_GUARD=PASS'
 
       - name: Install frontend dependencies
         working-directory: 04_개발/frontend
@@ -110,7 +113,8 @@ jobs:
           {
             echo '## Production Apartment News image acceptance'
             echo '- Environment: production'
-            echo '- Existing operational acceptance account only: YES'
+            echo '- Dedicated retained OPERATIONAL test persona: YES'
+            echo '- Dedicated/general test resident negative persona: YES'
             echo '- Production browser origin: danjion.pages.dev'
             echo '- Intended write: 1 official-news image + 1 published article'
             echo '- Intended cleanup after acceptance: detach image + retire image + archive article'
