@@ -14,6 +14,33 @@ async function stubSocialProviders(page: Page, providers: string[]): Promise<voi
   }));
 }
 
+async function openCanonicalAccountEntry(page: Page): Promise<'mobile' | 'desktop'> {
+  const viewportWidth = page.viewportSize()?.width ?? Number.POSITIVE_INFINITY;
+  if (viewportWidth <= 768) {
+    const mobileNav = page.locator('[data-v2-mobile-nav]');
+    await expect(mobileNav).toBeVisible();
+    await mobileNav.getByRole('button', { name: '내정보', exact: true }).click();
+    await expect(page.locator('.v2-profile-dialog')).toBeVisible();
+    return 'mobile';
+  }
+
+  await page.getByRole('button', { name: '가입·로그인', exact: true }).click();
+  await expect(page.locator('[data-v2-auth-entry]')).toBeVisible();
+  return 'desktop';
+}
+
+async function assertMobileDirectAuthPath(page: Page): Promise<void> {
+  await page.goto('/auth-recovery.html');
+  await expect(page.getByRole('heading', { name: /비밀번호를/ })).toBeVisible();
+  await expect(page.getByPlaceholder('name@example.com')).toBeVisible();
+  await expect(page.getByRole('button', { name: '비밀번호 찾기', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: '인증메일 다시 받기', exact: true })).toBeVisible();
+}
+
+async function assertNoPageErrors(pageErrors: string[]): Promise<void> {
+  expect(pageErrors).toEqual([]);
+}
+
 test.describe('Current 04 React completion', () => {
   test('daily home → account entry is real React UI without claiming resident verification', async ({ page }) => {
     await stubSocialProviders(page, ['kakao', 'google']);
@@ -46,21 +73,53 @@ test.describe('Current 04 React completion', () => {
   });
 
   test('#984 hides every social entry when the runtime reports no available provider', async ({ page }) => {
-    const viewportWidth = page.viewportSize()?.width ?? Number.POSITIVE_INFINITY;
-    if (viewportWidth <= 768) return;
-
+    const pageErrors: string[] = [];
+    page.on('pageerror', (error) => pageErrors.push(error.message));
     await stubSocialProviders(page, []);
     const capabilityRead = page.waitForResponse((response) => response.url().includes('/api/auth/capabilities'));
     await page.goto('/');
     await capabilityRead;
 
-    await page.getByRole('button', { name: '가입·로그인', exact: true }).click();
+    const entry = await openCanonicalAccountEntry(page);
     const auth = page.locator('[data-v2-auth-entry]');
-    await expect(auth).toBeVisible();
-    await expect(auth.locator('.v2-auth-social')).toHaveCount(0);
-    await expect(auth.getByRole('button', { name: 'Kakao로 가입', exact: true })).toHaveCount(0);
-    await expect(auth.getByRole('button', { name: 'Google로 가입', exact: true })).toHaveCount(0);
-    await expect(auth.getByRole('button', { name: '가입하기', exact: true })).toBeEnabled();
+    await expect(page.locator('.v2-auth-social')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Kakao로 가입', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Google로 가입', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Naver로 가입', exact: true })).toHaveCount(0);
+    if (entry === 'desktop') {
+      await expect(auth).toBeVisible();
+      await expect(auth.getByRole('button', { name: '가입하기', exact: true })).toBeEnabled();
+    } else {
+      await assertMobileDirectAuthPath(page);
+    }
+    await assertNoPageErrors(pageErrors);
+  });
+
+  test('#984 fails closed on a malformed capability response through the canonical account path', async ({ page }) => {
+    const pageErrors: string[] = [];
+    page.on('pageerror', (error) => pageErrors.push(error.message));
+    await page.route('**/api/auth/capabilities', (route) => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ data: { socialProviders: 'not-an-array' } })
+    }));
+    const capabilityRead = page.waitForResponse((response) => response.url().includes('/api/auth/capabilities'));
+    await page.goto('/');
+    await capabilityRead;
+
+    const entry = await openCanonicalAccountEntry(page);
+    const auth = page.locator('[data-v2-auth-entry]');
+    await expect(page.locator('.v2-auth-social')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Kakao', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Google', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Naver', exact: true })).toHaveCount(0);
+    if (entry === 'desktop') {
+      await expect(auth).toBeVisible();
+      await expect(auth.getByRole('button', { name: '가입하기', exact: true })).toBeEnabled();
+    } else {
+      await assertMobileDirectAuthPath(page);
+    }
+    await assertNoPageErrors(pageErrors);
   });
 
   test('direct account choices expose account-first signup and email/phone login without resident-auth claims', async ({ page }) => {

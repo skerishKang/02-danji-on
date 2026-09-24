@@ -18,6 +18,10 @@ import {
   configuredUiSocialProviders,
   handleBetterAuthRequest
 } from '../src/auth-better-v1.ts';
+import {
+  AUTH_CAPABILITY_PATH as FRONTEND_AUTH_CAPABILITY_PATH,
+  UI_SOCIAL_PROVIDER_ORDER as FRONTEND_UI_SOCIAL_PROVIDER_ORDER
+} from '../../frontend/src/v2/integration/social-provider-capability.mjs';
 
 const BASE_ENV = {
   DATABASE_URL: 'postgresql://unused@neon.invalid/db',
@@ -34,6 +38,19 @@ const NAVER_SECRET = 'fake-naver-client-secret';
 
 const envWith = (extra = {}) => ({ ...BASE_ENV, ...extra });
 const providersFor = (extra) => configuredUiSocialProviders(envWith(extra));
+
+/* --- backend ↔ frontend contract parity ------------------------------------ */
+assert.equal(AUTH_CAPABILITY_PATH, FRONTEND_AUTH_CAPABILITY_PATH,
+  'BACKEND_PATH and FRONTEND_PATH must remain identical');
+assert.deepEqual(providersFor({
+  GOOGLE_CLIENT_ID: GOOGLE_ID,
+  GOOGLE_CLIENT_SECRET: GOOGLE_SECRET,
+  KAKAO_CLIENT_ID: KAKAO_ID,
+  KAKAO_CLIENT_SECRET: KAKAO_SECRET
+}), FRONTEND_UI_SOCIAL_PROVIDER_ORDER,
+  'supported UI provider order must remain identical across backend and frontend');
+console.log('BACKEND_FRONTEND_PATH_PARITY=PASS');
+console.log('UI_PROVIDER_ORDER_PARITY=PASS');
 
 /* --- provider availability matrix ------------------------------------------- */
 assert.deepEqual(providersFor({ GOOGLE_CLIENT_ID: GOOGLE_ID, GOOGLE_CLIENT_SECRET: GOOGLE_SECRET }),

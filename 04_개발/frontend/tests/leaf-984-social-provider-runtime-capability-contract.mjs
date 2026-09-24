@@ -65,6 +65,30 @@ console.log('MALFORMED_CAPABILITY=FAIL_CLOSED=PASS');
 const root = new URL('../src/', import.meta.url);
 const portal = await readFile(new URL('v2/integration/V2AuthEntryPortal.tsx', root), 'utf8');
 const authClient = await readFile(new URL('auth-client.ts', root), 'utf8');
+const declaration = await readFile(new URL('v2/integration/social-provider-capability.d.mts', root), 'utf8');
+
+/* --- C. declaration/runtime export parity ---------------------------------- */
+for (const exportedSymbol of [
+  'UiSocialProvider',
+  'UI_SOCIAL_PROVIDER_ORDER',
+  'AUTH_CAPABILITY_PATH',
+  'normalizeUiSocialProviders',
+  'socialProvidersFromCapabilityBody'
+]) {
+  assert.match(declaration, new RegExp(`\\b${exportedSymbol}\\b`),
+    `handwritten declaration must retain exported symbol ${exportedSymbol}`);
+}
+assert.match(declaration, /export type UiSocialProvider = ['"]kakao['"] \| ['"]google['"];/,
+  'declaration provider union must stay kakao|google');
+assert.match(declaration, /export declare const UI_SOCIAL_PROVIDER_ORDER: readonly UiSocialProvider\[\];/,
+  'declaration provider-order shape must stay readonly and typed');
+assert.match(declaration, /export declare const AUTH_CAPABILITY_PATH: string;/,
+  'declaration capability path export must stay declared');
+assert.match(declaration, /export declare function normalizeUiSocialProviders\(value: unknown\): UiSocialProvider\[\];/,
+  'declaration normalizer signature must stay aligned with runtime usage');
+assert.match(declaration, /export declare function socialProvidersFromCapabilityBody\(body: unknown\): UiSocialProvider\[\];/,
+  'declaration body-parser signature must stay aligned with runtime usage');
+console.log('MJS_DMTS_EXPORT_PARITY=PASS');
 
 // no-flash initial state + runtime-only resolution
 assert.match(portal, /useState<UiSocialProvider\[\]>\(\[\]\)/,
