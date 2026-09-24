@@ -40,8 +40,8 @@ assert.ok(admin.includes('business-applications'), 'business application list/re
 assert.ok(admin.includes('/posts'), 'official post routes must be intercepted');
 assert.match(admin, /request\.method === 'GET'[\s\S]{0,1800}status[\s\S]{0,600}'all','draft','published','archived'/,
   'official post admin list must expose all manageable states under the operational authority');
-assert.match(admin, /select p\.id, p\.source_name, p\.category, p\.channel, p\.title, p\.body,[\s\S]{0,500}p\.status/,
-  'official post admin list must return status and editable content fields');
+assert.match(admin, /select p\.id, p\.source_name, p\.category, p\.channel, p\.display_mode, p\.title, p\.body,[\s\S]{0,500}p\.status/,
+  'official post admin list must return display mode, status and editable content fields');
 assert.ok(admin.includes('/benefits'), 'benefit routes must be intercepted');
 assert.match(admin, /request\.method === 'GET'[\s\S]{0,2200}'all','draft','active','expired','suspended'/,
   'benefit admin list must expose all manageable states under benefit.manage authority');
