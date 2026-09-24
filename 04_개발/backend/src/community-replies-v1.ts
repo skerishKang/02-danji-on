@@ -1,5 +1,6 @@
 import { neon, type NeonQueryFunction } from '@neondatabase/serverless';
 import { requireVerifiedResident } from './authorization-v2';
+import { buildCommunityPage, COMMUNITY_REPLY_SORT, decodeCommunityCursor } from './community-cursor-v1';
 import type { CoreEnv } from './core-v1';
 
 type Sql = NeonQueryFunction<false, false>;
@@ -9,8 +10,13 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-
 const MAX_BODY_BYTES = 16 * 1024;
 const MAX_COMMENT_CHARS = 300;
 
-function ok(data: unknown, requestId: string, status = 200): Response {
-  return Response.json({ data, requestId }, {
+function ok(
+  data: unknown,
+  requestId: string,
+  status = 200,
+  pagination?: { nextCursor: string | null; hasMore: boolean }
+): Response {
+  return Response.json({ data, requestId, ...(pagination || {}) }, {
     status,
     headers: { 'x-danjion-request-id': requestId, 'cache-control': 'no-store' }
   });
@@ -124,6 +130,17 @@ export async function handleCommunityReplyWithSql(
   if (!parent) return fail('NOT_FOUND', 'Community comment not found', 404, requestId);
 
   if (request.method === 'GET') {
+    const url = new URL(request.url);
+    const rawLimit = Number(url.searchParams.get('limit') || '20');
+    const limit = Number.isInteger(rawLimit) && rawLimit >= 1 && rawLimit <= 50 ? rawLimit : 20;
+    const cursorScope = `replies:${postId.toLowerCase()}:${parentCommentId.toLowerCase()}`;
+    const cursor = decodeCommunityCursor(url.searchParams.get('cursor'), cursorScope, COMMUNITY_REPLY_SORT);
+    if (url.searchParams.has('cursor') && !cursor) {
+      return fail('VALIDATION_ERROR', 'Invalid community replies cursor', 400, requestId);
+    }
+    const cursorFilter = cursor
+      ? sql`and (c.created_at, c.id) > (${cursor.keys[0]}::timestamptz, ${cursor.keys[1]}::uuid)`
+      : sql``;
     const rows = await sql`
       select c.id, c.post_id, c.parent_comment_id, c.body, c.status,
              c.published_at, c.created_at, c.updated_at,
@@ -135,10 +152,21 @@ export async function handleCommunityReplyWithSql(
         and c.complex_id = ${resident.complexId}::uuid
         and c.status <> 'deleted'
         and (c.status = 'published' or c.author_user_id = ${resident.id}::uuid)
+        ${cursorFilter}
       order by c.created_at asc, c.id asc
-      limit 100
+      limit ${limit + 1}
     `;
-    return ok(rows.map((row) => mapReply(row as Record<string, unknown>)), requestId);
+    const page = buildCommunityPage(
+      rows as Record<string, unknown>[],
+      limit,
+      cursorScope,
+      COMMUNITY_REPLY_SORT,
+      (row) => [row.created_at, row.id]
+    );
+    return ok(page.rows.map((row) => mapReply(row)), requestId, 200, {
+      nextCursor: page.nextCursor,
+      hasMore: page.hasMore
+    });
   }
 
   if (request.method === 'POST') {

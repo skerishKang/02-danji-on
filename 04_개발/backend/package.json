@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "test:runner-manifest-contract": "node tests/test-runner-manifest-contract.mjs",
+    "test:admin-field-limit-972": "tsx tests/admin-field-limit-972-contract.mjs",
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
     "typecheck": "tsc --noEmit",
@@ -41,7 +42,6 @@
     "test:authz-v2-migrations": "node tests/authorization-v2-migration-contract.mjs",
     "test:operational-authz-v2": "tsx tests/operational-authz-v2.test.mjs",
     "test:admin-operational-rbac": "node tests/admin-operational-rbac-contract.mjs",
-    "test:benefit-null-time-range-patch": "tsx --import ./tests/helpers/neon-stub-loader.mjs tests/benefit-null-time-range-patch.test.mjs",
     "test:padiem-authority": "tsx tests/padiem-authority-v1.test.mjs",
     "test:admin-authority-contract": "node tests/admin-authority-contract.mjs",
     "test:admin-bootstrap": "tsx tests/admin-bootstrap-v1.test.mjs",
@@ -93,6 +93,7 @@
     "test:business-category-benefit": "node tests/business-category-benefit-contract.mjs",
     "test:saved-shops-server": "node tests/saved-shops-server-contract.mjs",
     "test:community-replies": "node tests/community-replies-contract.mjs",
+    "test:community-979-cursor-pagination": "tsx --import ./tests/helpers/neon-stub-loader.mjs tests/community-979-cursor-pagination.test.mjs",
     "test:community-notifications": "node tests/community-notifications-contract.mjs",
     "test:resident-messages": "node tests/resident-messages-contract.mjs",
     "test:resident-notifications": "node tests/resident-notifications-contract.mjs",
@@ -126,7 +127,9 @@
     "test:production-neon-connectivity-diagnostic": "node tests/production-neon-connectivity-diagnostic-contract.mjs",
     "test:backup-neon-to-drive": "node tests/backup-neon-to-drive-contract.mjs",
     "test:backup-neon-to-drive-runtime-safety": "node tests/backup-neon-to-drive-runtime-safety.test.mjs",
-    "test:verify-neon-backup-restore": "node tests/verify-neon-backup-restore-contract.mjs"
+    "test:verify-neon-backup-restore": "node tests/verify-neon-backup-restore-contract.mjs",
+    "test:public-complex-eligibility": "tsx tests/public-complex-eligibility-v1.test.mjs",
+    "test:benefit-null-time-range-patch": "tsx --import ./tests/helpers/neon-stub-loader.mjs tests/benefit-null-time-range-patch.test.mjs"
   },
   "dependencies": {
     "@neondatabase/serverless": "1.1.0",

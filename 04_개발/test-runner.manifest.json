@@ -80,6 +80,7 @@
         {"id":"test:complex-news-channel","npm":"test:complex-news-channel","kind":"contract"},
         {"id":"test:complex-news-channel-write","npm":"test:complex-news-channel-write","kind":"contract"},
         {"id":"test:business-category-benefit","npm":"test:business-category-benefit","kind":"contract"},
+        {"id":"test:public-complex-eligibility","npm":"test:public-complex-eligibility","kind":"contract"},
         {"id":"test:saved-shops-server","npm":"test:saved-shops-server","kind":"contract"},
         {"id":"test:community-replies","npm":"test:community-replies","kind":"contract"},
         {"id":"test:community-notifications","npm":"test:community-notifications","kind":"contract"},
@@ -115,6 +116,7 @@
         {"id":"test:application-documents-owner-id","npm":"test:application-documents-owner-id","kind":"contract"},
         {"id":"test:deploy-provenance","npm":"test:deploy-provenance","kind":"contract"},
         {"id":"test:cross-platform-executable-contract","npm":"test:cross-platform-executable-contract","kind":"contract"},
+        {"id":"test:admin-field-limit-972","npm":"test:admin-field-limit-972","kind":"contract"},
         {"id":"test:runner-manifest-contract","npm":"test:runner-manifest-contract","kind":"contract"}
       ]
     },

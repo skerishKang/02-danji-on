@@ -79,6 +79,14 @@
     };
   }
 
+  function pageMetadata(result) {
+    const source = result && result.raw && typeof result.raw === 'object' ? result.raw : result || {};
+    return {
+      nextCursor: typeof source.nextCursor === 'string' && source.nextCursor ? source.nextCursor : null,
+      hasMore: source.hasMore === true
+    };
+  }
+
   function failureMode(result) {
     return result.reason === 'auth-required' ? 'auth-required' : 'error';
   }
@@ -146,17 +154,19 @@
       async listPosts(kind, options = {}) {
         const topic = kind == null ? null : String(kind);
         if (topic !== null && !POST_KINDS.includes(topic)) {
-          return { mode: 'client', error: 'POST_KIND_INVALID', posts: [] };
+          return { mode: 'client', error: 'POST_KIND_INVALID', posts: [], nextCursor: null, hasMore: false };
         }
-        if (!serverOnly()) return { mode: 'static', posts: [] };
+        if (!serverOnly()) return { mode: 'static', posts: [], nextCursor: null, hasMore: false };
         const params = new URLSearchParams();
         if (topic) params.set('kind', topic);
         const limit = Number(options.limit);
         params.set('limit', String(Number.isInteger(limit) && limit >= 1 && limit <= 50 ? limit : 20));
+        const cursor = trimmedString(options.cursor);
+        if (cursor) params.set('cursor', cursor);
         const result = await request(`${base}/posts?${params.toString()}`);
-        if (!result.ok) return { mode: failureMode(result), status: result.status, error: result.error, ...failureDetail(result), posts: [] };
+        if (!result.ok) return { mode: failureMode(result), status: result.status, error: result.error, ...failureDetail(result), posts: [], nextCursor: null, hasMore: false };
         const rows = Array.isArray(result.data) ? result.data : [];
-        return { mode: 'server', status: result.status, posts: rows.map(normalizePost).filter(Boolean) };
+        return { mode: 'server', status: result.status, posts: rows.map(normalizePost).filter(Boolean), ...pageMetadata(result) };
       },
 
       async getPost(postId) {
@@ -218,14 +228,21 @@
         return { ok: true, mode: 'server', status: result.status, deleted: post.status === 'deleted', post };
       },
 
-      async listComments(postId) {
+      async listComments(postId, options = {}) {
         const { id, valid } = postPath(postId);
-        if (!serverOnly()) return { mode: 'static', postId: id, comments: [] };
-        if (!valid) return { mode: 'client', error: 'POST_ID_INVALID', postId: id, comments: [] };
-        const result = await request(`${base}/posts/${encodeURIComponent(id)}/comments`);
-        if (!result.ok) return { mode: failureMode(result), status: result.status, error: result.error, ...failureDetail(result), postId: id, comments: [] };
+        if (!serverOnly()) return { mode: 'static', postId: id, comments: [], nextCursor: null, hasMore: false };
+        if (!valid) return { mode: 'client', error: 'POST_ID_INVALID', postId: id, comments: [], nextCursor: null, hasMore: false };
+        const params = new URLSearchParams();
+        const hasLimit = Object.prototype.hasOwnProperty.call(options, 'limit');
+        const limit = Number(options.limit);
+        if (hasLimit) params.set('limit', String(Number.isInteger(limit) && limit >= 1 && limit <= 50 ? limit : 20));
+        const cursor = trimmedString(options.cursor);
+        if (cursor) params.set('cursor', cursor);
+        const query = params.toString();
+        const result = await request(`${base}/posts/${encodeURIComponent(id)}/comments${query ? `?${query}` : ''}`);
+        if (!result.ok) return { mode: failureMode(result), status: result.status, error: result.error, ...failureDetail(result), postId: id, comments: [], nextCursor: null, hasMore: false };
         const rows = Array.isArray(result.data) ? result.data : [];
-        return { mode: 'server', status: result.status, postId: id, comments: rows.map(normalizeComment).filter(Boolean) };
+        return { mode: 'server', status: result.status, postId: id, comments: rows.map(normalizeComment).filter(Boolean), ...pageMetadata(result) };
       },
 
       async addComment(postId, body) {
@@ -253,15 +270,23 @@
       },
 
       async listReplies(postId, parentCommentId) {
+        const options = arguments[2] || {};
         const post = postPath(postId);
         const parent = postPath(parentCommentId);
-        if (!serverOnly()) return { mode: 'static', postId: post.id, parentCommentId: parent.id, replies: [] };
-        if (!post.valid) return { mode: 'client', error: 'POST_ID_INVALID', postId: post.id, parentCommentId: parent.id, replies: [] };
-        if (!parent.valid) return { mode: 'client', error: 'COMMENT_ID_INVALID', postId: post.id, parentCommentId: parent.id, replies: [] };
-        const result = await request(`${base}/posts/${encodeURIComponent(post.id)}/comments/${encodeURIComponent(parent.id)}/replies`);
-        if (!result.ok) return { mode: failureMode(result), status: result.status, error: result.error, ...failureDetail(result), postId: post.id, parentCommentId: parent.id, replies: [] };
+        if (!serverOnly()) return { mode: 'static', postId: post.id, parentCommentId: parent.id, replies: [], nextCursor: null, hasMore: false };
+        if (!post.valid) return { mode: 'client', error: 'POST_ID_INVALID', postId: post.id, parentCommentId: parent.id, replies: [], nextCursor: null, hasMore: false };
+        if (!parent.valid) return { mode: 'client', error: 'COMMENT_ID_INVALID', postId: post.id, parentCommentId: parent.id, replies: [], nextCursor: null, hasMore: false };
+        const params = new URLSearchParams();
+        const hasLimit = Object.prototype.hasOwnProperty.call(options, 'limit');
+        const limit = Number(options.limit);
+        if (hasLimit) params.set('limit', String(Number.isInteger(limit) && limit >= 1 && limit <= 50 ? limit : 20));
+        const cursor = trimmedString(options.cursor);
+        if (cursor) params.set('cursor', cursor);
+        const query = params.toString();
+        const result = await request(`${base}/posts/${encodeURIComponent(post.id)}/comments/${encodeURIComponent(parent.id)}/replies${query ? `?${query}` : ''}`);
+        if (!result.ok) return { mode: failureMode(result), status: result.status, error: result.error, ...failureDetail(result), postId: post.id, parentCommentId: parent.id, replies: [], nextCursor: null, hasMore: false };
         const rows = Array.isArray(result.data) ? result.data : [];
-        return { mode: 'server', status: result.status, postId: post.id, parentCommentId: parent.id, replies: rows.map(normalizeReply).filter(Boolean) };
+        return { mode: 'server', status: result.status, postId: post.id, parentCommentId: parent.id, replies: rows.map(normalizeReply).filter(Boolean), ...pageMetadata(result) };
       },
 
       async addReply(postId, parentCommentId, body) {

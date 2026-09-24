@@ -91,6 +91,7 @@ const EXPECTED_BACKEND_ORDER = [
   "test:complex-news-channel",
   "test:complex-news-channel-write",
   "test:business-category-benefit",
+  "test:public-complex-eligibility",
   "test:saved-shops-server",
   "test:community-replies",
   "test:community-notifications",
@@ -126,6 +127,7 @@ const EXPECTED_BACKEND_ORDER = [
   "test:application-documents-owner-id",
   "test:deploy-provenance",
   "test:cross-platform-executable-contract",
+  "test:admin-field-limit-972",
   "test:runner-manifest-contract",
 ];
 

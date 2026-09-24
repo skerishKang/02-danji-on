@@ -7,6 +7,7 @@ import {
   type StorageVisibility
 } from './storage-policy.mjs';
 import { r2Delete, r2Enabled, r2Get, r2Head, type R2StorageEnv } from './storage-r2-v1';
+import { PUBLIC_COMPLEX_STATUSES } from './public-complex-eligibility-v1';
 
 type Sql = NeonQueryFunction<false, false>;
 export type DriveEnv = CoreEnv & {
@@ -612,6 +613,9 @@ async function officialNewsImagePubliclyVisible(
          and p.complex_id = o.complex_id
          and p.status = 'published'
          and p.channel in ('apartment_news', 'management_office')
+        join complexes c
+          on c.id = p.complex_id
+         and c.status = any(${PUBLIC_COMPLEX_STATUSES}::text[])
         where o.object_key = ${objectKeyValue}
           and o.kind = 'official-news-image'
           and o.state = 'active'

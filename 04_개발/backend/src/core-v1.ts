@@ -3,6 +3,7 @@ import { requireActor, type AuthEnv } from './auth-v1';
 import { requireVerifiedResident } from './authorization-v2';
 import { DB_AVAILABILITY_CODE, DB_AVAILABILITY_MESSAGE, isDbAvailabilityError } from './db-availability-v1';
 import { authorityFor } from './complex-news-channel';
+import { PUBLIC_COMPLEX_STATUSES } from './public-complex-eligibility-v1';
 
 export type CoreEnv = AuthEnv;
 
@@ -101,7 +102,7 @@ async function handlePublicGet(sql: Sql, id: string, url: URL): Promise<Response
     const rows = await sql`
       select id, slug, name, address, status
       from complexes
-      where slug = ${slug} and status in ('active','pilot')
+      where slug = ${slug} and status = any(${PUBLIC_COMPLEX_STATUSES}::text[])
       limit 1
     `;
     if (!rows[0]) return fail('NOT_FOUND', 'Complex not found', 404, id);
@@ -165,7 +166,7 @@ async function handlePublicGet(sql: Sql, id: string, url: URL): Promise<Response
       join complexes c on c.id = r.complex_id
       left join business_categories bc on bc.id = b.category_id
       where c.slug = ${slug}
-        and c.status in ('active','pilot')
+        and c.status = any(${PUBLIC_COMPLEX_STATUSES}::text[])
         and b.status = 'approved'
         and r.verification_status = 'verified'
         and (${relation}::text is null or r.relation_type = ${relation})
@@ -221,6 +222,7 @@ async function handlePublicGet(sql: Sql, id: string, url: URL): Promise<Response
       join complexes c on c.id = r.complex_id
       left join business_categories bc on bc.id = b.category_id
       where c.slug = ${slug}
+        and c.status = any(${PUBLIC_COMPLEX_STATUSES}::text[])
         and b.id = ${businessId}::uuid
         and b.status = 'approved'
         and r.verification_status = 'verified'
@@ -259,7 +261,12 @@ async function handlePublicGet(sql: Sql, id: string, url: URL): Promise<Response
       from benefits be
       join complexes c on c.id = be.complex_id
       join businesses b on b.id = be.business_id
+      join business_complex_relations r
+        on r.business_id = b.id
+       and r.complex_id = c.id
+       and r.verification_status = 'verified'
       where c.slug = ${slug}
+        and c.status = any(${PUBLIC_COMPLEX_STATUSES}::text[])
         and be.status = 'active'
         and b.status = 'approved'
         and (be.starts_at is null or be.starts_at <= now())
@@ -284,6 +291,7 @@ async function handlePublicGet(sql: Sql, id: string, url: URL): Promise<Response
       from complex_posts p
       join complexes c on c.id = p.complex_id
       where c.slug = ${slug}
+        and c.status = any(${PUBLIC_COMPLEX_STATUSES}::text[])
         and p.status = 'published'
         and (${category}::text is null or ${category} = 'all' or p.category = ${category})
         and (${channel}::text is null or ${channel} = 'all' or p.channel = ${channel})
@@ -305,6 +313,7 @@ async function handlePublicGet(sql: Sql, id: string, url: URL): Promise<Response
       from complex_posts p
       join complexes c on c.id = p.complex_id
       where c.slug = ${slug}
+        and c.status = any(${PUBLIC_COMPLEX_STATUSES}::text[])
         and p.id = ${postId}::uuid
         and p.status = 'published'
       limit 1

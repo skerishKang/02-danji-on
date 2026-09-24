@@ -272,9 +272,12 @@
       return select;
     }
     function postFields(row,includeArchived){
+      // #972: the visible maxLength must equal the backend payload-policy FIELD_LIMITS gate
+      // (04_개발/backend/src/payload-policy.ts) so a form the UI presents as valid can never
+      // be rejected by the pre-handler payload gate.
       const source=document.createElement('input');source.value=String(row?.source_name||row?.sourceName||'단지온 운영자');source.maxLength=80;source.setAttribute('aria-label','출처');
       const category=document.createElement('input');category.value=String(row?.category||'');category.maxLength=80;category.setAttribute('aria-label','분류');
-      const title=document.createElement('input');title.value=String(row?.title||'');title.maxLength=200;title.setAttribute('aria-label','소식 제목');
+      const title=document.createElement('input');title.value=String(row?.title||'');title.maxLength=160;title.setAttribute('aria-label','소식 제목');
       const body=document.createElement('textarea');body.value=String(row?.body||'');body.maxLength=10000;body.setAttribute('aria-label','소식 본문');
       const status=postStatusSelect(String(row?.status||'draft'),includeArchived);
       const channel=postChannelSelect(String(row?.channel||'apartment_news'));
@@ -412,9 +415,11 @@
       return date.getFullYear()+'-'+pad(date.getMonth()+1)+'-'+pad(date.getDate())+'T'+pad(date.getHours())+':'+pad(date.getMinutes());
     }
     function benefitFields(row,includeTerminal){
-      const title=document.createElement('input');title.value=String(row?.title||'');title.maxLength=200;title.setAttribute('aria-label','혜택 제목');
-      const description=document.createElement('textarea');description.value=String(row?.description||'');description.maxLength=10000;description.setAttribute('aria-label','혜택 설명');
-      const conditions=document.createElement('textarea');conditions.value=String(row?.conditions||'');conditions.maxLength=4000;conditions.setAttribute('aria-label','이용 조건');
+      // #972: title/description/conditions maxLength mirror the backend payload-policy
+      // FIELD_LIMITS gate so UI-valid input is never rejected by the server pre-handler gate.
+      const title=document.createElement('input');title.value=String(row?.title||'');title.maxLength=160;title.setAttribute('aria-label','혜택 제목');
+      const description=document.createElement('textarea');description.value=String(row?.description||'');description.maxLength=2000;description.setAttribute('aria-label','혜택 설명');
+      const conditions=document.createElement('textarea');conditions.value=String(row?.conditions||'');conditions.maxLength=1000;conditions.setAttribute('aria-label','이용 조건');
       const startsAt=document.createElement('input');startsAt.type='datetime-local';startsAt.value=toLocalDateTime(row?.starts_at||row?.startsAt);startsAt.setAttribute('aria-label','시작 시각');
       const endsAt=document.createElement('input');endsAt.type='datetime-local';endsAt.value=toLocalDateTime(row?.ends_at||row?.endsAt);endsAt.setAttribute('aria-label','종료 시각');
       const status=benefitStatusSelect(String(row?.status||'draft'),includeTerminal);
