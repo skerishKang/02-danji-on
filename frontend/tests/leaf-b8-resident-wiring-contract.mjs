@@ -53,14 +53,14 @@ before(f24, 'assets/resident-bridge.js', 'danjion-settings-server', 'f24');
 assert.ok(f24.includes('data-settings-target="profile"'), 'f24 must anchor on the profile settings row');
 assert.ok(f24.includes("dataset.settingsKey='publicProfileEnabled'"), 'f24 toggle must key on publicProfileEnabled (avoids router target)');
 assert.ok(f24.includes('bridge.settings(') && f24.includes('bridge.updateSetting('), 'f24 must GET then PATCH the setting');
-assert.match(f24, /updateSetting\([\s\S]*?\.then\(function\(r\)\{[\s\S]*?if\(r&&r\.ok&&r\.settings\)\{apply\(/,
-  'f24 must apply the toggle state only after a successful PATCH (no optimistic write)');
-const clickStart = f24.indexOf("click',function(){");
-assert.ok(clickStart > -1, 'f24 click handler must exist');
-const thenAt = f24.indexOf('.then(', clickStart);
-assert.ok(thenAt > clickStart, 'f24 click handler must resolve updateSetting via .then()');
-assert.ok(!f24.slice(clickStart, thenAt).includes('apply('),
-  'f24 must not mutate the toggle before the server responds (no optimistic write)');
+assert.match(f24, /bridge\.updateSetting\(!prev\)\.then\(function\(r\)\{[\s\S]*?if\(r&&r\.ok&&r\.settings\)\{applySwitch\(toggle,r\.settings\.publicProfileEnabled===true\);return;\}/,
+  'f24 must apply publicProfileEnabled only from a successful PATCH response (no optimistic write)');
+const profileHandlerStart = f24.indexOf("toggle.addEventListener('click',function(){");
+assert.ok(profileHandlerStart > -1, 'f24 public-profile click handler must exist');
+const profilePatch = f24.indexOf('bridge.updateSetting(!prev)', profileHandlerStart);
+assert.ok(profilePatch > profileHandlerStart, 'f24 public-profile handler must PATCH through updateSetting');
+assert.ok(!f24.slice(profileHandlerStart, profilePatch).includes('applySwitch(toggle,'),
+  'f24 must not mutate public-profile UI before the server responds');
 
 /* --- 25 1:1문의: submit + list through the inquiry bridge --- */
 before(f25, 'assets/inquiry-bridge.js', 'danjion-inquiry-server', 'f25');

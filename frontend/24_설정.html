@@ -473,14 +473,7 @@ if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt
   function applySwitch(btn,on){btn.classList.toggle('on',!!on);btn.setAttribute('aria-checked',String(!!on));}
 
   var notificationToggles=[].slice.call(document.querySelectorAll('#notifications [data-notification-toggle]'));
-  notificationToggles.forEach(function(btn){
-    btn.setAttribute('aria-disabled','true');
-    btn.addEventListener('click',function(){
-      if(btn.getAttribute('aria-disabled')==='true'){
-        toast(btn.dataset.settingSupport==='supported'?'잠시 후 다시 시도해 주세요.':'아직 서버에서 저장하지 못하는 알림 설정입니다.');
-      }
-    });
-  });
+  notificationToggles.forEach(function(btn){btn.setAttribute('aria-disabled','true');});
 
   var B=globalThis.DanjionResidentBridge;
   if(!B||!B.serverConfig)return;
@@ -490,21 +483,57 @@ if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt
 
   var servicePolicyVersion='';
   var notificationBusy=false;
-  function loadNotificationTruth(){
-    var supported=notificationToggles.filter(function(btn){return btn.dataset.settingSupport==='supported';});
-    if(!supported.length)return Promise.resolve();
-    return bridge.settings().then(function(r){
-      if(!(r&&r.ok&&r.settings)){toast('잠시 후 다시 시도해 주세요.');return;}
-      var pref=r.settings.serviceNotifications||{};
-      servicePolicyVersion=String(pref.policyVersion||'');
-      var on=pref.enabled===true;
-      supported.forEach(function(btn){applySwitch(btn,on);btn.removeAttribute('aria-disabled');});
-    }).catch(function(){toast('잠시 후 다시 시도해 주세요.');});
+  var settingsTruthBusy=false;
+  var publicProfileToggle=null;
+  function supportedNotificationToggles(){
+    return notificationToggles.filter(function(btn){return btn.dataset.settingSupport==='supported';});
   }
+  function applyServerSettings(settings){
+    var pref=settings.serviceNotifications||{};
+    servicePolicyVersion=String(pref.policyVersion||'');
+    var notificationOn=pref.enabled===true;
+    supportedNotificationToggles().forEach(function(btn){
+      applySwitch(btn,notificationOn);
+      btn.removeAttribute('aria-disabled');
+    });
+    if(publicProfileToggle){
+      applySwitch(publicProfileToggle,settings.publicProfileEnabled===true);
+      publicProfileToggle.removeAttribute('aria-disabled');
+    }
+  }
+  function loadSettingsTruth(){
+    if(settingsTruthBusy)return Promise.resolve(false);
+    settingsTruthBusy=true;
+    return bridge.settings().then(function(r){
+      if(r&&r.ok&&r.settings){
+        applyServerSettings(r.settings);
+        return true;
+      }
+      if(r&&r.mode==='auth-required'){
+        toast('로그인 후 다시 시도해 주세요.');
+        return false;
+      }
+      toast('설정 상태를 불러오지 못했습니다. 다시 눌러 재시도해 주세요.');
+      return false;
+    }).catch(function(){
+      toast('설정 상태를 불러오지 못했습니다. 다시 눌러 재시도해 주세요.');
+      return false;
+    }).finally(function(){settingsTruthBusy=false;});
+  }
+
   notificationToggles.forEach(function(btn){
-    if(btn.dataset.settingSupport!=='supported')return;
+    if(btn.dataset.settingSupport!=='supported'){
+      btn.addEventListener('click',function(){
+        if(btn.getAttribute('aria-disabled')==='true')toast('아직 서버에서 저장하지 못하는 알림 설정입니다.');
+      });
+      return;
+    }
     btn.addEventListener('click',function(){
-      if(notificationBusy||btn.getAttribute('aria-disabled')==='true')return;
+      if(notificationBusy)return;
+      if(btn.getAttribute('aria-disabled')==='true'){
+        loadSettingsTruth();
+        return;
+      }
       var consentType=String(btn.dataset.consentType||'').trim();
       if(!consentType){toast('알림 설정을 저장하지 못했습니다.');return;}
       var prev=btn.classList.contains('on');
@@ -530,7 +559,6 @@ if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt
       });
     });
   });
-  loadNotificationTruth().catch(function(){});
 
   var arrow=document.querySelector('[data-settings-target="profile"]');
   if(arrow&&arrow.parentNode){
@@ -540,27 +568,29 @@ if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt
     toggle.setAttribute('role','switch');
     toggle.setAttribute('aria-label','공개 프로필 사용');
     toggle.setAttribute('aria-checked','false');
+    toggle.setAttribute('aria-disabled','true');
     toggle.dataset.settingsKey='publicProfileEnabled';
-    toggle.disabled=true;
     arrow.parentNode.replaceChild(toggle,arrow);
+    publicProfileToggle=toggle;
     var busy=false;
-    function apply(val){var on=!!val;toggle.classList.toggle('on',on);toggle.setAttribute('aria-checked',String(on));}
-    bridge.settings().then(function(r){
-      if(r&&r.ok&&r.settings){apply(r.settings.publicProfileEnabled);toggle.disabled=false;return;}
-      if(r&&r.mode==='auth-required'){toast('로그인 후 다시 시도해 주세요.');return;}
-      toast('잠시 후 다시 시도해 주세요.');
-    }).catch(function(){toast('잠시 후 다시 시도해 주세요.');});
     toggle.addEventListener('click',function(){
-      if(busy||toggle.disabled)return;
+      if(busy)return;
+      if(toggle.getAttribute('aria-disabled')==='true'){
+        loadSettingsTruth();
+        return;
+      }
+      var prev=toggle.classList.contains('on');
       busy=true;
-      bridge.updateSetting(!toggle.classList.contains('on')).then(function(r){
+      bridge.updateSetting(!prev).then(function(r){
         busy=false;
-        if(r&&r.ok&&r.settings){apply(r.settings.publicProfileEnabled);return;}
+        if(r&&r.ok&&r.settings){applySwitch(toggle,r.settings.publicProfileEnabled===true);return;}
+        applySwitch(toggle,prev);
         if(r&&r.mode==='auth-required'){toast('로그인 후 다시 시도해 주세요.');return;}
         toast('잠시 후 다시 시도해 주세요.');
-      }).catch(function(){busy=false;toast('잠시 후 다시 시도해 주세요.');});
+      }).catch(function(){busy=false;applySwitch(toggle,prev);toast('잠시 후 다시 시도해 주세요.');});
     });
   }
+  loadSettingsTruth().catch(function(){});
 
   var list=document.getElementById('blockedResidentList'),count=document.querySelector('.blocked-count'),empty=document.querySelector('.blocked .empty');
   function renderBlocks(rows){
