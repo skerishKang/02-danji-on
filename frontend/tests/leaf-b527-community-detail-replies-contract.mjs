@@ -4,8 +4,8 @@ import { readFile } from 'node:fs/promises';
 const page = await readFile(new URL('../13_이웃대화_글상세_댓글.html', import.meta.url), 'utf8');
 const bridge = await readFile(new URL('../assets/community-bridge.js', import.meta.url), 'utf8');
 
-assert.ok(bridge.includes('async listReplies(postId, parentCommentId)'),
-  'top-level community bridge must expose nested reply listing');
+assert.ok(bridge.includes('async listReplies(postId, parentCommentId, options = {})'),
+  'top-level community bridge must expose nested reply listing with explicit options');
 assert.ok(bridge.includes('async addReply(postId, parentCommentId, body)'),
   'top-level community bridge must expose nested reply creation');
 assert.ok(
