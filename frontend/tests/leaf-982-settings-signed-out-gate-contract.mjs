@@ -36,8 +36,8 @@ assert.ok(sessionBindingIndex >= 0 && hydrateFunctionIndex >= 0 && sessionBindin
 for (const call of ['bridge.settings(', 'bridge.blockedUsers(', 'bridge.updateSetting(']) {
   assert.ok(wiring.includes(call), `member API wiring must remain present: ${call}`);
 }
-assert.ok(wiring.indexOf('loadNotificationTruth().catch') > wiring.indexOf('function hydrateMemberSettings()'),
-  'settings API hydration must not run before the session gate');
+assert.ok(wiring.indexOf('loadSettingsTruth().catch') > wiring.indexOf('function hydrateMemberSettings()'),
+  'settings API hydration/retry must remain inside authenticated member hydration after the session gate');
 assert.doesNotMatch(wiring, /localStorage|sessionStorage/,
   'server-backed settings wiring must not create a local session model');
 assert.match(page, /data-size="small"[\s\S]*data-size="large"/,
