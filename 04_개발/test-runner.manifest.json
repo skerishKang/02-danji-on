@@ -88,6 +88,7 @@
         {"id":"test:business-category-benefit","npm":"test:business-category-benefit","kind":"contract"},
         {"id":"test:public-complex-eligibility","npm":"test:public-complex-eligibility","kind":"contract"},
         {"id":"test:core-public-route-identifiers","npm":"test:core-public-route-identifiers","kind":"contract"},
+        {"id":"test:safe-complex-slug-1018","npm":"test:safe-complex-slug-1018","kind":"contract"},
         {"id":"test:saved-shops-server","npm":"test:saved-shops-server","kind":"contract"},
         {"id":"test:community-replies","npm":"test:community-replies","kind":"contract"},
         {"id":"test:community-notifications","npm":"test:community-notifications","kind":"contract"},

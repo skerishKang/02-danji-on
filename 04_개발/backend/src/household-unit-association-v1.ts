@@ -1,12 +1,12 @@
 import { neon, type NeonQueryFunction } from '@neondatabase/serverless';
 import { requireActor, type AuthEnv } from './auth-v1';
+import { decodeComplexSlug } from './complex-slug-v1';
 
 type Sql = NeonQueryFunction<false, false>;
 export type HouseholdUnitAssociationEnv = AuthEnv;
 
 const MAX_BODY_BYTES = 4 * 1024;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const SLUG = /^[a-z0-9][a-z0-9-]{0,119}$/;
 const AUTO_CONNECT_MEMBER_LIMIT = 2;
 
 function json(data: unknown, status: number, requestId: string): Response {
@@ -90,8 +90,8 @@ export async function handleHouseholdUnitAssociationWithSql(
   if (!match) return null;
   if (request.method !== 'POST') return fail('METHOD_NOT_ALLOWED', 'Method not allowed', 405, requestId);
 
-  const complexSlug = decodeURIComponent(match[1]).trim();
-  if (!SLUG.test(complexSlug)) return fail('VALIDATION_ERROR', 'Invalid complex', 400, requestId);
+  const complexSlug = decodeComplexSlug(match[1]);
+  if (!complexSlug) return fail('INVALID_COMPLEX_SLUG', 'Invalid complex slug', 400, requestId);
 
   const actorOrResponse = await requireActor(request, env, sql, requestId);
   if (actorOrResponse instanceof Response) return actorOrResponse;

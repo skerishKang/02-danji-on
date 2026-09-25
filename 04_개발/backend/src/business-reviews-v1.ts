@@ -2,6 +2,7 @@ import { neon, type NeonQueryFunction } from '@neondatabase/serverless';
 import { requireActor } from './auth-v1';
 import { requireVerifiedResident } from './authorization-v2';
 import type { CoreEnv } from './core-v1';
+import { decodeComplexSlug } from './complex-slug-v1';
 
 type Sql = NeonQueryFunction<false, false>;
 
@@ -312,7 +313,8 @@ export async function handleBusinessReviewWithSql(
   const path = new URL(request.url).pathname;
   let match = path.match(/^\/api\/v1\/complexes\/([^/]+)\/businesses\/([0-9a-fA-F-]+)\/reviews$/);
   if (match) {
-    const complexSlug = decodeURIComponent(match[1]);
+    const complexSlug = decodeComplexSlug(match[1]);
+    if (!complexSlug) return fail('INVALID_COMPLEX_SLUG', 'Invalid complex slug', 400, requestId);
     const businessId = canonicalUuid(match[2]);
     if (!businessId) return fail('VALIDATION_ERROR', 'Invalid business id', 400, requestId);
     if (request.method === 'GET') return listReviews(request, env, sql, requestId, complexSlug, businessId);
@@ -322,7 +324,8 @@ export async function handleBusinessReviewWithSql(
 
   match = path.match(/^\/api\/v1\/complexes\/([^/]+)\/businesses\/([0-9a-fA-F-]+)\/reviews\/([0-9a-fA-F-]+)$/);
   if (match) {
-    const complexSlug = decodeURIComponent(match[1]);
+    const complexSlug = decodeComplexSlug(match[1]);
+    if (!complexSlug) return fail('INVALID_COMPLEX_SLUG', 'Invalid complex slug', 400, requestId);
     const businessId = canonicalUuid(match[2]);
     const reviewId = canonicalUuid(match[3]);
     if (!businessId || !reviewId) return fail('VALIDATION_ERROR', 'Invalid business or review id', 400, requestId);
@@ -333,7 +336,8 @@ export async function handleBusinessReviewWithSql(
 
   match = path.match(/^\/api\/v1\/complexes\/([^/]+)\/businesses\/([0-9a-fA-F-]+)\/reviews\/([0-9a-fA-F-]+)\/reply$/);
   if (match) {
-    const complexSlug = decodeURIComponent(match[1]);
+    const complexSlug = decodeComplexSlug(match[1]);
+    if (!complexSlug) return fail('INVALID_COMPLEX_SLUG', 'Invalid complex slug', 400, requestId);
     const businessId = canonicalUuid(match[2]);
     const reviewId = canonicalUuid(match[3]);
     if (!businessId || !reviewId) return fail('VALIDATION_ERROR', 'Invalid business or review id', 400, requestId);

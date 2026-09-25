@@ -1,5 +1,6 @@
 import { neon, type NeonQueryFunction } from '@neondatabase/serverless';
 import { requireActor, type AuthEnv } from './auth-v1';
+import { decodeComplexSlug } from './complex-slug-v1';
 import { householdCodeVerifier, isHouseholdCode, normalizeHouseholdCode } from './household-code-crypto';
 
 type Sql = NeonQueryFunction<false, false>;
@@ -9,7 +10,6 @@ export type HouseholdCodeEnv = AuthEnv & {
 };
 
 const MAX_BODY_BYTES = 1024;
-const SLUG = /^[a-z0-9][a-z0-9-]{0,119}$/;
 
 function json(data: unknown, status: number, requestId: string): Response {
   return Response.json(data, { status, headers: {
@@ -61,8 +61,8 @@ export async function handleHouseholdCodeVerificationWithSql(
   if (!match) return null;
   if (request.method !== 'POST') return fail('METHOD_NOT_ALLOWED', 'Method not allowed', 405, requestId);
 
-  const complexSlug = decodeURIComponent(match[1]).trim();
-  if (!SLUG.test(complexSlug)) return fail('VALIDATION_ERROR', 'Invalid complex', 400, requestId);
+  const complexSlug = decodeComplexSlug(match[1]);
+  if (!complexSlug) return fail('INVALID_COMPLEX_SLUG', 'Invalid complex slug', 400, requestId);
   const actorOrResponse = await requireActor(request, env, sql, requestId);
   if (actorOrResponse instanceof Response) return actorOrResponse;
   const actor = actorOrResponse;

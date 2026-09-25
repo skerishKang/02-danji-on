@@ -1,5 +1,6 @@
 import { neon, type NeonQueryFunction } from '@neondatabase/serverless';
 import { requireActor, type Actor } from './auth-v1';
+import { decodeComplexSlug } from './complex-slug-v1';
 import type { CoreEnv } from './core-v1';
 import { recordAuthorityDecision, resolvePadiemAuthority } from './padiem-authority-v1';
 
@@ -22,7 +23,6 @@ type HouseholdMessageEnv = CoreEnv & {
 const SCOPE = 'household.message.manage';
 const MAX_BODY_BYTES = 16 * 1024;
 const MAX_SELECTED_UNITS = 100;
-const SLUG = /^[a-z0-9][a-z0-9-]{0,119}$/;
 const UNIT_PART = /^[0-9A-Za-z가-힣-]{1,20}$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const IDEMPOTENCY_KEY = /^[A-Za-z0-9._:-]{8,160}$/;
@@ -719,8 +719,8 @@ export async function handleAdminHouseholdMessagingWithSql(
   );
   if (targetsMatch) {
     if (request.method !== 'GET') return fail('METHOD_NOT_ALLOWED', 'Method not allowed', 405, requestId);
-    const complexSlug = decodeURIComponent(targetsMatch[1]).trim();
-    if (!SLUG.test(complexSlug)) return fail('COMPLEX_INVALID', 'Invalid apartment complex', 400, requestId);
+    const complexSlug = decodeComplexSlug(targetsMatch[1]);
+    if (!complexSlug) return fail('INVALID_COMPLEX_SLUG', 'Invalid complex slug', 400, requestId);
     return listTargets(request, env, sql, requestId, complexSlug);
   }
 
@@ -729,8 +729,8 @@ export async function handleAdminHouseholdMessagingWithSql(
   );
   if (previewMatch) {
     if (request.method !== 'POST') return fail('METHOD_NOT_ALLOWED', 'Method not allowed', 405, requestId);
-    const complexSlug = decodeURIComponent(previewMatch[1]).trim();
-    if (!SLUG.test(complexSlug)) return fail('COMPLEX_INVALID', 'Invalid apartment complex', 400, requestId);
+    const complexSlug = decodeComplexSlug(previewMatch[1]);
+    if (!complexSlug) return fail('INVALID_COMPLEX_SLUG', 'Invalid complex slug', 400, requestId);
     return previewTargets(request, env, sql, requestId, complexSlug);
   }
 
@@ -739,9 +739,9 @@ export async function handleAdminHouseholdMessagingWithSql(
   );
   if (dispatchMatch) {
     if (request.method !== 'POST') return fail('METHOD_NOT_ALLOWED', 'Method not allowed', 405, requestId);
-    const complexSlug = decodeURIComponent(dispatchMatch[1]).trim();
+    const complexSlug = decodeComplexSlug(dispatchMatch[1]);
+    if (!complexSlug) return fail('INVALID_COMPLEX_SLUG', 'Invalid complex slug', 400, requestId);
     const messageId = dispatchMatch[2].toLowerCase();
-    if (!SLUG.test(complexSlug)) return fail('COMPLEX_INVALID', 'Invalid apartment complex', 400, requestId);
     if (!UUID.test(messageId)) return fail('HOUSEHOLD_MESSAGE_INVALID', 'Invalid household message id', 400, requestId);
     return dispatchHouseholdMessage(request, env, sql, requestId, complexSlug, messageId);
   }
@@ -751,8 +751,8 @@ export async function handleAdminHouseholdMessagingWithSql(
   );
   if (createMatch) {
     if (request.method !== 'POST') return fail('METHOD_NOT_ALLOWED', 'Method not allowed', 405, requestId);
-    const complexSlug = decodeURIComponent(createMatch[1]).trim();
-    if (!SLUG.test(complexSlug)) return fail('COMPLEX_INVALID', 'Invalid apartment complex', 400, requestId);
+    const complexSlug = decodeComplexSlug(createMatch[1]);
+    if (!complexSlug) return fail('INVALID_COMPLEX_SLUG', 'Invalid complex slug', 400, requestId);
     return createHouseholdMessage(request, env, sql, requestId, complexSlug);
   }
 

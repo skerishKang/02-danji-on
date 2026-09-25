@@ -5,6 +5,7 @@ import { DB_AVAILABILITY_CODE, DB_AVAILABILITY_MESSAGE, isDbAvailabilityError } 
 import { authorityFor } from './complex-news-channel';
 import { PUBLIC_COMPLEX_STATUSES } from './public-complex-eligibility-v1';
 import { UUID } from './application-docs-core-v1';
+import { decodeComplexSlug } from './complex-slug-v1';
 
 export type CoreEnv = AuthEnv;
 
@@ -39,11 +40,7 @@ function fail(code: string, message: string, status: number, id: string): Respon
 }
 
 function decodePublicComplexSlug(raw: string): string | null {
-  try {
-    return decodeURIComponent(raw);
-  } catch {
-    return null;
-  }
+  return decodeComplexSlug(raw);
 }
 
 function sqlFor(env: CoreEnv): Sql {
@@ -346,6 +343,14 @@ async function handlePrivate(request: Request, env: CoreEnv, sql: Sql, id: strin
   const path = url.pathname;
   if (!path.startsWith('/api/v1/me') && !path.includes('/contact')) return null;
 
+  const contactMatch = request.method === 'GET'
+    ? path.match(/^\/api\/v1\/complexes\/([^/]+)\/businesses\/([0-9a-fA-F-]+)\/contact$/)
+    : null;
+  const contactComplexSlug = contactMatch ? decodeComplexSlug(contactMatch[1]) : null;
+  if (contactMatch && !contactComplexSlug) {
+    return fail('INVALID_COMPLEX_SLUG', 'Invalid complex slug', 400, id);
+  }
+
   const actorOrResponse = await requireActor(request, env, sql, id);
   if (actorOrResponse instanceof Response) return actorOrResponse;
   const actor = actorOrResponse;
@@ -429,11 +434,9 @@ async function handlePrivate(request: Request, env: CoreEnv, sql: Sql, id: strin
     return ok(rows, id);
   }
 
-  match = path.match(/^\/api\/v1\/complexes\/([^/]+)\/businesses\/([0-9a-fA-F-]+)\/contact$/);
-  if (match && request.method === 'GET') {
-    const complexSlug = decodeURIComponent(match[1]);
-    const businessId = match[2];
-    const residentOrResponse = await requireVerifiedResident(request, env, sql, id, complexSlug);
+  if (contactMatch) {
+    const businessId = contactMatch[2];
+    const residentOrResponse = await requireVerifiedResident(request, env, sql, id, contactComplexSlug!);
     if (residentOrResponse instanceof Response) return residentOrResponse;
     const rows = await sql`
       select bc.contact_type, bc.contact_value
@@ -441,7 +444,7 @@ async function handlePrivate(request: Request, env: CoreEnv, sql: Sql, id: strin
       join business_complex_relations r on r.business_id = bc.business_id
       join complexes c on c.id = r.complex_id
       where bc.business_id = ${businessId}::uuid
-        and c.slug = ${complexSlug}
+        and c.slug = ${contactComplexSlug}
         and r.verification_status = 'verified'
         and bc.visibility in ('public','verified_residents')
       order by bc.sort_order

@@ -1,5 +1,6 @@
 import { neon, type NeonQueryFunction } from '@neondatabase/serverless';
 import type { CoreEnv } from './core-v1';
+import { decodeComplexSlug } from './complex-slug-v1';
 import { requireOperationalAuthority } from './operational-authz-v2';
 
 type Sql = NeonQueryFunction<false, false>;
@@ -48,7 +49,8 @@ export async function handleAdminAuditRequest(
   }
 
   const limit = clampLimit(url.searchParams.get('limit'));
-  const complexSlug = decodeURIComponent(match[1]);
+  const complexSlug = decodeComplexSlug(match[1]);
+  if (!complexSlug) return fail('INVALID_COMPLEX_SLUG', 'Invalid complex slug', 400, requestId);
   const sql: Sql = neon(env.DATABASE_URL);
   const operator = await requireOperationalAuthority(
     request,
