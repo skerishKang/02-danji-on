@@ -9,6 +9,7 @@
         {"id":"typecheck","npm":"typecheck","kind":"build"},
         {"id":"test:storage","npm":"test:storage","kind":"contract"},
         {"id":"test:storage-contract","npm":"test:storage-contract","kind":"contract"},
+        {"id":"test:storage-multipart-bounds","npm":"test:storage-multipart-bounds","kind":"contract"},
         {"id":"test:qa-r2-storage-lane","npm":"test:qa-r2-storage-lane","kind":"contract"},
         {"id":"test:r2-upload-idempotency","npm":"test:r2-upload-idempotency","kind":"contract"},
         {"id":"test:r2-delete-lifecycle-parity","npm":"test:r2-delete-lifecycle-parity","kind":"contract"},
