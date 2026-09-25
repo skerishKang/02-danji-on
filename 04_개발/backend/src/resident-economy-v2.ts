@@ -1,6 +1,7 @@
 import { neon, type NeonQueryFunction } from '@neondatabase/serverless';
 import { requireActor } from './auth-v1';
 import { requireVerifiedResident } from './authorization-v2';
+import { readBoundedJsonBody } from './payload-policy';
 import { validateBusinessImageReference } from './storage-reference-v1';
 import type { CoreEnv } from './core-v1';
 
@@ -79,15 +80,7 @@ function fail(code: string, message: string, status: number, requestId: string):
 }
 
 async function bodyJson(request: Request, requestId: string): Promise<Record<string, unknown> | Response> {
-  try {
-    const payload = await request.json();
-    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
-      return fail('INVALID_JSON', 'JSON object required', 400, requestId);
-    }
-    return payload as Record<string, unknown>;
-  } catch {
-    return fail('INVALID_JSON', 'Invalid JSON', 400, requestId);
-  }
+  return readBoundedJsonBody(request, requestId);
 }
 
 // GAP-4: parse optional photoObjectKeys. Returns null when the field is

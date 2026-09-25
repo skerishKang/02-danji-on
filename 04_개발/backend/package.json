@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "test:runner-manifest-contract": "node tests/test-runner-manifest-contract.mjs",
+    "test:payload-policy-1017": "tsx tests/payload-policy-1017.test.mjs",
     "test:admin-field-limit-972": "tsx tests/admin-field-limit-972-contract.mjs",
     "test:resident-profile-label-983": "tsx ../frontend/tests/resident-profile-label-983-contract.mjs",
     "dev": "wrangler dev",
