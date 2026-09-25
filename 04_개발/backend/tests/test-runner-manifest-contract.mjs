@@ -20,6 +20,7 @@ const EXPECTED_BACKEND_ORDER = [
   "typecheck",
   "test:storage",
   "test:storage-contract",
+  "test:storage-multipart-bounds",
   "test:qa-r2-storage-lane",
   "test:r2-upload-idempotency",
   "test:r2-delete-lifecycle-parity",

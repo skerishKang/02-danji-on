@@ -12,6 +12,7 @@
     "typecheck": "tsc --noEmit",
     "test:storage": "node tests/storage-policy.mjs",
     "test:storage-contract": "node tests/storage-contract.mjs",
+    "test:storage-multipart-bounds": "tsx --test tests/storage-multipart-bounds.test.mjs",
     "test:qa-r2-storage-lane": "node tests/qa-r2-storage-lane-contract.mjs",
     "test:r2-upload-idempotency": "tsx tests/r2-upload-idempotency.test.mjs",
     "test:r2-delete-lifecycle-parity": "tsx --import ./tests/helpers/neon-stub-loader.mjs tests/r2-delete-lifecycle-parity.test.mjs",

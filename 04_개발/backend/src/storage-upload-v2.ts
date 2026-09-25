@@ -4,6 +4,7 @@ import { requireOperationalAuthority } from './operational-authz-v2';
 import { requireVerifiedResident } from './authorization-v2';
 import type { CoreEnv } from './core-v1';
 import { safeStorageFileName, validateStorageUpload } from './storage-policy.mjs';
+import { withBoundedMultipartRequest } from './multipart-request-bounds';
 import { r2Enabled, r2Put, type R2StorageEnv } from './storage-r2-v1';
 
 type Sql = NeonQueryFunction<false, false>;
@@ -2337,11 +2338,16 @@ export async function runTrackedOfficialNewsImageUpload(
   const actorOrResponse = await requireCanonicalActor(request, env, sql, requestId);
   if (actorOrResponse instanceof Response) return actorOrResponse;
 
-  const contentLength = Number(request.headers.get('content-length') || 0);
-  if (contentLength > MAX_UPLOAD_REQUEST_BYTES) {
+  const boundedUpload = await withBoundedMultipartRequest(request, MAX_UPLOAD_REQUEST_BYTES);
+  if (!boundedUpload.ok) {
     return fail('PAYLOAD_TOO_LARGE', 'Upload request is too large', 413, requestId);
   }
-  const form = await request.formData();
+  let form: FormData;
+  try {
+    form = await boundedUpload.request.formData();
+  } catch {
+    return fail('INVALID_FORM_DATA', 'Upload form data is invalid', 400, requestId);
+  }
   const kind = String(form.get('kind') || '').trim();
   const complexSlug = String(form.get('complexSlug') || '').trim();
 
