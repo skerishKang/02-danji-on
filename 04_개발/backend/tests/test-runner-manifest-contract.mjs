@@ -206,6 +206,7 @@ const EXPECTED_FRONTEND_ORDER = [
    "test:leaf-982-settings-signed-out-gate",
    "test:leaf-981-community-reply-mobile-a11y",
    "test:leaf-b976-neighbor-modal-xss",
+   "test:canonical-dialog-regression-contract",
  ];
 
 const EXPECTED_CI_ONLY = [
