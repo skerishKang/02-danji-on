@@ -106,7 +106,8 @@ const sources = new Map(await Promise.all(sourceFiles.map(async (name) => [
 const helperSource = await readFile(new URL('../src/complex-slug-v1.ts', import.meta.url), 'utf8');
 
 function assertSourceContract(helper, routeSources) {
-  assert.match(helper, /decodeURIComponent\(raw\)\.trim\(\)/);
+  assert.match(helper, /const decoded = decodeURIComponent\(raw\);/);
+  assert.doesNotMatch(helper, /decodeURIComponent\(raw\)\.trim\(\)/);
   assert.match(helper, /catch \{[\s\S]*?return null;/);
   assert.match(helper, /COMPLEX_SLUG\.test\(decoded\) \? decoded : null/);
   for (const [name, source] of routeSources) {
