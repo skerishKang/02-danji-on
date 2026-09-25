@@ -20,7 +20,7 @@ jobs:
           cache: npm
           cache-dependency-path: 04_개발/backend/package.json
       - name: Install dependencies
-        run: npm install --ignore-scripts
+        run: npm ci --ignore-scripts
       - name: Typecheck and contract tests
         run: npm run check
 

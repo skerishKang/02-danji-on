@@ -63,9 +63,16 @@ assert.match(workflow, /name: Production Worker Bootstrap/);
 assert.match(workflow, /workflow_dispatch:/, 'production deployment must remain explicitly dispatchable');
 assert.match(workflow, /expected_main:/, '#932: Production Worker dispatch must require an exact authorized main SHA');
 assert.ok(
-  workflow.includes('authorized_main="${{ inputs.expected_main }}"'),
-  '#932: workflow_dispatch authority must bind the operator-supplied expected main SHA'
+  workflow.includes('EXPECTED_MAIN: ${{ inputs.expected_main }}'),
+  '#1007: expected_main must cross a data boundary before shell use'
 );
+assert.ok(
+  workflow.includes('authorized_main="${EXPECTED_MAIN}"'),
+  '#1007: workflow_dispatch authority must bind the validated environment value'
+);
+assert.match(workflow, /if: github\.event_name == 'workflow_dispatch' && inputs\.confirm_production/);
+assert.doesNotMatch(workflow, /^  push:/m, '#1007: Production Worker bootstrap must not deploy from push events');
+assert.doesNotMatch(workflow, /\[production-bootstrap\]/, '#1007: commit markers must never authorize Production deployment');
 assert.match(workflow, /git fetch origin main --no-tags/, '#932: Production Worker workflow must fresh-fetch remote main before mutation');
 assert.match(workflow, /EXACT_MAIN_GUARD=PASS/, '#932: initial exact-main authority guard must fail closed before Production mutation');
 assert.match(workflow, /PREMIGRATION_EXACT_MAIN_GUARD=PASS/, '#932: optional migration mutation must recheck exact main immediately beforehand');
@@ -83,12 +90,11 @@ assert.ok(
   '#932: exact-main must be rechecked immediately before Worker deployment'
 );
 assert.match(workflow, /environment: production/, 'production mutation must use the GitHub production environment boundary');
-assert.match(workflow, /\[production-bootstrap\]/, 'the one-time merge-triggered bootstrap must require an explicit commit marker');
 assert.match(workflow, /node-version: '24'/);
 assert.doesNotMatch(workflow, /cache-dependency-path:/, 'bootstrap must not reference a nonexistent backend lockfile');
 assert.doesNotMatch(workflow, /cache:\s*npm/, 'bootstrap must not enable setup-node npm caching without a committed lockfile');
-assert.match(workflow, /npm install --ignore-scripts/, 'backend dependencies must use the repository-compatible install path');
-assert.doesNotMatch(workflow, /npm ci --ignore-scripts/, 'npm ci cannot be used while the backend has no committed package-lock');
+assert.match(workflow, /npm ci --ignore-scripts/, '#1007: backend dependencies must use the committed lockfile deterministically');
+assert.doesNotMatch(workflow, /npm install --ignore-scripts/, '#1007: backend dependencies must not use mutable npm install');
 assert.match(workflow, /CLOUDFLARE_API_TOKEN: \$\{\{ secrets\.CLOUDFLARE_API_TOKEN \}\}/);
 assert.match(workflow, /CLOUDFLARE_ACCOUNT_ID: \$\{\{ secrets\.CLOUDFLARE_ACCOUNT_ID \}\}/);
 assert.match(workflow, /DANJION_PRODUCTION_DB_URL: \$\{\{ secrets\.DANJION_PRODUCTION_DB_URL \}\}/);
@@ -184,8 +190,8 @@ assert.match(
 );
 assert.match(
   workflow,
-  /\(github\.event_name == 'workflow_dispatch' && inputs\.confirm_production\)/,
-  '#438: production deploy authority gate must remain unchanged'
+  /if: github\.event_name == 'workflow_dispatch' && inputs\.confirm_production/,
+  '#1007: production deploy authority must be workflow_dispatch plus confirm_production'
 );
 
 // #932: keep the dedicated R2 provisioning workflow contract inside the manifest-covered Backend CI lane.

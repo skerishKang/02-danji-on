@@ -25,6 +25,7 @@
     "test:auth-delete-boundary": "node tests/auth-delete-boundary-contract.mjs",
     "test:signup-contact-production-binding": "node tests/signup-contact-production-binding-contract.mjs",
     "test:production-bootstrap-safety": "node tests/production-bootstrap-safety-contract.mjs",
+    "test:production-workflow-security": "node tests/production-workflow-security-contract.mjs",
     "test:production-db-secret-bootstrap": "node tests/production-db-secret-bootstrap-contract.mjs",
     "test:production-auth-readonly-diagnostic": "node tests/production-auth-readonly-diagnostic-contract.mjs",
     "test:production-readonly-diagnostic": "node tests/production-readonly-diagnostic-contract.mjs",

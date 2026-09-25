@@ -36,7 +36,7 @@ jobs:
           node-version: '24'
           package-manager-cache: false
       - name: Install Playwright test runner
-        run: npm install --ignore-scripts
+        run: npm ci --ignore-scripts
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
       - name: Run canonical top-level V3 browser gate
