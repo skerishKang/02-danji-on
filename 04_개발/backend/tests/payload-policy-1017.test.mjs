@@ -5,10 +5,17 @@ import { readBoundedJsonBody, validateRequestPayload } from '../src/payload-poli
 const requestId = 'req-1017';
 const path = 'http://localhost/api/v1/test';
 
-function jsonRequest(body, { contentType = 'application/json', contentLength } = {}) {
+function jsonRequest(body, { contentType = 'application/json', contentLength, method = 'POST' } = {}) {
   const headers = new Headers({ 'content-type': contentType });
   if (contentLength !== undefined) headers.set('content-length', String(contentLength));
-  return new Request(path, { method: 'POST', headers, body });
+  return new Request(path, { method, headers, body });
+}
+
+function withTimeout(promise, label) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error(`${label} timeout`)), 1000))
+  ]);
 }
 
 function responseCode(response) {
@@ -17,6 +24,65 @@ function responseCode(response) {
 
 async function responseError(response) {
   return (await response.json()).error.code;
+}
+
+for (const method of ['POST', 'PATCH']) {
+  const response = await withTimeout(
+    validateRequestPayload(new Request(path, { method }), requestId),
+    `BODYLESS_${method}`
+  );
+  assert.equal(response, null);
+  console.log(`BODYLESS_${method}_PARITY=PASS`);
+}
+
+{
+  const response = await validateRequestPayload(
+    jsonRequest(JSON.stringify({ ok: true }), { contentType: 'text/plain' }),
+    requestId
+  );
+  assert.equal(responseCode(response), 415);
+  assert.equal(await responseError(response), 'CONTENT_TYPE_REQUIRED');
+  console.log('TEXT_PLAIN_WITH_JSON_BODY=415');
+}
+
+{
+  const stream = new ReadableStream({
+    start(controller) {
+      controller.enqueue(new TextEncoder().encode('x'.repeat(70 * 1024)));
+      controller.enqueue(new TextEncoder().encode('y'.repeat(70 * 1024)));
+      controller.close();
+    }
+  });
+  const request = new Request(path, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'content-length': '1' },
+    body: stream,
+    duplex: 'half'
+  });
+  const response = await withTimeout(validateRequestPayload(request, requestId), 'SHARED_GATE_HANG');
+  assert.equal(responseCode(response), 413);
+  console.log('SHARED_GATE_OVERSIZED_STREAM=413');
+  console.log('DISHONEST_SMALL_CONTENT_LENGTH=413');
+  console.log('SHARED_GATE_HANG=NO');
+}
+
+{
+  const stream = new ReadableStream({
+    start(controller) {
+      controller.enqueue(new TextEncoder().encode('x'.repeat(70 * 1024)));
+      controller.enqueue(new TextEncoder().encode('y'.repeat(70 * 1024)));
+      controller.close();
+    }
+  });
+  const request = new Request(path, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: stream,
+    duplex: 'half'
+  });
+  const response = await withTimeout(validateRequestPayload(request, requestId), 'MISSING_CONTENT_LENGTH');
+  assert.equal(responseCode(response), 413);
+  console.log('MISSING_CONTENT_LENGTH_OVERSIZE=413');
 }
 
 {

@@ -61,12 +61,12 @@ async function readBoundedBody(
       const next = await reader.read();
       if (next.done) break;
       if (!(next.value instanceof Uint8Array)) {
-        await reader.cancel();
+        void reader.cancel().catch(() => undefined);
         return errorResponse('INVALID_JSON', 'Invalid JSON', 400, requestId);
       }
       total += next.value.byteLength;
       if (total > maxBytes) {
-        await reader.cancel();
+        void reader.cancel().catch(() => undefined);
         return errorResponse('PAYLOAD_TOO_LARGE', 'Payload too large', 413, requestId);
       }
       chunks.push(next.value);
@@ -120,6 +120,8 @@ export async function validateRequestPayload(request: Request, requestId: string
   const url = new URL(request.url);
   if (!url.pathname.startsWith('/api/v1/')) return null;
   if (url.pathname === '/api/v1/storage/objects' && request.method === 'POST') return null;
+
+  if (request.body === null) return null;
 
   const contentType = request.headers.get('content-type') || '';
   if (!isJsonContentType(contentType)) {
