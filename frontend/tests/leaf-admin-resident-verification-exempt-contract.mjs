@@ -161,8 +161,8 @@ const wiring = wiringRaw.replace(/^\s*<script[^>]*>\s*/, '');
     '/api/auth/sign-in/email', '/api/auth/sign-up/email', '/api/auth/forget-password']) {
     assert.ok(!f19.includes(endpoint), `leaf-b14 Stage 2: f19 must not carry auth endpoint traffic (${endpoint})`);
   }
-  assert.match(sessionSrc, /function fetchSession\(fetchImpl, loc\)[\s\S]{0,160}danjionAuthBase\(loc\)[\s\S]{0,120}'\/api\/auth\/get-session'/,
-    'fetchSession must bind get-session to the auth base resolver exactly like the account strip');
+  assert.match(sessionSrc, /function fetchSession\(fetchImpl, loc(?:, init = \{\})?\)[\s\S]{0,220}danjionAuthBase\(loc\)[\s\S]{0,160}'\/api\/auth\/get-session'/,
+    'fetchSession must bind get-session to the auth base resolver exactly like the account strip while allowing bounded request init');
   assert.match(sessionSrc, /function sendVerificationEmail\(fetchImpl, email, loc\)[\s\S]{0,420}'\/api\/auth\/send-verification-email'/,
     'verification resend must also stay in the sanctioned auth runtime');
   assert.ok(/Object\.freeze\(\{[\s\S]*?fetchSession,[\s\S]*?visibleAccountIdentity,[\s\S]*?sendVerificationEmail,/.test(sessionSrc),
