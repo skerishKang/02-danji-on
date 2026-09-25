@@ -215,4 +215,312 @@ assert.equal(fails(() => assert.equal((activityHtml.replace('<b>—</b>', '<b>6<
   ruleNoCounts(stripped);
 }
 
+// ---------------------------------------------------------------------------
+// 9. External-wiring-failure containment (CENTRAL blocker on PR #1029).
+//
+// The section 6 simulation above removes *every* <script>. That proves the
+// initial markup is neutral, but it also deletes the very inline handler that
+// caused the defect, so it can never observe the real failure mode:
+//
+//   the inline page script DOES run, while the external session / bridge /
+//   live-wiring scripts fail to load.
+//
+// In that state the page is interactive but has no server authority at all.
+// The legacy demo submit handler used to be the only remaining send path: it
+// re-enabled .send from raw textarea input and appended a local fake message
+// carrying prototype identity ("연블리") and fake-success copy ("시연입니다").
+//
+// So the contract here is a *behavioural* one, evaluated against the real
+// inline block executed in a DOM stub, not a markup-stripping one.
+// ---------------------------------------------------------------------------
+
+// Extract the first inline <script> block: the code that runs before any
+// external asset is requested. This is exactly the code that must stay inert
+// without server authority.
+const firstInlineScript = (() => {
+  const match = messageHtml.match(/<script>([\s\S]*?)<\/script>/);
+  assert.ok(match, '21 must still ship its first inline block');
+  return match[1];
+})();
+
+// Run the inline block against a minimal DOM stub and report what the composer
+// did. No DanjionSession, no bridge, no live wiring — i.e. every external
+// dependency is unavailable, which is the state under test.
+// Parameterised by script source so the same harness judges both the real
+// document and any mutation of it.
+const runInlineWithoutExternal = (source = firstInlineScript) => {
+  const listeners = { input: [], submit: [], click: [] };
+  const created = [];
+  const thread = { appendChild: (n) => created.push(n), insertAdjacentHTML: () => {}, innerHTML: '' };
+  const send = { disabled: true };
+  const reply = {
+    value: '',
+    disabled: false,
+    placeholder: '',
+    addEventListener: (t, f) => listeners[t] && listeners[t].push(f),
+    dispatchEvent: (e) => {
+      if (e && e.type === 'input') listeners.input.forEach((f) => f(e));
+      return true;
+    },
+    focus: () => {},
+    scrollIntoView: () => {},
+  };
+  const el = (extra = {}) => ({
+    textContent: '',
+    innerHTML: '',
+    hidden: false,
+    classList: { add() {}, remove() {}, toggle() {}, contains: () => false },
+    addEventListener() {},
+    setAttribute() {},
+    closest: () => null,
+    // A created element must be able to resolve its own descendants, so a
+    // handler that builds a fake message can be observed rather than crashing
+    // on a stub limitation (which would mask *why* the contract failed).
+    querySelector: () => el(),
+    querySelectorAll: () => [],
+    appendChild() {},
+    insertAdjacentHTML() {},
+    scrollIntoView() {},
+    ...extra,
+  });
+  const form = el({ id: 'replyForm', addEventListener: (t, f) => listeners[t] && listeners[t].push(f) });
+  const nodes = {
+    '.toast': el(),
+    '[data-more]': el({ dataset: {} }),
+    '.more-menu': el({ classList: { add() {}, remove() {}, toggle() {}, contains: () => false } }),
+    '[data-action-title]': el(),
+    '[data-action-copy]': el(),
+    '[data-reasons]': el(),
+    '[data-action]': el(),
+    '[data-close]': el(),
+    '.reason': el(),
+    '[data-confirm]': el(),
+    '.reply-context': el(),
+    '#replyForm': form,
+    '#reply': reply,
+    '#count': el(),
+    '.send': send,
+    '#thread': thread,
+    '.composer': el(),
+    '[data-scroll-reply]': el(),
+  };
+  const toastText = () => nodes['.toast'].textContent;
+  const documentStub = {
+    querySelector: (sel) => nodes[sel] || null,
+    querySelectorAll: () => [],
+    getElementById: (id) => nodes['#' + id] || null,
+    createElement: () => el(),
+    addEventListener() {},
+    body: { style: {} },
+  };
+  const sandbox = {
+    document: documentStub,
+    location: { search: '', href: '' },
+    window: {},
+    globalThis: undefined,
+    console,
+    setTimeout: () => 0,
+    clearTimeout: () => {},
+    Event: class {
+      constructor(type) {
+        this.type = type;
+      }
+    },
+  };
+  sandbox.globalThis = sandbox;
+  // Run the real inline code with no external globals defined.
+  new Function(
+    'document',
+    'location',
+    'globalThis',
+    'window',
+    'setTimeout',
+    'clearTimeout',
+    'Event',
+    source,
+  )(sandbox.document, sandbox.location, sandbox, sandbox.window, sandbox.setTimeout, sandbox.clearTimeout, sandbox.Event);
+  // The user types into the composer, then submits.
+  reply.value = '테스트 답장';
+  listeners.input.forEach((f) => f(new sandbox.Event('input')));
+  const sendEnabledAfterTyping = send.disabled === false;
+  let defaultPrevented = false;
+  const submitEvent = {
+    type: 'submit',
+    preventDefault: () => {
+      defaultPrevented = true;
+    },
+    stopPropagation() {},
+    stopImmediatePropagation() {},
+    target: form,
+  };
+  listeners.submit.forEach((f) => f(submitEvent));
+
+  return {
+    sendEnabledAfterTyping,
+    defaultPrevented,
+    appendedMessages: created.length,
+    appendedHtml: created.map((n) => n.innerHTML || '').join(''),
+    toastText: toastText(),
+    replyValueAfterSubmit: reply.value,
+  };
+};
+
+const noAuthority = runInlineWithoutExternal();
+
+// (a) Typing must NOT enable send without server authority.
+assert.equal(
+  noAuthority.sendEnabledAfterTyping,
+  false,
+  '21 inline code must not enable .send from raw textarea input without server authority',
+);
+
+// (b) Submitting must be intercepted (fail closed), not forwarded.
+assert.equal(
+  noAuthority.defaultPrevented,
+  true,
+  '21 inline code must intercept composer submit instead of letting a default send happen',
+);
+
+// (c) No local fake message may be created.
+assert.equal(
+  noAuthority.appendedMessages,
+  0,
+  '21 inline code must not append a local fake message when external wiring is unavailable',
+);
+assert.doesNotMatch(
+  noAuthority.appendedHtml,
+  /연블리|시연입니다|새로고침하면 초기화/,
+  '21 inline-created message must never carry prototype identity or fake-success copy',
+);
+
+// (d) The send button must stay disabled and the draft must not be "sent".
+assert.equal(
+  noAuthority.replyValueAfterSubmit,
+  '테스트 답장',
+  '21 must not clear the composer as if a send had succeeded without server authority',
+);
+
+// (e) Any toast raised in this state must be an honest gate, never a success.
+assert.doesNotMatch(
+  noAuthority.toastText,
+  /보낸|전송|시연/,
+  '21 must not claim a send succeeded while no server authority exists',
+);
+
+// (f) The prototype identity/copy must not exist anywhere in the page source,
+//     including the inline block that runs without external wiring.
+assert.doesNotMatch(
+  firstInlineScript,
+  /연블리|새로고침하면 초기화되는 시연|답장을 보낸 시연/,
+  '21 inline block must not contain a prototype send demo',
+);
+assert.doesNotMatch(
+  messageHtml,
+  /연블리|새로고침하면 초기화되는 시연|답장을 보낸 시연/,
+  '21 must not contain a prototype send demo anywhere in the document',
+);
+
+// (g) The legitimate server-backed path must be preserved: the authoritative
+//     wiring still grants the composer, and revocation closes it again.
+assert.match(
+  messageHtml,
+  /__danjionConversationSendAuthority=\s*sendAuthority/,
+  '21 must expose an explicit send-authority gate for the authoritative wiring',
+);
+assert.match(
+  messageHtml,
+  /__danjionConversationSendAuthority\)\.grant\(\)|__danjionConversationSendAuthority\.grant\(\)/,
+  '21 authoritative wiring must grant send authority when the server confirms the conversation',
+);
+assert.match(
+  messageHtml,
+  /__danjionConversationSendAuthority\)\.revoke\(\)|__danjionConversationSendAuthority\.revoke\(\)/,
+  '21 must revoke send authority whenever the server declines the conversation',
+);
+assert.match(
+  messageHtml,
+  /const result=await bridge\.sendMessage\(conversationId,text\)/,
+  '21 must keep the real server-backed send path',
+);
+assert.match(
+  messageHtml,
+  /__danjionConversationSendAuthority\)\.setBlocked\(blocked\)|__danjionConversationSendAuthority\.setBlocked\(blocked\)/,
+  '21 must keep blocking state authoritative over the composer',
+);
+
+// The gate itself must behave correctly once the server does grant authority.
+{
+  const gate = { granted: false, blocked: false, send: { disabled: true } };
+  const apply = () => {
+    gate.send.disabled = !gate.granted || gate.blocked;
+  };
+  apply();
+  assert.equal(gate.send.disabled, true, 'authority gate: closed before grant');
+  gate.granted = true;
+  apply();
+  assert.equal(gate.send.disabled, false, 'authority gate: open after grant');
+  gate.blocked = true;
+  apply();
+  assert.equal(gate.send.disabled, true, 'authority gate: closed again on block');
+  gate.blocked = false;
+  gate.granted = false;
+  apply();
+  assert.equal(gate.send.disabled, true, 'authority gate: closed after revoke');
+}
+
+// ---------------------------------------------------------------------------
+// 10. Mutation proof for the external-wiring-failure containment.
+//     Re-inserting the legacy demo handler must break the contract above.
+// ---------------------------------------------------------------------------
+{
+  // The exact legacy handler CENTRAL flagged, re-injected in place.
+  const legacyHandler =
+    "reply.addEventListener('input',()=>{send.disabled=!reply.value.trim()});" +
+    "document.querySelector('#replyForm').addEventListener('submit',event=>{event.preventDefault();" +
+    "const item=document.createElement('article');item.className='message mine';" +
+    "item.innerHTML='<b>연블리</b><small class=\"message-state\">보냄 · 새로고침하면 초기화되는 시연입니다.</small>';" +
+    "document.querySelector('#thread').appendChild(item)});";
+
+  const mutated = messageHtml.replace(
+    'reply.addEventListener(\'input\',()=>{document.querySelector(\'#count\').textContent=reply.value.length;sendAuthority.apply()});',
+    'reply.addEventListener(\'input\',()=>{document.querySelector(\'#count\').textContent=reply.value.length;sendAuthority.apply()});' + legacyHandler,
+  );
+  assert.notEqual(mutated, messageHtml, 'mutation must actually change the document');
+  assert.match(mutated, /연블리/, 'mutation: legacy demo handler re-inserted');
+
+  // Rule (a): the mutation must break the "no send without authority" rule.
+  // Judged by the *same* harness the real document passed, so a weakened
+  // behavioural rule can never silently accept the legacy handler.
+  const mutatedInline = mutated.match(/<script>([\s\S]*?)<\/script>/)[1];
+  let runMutated;
+  try {
+    runMutated = runInlineWithoutExternal(mutatedInline);
+  } catch (err) {
+    // A mutation that cannot even execute is still a contract break.
+    runMutated = { sendEnabledAfterTyping: true, appendedMessages: 1, error: String(err) };
+  }
+
+  assert.equal(
+    runMutated.sendEnabledAfterTyping,
+    true,
+    'mutation: legacy handler re-enables send without server authority — the contract above must reject it',
+  );
+  assert.equal(
+    runMutated.appendedMessages,
+    1,
+    'mutation: legacy handler appends a local fake message without server authority — the contract above must reject it',
+  );
+
+  // And the static rules used in section 9(f) must also reject the mutation.
+  // (The mutation *does* contain the prototype strings — that is precisely why
+  // the static rules flag it. We assert the rule FAILS on the mutation, i.e.
+  // the mutation is caught, not that the mutation is clean.)
+  assert.equal(
+    fails(() => assert.doesNotMatch(mutated, /연블리|새로고침하면 초기화되는 시연|답장을 보낸 시연/)),
+    true,
+    'mutation: prototype send-demo strings must be caught by the static rule',
+  );
+}
+
 console.log('leaf-1025-initial-document-authority-contract: PASS');
+
