@@ -1,7 +1,7 @@
 import { defineConfig } from '@playwright/test';
 
 export default defineConfig({
-  testDir: './e2e',
+  testDir: './e2e-top-level-v3',
   testMatch: 'canonical-dialog-regression.spec.ts',
   timeout: 30_000,
   expect: { timeout: 7_000 },
