@@ -541,11 +541,11 @@ export function V2CommunityView({
 
       {writeKind && (
         <div className="v2-community-modal-backdrop" role="presentation">
-          <form className="v2-community-modal v2-community-writer" onSubmit={(event) => void submitPost(event)}>
+          <form className="v2-community-modal v2-community-writer" role="dialog" aria-modal="true" aria-labelledby="v2-community-write-title" onSubmit={(event) => void submitPost(event)}>
             <button type="button" className="v2-community-close" onClick={() => setWriteKind(null)} aria-label="글쓰기 닫기">×</button>
             <div className="v2-community-writer-bar"><span>←</span><strong>{writeKind} 글쓰기</strong><span>게시</span></div>
             <span className="v2-community-writer-category">{writeKind}</span>
-            <h3>{writerHeading(writeKind)}</h3>
+            <h3 id="v2-community-write-title">{writerHeading(writeKind)}</h3>
             <p className="v2-community-writer-lead">{writerLead(writeKind)}</p>
 
             {writeKind === '궁금해요' && (
@@ -611,11 +611,11 @@ export function V2CommunityView({
 
       {selected && (
         <div className="v2-community-modal-backdrop" role="presentation">
-          <article className="v2-community-modal v2-community-detail">
+          <article className="v2-community-modal v2-community-detail" role="dialog" aria-modal="true" aria-labelledby="v2-community-detail-title">
             <button type="button" className="v2-community-close" onClick={() => { setSelected(null); setCommenting(false); setReplyingTo(null); setReplies({}); }} aria-label="게시물 닫기">×</button>
             <div className="v2-community-detail-route">← 이웃대화 <span>/ 글 상세</span></div>
             <div className="v2-community-detail-meta"><span>{selected.type}</span><span>{selected.nick ?? '입주민 확인 주민'}</span><span>{selected.time}</span></div>
-            <h3>{selected.title}</h3>
+            <h3 id="v2-community-detail-title">{selected.title}</h3>
             <p>{selected.body}</p>
 
             <div className="v2-community-detail-actions v2-community-article-actions">
