@@ -82,6 +82,7 @@
     "test:e2e": "playwright test",
     "test:e2e:leaf-981-community-reply-mobile-a11y": "playwright test --config=playwright-top-level-v3.config.ts e2e-top-level-v3/community-reply-mobile-a11y-981.spec.ts",
     "test:e2e:headed": "playwright test --headed",
+    "test:canonical-dialog-regression-contract": "node tests/canonical-dialog-regression-contract.mjs",
     "test:leaf-b976-neighbor-modal-xss": "node tests/leaf-b976-neighbor-modal-xss-contract.mjs"
   },
   "dependencies": {
