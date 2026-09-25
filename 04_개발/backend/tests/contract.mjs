@@ -56,7 +56,7 @@ const checks = [
   ['app preflight allows idempotency header', app.includes('idempotency-key') && app.includes('access-control-allow-headers')],
   ['payload policy runs before route handling', app.includes('validateRequestPayload') && app.indexOf('validateRequestPayload') < app.lastIndexOf("startsWith('/api/v1/admin/')")],
   ['payload policy limits core/admin fields', payloadPolicy.includes('businessName: 80') && payloadPolicy.includes('reviewNote: 1000') && payloadPolicy.includes('body: 10000')],
-  ['payload policy preserves request body with clone', payloadPolicy.includes('request.clone().text()')],
+  ['payload policy preserves request body with clone', payloadPolicy.includes('request.clone() as Request')],
   ['active core uses narrow Neon type', core.includes('NeonQueryFunction<false, false>')],
   ['active admin uses narrow Neon type', admin.includes('NeonQueryFunction<false, false>')],
   ['admin audit uses narrow Neon type', adminAudit.includes('NeonQueryFunction<false, false>')],
