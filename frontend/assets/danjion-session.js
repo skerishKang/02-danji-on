@@ -241,9 +241,48 @@
   // the get-session read is exposed through this sanctioned auth runtime and
   // binds danjionAuthBase() exactly like the account strip does — canonical
   // Pages stays same-origin relative and a crafted ?apiBase= can never move it.
-  function fetchSession(fetchImpl, loc) {
+  function fetchSession(fetchImpl, loc, init = {}) {
     const authBase = danjionAuthBase(loc);
-    return request(fetchImpl, joinUrl(authBase, '/api/auth/get-session'));
+    return request(fetchImpl, joinUrl(authBase, '/api/auth/get-session'), init);
+  }
+
+  // #1023: one bounded, session-verified sign-out primitive for every ordinary
+  // service surface. A successful POST is not enough: the canonical session
+  // readback must also succeed and report no live Better Auth session before
+  // local auth markers are cleared. The same abort signal bounds both requests.
+  async function verifiedSignOut(fetchImpl, options = {}) {
+    const impl = fetchImpl || global.fetch;
+    const loc = options.location;
+    const requestedTimeout = Number(options.timeoutMs);
+    const timeoutMs = Number.isFinite(requestedTimeout) && requestedTimeout > 0
+      ? requestedTimeout
+      : 10000;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const authBase = danjionAuthBase(loc);
+      const result = await request(impl, joinUrl(authBase, '/api/auth/sign-out'), {
+        method: 'POST',
+        signal: controller.signal,
+        body: JSON.stringify({})
+      });
+      if (!result.ok) return { ok: false, stage: 'sign-out', result };
+
+      const after = await fetchSession(impl, loc, { signal: controller.signal });
+      if (!after || !after.ok) return { ok: false, stage: 'session-readback', result: after };
+      if (nativeSessionReady(after)) return { ok: false, stage: 'session-still-active', result: after };
+
+      clearLocalAuthMarkers();
+      return { ok: true, stage: 'signed-out', result: after };
+    } catch (error) {
+      return {
+        ok: false,
+        stage: error && error.name === 'AbortError' ? 'timeout' : 'network-error',
+        error
+      };
+    } finally {
+      clearTimeout(timer);
+    }
   }
 
   // Better Auth officially exposes listAccounts for the current session. Keep
@@ -497,16 +536,12 @@
     logout.addEventListener('click', async () => {
       logout.disabled = true;
       logout.textContent = '로그아웃 중';
-      const result = await request(fetch, joinUrl(authBase, '/api/auth/sign-out'), {
-        method: 'POST',
-        body: JSON.stringify({})
-      });
-      if (!result.ok) {
+      const outcome = await verifiedSignOut(fetch);
+      if (!outcome.ok) {
         logout.disabled = false;
         logout.textContent = '로그아웃';
         return;
       }
-      clearLocalAuthMarkers();
       location.href = 'index.html?intro=1';
     });
     actions.append(logout);
@@ -562,6 +597,7 @@
     request,
     createSessionFetch,
     fetchSession,
+    verifiedSignOut,
     fetchLinkedAccounts,
     linkedProviderIds,
     accountAuthKind,
