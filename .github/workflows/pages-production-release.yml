@@ -100,7 +100,7 @@ jobs:
 
       - uses: actions/checkout@v4
         with:
-          ref: ${{ env.EXPECTED_MAIN }}
+          ref: ${{ inputs.expected_main }}
           fetch-depth: 1
 
       - name: Verify exact current main authority before source assembly

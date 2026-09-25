@@ -27,6 +27,33 @@ function assertProductionBootstrapAuthority(source) {
   assert.doesNotMatch(source, /npm install --ignore-scripts/, 'Production backend install must not be mutable');
 }
 
+function extractRunShellSources(source) {
+  const lines = source.split(/\r?\n/);
+  const runs = [];
+  for (let index = 0; index < lines.length; index += 1) {
+    const match = lines[index].match(/^(\s*)run:\s*(.*)$/);
+    if (!match) continue;
+
+    const runIndent = match[1].length;
+    const inline = match[2].trim();
+    if (inline && !inline.startsWith('|') && !inline.startsWith('>')) {
+      runs.push(inline);
+      continue;
+    }
+
+    const block = [lines[index]];
+    while (index + 1 < lines.length) {
+      const next = lines[index + 1];
+      const nextIndent = next.match(/^\s*/)[0].length;
+      if (next.trim() && nextIndent <= runIndent) break;
+      block.push(next);
+      index += 1;
+    }
+    runs.push(block.join('\n'));
+  }
+  return runs;
+}
+
 function assertExpectedMainWorkflowBoundary(file, source) {
   if (!source.includes('expected_main:') && !source.includes(inputExpression)) return;
 
@@ -34,16 +61,13 @@ function assertExpectedMainWorkflowBoundary(file, source) {
     source.includes(environmentExpression),
     `${file}: expected_main must be assigned to EXPECTED_MAIN at a YAML environment boundary`
   );
-
-  const withoutBoundary = source.replace(
-    /^\s*EXPECTED_MAIN: \$\{\{\s*inputs\.expected_main\s*\}\}\s*$/gm,
-    ''
-  );
-  assert.doesNotMatch(
-    withoutBoundary,
-    /\$\{\{\s*inputs\.expected_main\s*\}\}/,
-    `${file}: expected_main must not be interpolated directly into workflow source`
-  );
+  for (const [index, runSource] of extractRunShellSources(source).entries()) {
+    assert.doesNotMatch(
+      runSource,
+      /\$\{\{\s*inputs\.expected_main\s*\}\}/,
+      `${file}: run shell source #${index + 1} must not interpolate expected_main directly`
+    );
+  }
   assert.match(
     source,
     /\^\[0-9a-fA-F\]\{40\}\$/,
@@ -101,7 +125,7 @@ const directSpliceMutation = productionBootstrap.replace(
   "authorized_main=\"${{ inputs.expected_main }}\""
 );
 assert.notEqual(directSpliceMutation, productionBootstrap, 'direct-splice mutation must modify the fixture');
-assert.throws(() => assertExpectedMainWorkflowBoundary('production-worker-bootstrap.yml', directSpliceMutation), /must not be interpolated directly/);
+assert.throws(() => assertExpectedMainWorkflowBoundary('production-worker-bootstrap.yml', directSpliceMutation), /run shell source .*must not interpolate expected_main directly/);
 
 const malformedValidationMutation = productionBootstrap.replaceAll(
   '^[0-9a-fA-F]{40}$',
