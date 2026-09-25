@@ -436,7 +436,8 @@ async function handlePrivate(request: Request, env: CoreEnv, sql: Sql, id: strin
 
   if (contactMatch) {
     const businessId = contactMatch[2];
-    const residentOrResponse = await requireVerifiedResident(request, env, sql, id, contactComplexSlug!);
+    const complexSlug = contactComplexSlug!;
+    const residentOrResponse = await requireVerifiedResident(request, env, sql, id, complexSlug);
     if (residentOrResponse instanceof Response) return residentOrResponse;
     const rows = await sql`
       select bc.contact_type, bc.contact_value
@@ -444,7 +445,7 @@ async function handlePrivate(request: Request, env: CoreEnv, sql: Sql, id: strin
       join business_complex_relations r on r.business_id = bc.business_id
       join complexes c on c.id = r.complex_id
       where bc.business_id = ${businessId}::uuid
-        and c.slug = ${contactComplexSlug}
+        and c.slug = ${complexSlug}
         and r.verification_status = 'verified'
         and bc.visibility in ('public','verified_residents')
       order by bc.sort_order
