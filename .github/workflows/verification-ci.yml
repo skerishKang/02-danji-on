@@ -20,7 +20,7 @@ jobs:
 
       - name: Install backend dependencies
         working-directory: 04_개발/backend
-        run: npm install --ignore-scripts
+        run: npm ci --ignore-scripts
       - name: Backend typecheck
         working-directory: 04_개발/backend
         run: npm run typecheck
@@ -30,7 +30,7 @@ jobs:
 
       - name: Install frontend dependencies
         working-directory: 04_개발/frontend
-        run: npm install --ignore-scripts
+        run: npm ci --ignore-scripts
       - name: Frontend typecheck
         working-directory: 04_개발/frontend
         run: npm run typecheck

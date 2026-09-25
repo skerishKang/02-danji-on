@@ -32,6 +32,7 @@ const EXPECTED_BACKEND_ORDER = [
   "test:auth-delete-boundary",
   "test:signup-contact-production-binding",
   "test:production-bootstrap-safety",
+  "test:production-workflow-security",
   "test:production-db-secret-bootstrap",
   "test:production-auth-readonly-diagnostic",
   "test:production-readonly-diagnostic",
