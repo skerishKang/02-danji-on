@@ -89,6 +89,7 @@ const EXPECTED_BACKEND_ORDER = [
   "test:business-image-upload-idempotency",
   "test:community-c2-schema",
   "test:community-c3-resident-api",
+  "test:community-1010-post-patch-engagement",
   "test:community-c4-moderation",
   "test:community-784-immediate-publish",
   "test:community-c6a-security",

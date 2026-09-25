@@ -87,6 +87,7 @@
     "test:community-c2-post-category": "node tests/community-c2-post-category-contract.mjs",
     "test:complex-news-article-reactions": "node tests/complex-news-article-reactions-contract.mjs",
     "test:community-c3-resident-api": "node tests/community-c3-resident-api-contract.mjs",
+    "test:community-1010-post-patch-engagement": "node tests/community-1010-post-patch-engagement-contract.mjs",
     "test:community-c4-moderation": "node tests/community-c4-moderation-contract.mjs",
     "test:community-784-immediate-publish": "node tests/community-784-immediate-publish-contract.mjs",
     "test:community-c6a-security": "node tests/community-c6a-security-gate.mjs",

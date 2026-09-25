@@ -78,6 +78,7 @@
         {"id":"test:business-image-upload-idempotency","npm":"test:business-image-upload-idempotency","kind":"contract"},
         {"id":"test:community-c2-schema","npm":"test:community-c2-schema","kind":"contract"},
         {"id":"test:community-c3-resident-api","npm":"test:community-c3-resident-api","kind":"contract"},
+        {"id":"test:community-1010-post-patch-engagement","npm":"test:community-1010-post-patch-engagement","kind":"contract"},
         {"id":"test:community-c4-moderation","npm":"test:community-c4-moderation","kind":"contract"},
         {"id":"test:community-784-immediate-publish","npm":"test:community-784-immediate-publish","kind":"contract"},
         {"id":"test:community-c6a-security","npm":"test:community-c6a-security","kind":"contract"},

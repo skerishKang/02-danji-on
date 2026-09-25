@@ -269,8 +269,7 @@
         return { ok: true, mode: 'server', status: result.status, deleted: comment.status === 'deleted', comment };
       },
 
-      async listReplies(postId, parentCommentId) {
-        const options = arguments[2] || {};
+      async listReplies(postId, parentCommentId, options = {}) {
         const post = postPath(postId);
         const parent = postPath(parentCommentId);
         if (!serverOnly()) return { mode: 'static', postId: post.id, parentCommentId: parent.id, replies: [], nextCursor: null, hasMore: false };

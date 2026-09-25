@@ -287,14 +287,14 @@ export async function handleCommunityResidentRequest(
           and complex_id = ${resident.complexId}::uuid
           and author_user_id = ${resident.id}::uuid
           and status <> 'deleted'
-        returning id, kind, category, title, body, status, published_at, created_at, updated_at
+        returning id, kind, category, title, body, status, published_at, created_at, updated_at,
+                 (select count(*) from community_reactions r where r.post_id = community_posts.id and r.reaction_type = 'like')::int as reaction_count,
+                 (select count(*) from community_comments c where c.post_id = community_posts.id and c.status = 'published')::int as comment_count,
+                 exists(select 1 from community_reactions vr where vr.post_id = community_posts.id and vr.user_id = ${resident.id}::uuid and vr.reaction_type = 'like') as viewer_liked
       `;
       if (!rows[0]) return fail('NOT_FOUND', 'Community post not found', 404, requestId);
       const row = rows[0] as Record<string, unknown>;
       row.author_nickname = resident.displayName;
-      row.reaction_count = 0;
-      row.comment_count = 0;
-      row.viewer_liked = false;
       row.viewer_is_owner = true;
       return ok(mapPost(row), requestId);
     }
