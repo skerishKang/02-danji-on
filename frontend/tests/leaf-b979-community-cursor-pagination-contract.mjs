@@ -154,8 +154,8 @@ const loadCommentsSource = detailSource.slice(detailSource.indexOf('async functi
 assert.doesNotMatch(loadCommentsSource, /loadReplies\(|listReplies\(/, 'comment first-page/load-more path must not fetch replies');
 assert.match(loadCommentsSource, /if\(!append\)\{\s*gatedCommentState\(msg\);\s*flash\(msg\);\s*\}else\{\s*flash\(msg\);\s*\}/, 'append failures preserve existing comments and expose retry');
 assert.match(bridgeSource, /async listComments\(postId, options = \{\}\)/);
-assert.match(bridgeSource, /async listReplies\(postId, parentCommentId\)/);
-assert.match(bridgeSource, /const options = arguments\[2\] \|\| \{\}/);
+assert.match(bridgeSource, /async listReplies\(postId, parentCommentId, options = \{\}\)/);
+assert.doesNotMatch(bridgeSource, /const options = arguments\[2\] \|\| \{\}/);
 console.log('PASS LOAD_MORE_UI_DUPLICATE_GUARDS');
 console.log('PASS REPLY_LOAD_MORE_AND_LAZY_UI_CONTRACT');
 console.log('PASS FAILURE_PRESERVES_EXISTING_DATA');
