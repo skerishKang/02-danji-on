@@ -8,6 +8,7 @@
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { loadAndValidateRegistry, repoPath } from '../scripts/registry-lib.mjs';
+import { absoluteRootViolations, isLegacyGrandfatheredBundle } from '../scripts/absolute-root-scanner.mjs';
 
 let failures = 0;
 function assert(condition, message) {
@@ -67,15 +68,15 @@ for (const version of registry.versions) {
   }
 
   // Self-containment: relative assets only, no absolute origins in bundle code.
-  const ABS_ROOT_HTML = /(?:src|href)\s*=\s*["']\//i;
-  const ABS_ROOT_CSS = /url\(\s*["']?\//i;
+  const legacyGrandfathered = isLegacyGrandfatheredBundle(version.id);
   const ABS_ORIGIN = /https?:\/\//i;
   for (const file of walkFiles(mountDir)) {
     if (!/\.(html|css|js|mjs)$/i.test(file)) continue;
     const rel = file.slice(mountDir.length + 1);
     const text = readFileSync(file, 'utf8');
-    assert(!ABS_ROOT_HTML.test(text) && !ABS_ROOT_CSS.test(text),
-      `${version.id}: ${rel} must use relative asset paths (no absolute-root refs)`);
+    const rootViolations = absoluteRootViolations(text, { legacy: legacyGrandfathered });
+    assert(rootViolations.length === 0,
+      `${version.id}: ${rel} absolute-root violations: ${rootViolations.join(', ')}`);
     assert(!ABS_ORIGIN.test(text),
       `${version.id}: ${rel} must not embed absolute http(s) origins (mock/read-only data only)`);
   }
