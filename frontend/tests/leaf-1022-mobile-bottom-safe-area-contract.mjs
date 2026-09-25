@@ -80,24 +80,35 @@ const hasFinalSafeArea = source => {
     && !/height:68px!important|padding:0!important/.test(d);
 };
 
+const mutateFinal = (source, from, to) => {
+  const start = source.indexOf(ownerMarker);
+  assert.notEqual(start, -1, 'mutation helper requires OWNERPASS section');
+  const before = source.slice(0, start);
+  const owner = source.slice(start);
+  assert.ok(owner.includes(from), `mutation target must exist in OWNERPASS: ${from}`);
+  return before + owner.replace(from, to);
+};
+
 const mutations = [
   [
     'fixed-height-regression',
-    css.replace(
+    mutateFinal(
+      css,
       'height:calc(68px + env(safe-area-inset-bottom,0px))!important',
       'height:68px!important'
     )
   ],
   [
     'zero-padding-regression',
-    css.replace(
+    mutateFinal(
+      css,
       'padding:0 0 env(safe-area-inset-bottom,0px)!important',
       'padding:0!important'
     )
   ],
   [
     'missing-border-box',
-    css.replace('box-sizing:border-box!important;', '')
+    mutateFinal(css, 'box-sizing:border-box!important;', '')
   ]
 ];
 
