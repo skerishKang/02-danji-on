@@ -100,6 +100,7 @@ const EXPECTED_BACKEND_ORDER = [
   "test:business-category-benefit",
   "test:public-complex-eligibility",
   "test:core-public-route-identifiers",
+  "test:safe-complex-slug-1018",
   "test:saved-shops-server",
   "test:community-replies",
   "test:community-notifications",

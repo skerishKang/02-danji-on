@@ -162,8 +162,9 @@ function assertSourceContract(source) {
   assert.equal(publicSource.includes('decodeURIComponent(match[1])'), false);
   assert.match(
     source,
-    /function decodePublicComplexSlug\(raw: string\): string \| null \{[\s\S]*?return decodeURIComponent\(raw\);[\s\S]*?catch \{[\s\S]*?return null;/
+    /function decodePublicComplexSlug\(raw: string\): string \| null \{[\s\S]*?return decodeComplexSlug\(raw\);/
   );
+  assert.match(source, /import \{ decodeComplexSlug \} from '\.\/complex-slug-v1'/);
   const businessRoute = source.indexOf("/businesses\\/([0-9a-fA-F-]+)$/");
   const businessGuard = source.indexOf('if (!UUID.test(businessId))', businessRoute);
   const businessQuery = source.indexOf('select b.id, b.kind', businessRoute);
@@ -181,7 +182,7 @@ const withoutUuidGuards = coreSource
 assert.throws(() => assertSourceContract(withoutUuidGuards));
 
 const withUnsafeSlugDecoder = coreSource.replace(
-  'return decodeURIComponent(raw);',
+  'return decodeComplexSlug(raw);',
   'return raw;'
 );
 assert.throws(() => assertSourceContract(withUnsafeSlugDecoder));

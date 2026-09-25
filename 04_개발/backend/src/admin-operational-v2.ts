@@ -11,6 +11,7 @@ import {
   type OperationalAuthority
 } from './operational-authz-v2';
 import { validateBusinessImageReference, validateOfficialNewsImageReference } from './storage-reference-v1';
+import { decodeComplexSlug } from './complex-slug-v1';
 import {
   insertOfficialNewsPostWithAttachment,
   updateOfficialNewsPostWithAttachment
@@ -736,7 +737,8 @@ export async function handleAdminOperationalRequest(
 
   let match = path.match(/^\/api\/v1\/admin\/complexes\/([^/]+)\/business-applications$/);
   if (match && request.method === 'GET') {
-    const complexSlug = decodeURIComponent(match[1]);
+    const complexSlug = decodeComplexSlug(match[1]);
+    if (!complexSlug) return fail('INVALID_COMPLEX_SLUG', 'Invalid complex slug', 400, requestId);
     const operator = await authority(request, env, sql, requestId, complexSlug, POLICY.businessReview);
     if (operator instanceof Response) return operator;
 
@@ -767,7 +769,8 @@ export async function handleAdminOperationalRequest(
 
   match = path.match(/^\/api\/v1\/admin\/complexes\/([^/]+)\/posts$/);
   if (match && request.method === 'GET') {
-    const complexSlug = decodeURIComponent(match[1]);
+    const complexSlug = decodeComplexSlug(match[1]);
+    if (!complexSlug) return fail('INVALID_COMPLEX_SLUG', 'Invalid complex slug', 400, requestId);
     const operator = await authority(request, env, sql, requestId, complexSlug, POLICY.officialContent);
     if (operator instanceof Response) return operator;
 
@@ -791,7 +794,9 @@ export async function handleAdminOperationalRequest(
   }
 
   if (match && request.method === 'POST') {
-    return createPost(request, env, sql, decodeURIComponent(match[1]), requestId);
+    const complexSlug = decodeComplexSlug(match[1]);
+    if (!complexSlug) return fail('INVALID_COMPLEX_SLUG', 'Invalid complex slug', 400, requestId);
+    return createPost(request, env, sql, complexSlug, requestId);
   }
 
   match = path.match(/^\/api\/v1\/admin\/posts\/([0-9a-fA-F-]+)$/);
@@ -801,7 +806,8 @@ export async function handleAdminOperationalRequest(
 
   match = path.match(/^\/api\/v1\/admin\/complexes\/([^/]+)\/benefits$/);
   if (match && request.method === 'GET') {
-    const complexSlug = decodeURIComponent(match[1]);
+    const complexSlug = decodeComplexSlug(match[1]);
+    if (!complexSlug) return fail('INVALID_COMPLEX_SLUG', 'Invalid complex slug', 400, requestId);
     const operator = await authority(request, env, sql, requestId, complexSlug, POLICY.benefitManage);
     if (operator instanceof Response) return operator;
 
@@ -826,7 +832,9 @@ export async function handleAdminOperationalRequest(
   }
 
   if (match && request.method === 'POST') {
-    return createBenefit(request, env, sql, decodeURIComponent(match[1]), requestId);
+    const complexSlug = decodeComplexSlug(match[1]);
+    if (!complexSlug) return fail('INVALID_COMPLEX_SLUG', 'Invalid complex slug', 400, requestId);
+    return createBenefit(request, env, sql, complexSlug, requestId);
   }
 
   match = path.match(/^\/api\/v1\/admin\/benefits\/([0-9a-fA-F-]+)$/);

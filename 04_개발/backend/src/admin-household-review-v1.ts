@@ -1,5 +1,6 @@
 import { neon, type NeonQueryFunction } from '@neondatabase/serverless';
 import { requireActor, type Actor } from './auth-v1';
+import { decodeComplexSlug } from './complex-slug-v1';
 import type { CoreEnv } from './core-v1';
 import { recordAuthorityDecision, resolvePadiemAuthority } from './padiem-authority-v1';
 
@@ -7,7 +8,6 @@ type Sql = NeonQueryFunction<false, false>;
 
 const SCOPE = 'resident.verification.manage';
 const MAX_BODY_BYTES = 4 * 1024;
-const SLUG = /^[a-z0-9][a-z0-9-]{0,119}$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function json(data: unknown, status: number, requestId: string): Response {
@@ -297,8 +297,8 @@ export async function handleAdminHouseholdReviewWithSql(
   );
   if (listMatch) {
     if (request.method !== 'GET') return fail('METHOD_NOT_ALLOWED', 'Method not allowed', 405, requestId);
-    const complexSlug = decodeURIComponent(listMatch[1]).trim();
-    if (!SLUG.test(complexSlug)) return fail('COMPLEX_INVALID', 'Invalid apartment complex', 400, requestId);
+    const complexSlug = decodeComplexSlug(listMatch[1]);
+    if (!complexSlug) return fail('INVALID_COMPLEX_SLUG', 'Invalid complex slug', 400, requestId);
     return listPending(request, env, sql, requestId, complexSlug);
   }
 

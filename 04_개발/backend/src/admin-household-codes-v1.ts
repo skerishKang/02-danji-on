@@ -1,5 +1,6 @@
 import { neon, type NeonQueryFunction } from '@neondatabase/serverless';
 import type { CoreEnv } from './core-v1';
+import { decodeComplexSlug } from './complex-slug-v1';
 import { requireOperationalAuthority } from './operational-authz-v2';
 import { generateHouseholdCode, householdCodeVerifier } from './household-code-crypto';
 
@@ -10,7 +11,6 @@ export type AdminHouseholdCodeEnv = CoreEnv & {
 };
 
 const MAX_BODY_BYTES = 4 * 1024;
-const SLUG = /^[a-z0-9][a-z0-9-]{0,119}$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const UNIT_PART = /^[0-9A-Za-z가-힣-]{1,20}$/;
 const PADIEM_SCOPE = 'resident.verification.manage';
@@ -333,8 +333,8 @@ export async function handleAdminHouseholdCodeWithSql(
 
   let match = path.match(/^\/api\/v1\/admin\/complexes\/([^/]+)\/resident-verification\/household-codes$/);
   if (match) {
-    const slug = decodeURIComponent(match[1]).trim();
-    if (!SLUG.test(slug)) return fail('VALIDATION_ERROR', 'Invalid complex', 400, requestId);
+    const slug = decodeComplexSlug(match[1]);
+    if (!slug) return fail('INVALID_COMPLEX_SLUG', 'Invalid complex slug', 400, requestId);
     if (request.method === 'GET') return listCodes(request, env, sql, requestId, slug);
     if (request.method === 'POST') return provisionCode(request, env, sql, requestId, slug);
     return fail('METHOD_NOT_ALLOWED', 'Method not allowed', 405, requestId);
@@ -342,8 +342,8 @@ export async function handleAdminHouseholdCodeWithSql(
 
   match = path.match(/^\/api\/v1\/admin\/complexes\/([^/]+)\/resident-verification\/household-codes\/([0-9a-fA-F-]+)$/);
   if (match) {
-    const slug = decodeURIComponent(match[1]).trim();
-    if (!SLUG.test(slug)) return fail('VALIDATION_ERROR', 'Invalid complex', 400, requestId);
+    const slug = decodeComplexSlug(match[1]);
+    if (!slug) return fail('INVALID_COMPLEX_SLUG', 'Invalid complex slug', 400, requestId);
     if (request.method !== 'DELETE') return fail('METHOD_NOT_ALLOWED', 'Method not allowed', 405, requestId);
     return revokeCode(request, env, sql, requestId, slug, match[2]);
   }

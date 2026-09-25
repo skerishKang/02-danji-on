@@ -1,10 +1,10 @@
 import { neon, type NeonQueryFunction } from '@neondatabase/serverless';
 import type { CoreEnv } from './core-v1';
+import { decodeComplexSlug } from './complex-slug-v1';
 
 type Sql = NeonQueryFunction<false, false>;
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const COMPLEX_SLUG = /^[a-z0-9][a-z0-9-]{0,119}$/;
 const SHARE_SLUG = /^[a-z0-9][a-z0-9-]{7,63}$/;
 
 function ok(data: unknown, requestId: string): Response {
@@ -44,10 +44,8 @@ export async function handleBusinessShareWithSql(
   if (!byId && !byShare) return null;
   if (request.method !== 'GET') return fail('METHOD_NOT_ALLOWED', 'Method not allowed', 405, requestId);
 
-  const complexSlug = decodeURIComponent((byId ?? byShare)![1]).trim();
-  if (!COMPLEX_SLUG.test(complexSlug)) {
-    return fail('VALIDATION_ERROR', 'Invalid apartment complex', 400, requestId);
-  }
+  const complexSlug = decodeComplexSlug((byId ?? byShare)![1]);
+  if (!complexSlug) return fail('INVALID_COMPLEX_SLUG', 'Invalid complex slug', 400, requestId);
 
   if (byId) {
     const businessId = byId[2].toLowerCase();
