@@ -18,6 +18,7 @@ const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
 
 const EXPECTED_BACKEND_ORDER = [
   "typecheck",
+  "test:payload-policy-1017",
   "test:storage",
   "test:storage-contract",
   "test:storage-multipart-bounds",

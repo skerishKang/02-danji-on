@@ -15,6 +15,8 @@ const BUSINESS_ID = '10180000-0000-4000-8000-000000000001';
 const REVIEW_ID = '10180000-0000-4000-8000-000000000002';
 const VALID_SLUG = 'banglim-myeongji-roadhill';
 const MALFORMED_SLUGS = ['%', '%2', '%ZZ', '%E0%A4'];
+const NONCANONICAL_SLUGS = ['%20banglim-myeongji-roadhill', 'banglim-myeongji-roadhill%20'];
+const INVALID_SLUGS = [...MALFORMED_SLUGS, ...NONCANONICAL_SLUGS];
 
 const representativeRoutes = [
   {
@@ -67,7 +69,7 @@ for (const route of representativeRoutes) {
   );
   assert.equal(validControl.sqlCalls, 0);
 
-  for (const rawSlug of MALFORMED_SLUGS) {
+  for (const rawSlug of INVALID_SLUGS) {
     const { response, sqlCalls } = await dispatch(route, rawSlug);
     const body = await response.json();
     assert.equal(response.status, 400, `${route.name} ${rawSlug} must be 4xx`);
@@ -80,7 +82,7 @@ for (const route of representativeRoutes) {
 }
 
 assert.equal(decodeComplexSlug(VALID_SLUG), VALID_SLUG, 'valid canonical slug parity must be preserved');
-for (const rawSlug of MALFORMED_SLUGS) {
+for (const rawSlug of INVALID_SLUGS) {
   assert.equal(decodeComplexSlug(rawSlug), null, `${rawSlug} must fail closed`);
 }
 
@@ -116,7 +118,7 @@ function assertSourceContract(helper, routeSources) {
 assertSourceContract(helperSource, sources);
 
 const unsafeHelper = helperSource
-  .replace('const decoded = decodeURIComponent(raw).trim();', 'const decoded = raw.trim();')
+  .replace('const decoded = decodeURIComponent(raw);', 'const decoded = raw;')
   .replace('return COMPLEX_SLUG.test(decoded) ? decoded : null;', 'return decoded;');
 assert.throws(() => assertSourceContract(unsafeHelper, sources), 'removing URIError fail-closed handling must fail the contract');
 
@@ -130,6 +132,7 @@ for (const [name, source] of sources) {
 
 console.log('REPRESENTATIVE_PRIVATE_ADMIN_ROUTES=3');
 console.log(`MALFORMED_PERCENT_ENCODING_CASES=${MALFORMED_SLUGS.length}`);
+console.log(`NONCANONICAL_DECODABLE_SLUG_CASES=${NONCANONICAL_SLUGS.length}`);
 console.log('MALFORMED_PERCENT_ENCODING=400_INVALID_COMPLEX_SLUG');
 console.log('URI_ERROR_ESCAPE=0');
 console.log('INVALID_COMPLEX_SLUG_DB_QUERY=0');

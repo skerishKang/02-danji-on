@@ -1,6 +1,7 @@
 import { neon, type NeonQueryFunction } from '@neondatabase/serverless';
 import { requireOperationalAuthority } from './operational-authz-v2';
 import type { CoreEnv } from './core-v1';
+import { readBoundedJsonBody } from './payload-policy';
 
 type Sql = NeonQueryFunction<false, false>;
 
@@ -27,15 +28,7 @@ function fail(code: string, message: string, status: number, requestId: string):
 }
 
 async function bodyJson(request: Request, requestId: string): Promise<Record<string, unknown> | Response> {
-  try {
-    const payload = await request.json();
-    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
-      return fail('INVALID_JSON', 'JSON object required', 400, requestId);
-    }
-    return payload as Record<string, unknown>;
-  } catch {
-    return fail('INVALID_JSON', 'Invalid JSON', 400, requestId);
-  }
+  return readBoundedJsonBody(request, requestId);
 }
 
 function text(value: unknown): string {
