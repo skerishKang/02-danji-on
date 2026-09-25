@@ -32,6 +32,7 @@ const EXPECTED_BACKEND_ORDER = [
   "test:auth-delete-boundary",
   "test:signup-contact-production-binding",
   "test:production-bootstrap-safety",
+  "test:production-workflow-security",
   "test:production-db-secret-bootstrap",
   "test:production-auth-readonly-diagnostic",
   "test:production-readonly-diagnostic",
@@ -205,6 +206,7 @@ const EXPECTED_FRONTEND_ORDER = [
    "test:leaf-982-settings-signed-out-gate",
    "test:leaf-981-community-reply-mobile-a11y",
    "test:leaf-b976-neighbor-modal-xss",
+   "test:canonical-dialog-regression-contract",
  ];
 
 const EXPECTED_CI_ONLY = [

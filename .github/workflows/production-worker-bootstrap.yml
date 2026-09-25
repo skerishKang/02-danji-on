@@ -27,12 +27,6 @@ on:
         required: false
         default: false
         type: boolean
-  push:
-    branches:
-      - main
-    paths:
-      - '.github/workflows/production-worker-bootstrap.yml'
-
 permissions:
   contents: read
 
@@ -40,12 +34,13 @@ concurrency:
   group: danjion-production-worker
   cancel-in-progress: false
 
+env:
+  EXPECTED_MAIN: ${{ inputs.expected_main }}
+
 jobs:
   deploy-production-worker:
     name: Guarded production Worker deploy
-    if: >-
-      (github.event_name == 'workflow_dispatch' && inputs.confirm_production) ||
-      (github.event_name == 'push' && github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, '[production-bootstrap]'))
+    if: github.event_name == 'workflow_dispatch' && inputs.confirm_production
     runs-on: ubuntu-latest
     environment: production
     permissions:
@@ -84,18 +79,18 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          if [[ ! "${EXPECTED_MAIN}" =~ ^[0-9a-fA-F]{40}$ ]]; then
+            echo "::error::expected_main must be a 40-character hexadecimal SHA"
+            exit 1
+          fi
           git fetch origin main --no-tags
           actual_main="$(git rev-parse origin/main)"
           target_sha="${GITHUB_SHA}"
 
-          if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
-            authorized_main="${{ inputs.expected_main }}"
-            if [ -z "${authorized_main}" ]; then
-              echo "::error::Expected main SHA is required for a Production Worker dispatch."
-              exit 1
-            fi
-          else
-            authorized_main="${target_sha}"
+          authorized_main="${EXPECTED_MAIN}"
+          if [ -z "${authorized_main}" ]; then
+            echo "::error::Expected main SHA is required for a Production Worker dispatch."
+            exit 1
           fi
 
           if [ "${target_sha}" != "${authorized_main}" ] || [ "${actual_main}" != "${authorized_main}" ]; then
@@ -111,7 +106,7 @@ jobs:
           node-version: '24'
 
       - name: Install backend dependencies
-        run: npm install --ignore-scripts
+        run: npm ci --ignore-scripts
 
       - name: Verify source-side production safety contract
         run: |

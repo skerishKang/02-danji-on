@@ -47,8 +47,10 @@ import {
 import V2BenefitsSection from './V2BenefitsSection';
 import V2OperatorReviewDialog from './V2OperatorReviewDialog';
 import V2PromoSection from './V2PromoSection';
+import { useV2DialogLifecycle } from './v2-dialog-lifecycle';
 
 export default function V2IntegratedApp() {
+  useV2DialogLifecycle();
   const residentAuth = authProvider.snapshot('resident');
   const danjionAuthMode = residentAuth.mode === 'danjion';
   const [danjionSessionReady, setDanjionSessionReady] = useState(false);

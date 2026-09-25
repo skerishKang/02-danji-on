@@ -21,6 +21,7 @@
         {"id":"test:auth-delete-boundary","npm":"test:auth-delete-boundary","kind":"contract"},
         {"id":"test:signup-contact-production-binding","npm":"test:signup-contact-production-binding","kind":"contract"},
         {"id":"test:production-bootstrap-safety","npm":"test:production-bootstrap-safety","kind":"contract"},
+        {"id":"test:production-workflow-security","npm":"test:production-workflow-security","kind":"contract"},
         {"id":"test:production-db-secret-bootstrap","npm":"test:production-db-secret-bootstrap","kind":"contract"},
         {"id":"test:production-auth-readonly-diagnostic","npm":"test:production-auth-readonly-diagnostic","kind":"contract"},
         {"id":"test:production-readonly-diagnostic","npm":"test:production-readonly-diagnostic","kind":"contract"},

@@ -34,6 +34,9 @@ concurrency:
   group: danjion-production-existing-admin-principal-adoption
   cancel-in-progress: false
 
+env:
+  EXPECTED_MAIN: ${{ inputs.expected_main }}
+
 jobs:
   adopt:
     name: Guarded existing administrator principal adoption
@@ -58,9 +61,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          if [[ ! "${EXPECTED_MAIN}" =~ ^[0-9a-fA-F]{40}$ ]]; then
+            echo "::error::expected_main must be a 40-character hexadecimal SHA"
+            exit 1
+          fi
           git fetch origin main --no-tags
           actual_main="$(git rev-parse origin/main)"
-          expected_main="${{ inputs.expected_main }}"
+          expected_main="${EXPECTED_MAIN}"
           if [ "$GITHUB_SHA" != "$expected_main" ] || [ "$actual_main" != "$expected_main" ]; then
             echo "::error::Exact-main authority mismatch."
             echo "EXPECTED_MAIN=$expected_main"
@@ -97,7 +104,7 @@ jobs:
           echo "EXECUTION_AUTHORITY=PASS mode=$mode"
 
       - name: Install backend dependencies
-        run: npm install --ignore-scripts
+        run: npm ci --ignore-scripts
 
       - name: Run source safety contract
         run: npm run test:production-admin-principal-adopt-existing
