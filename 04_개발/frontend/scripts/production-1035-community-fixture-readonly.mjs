@@ -36,6 +36,10 @@ function markerFamilies(value) {
   if (s.includes('QA-SUPER-VERIFY')) out.push('QA_SUPER_VERIFY');
   if (s.includes('QA #830') || s.includes('QA830') || s.includes('QA-830')) out.push('QA_830');
   if (s.includes('QA-810') || s.includes('QA #810') || s.includes('QA810')) out.push('QA_810');
+  if (s.includes('[QA]')) out.push('QA_GENERIC');
+  if (s.includes('UI 댓글 검증용입니다.'.toUpperCase())) out.push('AUDIT_UI_COMMENT');
+  if (s.includes('댓글 등록 핸들러 검증'.toUpperCase())) out.push('AUDIT_COMMENT_HANDLER');
+  if (s.includes('답글 등록 핸들러 검증'.toUpperCase())) out.push('AUDIT_REPLY_HANDLER');
   return out;
 }
 
@@ -84,6 +88,7 @@ function safePost(row, meta) {
     apartmentScope: COMPLEX,
     exactHistoricalAnchor: meta.exactHistoricalAnchor,
     markerFamilies: meta.marker,
+    ownedByTestResident: Boolean(row.viewerCanDelete || row.viewerCanEdit),
     authorFingerprint: sha(row?.author?.nickname),
   };
 }
@@ -102,6 +107,7 @@ function safeComment(row, postId, type = 'comment') {
     apartmentScope: COMPLEX,
     exactHistoricalAnchor: HISTORICAL_COMMENTS.get(id) || null,
     markerFamilies: markerFamilies(row?.body),
+    ownedByTestResident: type === 'comment' ? Boolean(row.viewerCanDelete) : null,
     authorFingerprint: sha(row?.author?.nickname),
   };
 }
