@@ -95,6 +95,28 @@ function sqlQuery(strings, ...values) {
     return actor ? [actor] : [];
   }
 
+  // #1046: the in-transaction authority assertion must be matched before any
+  // grant readback, because it also selects from padiem_operator_grants.
+  //
+  // The assertion raises a genuine Postgres `division by zero` (SQLSTATE 22012)
+  // when the established authority fails the role expectation, which aborts the
+  // transaction and rolls the whole commit unit back.
+  if (query.includes('authority_established')) {
+    // values: [runtimeScopes, scopeCount, expectedWildcard, actorId]
+    const expectedScopes = Array.isArray(values[0]) ? values[0].map(String) : [];
+    const expectedCount = Number(values[1]);
+    const expectedWildcard = values[2] === true;
+    const active = [...grantsFor(String(values[3]))];
+    const expectedPresent = new Set(active.filter((scope) => expectedScopes.includes(scope))).size;
+    const wildcardParity = active.includes('*') === expectedWildcard;
+    if (expectedPresent !== expectedCount || !wildcardParity) {
+      const abort = new Error('division by zero');
+      abort.code = '22012';
+      throw abort;
+    }
+    return [{ authority_established: 1 }];
+  }
+
   if (query.startsWith('insert into padiem_operator_grants')) {
     assert.match(query, /on conflict do nothing/, 'bootstrap grant materialization must be retry-idempotent');
     assert.doesNotMatch(query, /request\.json|x-danjion-role/i, 'grant SQL must not rely on client authority input');
@@ -104,21 +126,23 @@ function sqlQuery(strings, ...values) {
     return [];
   }
 
-  if (query.includes('from padiem_operator_grants')) {
-    assert.match(query, /status = 'active'/, 'authority readback must require active grants');
-    assert.match(query, /expires_at is null or expires_at > now\(\)/, 'authority readback must enforce expiry');
-    const actorId = String(values[0]);
-    return [...grantsFor(actorId)].sort().map((scope, index) => ({ id: 'g-' + index, scope }));
-  }
+  // Deliberately no general grant readback branch: after #1046 the bootstrap
+  // path must establish authority inside the commit unit and never re-read it
+  // after the commit. An unmodelled read from padiem_operator_grants therefore
+  // fails this harness loudly instead of passing silently.
 
   if (query.startsWith('insert into audit_events')) {
     assert.match(query, /authorization\.admin-bootstrap/, 'bootstrap decisions must use a dedicated audit action');
+    // Two shapes reach this branch. The shared auditBootstrap helper interpolates
+    // decision and reason_code (six values), while the in-transaction success
+    // audit spells both as SQL literals and interpolates only four values.
+    const inlinesDecision = query.includes("'admin.bootstrap', 'allowed',");
     auditEvents.push({
       requestId: String(values[0]),
       actorId: String(values[1]),
-      decision: String(values[3]),
-      reasonCode: String(values[4]),
-      metadata: JSON.parse(String(values[5]))
+      decision: inlinesDecision ? 'allowed' : String(values[3]),
+      reasonCode: inlinesDecision ? 'ADMIN_BOOTSTRAP_GRANTED' : String(values[4]),
+      metadata: JSON.parse(String(inlinesDecision ? values[3] : values[5]))
     });
     return [];
   }
@@ -134,10 +158,20 @@ function sqlQuery(strings, ...values) {
 // faithful enough for the pre-existing assertions.
 // Mirrors the neon query function: calling `sql` returns a thenable query
 // object, so both `await sql`...`` and `sql.transaction([...])` work.
+// Mirrors the neon query function: calling `sql`...`` returns a thenable query
+// object whose `run()` executes the statement. `sql.transaction([...])` holds
+// those same objects and runs them inside the transaction boundary, so the
+// rollback below is reachable instead of the statement having already executed
+// while the write set was still being assembled.
 function sql(strings, ...values) {
-  const q = sqlQuery(strings, ...values);
-  q.run = () => q;
-  return q;
+  let promise = null;
+  const run = () => (promise ||= Promise.resolve().then(() => sqlQuery(strings, ...values)));
+  return {
+    then: (onOk, onErr) => run().then(onOk, onErr),
+    catch: (onErr) => run().catch(onErr),
+    finally: (onFinally) => run().finally(onFinally),
+    run
+  };
 }
 
 sql.transaction = async (queries) => {
