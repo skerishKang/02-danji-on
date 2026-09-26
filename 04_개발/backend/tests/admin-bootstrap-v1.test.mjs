@@ -114,7 +114,9 @@ function sqlQuery(strings, ...values) {
       abort.code = '22012';
       throw abort;
     }
-    return [{ authority_established: 1 }];
+    // The same statement also returns the full active/unexpired scope set, which
+    // the success response reports. Sorted like `array_agg(scope order by scope)`.
+    return [{ authority_established: 1, active_scopes: [...active].sort() }];
   }
 
   if (query.startsWith('insert into padiem_operator_grants')) {

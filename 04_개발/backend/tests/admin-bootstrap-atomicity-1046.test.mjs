@@ -29,7 +29,7 @@
 //   Case C  success parity                -> SUPER and OPERATIONAL, no post-commit DB work
 //   Case D  idempotent re-bootstrap       -> no duplicates, authority unchanged
 //   Case E  allowed-audit failure         -> grants roll back with the audit
-//   Case F  unrelated pre-existing grant  -> neither rejected nor removed
+//   Case F  unrelated pre-existing grant  -> preserved in DB *and* in the response
 //   Case G  assertion abort               -> the handler rolls the unit back
 //
 // Three mutation proofs re-state rejected algorithms *inside this test* and show
@@ -186,7 +186,10 @@ function makeSql({
       if (expectedPresent !== expectedCount || !wildcardParity) {
         throw assertionAbort();
       }
-      return [{ authority_established: 1 }];
+      // The same statement returns the full active/unexpired scope set, which is
+      // what the success response reports. Sorted exactly like the shipped
+      // `array_agg(scope order by scope)`.
+      return [{ authority_established: 1, active_scopes: [...active].sort() }];
     }
 
     if (query.startsWith('insert into padiem_operator_grants')) {
@@ -471,9 +474,15 @@ for (const [label, subject, role] of [
 }
 
 // ===========================================================================
-// Case F — EXTRA_BOUNDED_GRANT_POLICY_CHANGE=NO. An unrelated pre-existing
-// bounded grant is neither rejected nor removed, and the response reports the
-// canonical runtime bundle the bootstrap established.
+// Case F — D1_RESPONSE_TRUTH.
+//
+// An unrelated pre-existing bounded grant must be:
+//   REJECT=NO, DELETE=NO, HIDE_FROM_RESPONSE=NO
+//
+// The pre-#1046 response reported every active/unexpired grant through
+// `resolvePadiemAuthority`, so a principal holding an extra bounded grant saw it
+// in `data.scopes`. The response must keep saying that, while still doing no
+// database work after the commit.
 // ===========================================================================
 {
   // A real bounded PADIEM scope that is NOT part of the OPERATIONAL runtime
@@ -485,24 +494,37 @@ for (const [label, subject, role] of [
     'Case F: the extra scope must be outside the OPERATIONAL runtime bundle for this case to mean anything'
   );
 
-  const { sql, grants, auditEvents } = makeSql({ existingGrants: [EXTRA] });
+  const { sql, grants, auditEvents, stats } = makeSql({ existingGrants: [EXTRA] });
 
   const response = await bootstrapAdminAuthorityResponse(request('sub-operational'), env, sql, 'req-f');
   const body = await response.json();
 
+  const dbAuthority = scopesOf(grants);
+
   assert.equal(response.status, 200, 'Case F: an unrelated pre-existing bounded grant must not fail bootstrap');
-  assert.equal(grants.has(EXTRA), true, 'Case F: the pre-existing bounded grant must not be removed');
+
+  assert.equal(grants.has(EXTRA), true, 'EXTRA_GRANT_DB_PRESERVED=YES');
   assert.deepEqual(
-    scopesOf(grants),
-    [...OPERATIONAL_SCOPES, EXTRA].sort(),
-    'Case F: bootstrap must add only the runtime bundle and leave the extra grant alone'
+    OPERATIONAL_SCOPES.filter((scope) => dbAuthority.includes(scope)).sort(),
+    [...OPERATIONAL_SCOPES].sort(),
+    'EXPECTED_RUNTIME_SCOPES_PRESENT=YES'
   );
+  assert.deepEqual(
+    dbAuthority,
+    [...OPERATIONAL_SCOPES, EXTRA].sort(),
+    'Case F: the extra bounded grant must be neither rejected nor removed'
+  );
+
+  assert.equal(body.data.scopes.includes(EXTRA), true, 'RESPONSE_SCOPES_INCLUDE_EXTRA_GRANT=YES');
   assert.deepEqual(
     body.data.scopes,
-    [...OPERATIONAL_SCOPES],
-    'Case F: the response reports the canonical runtime bundle the commit unit established'
+    dbAuthority,
+    'RESPONSE_SCOPES_MATCH_ACTUAL_ACTIVE_AUTHORITY=YES'
   );
-  assert.equal(body.data.wildcard, false);
+  assert.equal(body.data.wildcard, false, 'Case F: OPERATIONAL must never report a wildcard');
+  assert.equal(body.data.level, 'operator', 'Case F: level must follow the real active authority');
+
+  assert.equal(stats.queriesAfterSuccessfulTransaction, 0, 'POST_COMMIT_DB_QUERY=0');
   assert.equal(auditEvents.at(-1).reasonCode, 'ADMIN_BOOTSTRAP_GRANTED');
 }
 

@@ -238,19 +238,26 @@ export async function bootstrapAdminAuthorityResponse(
       scopeCount: runtimeScopes.length
     });
 
+    let authorityRows: Array<{ active_scopes: string[] | null }> | undefined;
     try {
-      await sql.transaction([
+      const transactionResults = await sql.transaction([
         ...grantWrites,
-        // Transactional authority assertion.
+        // Transactional authority assertion, and the authority readback.
         //
-        // The semantics are the pre-existing bootstrap readback contract, not a
-        // new policy:
+        // The assertion semantics are the pre-existing bootstrap readback
+        // contract, not a new policy:
         //   * every expected runtime scope is present, active and unexpired
         //   * wildcard presence matches the role (SUPER yes, OPERATIONAL no)
         // An unrelated pre-existing bounded grant is neither rejected nor
         // removed: the expected-scope count is taken over the runtime scopes
         // only, while wildcard parity is judged over all active grants, exactly
         // as `resolvePadiemAuthority` judged it before.
+        //
+        // The same statement also returns `active_scopes`, the full
+        // active/unexpired scope set, so the response can report the real
+        // authority without a second query after the commit. That is why the
+        // statement is an aggregate over one row: the authority it reports and
+        // the assertion it enforces are read from the same consistent snapshot.
         //
         // The abort signal is a genuine runtime `division by zero` (SQLSTATE
         // 22012) and not a constant `else 1 / 0`, which a planner could fold at
@@ -262,14 +269,20 @@ export async function bootstrapAdminAuthorityResponse(
         // instead of an error, so that shape never aborts and the assertion
         // would silently become a no-op.
         sql`
-          select 1 / case when expected_present and wildcard_parity then 1 else 0 end
-            as authority_established
+          select
+            1 / case when expected_present and wildcard_parity then 1 else 0 end
+              as authority_established,
+            active_scopes
           from (
             select
               count(distinct scope) filter (
                 where scope = any(${runtimeScopes}::text[])
               ) = ${runtimeScopes.length}::int as expected_present,
-              coalesce(bool_or(scope = '*'), false) = ${expectedWildcard} as wildcard_parity
+              coalesce(bool_or(scope = '*'), false) = ${expectedWildcard} as wildcard_parity,
+              coalesce(
+                array_agg(scope order by scope),
+                array[]::text[]
+              ) as active_scopes
             from padiem_operator_grants
             where user_id = ${actor.id}::uuid
               and status = 'active'
@@ -300,6 +313,17 @@ export async function bootstrapAdminAuthorityResponse(
           )
         `
       ]);
+
+      // #1046: the authority the transaction actually established is taken from
+      // the assertion statement's own result, inside the same transaction. The
+      // commit unit is deliberately never followed by a second query: a
+      // post-commit read could fail on its own and turn an already committed
+      // bootstrap into a 503 while the grants stayed committed.
+      //
+      // `transaction()` returns one result per statement, in order, so the
+      // assertion sits at `runtimeScopes.length`, immediately after the grants.
+      authorityRows = transactionResults[runtimeScopes.length] as unknown as
+        Array<{ active_scopes: string[] | null }>;
     } catch (error) {
       // The assertion aborted the transaction. Report the pre-existing
       // failed-readback contract rather than a generic database error, because
@@ -316,22 +340,30 @@ export async function bootstrapAdminAuthorityResponse(
       throw error;
     }
 
-    // #1046: the response is built from the canonical policy that the
-    // transaction already asserted, never from a second read after the commit.
+    // #1046: the response reports the authority the database actually holds, read
+    // from the commit unit's own result rather than from a second query.
     //
-    // A post-commit readback would reopen the exact partial state this commit
-    // unit exists to prevent: the transaction commits, the follow-up read fails,
-    // the handler returns 503, and the grants stay committed with no client
-    // confirmation. Once the transactional assertion has passed, the established
-    // authority is fully determined by the principal's role and the canonical
-    // runtime scopes, so re-reading the database could only add failure modes
-    // without adding truth.
+    // Reporting `[...runtimeScopes]` here would be narrower than the truth: a
+    // principal that already holds an unrelated active bounded grant from another
+    // grant path really does have that authority, and the pre-existing
+    // `resolvePadiemAuthority` response reported it. `active_scopes` carries
+    // exactly that set — every active, unexpired grant for this actor — so the
+    // authority API keeps saying everything it used to say.
     //
-    // The response shape and ordering are unchanged.
+    // The `level` / `wildcard` derivation is identical to `resolvePadiemAuthority`,
+    // and the ordering is normalised to the canonical codepoint order the policy
+    // module uses, so the response is deterministic regardless of DB collation.
+    // `active_scopes` is read exactly like `admin-principals-v1` reads its
+    // `array_agg` column: a `text[]` column arrives as a JS array.
+    const actualScopes = Array.from(
+      new Set((authorityRows?.[0]?.active_scopes ?? []).map((scope) => String(scope)))
+    ).sort();
+    const wildcard = actualScopes.includes('*');
+
     const establishedAuthority: PadiemAuthority = {
-      level: expectedWildcard ? 'admin' : 'operator',
-      scopes: [...runtimeScopes],
-      wildcard: expectedWildcard
+      level: wildcard ? 'admin' : actualScopes.length > 0 ? 'operator' : 'none',
+      scopes: actualScopes,
+      wildcard
     };
 
     return ok(padiemAuthorityResponseData(establishedAuthority), requestId);
