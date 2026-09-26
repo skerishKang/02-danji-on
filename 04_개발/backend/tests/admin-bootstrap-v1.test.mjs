@@ -242,7 +242,7 @@ for (const subject of ['sub-unlisted', 'sub-unverified']) {
   const body = await payload(response, 200);
   assert.deepEqual(body.data, {
     level: 'operator',
-    label: '일반관리자',
+    label: '운영관리자',
     scopes: [
       'benefit.manage',
       'business.review',

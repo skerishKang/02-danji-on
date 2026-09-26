@@ -41,7 +41,7 @@ function fail(code: string, message: string, status: number, requestId: string):
  * Read-only PADIEM authority profile for the admin console (#411, consumed by #412).
  *
  * GET /api/v1/admin/authority ->
- *   { data: { level: 'admin' | 'operator', label: '최고관리자 | 일반관리자',
+ *   { data: { level: 'admin' | 'operator', label: '최고관리자 | 운영관리자',
  *             scopes: string[], wildcard: boolean }, requestId }
  *
  * Unauthenticated callers receive requireActor's 401 response. Authenticated

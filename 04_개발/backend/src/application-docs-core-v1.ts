@@ -60,7 +60,13 @@ export type ApplicationDocumentAuthorization = {
   auditRead: (() => Promise<Response | null>) | null;
 };
 
+export type ApplicationDocumentAbsentAuthorizeInput = Omit<ApplicationDocumentAuthorizeInput, 'row'>;
+
 export type ApplicationDocumentLanePolicy = {
+  // ID-based admin lanes may need a context-independent principal boundary
+  // before returning a resource-specific 404 for malformed/absent resources.
+  // Resident lanes omit this hook and keep their non-disclosing 404 behavior.
+  authorizeAbsent?(input: ApplicationDocumentAbsentAuthorizeInput): Promise<Response | null>;
   // Denials are returned as Responses; an authorized read returns the audit
   // wiring for the shared pipeline.
   authorize(input: ApplicationDocumentAuthorizeInput): Promise<ApplicationDocumentAuthorization | Response>;
@@ -216,6 +222,12 @@ export async function serveApplicationDocument(
   // route shape is still matched by the calling lane, so a non-routable path
   // falls through with no SQL at all.
   if (!UUID.test(applicationId) || !UUID.test(documentId)) {
+    if (policy.authorizeAbsent) {
+      const denial = await policy.authorizeAbsent({
+        request, env, sql, requestId, actor, applicationId, documentId
+      });
+      if (denial) return denial;
+    }
     return fail('NOT_FOUND', 'Application document not found', 404, requestId);
   }
 
@@ -234,7 +246,15 @@ export async function serveApplicationDocument(
     limit 1
   `;
   const row = rows[0] as DocumentRow | undefined;
-  if (!row) return fail('NOT_FOUND', 'Application document not found', 404, requestId);
+  if (!row) {
+    if (policy.authorizeAbsent) {
+      const denial = await policy.authorizeAbsent({
+        request, env, sql, requestId, actor, applicationId, documentId
+      });
+      if (denial) return denial;
+    }
+    return fail('NOT_FOUND', 'Application document not found', 404, requestId);
+  }
 
   const objectKey = String(row.object_key ?? '');
 

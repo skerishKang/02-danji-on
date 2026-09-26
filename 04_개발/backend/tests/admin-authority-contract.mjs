@@ -60,7 +60,7 @@ assert.match(handler, /requireActor/);
 assert.match(handler, /ADMIN_AUTHORITY_REQUIRED/);
 assert.match(handler, /AUTHORITY_DB_ERROR/);
 assert.match(authority, /최고관리자/);
-assert.match(authority, /일반관리자/);
+assert.match(authority, /운영관리자/);
 for (const key of ['level', 'label', 'scopes', 'wildcard']) {
   assert.ok(new RegExp(`${key}:`).test(authority), `response data must expose ${key}`);
 }

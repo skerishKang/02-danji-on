@@ -151,7 +151,7 @@ export async function requirePadiemPrivilegedScope(
 export function padiemAuthorityResponseData(authority: PadiemAuthority) {
   return {
     level: authority.level,
-    label: authority.level === 'admin' ? '최고관리자' : '일반관리자',
+    label: authority.level === 'admin' ? '최고관리자' : '운영관리자',
     scopes: authority.scopes,
     wildcard: authority.wildcard
   };

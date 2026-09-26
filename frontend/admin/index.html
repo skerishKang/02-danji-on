@@ -823,7 +823,7 @@
     }
     function principalRoleSelect(current){
       const select=document.createElement('select');select.setAttribute('aria-label','관리자 등급');
-      [['admin','최고관리자'],['operator','일반관리자']].forEach(([value,label])=>{const option=document.createElement('option');option.value=value;option.textContent=label;option.selected=value===current;select.append(option)});
+      [['admin','최고관리자'],['operator','운영관리자']].forEach(([value,label])=>{const option=document.createElement('option');option.value=value;option.textContent=label;option.selected=value===current;select.append(option)});
       return select;
     }
     function principalStatusSelect(current){
@@ -842,7 +842,7 @@
     }
     async function renderPrincipalManager(panel,apiBase){
       const title=el('h2','사용자 · 권한 관리');
-      const intro=el('p','최고관리자만 접근할 수 있습니다. 목표 구성은 최고관리자 2계정 + 일반관리자 2계정이며, 일반관리자는 승인된 일상 운영 권한 프리셋만 사용합니다.');
+      const intro=el('p','최고관리자만 접근할 수 있습니다. 목표 구성은 최고관리자 2계정 + 운영관리자 2계정이며, 운영관리자는 승인된 일상 운영 권한 프리셋만 사용합니다.');
       panel.replaceChildren(title,intro);
       const createBox=el('section',undefined,'principal-form');createBox.append(el('h3','관리자 계정 사전 등록'));
       const email=document.createElement('input');email.type='email';email.placeholder='Google 로그인 이메일';email.setAttribute('aria-label','관리자 이메일');
@@ -861,15 +861,15 @@
         const active=outcome.rows.filter((row)=>row.status==='active');
         const superCount=active.filter((row)=>row.role==='admin').length;
         const operatorCount=active.filter((row)=>row.role==='operator').length;
-        summary.append(el('span','활성 최고관리자 '+superCount+' / 목표 2'),el('span','활성 일반관리자 '+operatorCount+' / 목표 2'),el('span','전체 등록 '+outcome.rows.length));
+        summary.append(el('span','활성 최고관리자 '+superCount+' / 목표 2'),el('span','활성 운영관리자 '+operatorCount+' / 목표 2'),el('span','전체 등록 '+outcome.rows.length));
         list.replaceChildren();
         if(!outcome.rows.length){list.append(el('div','등록된 관리자 계정이 없습니다.','admin-empty'));return}
         outcome.rows.forEach((row)=>{
           const card=el('article',undefined,'principal-card');
           card.append(el('h3',String(row.email||'(이메일 없음)')));
-          const configured=(row.role==='admin'?'최고관리자':'일반관리자')+' · '+(row.status==='active'?'활성':'해제');
+          const configured=(row.role==='admin'?'최고관리자':'운영관리자')+' · '+(row.status==='active'?'활성':'해제');
           card.append(el('p','설정: '+configured,'principal-meta'));
-          const runtimeLabel=row.runtimeRole==='admin'?'최고관리자':row.runtimeRole==='operator'?'일반관리자':'미부트스트랩/비활성';
+          const runtimeLabel=row.runtimeRole==='admin'?'최고관리자':row.runtimeRole==='operator'?'운영관리자':'미부트스트랩/비활성';
           const runtime=el('p',undefined,'principal-runtime');runtime.append(el('strong','Runtime: '),document.createTextNode(runtimeLabel+' · 연결 사용자 '+Number(row.runtimeUserCount||0)+'명'));card.append(runtime);
           const editGrid=el('div',undefined,'admin-form-grid');
           const editRole=principalRoleSelect(String(row.role||'operator'));const editStatus=principalStatusSelect(String(row.status||'active'));
