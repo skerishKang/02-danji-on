@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import { readdirSync } from 'node:fs';
 import vm from 'node:vm';
 
 // Issue #460 [admin production]: the canonical V3 /admin/ surface is gated ONLY
@@ -550,6 +551,83 @@ const loadAdminContext = (location) => {
   const workflow = await read('../../.github/workflows/pages-production-release.yml');
   assert.ok(workflow.includes('cp -R frontend/.') || workflow.includes('cp -R "frontend/."') || workflow.includes('frontend/.'),
     'the Pages release copies the whole frontend tree, so frontend/admin/index.html ships at /admin/');
+}
+
+/* ======= 9. #1050 — one canonical OPERATIONAL label across API and UI ====== */
+{
+  // The same level=operator authority is named by the server response, the
+  // shared V3 authority asset, the React admin API and the account strip.
+  // #1050 makes 운영관리자 the single canonical user-visible name.
+  // Authorization semantics are untouched: level / wildcard / scopes stay the
+  // only authority source; label is display copy only.
+  // #1050: resolve the 04_* workspace root at runtime so this contract never
+  // hardcodes a non-ASCII directory name.
+  const devRoot = readdirSync(new URL('../../', import.meta.url), { withFileTypes: true })
+    .find((entry) => entry.isDirectory() && entry.name.startsWith('04_'))?.name;
+  assert.ok(devRoot, 'the 04_* workspace root must be resolvable');
+  const backendAuthority = await read(`../../${devRoot}/backend/src/padiem-authority-v1.ts`);
+  const adminApi = await read(`../../${devRoot}/frontend/src/admin-api.ts`);
+  const accountStrip = sessionSrc;
+
+  const backendOperatorLabel =
+    /label: authority\.level === 'admin' \? '([^']+)' : '([^']+)'/.exec(backendAuthority);
+  assert.ok(backendOperatorLabel, 'the server authority response must derive its labels inline');
+  assert.equal(backendOperatorLabel[1], SUPER_LABEL, 'the SUPER API label must stay 최고관리자');
+  assert.equal(
+    backendOperatorLabel[2],
+    OPERATOR_LABEL,
+    'the OPERATIONAL API label must be the canonical 운영관리자',
+  );
+
+  // API label == shared asset label == React admin API label == account strip label
+  assert.ok(
+    authoritySrc.includes(`const OPERATOR_LABEL = '${OPERATOR_LABEL}';`),
+    'the shared V3 authority asset must keep the canonical 운영관리자 label',
+  );
+  assert.ok(
+    adminApi.includes(`const OPERATOR_LABEL = '${OPERATOR_LABEL}';`),
+    'the React admin API must keep the canonical 운영관리자 label',
+  );
+  assert.ok(
+    adminApi.includes(`label: '${SUPER_LABEL}' | '${OPERATOR_LABEL}';`),
+    'the React admin authority union must be 최고관리자 | 운영관리자',
+  );
+  assert.ok(
+    accountStrip.includes(`const ACCOUNT_OPERATOR_LABEL = '${OPERATOR_LABEL}';`),
+    'the account strip must render the canonical 운영관리자 label',
+  );
+
+  // The canonical name must not leak back as the old server label.
+  assert.ok(
+    !/label: authority\.level === 'admin' \? '[^']+' : '일반관리자'/.test(backendAuthority),
+    'the server authority response must no longer emit the old 일반관리자 label',
+  );
+
+  // Label is NEVER an authority source: the privileged decision stays on
+  // level + wildcard, never on the displayed string.
+  for (const [name, source] of [
+    ['frontend/assets/danjion-admin-authority.js', authoritySrc],
+    ['04_개발/frontend/src/admin-api.ts', adminApi],
+    ['04_개발/backend/src/padiem-authority-v1.ts', backendAuthority],
+  ]) {
+    assert.doesNotMatch(
+      source,
+      /label\s*===?\s*'[^']*관리자'/,
+      name + ' must never branch authority on a display label',
+    );
+  }
+  assert.ok(
+    /level === 'admin' && wildcard === true/.test(adminApi) ||
+    /record\.level === 'admin' && record\.wildcard === true/.test(adminApi),
+    'the React admin API must still decide the SUPER view from level + wildcard',
+  );
+  assert.ok(
+    authoritySrc.includes('OPERATOR_LABEL'),
+    'the shared asset must still carry the operator display label',
+  );
+  console.log('1050_CANONICAL_OPERATIONAL_LABEL_PARITY=PASS');
+  console.log('1050_LABEL_IS_AUTHORITY_SOURCE=NO');
+  console.log('1050_AUTHORIZATION_SEMANTICS_CHANGE=NO');
 }
 
 console.log('leaf-b460-v3-admin-authority-contract: PASS');

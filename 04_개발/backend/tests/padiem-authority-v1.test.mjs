@@ -136,11 +136,11 @@ assert.deepEqual(await errorOf(await resolveAdminAuthorityResponse(request('sub-
 assert.equal(auditEvents.at(-1).reasonCode, 'NO_ACTIVE_PADIEM_GRANT');
 assert.equal(auditEvents.at(-1).decision, 'denied');
 
-// 3. Bounded operator -> level operator, wildcard false, sorted scopes, label 일반관리자.
+// 3. Bounded operator -> level operator, wildcard false, sorted scopes, label 운영관리자.
 const operatorData = await dataOf(await resolveAdminAuthorityResponse(request('sub-operator'), env, sql, 'req-op'));
 assert.deepEqual(operatorData, {
   level: 'operator',
-  label: '일반관리자',
+  label: '운영관리자',
   scopes: ['business.review', 'official-content.manage'],
   wildcard: false
 });

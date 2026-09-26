@@ -394,7 +394,7 @@ const scopesOf = (grants) =>
   assert.equal(op.grants.has('*'), false, 'Case C: OPERATIONAL must never receive the wildcard');
   assert.deepEqual(opBody.data, {
     level: 'operator',
-    label: '일반관리자',
+    label: '운영관리자',
     scopes: [...OPERATIONAL_SCOPES],
     wildcard: false
   }, 'Case C: the OPERATIONAL response must report the established authority in canonical order');
