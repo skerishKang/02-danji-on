@@ -1,4 +1,4 @@
-name: Production #1035 Community Fixture Read-only Enumeration
+name: 'Production #1035 Community Fixture Read-only Enumeration'
 
 on:
   pull_request:
@@ -30,7 +30,7 @@ env:
 
 jobs:
   source-contract:
-    name: Production #1035 read-only source contract
+    name: 'Production #1035 read-only source contract'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
