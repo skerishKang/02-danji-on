@@ -86,9 +86,7 @@ for (const [action, max, windowExpr] of expectedPolicies) {
 
 for (const routeEvidence of [
   'community\\/posts$',
-  'community\\/posts\\/[0-9a-fA-F-]+\\/comments$',
-  'community\\/posts\\/[0-9a-fA-F-]+\\/comments\\/[0-9a-fA-F-]+\\/replies$',
-  'community\\/reports$',
+  'community\\/posts\\/[0-9a-fA-F-]+\\/comments  'community\\/reports$',
   "path === '/api/v1/me/reports'",
   'household\\/family-invites$',
   "path === '/api/v1/household/family-invites/redeem'",
