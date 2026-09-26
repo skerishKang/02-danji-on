@@ -57,21 +57,27 @@ const resolvedValidationPos = authorityGate.indexOf('if [[ ! "${expected_main}" 
 assert.ok(eventBranchPos >= 0, 'manual/schedule event branch must exist');
 assert.ok(resolvedValidationPos > eventBranchPos,
   'resolved expected_main must be selected before SHA validation so schedule does not validate an empty dispatch input');
-assert.match(authorityGate, /expected_main="${EXPECTED_MAIN}"/,
-  'workflow_dispatch must still consume explicit expected_main');
-assert.match(authorityGate, /expected_main="${GITHUB_SHA}"/,
-  'scheduled runs must derive expected_main from the scheduled source SHA');
-assert.doesNotMatch(
-  authorityGate.slice(0, eventBranchPos),
-  /EXPECTED_MAIN.*40-character|EXPECTED_MAIN.*^[0-9a-fA-F]{40}/,
+assert.ok(
+  authorityGate.includes('expected_main="${EXPECTED_MAIN}"'),
+  'workflow_dispatch must still consume explicit expected_main',
+);
+assert.ok(
+  authorityGate.includes('expected_main="${GITHUB_SHA}"'),
+  'scheduled runs must derive expected_main from the scheduled source SHA',
+);
+assert.equal(
+  authorityGate.slice(0, eventBranchPos).includes('EXPECTED_MAIN'),
+  false,
   'schedule path must not validate workflow_dispatch-only EXPECTED_MAIN before event resolution',
 );
 assert.ok(
   authorityGate.includes('actual_main="$(git rev-parse origin/main)"'),
   'remote main must still be re-read',
 );
-assert.match(authorityGate, /"${GITHUB_SHA}" != "${expected_main}".*"${actual_main}" != "${expected_main}"/s,
-  'both checked-out source and remote main must equal the resolved expected main');
+assert.ok(
+  authorityGate.includes('if [ "${GITHUB_SHA}" != "${expected_main}" ] || [ "${actual_main}" != "${expected_main}" ]; then'),
+  'both checked-out source and remote main must equal the resolved expected main',
+);
 
 /* ---- ENABLE_SWITCH_CONTEXT_FIX (#714) ---- */
 assert.match(
