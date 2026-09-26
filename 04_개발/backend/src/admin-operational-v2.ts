@@ -450,7 +450,12 @@ async function createPost(
       channel,
       displayMode,
       status,
-      publishedAt
+      publishedAt,
+      audit: {
+        requestId,
+        scope: operator.requestedScope,
+        fromStatus: null
+      }
     });
     if (!committed[0]) {
       return fail(
@@ -462,18 +467,47 @@ async function createPost(
     }
     return ok(committed[0], requestId, 201);
   }
+  // #1049: the mutation audit row is written by the same statement that inserts
+  // the post (audit follows the mutated rows), so a successful create always
+  // carries exactly one bounded mutation audit and a failed audit insert aborts
+  // the post write with it.
   const rows = await sql`
-    insert into complex_posts (
-      complex_id, author_user_id, source_name, category, title, body,
-      attachment_object_key, status, published_at, channel, display_mode
-    ) values (
-      ${operator.complexId}::uuid,
-      ${operator.id}::uuid,
-      ${sourceName}, ${category}, ${title}, ${body}, ${attachment}, ${status},
-      case when ${status} = 'published' then coalesce(${publishedAt}::timestamptz, now()) else null end,
-      ${channel}, ${displayMode}
+    with mutated as (
+      insert into complex_posts (
+        complex_id, author_user_id, source_name, category, title, body,
+        attachment_object_key, status, published_at, channel, display_mode
+      ) values (
+        ${operator.complexId}::uuid,
+        ${operator.id}::uuid,
+        ${sourceName}, ${category}, ${title}, ${body}, ${attachment}, ${status},
+        case when ${status} = 'published' then coalesce(${publishedAt}::timestamptz, now()) else null end,
+        ${channel}, ${displayMode}
+      )
+      returning id, source_name, category, title, body, status, published_at, created_at, channel, display_mode
+    ),
+    audited as (
+      insert into audit_events (
+        request_id, actor_user_id, actor_kind, complex_id, action, scope,
+        resource_type, resource_id, decision, reason_code, metadata
+      )
+      select
+        ${requestId},
+        ${operator.id}::uuid,
+        'operator',
+        ${operator.complexId}::uuid,
+        'admin.official-content.create',
+        ${operator.requestedScope},
+        'complex_post',
+        mutated.id::text,
+        'allowed',
+        'ADMIN_OFFICIAL_CONTENT_CREATED',
+        ${JSON.stringify({ fromStatus: null, toStatus: status })}::jsonb
+      from mutated
+      returning id
     )
-    returning id, source_name, category, title, body, status, published_at, created_at, channel, display_mode
+    select mutated.*
+    from mutated
+    cross join lateral (select count(*) from audited) audit_barrier
   `;
   return ok(rows[0], requestId, 201);
 }
@@ -568,7 +602,12 @@ async function patchPost(
       channel,
       displayMode,
       status,
-      publishedAt: null
+      publishedAt: null,
+      audit: {
+        requestId,
+        scope: operator.requestedScope,
+        fromStatus: String(current.status)
+      }
     });
     if (!committed[0]) {
       return fail(
@@ -580,14 +619,40 @@ async function patchPost(
     }
     return ok(committed[0], requestId);
   }
+  // #1049: mutation audit rides the same statement as the update (see createPost).
   const updated = await sql`
-    update complex_posts
-    set source_name = ${sourceName}, category = ${category}, title = ${title}, body = ${body},
-        attachment_object_key = ${attachment}, status = ${status},
-        channel = ${channel}, display_mode = ${displayMode},
-        published_at = case when ${status} = 'published' then coalesce(published_at, now()) else published_at end
-    where id = ${postId}::uuid
-    returning id, source_name, category, title, body, status, published_at, updated_at, channel, display_mode
+    with mutated as (
+      update complex_posts
+      set source_name = ${sourceName}, category = ${category}, title = ${title}, body = ${body},
+          attachment_object_key = ${attachment}, status = ${status},
+          channel = ${channel}, display_mode = ${displayMode},
+          published_at = case when ${status} = 'published' then coalesce(published_at, now()) else published_at end
+      where id = ${postId}::uuid
+      returning id, source_name, category, title, body, status, published_at, updated_at, channel, display_mode
+    ),
+    audited as (
+      insert into audit_events (
+        request_id, actor_user_id, actor_kind, complex_id, action, scope,
+        resource_type, resource_id, decision, reason_code, metadata
+      )
+      select
+        ${requestId},
+        ${operator.id}::uuid,
+        'operator',
+        ${operator.complexId}::uuid,
+        'admin.official-content.update',
+        ${operator.requestedScope},
+        'complex_post',
+        mutated.id::text,
+        'allowed',
+        'ADMIN_OFFICIAL_CONTENT_UPDATED',
+        ${JSON.stringify({ fromStatus: String(current.status), toStatus: status })}::jsonb
+      from mutated
+      returning id
+    )
+    select mutated.*
+    from mutated
+    cross join lateral (select count(*) from audited) audit_barrier
   `;
   return ok(updated[0], requestId);
 }
@@ -623,20 +688,46 @@ async function createBenefit(
   }
   const startsAt = String(payload.startsAt ?? '').trim() || null;
   const endsAt = String(payload.endsAt ?? '').trim() || null;
+  // #1049: benefit write and its mutation audit share one statement.
   const rows = await sql`
-    insert into benefits (
-      complex_id, business_id, title, description, conditions, starts_at, ends_at, status
-    ) values (
-      ${operator.complexId}::uuid,
-      ${businessId}::uuid,
-      ${title},
-      ${String(payload.description ?? '')},
-      ${String(payload.conditions ?? '').trim() || null},
-      ${startsAt}::timestamptz,
-      ${endsAt}::timestamptz,
-      ${status}
+    with mutated as (
+      insert into benefits (
+        complex_id, business_id, title, description, conditions, starts_at, ends_at, status
+      ) values (
+        ${operator.complexId}::uuid,
+        ${businessId}::uuid,
+        ${title},
+        ${String(payload.description ?? '')},
+        ${String(payload.conditions ?? '').trim() || null},
+        ${startsAt}::timestamptz,
+        ${endsAt}::timestamptz,
+        ${status}
+      )
+      returning id, business_id, title, description, conditions, starts_at, ends_at, status, created_at
+    ),
+    audited as (
+      insert into audit_events (
+        request_id, actor_user_id, actor_kind, complex_id, action, scope,
+        resource_type, resource_id, decision, reason_code, metadata
+      )
+      select
+        ${requestId},
+        ${operator.id}::uuid,
+        'operator',
+        ${operator.complexId}::uuid,
+        'admin.benefit.create',
+        ${operator.requestedScope},
+        'benefit',
+        mutated.id::text,
+        'allowed',
+        'ADMIN_BENEFIT_CREATED',
+        ${JSON.stringify({ fromStatus: null, toStatus: status })}::jsonb
+      from mutated
+      returning id
     )
-    returning id, business_id, title, description, conditions, starts_at, ends_at, status, created_at
+    select mutated.*
+    from mutated
+    cross join lateral (select count(*) from audited) audit_barrier
   `;
   return ok(rows[0], requestId, 201);
 }
@@ -712,12 +803,38 @@ async function patchBenefit(
 
   const startsAt = effectiveStartsAt.value;
   const endsAt = effectiveEndsAt.value;
+  // #1049: benefit update and its mutation audit share one statement.
   const updated = await sql`
-    update benefits
-    set title = ${title}, description = ${description}, conditions = ${conditions},
-        starts_at = ${startsAt}::timestamptz, ends_at = ${endsAt}::timestamptz, status = ${status}
-    where id = ${benefitId}::uuid
-    returning id, business_id, title, description, conditions, starts_at, ends_at, status, updated_at
+    with mutated as (
+      update benefits
+      set title = ${title}, description = ${description}, conditions = ${conditions},
+          starts_at = ${startsAt}::timestamptz, ends_at = ${endsAt}::timestamptz, status = ${status}
+      where id = ${benefitId}::uuid
+      returning id, business_id, title, description, conditions, starts_at, ends_at, status, updated_at
+    ),
+    audited as (
+      insert into audit_events (
+        request_id, actor_user_id, actor_kind, complex_id, action, scope,
+        resource_type, resource_id, decision, reason_code, metadata
+      )
+      select
+        ${requestId},
+        ${operator.id}::uuid,
+        'operator',
+        ${operator.complexId}::uuid,
+        'admin.benefit.update',
+        ${operator.requestedScope},
+        'benefit',
+        mutated.id::text,
+        'allowed',
+        'ADMIN_BENEFIT_UPDATED',
+        ${JSON.stringify({ fromStatus: String(current.status), toStatus: status })}::jsonb
+      from mutated
+      returning id
+    )
+    select mutated.*
+    from mutated
+    cross join lateral (select count(*) from audited) audit_barrier
   `;
   return ok(updated[0], requestId);
 }

@@ -418,16 +418,43 @@ async function adminReview(
       // business with unresolved authority. Falls back to fail-closed when
       // the row is no longer reviewable.
       const note = reviewNote ?? '카테고리 또는 관계를 확인할 수 없어 승인이 보류되었습니다. 확인 후 다시 제출해 주세요.';
+      // #1049: this unresolved-authority transition is a real status mutation,
+      // so it carries the same mutation audit as the explicit review outcomes.
       const transitioned = await sql`
-        update shop_recommendations
-        set status = 'changes_requested',
-            review_note = ${note},
-            reviewed_by = ${operator.id}::uuid,
-            reviewed_at = now()
-        where id = ${recommendationId}::uuid
-          and complex_id = ${operator.complexId}::uuid
-          and status in ('pending','changes_requested')
-        returning id, status, review_note, reviewed_at
+        with mutated as (
+          update shop_recommendations
+          set status = 'changes_requested',
+              review_note = ${note},
+              reviewed_by = ${operator.id}::uuid,
+              reviewed_at = now()
+          where id = ${recommendationId}::uuid
+            and complex_id = ${operator.complexId}::uuid
+            and status in ('pending','changes_requested')
+          returning id, status, review_note, reviewed_at
+        ),
+        audited as (
+          insert into audit_events (
+            request_id, actor_user_id, actor_kind, complex_id, action, scope,
+            resource_type, resource_id, decision, reason_code, metadata
+          )
+          select
+            ${requestId},
+            ${operator.id}::uuid,
+            'operator',
+            ${operator.complexId}::uuid,
+            'admin.shop-recommendation.review',
+            ${operator.requestedScope},
+            'shop_recommendation',
+            mutated.id::text,
+            'allowed',
+            'ADMIN_SHOP_RECOMMENDATION_REVIEWED',
+            ${JSON.stringify({ fromStatus: String(current.status), toStatus: 'changes_requested' })}::jsonb
+          from mutated
+          returning id
+        )
+        select mutated.*
+        from mutated
+        cross join lateral (select count(*) from audited) audit_barrier
       `;
       if (transitioned[0]) {
         return ok({ ...transitioned[0], categoryUnresolved: authorityError.code }, requestId);
@@ -482,9 +509,30 @@ async function adminReview(
               verified_by = excluded.verified_by,
               verified_at = excluded.verified_at
         returning id
+      ),
+      audited as (
+        insert into audit_events (
+          request_id, actor_user_id, actor_kind, complex_id, action, scope,
+          resource_type, resource_id, decision, reason_code, metadata
+        )
+        select
+          ${requestId},
+          ${operator.id}::uuid,
+          'operator',
+          ${operator.complexId}::uuid,
+          'admin.shop-recommendation.review',
+          ${operator.requestedScope},
+          'shop_recommendation',
+          approved.id::text,
+          'allowed',
+          'ADMIN_SHOP_RECOMMENDATION_REVIEWED',
+          ${JSON.stringify({ fromStatus: String(current.status), toStatus: 'approved' })}::jsonb
+        from approved
+        returning id
       )
       select id, status, review_note, approved_business_id, reviewed_at
       from approved
+      cross join lateral (select count(*) from audited) audit_barrier
     `;
     if (rows[0]) return ok(rows[0], requestId);
     const latest = await sql`
@@ -497,14 +545,41 @@ async function adminReview(
     return fail('CONFLICT', 'Recommendation can no longer be approved', 409, requestId);
   }
 
+  // #1049: the review outcome write and its mutation audit share one statement;
+  // a row outside the reviewable gate writes nothing and audits nothing.
   const rows = await sql`
-    update shop_recommendations
-    set status = ${status}, review_note = ${reviewNote},
-        reviewed_by = ${operator.id}::uuid, reviewed_at = now()
-    where id = ${recommendationId}::uuid
-      and complex_id = ${operator.complexId}::uuid
-      and status in ('pending','changes_requested')
-    returning id, status, review_note, reviewed_at
+    with mutated as (
+      update shop_recommendations
+      set status = ${status}, review_note = ${reviewNote},
+          reviewed_by = ${operator.id}::uuid, reviewed_at = now()
+      where id = ${recommendationId}::uuid
+        and complex_id = ${operator.complexId}::uuid
+        and status in ('pending','changes_requested')
+      returning id, status, review_note, reviewed_at
+    ),
+    audited as (
+      insert into audit_events (
+        request_id, actor_user_id, actor_kind, complex_id, action, scope,
+        resource_type, resource_id, decision, reason_code, metadata
+      )
+      select
+        ${requestId},
+        ${operator.id}::uuid,
+        'operator',
+        ${operator.complexId}::uuid,
+        'admin.shop-recommendation.review',
+        ${operator.requestedScope},
+        'shop_recommendation',
+        mutated.id::text,
+        'allowed',
+        'ADMIN_SHOP_RECOMMENDATION_REVIEWED',
+        ${JSON.stringify({ fromStatus: String(current.status), toStatus: status })}::jsonb
+      from mutated
+      returning id
+    )
+    select mutated.*
+    from mutated
+    cross join lateral (select count(*) from audited) audit_barrier
   `;
   if (rows[0]) return ok(rows[0], requestId);
   return fail('CONFLICT', 'Recommendation can no longer be reviewed', 409, requestId);

@@ -125,7 +125,11 @@ const write = {
   body: '본문',
   channel: 'apartment_news',
   status: 'published',
-  publishedAt: null
+  publishedAt: null,
+  // #1049: the attach helpers now write the mutation audit in the same locked
+  // statement; the fixture carries the same bounded audit context production
+  // passes. Every #844 assertion below is unchanged.
+  audit: { requestId: 'req-844-attach', scope: 'official-content.manage', fromStatus: null }
 };
 
 // REFERENCE_WINS: the row is still active when the post write locks it -> exactly one post row.

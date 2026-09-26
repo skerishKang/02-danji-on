@@ -14,4 +14,13 @@ export function neon() {
   return stub;
 }
 
-export default { neon };
+// `types` exists so modules that transitively import drizzle-orm's neon-http
+// driver (it destructures `types` at import time) can load under this shim. No
+// test executes drizzle SQL through it: setTypeParser is a no-op and builtins
+// resolves every OID to the same inert id.
+export const types = {
+  builtins: new Proxy({}, { get: () => 0 }),
+  setTypeParser() {}
+};
+
+export default { neon, types };
