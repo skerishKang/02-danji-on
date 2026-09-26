@@ -213,6 +213,7 @@ const EXPECTED_FRONTEND_ORDER = [
   "test:leaf-1025-initial-document-authority",
   "test:leaf-1030-notification-toggle-authority",
   "test:leaf-1033-unsupported-notification-neutral",
+  "test:leaf-1034-message-list-initial-authority",
   "test:canonical-dialog-regression-contract",
 ];
 
