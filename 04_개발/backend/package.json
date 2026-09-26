@@ -49,6 +49,7 @@
     "test:admin-operational-rbac": "node tests/admin-operational-rbac-contract.mjs",
     "test:padiem-authority": "tsx tests/padiem-authority-v1.test.mjs",
     "test:admin-authority-contract": "node tests/admin-authority-contract.mjs",
+    "test:admin-global-audit-v1": "tsx tests/admin-global-audit-v1.test.mjs",
     "test:admin-bootstrap": "tsx tests/admin-bootstrap-v1.test.mjs",
     "test:admin-bootstrap-atomicity-1046": "tsx tests/admin-bootstrap-atomicity-1046.test.mjs",
     "test:admin-bootstrap-contract": "node tests/admin-bootstrap-contract.mjs",
