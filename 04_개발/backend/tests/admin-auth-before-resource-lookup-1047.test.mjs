@@ -241,9 +241,10 @@ const TARGETS = [
     label: 'ADMIN APPLICATION DOCUMENT',
     method: 'GET',
     scope: 'business.review',
-    // The lane is injected: applicant ownership in the resident lane, the exact
-    // complex-scoped reviewer grant here. Stage 1 must not replace either.
-    absencePolicy: false,
+    // #1053 extends the injected admin lane with the same context-independent
+    // absence boundary already used by the other ID-based admin routes. The
+    // exact complex-scoped reviewer grant still remains Stage 3 for real rows.
+    absencePolicy: true,
     url: (id) => `https://api.example.test/api/v1/admin/business-applications/${APPLICATION_ID}/documents/${id}`,
     body: undefined,
     run: (request) => handleAdminApplicationDocumentWithSql(request, ENV, globalThis.__DANJION_TEST_SQL__, REQUEST_ID),
@@ -487,8 +488,8 @@ for (const target of TARGETS) {
 
   // Absence disclosure: the #975 canonical boundary requires the requested
   // PADIEM scope before an absent resource may receive a resource-specific
-  // 404. The document lane is lane-neutral and its authority is injected, so it
-  // keeps the pre-existing absence behaviour — recorded here rather than hidden.
+  // 404. #1053 wires that boundary through the document lane's injected
+  // absence policy too, while preserving exact complex authority for real rows.
   const unauthorizedUnknown = await run({
     id: target.unknownId, subject: OUTSIDER_SUBJECT, grants: 'none', exists: false, target
   });
