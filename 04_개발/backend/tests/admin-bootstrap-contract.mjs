@@ -70,7 +70,31 @@ assert.match(bootstrap, /runtimeScopesForRole\(principal\.authorityLevel\)/,
 assert.match(bootstrap, /isCanonicalPrincipalScopes\(authorityLevel, scopes\)/,
   'bootstrap must reject non-canonical allowlist scope shapes');
 assert.match(bootstrap, /on conflict do nothing/i);
-assert.match(bootstrap, /resolvePadiemAuthority\(sql, actor\.id\)/);
+
+// #1046: authority is established and asserted inside one commit unit, and is
+// never re-read after the commit. A post-commit readback could fail on its own
+// and turn a committed bootstrap into a 503 response.
+assert.match(bootstrap, /await sql\.transaction\(\[/,
+  'bootstrap must commit the grant write set through one transaction boundary');
+assert.match(bootstrap, /authority_established/,
+  'the commit unit must assert the authority it established');
+// These negative checks must match code, not prose: the surrounding explanation
+// names both constructs deliberately.
+assert.doesNotMatch(bootstrap, /resolvePadiemAuthority\s*\(/,
+  'bootstrap must not re-read authority after the commit');
+// The assertion can only roll the commit unit back if its divisor really can be
+// zero, so pin the failure branch to a literal zero. Two rejected shapes are
+// excluded by this one pattern: a constant `else 1 / 0`, and any branch that
+// cannot yield zero at all (`else 1`, or `nullif(x, 0)`, where dividing by NULL
+// yields NULL instead of raising).
+assert.match(
+  bootstrap,
+  /1\s*\/\s*case\s+when\s+expected_present\s+and\s+wildcard_parity\s+then\s+1\s+else\s+0\s+end/,
+  'the authority assertion must divide by 0 exactly when the authority check fails'
+);
+assert.doesNotMatch(bootstrap, /nullif\(sum\(/,
+  'the authority assertion must not suppress its own failure with nullif');
+
 assert.match(authority, /from padiem_operator_grants/i);
 assert.doesNotMatch(authority, /padiem_admin_identity_allowlist/i,
   'runtime admin authority must never consult onboarding allowlist directly');
@@ -81,6 +105,7 @@ assert.match(bootstrap, /'admin\.bootstrap'/);
 assert.match(bootstrap, /ADMIN_BOOTSTRAP_NOT_ALLOWED/);
 assert.match(bootstrap, /ADMIN_BOOTSTRAP_PRINCIPAL_INVALID/);
 assert.match(bootstrap, /ADMIN_BOOTSTRAP_GRANT_FAILED/);
+assert.match(bootstrap, /ADMIN_BOOTSTRAP_GRANT_READBACK_FAILED/);
 assert.match(bootstrap, /ADMIN_BOOTSTRAP_UNAVAILABLE/);
 assert.match(bootstrap, /url\.pathname !== BOOTSTRAP_PATH \|\| request\.method !== 'POST'/);
 

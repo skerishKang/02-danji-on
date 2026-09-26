@@ -1,7 +1,7 @@
 import { neon, type NeonQueryFunction } from '@neondatabase/serverless';
 import { requireActor, type Actor } from './auth-v1';
 import type { CoreEnv } from './core-v1';
-import { padiemAuthorityResponseData, resolvePadiemAuthority } from './padiem-authority-v1';
+import { padiemAuthorityResponseData, type PadiemAuthority } from './padiem-authority-v1';
 import {
   isCanonicalPrincipalScopes,
   runtimeScopesForRole,
@@ -19,6 +19,13 @@ type BootstrapPrincipal = {
   authorityLevel: AdminPrincipalRole;
   scopes: string[];
 };
+
+// Postgres SQLSTATE `division_by_zero`. The transactional authority assertion in
+// `bootstrapAdminAuthorityResponse` raises it deliberately as its abort signal,
+// which lets the handler keep the pre-existing failed-readback contract (audit
+// reason + 503 error code) even though the decision is now made inside the
+// database instead of by a post-commit read.
+const AUTHORITY_ASSERTION_ABORT_SQLSTATE = '22012';
 
 function json(data: unknown, status: number, requestId: string): Response {
   return Response.json(data, {
@@ -176,51 +183,190 @@ export async function bootstrapAdminAuthorityResponse(
 
     const runtimeScopes = runtimeScopesForRole(principal.authorityLevel);
 
-    for (const scope of runtimeScopes) {
-      await sql`
-        insert into padiem_operator_grants (
-          user_id,
-          scope,
-          status,
-          granted_by_user_id,
-          granted_at,
-          reason,
-          metadata
-        ) values (
-          ${actor.id}::uuid,
-          ${scope},
-          'active',
-          ${null},
-          now(),
-          'pre-registered administrator bootstrap',
-          ${grantMetadata}::jsonb
-        )
-        on conflict do nothing
-      `;
-    }
+    // #1046: grant establishment must be atomic across every runtime scope.
+    //
+    // Granting scope-by-scope let each INSERT commit independently, so a failure
+    // part-way through could leave bootstrap reporting 503 while earlier grants
+    // — including the SUPER wildcard — stayed active. Collecting the whole
+    // write set and committing it with one `sql.transaction` (the pattern already
+    // used by resident-profile-v1) means either every expected grant is
+    // established or none of this attempt survives.
+    //
+    // `on conflict do nothing` is preserved per statement, so re-bootstrapping a
+    // principal that already holds grants still creates no duplicates and never
+    // rewrites, widens, narrows or revokes an existing grant.
+    const grantWrites = runtimeScopes.map((scope) => sql`
+      insert into padiem_operator_grants (
+        user_id,
+        scope,
+        status,
+        granted_by_user_id,
+        granted_at,
+        reason,
+        metadata
+      ) values (
+        ${actor.id}::uuid,
+        ${scope},
+        'active',
+        ${null},
+        now(),
+        'pre-registered administrator bootstrap',
+        ${grantMetadata}::jsonb
+      )
+      on conflict do nothing
+    `);
 
-    const authority = await resolvePadiemAuthority(sql, actor.id);
+    // #1046: the whole success unit must be one commit. Granting, proving the
+    // authority and recording ADMIN_BOOTSTRAP_GRANTED are a single commit unit,
+    // so a failure in any one of them leaves no grant behind:
+    //
+    //   * a mid-loop insert failure rolls back the entire write set
+    //   * a failed authority readback aborts the transaction itself, so the
+    //     grants staged in it never commit
+    //   * a failed ADMIN_BOOTSTRAP_GRANTED insert rolls the grants back too,
+    //     instead of leaving committed authority with no success audit
+    //
+    // The readback is expressed as a SQL assertion rather than an application
+    // level check, because a query inside a non-interactive transaction cannot
+    // branch: only the database can decide to abort. An application level DELETE
+    // was deliberately avoided, because a compensating delete can itself fail
+    // and would recreate exactly the partial state this transaction prevents.
     const expectedWildcard = principal.authorityLevel === 'admin';
-    if (
-      authority.level === 'none'
-      || authority.wildcard !== expectedWildcard
-      || runtimeScopes.some((scope) => !authority.scopes.includes(scope))
-    ) {
-      await auditBootstrap(sql, actor, requestId, 'denied', 'ADMIN_BOOTSTRAP_GRANT_READBACK_FAILED', {
-        principalId: principal.id,
-        authorityLevel: principal.authorityLevel,
-        scopeCount: runtimeScopes.length
-      });
-      return fail('ADMIN_BOOTSTRAP_GRANT_FAILED', 'Administrator authority could not be established', 503, requestId);
-    }
-
-    await auditBootstrap(sql, actor, requestId, 'allowed', 'ADMIN_BOOTSTRAP_GRANTED', {
+    const grantedMetadata = JSON.stringify({
       principalId: principal.id,
       authorityLevel: principal.authorityLevel,
       scopeCount: runtimeScopes.length
     });
 
-    return ok(padiemAuthorityResponseData(authority), requestId);
+    let authorityRows: Array<{ active_scopes: string[] | null }> | undefined;
+    try {
+      const transactionResults = await sql.transaction([
+        ...grantWrites,
+        // Transactional authority assertion, and the authority readback.
+        //
+        // The assertion semantics are the pre-existing bootstrap readback
+        // contract, not a new policy:
+        //   * every expected runtime scope is present, active and unexpired
+        //   * wildcard presence matches the role (SUPER yes, OPERATIONAL no)
+        // An unrelated pre-existing bounded grant is neither rejected nor
+        // removed: the expected-scope count is taken over the runtime scopes
+        // only, while wildcard parity is judged over all active grants, exactly
+        // as `resolvePadiemAuthority` judged it before.
+        //
+        // The same statement also returns `active_scopes`, the full
+        // active/unexpired scope set, so the response can report the real
+        // authority without a second query after the commit. That is why the
+        // statement is an aggregate over one row: the authority it reports and
+        // the assertion it enforces are read from the same consistent snapshot.
+        //
+        // The abort signal is a genuine runtime `division by zero` (SQLSTATE
+        // 22012) and not a constant `else 1 / 0`, which a planner could fold at
+        // plan time. The divisor is a CASE over the live aggregate result, so
+        // Postgres can only raise when the established authority really fails
+        // the expectation.
+        //
+        // `nullif(x, 0)` must not be used here: dividing by NULL yields NULL
+        // instead of an error, so that shape never aborts and the assertion
+        // would silently become a no-op.
+        sql`
+          select
+            1 / case when expected_present and wildcard_parity then 1 else 0 end
+              as authority_established,
+            active_scopes
+          from (
+            select
+              count(distinct scope) filter (
+                where scope = any(${runtimeScopes}::text[])
+              ) = ${runtimeScopes.length}::int as expected_present,
+              coalesce(bool_or(scope = '*'), false) = ${expectedWildcard} as wildcard_parity,
+              coalesce(
+                array_agg(scope order by scope),
+                array[]::text[]
+              ) as active_scopes
+            from padiem_operator_grants
+            where user_id = ${actor.id}::uuid
+              and status = 'active'
+              and (expires_at is null or expires_at > now())
+          ) active_grants
+        `,
+        sql`
+          insert into audit_events (
+            request_id,
+            actor_user_id,
+            actor_kind,
+            complex_id,
+            action,
+            scope,
+            decision,
+            reason_code,
+            metadata
+          ) values (
+            ${requestId},
+            ${actor.id},
+            'user',
+            ${null},
+            'authorization.admin-bootstrap',
+            'admin.bootstrap',
+            'allowed',
+            'ADMIN_BOOTSTRAP_GRANTED',
+            ${grantedMetadata}::jsonb
+          )
+        `
+      ]);
+
+      // #1046: the authority the transaction actually established is taken from
+      // the assertion statement's own result, inside the same transaction. The
+      // commit unit is deliberately never followed by a second query: a
+      // post-commit read could fail on its own and turn an already committed
+      // bootstrap into a 503 while the grants stayed committed.
+      //
+      // `transaction()` returns one result per statement, in order, so the
+      // assertion sits at `runtimeScopes.length`, immediately after the grants.
+      authorityRows = transactionResults[runtimeScopes.length] as unknown as
+        Array<{ active_scopes: string[] | null }>;
+    } catch (error) {
+      // The assertion aborted the transaction. Report the pre-existing
+      // failed-readback contract rather than a generic database error, because
+      // the observable outcome is the same one the old post-commit readback
+      // produced: authority could not be established and nothing was committed.
+      if ((error as { code?: unknown } | null)?.code === AUTHORITY_ASSERTION_ABORT_SQLSTATE) {
+        await auditBootstrap(sql, actor, requestId, 'denied', 'ADMIN_BOOTSTRAP_GRANT_READBACK_FAILED', {
+          principalId: principal.id,
+          authorityLevel: principal.authorityLevel,
+          scopeCount: runtimeScopes.length
+        });
+        return fail('ADMIN_BOOTSTRAP_GRANT_FAILED', 'Administrator authority could not be established', 503, requestId);
+      }
+      throw error;
+    }
+
+    // #1046: the response reports the authority the database actually holds, read
+    // from the commit unit's own result rather than from a second query.
+    //
+    // Reporting `[...runtimeScopes]` here would be narrower than the truth: a
+    // principal that already holds an unrelated active bounded grant from another
+    // grant path really does have that authority, and the pre-existing
+    // `resolvePadiemAuthority` response reported it. `active_scopes` carries
+    // exactly that set — every active, unexpired grant for this actor — so the
+    // authority API keeps saying everything it used to say.
+    //
+    // The `level` / `wildcard` derivation is identical to `resolvePadiemAuthority`,
+    // and the ordering is normalised to the canonical codepoint order the policy
+    // module uses, so the response is deterministic regardless of DB collation.
+    // `active_scopes` is read exactly like `admin-principals-v1` reads its
+    // `array_agg` column: a `text[]` column arrives as a JS array.
+    const actualScopes = Array.from(
+      new Set((authorityRows?.[0]?.active_scopes ?? []).map((scope) => String(scope)))
+    ).sort();
+    const wildcard = actualScopes.includes('*');
+
+    const establishedAuthority: PadiemAuthority = {
+      level: wildcard ? 'admin' : actualScopes.length > 0 ? 'operator' : 'none',
+      scopes: actualScopes,
+      wildcard
+    };
+
+    return ok(padiemAuthorityResponseData(establishedAuthority), requestId);
   } catch {
     await auditBootstrap(sql, actor, requestId, 'denied', 'ADMIN_BOOTSTRAP_DATABASE_ERROR', {
       provider: 'unknown'

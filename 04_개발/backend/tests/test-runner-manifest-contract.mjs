@@ -60,6 +60,7 @@ const EXPECTED_BACKEND_ORDER = [
   "test:padiem-authority",
   "test:admin-authority-contract",
   "test:admin-bootstrap",
+  "test:admin-bootstrap-atomicity-1046",
   "test:admin-bootstrap-contract",
   "test:admin-principals-contract",
   "test:admin-review-privacy-rbac",
@@ -214,6 +215,7 @@ const EXPECTED_FRONTEND_ORDER = [
   "test:leaf-1030-notification-toggle-authority",
   "test:leaf-1033-unsupported-notification-neutral",
   "test:leaf-1034-message-list-initial-authority",
+  "test:leaf-1039-unloaded-reply-projection",
   "test:canonical-dialog-regression-contract",
 ];
 

@@ -268,7 +268,13 @@ main{width:min(920px,calc(100% - 40px));margin:auto;padding-bottom:70px}.route{h
   function renderReplyState(commentId,state){
    const host=commentList.querySelector('[data-server-replies="'+commentId+'"]');
    if(!host)return;
-   const body=state.items.length?state.items.map(replyHTML).join(''):state.loaded?'<p class="reply-empty">답글이 없습니다.</p>':'';
+   /* #1039: 아직 load 되지 않은 thread 에 이미 서버가 확인한 새 답글이 있으면
+      그것을 먼저 보여준다. 정렬은 기존 목록 뒤에 두고, id 기준으로만 합친다. */
+   const projected=state.projected||[];
+   const shown=new Set(state.items.map(item=>item.id));
+   const leading=projected.filter(item=>!shown.has(item.id));
+   const bodyParts=leading.map(replyHTML).concat(state.items.map(replyHTML));
+   const body=bodyParts.length?bodyParts.join(''):state.loaded?'<p class="reply-empty">답글이 없습니다.</p>':'';
    const more=state.hasMore?'<button class="replies-more" type="button" data-server-replies-more="'+esc(commentId)+'">답글 더 보기</button>':'';
    host.innerHTML=body+more;
    const toggle=commentList.querySelector('[data-server-reply-toggle="'+commentId+'"]');
@@ -300,15 +306,32 @@ main{width:min(920px,calc(100% - 40px));margin:auto;padding-bottom:70px}.route{h
    const byId=new Map(state.items.map(reply=>[reply.id,reply]));
    result.replies.forEach(reply=>byId.set(reply.id,reply));
    state.items=[...byId.values()];
+   /* #1039: thread 를 실제로 읽었으므로, 앞서 projection 된 답글이 이제 서버
+      목록에 포함되었다. id 기준으로만 흡수해 중복 렌더를 막고, 이후 appendReply 가
+      다시 이 목록을 서버 권위로 덮어쓸 수 있게 한다. */
+   if(state.projected&&state.projected.length){
+    state.projected=state.projected.filter(reply=>!byId.has(reply.id));
+   }
    state.cursor=result.nextCursor;
    state.hasMore=result.hasMore===true;
    state.loaded=true;
    renderReplyState(commentId,state);
   }
   function appendReply(parentId,reply){
-   const state=replyStates.get(parentId);
-   if(!state||!state.loaded)return;
-   if(!state.items.some(item=>item.id===reply.id))state.items.push(reply);
+   if(!reply||!reply.id)return;
+   let state=replyStates.get(parentId);
+   if(!state){
+    /* #1039: 답글 폼은 thread 를 먼저 load 하지 않아도 열리므로, 한 번도
+       펼치지 않은 스레드에 대한 작성 성공이 조용히 사라지지 않게 한다.
+       이때 기존 답글 목록은 아직 unknown 이므로 loaded/hasMore 는 건드리지 않는다.
+       pagination truth 를 거짓으로 확정하지 않고, 서버가 돌려준 reply 만 별도
+       합성해 즉시 보여준다. */
+    state={items:[],cursor:null,hasMore:false,loaded:false,loading:false,projected:[]};
+    replyStates.set(parentId,state);
+   }
+   if(!state.projected)state.projected=[];
+   if(!state.projected.some(item=>item.id===reply.id))state.projected.push(reply);
+   if(state.loaded&&!state.items.some(item=>item.id===reply.id))state.items.push(reply);
    renderReplyState(parentId,state);
   }
  async function loadPost(){
