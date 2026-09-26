@@ -60,6 +60,7 @@ const EXPECTED_BACKEND_ORDER = [
   "test:benefit-null-time-range-patch",
   "test:padiem-authority",
   "test:admin-authority-contract",
+  "test:admin-global-audit-v1",
   "test:admin-bootstrap",
   "test:admin-bootstrap-atomicity-1046",
   "test:admin-bootstrap-contract",
