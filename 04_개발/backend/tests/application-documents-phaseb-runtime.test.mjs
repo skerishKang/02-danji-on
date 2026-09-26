@@ -104,14 +104,17 @@ function stubSql({
       return [{ padiem_eligible: grants === true }];
     }
     if (text.includes('padiem_operator_grants')) {
-      return grants ? [{
+      // requireOperationalAuthority selects the complex row even when no grant
+      // matches; absence of authority is represented by null grant columns,
+      // not by an empty result set.
+      return [{
         complex_id: COMPLEX_ID,
         complex_slug: 'phaseb-complex',
-        padiem_grant_id: '85000000-0000-4000-8000-000000000001',
-        padiem_granted_scope: 'business.review',
+        padiem_grant_id: grants ? '85000000-0000-4000-8000-000000000001' : null,
+        padiem_granted_scope: grants ? 'business.review' : null,
         council_grant_id: null,
         council_granted_scope: null
-      }] : [];
+      }];
     }
     if (text.includes('from app_users') && text.includes('where auth_user_id =')) {
       return [{ id: ACTOR_ID, auth_user_id: values[0], display_name: 'Stub', account_status: 'active' }];
