@@ -61,17 +61,10 @@
 <div class="route"><button aria-label="내정보로 돌아가기" onclick="location.href='19_내정보_메인.html'" type="button"><svg viewBox="0 0 24 24" style="width:20px;height:20px;flex:none"><path d="M19 12H5M10 7l-5 5 5 5"></path></svg>내정보</button><span>/ 1:1 메시지</span></div>
 <section class="intro"><div><div class="eyebrow">1:1 MESSAGE</div><h1>메시지함</h1></div><div class="receive"><span>메시지 받기</span><button aria-checked="true" aria-label="메시지 받기" class="toggle on" role="switch" type="button"></button></div></section>
 <section class="mail-layout">
-<article class="inbox"><div class="inbox-tools"><div aria-label="메시지 구분" class="filters" role="group"><button class="filter active" data-filter="all" type="button">전체 <span>6</span></button><button class="filter" data-filter="unread" type="button">안 읽음 <span>2</span></button><button class="filter" data-filter="received" type="button">받은 메시지</button><button class="filter" data-filter="sent" type="button">보낸 메시지</button></div><form class="search" id="searchForm"><input aria-label="메시지 검색" placeholder="닉네임·내용 검색" type="search"/><button aria-label="검색" type="submit">→</button></form></div>
-<div class="mail-list">
-<button aria-label="산책메이트와의 대화 열기" class="mail-row unread" data-kind="unread received" data-search="산책메이트 수요일 저녁 산책" onclick="location.href='21_메시지_대화상세.html'" type="button"><span class="avatar">산</span><span><span class="mail-top"><b>산책메이트</b><span class="level">인사하는 이웃</span></span><span class="mail-subject">수요일 저녁 산책, 저도 함께할게요.</span><span class="mail-preview">출발 장소는 중앙 현관 앞이 편할 것 같아요.</span></span><span class="mail-side"><time>18분 전</time><span class="unread-count">1</span></span></button>
-<button class="mail-row unread" data-kind="unread received" data-search="살림손 세탁기 청소 업체" type="button"><span class="avatar">살</span><span><span class="mail-top"><b>살림손</b><span class="level">도움 주는 이웃</span></span><span class="mail-subject">세탁기 청소 업체 정보 보내드려요.</span><span class="mail-preview">지난달에 이용했던 곳은 전후 사진을 보내줬어요.</span></span><span class="mail-side"><time>1시간 전</time><span class="unread-count">1</span></span></button>
-<button class="mail-row" data-kind="received" data-search="초록문 가입 인사" type="button"><span class="avatar">초</span><span><span class="mail-top"><b>초록문</b><span class="level">새 이웃</span></span><span class="mail-subject">가입인사에 댓글 남겨주셔서 감사해요.</span><span class="mail-preview">단지에서 마주치면 반갑게 인사드릴게요.</span></span><span class="mail-side"><time>어제</time><span>→</span></span></button>
-<button class="mail-row" data-kind="sent" data-search="로드힐 꽃작업실 예약 문의" type="button"><span class="avatar">꽃</span><span><span class="mail-top"><b>로드힐 꽃작업실</b><span class="direction">내가 보냄</span></span><span class="mail-subject">이번 주 토요일 꽃다발 예약 문의드려요.</span><span class="mail-preview">예산과 원하는 색감을 함께 적어 보냈습니다.</span></span><span class="mail-side"><time>8월 30일</time><span class="reply-wait">답장 대기</span></span></button>
-<button class="mail-row" data-kind="received" data-search="한울타리 분리수거" type="button"><span class="avatar">한</span><span><span class="mail-top"><b>한울타리</b><span class="level">참여하는 이웃</span></span><span class="mail-subject">분리수거장 정리 사진 관련해서 알려드려요.</span><span class="mail-preview">사진에 개인정보는 보이지 않는 것 같아요.</span></span><span class="mail-side"><time>8월 29일</time><span>→</span></span></button>
-<button class="mail-row" data-kind="sent" data-search="바른 자동차정비 운영시간" type="button"><span class="avatar">차</span><span><span class="mail-top"><b>바른 자동차정비</b><span class="direction">내가 보냄</span></span><span class="mail-subject">토요일 운영시간을 문의했습니다.</span><span class="mail-preview">방문 전 예약이 필요한지도 함께 물어봤어요.</span></span><span class="mail-side"><time>8월 27일</time><span>→</span></span></button>
-</div><div class="empty-result"><strong>찾는 메시지가 없습니다.</strong><span>다른 닉네임이나 내용으로 검색해보세요.</span></div>
+<article class="inbox"><div class="inbox-tools"><div aria-label="메시지 구분" class="filters" role="group"><button class="filter active" data-filter="all" type="button">전체 <span>—</span></button><button class="filter" data-filter="unread" type="button">안 읽음 <span>—</span></button><button class="filter" data-filter="received" type="button">받은 메시지</button><button class="filter" data-filter="sent" type="button">보낸 메시지</button></div><form class="search" id="searchForm"><input aria-label="메시지 검색" placeholder="닉네임·내용 검색" type="search"/><button aria-label="검색" type="submit">→</button></form></div>
+<div class="mail-list" data-server-placeholder="true"><div class="date-divider">불러오는 중...</div></div><div class="empty-result"><strong>찾는 메시지가 없습니다.</strong><span>다른 닉네임이나 내용으로 검색해보세요.</span></div>
 </article>
-<aside class="rail"><section class="rail-card dark"><span class="rail-kicker">MY MESSAGE</span><h2>안 읽은 메시지<br/>2개</h2><div class="summary"><div><span>안 읽음</span><b>2</b></div><div><span>답장 대기</span><b>1</b></div></div><button class="rail-link" data-filter-shortcut="unread" type="button"><span>안 읽은 메시지 보기</span><span>→</span></button></section></aside>
+<aside class="rail"><section class="rail-card dark"><span class="rail-kicker">MY MESSAGE</span><h2>안 읽은 메시지<br/>—</h2><div class="summary"><div><span>안 읽음</span><b>—</b></div><div><span>답장 대기</span><b>—</b></div></div><button class="rail-link" data-filter-shortcut="unread" type="button"><span>안 읽은 메시지 보기</span><span>→</span></button></section></aside>
 </section>
 </main>
 <button class="mobile-compose" data-demo="새 메시지는 주민 프로필이나 가게 상세에서 시작합니다." type="button">새 메시지</button>
@@ -79,7 +72,7 @@
 <script>
     const toast=document.querySelector('.toast');let timer;function showToast(text){toast.textContent=text;toast.classList.add('show');clearTimeout(timer);timer=setTimeout(()=>toast.classList.remove('show'),1800)}document.querySelectorAll('[data-demo]').forEach(button=>button.addEventListener('click',()=>showToast(button.dataset.demo)));
     let activeFilter='all';const liveRows=()=>[...document.querySelectorAll('.mail-list .mail-row')];const empty=document.querySelector('.empty-result');function apply(){const query=document.querySelector('.search input').value.trim().toLowerCase();let visible=0;liveRows().forEach(row=>{const kind=row.dataset.kind.split(' ');const matchesFilter=activeFilter==='all'||kind.includes(activeFilter);const matchesSearch=!query||row.dataset.search.toLowerCase().includes(query);row.hidden=!(matchesFilter&&matchesSearch);if(!row.hidden)visible++});empty.style.display=visible?'none':'block'}document.querySelectorAll('[data-filter]').forEach(button=>button.addEventListener('click',()=>{document.querySelectorAll('[data-filter]').forEach(item=>item.classList.remove('active'));button.classList.add('active');activeFilter=button.dataset.filter;apply()}));document.querySelector('[data-filter-shortcut]').addEventListener('click',()=>{document.querySelector('[data-filter="unread"]').click();document.querySelector('.inbox').scrollIntoView({behavior:'smooth',block:'start'})});document.querySelector('#searchForm').addEventListener('submit',event=>{event.preventDefault();apply()});document.querySelector('.search input').addEventListener('input',apply);
-    document.querySelectorAll('.mail-row').forEach(row=>row.addEventListener('click',()=>{row.classList.remove('unread');const count=row.querySelector('.unread-count');if(count)count.remove();showToast('대화 상세 디자인은 다음 한 페이지로 만듭니다.')}));const receive=document.querySelector('.toggle');receive.addEventListener('click',()=>{const on=receive.classList.toggle('on');receive.setAttribute('aria-checked',String(on));showToast(on?'새 메시지를 받습니다.':'새 메시지를 받지 않습니다.')});
+    document.querySelectorAll('.mail-row').forEach(row=>row.addEventListener('click',()=>{row.classList.remove('unread');const count=row.querySelector('.unread-count');if(count)count.remove();showToast('대화 상세 디자인은 다음 한 페이지로 만듭니다.')}));document.querySelectorAll('.toggle').forEach(button=>button.addEventListener('click',()=>{showToast('수신 여부는 서버에 저장되지 않습니다. 알림 설정은 24 설정 화면에서 관리됩니다.')}));
   </script>
 <script src="assets/danjion-session.js"></script>
 <script src="assets/messages-notifications-bridge.js"></script>
@@ -101,7 +94,22 @@
     if(Number.isNaN(date.getTime()))return '';
     return new Intl.DateTimeFormat('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}).format(date);
   }
-  function showState(title,detail){list.innerHTML='';strong.textContent=title;note.textContent=detail;empty.style.display='block'}
+  // #1034: any state without authoritative conversation data must clear every
+  // summary counter, so a prototype unread/reply-wait value can never survive
+  // INITIAL / AUTH_REQUIRED / 401 / 403 / ERROR / NETWORK_FAILURE.
+  function neutralizeSummary(){
+    const neutral='—';
+    const railTitle=document.querySelector('.rail-card h2');
+    if(railTitle)railTitle.innerHTML='안 읽은 메시지<br/>'+neutral;
+    const allCount=document.querySelector('.filter[data-filter="all"] span');
+    const unreadCount=document.querySelector('.filter[data-filter="unread"] span');
+    if(allCount)allCount.textContent=neutral;
+    if(unreadCount)unreadCount.textContent=neutral;
+    const summary=[...document.querySelectorAll('.summary div b')];
+    if(summary[0])summary[0].textContent=neutral;
+    if(summary[1])summary[1].textContent=neutral;
+  }
+  function showState(title,detail){neutralizeSummary();list.innerHTML='';strong.textContent=title;note.textContent=detail;empty.style.display='block'}
   function render(rows){
     list.innerHTML=rows.map(row=>{
       const kind=['live'];if(row.unreadCount>0)kind.push('unread');
@@ -129,8 +137,6 @@
     const result=await bridge.listConversations();
     if(result.mode==='auth-required'){
       showState(result.status===403?'본인 확인된 입주민만 메시지함을 볼 수 있습니다.':'로그인이 필요합니다.',result.status===403?'우리집 연결(26)에서 입주민 확인을 마쳐 주세요.':'로그인 후 다시 시도해 주세요.');
-      const railTitle=document.querySelector('.rail-card h2');
-      if(railTitle)railTitle.innerHTML='안 읽은 메시지<br/>—';
       return;
     }
     if(result.mode==='error'){showState('메시지함을 불러오지 못했습니다.','네트워크 상태를 확인한 뒤 다시 시도해 주세요.');return}
@@ -209,7 +215,7 @@ document.addEventListener('click',function(ev){
  if(SCREEN==='my' && cls.contains('menu-row')){ev.preventDefault();ev.stopImmediatePropagation();const i=[...document.querySelectorAll('.menu-row')].indexOf(el);go(FILES.activity+'?tab='+Math.min(i,3));return;}
  if(SCREEN==='my' && (text.includes('설정 열기')||text.includes('이용 설정'))){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.settings);return;}
  if(SCREEN==='messages' && cls.contains('mail-row')){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.messageDetail);return;}
- if(SCREEN==='messageDetail' && (text.includes('공개 프로필')||text.includes('산책메이트'))){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.profile);return;}
+ if(SCREEN==='messageDetail' && text.includes('공개 프로필')){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.profile);return;}
  if(SCREEN==='profile' && cls.contains('message-button')){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.messageDetail);return;}
  if(SCREEN==='settings' && (cls.contains('support-button')||text.includes('1:1 문의'))){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.inquiry);return;}
  if(SCREEN==='activity' && cls.contains('side-link')){ev.preventDefault();ev.stopImmediatePropagation();go(FILES.profile);return;}
