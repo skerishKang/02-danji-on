@@ -87,8 +87,13 @@
     };
   }
 
+  // #1043: a bounded-out request is its own truthful outcome. It must never be
+  // folded into the auth-required copy, because a feed that stopped responding
+  // is not a session that expired.
   function failureMode(result) {
-    return result.reason === 'auth-required' ? 'auth-required' : 'error';
+    if (result.reason === 'auth-required') return 'auth-required';
+    if (result.reason === 'timeout') return 'timeout';
+    return 'error';
   }
 
   // Issue #810: carry the bounded server-side auth-bridge disposition through
@@ -133,7 +138,13 @@
       && session.isCanonicalProduction(options.location);
     const slug = encodeURIComponent(String(options.complexSlug || DEFAULT_COMPLEX_SLUG));
     const base = `/api/v1/complexes/${slug}/community`;
-    const sessionFetch = session.createSessionFetch(apiBase);
+    // #1043: the community feed must always reach a settled outcome, so this
+    // bridge opts in to the canonical bounded request instead of awaiting a
+    // supplied fetch that may never settle. Other session lanes keep the
+    // unbounded createSessionFetch, so no unrelated timeout semantics change.
+    const sessionFetch = typeof session.createBoundedSessionFetch === 'function'
+      ? session.createBoundedSessionFetch(apiBase, { timeoutMs: options.requestTimeoutMs })
+      : session.createSessionFetch(apiBase);
     const request = (path, init) => sessionFetch(fetchImpl, path, init);
 
     function serverOnly() {
