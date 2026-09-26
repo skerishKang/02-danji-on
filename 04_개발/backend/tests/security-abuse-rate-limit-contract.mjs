@@ -87,6 +87,7 @@ for (const [action, max, windowExpr] of expectedPolicies) {
 for (const routeEvidence of [
   'community\\/posts$',
   'community\\/posts\\/[0-9a-fA-F-]+\\/comments$',
+  'community\\/posts\\/[0-9a-fA-F-]+\\/comments\\/[0-9a-fA-F-]+\\/replies$',
   'community\\/reports$',
   "path === '/api/v1/me/reports'",
   'household\\/family-invites$',
@@ -127,5 +128,12 @@ assert.match(household, /requireActor\(/,
   'Household family authorization remains authoritative after rate-limit PASS');
 assert.match(economy, /requireVerifiedResident\(/,
   'resident economy authorization remains authoritative after rate-limit PASS');
+
+assert.equal(
+  (limiter.match(/return 'community_comment_create';/g) || []).length,
+  1,
+  'top-level comments and replies must converge on one approved community_comment_create bucket',
+);
+console.log('COMMUNITY_REPLY_USES_COMMENT_RATE_LIMIT_BUCKET=PASS');
 
 console.log('PASS database-backed auth + bounded actor product mutation abuse-limit contract');
