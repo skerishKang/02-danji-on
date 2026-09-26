@@ -7,7 +7,8 @@ const pages = {
   story: await readFile(new URL('15_단지이야기_글쓰기.html', root), 'utf8'),
   question: await readFile(new URL('16_궁금해요_글쓰기.html', root), 'utf8'),
   together: await readFile(new URL('17_같이해요_글쓰기.html', root), 'utf8'),
-  detail: await readFile(new URL('13_이웃대화_글상세_댓글.html', root), 'utf8')
+  detail: await readFile(new URL('13_이웃대화_글상세_댓글.html', root), 'utf8'),
+  writeCommon: await readFile(new URL('assets/pages/write-common.css', root), 'utf8')
 };
 
 const writeScripts = [
@@ -70,5 +71,52 @@ assert.match(detail, /다른 주민에게는 아직 보이지 않습니다/);
 assert.match(detail, /likeBtn\.disabled=true/);
 assert.match(detail, /commentText\.disabled=true/);
 assert.match(detail, /글이 공개된 뒤 댓글과 공감을 이용할 수 있습니다/);
+
+/* #1040 — one shared visible keyboard-focus contract across writers 14-17. */
+{
+  const writerNames = ['greeting', 'story', 'question', 'together'];
+  for (const name of writerNames) {
+    const page = pages[name];
+    assert.ok(page.includes('href="assets/pages/write-common.css"'),
+      `${name}: writer must load the shared focus stylesheet`);
+    assert.ok(page.indexOf('href="assets/pages/write-common.css"') > page.lastIndexOf('</style>'),
+      `${name}: shared focus stylesheet must load after leaf outline:none rules`);
+    assert.doesNotMatch(page, /outline\s*:\s*none\s*!important/i,
+      `${name}: a leaf must not make outline suppression impossible to override`);
+  }
+
+  const css = pages.writeCommon;
+  for (const selector of [
+    '.writebar button:focus-visible',
+    '.editor input:focus-visible',
+    '.editor textarea:focus-visible',
+    '.editor select:focus-visible',
+    '.editor button:focus-visible',
+    '.type-tab:focus-visible',
+    '.toggle:focus-visible',
+    '.publish-wrap button:focus-visible'
+  ]) {
+    assert.ok(css.includes(selector), `#1040: shared CSS must cover ${selector}`);
+  }
+  assert.match(css, /outline:3px solid var\(--coral,#ee6045\)!important/,
+    '#1040: focus indicator must use an explicit visible outline');
+  assert.match(css, /outline-offset:3px!important/,
+    '#1040: focus outline must be separated from the control edge');
+
+  // The legacy leaf outline:none is permitted only because every canonical writer
+  // loads this later shared :focus-visible replacement.
+  for (const name of writerNames) {
+    if (/outline\s*:\s*none/i.test(pages[name])) {
+      assert.ok(css.includes('.editor input:focus-visible') && css.includes('.editor textarea:focus-visible'),
+        `${name}: outline:none requires the shared visible replacement`);
+    }
+  }
+}
+console.log('1040_WRITER_TITLE_VISIBLE_FOCUS=YES');
+console.log('1040_WRITER_BODY_VISIBLE_FOCUS=YES');
+console.log('1040_WRITER_DYNAMIC_FIELD_VISIBLE_FOCUS=YES');
+console.log('1040_WRITER_PRIMARY_CONTROLS_VISIBLE_FOCUS=YES');
+console.log('1040_OUTLINE_NONE_WITHOUT_REPLACEMENT=NO');
+console.log('1040_PAGES_14_15_16_17_PARITY=PASS');
 
 console.log('leaf-b753-community-write-correctness-contract: PASS');
