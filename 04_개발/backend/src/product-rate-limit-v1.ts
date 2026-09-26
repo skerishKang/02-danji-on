@@ -96,7 +96,12 @@ export function productMutationLimitForRequest(request: Request): ProductMutatio
   if (/^\/api\/v1\/complexes\/[^/]+\/community\/posts$/.test(path)) {
     return 'community_post_create';
   }
-  if (/^\/api\/v1\/complexes\/[^/]+\/community\/posts\/[0-9a-fA-F-]+\/comments$/.test(path)) {
+  if (
+    /^\/api\/v1\/complexes\/[^/]+\/community\/posts\/[0-9a-fA-F-]+\/comments$/.test(path) ||
+    /^\/api\/v1\/complexes\/[^/]+\/community\/posts\/[0-9a-fA-F-]+\/comments\/[0-9a-fA-F-]+\/replies$/.test(path)
+  ) {
+    // Replies persist into community_comments and share the approved comment
+    // abuse budget; do not create a second threshold that can be alternated around.
     return 'community_comment_create';
   }
   if (/^\/api\/v1\/complexes\/[^/]+\/community\/reports$/.test(path)) {
