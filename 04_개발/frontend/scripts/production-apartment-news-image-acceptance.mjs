@@ -101,6 +101,24 @@ async function reconcileFailureResidue() {
   }
 
   // Exact server-issued identifiers only. No marker/title search and no DB access.
+  // Failure reconciliation must be monotonic toward non-visible state: never publish.
+  if (postId) {
+    const archived = await bounded(
+      'ARCHIVE_POST',
+      () => context.request.patch(`${frontendBase}/api/v1/admin/posts/${postId}`, {
+        data: {
+          channel: 'apartment_news',
+          displayMode: 'article',
+          status: 'archived',
+        },
+      }),
+      [200, 404],
+    );
+    if (archived) report('FAILURE_CLEANUP_POST_ARCHIVE_ATTEMPTED');
+  }
+
+  // Detach only after the visibility-safe archive attempt. Omitting status preserves the
+  // server-authoritative current status, so an already archived post can never be republished.
   if (postId) {
     const detached = await bounded(
       'DETACH',
@@ -109,7 +127,6 @@ async function reconcileFailureResidue() {
           attachmentObjectKey: null,
           channel: 'apartment_news',
           displayMode: 'article',
-          status: 'published',
         },
       }),
       [200, 404],
@@ -128,31 +145,15 @@ async function reconcileFailureResidue() {
     if (retired) report('FAILURE_CLEANUP_OBJECT_RETIRED');
   }
 
-  // Archive is deliberately independent of detach/image retirement success. Visibility removal
-  // is the fail-safe even when an earlier cleanup step itself is broken.
   if (postId) {
-    const archived = await bounded(
-      'ARCHIVE_POST',
-      () => context.request.patch(`${frontendBase}/api/v1/admin/posts/${postId}`, {
-        data: {
-          channel: 'apartment_news',
-          displayMode: 'article',
-          status: 'archived',
-        },
-      }),
-      [200, 404],
+    const publicReadback = await bounded(
+      'PUBLIC_POST_READBACK',
+      () => context.request.get(
+        `${frontendBase}/api/v1/complexes/${COMPLEX_SLUG}/posts/${postId}`,
+      ),
+      [404],
     );
-    if (archived) {
-      report('FAILURE_CLEANUP_POST_ARCHIVE_ATTEMPTED');
-      const publicReadback = await bounded(
-        'PUBLIC_POST_READBACK',
-        () => context.request.get(
-          `${frontendBase}/api/v1/complexes/${COMPLEX_SLUG}/posts/${postId}`,
-        ),
-        [404],
-      );
-      if (publicReadback) report('FAILURE_CLEANUP_PUBLIC_POST_404_READBACK');
-    }
+    if (publicReadback) report('FAILURE_CLEANUP_PUBLIC_POST_404_READBACK');
   }
 
   if (!postId && !objectKey) failures.push('EXACT_IDENTIFIER_UNAVAILABLE');
