@@ -50,6 +50,35 @@ assert.match(workflow, /environment:\s*production/, 'PRODUCTION_ENVIRONMENT_PRES
 assert.match(workflow, /Exact main authority guard/, 'EXACT_MAIN_GUARD_PRESERVED=PASS');
 assert.match(workflow, /Reconfirm exact main immediately before backup/, 'exact-main must be rechecked immediately before backup');
 
+/* ---- SCHEDULE_EXACT_MAIN_FIX (#1066) ---- */
+const authorityGate = extractStepRunBlock(workflow, 'Exact main authority guard');
+const eventBranchPos = authorityGate.indexOf('if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]');
+const resolvedValidationPos = authorityGate.indexOf('if [[ ! "${expected_main}" =~ ^[0-9a-fA-F]{40}$ ]]');
+assert.ok(eventBranchPos >= 0, 'manual/schedule event branch must exist');
+assert.ok(resolvedValidationPos > eventBranchPos,
+  'resolved expected_main must be selected before SHA validation so schedule does not validate an empty dispatch input');
+assert.ok(
+  authorityGate.includes('expected_main="${EXPECTED_MAIN}"'),
+  'workflow_dispatch must still consume explicit expected_main',
+);
+assert.ok(
+  authorityGate.includes('expected_main="${GITHUB_SHA}"'),
+  'scheduled runs must derive expected_main from the scheduled source SHA',
+);
+assert.equal(
+  authorityGate.slice(0, eventBranchPos).includes('EXPECTED_MAIN'),
+  false,
+  'schedule path must not validate workflow_dispatch-only EXPECTED_MAIN before event resolution',
+);
+assert.ok(
+  authorityGate.includes('actual_main="$(git rev-parse origin/main)"'),
+  'remote main must still be re-read',
+);
+assert.ok(
+  authorityGate.includes('if [ "${GITHUB_SHA}" != "${expected_main}" ] || [ "${actual_main}" != "${expected_main}" ]; then'),
+  'both checked-out source and remote main must equal the resolved expected main',
+);
+
 /* ---- ENABLE_SWITCH_CONTEXT_FIX (#714) ---- */
 assert.match(
   workflow,
@@ -170,6 +199,8 @@ process.stdout.write('DISABLED_JOB_IF_NOT_ACTIVE=PASS\n');
 process.stdout.write('SOURCE_ARM_REQUIRED=PASS\n');
 process.stdout.write('ENABLE_VARIABLE_REQUIRED=PASS\n');
 process.stdout.write('EXACT_MAIN_GUARD_PRESERVED=PASS\n');
+process.stdout.write('SCHEDULE_EXPECTED_MAIN_FROM_GITHUB_SHA=PASS\n');
+process.stdout.write('SCHEDULE_EMPTY_DISPATCH_INPUT_DOES_NOT_FAIL_PREMATURELY=PASS\n');
 process.stdout.write('PRODUCTION_ENVIRONMENT_PRESERVED=PASS\n');
 process.stdout.write('RESTORE_ARM_UNCHANGED=PASS\n');
 process.stdout.write('ACTIVATION_OUTPUT_TOKEN_NOT_BOOLEAN=PASS\n');
