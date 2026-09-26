@@ -21,6 +21,7 @@ assert.equal(productMutationRateLimitEnabled({ PRODUCT_MUTATION_RATE_LIMIT_MODE:
 const cases = [
   ['/api/v1/complexes/complex-1/community/posts', 'community_post_create'],
   ['/api/v1/complexes/complex-1/community/posts/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/comments', 'community_comment_create'],
+  ['/api/v1/complexes/complex-1/community/posts/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/comments/bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb/replies', 'community_comment_create'],
   ['/api/v1/complexes/complex-1/community/reports', 'community_report_create'],
   ['/api/v1/me/reports', 'resident_safety_report_create'],
   ['/api/v1/complexes/complex-1/household/family-invites', 'family_invite_create'],
@@ -50,6 +51,7 @@ for (const path of [
   '/api/v1/complexes/complex-1/household',
   '/api/v1/me/benefits/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/use',
   '/api/v1/me/conversations',
+  '/api/v1/complexes/complex-1/community/posts/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/comments/bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb/replies/not-a-route',
   '/api/v1/complexes/complex-1/businesses/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/reviews/bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb/reply'
 ]) {
   assert.equal(productMutationLimitForRequest(request('POST', path)), null, `out-of-scope POST must not be limited: ${path}`);
