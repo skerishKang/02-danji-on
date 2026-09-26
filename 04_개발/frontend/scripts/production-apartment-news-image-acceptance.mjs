@@ -76,6 +76,92 @@ let unauthorizedContext;
 let articlePage;
 let stage = 'START';
 let mutationStarted = false;
+let objectKey = '';
+let postId = '';
+let cleanupComplete = false;
+
+async function reconcileFailureResidue() {
+  if (!mutationStarted || cleanupComplete || !context) return;
+
+  const failures = [];
+  report('FAILURE_CLEANUP_RECONCILIATION_ATTEMPTED');
+
+  async function bounded(label, action, acceptedStatuses) {
+    try {
+      const response = await action();
+      if (!acceptedStatuses.includes(response.status())) {
+        failures.push(`${label}_HTTP_${response.status()}`);
+        return null;
+      }
+      return response;
+    } catch {
+      failures.push(`${label}_REQUEST_FAILED`);
+      return null;
+    }
+  }
+
+  // Exact server-issued identifiers only. No marker/title search and no DB access.
+  if (postId) {
+    const detached = await bounded(
+      'DETACH',
+      () => context.request.patch(`${frontendBase}/api/v1/admin/posts/${postId}`, {
+        data: {
+          attachmentObjectKey: null,
+          channel: 'apartment_news',
+          displayMode: 'article',
+          status: 'published',
+        },
+      }),
+      [200, 404],
+    );
+    if (detached) report('FAILURE_CLEANUP_DETACH_RECONCILED');
+  }
+
+  if (objectKey) {
+    const retired = await bounded(
+      'RETIRE_OBJECT',
+      () => context.request.delete(
+        `${frontendBase}/api/v1/storage/objects?objectKey=${encodeURIComponent(objectKey)}`,
+      ),
+      [200, 404],
+    );
+    if (retired) report('FAILURE_CLEANUP_OBJECT_RETIRED');
+  }
+
+  // Archive is deliberately independent of detach/image retirement success. Visibility removal
+  // is the fail-safe even when an earlier cleanup step itself is broken.
+  if (postId) {
+    const archived = await bounded(
+      'ARCHIVE_POST',
+      () => context.request.patch(`${frontendBase}/api/v1/admin/posts/${postId}`, {
+        data: {
+          channel: 'apartment_news',
+          displayMode: 'article',
+          status: 'archived',
+        },
+      }),
+      [200, 404],
+    );
+    if (archived) {
+      report('FAILURE_CLEANUP_POST_ARCHIVE_ATTEMPTED');
+      const publicReadback = await bounded(
+        'PUBLIC_POST_READBACK',
+        () => context.request.get(
+          `${frontendBase}/api/v1/complexes/${COMPLEX_SLUG}/posts/${postId}`,
+        ),
+        [404],
+      );
+      if (publicReadback) report('FAILURE_CLEANUP_PUBLIC_POST_404_READBACK');
+    }
+  }
+
+  if (!postId && !objectKey) failures.push('EXACT_IDENTIFIER_UNAVAILABLE');
+  cleanupComplete = failures.length === 0;
+  console.log(`PRODUCTION_844_FAILURE_CLEANUP=${cleanupComplete ? 'PASS' : 'FAIL'}`);
+  if (failures.length) {
+    console.error(`PRODUCTION_844_FAILURE_CLEANUP_DETAIL=${failures.join('+')}`);
+  }
+}
 
 try {
   stage = 'LIVE_SOURCE_PARITY';
@@ -245,7 +331,7 @@ try {
   const storageResponse = await storageResponsePromise;
   if (storageResponse.status() !== 201) throw new Error(`OFFICIAL_NEWS_UPLOAD_HTTP_${storageResponse.status()}`);
   const storageJson = await storageResponse.json().catch(() => null);
-  const objectKey = String(storageJson?.data?.objectKey || '');
+  objectKey = String(storageJson?.data?.objectKey || '');
   if (!OBJECT_KEY_RE.test(objectKey)) throw new Error('OFFICIAL_NEWS_OBJECT_KEY_INVALID');
   report('OFFICIAL_NEWS_UPLOAD_201');
   report('SERVER_ISSUED_OBJECT_KEY');
@@ -263,7 +349,7 @@ try {
   const postResponse = await postResponsePromise;
   if (postResponse.status() !== 201) throw new Error(`OFFICIAL_POST_CREATE_HTTP_${postResponse.status()}`);
   const postJson = await postResponse.json().catch(() => null);
-  const postId = String(postJson?.data?.id || '');
+  postId = String(postJson?.data?.id || '');
   if (!/^[0-9a-f-]{36}$/i.test(postId)) throw new Error('OFFICIAL_POST_ID_INVALID');
   if (String(postJson?.data?.channel || '') !== 'apartment_news') throw new Error('OFFICIAL_POST_CHANNEL_MISMATCH');
   if (String(postJson?.data?.display_mode || '') !== 'article') throw new Error('OFFICIAL_POST_DISPLAY_MODE_MISMATCH');
@@ -401,6 +487,7 @@ try {
   if (afterArchive.status() !== 404) throw new Error(`ARCHIVED_PUBLIC_POST_HTTP_${afterArchive.status()}`);
   report('ACCEPTANCE_POST_ARCHIVED');
   report('PUBLIC_POST_REMOVED_AFTER_ARCHIVE');
+  cleanupComplete = true;
 
   await context.request.post(`${frontendBase}/api/auth/sign-out`, {
     headers: { Origin: frontendBase, 'Content-Type': 'application/json' },
@@ -421,6 +508,13 @@ try {
   console.log('SECRET_OUTPUT=0');
   process.exitCode = 1;
 } finally {
+  if (mutationStarted && !cleanupComplete && context) {
+    await reconcileFailureResidue().catch(() => {
+      console.error('PRODUCTION_844_FAILURE_CLEANUP=FAIL');
+      console.error('PRODUCTION_844_FAILURE_CLEANUP_DETAIL=UNEXPECTED_RECONCILIATION_FAILURE');
+      process.exitCode = 1;
+    });
+  }
   if (articlePage) await articlePage.close().catch(() => {});
   if (unauthorizedContext) await unauthorizedContext.close().catch(() => {});
   if (context) await context.close().catch(() => {});
