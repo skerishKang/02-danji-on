@@ -140,7 +140,8 @@
     "test:core-public-route-identifiers": "tsx --import ./tests/helpers/neon-stub-loader.mjs tests/core-public-route-identifiers.test.mjs",
     "test:safe-complex-slug-1018": "tsx --import ./tests/helpers/neon-stub-loader.mjs tests/safe-complex-slug-1018.test.mjs",
     "test:admin-review-note-limit-994": "tsx tests/admin-review-note-limit-994-contract.mjs",
-    "test:admin-auth-before-resource-lookup-975": "tsx --import ./tests/helpers/neon-stub-loader.mjs tests/admin-auth-before-resource-lookup-975.test.mjs"
+    "test:admin-auth-before-resource-lookup-975": "tsx --import ./tests/helpers/neon-stub-loader.mjs tests/admin-auth-before-resource-lookup-975.test.mjs",
+    "test:admin-auth-before-resource-lookup-1047": "tsx --import ./tests/helpers/neon-stub-loader.mjs tests/admin-auth-before-resource-lookup-1047.test.mjs"
   },
   "dependencies": {
     "@neondatabase/serverless": "1.1.0",

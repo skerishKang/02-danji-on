@@ -29,7 +29,8 @@ const REQUEST_ID_HEADER = 'x-danjion-request-id';
 const OBJECT_KEY_PREFIX = 'gdrive/private/application-document/';
 
 // Malformed ids fail closed with the same non-disclosing 404 as a missing
-// document, before any query runs (raw ids must never reach ::uuid casts).
+// document, after the Stage 1 actor boundary and before any resource query
+// (raw ids must never reach ::uuid casts).
 export const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export type DocumentRow = {
@@ -203,6 +204,21 @@ export async function serveApplicationDocument(
   applicationId: string,
   documentId: string
 ): Promise<Response> {
+  // #1047 Stage 1: the minimum actor boundary runs before the
+  // documentId -> application -> complex -> registry read, so a signed-out
+  // caller receives one and the same 401 for an existing and an absent document
+  // and no document, registry or application row is ever read for it.
+  const actor = await requireActor(request, env, sql, requestId);
+  if (actor instanceof Response) return actor;
+
+  // #1047 Stage 2 guard: a malformed id is answered exactly like an absent
+  // document behind that same boundary and never reaches a ::uuid cast. The
+  // route shape is still matched by the calling lane, so a non-routable path
+  // falls through with no SQL at all.
+  if (!UUID.test(applicationId) || !UUID.test(documentId)) {
+    return fail('NOT_FOUND', 'Application document not found', 404, requestId);
+  }
+
   // Exact documentId -> application -> complex -> registry lookup. The
   // application_id predicate binds the document to the URL application so a
   // documentId from another application never resolves here.
@@ -222,9 +238,9 @@ export async function serveApplicationDocument(
 
   const objectKey = String(row.object_key ?? '');
 
-  const actor = await requireActor(request, env, sql, requestId);
-  if (actor instanceof Response) return actor;
-
+  // Lane authority is still decided by the injected policy for the row's own
+  // complex — applicant ownership in the resident lane, the exact
+  // complex-scoped reviewer grant in the admin lane. Stage 1 never replaces it.
   const authorization = await policy.authorize({ request, env, sql, requestId, actor, row, applicationId, documentId });
   if (authorization instanceof Response) return authorization;
 

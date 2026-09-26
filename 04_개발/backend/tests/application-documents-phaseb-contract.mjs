@@ -73,12 +73,16 @@ assert.ok(admin.includes("'AUDIT_UNAVAILABLE'") && admin.includes('503'),
 assert.ok(core.indexOf('await authorization.auditRead()') < core.indexOf('return streamDriveFile('),
   '11. reviewer audit gate must precede Drive streaming');
 
-// 11b. CORE pipeline ordering (shared serving core): lookup -> requireActor ->
-// lane authorization -> registry kind/state -> registry-bound fileId parse ->
-// reviewer document.read audit gate -> Drive stream.
+// 11b. CORE pipeline ordering (shared serving core). #1047 moved the Stage 1
+// actor boundary in front of the read, matching the #975 canonical order, so
+// the shared serving core is now:
+// requireActor -> routable-id guard -> lookup -> lane authorization ->
+// registry kind/state -> registry-bound fileId parse -> reviewer
+// document.read audit gate -> Drive stream.
 const coreOrder = [
-  'from business_application_documents bad',
   'await requireActor(request, env, sql, requestId)',
+  'if (!UUID.test(applicationId) || !UUID.test(documentId))',
+  'from business_application_documents bad',
   'await policy.authorize({',
   "String(row.registry_kind ?? '') !== 'application-document'",
   "String(row.registry_state ?? '') !== 'active'",
@@ -91,6 +95,16 @@ for (const marker of coreOrder) {
   const index = core.indexOf(marker);
   assert.ok(index > cursor, `core ordering violation: '${marker}' must appear after the previous stage`);
   cursor = index;
+}
+
+// #1047: the lane must no longer pre-empt the Stage 1 actor boundary with its
+// own id guard, because that answered a signed-out malformed id with 404 before
+// authentication. The guard is single-sourced in the shared core.
+for (const [name, lane] of [['admin', admin], ['resident', resident]]) {
+  assert.ok(
+    !/if \(!UUID\.test\(match\[1\]\) \|\| !UUID\.test\(match\[2\]\)\)/.test(lane),
+    `${name} lane must not answer a malformed id before the actor boundary`
+  );
 }
 
 // 11c. LANE ordering: the resident lane checks ownership before applicant
@@ -137,11 +151,11 @@ assert.ok(app.includes('handleResidentApplicationDocumentRequest') &&
   app.indexOf('handleResidentApplicationDocumentRequest') < app.lastIndexOf('core.fetch'),
   'me document route must dispatch before core');
 
-// 13. malformed ids fail closed without disclosure: strict UUID validation
-// runs before any query so raw ids never reach ::uuid casts.
-assert.ok(resident.includes('UUID.test(match[1])') && resident.includes('UUID.test(match[2])') &&
-  admin.includes('UUID.test(match[1])') && admin.includes('UUID.test(match[2])'),
-  '13. malformed ids must 404 without disclosure before any query');
+// 13. malformed ids fail closed without disclosure: strict UUID validation is
+// single-sourced in the shared core and runs after the Stage 1 actor boundary
+// (#1047), so raw ids still never reach ::uuid casts.
+assert.ok(core.includes('UUID.test(applicationId)') && core.includes('UUID.test(documentId)'),
+  '13. malformed ids must 404 without disclosure before any document lookup');
 
 // 14. disposition policy: PDF downloads as an attachment, images inline.
 assert.ok(core.includes('attachment; filename="application-document-${documentId}.pdf"') &&
