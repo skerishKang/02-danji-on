@@ -60,6 +60,7 @@ const EXPECTED_BACKEND_ORDER = [
   "test:padiem-authority",
   "test:admin-authority-contract",
   "test:admin-bootstrap",
+  "test:admin-bootstrap-atomicity-1046",
   "test:admin-bootstrap-contract",
   "test:admin-principals-contract",
   "test:admin-review-privacy-rbac",

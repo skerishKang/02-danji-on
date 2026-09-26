@@ -48,7 +48,7 @@
         {"id":"test:benefit-null-time-range-patch","npm":"test:benefit-null-time-range-patch","kind":"contract"},
         {"id":"test:padiem-authority","npm":"test:padiem-authority","kind":"contract"},
         {"id":"test:admin-authority-contract","npm":"test:admin-authority-contract","kind":"contract"},
-        {"id":"test:admin-bootstrap","npm":"test:admin-bootstrap","kind":"contract"},
+        {"id":"test:admin-bootstrap","npm":"test:admin-bootstrap","kind":"contract"},{"id":"test:admin-bootstrap-atomicity-1046","npm":"test:admin-bootstrap-atomicity-1046","kind":"contract"},
         {"id":"test:admin-bootstrap-contract","npm":"test:admin-bootstrap-contract","kind":"contract"},
         {"id":"test:admin-principals-contract","npm":"test:admin-principals-contract","kind":"contract"},
         {"id":"test:admin-review-privacy-rbac","npm":"test:admin-review-privacy-rbac","kind":"contract"},
