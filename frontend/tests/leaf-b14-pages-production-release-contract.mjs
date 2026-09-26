@@ -4,11 +4,24 @@ import { spawnSync } from 'node:child_process';
 
 const workflow = await readFile(new URL('../../.github/workflows/pages-production-release.yml', import.meta.url), 'utf8');
 
-/* #432: canonical production upload must not force a branch-directed preview deploy. */
+/* #432: canonical production upload must not force a branch-directed preview deploy.
+   #897 run 36238012103: checkout of expected_main by SHA is a detached HEAD, so
+   bare `pages deploy` falls back to branch "head" and lands a branch deployment
+   that is never promoted to canonical production. The deploy must therefore pin
+   --branch to the project's production branch name — the only branch value that
+   is not a preview deploy. */
 assert.match(workflow, /npx wrangler@4\.131\.0 pages deploy dist[\s\S]*--project-name "\$PAGES_PROJECT"[\s\S]*--commit-hash "\$EXPECTED_MAIN"/,
   'production workflow must deploy the V3 artifact with explicit project and source SHA');
-assert.doesNotMatch(workflow, /pages deploy dist[\s\S]{0,250}--branch "\$PAGES_PRODUCTION_BRANCH"/,
-  'canonical production deploy must not pass --branch');
+assert.match(workflow, /ref: \$\{\{ inputs\.expected_main \}\}/,
+  'SHA-pinned checkout implies detached HEAD, so branch detection cannot be trusted');
+assert.match(workflow, /pages deploy dist[\s\S]{0,250}--branch "\$PAGES_PRODUCTION_BRANCH"/,
+  'deploy must pin the project production branch name under a detached-HEAD checkout');
+{
+  // Mutation: dropping the production branch pin must be detectable.
+  const mutated = workflow.replace(/--branch "\$PAGES_PRODUCTION_BRANCH"\s*\\\n/, '');
+  assert.doesNotMatch(mutated, /pages deploy dist[\s\S]{0,250}--branch "\$PAGES_PRODUCTION_BRANCH"/,
+    'mutation remove-branch-pin must be detectable');
+}
 
 /* The workflow must read back Cloudflare canonical production state, not trust CLI success. */
 assert.match(workflow, /canonical_deployment\.id/,
