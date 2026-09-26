@@ -181,11 +181,13 @@ assert.ok(finalizer.includes('await reconcileFailureResidue()'));
 assert.ok(finalizer.indexOf('await reconcileFailureResidue()') < finalizer.indexOf('await context.close()'),
   'failure reconciliation must run before context close');
 
-const detachAt = reconciliation.indexOf("'DETACH'");
 const archiveAt = reconciliation.indexOf("'ARCHIVE_POST'");
-assert.ok(detachAt >= 0 && archiveAt > detachAt, 'archive reconciliation must be present after detach attempt');
-assert.ok(reconciliation.slice(detachAt, archiveAt).includes('if (objectKey)'),
-  'archive must be a separate step, not nested under detach success');
+const detachAt = reconciliation.indexOf("'DETACH'");
+const retireAt = reconciliation.indexOf("'RETIRE_OBJECT'");
+assert.ok(archiveAt >= 0 && detachAt > archiveAt,
+  'failure reconciliation must archive before detach so cleanup never republishes visibility');
+assert.ok(retireAt > detachAt,
+  'object retirement must remain a separate bounded step after detach');
 
 for (const forbiddenIdOutput of [
   'console.log(postId',
@@ -195,3 +197,27 @@ for (const forbiddenIdOutput of [
 ]) assert.ok(!script.includes(forbiddenIdOutput), `#1064 must not emit ${forbiddenIdOutput}`);
 
 console.log('production-apartment-news-image-failure-reconciliation-contract: PASS');
+
+
+// #1067: failure reconciliation is monotonic toward non-visible state.
+// It must archive before detach, never write published, preserve server status on detach,
+// and retire the object only after the exact post reference is detached.
+{
+  const start = script.indexOf('async function reconcileFailureResidue()');
+  const end = script.indexOf('\n\ntry {', start);
+  assert.ok(start >= 0 && end > start, '#1067 reconciliation helper must exist');
+  const block = script.slice(start, end);
+  const archivePos = block.indexOf("'ARCHIVE_POST'");
+  const detachPos = block.indexOf("'DETACH'");
+  const retirePos = block.indexOf("'RETIRE_OBJECT'");
+  const readbackPos = block.indexOf("'PUBLIC_POST_READBACK'");
+  assert.ok(archivePos >= 0 && detachPos > archivePos, '#1067 archive must precede detach');
+  assert.ok(retirePos > detachPos, '#1067 object retirement must follow detach');
+  assert.ok(readbackPos > retirePos, '#1067 public readback must follow bounded cleanup attempts');
+  assert.equal(block.includes("status: 'published'"), false, '#1067 failure reconciler must never publish');
+  const detachSlice = block.slice(detachPos, retirePos);
+  assert.equal(detachSlice.includes('status:'), false, '#1067 detach must preserve current server-authoritative status');
+  assert.ok(block.includes("status: 'archived'"), '#1067 exact post archive must remain explicit');
+  assert.ok(block.includes('attachmentObjectKey: null'), '#1067 exact attachment detach must remain');
+}
+console.log('production-apartment-news-image-monotonic-failure-cleanup-contract: PASS');
