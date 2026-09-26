@@ -1,0 +1,109 @@
+name: 'Production #1035 Community Fixture Read-only Enumeration'
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/production-1035-community-fixture-readonly.yml'
+      - '04_개발/frontend/scripts/production-1035-community-fixture-readonly.mjs'
+      - '04_개발/frontend/tests/production-1035-community-fixture-readonly-contract.mjs'
+  workflow_dispatch:
+    inputs:
+      expected_main:
+        description: 'Exact main SHA authorized for Production #1035 read-only enumeration'
+        required: true
+        type: string
+      run_live:
+        description: 'Explicitly authorize credentialed Production GET-only enumeration'
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: danjion-production-1035-community-fixture-readonly
+  cancel-in-progress: false
+
+env:
+  EXPECTED_MAIN: ${{ inputs.expected_main }}
+
+jobs:
+  source-contract:
+    name: 'Production #1035 read-only source contract'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Syntax-check enumerator
+        run: node --check 04_개발/frontend/scripts/production-1035-community-fixture-readonly.mjs
+      - name: Verify GET-only safety contract
+        run: node 04_개발/frontend/tests/production-1035-community-fixture-readonly-contract.mjs
+
+  live-readonly:
+    name: Credentialed Production community fixture read-only enumeration
+    needs: source-contract
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_live }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production
+    env:
+      DANJION_PRODUCTION_FRONTEND_URL: https://danjion.pages.dev
+      DANJION_PRODUCTION_TEST_RESIDENT_EMAIL: ${{ secrets.DANJION_PRODUCTION_TEST_RESIDENT_EMAIL || secrets.DANJION_PRODUCTION_25A_EMAIL }}
+      DANJION_PRODUCTION_TEST_RESIDENT_PASSWORD: ${{ secrets.DANJION_PRODUCTION_TEST_RESIDENT_PASSWORD || secrets.DANJION_PRODUCTION_25A_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+      - name: Exact-main and read-only Production guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! "${EXPECTED_MAIN}" =~ ^[0-9a-fA-F]{40}$ ]]; then
+            echo '::error::expected_main must be a 40-character hexadecimal SHA'
+            exit 1
+          fi
+          actual="$(git rev-parse HEAD)"
+          remote="$(git ls-remote origin refs/heads/main | awk '{print $1}')"
+          test "$GITHUB_REF" = 'refs/heads/main'
+          test "$actual" = "$EXPECTED_MAIN"
+          test "$remote" = "$EXPECTED_MAIN"
+          test "$DANJION_PRODUCTION_FRONTEND_URL" = 'https://danjion.pages.dev'
+          test -n "$DANJION_PRODUCTION_TEST_RESIDENT_EMAIL"
+          test -n "$DANJION_PRODUCTION_TEST_RESIDENT_PASSWORD"
+          test "${#DANJION_PRODUCTION_TEST_RESIDENT_PASSWORD}" -ge 8
+          test -z "${DATABASE_URL:-}"
+          test -z "${DANJION_PRODUCTION_DB_URL:-}"
+          echo 'PRODUCTION_1035_EXACT_MAIN_GUARD=PASS'
+          echo 'PRODUCTION_1035_DB_URL_ABSENT=PASS'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: 04_개발/frontend/package-lock.json
+      - name: Install frontend dependencies
+        working-directory: 04_개발/frontend
+        run: npm ci
+      - name: Install Playwright Chromium
+        working-directory: 04_개발/frontend
+        run: npx playwright install --with-deps chromium
+      - name: Enumerate current resident-visible synthetic candidates
+        working-directory: 04_개발/frontend
+        run: timeout 300 node scripts/production-1035-community-fixture-readonly.mjs
+      - name: Record mutation boundary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo '## #1035 Production read-only enumeration'
+            echo '- Product-data mutation: 0'
+            echo '- Direct DB access: 0'
+            echo '- Account provisioning: 0'
+            echo '- Grant mutation: 0'
+            echo '- Production deploy: 0'
+            echo '- Only auth-session creation plus authenticated GETs are permitted by source contract.'
+            echo '- No title/body/nickname plaintext is emitted by the enumerator.'
+          } >> "$GITHUB_STEP_SUMMARY"
