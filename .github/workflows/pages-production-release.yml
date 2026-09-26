@@ -406,23 +406,37 @@ jobs:
         run: |
           set -euo pipefail
           auth_header="Authorization: Bearer ${CLOUDFLARE_API_TOKEN}"
-          project_json="$(curl --silent --show-error --fail \
-            -H "$auth_header" \
-            "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/pages/projects/${PAGES_PROJECT}")"
+          # #897 run 36262197647: the wrangler upload returns before Cloudflare's
+          # project API exposes the new canonical_deployment provenance, so an
+          # immediate read saw the previous deployment and failed a correct
+          # release. This step is a read, not a mutation: poll bounded until the
+          # canonical provenance converges, then keep every fail-closed check.
+          matched=0
+          for attempt in $(seq 1 12); do
+            project_json="$(curl --silent --show-error --fail \
+              -H "$auth_header" \
+              "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/pages/projects/${PAGES_PROJECT}" || true)"
 
-          canonical_id="$(printf '%s' "$project_json" | jq -r '.result.canonical_deployment.id // empty')"
-          canonical_env="$(printf '%s' "$project_json" | jq -r '.result.canonical_deployment.environment // empty')"
-          canonical_commit="$(printf '%s' "$project_json" | jq -r '.result.canonical_deployment.source.config.commit_hash // empty')"
+            canonical_id="$(printf '%s' "$project_json" | jq -r '.result.canonical_deployment.id // empty')"
+            canonical_env="$(printf '%s' "$project_json" | jq -r '.result.canonical_deployment.environment // empty')"
+            canonical_commit="$(printf '%s' "$project_json" | jq -r '.result.canonical_deployment.source.config.commit_hash // empty')"
 
-          if [ -z "$canonical_id" ]; then
-            echo "::error::Pages project did not expose a canonical_deployment after production deploy."
-            exit 1
-          fi
-          if [ "$canonical_env" != "production" ]; then
-            echo "::error::Canonical Pages deployment is not production."
-            exit 1
-          fi
-          if [ -z "$canonical_commit" ] || [ "$canonical_commit" != "$EXPECTED_MAIN" ]; then
+            if [ -z "$canonical_commit" ] || [ "$canonical_commit" != "$EXPECTED_MAIN" ]; then
+              sleep 5
+              continue
+            fi
+            if [ -z "$canonical_id" ]; then
+              echo "::error::Pages project did not expose a canonical_deployment after production deploy."
+              exit 1
+            fi
+            if [ "$canonical_env" != "production" ]; then
+              echo "::error::Canonical Pages deployment is not production."
+              exit 1
+            fi
+            matched=1
+            break
+          done
+          if [ "$matched" -ne 1 ]; then
             echo "::error::Canonical Pages deployment commit is missing or does not match expected_main."
             exit 1
           fi
