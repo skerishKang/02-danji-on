@@ -64,7 +64,16 @@ const SERVER_REPLY = {
 // Harness: a DOM stub faithful enough for the real inline block, plus the
 // delegated submit listener the page registers on `document`.
 // ---------------------------------------------------------------------------
-const runScenario = ({ scriptSource = firstInlineScript, addReplyResult, inputValue = '작성한 답글' } = {}) => {
+const runScenario = ({
+  scriptSource = firstInlineScript,
+  addReplyResult,
+  // When false the harness registers listeners and drives the reply-button click
+  // only, leaving the submit step to the caller (Case B needs a clean timeline).
+  autoSubmit = true,
+  inputValue = '작성한 답글',
+  // Scripted server listReplies responses, consumed in call order.
+  listRepliesResults = [{ mode: 'server', replies: [], nextCursor: null, hasMore: false }],
+} = {}) => {
   const focusLog = [];
   const bridgeCalls = [];
 
@@ -173,9 +182,10 @@ const runScenario = ({ scriptSource = firstInlineScript, addReplyResult, inputVa
       bridgeCalls.push({ op: 'addReply', parentId, body });
       return Promise.resolve(addReplyResult);
     },
-    listReplies(postId, commentId) {
-      bridgeCalls.push({ op: 'listReplies', commentId });
-      return Promise.resolve({ mode: 'server', replies: [], nextCursor: null, hasMore: false });
+    listReplies(postId, commentId, opts) {
+      bridgeCalls.push({ op: 'listReplies', commentId, opts: opts ? { ...opts } : null });
+      const next = listRepliesResults[Math.min(bridgeCalls.filter((c) => c.op === 'listReplies').length - 1, listRepliesResults.length - 1)];
+      return Promise.resolve({ mode: 'server', replies: [], nextCursor: null, hasMore: false, ...next });
     },
     getPost() {
       return Promise.resolve({ mode: 'server', post: null });
@@ -277,13 +287,20 @@ const runScenario = ({ scriptSource = firstInlineScript, addReplyResult, inputVa
     stopImmediatePropagation() {},
   };
   replyForm.closest = (sel) => (sel === '[data-server-reply-form]' ? replyForm : null);
-  if (submitHandler) submitHandler(submitEvent);
+  if (submitHandler && autoSubmit) submitHandler(submitEvent);
 
   // Let the bridge promise settle.
   return new Promise((resolve) =>
     setImmediate(() =>
       setImmediate(() =>
         resolve({
+          clickHandler,
+          submitHandler,
+          replyHost,
+          replyToggle,
+          replyForm,
+          input,
+          commentList,
           replyHostHtml: replyHost.innerHTML,
           replyToggleText: replyToggle.textContent,
           formOpen: replyForm.classList.contains('open'),
@@ -353,37 +370,168 @@ assert.equal(
 );
 
 // ===========================================================================
-// Case B — the thread was already loaded before the submit. Existing behaviour
-// must be preserved: no duplicate, and the new reply is appended.
+// Case B — the thread was ALREADY LOADED before the submit.
+//
+// This drives the real inline state machine through the full sequence a
+// resident produces, rather than asserting on source text:
+//
+//   1. the parent thread reaches loaded=true through a faithful listReplies read
+//   2. at least one existing reply is present
+//   3. cursor / hasMore are explicitly set by the server result
+//   4. bridge.addReply() returns the server-created reply
+//   5. the real submit -> appendReply path runs
+//   6. the existing reply survives
+//   7. exactly one new reply is added
+//   8. a further listReplies server read now includes that same reply
+//   9. projected + loaded must not produce a duplicate
+//  10. cursor / hasMore stay equal to what the server returned
 // ===========================================================================
 {
-  // Pre-seed the loaded state by driving the real toggle handler once, so the
-  // state machine is exercised rather than faked.
-  const harnessHtml = detailHtml;
+  const EXISTING_REPLY = {
+    id: 'r-existing-1',
+    body: '먼저 달린 답글',
+    author: { nickname: '이웃' },
+    createdAt: '2026-09-25T00:00:00.000Z',
+  };
+  // The second server read already contains the reply the resident is about to
+  // create — this is what makes step 9 (no duplicate) meaningful.
+  const SECOND_READ = {
+    replies: [EXISTING_REPLY, SERVER_REPLY],
+    nextCursor: 'cursor-2',
+    hasMore: false,
+  };
+  const FIRST_READ = {
+    replies: [EXISTING_REPLY],
+    nextCursor: 'cursor-1',
+    hasMore: true,
+  };
+
+  const caseB = await runScenario({
+    addReplyResult: { ok: true, mode: 'server', reply: { ...SERVER_REPLY } },
+    listRepliesResults: [FIRST_READ, SECOND_READ],
+    autoSubmit: false,
+  });
+
+  const fireClick = (target) =>
+    caseB.clickHandler({
+      type: 'click',
+      target,
+      preventDefault() {},
+      stopPropagation() {},
+      stopImmediatePropagation() {},
+    });
+  const settle = () => new Promise((r) => setImmediate(() => setImmediate(() => setImmediate(r))));
+
+  // (1) Reach loaded=true through the real toggle -> loadReplies path.
+  const toggleTarget = {
+    dataset: { serverReplyToggle: PARENT },
+    closest: (sel) => (sel === '[data-server-reply-toggle]' ? toggleTarget : null),
+  };
+  fireClick(toggleTarget);
+  await settle();
+
+  const readsAfterToggle = caseB.bridgeCalls.filter((c) => c.op === 'listReplies');
+  assert.equal(readsAfterToggle.length, 1, 'Case B step 1: the toggle must perform exactly one listReplies read');
+  assert.equal(readsAfterToggle[0].commentId, PARENT, 'Case B step 1: the read must target the parent comment');
+
+  // (2) The existing reply is now rendered.
   assert.match(
-    harnessHtml,
-    /state\.loaded=true;/,
-    '13 must still mark a thread loaded only after a real server list read',
+    caseB.replyHost.innerHTML,
+    /data-server-reply-id="r-existing-1"/,
+    'Case B step 2: the existing reply must be rendered after the load',
   );
   assert.match(
-    harnessHtml,
-    /if\(state\.projected&&state\.projected\.length\)\{/,
-    '13 must absorb projected replies by id once the real list arrives',
+    caseB.replyHost.innerHTML,
+    /먼저 달린 답글/,
+    'Case B step 2: the existing reply body must be rendered',
+  );
+
+  // (3) Pagination truth came from the server and is visible in the UI.
+  assert.equal(
+    caseB.replyToggle.textContent,
+    '답글 더 보기',
+    'Case B step 3: hasMore:true from the server must surface on the toggle',
   );
   assert.match(
-    harnessHtml,
-    /state\.projected=state\.projected\.filter\(reply=>!byId\.has\(reply\.id\)\);/,
-    '13 must drop a projected reply from the pending bucket once the server list contains it',
+    caseB.replyHost.innerHTML,
+    /data-server-replies-more="c1"/,
+    'Case B step 3: the server cursor must produce a real "답글 더 보기" control',
   );
-  assert.match(
-    harnessHtml,
-    /const leading=projected\.filter\(item=>!shown\.has\(item\.id\)\);/,
-    '13 must de-duplicate the projection against loaded items by id',
+
+  // (4-5) The real submit path runs and the server reply is projected.
+  const beforeSubmit = caseB.replyHost.innerHTML;
+  caseB.input.value = '추가한 답글';
+  caseB.submitHandler({
+    type: 'submit',
+    target: caseB.replyForm,
+    preventDefault() {},
+    stopPropagation() {},
+    stopImmediatePropagation() {},
+  });
+  await settle();
+
+  assert.equal(
+    caseB.bridgeCalls.filter((c) => c.op === 'addReply').length,
+    1,
+    'Case B step 4: the submit must reach bridge.addReply',
   );
+  assert.notEqual(caseB.replyHost.innerHTML, beforeSubmit, 'Case B step 5: the submit must re-render the thread');
+
+  // (6) The existing reply survives.
   assert.match(
-    harnessHtml,
-    /if\(state\.loaded&&!state\.items\.some\(item=>item\.id===reply\.id\)\)state\.items\.push\(reply\);/,
-    '13 must keep appending into the loaded item list when the thread is known',
+    caseB.replyHost.innerHTML,
+    /data-server-reply-id="r-existing-1"/,
+    'Case B step 6: the pre-existing reply must still be present after the append',
+  );
+
+  // (7) Exactly one new reply, carrying the server id.
+  assert.match(
+    caseB.replyHost.innerHTML,
+    /data-server-reply-id="r-new-1"/,
+    'Case B step 7: the server-created reply must be visible',
+  );
+  const newIdCount = (caseB.replyHost.innerHTML.match(/data-server-reply-id="r-new-1"/g) || []).length;
+  assert.equal(newIdCount, 1, 'Case B step 7: the new reply must appear exactly once, got ' + newIdCount);
+  const existingIdCount = (caseB.replyHost.innerHTML.match(/data-server-reply-id="r-existing-1"/g) || []).length;
+  assert.equal(existingIdCount, 1, 'Case B step 7: the existing reply must not be duplicated');
+
+  // (8) A further real listReplies read now includes the same reply.
+  const moreTarget = {
+    dataset: { serverRepliesMore: PARENT },
+    closest: (sel) => (sel === '[data-server-replies-more]' ? moreTarget : null),
+  };
+  fireClick(moreTarget);
+  await settle();
+
+  const reads = caseB.bridgeCalls.filter((c) => c.op === 'listReplies');
+  assert.equal(reads.length, 2, 'Case B step 8: "답글 더 보기" must perform the append read');
+  assert.equal(
+    reads[1].opts?.cursor,
+    'cursor-1',
+    'Case B step 8: the append read must continue from the server cursor',
+  );
+
+  // (9) The projected reply was absorbed by id, so it is not rendered twice.
+  assert.doesNotMatch(
+    caseB.replyHost.innerHTML,
+    /data-server-reply-id="r-new-1"[\s\S]*data-server-reply-id="r-new-1"/,
+    'Case B step 9: projected + loaded must not duplicate the same reply',
+  );
+  const afterReadNew = (caseB.replyHost.innerHTML.match(/data-server-reply-id="r-new-1"/g) || []).length;
+  const afterReadExisting = (caseB.replyHost.innerHTML.match(/data-server-reply-id="r-existing-1"/g) || []).length;
+  assert.equal(afterReadNew, 1, 'Case B step 9: the reply must appear exactly once after the server read, got ' + afterReadNew);
+  assert.equal(afterReadExisting, 1, 'Case B step 9: the existing reply must appear exactly once after the server read');
+
+  // (10) Pagination truth matches the second server result.
+  assert.equal(
+    caseB.replyToggle.textContent,
+    '답글 보기',
+    'Case B step 10: hasMore:false from the second read must replace the toggle label',
+  );
+  assert.doesNotMatch(
+    caseB.replyHost.innerHTML,
+    /data-server-replies-more/,
+    'Case B step 10: hasMore:false must remove the "답글 더 보기" control',
   );
 }
 
