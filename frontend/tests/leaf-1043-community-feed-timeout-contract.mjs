@@ -359,8 +359,41 @@ function bootFeedPage({ ignoreAbort = false, requestTimeoutMs = 40 } = {}) {
   assert.ok(helper, 'createSessionFetch must still exist');
   assert.doesNotMatch(helper, /AbortController|setTimeout/,
     'unrelated session lanes must keep their existing unbounded semantics');
-  assert.ok(bridgeSource.includes('createSessionFetch(apiBase)'),
-    'the bridge must retain the unbounded fallback for minimal session hosts');
+  assert.ok(bridgeSource.includes('const sessionFetch = session.createSessionFetch(apiBase)'),
+    'the bridge must retain the canonical unbounded request for non-feed lanes');
+  assert.ok(bridgeSource.includes('const boundedRequest ='),
+    'the bridge must expose a separate bounded request only for the feed lane');
+
+  // Behavioural scope proof: a non-feed mutation must NOT acquire the #1043
+  // deadline/signal. It keeps the pre-existing unbounded transport semantics.
+  const fetchControl = scriptedFetch({ ignoreAbort: true });
+  const context = newContext({ fetch: fetchControl.impl });
+  const bridge = context.DanjionCommunityBridge.createCommunityBridge({
+    apiBase: 'https://api.example.test',
+    fetchImpl: fetchControl.impl,
+    requestTimeoutMs: 20,
+    location: { hostname: 'api.example.test', search: '?apiBase=https://api.example.test' }
+  });
+  const mutation = bridge.addComment(POSTS.data[0].id, '범위 보존 댓글');
+  assert.equal(fetchControl.calls.length, 1, 'the mutation must issue one request');
+  assert.equal(fetchControl.calls[0].init.signal, undefined,
+    'a non-feed mutation must not inherit the feed AbortController/deadline');
+  fetchControl.calls[0].resolve(apiResponse(201, {
+    data: {
+      id: '33333333-3333-4333-8333-333333333333',
+      postId: POSTS.data[0].id,
+      body: '범위 보존 댓글',
+      status: 'published',
+      author: { nickname: '주민' },
+      viewerCanDelete: true,
+      viewerCanReport: false,
+      publishedAt: '2026-09-26T00:00:00.000Z',
+      createdAt: '2026-09-26T00:00:00.000Z',
+      updatedAt: null
+    }
+  }));
+  const mutationResult = await mutation;
+  assert.equal(mutationResult.ok, true, 'the unbounded mutation result must keep its existing success semantics');
 }
 
 console.log('PASS #1043 community feed bounded request contract');
