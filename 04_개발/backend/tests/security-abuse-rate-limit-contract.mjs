@@ -86,7 +86,92 @@ for (const [action, max, windowExpr] of expectedPolicies) {
 
 for (const routeEvidence of [
   'community\\/posts$',
-  'community\\/posts\\/[0-9a-fA-F-]+\\/comments$',
+  'community\\/posts\\/[0-9a-fA-F-]+\\/comments  'community\\/reports$',
+  "path === '/api/v1/me/reports'",
+  'household\\/family-invites$',
+  "path === '/api/v1/household/family-invites/redeem'",
+  "path === '/api/v1/me/business-applications'",
+  'benefits\\/[0-9a-fA-F-]+\\/claim$',
+  'conversations\\/[0-9a-fA-F-]+\\/messages$',
+  'businesses\\/[0-9a-fA-F-]+\\/reviews$',
+  'reviews\\/[0-9a-fA-F-]+\\/comments$',
+  "path === '/api/v1/me/inquiries'",
+  "path === '/api/v1/me/shop-recommendations'"
+]) {
+  assert.ok(limiter.includes(routeEvidence), `missing bounded mutation route evidence ${routeEvidence}`);
+}
+assert.match(limiter, /if \(request\.method !== 'POST'\) return null/,
+  'non-POST surfaces must not be swept into the product mutation limiter');
+assert.doesNotMatch(limiter, /community\/moderation|\/moderate|\/resolve/,
+  'operator moderation is outside the bounded product mutation limiter');
+
+// The limiter is a pre-handler guard; all existing endpoint AuthZ remains in place.
+const limitIndex = app.indexOf('handleProductMutationRateLimitRequest(request, env, id)');
+for (const downstream of [
+  'handleHouseholdFamilyRequest(request, env, id)',
+  'handleCommunityResidentRequest(request, env, id)',
+  'handleResidentEconomyMutationRequest(request, env, id)',
+  'handleResidentMessageRequest(request, env, id)',
+  'handleBusinessReviewRequest(request, env, id)',
+  'handleBusinessReviewCommentRequest(request, env, id)',
+  'handleInquiryRequest(request, env, id)',
+  'handleShopRecommendationRequest(request, env, id)'
+]) {
+  const downstreamIndex = app.indexOf(downstream);
+  assert.ok(limitIndex >= 0 && downstreamIndex > limitIndex, `rate limiter must run before ${downstream}`);
+}
+assert.match(community, /requireVerifiedResident\(/,
+  'Community authorization remains authoritative after rate-limit PASS');
+assert.match(household, /requireActor\(/,
+  'Household family authorization remains authoritative after rate-limit PASS');
+assert.match(economy, /requireVerifiedResident\(/,
+  'resident economy authorization remains authoritative after rate-limit PASS');
+
+console.log('PASS database-backed auth + bounded actor product mutation abuse-limit contract');
+,
+  'community\\/posts\\/[0-9a-fA-F-]+\\/comments\\/[0-9a-fA-F-]+\\/replies  'community\\/reports$',
+  "path === '/api/v1/me/reports'",
+  'household\\/family-invites$',
+  "path === '/api/v1/household/family-invites/redeem'",
+  "path === '/api/v1/me/business-applications'",
+  'benefits\\/[0-9a-fA-F-]+\\/claim$',
+  'conversations\\/[0-9a-fA-F-]+\\/messages$',
+  'businesses\\/[0-9a-fA-F-]+\\/reviews$',
+  'reviews\\/[0-9a-fA-F-]+\\/comments$',
+  "path === '/api/v1/me/inquiries'",
+  "path === '/api/v1/me/shop-recommendations'"
+]) {
+  assert.ok(limiter.includes(routeEvidence), `missing bounded mutation route evidence ${routeEvidence}`);
+}
+assert.match(limiter, /if \(request\.method !== 'POST'\) return null/,
+  'non-POST surfaces must not be swept into the product mutation limiter');
+assert.doesNotMatch(limiter, /community\/moderation|\/moderate|\/resolve/,
+  'operator moderation is outside the bounded product mutation limiter');
+
+// The limiter is a pre-handler guard; all existing endpoint AuthZ remains in place.
+const limitIndex = app.indexOf('handleProductMutationRateLimitRequest(request, env, id)');
+for (const downstream of [
+  'handleHouseholdFamilyRequest(request, env, id)',
+  'handleCommunityResidentRequest(request, env, id)',
+  'handleResidentEconomyMutationRequest(request, env, id)',
+  'handleResidentMessageRequest(request, env, id)',
+  'handleBusinessReviewRequest(request, env, id)',
+  'handleBusinessReviewCommentRequest(request, env, id)',
+  'handleInquiryRequest(request, env, id)',
+  'handleShopRecommendationRequest(request, env, id)'
+]) {
+  const downstreamIndex = app.indexOf(downstream);
+  assert.ok(limitIndex >= 0 && downstreamIndex > limitIndex, `rate limiter must run before ${downstream}`);
+}
+assert.match(community, /requireVerifiedResident\(/,
+  'Community authorization remains authoritative after rate-limit PASS');
+assert.match(household, /requireActor\(/,
+  'Household family authorization remains authoritative after rate-limit PASS');
+assert.match(economy, /requireVerifiedResident\(/,
+  'resident economy authorization remains authoritative after rate-limit PASS');
+
+console.log('PASS database-backed auth + bounded actor product mutation abuse-limit contract');
+,
   'community\\/reports$',
   "path === '/api/v1/me/reports'",
   'household\\/family-invites$',
@@ -129,3 +214,11 @@ assert.match(economy, /requireVerifiedResident\(/,
   'resident economy authorization remains authoritative after rate-limit PASS');
 
 console.log('PASS database-backed auth + bounded actor product mutation abuse-limit contract');
+
+
+assert.equal(
+  (limiter.match(/return 'community_comment_create';/g) || []).length,
+  1,
+  'top-level comments and replies must converge on one approved community_comment_create bucket',
+);
+console.log('COMMUNITY_REPLY_USES_COMMENT_RATE_LIMIT_BUCKET=PASS');
