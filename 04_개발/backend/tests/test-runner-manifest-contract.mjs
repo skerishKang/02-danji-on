@@ -56,6 +56,7 @@ const EXPECTED_BACKEND_ORDER = [
   "test:admin-operational-rbac",
   "test:resident-profile-label-983",
   "test:admin-auth-before-resource-lookup-975",
+  "test:admin-auth-before-resource-lookup-1047",
   "test:benefit-null-time-range-patch",
   "test:padiem-authority",
   "test:admin-authority-contract",

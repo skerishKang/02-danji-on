@@ -9,7 +9,6 @@ import { neon } from '@neondatabase/serverless';
 import {
   serveApplicationDocument,
   fail,
-  UUID,
   type ApplicationDocumentEnv,
   type ApplicationDocumentLanePolicy,
   type Sql
@@ -49,9 +48,9 @@ export async function handleResidentApplicationDocumentWithSql(
   if (request.method !== 'GET') return null;
   const match = new URL(request.url).pathname.match(ME_DOCUMENT_ROUTE);
   if (!match) return null;
-  if (!UUID.test(match[1]) || !UUID.test(match[2])) {
-    return fail('NOT_FOUND', 'Application document not found', 404, requestId);
-  }
+  // #1047: the id guard moved into serveApplicationDocument so it runs after the
+  // Stage 1 actor boundary, as the #975 canonical order requires. Guarding here
+  // would answer a signed-out malformed id with 404 before authentication.
   return serveApplicationDocument(
     request,
     env,

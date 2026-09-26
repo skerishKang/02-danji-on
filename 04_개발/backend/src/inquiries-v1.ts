@@ -1,7 +1,7 @@
 import { neon, type NeonQueryFunction } from '@neondatabase/serverless';
 import { requireActor } from './auth-v1';
 import { requireVerifiedResident } from './authorization-v2';
-import { requireOperationalAuthority } from './operational-authz-v2';
+import { requireOperationalAuthority, operationalPrincipalDenial } from './operational-authz-v2';
 import type { CoreEnv } from './core-v1';
 
 type Sql = NeonQueryFunction<false, false>;
@@ -211,6 +211,20 @@ async function adminList(request: Request, env: CoreEnv, sql: Sql, requestId: st
 }
 
 async function adminReview(request: Request, env: CoreEnv, sql: Sql, requestId: string, inquiryId: string): Promise<Response> {
+  // #1047 Stage 1: the minimum actor boundary runs before the inquiry read, so
+  // a signed-out caller receives one and the same 401 for an existing and an
+  // unknown inquiry and no inquiry row is ever read for it.
+  const actor = await requireActor(request, env, sql, requestId);
+  if (actor instanceof Response) return actor;
+
+  // #1047 Stage 2 guard: a malformed id is answered exactly like an absent
+  // inquiry behind that same boundary and never reaches a ::uuid cast.
+  if (!UUID.test(inquiryId)) {
+    const denial = await operationalPrincipalDenial(sql, actor, requestId, 'inquiry.respond');
+    if (denial) return denial;
+    return fail('NOT_FOUND', 'Inquiry not found', 404, requestId);
+  }
+
   const targetRows = await sql`
     select i.id, i.complex_id, i.user_id, i.inquiry_type, i.title, i.body, i.status, i.response_text,
            i.answered_at, i.closed_at, i.created_at, i.updated_at, c.slug as complex_slug
@@ -220,7 +234,17 @@ async function adminReview(request: Request, env: CoreEnv, sql: Sql, requestId: 
     limit 1
   `;
   const target = targetRows[0] as Record<string, unknown> | undefined;
-  if (!target) return fail('NOT_FOUND', 'Inquiry not found', 404, requestId);
+  if (!target) {
+    // #1047 Stage 4: the resource-specific 404 is only for a caller that already
+    // cleared the context-independent PADIEM boundary, so inquiry existence is
+    // not oracle-able. A resident-council grant is complex-scoped and an absent
+    // inquiry has no owning complex, so it cannot authorize an absent row.
+    const denial = await operationalPrincipalDenial(sql, actor, requestId, 'inquiry.respond');
+    if (denial) return denial;
+    return fail('NOT_FOUND', 'Inquiry not found', 404, requestId);
+  }
+  // #1047 Stage 3: the exact complex-scoped authority for the inquiry's own
+  // complex remains the authoritative gate. Stage 1 never replaces it.
   const operator = await requireOperationalAuthority(request, env, sql, requestId, String(target.complex_slug), 'inquiry.respond', 'council.inquiry.respond');
   if (operator instanceof Response) return operator;
   const payload = await bodyJson(request, requestId);
@@ -323,7 +347,9 @@ export async function handleInquiryWithSql(request: Request, env: CoreEnv, sql: 
   }
 
   if (adminItem) {
-    if (!UUID.test(adminItem[1])) return fail('NOT_FOUND', 'Inquiry not found', 404, requestId);
+    // #1047: the id guard moved into adminReview so it runs after the Stage 1
+    // actor boundary, as the #975 canonical order requires. Guarding here would
+    // answer a signed-out malformed id with 404 before authentication.
     if (request.method !== 'PATCH') return fail('METHOD_NOT_ALLOWED', 'Method not allowed', 405, requestId);
     return adminReview(request, env, sql, requestId, adminItem[1].toLowerCase());
   }

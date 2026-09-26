@@ -1,7 +1,7 @@
 import { neon, type NeonQueryFunction } from '@neondatabase/serverless';
 import { requireActor } from './auth-v1';
 import { requireVerifiedResident } from './authorization-v2';
-import { requireOperationalAuthority } from './operational-authz-v2';
+import { requireOperationalAuthority, operationalPrincipalDenial } from './operational-authz-v2';
 import type { CoreEnv } from './core-v1';
 
 type Sql = NeonQueryFunction<false, false>;
@@ -349,6 +349,20 @@ async function adminReview(
   requestId: string,
   recommendationId: string
 ): Promise<Response> {
+  // #1047 Stage 1: the minimum actor boundary runs before the recommendation
+  // read, so a signed-out caller receives one and the same 401 for an existing
+  // and an unknown recommendation and no recommendation row is ever read for it.
+  const actor = await requireActor(request, env, sql, requestId);
+  if (actor instanceof Response) return actor;
+
+  // #1047 Stage 2 guard: a malformed id is answered exactly like an absent
+  // recommendation behind that same boundary and never reaches a ::uuid cast.
+  if (!UUID.test(recommendationId)) {
+    const denial = await operationalPrincipalDenial(sql, actor, requestId, 'business.review');
+    if (denial) return denial;
+    return fail('NOT_FOUND', 'Shop recommendation not found', 404, requestId);
+  }
+
   const currentRows = await sql`
     select r.id, r.status, r.approved_business_id, r.resolved_category_id,
            r.resolved_relation_type, c.slug as complex_slug
@@ -358,7 +372,18 @@ async function adminReview(
     limit 1
   `;
   const current = currentRows[0];
-  if (!current) return fail('NOT_FOUND', 'Shop recommendation not found', 404, requestId);
+  if (!current) {
+    // #1047 Stage 4: the resource-specific 404 is only for a caller that already
+    // cleared the context-independent PADIEM boundary, so recommendation
+    // existence is not oracle-able. A resident-council grant is complex-scoped
+    // and an absent recommendation has no owning complex, so it cannot authorize
+    // an absent row.
+    const denial = await operationalPrincipalDenial(sql, actor, requestId, 'business.review');
+    if (denial) return denial;
+    return fail('NOT_FOUND', 'Shop recommendation not found', 404, requestId);
+  }
+  // #1047 Stage 3: the exact complex-scoped authority for the recommendation's
+  // own complex remains the authoritative gate. Stage 1 never replaces it.
   const operator = await requireOperationalAuthority(
     request, env, sql, requestId, String(current.complex_slug), 'business.review', 'council.business.review'
   );
@@ -515,7 +540,9 @@ export async function handleShopRecommendationWithSql(
     return adminList(request, env, sql, requestId, adminQueue[1], (url.searchParams.get('status') || 'pending').trim());
   }
   if (adminItem) {
-    if (!UUID.test(adminItem[1])) return fail('NOT_FOUND', 'Shop recommendation not found', 404, requestId);
+    // #1047: the id guard moved into adminReview so it runs after the Stage 1
+    // actor boundary, as the #975 canonical order requires. Guarding here would
+    // answer a signed-out malformed id with 404 before authentication.
     if (request.method !== 'PATCH') return fail('METHOD_NOT_ALLOWED', 'Method not allowed', 405, requestId);
     return adminReview(request, env, sql, requestId, adminItem[1].toLowerCase());
   }

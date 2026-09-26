@@ -326,6 +326,10 @@ const adminUrl = `http://test/api/v1/admin/business-applications/${APP_ID}/docum
 }
 
 // 13. malformed ids fail closed without disclosure
+// #1047: the id guard now runs after the Stage 1 actor boundary (the #975
+// canonical order), so an authenticated caller spends exactly one actor query
+// and still never reaches the document lookup, and the raw id never reaches a
+// ::uuid cast.
 {
   const driveCalls = stubDrive();
   let res;
@@ -335,7 +339,13 @@ const adminUrl = `http://test/api/v1/admin/business-applications/${APP_ID}/docum
       getRequest(`http://test/api/v1/me/business-applications/12345/documents/${DOC_ID}`),
       ENV, sql, 'pb-13'
     );
-    assert.equal(seen.length, 0, 'malformed id must fail before any query');
+    const documentQueries = seen.filter((entry) => entry.text.includes('from business_application_documents bad'));
+    assert.equal(documentQueries.length, 0, 'malformed id must never reach the document lookup');
+    assert.equal(
+      seen.every((entry) => !entry.values.includes('12345')),
+      true,
+      'malformed id must never reach a ::uuid cast'
+    );
   } finally {
     restoreFetch();
   }
