@@ -181,11 +181,13 @@ assert.ok(finalizer.includes('await reconcileFailureResidue()'));
 assert.ok(finalizer.indexOf('await reconcileFailureResidue()') < finalizer.indexOf('await context.close()'),
   'failure reconciliation must run before context close');
 
-const detachAt = reconciliation.indexOf("'DETACH'");
 const archiveAt = reconciliation.indexOf("'ARCHIVE_POST'");
-assert.ok(detachAt >= 0 && archiveAt > detachAt, 'archive reconciliation must be present after detach attempt');
-assert.ok(reconciliation.slice(detachAt, archiveAt).includes('if (objectKey)'),
-  'archive must be a separate step, not nested under detach success');
+const detachAt = reconciliation.indexOf("'DETACH'");
+const retireAt = reconciliation.indexOf("'RETIRE_OBJECT'");
+assert.ok(archiveAt >= 0 && detachAt > archiveAt,
+  'failure reconciliation must archive before detach so cleanup never republishes visibility');
+assert.ok(retireAt > detachAt,
+  'object retirement must remain a separate bounded step after detach');
 
 for (const forbiddenIdOutput of [
   'console.log(postId',
