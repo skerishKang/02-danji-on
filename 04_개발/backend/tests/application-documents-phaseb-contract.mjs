@@ -51,6 +51,11 @@ assert.ok(admin.includes('requireOperationalAuthority(') &&
   admin.includes("'business.review'") &&
   admin.includes("'council.business.review'"),
   '7. reviewer must hold business.review/council.business.review for the document complex');
+assert.ok(admin.includes('operationalPrincipalDenial(') &&
+  admin.includes('async authorizeAbsent('),
+  '7b. admin document absence/malformed responses must reuse the canonical operational-principal boundary');
+assert.equal(resident.includes('authorizeAbsent'), false,
+  '7b. resident applicant non-disclosure must remain the existing direct 404 policy');
 
 // 8. kind mismatch denied.
 assert.ok(core.includes("String(row.registry_kind ?? '') !== 'application-document'") &&
@@ -77,6 +82,7 @@ assert.ok(core.indexOf('await authorization.auditRead()') < core.indexOf('return
 // actor boundary in front of the read, matching the #975 canonical order, so
 // the shared serving core is now:
 // requireActor -> routable-id guard -> lookup -> lane authorization ->
+// optional lane absence boundary for malformed/absent ids -> lookup -> lane authorization ->
 // registry kind/state -> registry-bound fileId parse -> reviewer
 // document.read audit gate -> Drive stream.
 const coreOrder = [
