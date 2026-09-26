@@ -8,7 +8,7 @@
 // lives in resident-application-docs-v1.ts.
 import { neon } from '@neondatabase/serverless';
 import type { Actor } from './auth-v1';
-import { requireOperationalAuthority } from './operational-authz-v2';
+import { operationalPrincipalDenial, requireOperationalAuthority } from './operational-authz-v2';
 import {
   serveApplicationDocument,
   fail,
@@ -66,6 +66,13 @@ async function auditReviewerDocumentRead(
 }
 
 const adminApplicationDocumentPolicy: ApplicationDocumentLanePolicy = {
+  async authorizeAbsent({ sql, requestId, actor }) {
+    // #1053: mirror the canonical #975/#1047 ID-based admin boundary. An
+    // authenticated caller without context-independent business.review cannot
+    // distinguish an absent/malformed document from an existing document that
+    // later fails the exact complex-scoped reviewer authority check.
+    return operationalPrincipalDenial(sql, actor, requestId, BUSINESS_REVIEW_SCOPE);
+  },
   async authorize({ request, env, sql, requestId, actor, row, applicationId, documentId }) {
     const complexSlug = String(row.complex_slug);
     const applicationStatus = String(row.application_status ?? '');
