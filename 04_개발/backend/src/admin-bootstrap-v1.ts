@@ -176,28 +176,40 @@ export async function bootstrapAdminAuthorityResponse(
 
     const runtimeScopes = runtimeScopesForRole(principal.authorityLevel);
 
-    for (const scope of runtimeScopes) {
-      await sql`
-        insert into padiem_operator_grants (
-          user_id,
-          scope,
-          status,
-          granted_by_user_id,
-          granted_at,
-          reason,
-          metadata
-        ) values (
-          ${actor.id}::uuid,
-          ${scope},
-          'active',
-          ${null},
-          now(),
-          'pre-registered administrator bootstrap',
-          ${grantMetadata}::jsonb
-        )
-        on conflict do nothing
-      `;
-    }
+    // #1046: grant establishment must be atomic across every runtime scope.
+    //
+    // Granting scope-by-scope let each INSERT commit independently, so a failure
+    // part-way through could leave bootstrap reporting 503 while earlier grants
+    // — including the SUPER wildcard — stayed active. Collecting the whole
+    // write set and committing it with one `sql.transaction` (the pattern already
+    // used by resident-profile-v1) means either every expected grant is
+    // established or none of this attempt survives.
+    //
+    // `on conflict do nothing` is preserved per statement, so re-bootstrapping a
+    // principal that already holds grants still creates no duplicates and never
+    // rewrites, widens, narrows or revokes an existing grant.
+    const grantWrites = runtimeScopes.map((scope) => sql`
+      insert into padiem_operator_grants (
+        user_id,
+        scope,
+        status,
+        granted_by_user_id,
+        granted_at,
+        reason,
+        metadata
+      ) values (
+        ${actor.id}::uuid,
+        ${scope},
+        'active',
+        ${null},
+        now(),
+        'pre-registered administrator bootstrap',
+        ${grantMetadata}::jsonb
+      )
+      on conflict do nothing
+    `);
+
+    await sql.transaction(grantWrites);
 
     const authority = await resolvePadiemAuthority(sql, actor.id);
     const expectedWildcard = principal.authorityLevel === 'admin';

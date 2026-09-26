@@ -69,7 +69,7 @@ function grantsFor(actorId) {
   return activeGrants.get(actorId);
 }
 
-async function sql(strings, ...values) {
+function sqlQuery(strings, ...values) {
   const query = normalized(strings);
 
   if (query.includes('join padiem_admin_identity_allowlist p')) {
@@ -125,6 +125,34 @@ async function sql(strings, ...values) {
 
   throw new Error('Unexpected SQL in admin bootstrap test: ' + query);
 }
+
+// #1046: grant materialization now commits its whole write set through one
+// `sql.transaction`. The stub models that boundary: if any statement throws,
+// the grants added by the attempt are rolled back, so a partial grant set can
+// never look like a success. Atomicity itself is proven in
+// admin-bootstrap-atomicity-1046.test.mjs; this harness only has to stay
+// faithful enough for the pre-existing assertions.
+// Mirrors the neon query function: calling `sql` returns a thenable query
+// object, so both `await sql`...`` and `sql.transaction([...])` work.
+function sql(strings, ...values) {
+  const q = sqlQuery(strings, ...values);
+  q.run = () => q;
+  return q;
+}
+
+sql.transaction = async (queries) => {
+  assert.ok(Array.isArray(queries), 'transaction must receive the write set as an array');
+  const before = new Map([...activeGrants.entries()].map(([actorId, scopes]) => [actorId, new Set(scopes)]));
+  try {
+    const results = [];
+    for (const query of queries) results.push(await query.run());
+    return results;
+  } catch (err) {
+    activeGrants.clear();
+    for (const [actorId, scopes] of before) activeGrants.set(actorId, scopes);
+    throw err;
+  }
+};
 
 function request(subject, body) {
   const headers = subject ? { 'x-danjion-dev-auth-user': subject } : {};
