@@ -150,3 +150,48 @@ assert.ok(script.includes("getByLabel('소식 제목', { exact: true })"));
 assert.ok(script.includes("getByLabel('소식 본문', { exact: true })"));
 assert.ok(!script.includes("getByLabel('제목', { exact: true }).fill(title)"));
 assert.ok(!script.includes("getByLabel('본문', { exact: true }).fill(body)"));
+
+
+// #1064: a Product failure after mutation starts must reconcile exact server-issued residue
+// before the authenticated context is closed. No broad marker/title sweep is permitted.
+const reconciliationStart = script.indexOf('async function reconcileFailureResidue()');
+const reconciliationEnd = script.indexOf('\n\ntry {', reconciliationStart);
+assert.ok(reconciliationStart >= 0 && reconciliationEnd > reconciliationStart, '#1064 reconciliation helper must exist');
+const reconciliation = script.slice(reconciliationStart, reconciliationEnd);
+assert.ok(reconciliation.includes('FAILURE_CLEANUP_RECONCILIATION_ATTEMPTED'));
+assert.ok(reconciliation.includes('FAILURE_CLEANUP_DETACH_RECONCILED'));
+assert.ok(reconciliation.includes('FAILURE_CLEANUP_OBJECT_RETIRED'));
+assert.ok(reconciliation.includes('FAILURE_CLEANUP_POST_ARCHIVE_ATTEMPTED'));
+assert.ok(reconciliation.includes('FAILURE_CLEANUP_PUBLIC_POST_404_READBACK'));
+assert.ok(reconciliation.includes("status: 'archived'"));
+assert.ok(reconciliation.includes("attachmentObjectKey: null"));
+assert.ok(reconciliation.includes('[200, 404]'));
+assert.ok(reconciliation.includes('[404]'));
+assert.ok(reconciliation.includes('if (postId)'));
+assert.ok(reconciliation.includes('if (objectKey)'));
+assert.equal(reconciliation.includes('#844 Production image E2E'), false, 'failure cleanup must not search by generated title');
+assert.equal(/like\s+['"]%/i.test(reconciliation), false, 'failure cleanup must not use broad pattern matching');
+assert.equal(/database|sql|select\s|delete\s+from/i.test(reconciliation), false, 'failure cleanup must not access DB directly');
+
+const finalizerStart = script.indexOf('} finally {');
+assert.ok(finalizerStart >= 0, '#1064 finalizer must exist');
+const finalizer = script.slice(finalizerStart);
+assert.ok(finalizer.includes('if (mutationStarted && !cleanupComplete && context)'));
+assert.ok(finalizer.includes('await reconcileFailureResidue()'));
+assert.ok(finalizer.indexOf('await reconcileFailureResidue()') < finalizer.indexOf('await context.close()'),
+  'failure reconciliation must run before context close');
+
+const detachAt = reconciliation.indexOf("'DETACH'");
+const archiveAt = reconciliation.indexOf("'ARCHIVE_POST'");
+assert.ok(detachAt >= 0 && archiveAt > detachAt, 'archive reconciliation must be present after detach attempt');
+assert.ok(reconciliation.slice(detachAt, archiveAt).includes('if (objectKey)'),
+  'archive must be a separate step, not nested under detach success');
+
+for (const forbiddenIdOutput of [
+  'console.log(postId',
+  'console.log(objectKey',
+  'console.error(postId',
+  'console.error(objectKey',
+]) assert.ok(!script.includes(forbiddenIdOutput), `#1064 must not emit ${forbiddenIdOutput}`);
+
+console.log('production-apartment-news-image-failure-reconciliation-contract: PASS');
