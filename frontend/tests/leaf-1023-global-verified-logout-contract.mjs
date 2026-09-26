@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
+import vm from 'node:vm';
 
 // #1023: global service-header logout must use the same bounded,
 // session-verified sign-out primitive as Settings.
@@ -56,6 +57,60 @@ assert.match(menu, /location\.href = 'index\.html\?intro=1'/,
   'verified success must navigate to Intro');
 assert.equal(menu.match(/location\.href/g)?.length, 1,
   'Intro navigation must exist only once on verified success');
+assert.match(session, /logoutStatus\.setAttribute\('role', 'status'\)/,
+  '#1042: global logout failure feedback must expose a status role');
+assert.match(session, /logoutStatus\.setAttribute\('aria-live', 'polite'\)/,
+  '#1042: global logout failure feedback must be announced accessibly');
+assert.match(menu, /logoutStatus\.hidden = true;[\s\S]*logoutStatus\.textContent = '';/,
+  '#1042: every retry must clear stale failure feedback before verification');
+assert.match(menu, /logoutStatus\.textContent = '로그아웃하지 못했습니다\. 잠시 후 다시 시도해 주세요\.';/,
+  '#1042: global menu must match the truthful Settings failure copy');
+assert.match(menu, /logoutStatus\.hidden = false;/,
+  '#1042: verifiedSignOut failure must expose the status');
+assert.doesNotMatch(menu, /location\.href[\s\S]*if \(!outcome\.ok\)/,
+  '#1042: failure handling must remain before the only redirect');
+
+// Behaviourally execute the real global-menu click-handler body with a controlled
+// verifiedSignOut failure. This proves recovery, visible feedback, retryability,
+// and absence of redirect/marker cleanup on the failure path.
+{
+  const body = menu.match(
+    /logout\.addEventListener\('click', async \(\) => \{([\s\S]*?)\n    \}\);/
+  )?.[1] || '';
+  assert.ok(body, '#1042: logout handler body must remain executable by the contract');
+
+  const logout = { disabled: false, textContent: '로그아웃' };
+  const logoutStatus = { hidden: true, textContent: '' };
+  const location = { href: '12_이웃대화_첫화면.html' };
+  const localMarkers = { signedIn: 'preserve-me' };
+  let calls = 0;
+  const context = {
+    logout,
+    logoutStatus,
+    fetch: async () => { throw new Error('transport must stay behind verifiedSignOut'); },
+    verifiedSignOut: async () => {
+      calls += 1;
+      return { ok: false, stage: 'session-still-active' };
+    },
+    location,
+    localMarkers
+  };
+
+  await vm.runInNewContext(`(async () => {${body}\n})()`, context, { filename: 'global-logout-failure-handler' });
+  assert.equal(calls, 1, '#1042: click must invoke verifiedSignOut exactly once');
+  assert.equal(logout.disabled, false, '#1042: failed verification must restore retry');
+  assert.equal(logout.textContent, '로그아웃', '#1042: failed verification must restore button copy');
+  assert.equal(logoutStatus.hidden, false, '#1042: failure status must become visible');
+  assert.equal(logoutStatus.textContent, '로그아웃하지 못했습니다. 잠시 후 다시 시도해 주세요.',
+    '#1042: failure feedback must be truthful and match Settings');
+  assert.equal(location.href, '12_이웃대화_첫화면.html',
+    '#1042: failed verification must not redirect');
+  assert.equal(localMarkers.signedIn, 'preserve-me',
+    '#1042: failed verification must not clear local auth markers');
+
+  await vm.runInNewContext(`(async () => {${body}\n})()`, context, { filename: 'global-logout-retry-handler' });
+  assert.equal(calls, 2, '#1042: restored button path must permit a retry');
+}
 
 const hasVerifiedFlow = source => {
   const h = source.match(
@@ -94,4 +149,9 @@ console.log('FAILURE_TIMEOUT_BUTTON_RECOVERS=YES');
 console.log('INDEFINITE_LOGOUT_LOADING=NO');
 console.log('MARKER_CLEANUP_AFTER_SESSION_ABSENT=YES');
 console.log('INTRO_AFTER_VERIFIED_SUCCESS=YES');
+console.log('1042_VERIFIED_SIGNOUT_1023_REGRESSION=PASS');
+console.log('1042_GLOBAL_LOGOUT_FAILURE_FEEDBACK=YES');
+console.log('1042_GLOBAL_LOGOUT_FAILURE_REDIRECT=NO');
+console.log('1042_GLOBAL_LOGOUT_FAILURE_MARKER_CLEAR=NO');
+console.log('1042_GLOBAL_LOGOUT_RETRY_AVAILABLE=YES');
 console.log('SETTINGS_LOGOUT_PARITY=PASS');
