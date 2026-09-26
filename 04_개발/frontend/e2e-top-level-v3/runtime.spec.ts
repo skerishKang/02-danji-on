@@ -440,7 +440,7 @@ test('#592 pre-registered admin bootstrap re-reads canonical authority before op
         body: JSON.stringify({
           data: {
             level: 'operator',
-            label: '일반관리자',
+            label: '운영관리자',
             wildcard: false,
             scopes: ['business.review']
           }
@@ -457,7 +457,7 @@ test('#592 pre-registered admin bootstrap re-reads canonical authority before op
         body: JSON.stringify({
           data: {
             level: 'operator',
-            label: '일반관리자',
+            label: '운영관리자',
             wildcard: false,
             scopes: ['business.review']
           }
@@ -543,7 +543,7 @@ test('#607 bounded admin business review performs one server-authorized PATCH an
         body: JSON.stringify({
           data: {
             level: 'operator',
-            label: '일반관리자',
+            label: '운영관리자',
             wildcard: false,
             scopes: ['business.review']
           }
@@ -661,7 +661,7 @@ test('#609 admin official-news creates a draft then publishes it through the exi
         body: JSON.stringify({
           data: {
             level: 'operator',
-            label: '일반관리자',
+            label: '운영관리자',
             wildcard: false,
             scopes: ['official-content.manage']
           }
@@ -807,7 +807,7 @@ test('#611 admin resident-benefit selects an approved business, creates a draft,
         body: JSON.stringify({
           data: {
             level: 'operator',
-            label: '일반관리자',
+            label: '운영관리자',
             wildcard: false,
             scopes: ['benefit.manage']
           }
@@ -1025,7 +1025,7 @@ test('#613 superadmin manages the four designated administrator principals witho
             ? { level: 'admin', label: '최고관리자', wildcard: true, scopes: ['*'] }
             : {
                 level: 'operator',
-                label: '일반관리자',
+                label: '운영관리자',
                 wildcard: false,
                 scopes: ['benefit.manage','business.review','official-content.manage','resident_news.review']
               }
@@ -1156,7 +1156,7 @@ test('#613 superadmin manages the four designated administrator principals witho
 
   await expect(page.getByRole('heading', { name: '사용자 · 권한 관리', exact: true })).toBeVisible();
   await expect(page.getByText('활성 최고관리자 2 / 목표 2', { exact: true })).toBeVisible();
-  await expect(page.getByText('활성 일반관리자 1 / 목표 2', { exact: true })).toBeVisible();
+  await expect(page.getByText('활성 운영관리자 1 / 목표 2', { exact: true })).toBeVisible();
   await expect(page.getByText('Runtime: 최고관리자 · 연결 사용자 1명', { exact: true }).first()).toBeVisible();
   await expect(page.locator('.principal-form input')).toHaveCount(2);
   await expect(page.locator('.principal-form select')).toHaveCount(1);
@@ -1172,7 +1172,7 @@ test('#613 superadmin manages the four designated administrator principals witho
     role: 'operator',
     reason: 'four-principal setup'
   });
-  await expect(page.getByText('활성 일반관리자 2 / 목표 2', { exact: true })).toBeVisible();
+  await expect(page.getByText('활성 운영관리자 2 / 목표 2', { exact: true })).toBeVisible();
 
   const newCard = page.locator('.principal-card').filter({ hasText: 'sibling-ops@example.com' });
   await expect(newCard).toBeVisible();
@@ -1195,11 +1195,11 @@ test('#613 superadmin manages the four designated administrator principals witho
   await newCard.getByRole('button', { name: '권한 변경 저장', exact: true }).click();
   await expect.poll(() => patchBodies.length).toBe(2);
   await expect(page.getByText('활성 최고관리자 2 / 목표 2', { exact: true })).toBeVisible();
-  await expect(page.getByText('활성 일반관리자 2 / 목표 2', { exact: true })).toBeVisible();
+  await expect(page.getByText('활성 운영관리자 2 / 목표 2', { exact: true })).toBeVisible();
 
   const historicalDuplicate = page.locator('.principal-card')
     .filter({ hasText: 'owner-super@example.com' })
-    .filter({ hasText: '설정: 일반관리자 · 해제' });
+    .filter({ hasText: '설정: 운영관리자 · 해제' });
   await historicalDuplicate.getByLabel('관리자 상태').selectOption('active');
   await historicalDuplicate.getByRole('button', { name: '권한 변경 저장', exact: true }).click();
   await expect.poll(() => patchBodies.length).toBe(3);
@@ -1276,7 +1276,7 @@ test('#615 SUPER global audit viewer is hidden from operators and renders only p
             ? { level: 'admin', label: '최고관리자', wildcard: true, scopes: ['*'] }
             : {
                 level: 'operator',
-                label: '일반관리자',
+                label: '운영관리자',
                 wildcard: false,
                 scopes: ['benefit.manage','business.review','official-content.manage','resident_news.review']
               }
