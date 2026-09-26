@@ -100,15 +100,21 @@ function stubSql({
       if (auditThrows && text.includes("'document.read'")) throw new Error('audit down');
       return [{ id: '84000000-0000-4000-8000-000000000001' }];
     }
+    if (text.includes('as padiem_eligible')) {
+      return [{ padiem_eligible: grants === true }];
+    }
     if (text.includes('padiem_operator_grants')) {
-      return grants ? [{
+      // requireOperationalAuthority selects the complex row even when no grant
+      // matches; absence of authority is represented by null grant columns,
+      // not by an empty result set.
+      return [{
         complex_id: COMPLEX_ID,
         complex_slug: 'phaseb-complex',
-        padiem_grant_id: '85000000-0000-4000-8000-000000000001',
-        padiem_granted_scope: 'business.review',
+        padiem_grant_id: grants ? '85000000-0000-4000-8000-000000000001' : null,
+        padiem_granted_scope: grants ? 'business.review' : null,
         council_grant_id: null,
         council_granted_scope: null
-      }] : [];
+      }];
     }
     if (text.includes('from app_users') && text.includes('where auth_user_id =')) {
       return [{ id: ACTOR_ID, auth_user_id: values[0], display_name: 'Stub', account_status: 'active' }];
@@ -222,18 +228,35 @@ const adminUrl = `http://test/api/v1/admin/business-applications/${APP_ID}/docum
   console.log('PASS 06 reviewer rejected denied');
 }
 
-// 7. reviewer wrong-complex denied
+// 7. reviewer without business.review denied non-disclosingly
 {
   const driveCalls = stubDrive();
   try {
-    const { sql } = stubSql({ status: 'pending', grants: false });
-    const res = await handleAdminApplicationDocumentWithSql(getRequest(adminUrl), ENV, sql, 'pb-07');
-    assert.ok(res.status === 403 || res.status === 404, `wrong-complex reviewer must be denied, got ${res.status}`);
+    const existing = stubSql({ status: 'pending', grants: false });
+    const existingRes = await handleAdminApplicationDocumentWithSql(getRequest(adminUrl), ENV, existing.sql, 'pb-07');
+    assert.equal(existingRes.status, 403);
+    const existingBody = await existingRes.clone().json();
+    assert.equal(existingBody.error.code, 'OPERATIONAL_FORBIDDEN');
+
+    const absent = stubSql({ status: 'pending', grants: false, documentPresent: false });
+    const absentRes = await handleAdminApplicationDocumentWithSql(getRequest(adminUrl), ENV, absent.sql, 'pb-07');
+    assert.equal(absentRes.status, 403);
+    const absentBody = await absentRes.clone().json();
+    assert.deepEqual(
+      { status: absentRes.status, code: absentBody.error.code, message: absentBody.error.message },
+      { status: existingRes.status, code: existingBody.error.code, message: existingBody.error.message },
+      'ungranted reviewer must not distinguish existing vs absent document by response class'
+    );
+    assert.equal(
+      absent.seen.filter((q) => q.text.includes('as padiem_eligible')).length,
+      1,
+      'absent admin document must pass through the operational-principal absence boundary'
+    );
   } finally {
     restoreFetch();
   }
-  assert.equal(driveCalls.length, 0, 'wrong-complex read must never touch Drive');
-  console.log('PASS 07 reviewer wrong-complex denied');
+  assert.equal(driveCalls.length, 0, 'unauthorized existing/absent reads must never touch Drive');
+  console.log('PASS 07 admin unauthorized existing-vs-absent parity');
 }
 
 // 8. kind mismatch denied
@@ -417,4 +440,4 @@ const adminUrl = `http://test/api/v1/admin/business-applications/${APP_ID}/docum
   console.log('PASS 17 R2-only missing private document fails closed without Drive fallback');
 }
 
-console.log('PASS GAP-5 Phase-B runtime: 12 required cases plus guards and disposition (stub SQL + stub Drive)');
+console.log('PASS GAP-5 Phase-B runtime: 12 required cases plus guards, disposition and #1053 admin existence parity (stub SQL + stub Drive)');
