@@ -87,8 +87,13 @@
     };
   }
 
+  // #1043: a bounded-out request is its own truthful outcome. It must never be
+  // folded into the auth-required copy, because a feed that stopped responding
+  // is not a session that expired.
   function failureMode(result) {
-    return result.reason === 'auth-required' ? 'auth-required' : 'error';
+    if (result.reason === 'auth-required') return 'auth-required';
+    if (result.reason === 'timeout') return 'timeout';
+    return 'error';
   }
 
   // Issue #810: carry the bounded server-side auth-bridge disposition through
@@ -133,8 +138,16 @@
       && session.isCanonicalProduction(options.location);
     const slug = encodeURIComponent(String(options.complexSlug || DEFAULT_COMPLEX_SLUG));
     const base = `/api/v1/complexes/${slug}/community`;
+    // #1043: only the community FEED read opts into a bounded request. The
+    // rest of this bridge (detail reads and every mutation) keeps the historical
+    // unbounded sessionFetch semantics; the issue is specifically the Page 12
+    // feed hang and must not introduce new mutation deadlines.
     const sessionFetch = session.createSessionFetch(apiBase);
+    const boundedSessionFetch = typeof session.createBoundedSessionFetch === 'function'
+      ? session.createBoundedSessionFetch(apiBase, { timeoutMs: options.requestTimeoutMs })
+      : sessionFetch;
     const request = (path, init) => sessionFetch(fetchImpl, path, init);
+    const boundedRequest = (path, init) => boundedSessionFetch(fetchImpl, path, init);
 
     function serverOnly() {
       return Boolean(apiBase) || canonicalProduction;
@@ -163,7 +176,7 @@
         params.set('limit', String(Number.isInteger(limit) && limit >= 1 && limit <= 50 ? limit : 20));
         const cursor = trimmedString(options.cursor);
         if (cursor) params.set('cursor', cursor);
-        const result = await request(`${base}/posts?${params.toString()}`);
+        const result = await boundedRequest(`${base}/posts?${params.toString()}`);
         if (!result.ok) return { mode: failureMode(result), status: result.status, error: result.error, ...failureDetail(result), posts: [], nextCursor: null, hasMore: false };
         const rows = Array.isArray(result.data) ? result.data : [];
         return { mode: 'server', status: result.status, posts: rows.map(normalizePost).filter(Boolean), ...pageMetadata(result) };
