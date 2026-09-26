@@ -143,7 +143,32 @@ const runScenario = async ({
       this._html += html;
     },
     querySelector(sel) {
-      let m = /\[data-server-replies="([^"]+)"\]/.exec(sel);
+      if (sel === '[data-projected-comment="true"]') {
+        const marker = '<li class="comment" data-projected-comment="true"';
+        const at = this._html.indexOf(marker);
+        if (at < 0) return null;
+        return {
+          insertAdjacentHTML(pos, html) {
+            assert.equal(pos, 'beforebegin', 'projected comments must only accept cursor pages before them');
+            commentList._html = commentList._html.slice(0, at) + html + commentList._html.slice(at);
+          },
+        };
+      }
+      let m = /\[data-server-comment="([^"]+)"\]\[data-projected-comment="true"\]/.exec(sel);
+      if (m) {
+        const marker = '<li class="comment" data-projected-comment="true" data-server-comment="' + m[1] + '"';
+        if (!this._html.includes(marker)) return null;
+        return {
+          removeAttribute(name) {
+            assert.equal(name, 'data-projected-comment');
+            commentList._html = commentList._html.replace(
+              marker,
+              '<li class="comment" data-server-comment="' + m[1] + '"',
+            );
+          },
+        };
+      }
+      m = /\[data-server-replies="([^"]+)"\]/.exec(sel);
       if (m) return m[1] === PARENT ? replyHost : null;
       m = /\[data-server-reply-toggle="([^"]+)"\]/.exec(sel);
       if (m) return m[1] === PARENT ? replyToggle : null;
@@ -720,6 +745,7 @@ const serverComment = (n) => ({
 
 const PAGE1 = Array.from({ length: 20 }, (_, i) => serverComment(i + 1));
 const PAGE2 = Array.from({ length: 5 }, (_, i) => serverComment(i + 21));
+const PAGE3 = Array.from({ length: 3 }, (_, i) => serverComment(i + 26));
 
 // The server created object. Its id is deliberately NOT in any listed page —
 // that is exactly the "created comment may fall outside the first refetched
@@ -861,11 +887,13 @@ const countRows = (html, id) => (html.match(new RegExp('data-server-comment="' +
     driveComment: true,
     loadMoreBeforeComment: true,
     loadMoreAfterComment: true,
-    postResult: { mode: 'server', post: SERVER_POST },
+    postResult: (n) => (n === 1
+      ? { mode: 'server', post: { ...SERVER_POST, commentCount: 28 } }
+      : { mode: 'server', post: { ...SERVER_POST, commentCount: 29 } }),
     listCommentsResults: [
       { mode: 'server', comments: PAGE1, nextCursor: 'cursor-page-2', hasMore: true },
       { mode: 'server', comments: PAGE2, nextCursor: 'cursor-page-3', hasMore: true },
-      { mode: 'server', comments: [], nextCursor: null, hasMore: false },
+      { mode: 'server', comments: PAGE3, nextCursor: null, hasMore: false },
     ],
     addCommentResult: commentSuccess,
   });
@@ -886,7 +914,19 @@ const countRows = (html, id) => (html.match(new RegExp('data-server-comment="' +
     1,
     'Case 1044-3: the projected comment must not be duplicated by a later page',
   );
+  for (const row of PAGE3) {
+    assert.equal(countRows(run.commentListHtml, row.id), 1,
+      'Case 1044-3: the later cursor page must render ' + row.id + ' exactly once');
+  }
+  const projectedIndex = run.commentListHtml.indexOf('data-server-comment="c-created-1"');
+  assert.ok(projectedIndex > -1, 'Case 1044-3: the projected server row must remain visible');
+  for (const row of PAGE3) {
+    const rowIndex = run.commentListHtml.indexOf('data-server-comment="' + row.id + '"');
+    assert.ok(rowIndex > -1 && rowIndex < projectedIndex,
+      'Case 1044-3: cursor row ' + row.id + ' must stay before the newer projected comment');
+  }
   console.log('1044_CASE_LOAD_MORE_CONTINUITY=PASS');
+  console.log('1044_CASE_LOAD_MORE_CANONICAL_ORDER=PASS');
 }
 
 // ---------------------------------------------------------------------------
