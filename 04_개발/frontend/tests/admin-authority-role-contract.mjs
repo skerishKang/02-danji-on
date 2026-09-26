@@ -17,8 +17,8 @@ assert.match(adminApi, /export type AdminAuthorityLevel = 'admin' \| 'operator'/
   'authority level must stay the fixed admin/operator union');
 assert.match(adminApi, /export interface AdminAuthority/,
   'admin-api must declare the AdminAuthority type');
-assert.match(adminApi, /label: '최고관리자' \| '일반관리자'/,
-  'authority label must stay the fixed 최고관리자/일반관리자 union');
+assert.match(adminApi, /label: '최고관리자' \| '운영관리자'/,
+  'authority label must stay the fixed 최고관리자/운영관리자 union');
 assert.match(adminApi, /scopes: string\[\][\s\S]*wildcard: boolean/,
   'authority must carry the scopes/wildcard grant shape');
 assert.match(adminApi, /fetchAuthority[\s\S]*\/api\/v1\/admin\/authority/,

@@ -101,8 +101,8 @@ assert.ok(adminPage.includes('<script src="/assets/danjion-admin-principals.js">
   'canonical admin page must load the principal bridge');
 assert.ok(adminPage.includes("principalApi=window.DanjionAdminPrincipals"),
   'page must bind the reviewed principal bridge');
-assert.ok(adminPage.includes("목표 구성은 최고관리자 2계정 + 일반관리자 2계정"),
-  'SUPER view must state the four-principal target');
+assert.ok(adminPage.includes("목표 구성은 최고관리자 2계정 + 운영관리자 2계정"),
+  'SUPER view must state the four-principal target with the canonical OPERATIONAL label');
 assert.ok(adminPage.includes("principalApi.list(fetch,apiBase)"),
   'SUPER manager must refresh from the server principal roster');
 assert.ok(adminPage.includes("principalApi.create(fetch,apiBase"),

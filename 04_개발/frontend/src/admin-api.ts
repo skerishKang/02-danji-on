@@ -100,13 +100,13 @@ export type AdminAuthorityLevel = 'admin' | 'operator';
 
 export interface AdminAuthority {
   level: AdminAuthorityLevel;
-  label: '최고관리자' | '일반관리자';
+  label: '최고관리자' | '운영관리자';
   scopes: string[];
   wildcard: boolean;
 }
 
 const SUPER_ADMIN_LABEL = '최고관리자';
-const OPERATOR_LABEL = '일반관리자';
+const OPERATOR_LABEL = '운영관리자';
 
 // Fail-closed normalization. A 최고관리자 grant is valid ONLY when BOTH the
 // admin level and the wildcard flag agree. Every other combination — admin
