@@ -161,6 +161,10 @@ main{width:min(920px,calc(100% - 40px));margin:auto;padding-bottom:70px}.route{h
   let post=null,liked=false,count=0,busy=false,flashTimer=null,loadFailure='',reportTargetState=null;
   let commentState={comments:[],cursor:null,hasMore:false,loading:false,generation:0};
   const replyStates=new Map();
+  // #1044: comments created after the current cursor window are server-authoritative
+  // but not part of that already-loaded page window. Track those ids separately so
+  // later load-more pages can be inserted before them without falsifying cursor order.
+  const projectedCommentIds=new Set();
   const replyFocusState=new WeakMap();
   function replyLabel(c){return String(c&&c.author&&c.author.nickname||'주민')+'님에게 답글';}
   function focusReplyInput(form){
@@ -385,6 +389,7 @@ main{width:min(920px,calc(100% - 40px));margin:auto;padding-bottom:70px}.route{h
   if(!append){
    commentState={comments:[],cursor:null,hasMore:false,loading:false,generation:commentState.generation+1};
    replyStates.clear();
+   projectedCommentIds.clear();
    commentList.innerHTML='<li class="comment"><p>댓글을 불러오는 중입니다.</p></li>';
   }
   const generation=commentState.generation;
@@ -410,9 +415,32 @@ main{width:min(920px,calc(100% - 40px));margin:auto;padding-bottom:70px}.route{h
   }
   const existing=new Set(commentState.comments.map(comment=>comment.id));
   const incoming=result.comments.filter(comment=>!existing.has(comment.id));
-  if(!append)commentList.innerHTML=result.comments.map(serverCommentHTML).join('');
-  else incoming.forEach(comment=>commentList.insertAdjacentHTML('beforeend',serverCommentHTML(comment)));
+  const returnedProjected=result.comments.filter(comment=>projectedCommentIds.has(comment.id));
+  if(!append){
+   commentList.innerHTML=result.comments.map(serverCommentHTML).join('');
    commentState.comments.push(...incoming);
+  }else{
+   // The projected rows are newer than every row reachable from the cursor that
+   // existed before their creation. Keep each newly loaded page immediately
+   // before the first projected row so ascending server order remains truthful.
+   const projectionAnchor=commentList.querySelector('[data-projected-comment="true"]');
+   incoming.forEach(comment=>{
+    const html=serverCommentHTML(comment);
+    if(projectionAnchor)projectionAnchor.insertAdjacentHTML('beforebegin',html);
+    else commentList.insertAdjacentHTML('beforeend',html);
+   });
+   const firstProjected=commentState.comments.findIndex(comment=>projectedCommentIds.has(comment.id));
+   if(firstProjected>=0)commentState.comments.splice(firstProjected,0,...incoming);
+   else commentState.comments.push(...incoming);
+   // Once a cursor page itself contains a projected id, it has rejoined the
+   // canonical server window. Keep the existing server-returned row but drop the
+   // projection marker so later (newer) pages may append after it.
+   returnedProjected.forEach(comment=>{
+    projectedCommentIds.delete(comment.id);
+    const node=commentList.querySelector('[data-server-comment="'+comment.id+'"][data-projected-comment="true"]');
+    if(node)node.removeAttribute('data-projected-comment');
+   });
+  }
    commentState.cursor=result.nextCursor;
    commentState.hasMore=result.hasMore===true;
    const total=post&&Number.isFinite(post.commentCount)?post.commentCount:commentState.comments.length;
@@ -423,6 +451,28 @@ main{width:min(920px,calc(100% - 40px));margin:auto;padding-bottom:70px}.route{h
    commentLoadMore.textContent='댓글 더 보기';
   }
 
+ /* #1044: 댓글 등록 성공 뒤의 loadPost() 전체 재호출은 댓글 페이지 커서와
+    펼친 답글 스레드를 함께 버린다. 서버가 돌려준 댓글 객체를 authoritative
+    projection 에 넣고, cursor/hasMore 는 손대지 않은 채 post summary 만
+    별도로 정직하게 재조회한다. 정렬은 서버와 동일하게 오래된 순(append). */
+ function projectCreatedComment(comment){
+   if(!comment||!comment.id)return false;
+   if(loadFailure)return false;
+   if(commentState.comments.some(row=>row.id===comment.id))return false;
+   projectedCommentIds.add(comment.id);
+   commentState.comments.push(comment);
+   const html=serverCommentHTML(comment).replace('<li class="comment"','<li class="comment" data-projected-comment="true"');
+   commentList.insertAdjacentHTML('beforeend',html);
+   return true;
+ }
+ async function reconcileCommentSummary(){
+   if(!post)return;
+   const result=await bridge.getPost(postId);
+   if(result.mode!=='server'||!result.post||!Number.isFinite(result.post.commentCount))return;
+   post.commentCount=result.post.commentCount;
+   commentCount.textContent=post.commentCount;
+   commentTitleCount.textContent=post.commentCount;
+ }
   document.addEventListener('click',ev=>{
     if(ev.target.closest('#commentLoadMore')){
      ev.preventDefault();ev.stopImmediatePropagation();
@@ -575,9 +625,12 @@ main{width:min(920px,calc(100% - 40px));margin:auto;padding-bottom:70px}.route{h
   const v=commentText.value.trim();
   if(!v){flash('댓글을 입력해 주세요.');return}
   if(v.length>300){flash('댓글은 300자까지 입력할 수 있습니다.');return}
-  bridge.addComment(postId,v).then(async r=>{
-    if(r.ok&&r.mode==='server'){commentText.value='';await loadPost()}
-    else flash(failMessage(r));
+  bridge.addComment(postId,v).then(r=>{
+    if(r.ok&&r.mode==='server'){
+     commentText.value='';
+     projectCreatedComment(r.comment);
+     void reconcileCommentSummary();
+    }else flash(failMessage(r));
    });
  },true);
  loadPost();
