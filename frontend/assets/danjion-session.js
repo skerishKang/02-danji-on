@@ -223,6 +223,67 @@
     };
   }
 
+  // #1043: a hung fetch must never strand a resident page in a permanent
+  // loading state. This is the single bounded-request mechanism: it owns the one
+  // AbortController and the one timer for the whole request, so no caller can
+  // add a second, racing timeout.
+  // It is opt-in on purpose. createSessionFetch() above stays unbounded so the
+  // news, message and Better Auth lanes keep their existing timeout semantics
+  // exactly as they are; only surfaces that must guarantee a bounded outcome opt
+  // in here.
+  const DEFAULT_BOUNDED_REQUEST_TIMEOUT_MS = 15000;
+
+  function canBoundRequests() {
+    return typeof AbortController === 'function' && typeof setTimeout === 'function';
+  }
+
+  function createBoundedSessionFetch(apiBase, options = {}) {
+    const base = String(apiBase || '').replace(/\/+$/, '');
+    const requested = Number(options.timeoutMs);
+    const timeoutMs = Number.isFinite(requested) && requested > 0
+      ? requested
+      : DEFAULT_BOUNDED_REQUEST_TIMEOUT_MS;
+    return function boundedSessionFetch(fetchImpl, path, init = {}) {
+      // A host without abort primitives cannot be bounded at all. Every
+      // canonical browser runtime has them, so this only affects synthetic test
+      // hosts; degrade to the previous unbounded behaviour instead of throwing.
+      if (!canBoundRequests()) return request(fetchImpl, joinUrl(base, path), init);
+      // Single timeout owner. One timer, one deadline. The abort signal ends a
+      // compliant transport; the same timer's deadline return ends a transport
+      // that ignored the signal. Both legs fire from this one timer and settle
+      // the identical timeout outcome, so there is no second timeout to race.
+      let timedOut = false;
+      let settle = null;
+      const outcome = new Promise((resolve) => { settle = resolve; });
+      const controller = new AbortController();
+      const timer = setTimeout(() => {
+        timedOut = true;
+        controller.abort();
+        settle({
+          ok: false,
+          reason: 'timeout',
+          status: 0,
+          error: Object.assign(new Error('Request timed out'), { name: 'TimeoutError' })
+        });
+      }, timeoutMs);
+      // This signal is the sole owner: a caller-supplied one is deliberately
+      // replaced rather than merged, which is what keeps the timeout single.
+      request(fetchImpl, joinUrl(base, path), { ...init, signal: controller.signal }).then(
+        result => {
+          if (timedOut) return; // the deadline already answered; a response that lands past it is discarded
+          clearTimeout(timer);
+          settle(result);
+        },
+        error => {
+          if (timedOut) return;
+          clearTimeout(timer);
+          settle({ ok: false, reason: 'network-error', status: 0, error });
+        }
+      );
+      return outcome;
+    };
+  }
+
   // #444: Better Auth /api/auth/get-session answers natively — { session, user }
   // when authenticated, null when not — never the DanjiOn { data } envelope.
   function nativeSessionReady(result) {
@@ -605,6 +666,9 @@
     joinUrl,
     request,
     createSessionFetch,
+    createBoundedSessionFetch,
+    canBoundRequests,
+    DEFAULT_BOUNDED_REQUEST_TIMEOUT_MS,
     fetchSession,
     verifiedSignOut,
     fetchLinkedAccounts,

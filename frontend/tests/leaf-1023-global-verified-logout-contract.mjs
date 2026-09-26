@@ -124,7 +124,14 @@ const hasVerifiedFlow = source => {
 };
 
 const mutations = [
-  ['remove-timeout', session.replace('const controller = new AbortController();', 'const controller = null;')],
+  // #1043 added a second AbortController to the shared runtime (the bounded
+  // request factory), so the kill mutation must target the two-line abort
+  // boundary that only the sign-out flow has, not the first controller literal
+  // in the file.
+  ['remove-timeout', session.replace(
+    'const controller = new AbortController();\n    const timer = setTimeout(() => controller.abort(), timeoutMs);',
+    'const controller = null;'
+  )],
   ['remove-readback', session.replace("const after = await fetchSession(impl, loc, { signal: controller.signal });", "const after = { ok: true, raw: null };")],
   ['cleanup-too-early', session.replace(
     "const after = await fetchSession(impl, loc, { signal: controller.signal });",

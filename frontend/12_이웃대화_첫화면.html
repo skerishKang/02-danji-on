@@ -179,13 +179,22 @@ render();
    feedState.loading=true;
    loadMore.disabled=true;
    loadMore.textContent=append?'게시글 더 불러오는 중입니다.':'게시글 다시 시도';
-   const result=await (showAll
-    ?(append?bridge.listPosts(null,{limit:50,cursor:append?feedState.cursor:null}):bridge.listPosts(null,{limit:50}))
-    :(append?bridge.listPosts(KIND[selected],{limit:20,cursor:append?feedState.cursor:null}):bridge.listPosts(KIND[selected],{limit:20})));
+   let result;
+   // #1043: a settled outcome is guaranteed by the bounded bridge request, but
+   // an unexpected rejection must still not strand the feed in loading.
+   try{
+    result=await (showAll
+     ?(append?bridge.listPosts(null,{limit:50,cursor:append?feedState.cursor:null}):bridge.listPosts(null,{limit:50}))
+     :(append?bridge.listPosts(KIND[selected],{limit:20,cursor:append?feedState.cursor:null}):bridge.listPosts(KIND[selected],{limit:20})));
+   }catch(_){result={mode:'error'}}
    if(generation!==feedState.generation)return;
    feedState.loading=false;
    if(result.mode!=='server'){
-    const message=result.mode==='auth-required'?'로그인 후 이웃대화를 확인할 수 있습니다.':'이웃대화를 불러오지 못했습니다.';
+    // A feed that stopped answering is reported as a slow/unreachable network,
+    // never as an expired login, and the retry control is re-enabled below.
+    const message=result.mode==='auth-required'?'로그인 후 이웃대화를 확인할 수 있습니다.'
+     :result.mode==='timeout'?'이웃대화가 응답하지 않아 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.'
+     :'이웃대화를 불러오지 못했습니다.';
     if(!append)list.innerHTML=notice(message);
     feedState.hasMore=true;
     loadMore.hidden=false;
