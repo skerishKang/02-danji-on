@@ -253,30 +253,89 @@ async function adminReview(request: Request, env: CoreEnv, sql: Sql, requestId: 
   const response = text(payload.response);
 
   if (status === 'in_progress') {
+    // #1049 idempotent no-write path: an inquiry already in this state is a
+    // success without any business write, so it must produce zero mutation
+    // audit rows as well.
+    if (String(target.status) === 'in_progress') return ok(mapDetail(target), requestId);
     const rows = await sql`
-      update inquiries
-      set status = 'in_progress'
-      where id = ${inquiryId}::uuid
-        and complex_id = ${operator.complexId}::uuid
-        and status = 'received'
-      returning id, inquiry_type, title, body, status, response_text, answered_at, closed_at, created_at, updated_at
+      with mutated as (
+        update inquiries
+        set status = 'in_progress'
+        where id = ${inquiryId}::uuid
+          and complex_id = ${operator.complexId}::uuid
+          and status = 'received'
+        returning id, inquiry_type, title, body, status, response_text, answered_at, closed_at, created_at, updated_at
+      ),
+      audited as (
+        insert into audit_events (
+          request_id, actor_user_id, actor_kind, complex_id, action, scope,
+          resource_type, resource_id, decision, reason_code, metadata
+        )
+        select
+          ${requestId},
+          ${operator.id}::uuid,
+          'operator',
+          ${operator.complexId}::uuid,
+          'admin.inquiry.review',
+          ${operator.requestedScope},
+          'inquiry',
+          mutated.id::text,
+          'allowed',
+          'ADMIN_INQUIRY_STATUS_UPDATED',
+          ${JSON.stringify({ fromStatus: String(target.status), toStatus: 'in_progress' })}::jsonb
+        from mutated
+        returning id
+      )
+      select mutated.*
+      from mutated
+      cross join lateral (select count(*) from audited) audit_barrier
     `;
     if (rows[0]) return ok(mapDetail(rows[0] as Record<string, unknown>), requestId);
-    if (String(target.status) === 'in_progress') return ok(mapDetail(target), requestId);
     return fail('CONFLICT', 'Inquiry can no longer enter in_progress', 409, requestId);
   }
 
   if (status === 'answered') {
     if (response.length < 1 || response.length > 10000) return fail('VALIDATION_ERROR', 'response must be 1-10000 characters', 400, requestId);
+    // #1049 idempotent no-write path: an already answered inquiry succeeds
+    // without any business write and therefore without a mutation audit.
+    if (String(target.status) === 'answered') return ok(mapDetail(target), requestId);
+    // #1049: the answer write, its mutation audit and the notification are one
+    // rollback-able unit. The audit row is produced by the update's own mutated
+    // rows, so an already-answered row can never grow a fresh audit record.
     const results = await sql.transaction([
       sql`
-        update inquiries
-        set status = 'answered', response_text = ${response}, answered_by = ${operator.id}::uuid,
-            answered_at = coalesce(answered_at, now()), closed_at = null
-        where id = ${inquiryId}::uuid
-          and complex_id = ${operator.complexId}::uuid
-          and status in ('received','in_progress')
-        returning id, user_id, complex_id, inquiry_type, title, body, status, response_text, answered_at, closed_at, created_at, updated_at
+        with mutated as (
+          update inquiries
+          set status = 'answered', response_text = ${response}, answered_by = ${operator.id}::uuid,
+              answered_at = coalesce(answered_at, now()), closed_at = null
+          where id = ${inquiryId}::uuid
+            and complex_id = ${operator.complexId}::uuid
+            and status in ('received','in_progress')
+          returning id, user_id, complex_id, inquiry_type, title, body, status, response_text, answered_at, closed_at, created_at, updated_at
+        ),
+        audited as (
+          insert into audit_events (
+            request_id, actor_user_id, actor_kind, complex_id, action, scope,
+            resource_type, resource_id, decision, reason_code, metadata
+          )
+          select
+            ${requestId},
+            ${operator.id}::uuid,
+            'operator',
+            ${operator.complexId}::uuid,
+            'admin.inquiry.review',
+            ${operator.requestedScope},
+            'inquiry',
+            mutated.id::text,
+            'allowed',
+            'ADMIN_INQUIRY_STATUS_UPDATED',
+            ${JSON.stringify({ fromStatus: String(target.status), toStatus: 'answered' })}::jsonb
+          from mutated
+          returning id
+        )
+        select mutated.*
+        from mutated
+        cross join lateral (select count(*) from audited) audit_barrier
       `,
       sql`
         insert into notifications (
@@ -294,21 +353,47 @@ async function adminReview(request: Request, env: CoreEnv, sql: Sql, requestId: 
     ]);
     const updated = (results[0] as Record<string, unknown>[])[0];
     if (updated) return ok(mapDetail(updated), requestId);
-    if (String(target.status) === 'answered') return ok(mapDetail(target), requestId);
     return fail('CONFLICT', 'Inquiry can no longer be answered', 409, requestId);
   }
 
   if (status === 'closed') {
+    // #1049 idempotent no-write path: an already closed inquiry succeeds
+    // without any business write and therefore without a mutation audit.
+    if (String(target.status) === 'closed') return ok(mapDetail(target), requestId);
     const rows = await sql`
-      update inquiries
-      set status = 'closed', closed_at = coalesce(closed_at, now())
-      where id = ${inquiryId}::uuid
-        and complex_id = ${operator.complexId}::uuid
-        and status = 'answered'
-      returning id, inquiry_type, title, body, status, response_text, answered_at, closed_at, created_at, updated_at
+      with mutated as (
+        update inquiries
+        set status = 'closed', closed_at = coalesce(closed_at, now())
+        where id = ${inquiryId}::uuid
+          and complex_id = ${operator.complexId}::uuid
+          and status = 'answered'
+        returning id, inquiry_type, title, body, status, response_text, answered_at, closed_at, created_at, updated_at
+      ),
+      audited as (
+        insert into audit_events (
+          request_id, actor_user_id, actor_kind, complex_id, action, scope,
+          resource_type, resource_id, decision, reason_code, metadata
+        )
+        select
+          ${requestId},
+          ${operator.id}::uuid,
+          'operator',
+          ${operator.complexId}::uuid,
+          'admin.inquiry.review',
+          ${operator.requestedScope},
+          'inquiry',
+          mutated.id::text,
+          'allowed',
+          'ADMIN_INQUIRY_STATUS_UPDATED',
+          ${JSON.stringify({ fromStatus: String(target.status), toStatus: 'closed' })}::jsonb
+        from mutated
+        returning id
+      )
+      select mutated.*
+      from mutated
+      cross join lateral (select count(*) from audited) audit_barrier
     `;
     if (rows[0]) return ok(mapDetail(rows[0] as Record<string, unknown>), requestId);
-    if (String(target.status) === 'closed') return ok(mapDetail(target), requestId);
     return fail('CONFLICT', 'Only an answered inquiry can be closed', 409, requestId);
   }
 
