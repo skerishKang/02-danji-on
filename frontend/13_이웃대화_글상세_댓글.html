@@ -423,6 +423,26 @@ main{width:min(920px,calc(100% - 40px));margin:auto;padding-bottom:70px}.route{h
    commentLoadMore.textContent='댓글 더 보기';
   }
 
+ /* #1044: 댓글 등록 성공 뒤의 loadPost() 전체 재호출은 댓글 페이지 커서와
+    펼친 답글 스레드를 함께 버린다. 서버가 돌려준 댓글 객체를 authoritative
+    projection 에 넣고, cursor/hasMore 는 손대지 않은 채 post summary 만
+    별도로 정직하게 재조회한다. 정렬은 서버와 동일하게 오래된 순(append). */
+ function projectCreatedComment(comment){
+   if(!comment||!comment.id)return false;
+   if(loadFailure)return false;
+   if(commentState.comments.some(row=>row.id===comment.id))return false;
+   commentState.comments.push(comment);
+   commentList.insertAdjacentHTML('beforeend',serverCommentHTML(comment));
+   return true;
+ }
+ async function reconcileCommentSummary(){
+   if(!post)return;
+   const result=await bridge.getPost(postId);
+   if(result.mode!=='server'||!result.post||!Number.isFinite(result.post.commentCount))return;
+   post.commentCount=result.post.commentCount;
+   commentCount.textContent=post.commentCount;
+   commentTitleCount.textContent=post.commentCount;
+ }
   document.addEventListener('click',ev=>{
     if(ev.target.closest('#commentLoadMore')){
      ev.preventDefault();ev.stopImmediatePropagation();
@@ -575,9 +595,12 @@ main{width:min(920px,calc(100% - 40px));margin:auto;padding-bottom:70px}.route{h
   const v=commentText.value.trim();
   if(!v){flash('댓글을 입력해 주세요.');return}
   if(v.length>300){flash('댓글은 300자까지 입력할 수 있습니다.');return}
-  bridge.addComment(postId,v).then(async r=>{
-    if(r.ok&&r.mode==='server'){commentText.value='';await loadPost()}
-    else flash(failMessage(r));
+  bridge.addComment(postId,v).then(r=>{
+    if(r.ok&&r.mode==='server'){
+     commentText.value='';
+     projectCreatedComment(r.comment);
+     void reconcileCommentSummary();
+    }else flash(failMessage(r));
    });
  },true);
  loadPost();

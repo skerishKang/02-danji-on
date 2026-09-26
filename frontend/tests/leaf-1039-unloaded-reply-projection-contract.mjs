@@ -64,9 +64,19 @@ const SERVER_REPLY = {
 // Harness: a DOM stub faithful enough for the real inline block, plus the
 // delegated submit listener the page registers on `document`.
 // ---------------------------------------------------------------------------
-const runScenario = ({
+const runScenario = async ({
   scriptSource = firstInlineScript,
   addReplyResult,
+  // ---- #1044: comment continuity scripting ----
+  driveReply = true,
+  driveComment = false,
+  commentDraft = '새로 단 댓글',
+  addCommentResult,
+  postResult = { mode: 'server', post: null },
+  listCommentsResults = [{ mode: 'server', comments: [], nextCursor: null, hasMore: false }],
+  loadMoreBeforeComment = false,
+  loadMoreAfterComment = false,
+  expandThread = false,
   // When false the harness registers listeners and drives the reply-button click
   // only, leaving the submit step to the caller (Case B needs a clean timeline).
   autoSubmit = true,
@@ -129,6 +139,9 @@ const runScenario = ({
     set innerHTML(v) {
       this._html = v;
     },
+    insertAdjacentHTML(_pos, html) {
+      this._html += html;
+    },
     querySelector(sel) {
       let m = /\[data-server-replies="([^"]+)"\]/.exec(sel);
       if (m) return m[1] === PARENT ? replyHost : null;
@@ -187,11 +200,21 @@ const runScenario = ({
       const next = listRepliesResults[Math.min(bridgeCalls.filter((c) => c.op === 'listReplies').length - 1, listRepliesResults.length - 1)];
       return Promise.resolve({ mode: 'server', replies: [], nextCursor: null, hasMore: false, ...next });
     },
-    getPost() {
-      return Promise.resolve({ mode: 'server', post: null });
+    addComment(postId, body) {
+      bridgeCalls.push({ op: 'addComment', body });
+      return Promise.resolve(addCommentResult);
     },
-    listComments() {
-      return Promise.resolve({ mode: 'server', comments: [], nextCursor: null, hasMore: false });
+    getPost() {
+      bridgeCalls.push({ op: 'getPost' });
+      const n = bridgeCalls.filter((c) => c.op === 'getPost').length;
+      return Promise.resolve(typeof postResult === 'function' ? postResult(n) : postResult);
+    },
+    listComments(postId, opts) {
+      bridgeCalls.push({ op: 'listComments', opts: opts ? { ...opts } : null });
+      const n = bridgeCalls.filter((c) => c.op === 'listComments').length - 1;
+      const scripted = listCommentsResults[Math.min(n, listCommentsResults.length - 1)]
+        || { mode: 'server', comments: [], nextCursor: null, hasMore: false };
+      return Promise.resolve(scripted);
     },
   };
 
@@ -268,14 +291,17 @@ const runScenario = ({
       focusLog.push('replyButton');
     },
   };
-  if (clickHandler) {
-    clickHandler({
-      type: 'click',
-      target: replyTrigger,
-      preventDefault() {},
-      stopPropagation() {},
-      stopImmediatePropagation() {},
-    });
+  const settle = () => new Promise((resolve) => setImmediate(() => setImmediate(resolve)));
+  const fire = (handler, target) => handler({
+    type: 'click',
+    target,
+    preventDefault() {},
+    stopPropagation() {},
+    stopImmediatePropagation() {},
+  });
+
+  if (driveReply && clickHandler) {
+    fire(clickHandler, replyTrigger);
   }
 
   // Drive the page's real delegated submit path for the reply form.
@@ -287,13 +313,46 @@ const runScenario = ({
     stopImmediatePropagation() {},
   };
   replyForm.closest = (sel) => (sel === '[data-server-reply-form]' ? replyForm : null);
-  if (submitHandler && autoSubmit) submitHandler(submitEvent);
+  if (driveReply && submitHandler && autoSubmit) submitHandler(submitEvent);
 
   // Let the bridge promise settle.
-  return new Promise((resolve) =>
-    setImmediate(() =>
-      setImmediate(() =>
-        resolve({
+  await settle();
+
+  // ---- #1044: expand a reply thread, paginate comments, then submit a comment ----
+  if (driveReply && expandThread && clickHandler) {
+    const toggle = { dataset: { serverReplyToggle: PARENT } };
+    toggle.closest = (sel) => (sel === '[data-server-reply-toggle]' ? toggle : null);
+    fire(clickHandler, toggle);
+    await settle();
+  }
+  if (loadMoreBeforeComment && clickHandler) {
+    const more = { dataset: {} };
+    more.closest = (sel) => (sel === '#commentLoadMore' ? more : null);
+    fire(clickHandler, more);
+    await settle();
+  }
+  if (driveComment && submitHandler) {
+    byId.get('commentText').value = commentDraft;
+    const commentFormEl = byId.get('commentForm');
+    commentFormEl.closest = () => null;
+    submitHandler({
+      type: 'submit',
+      target: commentFormEl,
+      preventDefault() {},
+      stopPropagation() {},
+      stopImmediatePropagation() {},
+    });
+    await settle();
+  }
+  if (loadMoreAfterComment && clickHandler) {
+    const more2 = { dataset: {} };
+    more2.closest = (sel) => (sel === '#commentLoadMore' ? more2 : null);
+    fire(clickHandler, more2);
+    await settle();
+  }
+
+  return (
+    {
           clickHandler,
           submitHandler,
           replyHost,
@@ -306,11 +365,18 @@ const runScenario = ({
           formOpen: replyForm.classList.contains('open'),
           inputValue: input.value,
           focusLog,
-          bridgeCalls,
-          submitHandlerFound: Boolean(submitHandler),
-        }),
-      ),
-    ),
+      bridgeCalls,
+      submitHandlerFound: Boolean(submitHandler),
+      commentListHtml: commentList.innerHTML,
+      commentCountText: byId.get('commentCount').textContent,
+      commentTitleCountText: byId.get('commentTitleCount').textContent,
+      commentLoadMoreHidden: byId.get('commentLoadMore').hidden,
+      commentLoadMoreText: byId.get('commentLoadMore').textContent,
+      commentTextValue: byId.get('commentText').value,
+      listCommentsCalls: bridgeCalls.filter((c) => c.op === 'listComments'),
+      getPostCalls: bridgeCalls.filter((c) => c.op === 'getPost'),
+      addCommentCalls: bridgeCalls.filter((c) => c.op === 'addComment'),
+    }
   );
 };
 
@@ -603,5 +669,364 @@ assert.ok(
   // which is what makes Case A the discriminating control.
   assert.equal(caseAMutated.formOpen, false, 'mutation: the form still closes, so only visibility is lost');
 }
+
+// ===========================================================================
+// #1044 — comment/reply continuity across a post-submit refetch.
+//
+// Historical defect in `frontend/13_이웃대화_글상세_댓글.html`:
+//
+//   bridge.addComment(postId,v).then(async r=>{
+//    if(r.ok&&r.mode==='server'){commentText.value='';await loadPost()}
+//
+// and `loadPost()` ends in `loadComments()`, whose full-reload branch does
+// `replyStates.clear()` and replaces `commentState`. Every successful
+// top-level comment therefore destroyed the loaded comment page window, the
+// expanded reply threads and their cursors — and a newly-created comment could
+// vanish from the UI whenever it was not inside the first refetched page.
+//
+// The fix must use the object the server returned, keep the existing
+// pagination window, and must not fake a cursor.
+//
+// These cases drive the same real inline script through the same harness.
+const POST_ID = '3f2504e0-4f89-11d3-9a0c-0305e82c3301';
+const SERVER_POST = {
+  id: POST_ID,
+  kind: 'together',
+  category: null,
+  title: '함께하는 이웃',
+  body: '오늘 저녁에 같이 산책하실래요?',
+  author: { nickname: '산책메이트' },
+  publishedAt: '2026-09-20T00:00:00.000Z',
+  createdAt: '2026-09-20T00:00:00.000Z',
+  status: 'published',
+  commentCount: 25,
+  reactionCount: 3,
+  viewerLiked: false,
+  viewerCanEdit: false,
+  viewerCanReport: true,
+  viewerCanDelete: false,
+};
+
+const serverComment = (n) => ({
+  id: 'c-' + n,
+  body: '기존 댓글 ' + n,
+  author: { nickname: '이웃' + n },
+  publishedAt: '2026-09-20T0' + (n % 10) + ':00:00.000Z',
+  createdAt: '2026-09-20T0' + (n % 10) + ':00:00.000Z',
+  status: 'published',
+  viewerCanDelete: false,
+  viewerCanReport: true,
+});
+
+const PAGE1 = Array.from({ length: 20 }, (_, i) => serverComment(i + 1));
+const PAGE2 = Array.from({ length: 5 }, (_, i) => serverComment(i + 21));
+
+// The server created object. Its id is deliberately NOT in any listed page —
+// that is exactly the "created comment may fall outside the first refetched
+// page" condition from the issue.
+const CREATED_COMMENT = {
+  id: 'c-created-1',
+  body: '방금 남긴 댓글',
+  author: { nickname: '나' },
+  publishedAt: '2026-09-26T00:00:00.000Z',
+  createdAt: '2026-09-26T00:00:00.000Z',
+  status: 'published',
+  viewerCanDelete: true,
+  viewerCanReport: false,
+};
+
+const commentSuccess = { ok: true, mode: 'server', status: 201, comment: { ...CREATED_COMMENT } };
+
+const countRows = (html, id) => (html.match(new RegExp('data-server-comment="' + id + '"', 'g')) || []).length;
+
+// ---------------------------------------------------------------------------
+// Case 1044-1 — 20+ loaded comments, a load-more, then a new top-level comment.
+// ---------------------------------------------------------------------------
+{
+  const run = await runScenario({
+    driveReply: false,
+    expandThread: false,
+    driveComment: true,
+    loadMoreBeforeComment: true,
+    postResult: (n) => (n === 1 ? { mode: 'server', post: SERVER_POST } : { mode: 'server', post: { ...SERVER_POST, commentCount: 26 } }),
+    listCommentsResults: [
+      { mode: 'server', comments: PAGE1, nextCursor: 'cursor-page-2', hasMore: true },
+      { mode: 'server', comments: PAGE2, nextCursor: 'cursor-page-3', hasMore: true },
+    ],
+    addCommentResult: commentSuccess,
+  });
+
+  // 25 comments were loaded before the submit.
+  for (const row of [...PAGE1, ...PAGE2]) {
+    assert.equal(countRows(run.commentListHtml, row.id), 1, 'Case 1044-1: loaded comment ' + row.id + ' must survive the submit');
+  }
+  assert.equal(
+    run.listCommentsCalls.length,
+    2,
+    'Case 1044-1: a successful comment must not trigger a third listComments refetch, got ' + run.listCommentsCalls.length,
+  );
+  assert.equal(
+    run.listCommentsCalls[1].opts.cursor,
+    'cursor-page-2',
+    "Case 1044-1: the resident own load-more must have used the server cursor",
+  );
+
+  // The just-created server object is visible even though no listed page has it.
+  assert.equal(
+    countRows(run.commentListHtml, 'c-created-1'),
+    1,
+    'Case 1044-1: the just-created comment must be visible exactly once',
+  );
+  assert.match(
+    run.commentListHtml,
+    /방금 남긴 댓글/,
+    'Case 1044-1: the rendered row must carry the server-returned body',
+  );
+  assert.doesNotMatch(
+    run.commentListHtml,
+    /data-server-comment="c-created-2"/,
+    'Case 1044-1: the projection must not invent a second id',
+  );
+  assert.equal(run.commentTextValue, '', 'Case 1044-1: the composer must be cleared on success');
+  assert.equal(String(run.commentCountText), '26', 'Case 1044-1: the summary must reconcile to the server post count');
+  assert.equal(String(run.commentTitleCountText), '26', 'Case 1044-1: the title count must reconcile too');
+  assert.equal(
+    run.commentLoadMoreHidden,
+    false,
+    'Case 1044-1: the load-more control must stay available, so pagination truth survives',
+  );
+  assert.equal(
+    run.commentLoadMoreText,
+    '댓글 더 보기',
+    'Case 1044-1: the load-more label must return to its resting state',
+  );
+  console.log('1044_CASE_PAGINATED_WINDOW=PASS');
+}
+
+// ---------------------------------------------------------------------------
+// Case 1044-2 — an expanded reply thread must survive the same submit.
+// ---------------------------------------------------------------------------
+{
+  const LOADED_REPLY = {
+    id: 'r-existing-1',
+    body: '펼친 스레드의 답글',
+    author: { nickname: '이웃' },
+    createdAt: '2026-09-21T00:00:00.000Z',
+  };
+  const run = await runScenario({
+    driveReply: true,
+    autoSubmit: false,
+    expandThread: true,
+    driveComment: true,
+    listRepliesResults: [{ mode: 'server', replies: [LOADED_REPLY], nextCursor: 'reply-cursor-1', hasMore: true }],
+    postResult: (n) => (n === 1 ? { mode: 'server', post: SERVER_POST } : { mode: 'server', post: SERVER_POST }),
+    listCommentsResults: [{ mode: 'server', comments: PAGE1, nextCursor: 'cursor-page-2', hasMore: true }],
+    addCommentResult: commentSuccess,
+  });
+
+  assert.equal(
+    (run.replyHost.innerHTML.match(/data-server-reply-id="r-existing-1"/g) || []).length,
+    1,
+    'Case 1044-2: the loaded reply must remain rendered after the comment submit',
+  );
+  assert.match(
+    run.replyHost.innerHTML,
+    /data-server-replies-more/,
+    'Case 1044-2: the reply pagination control must survive — cursor truth is not discarded',
+  );
+  assert.equal(
+    run.replyToggle.textContent,
+    '답글 더 보기',
+    'Case 1044-2: the expanded toggle must stay expanded',
+  );
+  assert.equal(
+    run.listCommentsCalls.length,
+    1,
+    'Case 1044-2: the comment submit must not refetch the comment page, got ' + run.listCommentsCalls.length,
+  );
+  assert.equal(
+    countRows(run.commentListHtml, 'c-created-1'),
+    1,
+    'Case 1044-2: the just-created comment is still projected',
+  );
+  console.log('1044_CASE_EXPANDED_THREAD=PASS');
+}
+
+// ---------------------------------------------------------------------------
+// Case 1044-3 — load-more still works, with the SAME cursor, after a submit.
+// ---------------------------------------------------------------------------
+{
+  const run = await runScenario({
+    driveReply: false,
+    driveComment: true,
+    loadMoreBeforeComment: true,
+    loadMoreAfterComment: true,
+    postResult: { mode: 'server', post: SERVER_POST },
+    listCommentsResults: [
+      { mode: 'server', comments: PAGE1, nextCursor: 'cursor-page-2', hasMore: true },
+      { mode: 'server', comments: PAGE2, nextCursor: 'cursor-page-3', hasMore: true },
+      { mode: 'server', comments: [], nextCursor: null, hasMore: false },
+    ],
+    addCommentResult: commentSuccess,
+  });
+
+  // initial page + resident load-more, then the submit, then another load-more
+  assert.equal(
+    run.listCommentsCalls.length,
+    3,
+    'Case 1044-3: exactly initial + pre-submit load-more + post-submit load-more, got ' + run.listCommentsCalls.length,
+  );
+  assert.equal(
+    run.listCommentsCalls[2].opts.cursor,
+    'cursor-page-3',
+    'Case 1044-3: a load-more after a submit must continue from the stored server cursor, not restart at page 1',
+  );
+  assert.equal(
+    countRows(run.commentListHtml, 'c-created-1'),
+    1,
+    'Case 1044-3: the projected comment must not be duplicated by a later page',
+  );
+  console.log('1044_CASE_LOAD_MORE_CONTINUITY=PASS');
+}
+
+// ---------------------------------------------------------------------------
+// Case 1044-4 — duplicate protection: the same server id must render once.
+// ---------------------------------------------------------------------------
+{
+  const run = await runScenario({
+    driveReply: false,
+    driveComment: true,
+    postResult: { mode: 'server', post: SERVER_POST },
+    // The very first page already contains the comment the "create" returns,
+    // which is what a fast refetch or a double submit can produce.
+    listCommentsResults: [{ mode: 'server', comments: [CREATED_COMMENT, ...PAGE1], nextCursor: 'cursor-page-2', hasMore: true }],
+    addCommentResult: commentSuccess,
+  });
+
+  assert.equal(
+    countRows(run.commentListHtml, 'c-created-1'),
+    1,
+    'Case 1044-4: a comment already present in the loaded window must not be projected twice',
+  );
+  assert.equal(
+    run.listCommentsCalls.length,
+    1,
+    'Case 1044-4: the submit must not refetch',
+  );
+  console.log('1044_CASE_DUPLICATE_PROTECTION=PASS');
+}
+
+// ---------------------------------------------------------------------------
+// Case 1044-5 — a failed comment submit keeps the draft and adds nothing.
+// ---------------------------------------------------------------------------
+{
+  const run = await runScenario({
+    driveReply: false,
+    driveComment: true,
+    commentDraft: '살아 있는 초안',
+    postResult: { mode: 'server', post: SERVER_POST },
+    listCommentsResults: [{ mode: 'server', comments: PAGE1, nextCursor: 'cursor-page-2', hasMore: true }],
+    addCommentResult: { ok: false, mode: 'server', status: 500 },
+  });
+
+  assert.equal(run.commentTextValue, '살아 있는 초안', 'Case 1044-5: a failed submit must keep the draft');
+  assert.equal(
+    countRows(run.commentListHtml, 'c-created-1'),
+    0,
+    'Case 1044-5: a failed submit must not project anything',
+  );
+  assert.equal(
+    run.listCommentsCalls.length,
+    1,
+    'Case 1044-5: a failed submit must not refetch the comment page',
+  );
+  console.log('1044_CASE_FAILURE_BEHAVIOR=PASS');
+}
+
+// ---------------------------------------------------------------------------
+// Case 1044-6 — #981 focus lifecycle is untouched (reply success/failure).
+// ---------------------------------------------------------------------------
+{
+  const focus = await runScenario({
+    driveReply: true,
+    autoSubmit: true,
+    addReplyResult: { ok: true, mode: 'server', reply: { id: 'r-focus', body: '답글', author: { nickname: '나' }, createdAt: '2026-09-26T00:00:00.000Z' } },
+  });
+  assert.ok(focus.focusLog.includes('replyButton'), 'Case 1044-6: #981 success must return focus to the reply button');
+
+  const failed = await runScenario({
+    driveReply: true,
+    autoSubmit: true,
+    inputValue: '살아 있는 초안',
+    addReplyResult: { ok: false, mode: 'server', status: 500 },
+  });
+  assert.ok(failed.focusLog.includes('input'), 'Case 1044-6: #981 failure must return focus to the input');
+  assert.equal(failed.inputValue, '살아 있는 초안', 'Case 1044-6: #981 failure must retain the draft value');
+  console.log('981_FOCUS_REGRESSION=PASS');
+}
+
+// ---------------------------------------------------------------------------
+// Mutation proof — restoring the historical `await loadPost()` must break it.
+// ---------------------------------------------------------------------------
+{
+  const CURRENT_SUBMIT = [
+    "  bridge.addComment(postId,v).then(r=>{",
+    "    if(r.ok&&r.mode==='server'){",
+    "     commentText.value='';",
+    "     projectCreatedComment(r.comment);",
+    "     void reconcileCommentSummary();",
+    "    }else flash(failMessage(r));",
+    "   });",
+  ].join('\n');
+  const HISTORICAL_SUBMIT =
+    "  bridge.addComment(postId,v).then(async r=>{\n" +
+    "    if(r.ok&&r.mode==='server'){commentText.value='';await loadPost()}\n" +
+    "    else flash(failMessage(r));\n" +
+    "   });";
+
+  assert.ok(detailHtml.includes(CURRENT_SUBMIT), 'the continuity submit path must exist in the page');
+
+  const mutatedHtml = detailHtml.replace(CURRENT_SUBMIT, HISTORICAL_SUBMIT);
+  assert.notEqual(mutatedHtml, detailHtml, 'mutation must actually change the document');
+  assert.match(mutatedHtml, /addComment[\s\S]{0,120}await loadPost()/, 'mutation: historical refetch re-injected');
+
+  const mutatedInline = [...mutatedHtml.matchAll(/<script(?![^>]*src=)[^>]*>([\s\S]*?)<\/script>/g)]
+    .map((m) => m[1])
+    .find((b) => b.includes('function appendReply') && b.includes("addEventListener('submit'"));
+  assert.ok(mutatedInline, 'mutation: the mutated inline block must be extractable');
+
+  const run = await runScenario({
+    scriptSource: mutatedInline,
+    driveReply: false,
+    driveComment: true,
+    loadMoreBeforeComment: true,
+    postResult: { mode: 'server', post: SERVER_POST },
+    listCommentsResults: [
+      { mode: 'server', comments: PAGE1, nextCursor: 'cursor-page-2', hasMore: true },
+      { mode: 'server', comments: PAGE2, nextCursor: 'cursor-page-3', hasMore: true },
+    ],
+    addCommentResult: commentSuccess,
+  });
+
+  assert.ok(
+    run.listCommentsCalls.length > 2,
+    'mutation: the historical path must re-read the comment list, which is what the rules above forbid',
+  );
+  assert.equal(
+    countRows(run.commentListHtml, 'c-created-1'),
+    0,
+    'mutation: with the historical refetch the created comment is lost from the window — the rule above must catch it',
+  );
+  // The historical path re-reads the FIRST page with no cursor at all — that is
+  // exactly the pagination context the issue requires to survive.
+  assert.equal(
+    run.listCommentsCalls[2].opts,
+    null,
+    'mutation: the historical refetch restarts the comment window at page 1 — the rule above must catch it',
+  );
+  console.log('1044_MUTATION_PROOF=PASS');
+}
+
+console.log('1044_CONTINUITY_CONTRACT=PASS');
 
 console.log('leaf-1039-unloaded-reply-projection-contract: PASS');
