@@ -88,7 +88,7 @@ for (const file of workflowFiles) {
   assertExpectedMainWorkflowBoundary(file, source);
   assert.doesNotMatch(source, /npm install --ignore-scripts/, `${file}: checked-in-lockfile lanes must not use mutable npm install`);
 }
-assert.equal(expectedMainWorkflowCount, 33, '#1007: the audited expected_main workflow set must not silently shrink');
+assert.equal(expectedMainWorkflowCount, 34, '#1007: the audited expected_main workflow set must not silently shrink');
 
 for (const file of ['backend-ci.yml', 'verification-ci.yml']) {
   const source = await readFile(new URL(file, workflowsRoot), 'utf8');
