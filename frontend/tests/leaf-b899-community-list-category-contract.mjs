@@ -70,4 +70,74 @@ try {
 }
 assert.ok(mutationCaught, '#899: contract must FAIL if the category branch is removed');
 
+/* --- 6. #1041 topic visual state == programmatic pressed state --- */
+{
+  const topicButtons = [...list.matchAll(/<button ([^>]*class="topic[^"]*"[^>]*)>/g)].map((match) => match[1]);
+  assert.equal(topicButtons.length, 4, '#1041: page 12 must keep exactly four topic buttons');
+  assert.equal(topicButtons.filter((attrs) => /aria-pressed="true"/.test(attrs)).length, 1,
+    '#1041: initial markup must expose exactly one pressed topic');
+  assert.equal(topicButtons.filter((attrs) => /aria-pressed="false"/.test(attrs)).length, 3,
+    '#1041: initial markup must expose the other three topics as unpressed');
+
+  const renderMatch = list.match(/function render\(\)\{[\s\S]*?\n\}/);
+  assert.ok(renderMatch, '#1041: canonical topic render() must remain extractable');
+  assert.match(renderMatch[0], /classList\.toggle\('active',active\)/,
+    '#1041: render must derive the visual state from one active boolean');
+  assert.match(renderMatch[0], /setAttribute\('aria-pressed',String\(active\)\)/,
+    '#1041: render must expose the same active boolean through aria-pressed');
+
+  const makeTopic = (type) => {
+    const classes = new Set();
+    const attrs = {};
+    return {
+      dataset: { type },
+      classList: {
+        toggle(name, state) {
+          if (state) classes.add(name); else classes.delete(name);
+        },
+        contains(name) { return classes.has(name); }
+      },
+      setAttribute(name, value) { attrs[name] = value; },
+      getAttribute(name) { return attrs[name] ?? null; }
+    };
+  };
+  const topics = ['hello', 'story', 'question', 'together'].map(makeTopic);
+  const context = {
+    document: { querySelectorAll: (selector) => selector === '.topic' ? topics : [] },
+    selected: 'hello',
+    TYPES: {
+      hello: { label: '가입인사' },
+      story: { label: '단지이야기' },
+      question: { label: '궁금해요' },
+      together: { label: '같이해요' }
+    },
+    writeMain: { childNodes: [{ nodeValue: '' }] },
+    allBtn: { classList: { toggle() {} } },
+    showAll: false,
+    list: { innerHTML: '' }
+  };
+  const renderTopics = vm.runInNewContext('(' + renderMatch[0] + ')', context);
+
+  const assertParity = (selected) => {
+    context.selected = selected;
+    renderTopics();
+    for (const topic of topics) {
+      const expected = topic.dataset.type === selected;
+      assert.equal(topic.classList.contains('active'), expected,
+        '#1041: visual active state must follow the selected topic');
+      assert.equal(topic.getAttribute('aria-pressed'), String(expected),
+        '#1041: aria-pressed must exactly match the visual active state');
+    }
+    assert.equal(topics.filter((topic) => topic.getAttribute('aria-pressed') === 'true').length, 1,
+      '#1041: every render must expose exactly one pressed topic');
+  };
+
+  assertParity('hello');
+  assertParity('question');
+}
+
+console.log('1041_COMMUNITY_TOPIC_VISUAL_STATE_PROGRAMMATIC_PARITY=PASS');
+console.log('1041_COMMUNITY_TOPIC_INITIAL_SELECTED_STATE_EXPOSED=YES');
+console.log('1041_COMMUNITY_TOPIC_CLICK_STATE_EXPOSED=YES');
+
 console.log('leaf-b899-community-list-category-contract: PASS');

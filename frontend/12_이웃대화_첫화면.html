@@ -93,10 +93,10 @@ main{width:min(1280px,calc(100% - 64px));margin:auto;padding-bottom:80px}.route{
 <div class="route"><a class="route-back" href="05_우리단지_첫화면.html">← 우리단지</a><span>/ 이웃대화</span></div>
 <section class="intro"><div><div class="eyebrow">우리 단지 주민이 직접 쓰고 대화하는 공간</div><h1>이웃대화</h1><p>카테고리를 고르면 해당 글만 보고, 글쓰기는 바로 그 카테고리로 시작합니다.</p></div><button class="write-main" id="writeMain" type="button">가입인사 글쓰기 <b>＋</b></button></section>
 <section aria-label="이웃대화 유형" class="topics">
-<button class="topic active" data-type="hello" type="button"><span class="no">01</span><b>가입인사</b><small>새 이웃과 반갑게 인사해요.</small></button>
-<button class="topic" data-type="story" type="button"><span class="no">02</span><b>단지이야기</b><small>정보와 일상을 나눠요.</small></button>
-<button class="topic" data-type="question" type="button"><span class="no">03</span><b>궁금해요</b><small>생활 속 궁금한 것을 물어요.</small></button>
-<button class="topic" data-type="together" type="button"><span class="no">04</span><b>같이해요</b><small>산책·취미·공동구매를 함께해요.</small></button>
+<button aria-pressed="true" class="topic active" data-type="hello" type="button"><span class="no">01</span><b>가입인사</b><small>새 이웃과 반갑게 인사해요.</small></button>
+<button aria-pressed="false" class="topic" data-type="story" type="button"><span class="no">02</span><b>단지이야기</b><small>정보와 일상을 나눠요.</small></button>
+<button aria-pressed="false" class="topic" data-type="question" type="button"><span class="no">03</span><b>궁금해요</b><small>생활 속 궁금한 것을 물어요.</small></button>
+<button aria-pressed="false" class="topic" data-type="together" type="button"><span class="no">04</span><b>같이해요</b><small>산책·취미·공동구매를 함께해요.</small></button>
 </section>
 <section class="board">
 <header class="board-head"><h2>지금 올라온 이야기</h2><div class="board-tools"><button class="all-filter" type="button">전체 보기</button></div></header>
@@ -118,7 +118,7 @@ if(!TYPES[selected])selected='hello'; let showAll=params.get('view')==='all';
 const list=document.getElementById('postList'), writeMain=document.getElementById('writeMain'), mobileWrite=document.getElementById('mobileWrite'), allBtn=document.querySelector('.all-filter');
 function writeTarget(){location.href=TYPES[selected].write}
 function render(){
- document.querySelectorAll('.topic').forEach(b=>b.classList.toggle('active',b.dataset.type===selected));
+ document.querySelectorAll('.topic').forEach(b=>{const active=b.dataset.type===selected;b.classList.toggle('active',active);b.setAttribute('aria-pressed',String(active))});
  writeMain.childNodes[0].nodeValue=TYPES[selected].label+' 글쓰기 ';
  allBtn.classList.toggle('active',showAll);
  list.innerHTML='<article class="post-row" data-server-placeholder="true"><div class="post-title"><span class="type">알림</span><b>이웃대화를 불러오는 중입니다.</b></div></article>';
