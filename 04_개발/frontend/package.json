@@ -88,7 +88,8 @@
     "test:leaf-b976-neighbor-modal-xss": "node tests/leaf-b976-neighbor-modal-xss-contract.mjs",
     "test:leaf-1025-initial-document-authority": "node ../../frontend/tests/leaf-1025-initial-document-authority-contract.mjs",
     "test:leaf-1030-notification-toggle-authority": "node ../../frontend/tests/leaf-1030-notification-toggle-authority-contract.mjs",
-    "test:leaf-1033-unsupported-notification-neutral": "node ../../frontend/tests/leaf-1033-unsupported-notification-neutral-contract.mjs"
+    "test:leaf-1033-unsupported-notification-neutral": "node ../../frontend/tests/leaf-1033-unsupported-notification-neutral-contract.mjs",
+    "test:leaf-1039-unloaded-reply-projection": "node ../../frontend/tests/leaf-1039-unloaded-reply-projection-contract.mjs"
   },
   "dependencies": {
     "better-auth": "1.7.1",
