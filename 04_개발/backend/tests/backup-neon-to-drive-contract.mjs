@@ -66,8 +66,10 @@ assert.doesNotMatch(
   /EXPECTED_MAIN.*40-character|EXPECTED_MAIN.*^[0-9a-fA-F]{40}/,
   'schedule path must not validate workflow_dispatch-only EXPECTED_MAIN before event resolution',
 );
-assert.match(authorityGate, /actual_main="$(git rev-parse origin/main)"/,
-  'remote main must still be re-read');
+assert.ok(
+  authorityGate.includes('actual_main="$(git rev-parse origin/main)"'),
+  'remote main must still be re-read',
+);
 assert.match(authorityGate, /"${GITHUB_SHA}" != "${expected_main}".*"${actual_main}" != "${expected_main}"/s,
   'both checked-out source and remote main must equal the resolved expected main');
 
