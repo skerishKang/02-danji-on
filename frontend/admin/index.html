@@ -10,7 +10,7 @@
     *{box-sizing:border-box}
     body{margin:0;background:var(--paper);color:var(--ink);font-family:"Pretendard","Apple SD Gothic Neo","Noto Sans KR",sans-serif;-webkit-font-smoothing:antialiased}
     .admin-header{min-height:var(--header);display:flex;align-items:center;justify-content:space-between;gap:14px;padding:0 clamp(18px,4vw,44px);background:var(--navy);color:#fff;position:sticky;top:0;z-index:5}
-    .brand{color:#fff;text-decoration:none;font-size:22px;font-weight:900;letter-spacing:-.03em;display:inline-flex;align-items:baseline;gap:8px;white-space:nowrap;word-break:keep-all}
+    .brand{min-height:44px;color:#fff;text-decoration:none;font-size:22px;font-weight:900;letter-spacing:-.03em;display:inline-flex;align-items:baseline;gap:8px;white-space:nowrap;word-break:keep-all}
     .brand small{font-size:9px;font-weight:700;letter-spacing:.14em;opacity:.66;white-space:nowrap}
     .admin-header-side{display:flex;align-items:center;gap:12px;min-width:0}
     .admin-role-badge{min-height:34px;display:inline-flex;align-items:center;padding:0 13px;border-radius:999px;font-size:13px;font-weight:800;border:1px solid rgba(255,255,255,.34);color:#fff;white-space:nowrap;word-break:keep-all;flex:0 0 auto}
@@ -18,12 +18,12 @@
     .admin-role-badge.admin{background:var(--amber);border-color:var(--amber);color:var(--navy)}
     .admin-role-badge.operator{background:var(--green);border-color:var(--green);color:#fff}
     .admin-role-badge.restricted{background:var(--coral);border-color:var(--coral);color:#fff}
-    .admin-home-link{color:#fff;opacity:.85;font-size:13px;font-weight:700;text-decoration:none;border:1px solid rgba(255,255,255,.34);border-radius:999px;padding:8px 13px;white-space:nowrap;word-break:keep-all;flex:0 0 auto}
+    .admin-home-link{min-height:44px;display:inline-flex;align-items:center;color:#fff;opacity:.85;font-size:13px;font-weight:700;text-decoration:none;border:1px solid rgba(255,255,255,.34);border-radius:999px;padding:0 16px;white-space:nowrap;word-break:keep-all;flex:0 0 auto}
     main{max-width:1080px;margin:0 auto;padding:26px clamp(16px,4vw,34px) 80px}
     .admin-lead h1{font-size:clamp(24px,3.4vw,32px);letter-spacing:-.03em;margin:8px 0 6px}
     .admin-lead p{margin:0;color:var(--muted);font-size:14px;line-height:1.6}.admin-role-summary{margin-top:14px;padding:13px 15px;border:1px solid var(--line);border-radius:12px;background:var(--paper2);font-size:14px;font-weight:800}.admin-role-summary strong{font-size:16px}.admin-scope-copy{display:block;margin-top:5px;color:var(--muted);font-size:12px;font-weight:600}
     .admin-tabs{display:flex;flex-wrap:wrap;gap:8px;margin:20px 0 4px}
-    .admin-tabs button{min-height:40px;padding:0 14px;border-radius:999px;border:1px solid var(--line);background:var(--paper2);color:var(--ink);font-size:13.5px;font-weight:800;cursor:pointer;white-space:nowrap;word-break:keep-all}
+    .admin-tabs button{min-height:44px;padding:0 14px;border-radius:999px;border:1px solid var(--line);background:var(--paper2);color:var(--ink);font-size:13.5px;font-weight:800;cursor:pointer;white-space:nowrap;word-break:keep-all}
     .admin-tabs button.active{background:var(--navy);border-color:var(--navy);color:#fff}
     .admin-tabs button.privileged{border-color:var(--amber)}
     .admin-tabs button.privileged.active{background:var(--amber);border-color:var(--amber);color:var(--navy)}
@@ -41,7 +41,7 @@
     .admin-review-controls{margin-top:14px;padding-top:14px;border-top:1px solid var(--line)}
     .admin-review-controls textarea{width:100%;min-height:76px;resize:vertical;border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--ink);padding:10px 12px;font:inherit;font-size:13px;line-height:1.55}
     .admin-review-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:9px}
-    .admin-review-actions button{min-height:42px;padding:0 14px;border-radius:10px;border:1px solid var(--ink);background:#fff;color:var(--ink);font-size:13px;font-weight:850;cursor:pointer}
+    .admin-review-actions button{min-height:44px;padding:0 14px;border-radius:10px;border:1px solid var(--ink);background:#fff;color:var(--ink);font-size:13px;font-weight:850;cursor:pointer}
     .admin-review-actions button.primary{background:var(--navy);color:#fff}.admin-review-actions button.danger{border-color:var(--coral);color:var(--coral)}
     .admin-review-actions button:disabled{opacity:.5;cursor:wait}
     .admin-review-status{min-height:20px;margin:8px 0 0!important;font-size:12.5px!important;font-weight:750;color:var(--muted)!important}
@@ -55,7 +55,7 @@
     .admin-field input,.admin-field textarea,.admin-field select{width:100%;border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--ink);padding:10px 11px;font:inherit;font-size:13px;font-weight:600}
     .admin-field textarea{min-height:110px;resize:vertical;line-height:1.55}
     .admin-post-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:10px}
-    .admin-post-actions button{min-height:42px;padding:0 14px;border-radius:10px;border:1px solid var(--navy);background:var(--navy);color:#fff;font-size:13px;font-weight:850;cursor:pointer}
+    .admin-post-actions button{min-height:44px;padding:0 14px;border-radius:10px;border:1px solid var(--navy);background:var(--navy);color:#fff;font-size:13px;font-weight:850;cursor:pointer}
     .admin-post-actions button:disabled{opacity:.5;cursor:wait}
     .admin-post-status{min-height:20px;margin:0!important;font-size:12.5px!important;font-weight:750;color:var(--muted)!important}
     .admin-post-status.error{color:var(--coral)!important}
@@ -65,7 +65,7 @@
     .privileged-item h3{margin:0 0 4px;font-size:15.5px}
     .privileged-item p{margin:0;color:var(--muted);font-size:12.5px}
     .privileged-state{flex:none;display:inline-flex;align-items:center;gap:8px;border:1px solid var(--amber);color:var(--navy);background:var(--amber);border-radius:999px;padding:6px 11px;font-size:11.5px;font-weight:800}
-    .privileged-item button{min-height:30px;padding:0 11px;border-radius:999px;border:1px solid var(--line);background:#fff;color:var(--muted);font-weight:800;font-size:12px}
+    .privileged-item button{min-height:44px;padding:0 14px;border-radius:999px;border:1px solid var(--line);background:#fff;color:var(--muted);font-weight:800;font-size:12px}
     .principal-summary{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 14px}
     .principal-summary span{display:inline-flex;align-items:center;min-height:32px;padding:0 11px;border:1px solid var(--line);border-radius:999px;background:var(--paper2);font-size:12px;font-weight:800}
     .principal-card{background:var(--paper2);border:1px solid var(--line);border-radius:16px;padding:16px 18px;margin-bottom:12px}
