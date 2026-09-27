@@ -197,11 +197,26 @@ render();
     // guests get the canonical login entry instead of a pointless retry.
     // Timeout/network keep the existing retry control below.
     if(result.mode==='auth-required'){
-     guestFeed=result.status!==403;
-     const is403=result.status===403;
-     const expired=!is403&&typeof result.authBridge==='string'&&result.authBridge!=='no-cookie';
-     const guestMsg=is403?'본인 확인된 입주민만 이용할 수 있습니다.'
-      :expired?'세션이 만료되었습니다. 다시 로그인해 주세요.'
+     /* #1075/#810: DanjionSession.authFailureKind is the authoritative
+        classifier — no-cookie is a fresh guest, session-invalid is a stale
+        session, and session-failed/no-session-token/token-failed/token-invalid
+        are server-side bridge faults that must never be worded as an expired
+        login. Only the guest/stale kinds reroute write affordances to the
+        login boundary; bridge faults stay transient and keep retry. */
+     var authKind=(window.DanjionSession&&typeof DanjionSession.authFailureKind==='function')?DanjionSession.authFailureKind({reason:result.mode,status:result.status,authBridge:result.authBridge}):null;
+     if(authKind==='bridge-fault'){
+      list.innerHTML=notice('일시적으로 로그인 확인에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+      feedState.hasMore=true;
+      loadMore.hidden=false;
+      loadMore.disabled=false;
+      loadMore.textContent='게시글 다시 시도';
+      return;
+     }
+     guestFeed=authKind==='signed-out';
+     var is403=authKind==='forbidden';
+     var stale=authKind==='signed-out'&&typeof result.authBridge==='string'&&result.authBridge!=='no-cookie';
+     var guestMsg=is403?'본인 확인된 입주민만 이용할 수 있습니다.'
+      :stale?'세션이 만료되었습니다. 다시 로그인해 주세요.'
       :'로그인 후 이웃대화를 이용할 수 있습니다.';
      list.innerHTML='<article class="post-row"><div class="post-title"><span class="type">알림</span><b>'+esc(guestMsg)+'</b></div>'
       +(is403?'':'<div class="post-title"><a class="guest-login-link" href="index.html?auth=login" style="font-weight:900;text-decoration:underline">로그인 · 가입</a></div>')

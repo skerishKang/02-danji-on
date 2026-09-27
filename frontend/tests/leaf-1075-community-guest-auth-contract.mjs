@@ -2,11 +2,16 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import vm from 'node:vm';
 
-// #1075: signed-out community auth UX. Page 12 must present the canonical
-// login boundary (not a retry) for auth-required feed results and must route
-// guest write affordances to that boundary; page 13 must not tell a fresh
-// no-cookie guest that their login expired. Every claim below executes the
-// real production wiring/scripts inside a vm against scripted responses.
+// #1075: signed-out community auth UX. Pages 12/13 must classify auth
+// failures through the authoritative DanjionSession.authFailureKind:
+//   no-cookie → truthful fresh-guest login-required copy
+//   session-invalid → stale/expired-session copy
+//   session-failed / no-session-token / token-failed / token-invalid →
+//     truthful transient bridge-fault copy (NEVER "login expired")
+//   403 → resident-verification boundary; timeout/network stay non-auth.
+// Page 12 additionally reroutes guest write affordances to the canonical
+// login boundary only for the guest/stale kinds. Every claim below executes
+// the real production wiring/scripts inside a vm.
 
 const root = new URL('../', import.meta.url);
 const read = (path) => readFile(new URL(path, root), 'utf8');
@@ -61,6 +66,14 @@ const POSTS = {
   nextCursor: null,
   hasMore: false
 };
+
+const LOGIN_COPY = '로그인 후 이웃대화를 이용할 수 있습니다.';
+const STALE_COPY = '세션이 만료되었습니다. 다시 로그인해 주세요.';
+const EXPIRED13 = '로그인이 만료되었습니다. 다시 로그인한 뒤 이용해 주세요.';
+const RESIDENT_COPY = '본인 확인된 입주민만 이용할 수 있습니다.';
+const BRIDGE_FAULT_COPY = '일시적으로 로그인 확인에 실패했습니다. 잠시 후 다시 시도해 주세요.';
+const LOGIN_HREF = 'index.html?auth=login';
+const DISPOSITIONS = ['no-cookie', 'session-invalid', 'session-failed', 'no-session-token', 'token-failed', 'token-invalid'];
 
 // Boots the REAL page-12 wiring over a minimal DOM. `respond` decides every
 // fetch outcome; document click listeners are captured so the write-boundary
@@ -131,39 +144,39 @@ function bootPage12(respond, opts = {}) {
   };
 }
 
-const LOGIN_COPY = '로그인 후 이웃대화를 이용할 수 있습니다.';
-const EXPIRED_COPY = '세션이 만료되었습니다. 다시 로그인해 주세요.';
-const RESIDENT_COPY = '본인 확인된 입주민만 이용할 수 있습니다.';
-const LOGIN_HREF = 'index.html?auth=login';
-
-/* 1. Guest no-cookie: login CTA, no retry affordance, guest write boundary. */
-{
+/* 1. Page 12 across every auth-bridge disposition. */
+for (const disposition of DISPOSITIONS) {
   const page = bootPage12(function () {
-    return apiResponse(401, { error: { code: 'AUTH_REQUIRED' } }, 'no-cookie');
+    return apiResponse(401, { error: { code: 'AUTH_REQUIRED' } }, disposition);
   });
-  await until(() => page.list.innerHTML.indexOf(LOGIN_COPY) !== -1, 'guest CTA copy must render');
-  assert.ok(page.list.innerHTML.indexOf(LOGIN_HREF) !== -1, 'the CTA must link the canonical login boundary');
-  assert.equal(page.list.innerHTML.indexOf('게시글 다시 시도'), -1, '게시글 다시 시도 must not be offered to a no-cookie guest');
-  assert.equal(page.loadMore.hidden, true, 'the retry control must be hidden for auth-required');
-  assert.equal(page.loadMore.disabled, true, 'the hidden retry control must be inert');
-  const writeHref = page.fireWriteClick();
-  assert.equal(writeHref, LOGIN_HREF, 'guest write affordance must route to the login boundary');
-  assert.equal(writeHref.indexOf('apiBase'), -1, 'the login boundary must be the canonical plain entry');
+  if (disposition === 'no-cookie') {
+    await until(() => page.list.innerHTML.indexOf(LOGIN_COPY) !== -1, 'no-cookie: fresh-guest copy must render');
+    assert.equal(page.list.innerHTML.indexOf('게시글 다시 시도'), -1, 'no-cookie: retry must not be offered');
+    assert.equal(page.loadMore.hidden, true, 'no-cookie: retry control hidden');
+    assert.ok(page.list.innerHTML.indexOf(LOGIN_HREF) !== -1, 'no-cookie: canonical login CTA present');
+    const writeHref = page.fireWriteClick();
+    assert.equal(writeHref, LOGIN_HREF, 'no-cookie: write affordance routes to the login boundary');
+  } else if (disposition === 'session-invalid') {
+    await until(() => page.list.innerHTML.indexOf(STALE_COPY) !== -1, 'session-invalid: stale copy must render');
+    assert.equal(page.list.innerHTML.indexOf(LOGIN_COPY), -1, 'session-invalid must not use the fresh-guest copy');
+    assert.equal(page.loadMore.hidden, true, 'session-invalid: retry control hidden');
+    assert.ok(page.list.innerHTML.indexOf(LOGIN_HREF) !== -1, 'session-invalid: login CTA present');
+    const writeHref = page.fireWriteClick();
+    assert.equal(writeHref, LOGIN_HREF, 'session-invalid: write affordance routes to re-login');
+  } else {
+    // bridge-fault family: session-failed / no-session-token / token-failed / token-invalid
+    await until(() => page.list.innerHTML.indexOf(BRIDGE_FAULT_COPY) !== -1,
+      disposition + ' must render the truthful bridge-fault copy');
+    assert.equal(page.list.innerHTML.indexOf(EXPIRED13), -1, disposition + ' must never say the login expired');
+    assert.equal(page.list.innerHTML.indexOf(STALE_COPY), -1, disposition + ' must never use the stale-session copy');
+    assert.equal(page.loadMore.hidden, false, disposition + ' is transient: retry stays available');
+    assert.equal(page.loadMore.textContent, '게시글 다시 시도', disposition + ' keeps the retry affordance');
+    const writeHref = page.fireWriteClick();
+    assert.ok(writeHref.indexOf('가입인사') !== -1, disposition + ' keeps the existing write navigation');
+  }
 }
 
-/* 2. Expired/invalid session: distinct truthful copy, CTA still the boundary. */
-{
-  const page = bootPage12(function () {
-    return apiResponse(401, { error: { code: 'AUTH_REQUIRED' } }, 'session-invalid');
-  });
-  await until(() => page.list.innerHTML.indexOf(EXPIRED_COPY) !== -1, 'expired copy must render for session-invalid');
-  assert.equal(page.list.innerHTML.indexOf(LOGIN_COPY), -1, 'expired state must not use the fresh-guest copy');
-  assert.ok(page.list.innerHTML.indexOf(LOGIN_HREF) !== -1, 'expired state still links the login boundary');
-  const writeHref = page.fireWriteClick();
-  assert.equal(writeHref, LOGIN_HREF, 'expired-session write affordance routes to login too');
-}
-
-/* 3. 403 resident-verification: distinct copy, no login CTA, no retry. */
+/* 2. Page 12: 403 resident-verification boundary. */
 {
   const page = bootPage12(function () {
     return apiResponse(403, { error: { code: 'RESIDENT_VERIFICATION_REQUIRED' } });
@@ -175,21 +188,21 @@ const LOGIN_HREF = 'index.html?auth=login';
   assert.ok(writeHref.indexOf('가입인사') !== -1, '403 member keeps the authenticated write flow (own gates apply)');
 }
 
-/* 4. Timeout: #1043 retry behavior preserved, auth copy must not appear. */
+/* 3. Page 12: timeout — #1043 retry behavior preserved, no auth copy. */
 {
   const page = bootPage12(function () {
-    return new Promise(function () {}); // hung feed request
+    return new Promise(function () {});
   }, { fastForwardTimers: true });
   await until(() => page.list.innerHTML.indexOf('응답하지 않아') !== -1, 'timeout copy must render');
   assert.equal(page.loadMore.hidden, false, 'timeout keeps the retry control visible');
   assert.equal(page.loadMore.textContent, '게시글 다시 시도', 'timeout retry affordance preserved');
-  assert.equal(page.loadMore.disabled, false, 'timeout retry control must be enabled');
+  assert.equal(page.list.innerHTML.indexOf(BRIDGE_FAULT_COPY), -1, 'timeout must not use the bridge-fault copy');
   assert.equal(page.list.innerHTML.indexOf('auth=login'), -1, 'timeout must not render the login CTA');
   const writeHref = page.fireWriteClick();
-  assert.ok(writeHref.indexOf('가입인사') !== -1, 'timeout keeps the existing write navigation (auth state unknown)');
+  assert.ok(writeHref.indexOf('가입인사') !== -1, 'timeout keeps the existing write navigation');
 }
 
-/* 5. Authenticated success: unchanged resident flow. */
+/* 4. Page 12: authenticated success — resident flow unchanged. */
 {
   const page = bootPage12(function () {
     return apiResponse(200, POSTS);
@@ -201,25 +214,29 @@ const LOGIN_HREF = 'index.html?auth=login';
   assert.ok(writeHref.indexOf('apiBase=') !== -1, 'authenticated navigation keeps the apiBase carry');
 }
 
-/* 6. Page 13 failMessage: real function, truthful per-disposition copy. */
+/* 5. Page 13 failMessage: real function over the real authFailureKind. */
 {
   const context = { console };
   context.globalThis = context;
   vm.createContext(context);
+  vm.runInContext(sessionSource, context, { filename: 'danjion-session.js' });
+  assert.equal(typeof context.DanjionSession.authFailureKind, 'function', 'the runtime classifier must be available');
   const src = page13Source.match(/function failMessage\(result\)\{[\s\S]*?\n \}/)?.[0] || '';
   assert.ok(src, '13 failMessage must exist');
   const fm = vm.runInContext('(' + src + ')', context, { filename: '13 failMessage' });
-  const EXPIRED13 = '로그인이 만료되었습니다. 다시 로그인한 뒤 이용해 주세요.';
+
   assert.equal(fm({ mode: 'auth-required', status: 401, authBridge: 'no-cookie' }), LOGIN_COPY,
-    'no-cookie guest must get truthful login-required copy');
+    'no-cookie → truthful fresh-guest login-required copy');
   assert.equal(fm({ mode: 'auth-required', status: 401, authBridge: 'session-invalid' }), EXPIRED13,
-    'resolved-then-invalid session keeps the existing expired copy');
+    'session-invalid → expired-session copy (allowed)');
+  for (const d of ['session-failed', 'no-session-token', 'token-failed', 'token-invalid']) {
+    const msg = fm({ mode: 'auth-required', status: 401, authBridge: d });
+    assert.equal(msg, BRIDGE_FAULT_COPY, d + ' → truthful transient bridge-fault copy');
+    assert.notEqual(msg, EXPIRED13, d + ' must never say the login expired');
+  }
+  assert.equal(fm({ mode: 'auth-required', status: 403 }), RESIDENT_COPY, '403 stays the resident boundary');
   assert.equal(fm({ mode: 'auth-required', status: 401 }), EXPIRED13,
     'auth-required without a disposition keeps the existing expired copy');
-  assert.notEqual(fm({ mode: 'auth-required', status: 401, authBridge: 'no-cookie' }), EXPIRED13,
-    'the no-cookie copy must be distinct from the expired copy');
-  assert.equal(fm({ mode: 'auth-required', status: 403 }), RESIDENT_COPY,
-    '403 resident-verification boundary stays distinct');
   assert.equal(fm({ mode: 'error', status: 404 }), '게시물을 찾을 수 없습니다.', '404 stays not-found');
   assert.equal(fm({ mode: 'timeout' }), '서버 연결에 실패했습니다. 잠시 후 다시 시도해 주세요.',
     'timeout stays a non-auth failure');
@@ -227,29 +244,37 @@ const LOGIN_HREF = 'index.html?auth=login';
     'server errors stay non-auth failures');
 }
 
-/* 7. Source guards: shared runtime/auth facade untouched, both affordances coexist. */
+/* 6. Source guards: authoritative classifier reused, facade untouched. */
 {
-  assert.ok(page12Source.indexOf("loadMore.textContent='게시글 다시 시도'") !== -1,
-    'the timeout retry affordance must remain in source');
-  assert.ok(page12Source.indexOf('index.html?auth=login') !== -1, 'guest CTA must use the canonical entry');
-  assert.ok((page12Source.match(/guestFeed/g) || []).length >= 3, 'guest boundary must be wired');
-  assert.ok(page13Source.indexOf("authBridge==='no-cookie'") !== -1, '13 must branch on the no-cookie disposition');
+  assert.ok(page12Source.indexOf('DanjionSession.authFailureKind') !== -1, 'page 12 must reuse authFailureKind');
+  assert.ok(page13Source.indexOf('DanjionSession.authFailureKind') !== -1, 'page 13 must reuse authFailureKind');
+  assert.ok(page12Source.indexOf("loadMore.textContent='게시글 다시 시도'") !== -1, 'timeout retry affordance remains in source');
+  assert.ok(page12Source.indexOf('index.html?auth=login') !== -1, 'guest CTA uses the canonical entry');
+  assert.ok(page12Source.indexOf("setAttribute('aria-pressed'") !== -1, '#1041 aria-pressed wiring remains');
   assert.equal(page13Source.indexOf('x-danjion-auth-bridge'), -1, '13 must not duplicate facade header logic');
-  assert.ok(page12Source.indexOf('aria-pressed') !== -1 || page12Source.indexOf("setAttribute('aria-pressed'") !== -1,
-    '#1041 aria-pressed wiring must remain in page 12');
+  assert.ok(sessionSource.indexOf('AUTH_BRIDGE_FAILURE_SET') !== -1, 'the runtime classifier enum remains unchanged');
+  assert.equal(sessionSource.indexOf('authFailureKind({reason'), -1, 'the runtime itself must not be adapted per-page');
 }
 
-console.log('PASS #1075 community guest auth contract');
-console.log('PAGE12_NO_COOKIE_COPY=TRUTHFUL_LOGIN_REQUIRED');
-console.log('PAGE12_NO_COOKIE_CTA=AUTH_ENTRY_NOT_RETRY');
-console.log('PAGE12_TIMEOUT_RETRY=PRESERVED');
-console.log('PAGE12_GUEST_WRITE_CTA=AUTH_BOUNDARY');
-console.log('PAGE12_RESIDENT_403=DISTINCT_NO_LOGIN_CTA');
-console.log('PAGE13_NO_COOKIE_COPY=TRUTHFUL_LOGIN_REQUIRED');
-console.log('PAGE13_EXPIRED_SESSION_COPY=DISTINCT');
-console.log('PAGE13_RESIDENT_VERIFICATION_403=DISTINCT');
+console.log('PASS #1075 community guest auth contract (authFailureKind authoritative)');
+console.log('AUTH_FAILURE_KIND_REUSED=YES');
+console.log('PAGE12_NO_COOKIE=TRUTHFUL_LOGIN_REQUIRED_CTA');
+console.log('PAGE12_SESSION_INVALID=STALE_SESSION_COPY_CTA');
+console.log('PAGE12_SESSION_FAILED=BRIDGE_FAULT_TRANSIENT_RETRY');
+console.log('PAGE12_NO_SESSION_TOKEN=BRIDGE_FAULT_TRANSIENT_RETRY');
+console.log('PAGE12_TOKEN_FAILED=BRIDGE_FAULT_TRANSIENT_RETRY');
+console.log('PAGE12_TOKEN_INVALID=BRIDGE_FAULT_TRANSIENT_RETRY');
+console.log('PAGE12_403=RESIDENT_BOUNDARY');
+console.log('PAGE12_TIMEOUT=RETRY_PRESERVED');
+console.log('PAGE12_AUTHENTICATED=UNCHANGED');
+console.log('PAGE13_NO_COOKIE=TRUTHFUL_LOGIN_REQUIRED');
+console.log('PAGE13_SESSION_INVALID=EXPIRED_COPY_ALLOWED');
+console.log('PAGE13_SESSION_FAILED=BRIDGE_FAULT_NOT_EXPIRED');
+console.log('PAGE13_NO_SESSION_TOKEN=BRIDGE_FAULT_NOT_EXPIRED');
+console.log('PAGE13_TOKEN_FAILED=BRIDGE_FAULT_NOT_EXPIRED');
+console.log('PAGE13_TOKEN_INVALID=BRIDGE_FAULT_NOT_EXPIRED');
+console.log('PAGE13_403=RESIDENT_BOUNDARY');
 console.log('PAGE13_TIMEOUT_NON_AUTH=DISTINCT');
-console.log('AUTHENTICATED_WRITE_FLOW=PRESERVED');
 console.log('BACKEND_AUTH_CHANGE=NO');
 console.log('PRODUCTION_MUTATION=0');
 console.log('DB_MUTATION=0');

@@ -210,11 +210,18 @@ main{width:min(920px,calc(100% - 40px));margin:auto;padding-bottom:70px}.route{h
   flashTimer=setTimeout(()=>{if(interactionStatus)interactionStatus.textContent='';if(foot)foot.textContent=HINT},4000);
  }
  function failMessage(result){
-  /* #1075: a fresh guest (no cookie at all) must not be told their login
-     expired — the auth-bridge disposition distinguishes never-signed-in
-     (no-cookie) from a genuinely resolved-then-lost session. 403 stays the
-     resident-verification boundary; timeout/network stay non-auth. */
-  if(result&&result.mode==='auth-required')return result.status===403?'본인 확인된 입주민만 이용할 수 있습니다.':(result.authBridge==='no-cookie'?'로그인 후 이웃대화를 이용할 수 있습니다.':'로그인이 만료되었습니다. 다시 로그인한 뒤 이용해 주세요.');
+  /* #1075/#810: DanjionSession.authFailureKind is the authoritative
+     classifier. A fresh no-cookie guest must not be told their login expired,
+     and the server-side bridge faults (session-failed/no-session-token/
+     token-failed/token-invalid) must never be worded as an expired login —
+     they are transient. 403 stays the resident-verification boundary;
+     timeout/network stay non-auth. */
+  if(result&&result.mode==='auth-required'){
+   var authKind=(typeof DanjionSession==='object'&&DanjionSession&&typeof DanjionSession.authFailureKind==='function')?DanjionSession.authFailureKind({reason:result.mode,status:result.status,authBridge:result.authBridge}):null;
+   if(authKind==='bridge-fault')return '일시적으로 로그인 확인에 실패했습니다. 잠시 후 다시 시도해 주세요.';
+   if(authKind==='signed-out'&&result.authBridge==='no-cookie')return '로그인 후 이웃대화를 이용할 수 있습니다.';
+   return result.status===403?'본인 확인된 입주민만 이용할 수 있습니다.':'로그인이 만료되었습니다. 다시 로그인한 뒤 이용해 주세요.';
+  }
   if(result&&result.status===404)return '게시물을 찾을 수 없습니다.';
   return '서버 연결에 실패했습니다. 잠시 후 다시 시도해 주세요.';
  }
