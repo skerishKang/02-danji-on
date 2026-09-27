@@ -386,17 +386,24 @@ jobs:
             exit 1
           fi
           commit_message="$(git log -1 --pretty=%s)"
-          # #897 run 36238012103 evidence: this job checks out expected_main by SHA,
-          # which is a detached HEAD. Bare `pages deploy` then falls back to the
-          # branch name "head" and creates a branch deployment that is never
-          # promoted to canonical production (danjion.pages.dev kept serving the
-          # previous build while 3e36b29b.danjion.pages.dev held the new one).
-          # Pinning --branch to the project's production branch name is what makes
-          # this direct upload a production deployment; any other branch would be
-          # a preview deploy, which stays forbidden.
+          # #897 run 36292857851 disproved the earlier #1073 assumption that
+          # passing --branch main promotes a SHA-pinned Direct Upload to canonical
+          # production. Cloudflare documents bare `pages deploy` as the production
+          # Direct Upload path and --branch as preview selection. Keep the exact-SHA
+          # checkout/guards, but attach that exact commit to a local branch whose
+          # name equals the project's production branch before invoking Wrangler.
+          # Wrangler can then infer the production branch from the named worktree
+          # while the upload command itself remains the documented bare production
+          # form. This is local Git metadata only; it does not move origin/main.
+          git switch --force-create "$PAGES_PRODUCTION_BRANCH" "$EXPECTED_MAIN"
+          current_branch="$(git branch --show-current)"
+          current_after_switch="$(git rev-parse HEAD)"
+          if [ "$current_branch" != "$PAGES_PRODUCTION_BRANCH" ] || [ "$current_after_switch" != "$EXPECTED_MAIN" ]; then
+            echo "::error::Could not attach the exact authorized SHA to the local production branch before Pages mutation."
+            exit 1
+          fi
           npx wrangler@4.131.0 pages deploy dist \
             --project-name "$PAGES_PROJECT" \
-            --branch "$PAGES_PRODUCTION_BRANCH" \
             --commit-hash "$EXPECTED_MAIN" \
             --commit-message "$commit_message"
           echo "PREDEPLOY_EXACT_MAIN_GUARD=PASS"
