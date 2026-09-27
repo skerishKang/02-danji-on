@@ -10,7 +10,7 @@
     @import url("assets/consistency.css");
 @import url("assets/consistency-backfix.css");
     :root{--paper:#f6f2e9;--paper2:#fffdf8;--ink:#101317;--navy:#101d30;--coral:#ee6045;--amber:#f2b84b;--green:#255e49;--muted:#66635e;--line:#d8d0c3;--soft:#ece5d8;--header:76px}
-    *{box-sizing:border-box}html{background:var(--paper);color:var(--ink);font-family:Pretendard,"Pretendard Variable","Noto Sans KR",Arial,sans-serif}body{margin:0;min-width:320px;background:var(--paper)}button,textarea{font:inherit;color:inherit}button{cursor:pointer}a{color:inherit;text-decoration:none}
+    *{box-sizing:border-box}html{background:var(--paper);color:var(--ink);font-family:Pretendard,"Pretendard Variable","Noto Sans KR",Arial,sans-serif}body{margin:0;min-width:320px;background:var(--paper)}button,textarea{font:inherit;color:inherit}button{cursor:pointer}a{color:inherit;text-decoration:none}[hidden]{display:none!important}
     .site-header{height:var(--header);border-bottom:1px solid var(--line);background:rgba(246,242,233,.96);display:flex;align-items:center;position:sticky;top:0;z-index:40;backdrop-filter:blur(12px)}.header-inner{width:min(1280px,calc(100% - 64px));margin:auto;display:flex;align-items:center;justify-content:space-between}.brand{border:0;background:none;padding:0;font-weight:900;font-size:25px;letter-spacing:-.05em}.brand small{font-size:11px;letter-spacing:.1em;color:#5f5c56;margin-left:9px}.desktop-nav{display:flex;align-items:center;gap:42px;height:var(--header)}.desktop-nav button{height:100%;border:0;background:none;padding:0 2px;font-size:16px;font-weight:800}.identity{font-size:14px;font-weight:800;color:#58554f}.mobile-title{display:none;font-weight:850}
     .route{height:62px;border-bottom:1px solid var(--line);display:flex;align-items:center}.route-inner{width:min(1280px,calc(100% - 64px));margin:auto;display:flex;align-items:center;justify-content:space-between}.back{border:0;background:none;padding:10px 0;font-size:16px;font-weight:850;display:flex;gap:10px;align-items:center}.more-wrap{position:relative}.more{width:44px;height:44px;border:1px solid var(--line);background:var(--paper2);font-size:22px}.more-menu{display:none;position:absolute;right:0;top:50px;width:205px;background:var(--paper2);border:1px solid var(--ink);box-shadow:0 14px 35px rgba(16,19,23,.15);z-index:20}.more-menu.open{display:block}.more-menu button{width:100%;height:54px;border:0;border-bottom:1px solid var(--line);background:none;text-align:left;padding:0 17px;font-size:15px;font-weight:800}.more-menu button:last-child{border-bottom:0}.more-menu button:hover{background:var(--soft)}
     main{width:min(1280px,calc(100% - 64px));margin:auto;padding:24px 0 110px}.profile-hero{display:grid;grid-template-columns:minmax(0,1.18fr) minmax(350px,.82fr);min-height:390px;background:var(--navy);color:#fff}.identity-block{padding:42px;position:relative;overflow:hidden;display:flex;flex-direction:column}.identity-block::after{content:"";position:absolute;width:420px;height:420px;border:1px solid rgba(242,184,75,.2);border-radius:50%;right:-160px;bottom:-245px}.profile-top{display:flex;align-items:center;gap:22px;position:relative;z-index:1}.avatar{width:92px;height:92px;flex:0 0 92px;border-radius:50%;background:var(--coral);display:grid;place-items:center;font-size:30px;font-weight:900}.resident-label{display:block;color:var(--amber);font-size:14px;font-weight:900;margin-bottom:7px}.profile-name{font-size:42px;letter-spacing:-.045em;line-height:1.1;margin:0}.profile-meta{font-size:15px;color:rgba(255,255,255,.68);margin:9px 0 0}.resident-summary{font-size:17px;line-height:1.65;color:rgba(255,255,255,.86);max-width:590px;margin:32px 0 0;position:relative;z-index:1}.profile-actions{display:flex;gap:9px;margin-top:auto;padding-top:31px;position:relative;z-index:1}.primary,.secondary{height:54px;padding:0 24px;border:1px solid rgba(255,255,255,.55);font-size:16px;font-weight:900}.primary{background:#fff;color:var(--ink);border-color:#fff}.secondary{background:transparent;color:#fff}.primary:disabled{background:#b7b2aa;border-color:#b7b2aa;color:#56534e;cursor:not-allowed}
@@ -270,10 +270,26 @@ if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt
   function toast(t){if(typeof window.showToast==='function')window.showToast(t);}
   function fmtJoined(m){var s=String(m||'').trim();var mt=/^(\d{4})-(\d{1,2})/.exec(s);if(mt)return mt[1]+'년 '+parseInt(mt[2],10)+'월 가입';return s?s+' 가입':DASH;}
   var avatar=$('pub-avatar'),name=$('pub-name'),meta=$('pub-meta'),stats=$('pub-stats'),activity=$('pub-activity');
+  /* #1079: 대상이 확정되지 않은 상태(로딩/missing/404/client/error/auth-required)에서는
+     target-specific static prototype shell — 주민 라벨, LV.3 칩/패널, 1:1 메시지 CTA,
+     신고·차단 메뉴 — 가 살아 있는 UI로 남지 않게 한다. 대상이 서버에서 확정될 때만 복원한다. */
+  var residentLabel=document.querySelector('.resident-label'),
+      levelChip=document.querySelector('.level-chip'),
+      levelPanel=document.querySelector('.level-panel'),
+      messageButton=document.querySelector('.profile-actions .message-button'),
+      moreWrap=document.querySelector('.more-wrap');
+  function setTargetControls(visible){
+    if(residentLabel)residentLabel.hidden=!visible;
+    if(levelChip)levelChip.hidden=!visible;
+    if(levelPanel)levelPanel.hidden=!visible;
+    if(messageButton){messageButton.hidden=!visible;messageButton.disabled=!visible;}
+    if(moreWrap)moreWrap.hidden=!visible;
+  }
   function placeholder(msg){
     setTxt(avatar,DASH);setTxt(name,DASH);setTxt(meta,msg);
     if(stats)stats.innerHTML='<div class="stat"><b>'+DASH+'</b><span>공개 활동</span></div>';
     if(activity)activity.innerHTML='<div class="activity-panel active"><p style="padding:24px 4px;color:#6d6a64">'+esc(msg)+'</p></div>';
+    setTargetControls(false);
   }
   placeholder('불러오는 중…');
   var userId=String(new URLSearchParams(location.search).get('userId')||'').trim();
@@ -289,6 +305,8 @@ if(SCREEN==='activity'){ const p=new URLSearchParams(location.search),i=parseInt
   bridge.publicProfile(userId).then(function(r){
     if(r&&r.ok&&r.profile){
       var p=r.profile,nick=String(p.nickname||'').trim();
+      /* 서버가 대상을 확정한 유일한 지점. 여기서만 target-specific UI 가 복원된다. */
+      setTargetControls(true);
       setTxt(name,nick?nick+'님':DASH);
       setTxt(avatar,nick?nick.charAt(0):DASH);
       setTxt(meta,fmtJoined(p.joinedMonth));
