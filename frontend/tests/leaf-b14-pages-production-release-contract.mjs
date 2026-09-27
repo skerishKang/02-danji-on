@@ -4,23 +4,45 @@ import { spawnSync } from 'node:child_process';
 
 const workflow = await readFile(new URL('../../.github/workflows/pages-production-release.yml', import.meta.url), 'utf8');
 
-/* #432: canonical production upload must not force a branch-directed preview deploy.
-   #897 run 36238012103: checkout of expected_main by SHA is a detached HEAD, so
-   bare `pages deploy` falls back to branch "head" and lands a branch deployment
-   that is never promoted to canonical production. The deploy must therefore pin
-   --branch to the project's production branch name — the only branch value that
-   is not a preview deploy. */
+/* #432 + #897: canonical production Direct Upload must use Wrangler's bare
+   production form, not a branch-directed preview upload. The workflow still
+   checks out expected_main by SHA for release authority, so attach that exact
+   commit to a LOCAL branch named like the Pages production branch immediately
+   before mutation. This gives Wrangler named-branch context without changing
+   origin/main or passing --branch to the deploy command. Run 36292857851 is the
+   counterexample that disproved the old #1073 --branch-main assumption. */
 assert.match(workflow, /npx wrangler@4\.131\.0 pages deploy dist[\s\S]*--project-name "\$PAGES_PROJECT"[\s\S]*--commit-hash "\$EXPECTED_MAIN"/,
   'production workflow must deploy the V3 artifact with explicit project and source SHA');
 assert.match(workflow, /ref: \$\{\{ inputs\.expected_main \}\}/,
-  'SHA-pinned checkout implies detached HEAD, so branch detection cannot be trusted');
-assert.match(workflow, /pages deploy dist[\s\S]{0,250}--branch "\$PAGES_PRODUCTION_BRANCH"/,
-  'deploy must pin the project production branch name under a detached-HEAD checkout');
+  'source checkout must remain pinned to the exact authorized SHA');
+assert.match(workflow, /git switch --force-create "\$PAGES_PRODUCTION_BRANCH" "\$EXPECTED_MAIN"/,
+  'detached exact-SHA checkout must be attached locally to the configured production branch before mutation');
+assert.match(workflow, /current_branch="\$\(git branch --show-current\)"[\s\S]*current_after_switch="\$\(git rev-parse HEAD\)"[\s\S]*\$PAGES_PRODUCTION_BRANCH[\s\S]*\$EXPECTED_MAIN/,
+  'workflow must fail closed unless the local named branch and HEAD both match release authority');
+
+const pagesDeployCommandMatch = workflow.match(
+  /npx wrangler@4\.131\.0 pages deploy dist \\\n(?:\s+--[^\n]+\\\n){1,6}\s+--commit-message "\$commit_message"/
+);
+assert.ok(pagesDeployCommandMatch, 'canonical Pages deploy command block must be discoverable');
+assert.doesNotMatch(pagesDeployCommandMatch[0], /--branch\b/,
+  'canonical production deploy command must not pass Wrangler --branch');
+
 {
-  // Mutation: dropping the production branch pin must be detectable.
-  const mutated = workflow.replace(/--branch "\$PAGES_PRODUCTION_BRANCH"\s*\\\n/, '');
-  assert.doesNotMatch(mutated, /pages deploy dist[\s\S]{0,250}--branch "\$PAGES_PRODUCTION_BRANCH"/,
-    'mutation remove-branch-pin must be detectable');
+  // Mutation proof A: remove the local named-branch attachment.
+  const mutated = workflow.replace(
+    '          git switch --force-create "$PAGES_PRODUCTION_BRANCH" "$EXPECTED_MAIN"\n',
+    ''
+  );
+  assert.doesNotMatch(mutated, /git switch --force-create "\$PAGES_PRODUCTION_BRANCH" "\$EXPECTED_MAIN"/,
+    'mutation remove-local-production-branch attachment must be detectable');
+
+  // Mutation proof B: revive the disproven branch-directed deploy.
+  const revived = pagesDeployCommandMatch[0].replace(
+    '            --commit-hash "$EXPECTED_MAIN" \\\n',
+    '            --branch "$PAGES_PRODUCTION_BRANCH" \\\n            --commit-hash "$EXPECTED_MAIN" \\\n'
+  );
+  assert.match(revived, /--branch "\$PAGES_PRODUCTION_BRANCH"/,
+    'mutation revive-branch-directed deploy must be detectable');
 }
 
 /* The workflow must read back Cloudflare canonical production state, not trust CLI success. */
