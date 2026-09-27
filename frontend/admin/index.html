@@ -842,8 +842,12 @@
     }
     async function renderPrincipalManager(panel,apiBase){
       const title=el('h2','사용자 · 권한 관리');
-      const intro=el('p','최고관리자만 접근할 수 있습니다. 목표 구성은 최고관리자 2계정 + 운영관리자 2계정이며, 운영관리자는 승인된 일상 운영 권한 프리셋만 사용합니다.');
-      panel.replaceChildren(title,intro);
+      const intro=el('p','최고관리자만 접근할 수 있습니다. 운영관리자는 승인된 일상 운영 권한 프리셋만 사용합니다.');
+      /* #1085: 현재 Owner 정책 구성은 총 6(최고관리자 3 + 운영관리자 3)이고,
+         실운영 2+2와 테스트 1+1을 합한 값이다. 과거 #464의 4계정(2+2)은
+         historical provisioning milestone 이므로 전체 목표로 표기하지 않는다. */
+      const composition=el('p','현재 관리자 구성은 최고관리자 3명 + 운영관리자 3명입니다. 실운영 계정은 최고관리자 2명 · 운영관리자 2명, 테스트 계정은 최고관리자 1명 · 운영관리자 1명입니다.');
+      panel.replaceChildren(title,intro,composition);
       const createBox=el('section',undefined,'principal-form');createBox.append(el('h3','관리자 계정 사전 등록'));
       const email=document.createElement('input');email.type='email';email.placeholder='Google 로그인 이메일';email.setAttribute('aria-label','관리자 이메일');
       const role=principalRoleSelect('operator');
@@ -861,7 +865,7 @@
         const active=outcome.rows.filter((row)=>row.status==='active');
         const superCount=active.filter((row)=>row.role==='admin').length;
         const operatorCount=active.filter((row)=>row.role==='operator').length;
-        summary.append(el('span','활성 최고관리자 '+superCount+' / 목표 2'),el('span','활성 운영관리자 '+operatorCount+' / 목표 2'),el('span','전체 등록 '+outcome.rows.length));
+        summary.append(el('span','활성 최고관리자 '+superCount+' / 구성 3'),el('span','활성 운영관리자 '+operatorCount+' / 구성 3'),el('span','전체 등록 '+outcome.rows.length));
         list.replaceChildren();
         if(!outcome.rows.length){list.append(el('div','등록된 관리자 계정이 없습니다.','admin-empty'));return}
         outcome.rows.forEach((row)=>{
@@ -948,7 +952,7 @@
       panel.replaceChildren(el('h2','최고관리'),el('p','전체 관리자(와일드카드 권한) 전용 영역입니다.'));
       if(principalApi){
         const usersButton=el('button','사용자 · 권한 관리');usersButton.type='button';usersButton.addEventListener('click',()=>renderPrincipalManager(panel,apiBase));
-        const liveItem=el('article',undefined,'privileged-item');const liveCopy=el('div');liveCopy.append(el('h3','사용자 · 권한 관리'),el('p','사전 등록된 관리자 4계정과 실제 runtime 권한을 관리합니다.'));const liveState=el('span','사용 가능','privileged-state');liveState.append(usersButton);liveItem.append(liveCopy,liveState);panel.append(liveItem);
+        const liveItem=el('article',undefined,'privileged-item');const liveCopy=el('div');liveCopy.append(el('h3','사용자 · 권한 관리'),el('p','사전 등록된 관리자 계정과 실제 runtime 권한을 관리합니다.'));const liveState=el('span','사용 가능','privileged-state');liveState.append(usersButton);liveItem.append(liveCopy,liveState);panel.append(liveItem);
       }
       if(auditApi){
         const auditButton=el('button','전체 감사 기록');auditButton.type='button';auditButton.addEventListener('click',()=>renderAuditManager(panel,apiBase));
