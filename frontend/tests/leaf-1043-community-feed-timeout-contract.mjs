@@ -330,15 +330,18 @@ function bootFeedPage({ ignoreAbort = false, requestTimeoutMs = 40 } = {}) {
 }
 
 /* ------------------------------------------------------------------ *
- * 5. Pre-existing auth and server failure behaviour is untouched.
+ * 5. Failure behaviour: #1075 moved auth-required to the login boundary,
+ *    while transient server failures keep the retry control.
  * ------------------------------------------------------------------ */
 {
   const authPage = bootFeedPage();
-  authPage.calls[0].resolve(apiResponse(401, { error: { code: 'AUTH_REQUIRED' } }, 'session-invalid'));
-  await until(() => authPage.list.innerHTML.includes('로그인 후'), 'a 401 must render the existing auth copy');
-  assert.match(authPage.list.innerHTML, /로그인 후 이웃대화를 확인할 수 있습니다\./,
-    'AUTH_FAILURE_PARITY: the existing auth copy must be unchanged');
-  assert.equal(authPage.loadMore.disabled, false, 'the auth path must still expose retry');
+  authPage.calls[0].resolve(apiResponse(401, { error: { code: 'AUTH_REQUIRED' } }, 'no-cookie'));
+  await until(() => authPage.list.innerHTML.includes('로그인 후'), 'a 401 must render the auth copy');
+  assert.match(authPage.list.innerHTML, /로그인 후 이웃대화를 이용할 수 있습니다\./,
+    '#1075: a no-cookie guest gets the truthful login-required copy');
+  assert.match(authPage.list.innerHTML, /index\.html\?auth=login/,
+    '#1075: the auth path must offer the canonical login boundary');
+  assert.equal(authPage.loadMore.hidden, true, '#1075: the auth path must not offer retry');
 
   const errorPage = bootFeedPage();
   errorPage.calls[0].resolve(apiResponse(500, { error: { code: 'BOOM' } }));

@@ -139,6 +139,9 @@ render();
   const bridge=DanjionCommunityBridge.createCommunityBridge({apiBase});
   const list=document.getElementById('postList'),loadMore=document.getElementById('postLoadMore');
   let feedState={key:'',cursor:null,hasMore:false,posts:[],generation:0,loading:false};
+  /* #1075: set when the feed resolves auth-required — the signed-out state that
+     reroutes write affordances to the canonical login boundary. */
+  let guestFeed=false;
  const KIND={hello:'greeting',story:'resident_story',question:'question',together:'together'};
  const LABEL={greeting:'가입인사',resident_story:'단지이야기',question:'궁금해요',together:'같이해요'};
  const CHIP={greeting:'hello',resident_story:'story',question:'question',together:'together'};
@@ -190,10 +193,41 @@ render();
    if(generation!==feedState.generation)return;
    feedState.loading=false;
    if(result.mode!=='server'){
+    // #1075: auth-required is a login boundary, not a transient failure —
+    // guests get the canonical login entry instead of a pointless retry.
+    // Timeout/network keep the existing retry control below.
+    if(result.mode==='auth-required'){
+     /* #1075/#810: DanjionSession.authFailureKind is the authoritative
+        classifier — no-cookie is a fresh guest, session-invalid is a stale
+        session, and session-failed/no-session-token/token-failed/token-invalid
+        are server-side bridge faults that must never be worded as an expired
+        login. Only the guest/stale kinds reroute write affordances to the
+        login boundary; bridge faults stay transient and keep retry. */
+     var authKind=(window.DanjionSession&&typeof DanjionSession.authFailureKind==='function')?DanjionSession.authFailureKind({reason:result.mode,status:result.status,authBridge:result.authBridge}):null;
+     if(authKind==='bridge-fault'){
+      list.innerHTML=notice('일시적으로 로그인 확인에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+      feedState.hasMore=true;
+      loadMore.hidden=false;
+      loadMore.disabled=false;
+      loadMore.textContent='게시글 다시 시도';
+      return;
+     }
+     guestFeed=authKind==='signed-out';
+     var is403=authKind==='forbidden';
+     var stale=authKind==='signed-out'&&typeof result.authBridge==='string'&&result.authBridge!=='no-cookie';
+     var guestMsg=is403?'본인 확인된 입주민만 이용할 수 있습니다.'
+      :stale?'세션이 만료되었습니다. 다시 로그인해 주세요.'
+      :'로그인 후 이웃대화를 이용할 수 있습니다.';
+     list.innerHTML='<article class="post-row"><div class="post-title"><span class="type">알림</span><b>'+esc(guestMsg)+'</b></div>'
+      +(is403?'':'<div class="post-title"><a class="guest-login-link" href="index.html?auth=login" style="font-weight:900;text-decoration:underline">로그인 · 가입</a></div>')
+      +'</article>';
+     loadMore.hidden=true;
+     loadMore.disabled=true;
+     return;
+    }
     // A feed that stopped answering is reported as a slow/unreachable network,
     // never as an expired login, and the retry control is re-enabled below.
-    const message=result.mode==='auth-required'?'로그인 후 이웃대화를 확인할 수 있습니다.'
-     :result.mode==='timeout'?'이웃대화가 응답하지 않아 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.'
+    const message=result.mode==='timeout'?'이웃대화가 응답하지 않아 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.'
      :'이웃대화를 불러오지 못했습니다.';
     if(!append)list.innerHTML=notice(message);
     feedState.hasMore=true;
@@ -218,6 +252,14 @@ render();
   loadMore.addEventListener('click',()=>{void loadServer(true)});
  document.addEventListener('click',ev=>{
   const btn=ev.target.closest('#writeMain,#mobileWrite'); if(!btn)return;
+  /* #1075: a signed-out guest (detected from the feed's auth-required result)
+     must reach the canonical login boundary instead of a writer that cannot
+     accept their submission. Authenticated residents keep the direct flow. */
+  if(guestFeed){
+   ev.preventDefault(); ev.stopImmediatePropagation();
+   location.href='index.html?auth=login';
+   return;
+  }
   const topicEl=document.querySelector('.topic.active');
   const selected=topicEl?topicEl.dataset.type:'hello';
   if(!WRITE[selected])return;
