@@ -946,7 +946,7 @@ test('#611 admin resident-benefit selects an approved business, creates a draft,
 });
 
 
-test('#613 superadmin manages the four designated administrator principals without exposing the surface to operators', async ({ page }) => {
+test('#613 superadmin manages designated administrator principals without exposing the surface to operators', async ({ page }) => {
   const pageErrors: string[] = [];
   const unexpectedMutations: string[] = [];
   const postBodies: any[] = [];
@@ -1155,24 +1155,24 @@ test('#613 superadmin manages the four designated administrator principals witho
   await page.getByRole('button', { name: '사용자 · 권한 관리', exact: true }).click();
 
   await expect(page.getByRole('heading', { name: '사용자 · 권한 관리', exact: true })).toBeVisible();
-  await expect(page.getByText('활성 최고관리자 2 / 목표 2', { exact: true })).toBeVisible();
-  await expect(page.getByText('활성 운영관리자 1 / 목표 2', { exact: true })).toBeVisible();
+  await expect(page.getByText('활성 최고관리자 2 / 구성 3', { exact: true })).toBeVisible();
+  await expect(page.getByText('활성 운영관리자 1 / 구성 3', { exact: true })).toBeVisible();
   await expect(page.getByText('Runtime: 최고관리자 · 연결 사용자 1명', { exact: true }).first()).toBeVisible();
   await expect(page.locator('.principal-form input')).toHaveCount(2);
   await expect(page.locator('.principal-form select')).toHaveCount(1);
 
   await page.getByLabel('관리자 이메일').fill('sibling-ops@example.com');
   await page.locator('.principal-form').getByLabel('관리자 등급').selectOption('operator');
-  await page.getByLabel('관리자 등록 사유').fill('four-principal setup');
+  await page.getByLabel('관리자 등록 사유').fill('principal setup');
   await page.getByRole('button', { name: '관리자 추가', exact: true }).click();
 
   await expect.poll(() => postBodies.length).toBe(1);
   expect(postBodies[0]).toEqual({
     email: 'sibling-ops@example.com',
     role: 'operator',
-    reason: 'four-principal setup'
+    reason: 'principal setup'
   });
-  await expect(page.getByText('활성 운영관리자 2 / 목표 2', { exact: true })).toBeVisible();
+  await expect(page.getByText('활성 운영관리자 2 / 구성 3', { exact: true })).toBeVisible();
 
   const newCard = page.locator('.principal-card').filter({ hasText: 'sibling-ops@example.com' });
   await expect(newCard).toBeVisible();
@@ -1187,15 +1187,15 @@ test('#613 superadmin manages the four designated administrator principals witho
     status: 'active',
     reason: 'temporary promotion check'
   });
-  await expect(page.getByText('활성 최고관리자 3 / 목표 2', { exact: true })).toBeVisible();
+  await expect(page.getByText('활성 최고관리자 3 / 구성 3', { exact: true })).toBeVisible();
 
   page.once('dialog', dialog => dialog.accept());
   await newCard.getByLabel('관리자 등급').selectOption('operator');
   await newCard.getByLabel('권한 변경 사유').fill('return to operational');
   await newCard.getByRole('button', { name: '권한 변경 저장', exact: true }).click();
   await expect.poll(() => patchBodies.length).toBe(2);
-  await expect(page.getByText('활성 최고관리자 2 / 목표 2', { exact: true })).toBeVisible();
-  await expect(page.getByText('활성 운영관리자 2 / 목표 2', { exact: true })).toBeVisible();
+  await expect(page.getByText('활성 최고관리자 2 / 구성 3', { exact: true })).toBeVisible();
+  await expect(page.getByText('활성 운영관리자 2 / 구성 3', { exact: true })).toBeVisible();
 
   const historicalDuplicate = page.locator('.principal-card')
     .filter({ hasText: 'owner-super@example.com' })
@@ -1217,14 +1217,14 @@ test('#613 superadmin manages the four designated administrator principals witho
   });
   const tempSuper = page.locator('.principal-card').filter({ hasText: 'temporary-super@example.com' });
   await expect(tempSuper).toBeVisible();
-  await expect(page.getByText('활성 최고관리자 3 / 목표 2', { exact: true })).toBeVisible();
+  await expect(page.getByText('활성 최고관리자 3 / 구성 3', { exact: true })).toBeVisible();
 
   page.once('dialog', dialog => dialog.accept());
   await tempSuper.getByLabel('관리자 상태').selectOption('revoked');
   await tempSuper.getByLabel('권한 변경 사유').fill('revoke contract');
   await tempSuper.getByRole('button', { name: '권한 변경 저장', exact: true }).click();
   await expect.poll(() => patchBodies.length).toBe(4);
-  await expect(page.getByText('활성 최고관리자 2 / 목표 2', { exact: true })).toBeVisible();
+  await expect(page.getByText('활성 최고관리자 2 / 구성 3', { exact: true })).toBeVisible();
 
   const ownerSuper = page.locator('.principal-card')
     .filter({ hasText: 'owner-super@example.com' })
