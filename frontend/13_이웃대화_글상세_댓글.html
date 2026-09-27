@@ -129,6 +129,8 @@ main{width:min(920px,calc(100% - 40px));margin:auto;padding-bottom:70px}.route{h
      ?'삭제한 글은 더 이상 볼 수 없습니다. 이웃대화 목록에서 다른 글을 확인해 주세요.'
      :kind==='missing'
      ?'이웃대화 글 주소에 게시글 식별자가 없습니다. 목록에서 다시 선택해 주세요.'
+     :kind==='notfound'
+     ?'삭제되었거나 존재하지 않는 게시글입니다. 이웃대화 목록에서 다른 글을 확인해 주세요.'
      :'잘못되었거나 만료된 링크일 수 있습니다. 이웃대화 목록에서 다시 확인해 주세요.';
    if(link){
     link.href=COMMUNITY_LIST;
@@ -354,6 +356,14 @@ main{width:min(920px,calc(100% - 40px));margin:auto;padding-bottom:70px}.route{h
    if(result.mode!=='server'||!result.post){
     post=null;
     loadFailure=failMessage(result);
+    /* #1081: a valid-shaped id that the server cannot find is a terminal
+       not-found — settle into the #923 recovery shell instead of leaving
+       like/comment affordances on screen. Auth (#1075), bridge-fault,
+       403 and transient failures keep their own presentation. */
+    if(result.status===404){
+     showPostRecovery('notfound');
+     return;
+    }
     document.getElementById('title').textContent=loadFailure;
     document.getElementById('body').textContent='';
     gatedCommentState(loadFailure);
