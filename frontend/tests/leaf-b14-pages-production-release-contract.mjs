@@ -295,12 +295,14 @@ export function verifyExactMainReleaseAuthority(workflowText) {
   /* #897 run 36262197647: the upload returns before Cloudflare exposes the new
      canonical provenance, so the readback must poll bounded. It is a read, not a
      mutation — the deploy step itself must remain single-shot. */
-  assert.match(readbackStep, /for attempt in \$\(seq 1 12\)/,
-    'canonical provenance readback must poll bounded until it converges');
+  assert.match(readbackStep, /for attempt in \$\(seq 1 24\)/,
+    'canonical provenance readback must poll bounded for up to 120 seconds until it converges');
   assert.match(readbackStep, /matched=0[\s\S]*matched=1/,
     'readback polling must converge before declaring PASS');
   assert.match(readbackStep, /Canonical Pages deployment commit is missing or does not match expected_main/,
     'readback must still fail closed if provenance never converges');
+  assert.doesNotMatch(readbackStep, /while\s+true|while\s*:/,
+    'canonical provenance readback must remain bounded');
 
   assert.match(workflowText, /MAX_DISPATCH: '1'/,
     'MAX_DISPATCH=1 policy must remain explicit');
