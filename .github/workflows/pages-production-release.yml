@@ -418,8 +418,11 @@ jobs:
           # immediate read saw the previous deployment and failed a correct
           # release. This step is a read, not a mutation: poll bounded until the
           # canonical provenance converges, then keep every fail-closed check.
+          # Run 36293438454 proved 60 seconds can be shorter than Cloudflare's
+          # canonical metadata propagation even when canonical bytes already serve
+          # the new artifact. Keep the read bounded, but allow up to 120 seconds.
           matched=0
-          for attempt in $(seq 1 12); do
+          for attempt in $(seq 1 24); do
             project_json="$(curl --silent --show-error --fail \
               -H "$auth_header" \
               "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/pages/projects/${PAGES_PROJECT}" || true)"
