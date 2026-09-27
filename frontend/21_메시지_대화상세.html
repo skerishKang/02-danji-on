@@ -155,18 +155,31 @@ main{padding-top:18px!important}
     });
     thread.innerHTML=html||'<div class="date-divider">대화가 아직 없습니다.</div>';
   }
-  function showState(text){
+  /* #1076: 하나의 state-settling helper 가 대화가 열리지 않는 확정 상태
+     (게스트 로그인 게이트 / 403 입주민 확인 / 404 / 네트워크 오류 / invalid UUID)에서
+     authenticated conversation shell 이 남지 않게 페이지 전체를 정리한다.
+     로딩 중( settled=false )에는 shell 이 실제 로딩 표시로 남는다. */
+  function showState(text,settled){
     thread.innerHTML='<div class="date-divider">'+esc(text)+'</div>';
     replyField.disabled=true;
     sendButton.disabled=true;
     /* 서버 권위가 없는 상태에서는 composer 가 닫혀 있는 상태를 유지한다. */
     if(globalThis.__danjionConversationSendAuthority)globalThis.__danjionConversationSendAuthority.revoke();
+    if(!settled)return;
+    const personNote=document.querySelector('.conversation-head .person small');
+    if(personNote)personNote.textContent='';
+    const subjectNote=document.querySelector('.subject [data-server-placeholder="true"]');
+    if(subjectNote){subjectNote.removeAttribute('data-server-placeholder');subjectNote.textContent='—'}
+    const composer=document.getElementById('replyForm');
+    if(composer)composer.hidden=true;
+    const mobileReply=document.querySelector('[data-scroll-reply]');
+    if(mobileReply)mobileReply.hidden=true;
   }
   async function load(){
-    if(!UUID.test(conversationId)){showState('열 수 있는 대화가 없습니다. 메시지함에서 다시 선택해 주세요.');return}
+    if(!UUID.test(conversationId)){showState('열 수 있는 대화가 없습니다. 메시지함에서 다시 선택해 주세요.',true);return}
     showState('불러오는 중...');
     const self=await bridge.getSelfId();
-    if(self.mode==='auth-required'){showState(self.status===403?'본인 확인된 입주민만 메시지를 이용할 수 있습니다.':'로그인 후 이용 가능합니다.');return}
+    if(self.mode==='auth-required'){showState(self.status===403?'본인 확인된 입주민만 메시지를 이용할 수 있습니다.':'로그인 후 이용 가능합니다.',true);return}
     if(self.mode==='server')selfId=self.userId;
     const conversations=await bridge.listConversations();
     if(conversations.mode==='server'){
@@ -188,8 +201,8 @@ main{padding-top:18px!important}
       }
     }
     const result=await bridge.listMessages(conversationId);
-    if(result.mode==='auth-required'){showState(result.status===403?'본인 확인된 입주민만 이 대화를 볼 수 있습니다.':'로그인 후 이용 가능합니다.');return}
-    if(result.mode==='error'){showState(result.status===404?'대화를 찾을 수 없습니다. 메시지함에서 다시 선택해 주세요.':'대화를 불러오지 못했습니다. 네트워크 상태를 확인해 주세요.');return}
+    if(result.mode==='auth-required'){showState(result.status===403?'본인 확인된 입주민만 이 대화를 볼 수 있습니다.':'로그인 후 이용 가능합니다.',true);return}
+    if(result.mode==='error'){showState(result.status===404?'대화를 찾을 수 없습니다. 메시지함에서 다시 선택해 주세요.':'대화를 불러오지 못했습니다. 네트워크 상태를 확인해 주세요.',true);return}
     renderMessages(result.messages);
     replyField.disabled=false;
     sendButton.disabled=!replyField.value.trim();
