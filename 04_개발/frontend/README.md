@@ -1,5 +1,11 @@
 # DanjiOn Frontend — v5 Product App
 
+> **Current authority (post-#419 / #593):** this React V2 tree is **not** the canonical Production Pages source.
+> The canonical user-facing Production UI artifact is the top-level `frontend/` V3 static site.
+> Keep this directory for React V2 comparison, regression safety, controlled preview work, and bounded migration experiments unless a later owner/CENTRAL decision explicitly changes that authority.
+> Do not point the Production Pages release lane back to this directory.
+
+
 ## Purpose
 
 This directory turns the approved v5 information architecture into maintainable product code without modifying the historical prototype files in `03_HTML결과물`.
