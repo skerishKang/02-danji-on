@@ -1,5 +1,14 @@
 # Danjion Backend Starter
 
+> **LEGACY / NON-PRODUCTION / IMPORTED MIRROR**
+>
+> This root `backend/` tree is retained from the 2026-09-05 sibling-workspace import and is **not** the canonical DanjiOn backend.
+> Current backend/API/Auth/DB authority lives under `04_개발/backend/`.
+> Current Production Pages UI authority lives under top-level `frontend/`.
+> Do not deploy this root Worker, add new product routes here, or treat its legacy `/api/*` contract as the current `/api/v1/*` product API.
+> Removal/archive is tracked separately in #1095; this notice does not delete historical code.
+
+
 단지온 백엔드팀 1기 독립개발용 첫 로컬 프로젝트입니다.
 
 ## 현재 기능
