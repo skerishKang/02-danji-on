@@ -15,7 +15,8 @@ V3 스태틱 권한(`frontend/`)은 이 디렉터리의 어떤 변경으로도 �
   /               two choices only: FINAL or HISTORY / COMPARE
   /final/         one sibling-facing final presentation (#401 / PR #404)
   /history/       19-candidate historical comparison archive (#402 / PR #405)
-  /v2-runtime/    retained route, linked from HISTORY
+  /v2-runtime/    retained frozen V2 comparison route, linked from HISTORY
+  /v2-runtime-post984/ post-#984 V2 comparison route, linked from HISTORY
   /v3-current/    retained route, consumed by FINAL and linked from HISTORY
   /legacy-a/      retained route, linked from HISTORY
   /legacy-b/      retained route, linked from HISTORY
@@ -35,13 +36,13 @@ V3 스태틱 권한(`frontend/`)은 이 디렉터리의 어떤 변경으로도 �
 
 ```
 design-gateway/
-├─ registry/versions.json      # retained-route registry (5 routes), consumed by build/HISTORY
+├─ registry/versions.json      # retained-route registry (6 routes), consumed by build/HISTORY
 ├─ version-registry.json       # KILO2 PACKAGING registry (danjion-static-design-version/v1) — 4 frozen packages, provenance
 ├─ versions/<id>/              # KILO2 frozen read-only packages (v3-current, legacy-a, legacy-b, pr378)
 ├─ gateway/                    # two-choice landing shell (index.html, css, js, _headers)
 ├─ final/                      # KILO1/#401 single FINAL surface, consumed unchanged
 ├─ history/                    # KILO2/#402 19-candidate HISTORY surface, consumed unchanged
-├─ preview-bundles/<id>/       # mount points for KILO3 deliverables (v2-runtime)
+├─ preview-bundles/<id>/       # mount points for KILO3 deliverables (v2-runtime, v2-runtime-post984)
 ├─ scripts/                    # registry-lib, build, check (node-only, zero deps)
 ├─ tests/                      # registry / integration / safety / build-output contracts
 └─ INTEGRATION_CONTRACT.md     # how external bundles are mounted
@@ -54,7 +55,7 @@ linked by matching version ids and `source.sha` provenance — a third is not
 created:
 
 - `registry/versions.json` — the **retained-route** registry
-  (`danjion-design-registry-v1`, 5 entries). It is consumed by the build and
+  (`danjion-design-registry-v1`, 6 entries). It is consumed by the build and
   HISTORY links; the root landing has exactly two static choices and does not
   render these entries as primary cards. Statuses: `DESIGN_AUTHORITY` /
   `COMPARISON_ONLY` (no `PRODUCTION`).
@@ -81,9 +82,9 @@ change under `design-gateway/**`. **CI never deploys.**
 | mode | source | used by |
 |---|---|---|
 | `assembled` | copied from a canonical in-repo directory at build time (read-only) | v3-current, legacy-a, legacy-b, pr378 (all from KILO2's `versions/<id>/` packages) |
-| `mounted` | pre-built bundle dropped into `preview-bundles/<id>/` per INTEGRATION_CONTRACT | v2-runtime (KILO3 comparison build) |
+| `mounted` | pre-built bundle dropped into `preview-bundles/<id>/` per INTEGRATION_CONTRACT | v2-runtime, v2-runtime-post984 (KILO3 comparison builds) |
 
-All five bundles are currently `READY`. `mounted` bundles with `state: PENDING`
+All six retained-route bundles are currently `READY`. `mounted` bundles with `state: PENDING`
 would be skipped by the build and shown as PENDING on the landing page — the
 gateway ships and works before any external bundle exists.
 
