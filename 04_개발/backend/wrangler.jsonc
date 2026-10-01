@@ -80,7 +80,7 @@
       },
       "vars": {
         "APP_ENV": "production",
-        "PRODUCT_MUTATION_RATE_LIMIT_MODE": "disabled",
+        "PRODUCT_MUTATION_RATE_LIMIT_MODE": "enforce",
         "TEMP_RESIDENT_ACCESS_MODE": "true",
         "COMMUNITY_PUBLISH_MODE": "immediate",
         "STORAGE_MODE": "r2",
