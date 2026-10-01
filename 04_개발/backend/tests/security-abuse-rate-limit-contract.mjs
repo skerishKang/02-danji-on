@@ -57,12 +57,13 @@ assert.match(limiter, /!== 'disabled'/,
 for (const [label, vars] of [
   ['development', wrangler.vars],
   ['preview', wrangler.env.preview.vars],
-  ['qa', wrangler.env.qa.vars],
-  ['production', wrangler.env.production.vars]
+  ['qa', wrangler.env.qa.vars]
 ]) {
   assert.equal(vars.PRODUCT_MUTATION_RATE_LIMIT_MODE, 'disabled',
-    `${label} must explicitly suspend product mutation throttling during active development`);
+    `${label} may explicitly suspend product mutation throttling during active development`);
 }
+assert.equal(wrangler.env.production.vars.PRODUCT_MUTATION_RATE_LIMIT_MODE, 'enforce',
+  'Production must enforce product mutation throttling before public launch');
 
 const expectedPolicies = [
   ["community_post_create", 5, '10 * 60'],
