@@ -3,6 +3,7 @@ import { requireActor as requireCanonicalActor, type Actor } from './auth-v1';
 import { requireOperationalAuthority } from './operational-authz-v2';
 import { requireVerifiedResident } from './authorization-v2';
 import type { CoreEnv } from './core-v1';
+import { boundedGoogleDriveFetch } from './google-drive-fetch-v1';
 import { safeStorageFileName, validateStorageUpload } from './storage-policy.mjs';
 import { withBoundedMultipartRequest } from './multipart-request-bounds';
 import { r2Enabled, r2Put, type R2StorageEnv } from './storage-r2-v1';
@@ -182,7 +183,7 @@ async function accessToken(env: DriveEnv): Promise<string> {
     refresh_token: credentials.refreshToken,
     grant_type: 'refresh_token'
   });
-  const response = await fetch(TOKEN_ENDPOINT, {
+  const response = await boundedGoogleDriveFetch(TOKEN_ENDPOINT, {
     method: 'POST',
     headers: { 'content-type': 'application/x-www-form-urlencoded' },
     body
@@ -206,7 +207,7 @@ async function googleFetch(env: DriveEnv, url: string, init: RequestInit = {}): 
   const token = await accessToken(env);
   const headers = new Headers(init.headers);
   headers.set('authorization', `Bearer ${token}`);
-  return fetch(url, { ...init, headers });
+  return boundedGoogleDriveFetch(url, { ...init, headers });
 }
 
 function businessImageObjectKey(fileId: string): string {
