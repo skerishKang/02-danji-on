@@ -2,6 +2,7 @@ import { neon, type NeonQueryFunction } from '@neondatabase/serverless';
 import { requireActor as requireCanonicalActor, type Actor } from './auth-v1';
 import { requireOperationalAuthority } from './operational-authz-v2';
 import type { CoreEnv } from './core-v1';
+import { boundedGoogleDriveFetch } from './google-drive-fetch-v1';
 import {
   type StorageKind,
   type StorageVisibility
@@ -97,7 +98,7 @@ async function accessToken(env: DriveEnv): Promise<string> {
     refresh_token: credentials.refreshToken,
     grant_type: 'refresh_token'
   });
-  const response = await fetch(TOKEN_ENDPOINT, {
+  const response = await boundedGoogleDriveFetch(TOKEN_ENDPOINT, {
     method: 'POST',
     headers: { 'content-type': 'application/x-www-form-urlencoded' },
     body
@@ -117,7 +118,7 @@ async function googleFetch(env: DriveEnv, url: string, init: RequestInit = {}): 
   const token = await accessToken(env);
   const headers = new Headers(init.headers);
   headers.set('authorization', `Bearer ${token}`);
-  return fetch(url, { ...init, headers });
+  return boundedGoogleDriveFetch(url, { ...init, headers });
 }
 
 // #844 Amendment A: official-news-image is a public kind, but it keeps its own kind, objectKey
