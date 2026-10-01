@@ -22,7 +22,8 @@ export type ProductMutationLimitKey =
   | 'business_review_comment_create'
   | 'inquiry_create'
   | 'resident_verification_code'
-  | 'shop_recommendation_create';
+  | 'shop_recommendation_create'
+  | 'storage_upload';
 
 type ProductMutationPolicy = {
   action: ProductMutationLimitKey;
@@ -46,7 +47,8 @@ export const PRODUCT_MUTATION_LIMITS: Record<ProductMutationLimitKey, ProductMut
   business_review_comment_create: { action: 'business_review_comment_create', max: 30, windowSeconds: 10 * 60 },
   inquiry_create: { action: 'inquiry_create', max: 10, windowSeconds: 24 * 60 * 60 },
   resident_verification_code: { action: 'resident_verification_code', max: 10, windowSeconds: 60 * 60 },
-  shop_recommendation_create: { action: 'shop_recommendation_create', max: 20, windowSeconds: 24 * 60 * 60 }
+  shop_recommendation_create: { action: 'shop_recommendation_create', max: 20, windowSeconds: 24 * 60 * 60 },
+  storage_upload: { action: 'storage_upload', max: 20, windowSeconds: 60 * 60 }
 };
 
 const REQUEST_ID_HEADER = 'x-danjion-request-id';
@@ -138,6 +140,9 @@ export function productMutationLimitForRequest(request: Request): ProductMutatio
   }
   if (path === '/api/v1/me/shop-recommendations') {
     return 'shop_recommendation_create';
+  }
+  if (path === '/api/v1/storage/objects') {
+    return 'storage_upload';
   }
   return null;
 }

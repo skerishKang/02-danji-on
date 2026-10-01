@@ -78,7 +78,8 @@ const expectedPolicies = [
   ["business_review_create", 10, '24 * 60 * 60'],
   ["business_review_comment_create", 30, '10 * 60'],
   ["inquiry_create", 10, '24 * 60 * 60'],
-  ["shop_recommendation_create", 20, '24 * 60 * 60']
+  ["shop_recommendation_create", 20, '24 * 60 * 60'],
+  ["storage_upload", 20, '60 * 60']
 ];
 for (const [action, max, windowExpr] of expectedPolicies) {
   assert.ok(limiter.includes(`${action}: { action: '${action}', max: ${max}, windowSeconds: ${windowExpr} }`),
@@ -99,7 +100,8 @@ for (const routeEvidence of [
   'businesses\\/[0-9a-fA-F-]+\\/reviews$',
   'reviews\\/[0-9a-fA-F-]+\\/comments$',
   "path === '/api/v1/me/inquiries'",
-  "path === '/api/v1/me/shop-recommendations'"
+  "path === '/api/v1/me/shop-recommendations'",
+  "path === '/api/v1/storage/objects'"
 ]) {
   assert.ok(limiter.includes(routeEvidence), `missing bounded mutation route evidence ${routeEvidence}`);
 }
@@ -118,7 +120,8 @@ for (const downstream of [
   'handleBusinessReviewRequest(request, env, id)',
   'handleBusinessReviewCommentRequest(request, env, id)',
   'handleInquiryRequest(request, env, id)',
-  'handleShopRecommendationRequest(request, env, id)'
+  'handleShopRecommendationRequest(request, env, id)',
+  'handleTrackedStorageUploadRequest(request, env, id)'
 ]) {
   const downstreamIndex = app.indexOf(downstream);
   assert.ok(limitIndex >= 0 && downstreamIndex > limitIndex, `rate limiter must run before ${downstream}`);
