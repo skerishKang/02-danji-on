@@ -125,7 +125,7 @@ function makeEnv(bucket) {
 {
   const bucket = makeBucket();
   const fixture = makeSql();
-  const result = await runR2TrackedUpload(makeEnv(bucket), fixture.sql, file, resident, 'business-image', 'req-r2-first', key);
+  const result = await runR2TrackedUpload(makeEnv(bucket), fixture.sql, file, resident, 'business-image', 'req-r2-first', key, 'image/png');
   assert.equal(result instanceof Response, false, 'first R2 upload must succeed');
   assert.equal(result.idempotencyReplayed, false, 'R2_FIRST_IDEMPOTENT_UPLOAD_REPLAYED_FALSE');
   assert.match(result.objectKey, /^gdrive\/public\/business-image\/[0-9a-f]{32}$/);
@@ -137,7 +137,7 @@ function makeEnv(bucket) {
 {
   const bucket = makeBucket();
   const fixture = makeSql();
-  const result = await runR2TrackedUpload(makeEnv(bucket), fixture.sql, file, resident, 'business-image', 'req-r2-no-key', null);
+  const result = await runR2TrackedUpload(makeEnv(bucket), fixture.sql, file, resident, 'business-image', 'req-r2-no-key', null, 'image/png');
   assert.equal(result instanceof Response, false);
   assert.equal(result.idempotencyReplayed, false);
   assert.equal(bucket.puts(), 1);
@@ -160,7 +160,7 @@ function makeEnv(bucket) {
       upload_request_fingerprint: fingerprint
     }
   });
-  const result = await runR2TrackedUpload(makeEnv(bucket), fixture.sql, file, resident, 'business-image', 'req-r2-active-replay', key);
+  const result = await runR2TrackedUpload(makeEnv(bucket), fixture.sql, file, resident, 'business-image', 'req-r2-active-replay', key, 'image/png');
   assert.equal(result instanceof Response, false, 'active replay must succeed');
   assert.equal(result.objectKey, existingKey, 'R2_ACTIVE_REPLAY_TRUE: same objectKey');
   assert.equal(result.idempotencyReplayed, true, 'R2_ACTIVE_REPLAY_TRUE');
@@ -182,7 +182,7 @@ function makeEnv(bucket) {
       upload_request_fingerprint: 'f'.repeat(64)
     }
   });
-  const result = await runR2TrackedUpload(makeEnv(bucket), fixture.sql, file, resident, 'business-image', 'req-r2-key-reuse', key);
+  const result = await runR2TrackedUpload(makeEnv(bucket), fixture.sql, file, resident, 'business-image', 'req-r2-key-reuse', key, 'image/png');
   assert.ok(result instanceof Response, 'R2_KEY_REUSE_DIFFERENT_FINGERPRINT_409');
   assert.equal(result.status, 409, 'R2_KEY_REUSE_DIFFERENT_FINGERPRINT_409');
   const body = await result.json();
@@ -206,7 +206,7 @@ function makeEnv(bucket) {
       upload_request_fingerprint: fingerprint
     }
   });
-  const result = await runR2TrackedUpload(makeEnv(bucket), fixture.sql, file, resident, 'business-image', 'req-r2-pending-resume', key);
+  const result = await runR2TrackedUpload(makeEnv(bucket), fixture.sql, file, resident, 'business-image', 'req-r2-pending-resume', key, 'image/png');
   assert.equal(result instanceof Response, false, 'pending resume must succeed');
   assert.equal(result.objectKey, pendingKey, 'resume keeps the reserved objectKey');
   assert.equal(result.idempotencyReplayed, true, 'R2_PENDING_REPLAY_TRUE');

@@ -1,5 +1,10 @@
 import assert from 'node:assert/strict';
-import { safeStorageFileName, validateStorageUpload } from '../src/storage-policy.mjs';
+import {
+  detectStorageMimeType,
+  safeStorageFileName,
+  validateStorageUpload,
+  validateStorageUploadSignature
+} from '../src/storage-policy.mjs';
 
 const fake = (name, type, size) => ({ name, type, size });
 
@@ -25,4 +30,39 @@ assert.equal(validateStorageUpload('official-news-image', []).code, 'INVALID_FIL
 assert.equal(validateStorageUpload('official-news-image', [fake('a.jpg', 'image/jpeg', 1), fake('b.jpg', 'image/jpeg', 1)]).code, 'INVALID_FILE_COUNT');
 assert.equal(safeStorageFileName('../../동호수 증빙 101동.pdf'), '101-.pdf');
 
-console.log('PASS storage upload policy: MIME, size, count and filename rules');
+const jpeg = new File([Uint8Array.from([0xff, 0xd8, 0xff, 0xe0, 0x00])], 'photo.jpg', { type: 'image/jpeg' });
+const png = new File([Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00])], 'photo.png', { type: 'image/png' });
+const webp = new File([Uint8Array.from([0x52,0x49,0x46,0x46,0x00,0x00,0x00,0x00,0x57,0x45,0x42,0x50])], 'photo.webp', { type: 'image/webp' });
+const pdf = new File([new TextEncoder().encode('%PDF-1.7\n')], 'document.pdf', { type: 'application/pdf' });
+
+assert.equal(await detectStorageMimeType(jpeg), 'image/jpeg');
+assert.equal(await detectStorageMimeType(png), 'image/png');
+assert.equal(await detectStorageMimeType(webp), 'image/webp');
+assert.equal(await detectStorageMimeType(pdf), 'application/pdf');
+
+for (const file of [jpeg, png, webp]) {
+  const policy = validateStorageUpload('business-image', [file]).policy;
+  assert.equal((await validateStorageUploadSignature(file, policy)).ok, true);
+}
+assert.equal((await validateStorageUploadSignature(pdf, validateStorageUpload('application-document', [pdf]).policy)).ok, true);
+
+const fakeJpeg = new File(['<html>not an image</html>'], 'fake.jpg', { type: 'image/jpeg' });
+assert.equal(
+  (await validateStorageUploadSignature(fakeJpeg, validateStorageUpload('business-image', [fakeJpeg]).policy)).code,
+  'UNSUPPORTED_MEDIA_SIGNATURE'
+);
+
+const pngDeclaredJpeg = new File([await png.arrayBuffer()], 'mismatch.jpg', { type: 'image/jpeg' });
+assert.equal(
+  (await validateStorageUploadSignature(pngDeclaredJpeg, validateStorageUpload('business-image', [pngDeclaredJpeg]).policy)).code,
+  'MEDIA_TYPE_MISMATCH'
+);
+
+const pdfDeclaredImage = new File([await pdf.arrayBuffer()], 'mismatch.jpg', { type: 'image/jpeg' });
+assert.equal(
+  (await validateStorageUploadSignature(pdfDeclaredImage, validateStorageUpload('business-image', [pdfDeclaredImage]).policy)).code,
+  'UNSUPPORTED_MEDIA_SIGNATURE'
+);
+
+
+console.log('PASS storage upload policy: declared MIME, byte signature, size, count and filename rules');
