@@ -3,7 +3,7 @@ import { requireActor as requireCanonicalActor, type Actor } from './auth-v1';
 import { requireOperationalAuthority } from './operational-authz-v2';
 import { requireVerifiedResident } from './authorization-v2';
 import type { CoreEnv } from './core-v1';
-import { safeStorageFileName, validateStorageUpload } from './storage-policy.mjs';
+import { safeStorageFileName, validateStorageUpload, validateStorageUploadSignature } from './storage-policy.mjs';
 import { withBoundedMultipartRequest } from './multipart-request-bounds';
 import { r2Enabled, r2Put, type R2StorageEnv } from './storage-r2-v1';
 
@@ -86,7 +86,8 @@ export async function runR2TrackedUpload(
   uploader: TrackedResident,
   kind: StorageKind,
   requestId: string,
-  idempotencyKey: string | null
+  idempotencyKey: string | null,
+  authoritativeMimeType: string
 ): Promise<UploadSuccess | Response> {
   const fingerprint = kind === 'business-image'
     ? await businessImageUploadRequestFingerprint(file, uploader.complexSlug)
@@ -144,7 +145,7 @@ export async function runR2TrackedUpload(
       danjionVisibility: kind === 'application-document' ? 'private' : 'public',
       danjionUploaderUserId: uploader.id,
       danjionComplexSlug: uploader.complexSlug
-    });
+    }, authoritativeMimeType);
   } catch {
     return fail('UPLOAD_RECONCILIATION_PENDING', 'R2 object could not be persisted or confirmed', 503, requestId);
   }
@@ -2371,9 +2372,21 @@ export async function runTrackedOfficialNewsImageUpload(
   }
   if (!complexSlug) return fail('VALIDATION_ERROR', 'complexSlug is required', 400, requestId);
 
+  // #1101: the browser-provided File.type is only a declaration. Verify the
+  // actual leading bytes and then rebuild the File with the server-authoritative
+  // detected type so all downstream fingerprints/storage metadata use that value.
+  const submittedFile = files[0];
+  const signatureValidation = await validateStorageUploadSignature(submittedFile, validation.policy);
+  if (!signatureValidation.ok) {
+    return fail(signatureValidation.code, signatureValidation.message, 415, requestId);
+  }
+  const file = new File([submittedFile], submittedFile.name, {
+    type: signatureValidation.mimeType,
+    lastModified: submittedFile.lastModified
+  });
+
   // #844 Amendment B: the official-news lane is authorized by official-content authority
   // (PADIEM operator or granted resident council), never by resident verification.
-  const file = files[0];
   let uploader: TrackedResident;
   if (validation.kind === 'official-news-image') {
     const authority = await requireOperationalAuthority(
@@ -2412,7 +2425,8 @@ export async function runTrackedOfficialNewsImageUpload(
         uploader,
         validation.kind,
         requestId,
-        rawIdempotencyKey
+        rawIdempotencyKey,
+        signatureValidation.mimeType
       );
     } else if (validation.kind === 'business-image') {
       result = await runTrackedBusinessImageUpload(
@@ -2432,7 +2446,7 @@ export async function runTrackedOfficialNewsImageUpload(
    return ok({
      objectKey: result.objectKey,
      fileName: file.name,
-     contentType: file.type,
+     contentType: signatureValidation.mimeType,
      size: file.size,
      visibility: validation.policy.visibility,
      idempotencyReplayed: result.idempotencyReplayed === true
