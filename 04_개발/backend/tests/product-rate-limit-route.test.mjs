@@ -32,7 +32,8 @@ const cases = [
   ['/api/v1/complexes/complex-1/businesses/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/reviews', 'business_review_create'],
   ['/api/v1/complexes/complex-1/businesses/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/reviews/bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb/comments', 'business_review_comment_create'],
   ['/api/v1/me/inquiries', 'inquiry_create'],
-  ['/api/v1/me/shop-recommendations', 'shop_recommendation_create']
+  ['/api/v1/me/shop-recommendations', 'shop_recommendation_create'],
+  ['/api/v1/storage/objects', 'storage_upload']
 ];
 
 for (const [path, expected] of cases) {
@@ -95,6 +96,9 @@ assert.deepEqual(PRODUCT_MUTATION_LIMITS.inquiry_create, {
 });
 assert.deepEqual(PRODUCT_MUTATION_LIMITS.shop_recommendation_create, {
   action: 'shop_recommendation_create', max: 20, windowSeconds: 86400
+});
+assert.deepEqual(PRODUCT_MUTATION_LIMITS.storage_upload, {
+  action: 'storage_upload', max: 20, windowSeconds: 3600
 });
 
 console.log('PASS product mutation rate-limit route classifier and policy values');
