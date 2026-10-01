@@ -178,20 +178,38 @@ export async function handleCommunityReplyWithSql(
     }
     const next = publication(env);
     const rows = await sql`
-      insert into community_comments (
-        complex_id, post_id, parent_comment_id, author_user_id, body, status, published_at
-      ) values (
-        ${resident.complexId}::uuid,
-        ${postId}::uuid,
-        ${parentCommentId}::uuid,
-        ${resident.id}::uuid,
-        ${body},
-        ${next.status},
-        ${next.publishedAt}
+      with locked_parent as (
+        select c.id
+        from community_comments c
+        join community_posts p on p.id = c.post_id and p.complex_id = c.complex_id
+        where c.id = ${parentCommentId}::uuid
+          and c.post_id = ${postId}::uuid
+          and c.complex_id = ${resident.complexId}::uuid
+          and c.status <> 'deleted'
+          and (c.status = 'published' or c.author_user_id = ${resident.id}::uuid)
+          and p.status <> 'deleted'
+          and (p.status = 'published' or p.author_user_id = ${resident.id}::uuid)
+        limit 1
+        for update of c, p
+      ), inserted as (
+        insert into community_comments (
+          complex_id, post_id, parent_comment_id, author_user_id, body, status, published_at
+        )
+        select
+          ${resident.complexId}::uuid,
+          ${postId}::uuid,
+          locked_parent.id,
+          ${resident.id}::uuid,
+          ${body},
+          ${next.status},
+          ${next.publishedAt}
+        from locked_parent
+        returning id, post_id, parent_comment_id, body, status, published_at, created_at, updated_at
       )
-      returning id, post_id, parent_comment_id, body, status, published_at, created_at, updated_at
+      select * from inserted
     `;
-    const row = rows[0] as Record<string, unknown>;
+    const row = rows[0] as Record<string, unknown> | undefined;
+    if (!row) return fail('NOT_FOUND', 'Community comment not found', 404, requestId);
     row.author_nickname = resident.displayName;
     return ok(mapReply(row), requestId, 201);
   }
