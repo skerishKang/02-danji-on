@@ -9,6 +9,10 @@ import {
   STORAGE_UPLOAD_POLICIES,
   validateStorageUpload
 } from '../src/storage-policy.mjs';
+import {
+  GOOGLE_DRIVE_FETCH_TIMEOUT_MS,
+  boundedGoogleDriveFetch
+} from '../src/google-drive-fetch-v1.ts';
 
 const UPLOAD_URL = 'https://example.test/api/v1/storage/objects';
 const ROUTE_LIMIT = 12 * 1024 * 1024;
@@ -177,6 +181,52 @@ test('#1011 canonical route bounds and reconstructs before formData', async () =
     'Content-Length must not be the route authority');
   assert.ok(source.includes('MAX_UPLOAD_REQUEST_BYTES = 12 * 1024 * 1024'),
     'canonical multipart envelope must remain 12 MiB');
+});
+
+
+
+test('#1103 Google Drive fetch helper uses a 15 second production deadline', () => {
+  assert.equal(GOOGLE_DRIVE_FETCH_TIMEOUT_MS, 15_000);
+});
+
+test('#1103 stalled Google fetch aborts at the bounded deadline', async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (_input, init = {}) => new Promise((_resolve, reject) => {
+    const signal = init.signal;
+    if (!signal) return reject(new Error('missing abort signal'));
+    if (signal.aborted) return reject(signal.reason);
+    signal.addEventListener('abort', () => reject(signal.reason), { once: true });
+  });
+  try {
+    await assert.rejects(
+      () => boundedGoogleDriveFetch('https://google.test/stalled', {}, 10),
+      (error) => error?.name === 'TimeoutError' || error?.name === 'AbortError'
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('#1103 caller abort remains authoritative when combined with the Drive deadline', async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (_input, init = {}) => new Promise((_resolve, reject) => {
+    const signal = init.signal;
+    if (!signal) return reject(new Error('missing abort signal'));
+    if (signal.aborted) return reject(signal.reason);
+    signal.addEventListener('abort', () => reject(signal.reason), { once: true });
+  });
+  const controller = new AbortController();
+  try {
+    const pending = boundedGoogleDriveFetch(
+      'https://google.test/caller-abort',
+      { signal: controller.signal },
+      10_000
+    );
+    controller.abort(new DOMException('caller cancelled', 'AbortError'));
+    await assert.rejects(pending, (error) => error?.name === 'AbortError');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
 
 console.log('STORAGE_MULTIPART_BOUNDS=PASS');
