@@ -5,6 +5,7 @@ const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf
 const app = read('src/app.ts');
 const storage = read('src/storage-v1.ts');
 const uploadV2 = read('src/storage-upload-v2.ts');
+const googleDriveFetch = read('src/google-drive-fetch-v1.ts');
 const executableStorage = storage.replace(/^\s*\/\/.*$/gm, '');
 const residentEconomy = read('src/resident-economy-v2.ts');
 const frontendStorage = read('../frontend/src/storage.ts');
@@ -31,6 +32,20 @@ assert.equal(executableStorage.includes('membershipFor('), false,
   'historical storage membership helper must be removed from executable runtime');
 assert.ok(storage.includes('https://oauth2.googleapis.com/token'));
 assert.ok(storage.includes('GOOGLE_DRIVE_REFRESH_TOKEN'));
+
+assert.ok(storage.includes("import { boundedGoogleDriveFetch } from './google-drive-fetch-v1';"),
+  '#1103 storage read/delete lane must use the bounded Google fetch helper');
+assert.ok(uploadV2.includes("import { boundedGoogleDriveFetch } from './google-drive-fetch-v1';"),
+  '#1103 upload lane must use the bounded Google fetch helper');
+assert.equal(storage.includes('fetch(TOKEN_ENDPOINT'), false,
+  '#1103 storage OAuth refresh must not bypass the bounded helper');
+assert.equal(uploadV2.includes('fetch(TOKEN_ENDPOINT'), false,
+  '#1103 upload OAuth refresh must not bypass the bounded helper');
+assert.match(googleDriveFetch, /GOOGLE_DRIVE_FETCH_TIMEOUT_MS\s*=\s*15_000/,
+  '#1103 Drive deadline must stay explicitly bounded at 15 seconds');
+assert.match(googleDriveFetch, /AbortSignal\.any\(\[callerSignal, timeoutSignal\]\)/,
+  '#1103 caller abort and timeout signals must be composed rather than replaced');
+
 assert.ok(storage.includes("path === '/api/v1/storage/public'"));
 assert.ok(storage.includes("path === '/api/v1/storage/private'"));
 assert.ok(storage.includes("parsed.visibility !== 'private' || parsed.kind !== 'resident-evidence'"));
