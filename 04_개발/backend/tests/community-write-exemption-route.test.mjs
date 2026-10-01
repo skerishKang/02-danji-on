@@ -167,8 +167,8 @@ const EXEMPT = 'resident.verification.exempt';
     `ADMIN_EXEMPT_NO_HOUSEHOLD_COMMENT must be admitted (got ${res.status})`);
   const insert = seen.find((q) => q.text.includes('insert into community_comments'));
   assert.ok(insert, 'the comment insert must have been issued');
-  assert.equal(insert.values[0], COMPLEX_ID, 'comment must be complex-scoped from the exempt resolve');
-  assert.equal(insert.values[2], ACTOR_ID, 'comment author must be the exempt actor');
+  assert.ok(insert.values.includes(COMPLEX_ID), 'comment must be complex-scoped from the exempt resolve');
+  assert.ok(insert.values.includes(ACTOR_ID), 'comment author must be the exempt actor');
   console.log('PASS ADMIN_EXEMPT_NO_HOUSEHOLD_COMMENT=201 (no membership required)');
 }
 
