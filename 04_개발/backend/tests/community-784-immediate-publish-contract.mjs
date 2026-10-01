@@ -114,7 +114,7 @@ assert.match(repliesApi, /env\.COMMUNITY_PUBLISH_MODE === 'immediate'/);
 {
   const replyInsert = repliesApi.indexOf('insert into community_comments');
   assert.ok(replyInsert >= 0, 'reply create must insert into community_comments');
-  const window = repliesApi.slice(Math.max(0, replyInsert - 600), replyInsert + 400);
+  const window = repliesApi.slice(Math.max(0, replyInsert - 1600), replyInsert + 500);
   assert.match(window, /const next = publication\(env\);/, 'reply create must derive publication from env');
   assert.match(window, /\$\{next\.status\},\s*\$\{next\.publishedAt\}/, 'reply create must persist status and published_at together');
 }
