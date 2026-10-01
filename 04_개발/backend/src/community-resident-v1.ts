@@ -360,14 +360,29 @@ export async function handleCommunityResidentRequest(
       const mode = publishMode(env);
       const next = publication(mode);
       const rows = await sql`
-        insert into community_comments (complex_id, post_id, author_user_id, body, status, published_at)
-        values (${resident.complexId}::uuid, ${postId}::uuid, ${resident.id}::uuid, ${body}, ${next.status}, ${next.publishedAt})
-        returning id, post_id, body, status, published_at, created_at, updated_at
+        with locked_post as (
+          select p.id, p.status
+          from community_posts p
+          where p.id = ${postId}::uuid
+            and p.complex_id = ${resident.complexId}::uuid
+            and p.status <> 'deleted'
+            and (p.status = 'published' or p.author_user_id = ${resident.id}::uuid)
+          limit 1
+          for update of p
+        ), inserted as (
+          insert into community_comments (complex_id, post_id, author_user_id, body, status, published_at)
+          select ${resident.complexId}::uuid, locked_post.id, ${resident.id}::uuid, ${body}, ${next.status}, ${next.publishedAt}
+          from locked_post
+          returning id, post_id, body, status, published_at, created_at, updated_at
+        )
+        select inserted.*, locked_post.status as post_status
+        from inserted
+        cross join locked_post
       `;
-      const row = rows[0] as Record<string, unknown>;
+      const row = rows[0] as Record<string, unknown> | undefined;
+      if (!row) return fail('NOT_FOUND', 'Community post not found', 404, requestId);
       row.author_nickname = resident.displayName;
       row.viewer_is_owner = true;
-      row.post_status = next.status;
       return ok(mapComment(row), requestId, 201);
     }
   }
