@@ -20,6 +20,10 @@ assert.match(api, /requireVerifiedResident\(/, 'reply access must use canonical 
 assert.match(api, /COMMUNITY_PUBLISH_MODE/, 'replies must inherit canonical Community publish mode');
 assert.match(api, /parent_comment_id/, 'reply create/list must use the parent relation');
 assert.match(api, /insert into community_comments/i, 'reply writes must stay in community_comments');
+assert.match(api, /with locked_parent as \([\s\S]*for update of c, p[\s\S]*insert into community_comments/i,
+  'reply creation must lock and re-check both parent comment and post in the same statement');
+assert.match(residentApi, /with locked_post as \([\s\S]*for update of p[\s\S]*insert into community_comments/i,
+  'top-level comment creation must lock and re-check the parent post in the same statement');
 assert.match(api, /body\.length > MAX_COMMENT_CHARS/, 'reply body must retain the 300-character comment bound');
 assert.match(api, /\/comments\\\/\(\[0-9a-fA-F-\]\+\)\\\/replies\$|comments.*replies/s,
   'nested reply route must be present');
