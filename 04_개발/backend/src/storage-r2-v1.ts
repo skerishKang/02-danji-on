@@ -43,13 +43,14 @@ export async function r2Put(
   kind: string,
   fileId: string,
   file: File,
-  metadata: Record<string, string>
+  metadata: Record<string, string>,
+  authoritativeMimeType: string
 ): Promise<R2Metadata> {
   const bucket = env.DANJION_STORAGE;
   if (!bucket) throw new Error('R2 storage binding is not configured');
   const customMetadata = { ...metadata, originalFileName: file.name };
   await bucket.put(r2Key(kind, fileId), file, {
-    httpMetadata: { contentType: file.type || 'application/octet-stream' },
+    httpMetadata: { contentType: authoritativeMimeType },
     customMetadata
   });
   return (await r2Head(env, kind, fileId))!;
