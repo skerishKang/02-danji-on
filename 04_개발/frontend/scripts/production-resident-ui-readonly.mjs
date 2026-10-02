@@ -176,13 +176,15 @@ try {
   assert(session.status === 200 && session.authenticated, `LOGIN_SESSION_HTTP_${session.status}`);
   console.log('PRODUCTION_RESIDENT_UI_LOGIN=PASS');
 
-  const expectedPostLoginPath = '/04_데일리홈.html';
-  if (new URL(page.url()).pathname !== expectedPostLoginPath) {
-    await page.waitForURL((url) => url.pathname === expectedPostLoginPath, { timeout: 10_000 }).catch(() => null);
+  const expectedPostLoginPath = '/04_데일리홈';
+  const normalizePath = (value) => decodeURIComponent(String(value || '')).replace(/\.html$/, '');
+  if (normalizePath(new URL(page.url()).pathname) !== expectedPostLoginPath) {
+    await page.waitForURL((url) => normalizePath(url.pathname) === expectedPostLoginPath, { timeout: 10_000 }).catch(() => null);
   }
-  const postLoginPath = new URL(page.url()).pathname;
+  const rawPostLoginPath = new URL(page.url()).pathname;
+  const postLoginPath = normalizePath(rawPostLoginPath);
   console.log(`PRODUCTION_RESIDENT_UI_POSTLOGIN_PATH=${postLoginPath}`);
-  assert(postLoginPath === expectedPostLoginPath, `POSTLOGIN_REDIRECT_${postLoginPath}`);
+  assert(postLoginPath === expectedPostLoginPath, `POSTLOGIN_REDIRECT_${rawPostLoginPath}`);
   await page.waitForTimeout(800);
 
   const loggedInHeader = await visibleLoggedInHeader(page);
