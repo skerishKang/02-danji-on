@@ -15,7 +15,7 @@ const ROUTES = Object.freeze([
   ['MESSAGES', '/20_메시지함_목록.html'],
   ['MY_INFO', '/19_내정보_메인.html'],
   ['SETTINGS', '/24_설정.html'],
-  ['HOUSEHOLD', '/26_우리세대.html'],
+  ['HOUSEHOLD', '/26_우리집연결.html'],
   ['NOTIFICATIONS', '/27_알림함.html'],
   ['ACTIVITY', '/28_나의활동.html'],
   ['ADMIN', '/admin/'],
