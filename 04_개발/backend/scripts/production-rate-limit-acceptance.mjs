@@ -45,7 +45,7 @@ const TARGET_ACTION = 'family_invite_create';
 // Family-invite creation: an unassociated resident is rejected by the existing
 // verified-primary-household guard before the first insert.
 const TARGET_ROUTE_TEMPLATE = '/api/v1/complexes/{complexSlug}/household/family-invites';
-const PREFLIGHT_ROUTE_TEMPLATE = '/api/v1/complexes/{complexSlug}/household/family';
+const PREFLIGHT_ROUTE_TEMPLATE = '/api/v1/complexes/{complexSlug}/household';
 
 const REQUIRED_FRONTEND_ORIGIN = 'https://danjion.pages.dev';
 const MOCK_POLICY = { action: TARGET_ACTION, max: 3, windowSeconds: 600 };
