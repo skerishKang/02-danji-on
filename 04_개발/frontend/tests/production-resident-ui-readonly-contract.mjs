@@ -54,7 +54,8 @@ assert.ok(script.includes('input[name="password"]'), 'resident password field mu
 assert.ok(script.includes('page.waitForResponse'), 'audit must await the real sign-in response');
 assert.ok(script.includes("new URL(response.url()).pathname === '/api/auth/sign-in/email'"));
 assert.ok(script.includes('signInResponse.status() === 200'), 'sign-in HTTP 200 must be proven before session checks');
-assert.ok(script.includes("const expectedPostLoginPath = '/04_데일리홈.html';"), 'resident login must await canonical home redirect');
+assert.ok(script.includes("const expectedPostLoginPath = '/04_데일리홈';"), 'resident login must await canonical home redirect');
+assert.ok(script.includes("decodeURIComponent(String(value || '')).replace(/\\.html$/, '')"), 'Pages clean URLs and .html aliases must normalize to one route');
 assert.ok(script.includes('page.waitForURL'), 'post-login navigation must be awaited before header assertions');
 assert.ok(script.includes('PRODUCTION_RESIDENT_UI_POSTLOGIN_PATH='), 'post-login path must be observable in logs');
 assert.ok(!script.includes('screenshot('), 'resident audit must not persist screenshots containing resident UI data');
