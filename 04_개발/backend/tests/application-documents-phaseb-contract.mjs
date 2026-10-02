@@ -141,7 +141,7 @@ assert.ok(core.includes('Authorization: `Bearer ${token}`') &&
 // preserving the existing authz/registry/audit ordering above.
 assert.ok(core.includes("import { boundedGoogleDriveFetch } from './google-drive-fetch-v1';"),
   '#1111 application-document Drive fallback must import the shared bounded helper');
-assert.equal((core.match(/boundedGoogleDriveFetch\\(/g) ?? []).length, 3,
+assert.equal((core.match(/boundedGoogleDriveFetch\(/g) ?? []).length, 3,
   '#1111 OAuth refresh, metadata and media must each use the bounded helper');
 assert.equal(core.includes('await fetch('), false,
   '#1111 application-document Drive fallback must not bypass the bounded helper');
