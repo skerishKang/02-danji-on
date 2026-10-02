@@ -14,10 +14,12 @@
 //
 // SAFETY BOUNDARIES (enforced by this script, not by convention):
 //
-//   * Target route is chosen so an existing authorization guard answers 403
-//     BEFORE any product insert. Any 2xx response is treated as an unexpected
-//     mutation and aborts the run immediately — the script never continues
-//     past a successful mutation.
+//   * Before the first mutation POST, an authenticated read-only household GET
+//     proves the test resident is NOT a verified primary member. If that proof
+//     fails, the run stops before consuming a limiter bucket or creating data.
+//   * The target POST is then expected to hit the existing 403 authorization
+//     guard BEFORE any product insert. Any 2xx response is treated as an
+//     unexpected mutation and aborts immediately.
 //   * The only server-side row the run can create is the limiter bucket
 //     counter itself, which is the control under test. No product content,
 //     household, message, report or storage object is created.
@@ -43,10 +45,12 @@ const TARGET_ACTION = 'family_invite_create';
 // Family-invite creation: an unassociated resident is rejected by the existing
 // verified-primary-household guard before the first insert.
 const TARGET_ROUTE_TEMPLATE = '/api/v1/complexes/{complexSlug}/household/family-invites';
+const PREFLIGHT_ROUTE_TEMPLATE = '/api/v1/complexes/{complexSlug}/household/family';
 
 const REQUIRED_FRONTEND_ORIGIN = 'https://danjion.pages.dev';
 const MOCK_POLICY = { action: TARGET_ACTION, max: 3, windowSeconds: 600 };
 const MOCK_GUARD = { code: 'HOUSEHOLD_PRIMARY_REQUIRED', message: 'Verified primary household membership required' };
+const MOCK_PREFLIGHT_GUARD = { code: 'HOUSEHOLD_ASSOCIATION_REQUIRED', message: 'Household association required' };
 
 // ---------------------------------------------------------------------------
 // Canonical source readers — the acceptance derives every expectation from the
@@ -94,6 +98,22 @@ export function parseAuthzGuard(source) {
   return { code: match[1], message: match[2], guardOffset: match.index, firstInsertOffset: firstInsert };
 }
 
+export function parsePreflightGuard(source) {
+  const handlerStart = source.indexOf('async function listHousehold(');
+  const nextHandler = source.indexOf('async function createInvite(', handlerStart);
+  if (handlerStart < 0 || nextHandler < 0 || nextHandler <= handlerStart) {
+    throw new Error('listHousehold/createInvite boundaries not found');
+  }
+  const handler = source.slice(handlerStart, nextHandler);
+  if (/\binsert\s+into\b|\bupdate\s+[a-z_]|\bdelete\s+from\b/i.test(handler)) {
+    throw new Error('household preflight is not read-only');
+  }
+  const pattern = /if \(!context\) return fail\('([A-Z_]+)',\s*'([^']+)',\s*403,\s*requestId\);/;
+  const match = pattern.exec(handler);
+  if (!match) throw new Error('household association preflight guard not found');
+  return { code: match[1], message: match[2], readOnly: true };
+}
+
 export function parseLimiterOrdering(appSource, rateLimitSource) {
   // Two orderings must hold for this acceptance to be meaningful:
   //   1. in the router: the limiter middleware is dispatched before the endpoint handler;
@@ -123,6 +143,7 @@ async function readCanonicalSources() {
   return {
     policy: parseCanonicalPolicy(rateLimitSource, TARGET_ACTION),
     guard: parseAuthzGuard(householdSource),
+    preflightGuard: parsePreflightGuard(householdSource),
     ordering: parseLimiterOrdering(appSource, rateLimitSource),
   };
 }
@@ -154,8 +175,13 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 // ---------------------------------------------------------------------------
 // The acceptance itself.
 // ---------------------------------------------------------------------------
-export async function runAcceptance({ fetchImpl, baseUrl, complexSlug, policy, guard, credentials, log }) {
+export async function runAcceptance({ fetchImpl, baseUrl, complexSlug, policy, guard, preflightGuard, credentials, log }) {
   const evidence = {
+    preflightStatus: null,
+    preflightCode: null,
+    preflightMembershipRole: null,
+    preflightMembershipStatus: null,
+    preflightSafe: false,
     preThresholdStatuses: [],
     preThresholdCodes: [],
     overThresholdStatus: null,
@@ -167,6 +193,7 @@ export async function runAcceptance({ fetchImpl, baseUrl, complexSlug, policy, g
 
   const jar = [];
   const targetUrl = `${baseUrl}${TARGET_ROUTE_TEMPLATE.replace('{complexSlug}', encodeURIComponent(complexSlug))}`;
+  const preflightUrl = `${baseUrl}${PREFLIGHT_ROUTE_TEMPLATE.replace('{complexSlug}', encodeURIComponent(complexSlug))}`;
 
   const post = async (url, body) => {
     const response = await fetchImpl(url, {
@@ -186,6 +213,22 @@ export async function runAcceptance({ fetchImpl, baseUrl, complexSlug, policy, g
     return { response, payload, requestId };
   };
 
+  const get = async (url) => {
+    const response = await fetchImpl(url, {
+      method: 'GET',
+      headers: {
+        accept: 'application/json',
+        ...(jar.length ? { cookie: jar.join('; ') } : {}),
+      },
+      redirect: 'manual',
+    });
+    collectCookies(response, jar);
+    const payload = await readJson(response);
+    const requestId = response.headers.get('x-danjion-request-id') || (payload && payload.requestId) || '';
+    if (requestId) evidence.requestIds.push(String(requestId));
+    return { response, payload, requestId };
+  };
+
   // 1. Authenticate with the existing Production test-resident credentials.
   const signin = await post(`${baseUrl}/api/auth/sign-in/email`, {
     email: credentials.email,
@@ -195,7 +238,44 @@ export async function runAcceptance({ fetchImpl, baseUrl, complexSlug, policy, g
     return { outcome: 'FAIL', reason: 'sign-in failed; no authenticated session was established', evidence };
   }
 
-  // 2. Baseline pollution guard. The first attempt must not already be limited,
+  // 2. Read-only safety preflight: prove current account state cannot authorize
+  //    family-invite creation before sending any mutation POST or consuming its bucket.
+  const preflight = await get(preflightUrl);
+  evidence.preflightStatus = preflight.response.status;
+  evidence.preflightCode = (preflight.payload && preflight.payload.error && preflight.payload.error.code) || null;
+  if (preflight.response.status === 403) {
+    if (
+      !preflight.payload || !preflight.payload.error ||
+      preflight.payload.error.code !== preflightGuard.code ||
+      preflight.payload.error.message !== preflightGuard.message
+    ) {
+      return { outcome: 'FAIL', reason: 'read-only preflight returned an unexpected 403 class', evidence };
+    }
+    evidence.preflightSafe = true;
+  } else if (preflight.response.status === 200) {
+    const membership = preflight.payload && preflight.payload.data && preflight.payload.data.myMembership;
+    if (!membership || typeof membership !== 'object') {
+      return { outcome: 'FAIL', reason: 'read-only preflight returned 200 without canonical membership state', evidence };
+    }
+    evidence.preflightMembershipRole = String(membership.membershipRole || '');
+    evidence.preflightMembershipStatus = String(membership.status || '');
+    if (evidence.preflightMembershipRole === 'primary' && evidence.preflightMembershipStatus === 'verified') {
+      return {
+        outcome: 'FAIL',
+        reason: 'read-only preflight found a verified primary household membership; refusing all mutation probes',
+        evidence,
+      };
+    }
+    evidence.preflightSafe = true;
+  } else {
+    return {
+      outcome: 'FAIL',
+      reason: `read-only preflight returned ${preflight.response.status}; refusing all mutation probes`,
+      evidence,
+    };
+  }
+
+  // 3. Baseline pollution guard. The first attempt must not already be limited,
   //    otherwise this run cannot prove the threshold crossing.
   for (let attempt = 1; attempt <= policy.max; attempt += 1) {
     const { response, payload } = await post(targetUrl, {});
@@ -236,7 +316,7 @@ export async function runAcceptance({ fetchImpl, baseUrl, complexSlug, policy, g
     await sleep(250);
   }
 
-  // 3. First request over the threshold must be the limiter.
+  // 4. First request over the threshold must be the limiter.
   const limited = await post(targetUrl, {});
   evidence.overThresholdStatus = limited.response.status;
   evidence.retryAfterSeconds = limited.response.headers.get('retry-after');
@@ -281,7 +361,7 @@ function mockResponse({ status, body, headers = {} }) {
   };
 }
 
-function makeMockFetch({ plan, max, windowSeconds, action, guard }) {
+function makeMockFetch({ plan, max, windowSeconds, action, guard, preflightGuard, preflight = 'unassociated' }) {
   let calls = 0;
   return async (url, init) => {
     const target = String(url);
@@ -290,6 +370,27 @@ function makeMockFetch({ plan, max, windowSeconds, action, guard }) {
         status: 200,
         body: { ok: true },
         headers: { 'set-cookie': 'better-auth.session_token=mock-value; Path=/; HttpOnly', 'x-danjion-request-id': 'req-self-test-login' },
+      });
+    }
+    if (init?.method === 'GET') {
+      if (preflight === 'primary') {
+        return mockResponse({
+          status: 200,
+          body: { data: { myMembership: { membershipRole: 'primary', status: 'verified' } } },
+          headers: { 'x-danjion-request-id': 'req-self-test-preflight-primary' },
+        });
+      }
+      if (preflight === 'member') {
+        return mockResponse({
+          status: 200,
+          body: { data: { myMembership: { membershipRole: 'member', status: 'verified' } } },
+          headers: { 'x-danjion-request-id': 'req-self-test-preflight-member' },
+        });
+      }
+      return mockResponse({
+        status: 403,
+        body: { error: { code: preflightGuard.code, message: preflightGuard.message } },
+        headers: { 'x-danjion-request-id': 'req-self-test-preflight-unassociated' },
       });
     }
     calls += 1;
@@ -321,7 +422,7 @@ function makeMockFetch({ plan, max, windowSeconds, action, guard }) {
 
 async function selfTest() {
   const quiet = () => {};
-  const run = (plan) =>
+  const run = (plan, preflight = 'unassociated') =>
     runAcceptance({
       fetchImpl: makeMockFetch({
         plan,
@@ -329,11 +430,14 @@ async function selfTest() {
         windowSeconds: MOCK_POLICY.windowSeconds,
         action: MOCK_POLICY.action,
         guard: MOCK_GUARD,
+        preflightGuard: MOCK_PREFLIGHT_GUARD,
+        preflight,
       }),
       baseUrl: REQUIRED_FRONTEND_ORIGIN,
       complexSlug: 'banglim-myeongji-roadhill',
       policy: MOCK_POLICY,
       guard: MOCK_GUARD,
+      preflightGuard: MOCK_PREFLIGHT_GUARD,
       credentials: { email: 'self-test@example.invalid', password: 'self-test-only' },
       log: quiet,
     });
@@ -352,6 +456,16 @@ async function selfTest() {
   const polluted = await run((calls) => (calls === 1 ? 'polluted' : 'authz'));
   if (polluted.outcome !== 'INCONCLUSIVE') throw new Error('self-test: a pre-polluted bucket must be INCONCLUSIVE, not retried');
 
+  const primary = await run(() => 'authz', 'primary');
+  if (primary.outcome !== 'FAIL' || primary.evidence.preflightSafe || primary.evidence.preThresholdStatuses.length !== 0) {
+    throw new Error('self-test: verified primary preflight must stop before the first mutation probe');
+  }
+
+  const member = await run(() => 'authz', 'member');
+  if (member.outcome !== 'PASS' || !member.evidence.preflightSafe) {
+    throw new Error('self-test: non-primary membership preflight should remain safe for the 403 probe');
+  }
+
   // Canonical readers must reject a target whose guard no longer precedes the insert.
   let guardRejected = false;
   try {
@@ -364,7 +478,7 @@ async function selfTest() {
   if (!guardRejected) throw new Error('self-test: a guard that no longer precedes the insert must be rejected');
 
   console.log('960_SELF_TEST=PASS');
-  console.log('960_SELF_TEST_GUARDS=PASS (mutation abort, polluted-bucket inconclusive, guard ordering)');
+  console.log('960_SELF_TEST_GUARDS=PASS (read-only preflight, primary abort, mutation abort, polluted-bucket inconclusive, guard ordering)');
 }
 
 // ---------------------------------------------------------------------------
@@ -388,7 +502,7 @@ async function main() {
     throw new Error('refusing to run: production test-resident credentials or complex slug are missing');
   }
 
-  const { policy, guard, ordering } = await readCanonicalSources();
+  const { policy, guard, preflightGuard, ordering } = await readCanonicalSources();
 
   console.log(`960_TARGET_ROUTE=POST ${TARGET_ROUTE_TEMPLATE}`);
   console.log(`960_RATE_LIMIT_ACTION=${policy.action}`);
@@ -403,10 +517,16 @@ async function main() {
     complexSlug,
     policy,
     guard,
+    preflightGuard,
     credentials: { email, password },
     log: (line) => console.log(line),
   });
 
+  console.log(`960_PREFLIGHT_STATUS=${result.evidence.preflightStatus ?? 'none'}`);
+  console.log(`960_PREFLIGHT_CODE=${result.evidence.preflightCode ?? 'none'}`);
+  console.log(`960_PREFLIGHT_MEMBERSHIP_ROLE=${result.evidence.preflightMembershipRole ?? 'none'}`);
+  console.log(`960_PREFLIGHT_MEMBERSHIP_STATUS=${result.evidence.preflightMembershipStatus ?? 'none'}`);
+  console.log(`960_PREFLIGHT_SAFE=${result.evidence.preflightSafe ? 'YES' : 'NO'}`);
   console.log(`960_PRETHRESHOLD_STATUSES=${result.evidence.preThresholdStatuses.join(',')}`);
   console.log(`960_PRETHRESHOLD_CODES=${[...new Set(result.evidence.preThresholdCodes)].join(',')}`);
   console.log(`960_OVER_THRESHOLD_STATUS=${result.evidence.overThresholdStatus ?? 'none'}`);
