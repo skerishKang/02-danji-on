@@ -11,6 +11,7 @@
 import type { NeonQueryFunction } from '@neondatabase/serverless';
 import type { CoreEnv } from './core-v1';
 import { requireActor, type Actor } from './auth-v1';
+import { boundedGoogleDriveFetch } from './google-drive-fetch-v1';
 import { r2Enabled, r2Get, r2Head, type R2StorageEnv } from './storage-r2-v1';
 
 export type Sql = NeonQueryFunction<false, false>;
@@ -111,7 +112,7 @@ async function accessToken(env: DriveEnv): Promise<string> {
     refresh_token: refreshToken,
     grant_type: 'refresh_token'
   });
-  const response = await fetch('https://oauth2.googleapis.com/token', {
+  const response = await boundedGoogleDriveFetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
     headers: { 'content-type': 'application/x-www-form-urlencoded' },
     body
@@ -163,7 +164,7 @@ async function streamDriveFile(
     }
   }
   const token = await accessToken(env);
-  const metadataResponse = await fetch(
+  const metadataResponse = await boundedGoogleDriveFetch(
     `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?supportsAllDrives=true&fields=mimeType,size`,
     { headers: { Authorization: `Bearer ${token}` } }
   );
@@ -173,7 +174,7 @@ async function streamDriveFile(
   const mimeType = metadata.mimeType ?? 'application/octet-stream';
   const isImage = mimeType.startsWith('image/');
 
-  const fileResponse = await fetch(
+  const fileResponse = await boundedGoogleDriveFetch(
     `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?alt=media&supportsAllDrives=true`,
     { headers: { Authorization: `Bearer ${token}` } }
   );
