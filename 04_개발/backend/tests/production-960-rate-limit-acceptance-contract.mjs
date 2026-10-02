@@ -24,6 +24,7 @@ const {
   parseAuthzGuard,
   parseCanonicalPolicy,
   parseLimiterOrdering,
+  parsePreflightGuard,
 } = await import(new URL('../scripts/production-rate-limit-acceptance.mjs', import.meta.url).href);
 
 // ===========================================================================
@@ -82,7 +83,14 @@ assert.match(workflow, /production-960-rate-limit-acceptance-contract\.mjs/, 'th
 // ===========================================================================
 // 2. Script posture: fail-closed, no hard-coded policy, no retry, no leaks.
 // ===========================================================================
-assert.ok(!/method: '(DELETE|PUT|PATCH)'/.test(script), 'the acceptance may only issue POST probes');
+assert.ok(!/method: '(DELETE|PUT|PATCH)'/.test(script), 'the acceptance may only issue the read-only GET preflight and POST probes');
+assert.match(script, /method: 'GET'/, 'a read-only authenticated household preflight must run before mutation probes');
+assert.ok(
+  script.indexOf('const preflight = await get(preflightUrl)') < script.indexOf('for (let attempt = 1; attempt <= policy.max; attempt += 1)'),
+  'the read-only account-state preflight must precede every mutation probe',
+);
+assert.match(script, /verified primary household membership; refusing all mutation probes/,
+  'a verified-primary account must fail before the first mutation POST');
 assert.ok(!/DELETE FROM|UPDATE .* SET|TRUNCATE/i.test(script), 'the acceptance must never write to the database');
 assert.ok(!/DATABASE_URL|postgres|neon/i.test(script), 'the acceptance must hold no database handle');
 assert.ok(
@@ -133,6 +141,10 @@ assert.ok(
   assert.equal(policy.max, 10, 'the canonical family_invite_create threshold is 10');
   assert.equal(policy.windowSeconds, 3600, 'the canonical family_invite_create window is 3600s');
 
+  const preflightGuard = parsePreflightGuard(householdSource);
+  assert.equal(preflightGuard.code, 'HOUSEHOLD_ASSOCIATION_REQUIRED');
+  assert.equal(preflightGuard.readOnly, true, 'the membership preflight handler must contain no product mutation SQL');
+
   const guard = parseAuthzGuard(householdSource);
   assert.equal(guard.code, 'HOUSEHOLD_PRIMARY_REQUIRED');
   assert.ok(
@@ -162,8 +174,10 @@ assert.ok(
   );
   assert.equal(selfTest.status, 0, `the acceptance self-test must pass: ${selfTest.stdout}${selfTest.stderr}`);
   assert.match(selfTest.stdout, /960_SELF_TEST=PASS/);
+  assert.match(selfTest.stdout, /read-only preflight/);
+  assert.match(selfTest.stdout, /primary abort/);
   assert.match(selfTest.stdout, /mutation abort/);
 }
 
-console.log('PASS #960 acceptance harness: dispatch-only, exact-main, no database, source-derived expectations, fail-closed guards');
+console.log('PASS #960 acceptance harness: dispatch-only, exact-main, read-only membership preflight, no database, source-derived expectations, fail-closed guards');
 console.log('production-960-rate-limit-acceptance-contract: PASS');
