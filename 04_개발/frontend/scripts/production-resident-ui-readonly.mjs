@@ -146,12 +146,33 @@ try {
   await page.getByRole('button', { name: '로그인', exact: true }).first().click({ timeout: 10_000 });
   await page.waitForTimeout(700);
   await page.getByRole('button', { name: /이메일로 로그인/ }).first().click({ timeout: 10_000 });
-  await page.locator('input[type="email"]').first().fill(email, { timeout: 10_000 });
-  await page.locator('input[type="password"]').first().fill(password, { timeout: 10_000 });
-  await page.locator('button:has-text("로그인")').last().click({ timeout: 10_000 });
-  await page.waitForTimeout(3_000);
 
-  const session = await sessionShape(context);
+  const loginForm = page.locator('form[data-form="login"]').first();
+  assert(await loginForm.isVisible().catch(() => false), 'LOGIN_FORM_NOT_VISIBLE');
+  await loginForm.locator('input[name="email"]').fill(email, { timeout: 10_000 });
+  await loginForm.locator('input[name="password"]').fill(password, { timeout: 10_000 });
+
+  const signInResponsePromise = page.waitForResponse((response) => {
+    const request = response.request();
+    if (request.method().toUpperCase() !== 'POST') return false;
+    try {
+      return new URL(response.url()).pathname === '/api/auth/sign-in/email';
+    } catch {
+      return false;
+    }
+  }, { timeout: 15_000 });
+
+  await loginForm.locator('button[type="submit"]').click({ timeout: 10_000 });
+  const signInResponse = await signInResponsePromise;
+  console.log(`PRODUCTION_RESIDENT_UI_SIGNIN_HTTP=${signInResponse.status()}`);
+  assert(signInResponse.status() === 200, `SIGNIN_HTTP_${signInResponse.status()}`);
+
+  let session = { status: 0, authenticated: false };
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    session = await sessionShape(context);
+    if (session.status === 200 && session.authenticated) break;
+    await page.waitForTimeout(500);
+  }
   assert(session.status === 200 && session.authenticated, `LOGIN_SESSION_HTTP_${session.status}`);
   console.log('PRODUCTION_RESIDENT_UI_LOGIN=PASS');
 

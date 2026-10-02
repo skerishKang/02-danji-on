@@ -48,8 +48,12 @@ const postCalls = [...script.matchAll(/context\.request\.post\(([^\n]+)/g)].map(
 assert.equal(postCalls.length, 1, 'only the bounded sign-out fallback may use context.request.post');
 assert.ok(postCalls[0].includes('/api/auth/sign-out'), 'the only direct POST must be auth sign-out');
 
-assert.ok(script.includes("input[type=\"email\"]"));
-assert.ok(script.includes("input[type=\"password\"]"));
+assert.ok(script.includes('form[data-form="login"]'), 'real login form must be targeted explicitly');
+assert.ok(script.includes('input[name="email"]'), 'resident email field must be scoped to login form');
+assert.ok(script.includes('input[name="password"]'), 'resident password field must be scoped to login form');
+assert.ok(script.includes('page.waitForResponse'), 'audit must await the real sign-in response');
+assert.ok(script.includes("new URL(response.url()).pathname === '/api/auth/sign-in/email'"));
+assert.ok(script.includes('signInResponse.status() === 200'), 'sign-in HTTP 200 must be proven before session checks');
 assert.ok(!script.includes('screenshot('), 'resident audit must not persist screenshots containing resident UI data');
 
 console.log('PRODUCTION_RESIDENT_UI_READONLY_CONTRACT=PASS');
