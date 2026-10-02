@@ -26,7 +26,7 @@ for (const route of [
   '/20_메시지함_목록.html',
   '/19_내정보_메인.html',
   '/24_설정.html',
-  '/26_우리세대.html',
+  '/26_우리집연결.html',
   '/27_알림함.html',
   '/28_나의활동.html',
   '/admin/',
