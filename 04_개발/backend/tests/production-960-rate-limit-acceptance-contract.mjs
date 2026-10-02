@@ -86,6 +86,14 @@ assert.match(workflow, /production-960-rate-limit-acceptance-contract\.mjs/, 'th
 assert.ok(!/method: '(DELETE|PUT|PATCH)'/.test(script), 'the acceptance may only issue the read-only GET preflight and POST probes');
 assert.match(script, /method: 'GET'/, 'a read-only authenticated household preflight must run before mutation probes');
 assert.ok(
+  script.includes("const PREFLIGHT_ROUTE_TEMPLATE = '/api/v1/complexes/{complexSlug}/household';"),
+  'the read-only preflight must target the canonical Household v2 GET route',
+);
+assert.ok(
+  householdSource.includes("url.pathname.match(/^\\/api\\/v1\\/complexes\\/([^/]+)\\/household$/)"),
+  'the canonical Household v2 GET route must still be registered in the reviewed source',
+);
+assert.ok(
   script.indexOf('const preflight = await get(preflightUrl)') < script.indexOf('for (let attempt = 1; attempt <= policy.max; attempt += 1)'),
   'the read-only account-state preflight must precede every mutation probe',
 );
