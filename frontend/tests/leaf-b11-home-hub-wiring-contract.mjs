@@ -72,7 +72,15 @@ assert.ok(f04.includes("if(typeof DanjionSession==='undefined'||(!HOME_API_BASE&
   '04 resident-news lane must allow canonical same-origin mode when danjionApiBase() intentionally returns an empty string');
 assert.ok(!/homePublicJson\([^)]*resident-news/.test(f04) && !f04.includes("newsBase+'/resident-news?limit=1'"),
   '04 must not fetch resident-news over the anonymous public transport');
-assert.ok(f04.includes('result.data.posts'), '04 must read the server {data:{posts}} envelope shape for resident-news');
+assert.ok(f04.includes('result.data&&Array.isArray(result.data.posts)'), '04 must read the server {data:{posts}} envelope shape for resident-news only after a successful result');
+assert.ok(f04.includes("result&&result.reason==='auth-required'?'로그인 후 주민소식을 확인할 수 있습니다.'"),
+  '04 resident-news lane must distinguish signed-out auth denial from a genuine empty collection');
+assert.ok(f04.includes("result&&result.reason==='resident-verification-required'?'주민인증 후 주민소식을 확인할 수 있습니다.'"),
+  '04 resident-news lane must distinguish resident-verification denial from a genuine empty collection');
+assert.ok(f04.includes("title||'현재 공개된 주민소식이 없습니다.'"),
+  '04 resident-news lane must preserve the empty-state copy only for a successful empty server collection');
+assert.ok(f04.indexOf("if(!result||!result.ok)") < f04.indexOf("title||'현재 공개된 주민소식이 없습니다.'"),
+  '04 must branch on the structured non-ok result before rendering the ordinary empty state');
 assert.ok(f04.includes("el.textContent='주민소식을 불러오지 못했습니다.'"),
   '04 resident-news lane must fail closed to a truthful error row');
 assert.ok(!f04.includes('keeping demo copy'),

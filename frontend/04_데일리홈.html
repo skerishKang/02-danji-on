@@ -307,9 +307,14 @@ async function loadHomeAuthority(){
  try{
   if(typeof DanjionSession==='undefined'||(!HOME_API_BASE&&!DanjionSession.isCanonicalProduction()))throw new Error('session runtime unavailable');
   const result=await DanjionSession.request(fetch,DanjionSession.joinUrl(HOME_API_BASE,newsBase+'/resident-news'));
-  const posts=result&&result.ok&&result.data&&Array.isArray(result.data.posts)?result.data.posts:[];
+  const el=q('.news-row[data-route^="10_"] b');
+  if(!result||!result.ok){
+   if(el)el.textContent=result&&result.reason==='auth-required'?'로그인 후 주민소식을 확인할 수 있습니다.':result&&result.reason==='resident-verification-required'?'주민인증 후 주민소식을 확인할 수 있습니다.':'주민소식을 불러오지 못했습니다.';
+   return;
+  }
+  const posts=result.data&&Array.isArray(result.data.posts)?result.data.posts:[];
   const title=posts[0]?String(posts[0].title||''):'';
-  const el=q('.news-row[data-route^="10_"] b');if(el)el.textContent=title||'현재 공개된 주민소식이 없습니다.'
+  if(el)el.textContent=title||'현재 공개된 주민소식이 없습니다.'
  }catch(e){const el=q('.news-row[data-route^="10_"] b');if(el)el.textContent='주민소식을 불러오지 못했습니다.';console.info('[danjion] home resident-news lane unavailable; fail-closed:',String(e&&e.message||e))}
 }
 loadHomeAuthority();
