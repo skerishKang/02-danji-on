@@ -176,6 +176,15 @@ try {
   assert(session.status === 200 && session.authenticated, `LOGIN_SESSION_HTTP_${session.status}`);
   console.log('PRODUCTION_RESIDENT_UI_LOGIN=PASS');
 
+  const expectedPostLoginPath = '/04_데일리홈.html';
+  if (new URL(page.url()).pathname !== expectedPostLoginPath) {
+    await page.waitForURL((url) => url.pathname === expectedPostLoginPath, { timeout: 10_000 }).catch(() => null);
+  }
+  const postLoginPath = new URL(page.url()).pathname;
+  console.log(`PRODUCTION_RESIDENT_UI_POSTLOGIN_PATH=${postLoginPath}`);
+  assert(postLoginPath === expectedPostLoginPath, `POSTLOGIN_REDIRECT_${postLoginPath}`);
+  await page.waitForTimeout(800);
+
   const loggedInHeader = await visibleLoggedInHeader(page);
   assert(loggedInHeader, 'LOGGED_IN_HEADER_NOT_VISIBLE');
   console.log('PRODUCTION_RESIDENT_UI_HEADER=PASS');
