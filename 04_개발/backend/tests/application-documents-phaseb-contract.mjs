@@ -136,6 +136,22 @@ assert.ok(core.includes('Authorization: `Bearer ${token}`') &&
   core.includes('new Response(fileResponse.body'),
   '12. Drive read must be a server-side Bearer proxy streaming the body');
 
+// #1111: all application-document Google provider calls reuse the shared
+// #1103 bounded helper. This covers OAuth refresh, metadata and media, while
+// preserving the existing authz/registry/audit ordering above.
+assert.ok(core.includes("import { boundedGoogleDriveFetch } from './google-drive-fetch-v1';"),
+  '#1111 application-document Drive fallback must import the shared bounded helper');
+assert.equal((core.match(/boundedGoogleDriveFetch\(/g) ?? []).length, 3,
+  '#1111 OAuth refresh, metadata and media must each use the bounded helper');
+assert.equal(core.includes('await fetch('), false,
+  '#1111 application-document Drive fallback must not bypass the bounded helper');
+assert.ok(core.includes("boundedGoogleDriveFetch('https://oauth2.googleapis.com/token'"),
+  '#1111 OAuth refresh must be bounded');
+assert.ok(core.includes('const metadataResponse = await boundedGoogleDriveFetch('),
+  '#1111 Drive metadata read must be bounded');
+assert.ok(core.includes('const fileResponse = await boundedGoogleDriveFetch('),
+  '#1111 Drive media read must be bounded');
+
 // Separate routes: distinct me/admin matchers owned by their own lanes,
 // separate exported handlers, and dispatch order in app.ts (admin before the
 // generic admin block so it is not swallowed as NOT_FOUND).
