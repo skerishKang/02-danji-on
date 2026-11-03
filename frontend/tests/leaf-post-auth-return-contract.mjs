@@ -32,7 +32,9 @@ assert.match(
   /returnTo\.charAt\(0\)!=='\/'\|\|returnTo\.charAt\(1\)==='\/'/,
   'the return target must be same-origin only (no protocol-relative //host)'
 );
-assert.match(index, /location\.replace\(returnTo\)/, 'the landing must navigate back to the stored target');
+assert.match(index, /returnTo\.includes\('/, 'the landing must reject backslashes in return paths');
+assert.match(index, /target\.origin!==location\.origin/, 'the resolved return target must match the current origin');
+assert.match(index, /location\.replace\(target\.pathname\+target\.search\)/, 'the landing must navigate only to the validated path and query');
 
 // 2) landing page: both real-session entry points honor the return target
 //    before their default redirects, and after the signup intent takes priority.
