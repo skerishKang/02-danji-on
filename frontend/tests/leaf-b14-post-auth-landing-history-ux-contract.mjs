@@ -171,8 +171,8 @@ assert.match(index, /sessionStorage\.removeItem\('danjionMember'\);\s*sessionSto
   'a rejected session check must drop the stale pending marker too');
 assert.match(index, /memberMode=real;sessionResolved=true;syncMemberState\(\)/,
   'the startup auth UI must become visible only after the server session verdict resolves');
-assert.ok(index.includes(`sessionStorage.removeItem('danjionAuthPending');syncMemberState();showToast('로그인되었습니다.');location.replace('04_데일리홈.html')`),
-  'direct email login must announce success and enter the authenticated Daily Home instead of the chair intro');
+assert.ok(index.includes(`sessionStorage.removeItem('danjionAuthPending');syncMemberState();showToast('로그인되었습니다.');if(!consumePostAuthReturn())location.replace('04_데일리홈.html')`),
+  'direct email login must announce success and enter the authenticated Daily Home unless a same-origin return target is pending');
 
 /* ================= 5. modal history wiring + window.history shadowing fix ================= */
 assert.ok(index.includes('<script src="assets/auth-modal-history.js"></script>'),

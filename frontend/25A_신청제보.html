@@ -316,6 +316,7 @@ let __applicationReportComplexSlug='';
 let __ownerSubmissionKey=null;
 let __ownerSubmitting=false;
 let __reportSubmitting=false;
+function goToLoginForApplication(){try{sessionStorage.setItem('danjion:postAuthReturn',location.pathname+location.search)}catch(_){void 0}location.href='index.html?auth=login'}
 function danjionApiBase(){return DanjionSession.danjionApiBase()}
 async function ensureApplicationReportBridge(){
   if(__applicationReportBridge)return __applicationReportBridge;
@@ -402,9 +403,12 @@ async function submitReport(){
       serviceArea:reportInput('reportLocation'),reporterNote:reportInput('reportReason'),
       relationDetail,reportPrice:reportInput('reportPrice'),reportHours:reportInput('reportHours')});
     if(!result.ok){
-      const message=result.reason==='auth-required'
-        ?'로그인 후 이용 가능합니다.'
-        :result.reason==='resident-verification-required'
+      if(result.reason==='auth-required'){
+        revealApplicationError('로그인이 필요합니다. 로그인 후 작성 화면으로 돌아옵니다.',applicationErrorSummary);
+        setTimeout(goToLoginForApplication,600);
+        return;
+      }
+      const message=result.reason==='resident-verification-required'
           ?'우리집 연결을 완료한 뒤 제보할 수 있습니다.'
           :'접수를 완료하지 못했습니다. 잠시 후 다시 시도해 주세요.';
       revealApplicationError(message,applicationErrorSummary);
@@ -475,7 +479,14 @@ f.addEventListener('submit',async e=>{
       if(entry.key){uploadedKeys.push(entry.key);continue}
       const upload=await uploadBusinessImage(entry.file,entry.idempotencyKey);
       if(!upload.ok){
-        const message=upload.reason==='auth-required'?'로그인 후 이용 가능합니다.':upload.reason==='resident-verification-required'?'우리집 연결을 완료한 뒤 사진을 올릴 수 있습니다.':upload.reason==='file-too-large'?'사진은 파일당 최대 8MB입니다.':upload.reason==='file-type'?'사진은 JPG, PNG, WebP만 첨부할 수 있습니다.':upload.reason==='storage-unavailable'?'사진 저장 서버가 아직 준비되지 않았습니다. 잠시 후 다시 시도하거나 ceo@padiem.net으로 사진을 보내 주세요.':'사진 업로드에 실패했습니다. 선택한 파일은 보존되며 다시 시도할 수 있습니다.';
+        if(upload.reason==='auth-required'){
+          const loginMessage='로그인이 필요합니다. 로그인 후 작성 화면으로 돌아옵니다.';
+          if(fileGroups.photos.error)fileGroups.photos.error.textContent=loginMessage;
+          revealApplicationError(loginMessage,fileGroups.photos.error||applicationErrorSummary);
+          setTimeout(goToLoginForApplication,600);
+          return;
+        }
+        const message=upload.reason==='resident-verification-required'?'우리집 연결을 완료한 뒤 사진을 올릴 수 있습니다.':upload.reason==='file-too-large'?'사진은 파일당 최대 8MB입니다.':upload.reason==='file-type'?'사진은 JPG, PNG, WebP만 첨부할 수 있습니다.':upload.reason==='storage-unavailable'?'사진 저장 서버가 아직 준비되지 않았습니다. 잠시 후 다시 시도하거나 ceo@padiem.net으로 사진을 보내 주세요.':'사진 업로드에 실패했습니다. 선택한 파일은 보존되며 다시 시도할 수 있습니다.';
         if(fileGroups.photos.error)fileGroups.photos.error.textContent=message;
         revealApplicationError(message,fileGroups.photos.error||applicationErrorSummary);
         return;
