@@ -86,8 +86,11 @@
     function consumePostAuthReturn(){
       let returnTo='';
       try{returnTo=sessionStorage.getItem('danjion:postAuthReturn')||'';sessionStorage.removeItem('danjion:postAuthReturn')}catch(e){returnTo=''}
-      if(!returnTo||returnTo.charAt(0)!=='/'||returnTo.charAt(1)==='/')return false;
-      location.replace(returnTo);
+      if(!returnTo||returnTo.charAt(0)!=='/'||returnTo.charAt(1)==='/'||returnTo.includes('\\'))return false;
+      let target;
+      try{target=new URL(returnTo,location.origin)}catch(e){return false}
+      if(target.origin!==location.origin)return false;
+      location.replace(target.pathname+target.search);
       return true;
     }
     let landingSessionReconcileSeq=0;
